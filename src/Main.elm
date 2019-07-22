@@ -90,47 +90,6 @@ lookupPage url =
         |> Maybe.map Tuple.second
 
 
-indexView : Element msg
-indexView =
-    case Content.posts of
-        Ok posts ->
-            Element.column [ Element.spacing 20 ]
-                (posts
-                    |> List.map postSummary
-                )
-
-        Err markupErrors ->
-            Element.column []
-                (markupErrors
-                    |> List.map (Mark.Error.toHtml Mark.Error.Light)
-                    |> List.map Element.html
-                )
-
-
-postSummary :
-    ( List String
-    , { body : List (Element msg)
-      , metadata : MarkParser.Metadata msg
-      }
-    )
-    -> Element msg
-postSummary ( postPath, post ) =
-    Element.paragraph [] post.metadata.title
-        |> linkToPost postPath
-
-
-linkToPost : List String -> Element msg -> Element msg
-linkToPost postPath content =
-    Element.link []
-        { url = postUrl postPath, label = content }
-
-
-postUrl : List String -> String
-postUrl postPath =
-    "/"
-        ++ String.join "/" postPath
-
-
 mainView : Url -> Element msg
 mainView url =
     case Content.allData of
@@ -145,7 +104,7 @@ pageView : Url -> Element msg
 pageView url =
     case lookupPage url of
         Just page ->
-            case Mark.compile (MarkParser.document indexView) page of
+            case Mark.compile (MarkParser.document Element.none) page of
                 Mark.Success markup ->
                     markup.body
                         |> Element.textColumn [ Element.width Element.fill ]
