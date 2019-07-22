@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Navigation as Nav
-import Content exposing (aboutPage)
+import Content
 import Element exposing (Element)
 import Html exposing (..)
 import Html.Attributes exposing (..)

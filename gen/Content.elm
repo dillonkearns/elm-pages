@@ -1,4 +1,4 @@
-module Content exposing (aboutPage, allData, pages, posts)
+module Content exposing (allData, pages, posts)
 
 import Element exposing (Element)
 import Mark
