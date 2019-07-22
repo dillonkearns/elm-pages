@@ -95,6 +95,10 @@ indexView =
         Ok posts ->
             Element.column []
                 [ Element.text "index"
+                , Element.column []
+                    (posts
+                        |> List.map postSummary
+                    )
                 ]
 
         Err markupErrors ->
@@ -103,6 +107,11 @@ indexView =
                     |> List.map (Mark.Error.toHtml Mark.Error.Light)
                     |> List.map Element.html
                 )
+
+
+postSummary : ( String, MarkParser.Metadata msg ) -> Element msg
+postSummary ( string, metadata ) =
+    Element.paragraph [] metadata.title
 
 
 mainView : Url -> Element msg

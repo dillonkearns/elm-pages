@@ -16,8 +16,19 @@ posts : Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg )
 posts =
     [ ( "tiny-steps"
       , """|> Article
-    author = Matthew Griffith
-    title = Services
+    author = Dillon Kearns
+    title = Tiny Steps
+    tags = software other
+    description =
+        How I learned to use elm-markup.
+
+  Here is an article.
+  """
+      )
+    , ( "gatekeepers"
+      , """|> Article
+    author = Dillon Kearns
+    title = Gatekeepers
     tags = software other
     description =
         How I learned to use elm-markup.
@@ -91,7 +102,7 @@ servicesPage : ( List String, String )
 servicesPage =
     ( [ "services" ]
     , """|> Article
-    author = Matthew Griffith
+    author = Dillon Kearns
     title = Services
     tags = software other
     description =
@@ -106,7 +117,7 @@ aboutPage : ( List String, String )
 aboutPage =
     ( [ "about" ]
     , """|> Article
-    author = Matthew Griffith
+    author = Dillon Kearns
     title = How I Learned /elm-markup/
     tags = software other
     description =
