@@ -165,27 +165,6 @@ change2 list =
         |> Result.Extra.combine
 
 
-change :
-    List
-        (Mark.Outcome (List Mark.Error.Error)
-            (Mark.Partial
-                { body : List (Element msg)
-                , metadata : MarkParser.Metadata msg
-                }
-            )
-            { body : List (Element msg)
-            , metadata : MarkParser.Metadata msg
-            }
-        )
-    -> a
-change list =
-    Debug.todo ""
-
-
-
--- Mark.Success markup ->
-
-
 servicesPage : ( List String, String )
 servicesPage =
     ( [ "services" ]
