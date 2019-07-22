@@ -150,4 +150,9 @@ pageView url =
                         |> Element.column []
 
         Nothing ->
-            Element.text "Page not found..."
+            -- Element.text "Page not found..."
+            Content.pages
+                |> List.map Tuple.first
+                |> List.map (String.join "/")
+                |> String.join ", "
+                |> Element.text
