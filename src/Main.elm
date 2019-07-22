@@ -107,9 +107,15 @@ indexView =
                 )
 
 
-postSummary : ( List String, MarkParser.Metadata msg ) -> Element msg
-postSummary ( postPath, metadata ) =
-    Element.paragraph [] metadata.title
+postSummary :
+    ( List String
+    , { body : List (Element msg)
+      , metadata : MarkParser.Metadata msg
+      }
+    )
+    -> Element msg
+postSummary ( postPath, post ) =
+    Element.paragraph [] post.metadata.title
         |> linkToPost postPath
 
 
@@ -127,7 +133,12 @@ postUrl postPath =
 
 mainView : Url -> Element msg
 mainView url =
-    pageView url
+    case Content.allData of
+        Ok site ->
+            pageView url
+
+        Err errorView ->
+            errorView
 
 
 pageView : Url -> Element msg

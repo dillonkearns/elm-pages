@@ -1,10 +1,39 @@
-module Content exposing (aboutPage, pages, posts)
+module Content exposing (aboutPage, allData, pages, posts)
 
 import Element exposing (Element)
 import Mark
 import Mark.Error
 import MarkParser
 import Result.Extra
+
+
+type alias Data msg =
+    { posts :
+        List
+            ( List String
+            , { body : List (Element msg)
+              , metadata : MarkParser.Metadata msg
+              }
+            )
+    , pages :
+        List
+            { body : List (Element msg)
+            , metadata : MarkParser.Metadata msg
+            }
+    }
+
+
+allData : Result (Element msg) (Data msg)
+allData =
+    case posts of
+        Ok postListings ->
+            Ok
+                { posts = postListings
+                , pages = []
+                }
+
+        Err errorErrorMarkList ->
+            Err (Element.text "Error...")
 
 
 pages : List ( List String, String )
@@ -28,7 +57,15 @@ Here are some articles. You can learn more at.....
     ]
 
 
-posts : Result (List Mark.Error.Error) (List ( List String, MarkParser.Metadata msg ))
+posts :
+    Result (List Mark.Error.Error)
+        (List
+            ( List String
+            , { body : List (Element msg)
+              , metadata : MarkParser.Metadata msg
+              }
+            )
+        )
 posts =
     [ ( [ "articles", "tiny-steps" ]
       , """|> Article
@@ -70,14 +107,22 @@ change2 :
             , metadata : MarkParser.Metadata msg
             }
         )
-    -> Result (List Mark.Error.Error) (List ( List String, MarkParser.Metadata msg ))
+    ->
+        Result (List Mark.Error.Error)
+            (List
+                ( List String
+                , { body : List (Element msg)
+                  , metadata : MarkParser.Metadata msg
+                  }
+                )
+            )
 change2 list =
     list
         |> List.map
             (\( path, outcome ) ->
                 case outcome of
-                    Mark.Success { metadata } ->
-                        Ok ( path, metadata )
+                    Mark.Success parsedMarkup ->
+                        Ok ( path, parsedMarkup )
 
                     Mark.Almost partial ->
                         -- Err "Almost"
