@@ -13,7 +13,11 @@ import MarkParser
 import Url exposing (Url)
 
 
-main : Program () Model Msg
+type alias Flags =
+    ()
+
+
+main : Program Flags Model Msg
 main =
     Browser.application
         { init = init
@@ -31,7 +35,7 @@ type alias Model =
     }
 
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     ( Model key url, Cmd.none )
 
