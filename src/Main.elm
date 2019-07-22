@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Navigation as Nav
-import Content
+import Content exposing (Content)
 import Element exposing (Element)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -94,14 +94,14 @@ mainView : Url -> Element msg
 mainView url =
     case Content.allData of
         Ok site ->
-            pageView url
+            pageView site url
 
         Err errorView ->
             errorView
 
 
-pageView : Url -> Element msg
-pageView url =
+pageView : Content msg -> Url -> Element msg
+pageView content url =
     case lookupPage url of
         Just page ->
             case Mark.compile (MarkParser.document Element.none) page of

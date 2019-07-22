@@ -1,4 +1,4 @@
-module Content exposing (allData, pages, posts)
+module Content exposing (Content, allData, pages, posts)
 
 import Element exposing (Element)
 import Index
@@ -8,7 +8,7 @@ import MarkParser
 import Result.Extra
 
 
-type alias Data msg =
+type alias Content msg =
     { posts :
         List
             ( List String
@@ -26,7 +26,7 @@ type alias Data msg =
     }
 
 
-allData : Result (Element msg) (Data msg)
+allData : Result (Element msg) (Content msg)
 allData =
     case posts of
         Ok postListings ->
