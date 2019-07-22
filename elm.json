@@ -2,6 +2,7 @@
     "type": "application",
     "source-directories": [
         "src",
+        "_layout",
         "gen"
     ],
     "elm-version": "0.19.0",

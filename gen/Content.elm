@@ -1,6 +1,7 @@
 module Content exposing (allData, pages, posts)
 
 import Element exposing (Element)
+import Index
 import Mark
 import Mark.Error
 import MarkParser
@@ -32,7 +33,16 @@ allData =
             let
                 pageListings =
                     pages
-                        |> List.map (\( path, markup ) -> ( path, Mark.compile (MarkParser.document Element.none) markup ))
+                        |> List.map
+                            (\( path, markup ) ->
+                                ( path
+                                , Mark.compile
+                                    (MarkParser.document
+                                        (Index.view postListings)
+                                    )
+                                    markup
+                                )
+                            )
                         |> change2
             in
             case pageListings of
