@@ -21,13 +21,15 @@ document indexView =
         (\meta body ->
             { metadata = meta
             , body =
-                [ Element.column []
-                    [ titleView meta.title
-                    , Element.textColumn
-                        [ Element.centerX
-                        ]
-                        body
+                [ Element.textColumn
+                    [ Element.centerX
+                    , Element.spacing 20
+                    , Element.width Element.fill
+                    , Element.padding 50
                     ]
+                    (titleView meta.title
+                        :: body
+                    )
                 ]
             }
         )

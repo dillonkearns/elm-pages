@@ -92,7 +92,7 @@ indexView : Element msg
 indexView =
     case Content.posts of
         Ok posts ->
-            Element.column []
+            Element.column [ Element.spacing 20 ]
                 (posts
                     |> List.map postSummary
                 )
