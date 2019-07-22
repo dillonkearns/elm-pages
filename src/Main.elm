@@ -67,7 +67,7 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "URL Interceptor"
     , body =
-        [ pageView model.url
+        [ mainView model.url
             |> Element.layout
                 [ Element.width Element.fill
                 ]
@@ -87,6 +87,31 @@ lookupPage url =
         )
         Content.pages
         |> Maybe.map Tuple.second
+
+
+indexView : Element msg
+indexView =
+    case Content.posts of
+        Ok posts ->
+            Element.column []
+                [ Element.text "index"
+                ]
+
+        Err markupErrors ->
+            Element.column []
+                (markupErrors
+                    |> List.map (Mark.Error.toHtml Mark.Error.Light)
+                    |> List.map Element.html
+                )
+
+
+mainView : Url -> Element msg
+mainView url =
+    if url.path == "/articles" then
+        indexView
+
+    else
+        pageView url
 
 
 pageView : Url -> Element msg

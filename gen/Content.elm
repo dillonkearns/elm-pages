@@ -1,9 +1,90 @@
-module Content exposing (aboutPage, pages)
+module Content exposing (aboutPage, pages, posts)
+
+import Element exposing (Element)
+import Mark
+import Mark.Error
+import MarkParser
+import Result.Extra
 
 
 pages : List ( List String, String )
 pages =
     [ aboutPage, servicesPage ]
+
+
+posts : Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg ))
+posts =
+    [ ( "tiny-steps"
+      , """|> Article
+      author = Matthew Griffith
+      title = Services
+      tags = software other
+      description =
+          How I learned to use elm-markup.
+
+  Here is an article.
+  """
+      )
+    ]
+        |> List.map (\( path, markup ) -> ( path, Mark.compile MarkParser.document markup ))
+        |> change2
+
+
+
+-- |> change
+
+
+change2 :
+    List
+        ( String
+        , Mark.Outcome (List Mark.Error.Error)
+            (Mark.Partial
+                { body : List (Element msg)
+                , metadata : MarkParser.Metadata msg
+                }
+            )
+            { body : List (Element msg)
+            , metadata : MarkParser.Metadata msg
+            }
+        )
+    -> Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg ))
+change2 list =
+    list
+        |> List.map
+            (\( path, outcome ) ->
+                case outcome of
+                    Mark.Success { metadata } ->
+                        Ok ( path, metadata )
+
+                    Mark.Almost partial ->
+                        -- Err "Almost"
+                        Err partial.errors
+
+                    Mark.Failure failures ->
+                        Err failures
+            )
+        |> Result.Extra.combine
+
+
+change :
+    List
+        (Mark.Outcome (List Mark.Error.Error)
+            (Mark.Partial
+                { body : List (Element msg)
+                , metadata : MarkParser.Metadata msg
+                }
+            )
+            { body : List (Element msg)
+            , metadata : MarkParser.Metadata msg
+            }
+        )
+    -> a
+change list =
+    Debug.todo ""
+
+
+
+-- Mark.Success markup ->
 
 
 servicesPage : ( List String, String )

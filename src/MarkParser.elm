@@ -1,4 +1,4 @@
-module MarkParser exposing (document)
+module MarkParser exposing (Metadata, document)
 
 import Element exposing (Element)
 import Element.Border
