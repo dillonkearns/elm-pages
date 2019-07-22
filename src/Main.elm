@@ -75,8 +75,15 @@ view model =
     }
 
 
-lookupPage : Url -> Maybe String
-lookupPage url =
+lookupPage :
+    Content msg
+    -> Url
+    ->
+        Maybe
+            { body : List (Element msg)
+            , metadata : MarkParser.Metadata msg
+            }
+lookupPage content url =
     List.Extra.find
         (\( path, markup ) ->
             (String.split "/" url.path
@@ -84,9 +91,9 @@ lookupPage url =
             )
                 == path
         )
-        -- (
-        Content.pages
-        -- ++ Content.posts)
+        (content.pages
+            ++ content.posts
+        )
         |> Maybe.map Tuple.second
 
 
@@ -102,24 +109,10 @@ mainView url =
 
 pageView : Content msg -> Url -> Element msg
 pageView content url =
-    case lookupPage url of
-        Just page ->
-            case Mark.compile (MarkParser.document Element.none) page of
-                Mark.Success markup ->
-                    markup.body
-                        |> Element.textColumn [ Element.width Element.fill ]
-
-                Mark.Almost { errors, result } ->
-                    errors
-                        |> List.map (Mark.Error.toHtml Mark.Error.Light)
-                        |> List.map Element.html
-                        |> Element.column []
-
-                Mark.Failure errors ->
-                    errors
-                        |> List.map (Mark.Error.toHtml Mark.Error.Light)
-                        |> List.map Element.html
-                        |> Element.column []
+    case lookupPage content url of
+        Just pageOrPost ->
+            pageOrPost.body
+                |> Element.textColumn [ Element.width Element.fill ]
 
         Nothing ->
             Element.column []
