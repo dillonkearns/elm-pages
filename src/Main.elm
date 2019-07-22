@@ -84,7 +84,9 @@ lookupPage url =
             )
                 == path
         )
+        -- (
         Content.pages
+        -- ++ Content.posts)
         |> Maybe.map Tuple.second
 
 
@@ -150,9 +152,11 @@ pageView url =
                         |> Element.column []
 
         Nothing ->
-            -- Element.text "Page not found..."
-            Content.pages
-                |> List.map Tuple.first
-                |> List.map (String.join "/")
-                |> String.join ", "
-                |> Element.text
+            Element.column []
+                [ Element.text "Page not found. Valid routes:\n\n"
+                , Content.pages
+                    |> List.map Tuple.first
+                    |> List.map (String.join "/")
+                    |> String.join ", "
+                    |> Element.text
+                ]
