@@ -43,7 +43,7 @@ allData =
                                     markup
                                 )
                             )
-                        |> change2
+                        |> combineResults
             in
             case pageListings of
                 Ok successPageListings ->
@@ -185,10 +185,10 @@ posts =
       )
     ]
         |> List.map (\( path, markup ) -> ( path, Mark.compile (MarkParser.document Element.none) markup ))
-        |> change2
+        |> combineResults
 
 
-change2 :
+combineResults :
     List
         ( List String
         , Mark.Outcome (List Mark.Error.Error)
@@ -210,7 +210,7 @@ change2 :
                   }
                 )
             )
-change2 list =
+combineResults list =
     list
         |> List.map
             (\( path, outcome ) ->
