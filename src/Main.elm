@@ -81,9 +81,8 @@ lookupPage url =
         (\( path, markup ) ->
             (String.split "/" url.path
                 |> List.drop 1
-                |> Debug.log "left"
             )
-                == (path |> Debug.log "right")
+                == path
         )
         Content.pages
         |> Maybe.map Tuple.second
