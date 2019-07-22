@@ -92,8 +92,3 @@ pageView =
                 |> List.map (Mark.Error.toHtml Mark.Error.Light)
                 |> List.map Element.html
                 |> Element.column []
-
-
-viewLink : String -> Html msg
-viewLink path =
-    li [] [ a [ href path ] [ text path ] ]
