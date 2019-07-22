@@ -16,11 +16,11 @@ posts : Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg )
 posts =
     [ ( "tiny-steps"
       , """|> Article
-      author = Matthew Griffith
-      title = Services
-      tags = software other
-      description =
-          How I learned to use elm-markup.
+    author = Matthew Griffith
+    title = Services
+    tags = software other
+    description =
+        How I learned to use elm-markup.
 
   Here is an article.
   """
