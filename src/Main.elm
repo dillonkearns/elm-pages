@@ -95,9 +95,7 @@ lookupPage content url =
             )
                 == path
         )
-        (content.pages
-            ++ content.posts
-        )
+        (content.pages ++ content.posts)
         |> Maybe.map Tuple.second
 
 
