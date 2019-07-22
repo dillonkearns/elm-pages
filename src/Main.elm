@@ -9,7 +9,7 @@ import Html.Attributes exposing (..)
 import Mark
 import Mark.Error
 import MarkParser
-import Url
+import Url exposing (Url)
 
 
 main : Program () Model Msg
@@ -66,7 +66,7 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "URL Interceptor"
     , body =
-        [ pageView
+        [ pageView model.url
             |> Element.layout
                 [ Element.width Element.fill
                 ]
@@ -74,8 +74,8 @@ view model =
     }
 
 
-pageView : Element msg
-pageView =
+pageView : Url -> Element msg
+pageView url =
     case Mark.compile MarkParser.document (aboutPage |> Tuple.second) of
         Mark.Success markup ->
             markup.body

@@ -3,7 +3,22 @@ module Content exposing (aboutPage, pages)
 
 pages : List ( List String, String )
 pages =
-    [ aboutPage ]
+    [ aboutPage, servicesPage ]
+
+
+servicesPage : ( List String, String )
+servicesPage =
+    ( [ "services" ]
+    , """|> Article
+    author = Matthew Griffith
+    title = How I Learned /elm-markup/
+    tags = software other
+    description =
+        How I learned to use elm-markup.
+
+Here are the services I offer.
+"""
+    )
 
 
 aboutPage : ( List String, String )
