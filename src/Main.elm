@@ -116,18 +116,14 @@ postSummary ( string, metadata ) =
 
 mainView : Url -> Element msg
 mainView url =
-    if url.path == "/articles" then
-        indexView
-
-    else
-        pageView url
+    pageView url
 
 
 pageView : Url -> Element msg
 pageView url =
     case lookupPage url of
         Just page ->
-            case Mark.compile MarkParser.document page of
+            case Mark.compile (MarkParser.document indexView) page of
                 Mark.Success markup ->
                     markup.body
                         |> Element.textColumn [ Element.width Element.fill ]

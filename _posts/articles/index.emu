@@ -1,0 +1,4 @@
+Here are some articles. You can learn more at.....
+
+|> IndexContent
+    posts = articles

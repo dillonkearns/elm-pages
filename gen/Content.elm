@@ -9,7 +9,23 @@ import Result.Extra
 
 pages : List ( List String, String )
 pages =
-    [ aboutPage, servicesPage ]
+    [ aboutPage
+    , servicesPage
+    , ( [ "articles" ]
+      , """|> Article
+    author = Matthew Griffith
+    title = How I Learned /elm-markup/
+    tags = software other
+    description =
+        How I learned to use elm-markup.
+
+
+Here are some articles. You can learn more at.....
+
+|> IndexContent
+    posts = articles"""
+      )
+    ]
 
 
 posts : Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg ))
@@ -37,12 +53,8 @@ posts =
   """
       )
     ]
-        |> List.map (\( path, markup ) -> ( path, Mark.compile MarkParser.document markup ))
+        |> List.map (\( path, markup ) -> ( path, Mark.compile (MarkParser.document Element.none) markup ))
         |> change2
-
-
-
--- |> change
 
 
 change2 :

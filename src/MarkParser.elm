@@ -10,11 +10,13 @@ import Mark.Error
 
 
 document :
-    Mark.Document
-        { body : List (Element msg)
-        , metadata : Metadata msg
-        }
-document =
+    Element msg
+    ->
+        Mark.Document
+            { body : List (Element msg)
+            , metadata : Metadata msg
+            }
+document indexView =
     Mark.documentWith
         (\meta body ->
             { metadata = meta
@@ -37,6 +39,7 @@ document =
                 , image
                 , list
                 , code
+                , indexContent indexView
                 , Mark.map
                     (Element.paragraph
                         []
@@ -177,8 +180,6 @@ metadata =
             { author = author
             , description = description
             , title = title
-
-            -- , title = [ Element.text "asdf" ]
             , tags = tags
             }
         )
@@ -227,6 +228,16 @@ image =
         )
         |> Mark.field "src" Mark.string
         |> Mark.field "description" Mark.string
+        |> Mark.toBlock
+
+
+indexContent : Element msg -> Mark.Block (Element msg)
+indexContent content =
+    Mark.record "IndexContent"
+        (\postsPath ->
+            content
+        )
+        |> Mark.field "posts" Mark.string
         |> Mark.toBlock
 
 
