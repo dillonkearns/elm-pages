@@ -28,9 +28,9 @@ Here are some articles. You can learn more at.....
     ]
 
 
-posts : Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg ))
+posts : Result (List Mark.Error.Error) (List ( List String, MarkParser.Metadata msg ))
 posts =
-    [ ( "tiny-steps"
+    [ ( [ "articles", "tiny-steps" ]
       , """|> Article
     author = Dillon Kearns
     title = Tiny Steps
@@ -41,7 +41,7 @@ posts =
   Here is an article.
   """
       )
-    , ( "gatekeepers"
+    , ( [ "articles", "gatekeepers" ]
       , """|> Article
     author = Dillon Kearns
     title = Gatekeepers
@@ -59,7 +59,7 @@ posts =
 
 change2 :
     List
-        ( String
+        ( List String
         , Mark.Outcome (List Mark.Error.Error)
             (Mark.Partial
                 { body : List (Element msg)
@@ -70,7 +70,7 @@ change2 :
             , metadata : MarkParser.Metadata msg
             }
         )
-    -> Result (List Mark.Error.Error) (List ( String, MarkParser.Metadata msg ))
+    -> Result (List Mark.Error.Error) (List ( List String, MarkParser.Metadata msg ))
 change2 list =
     list
         |> List.map

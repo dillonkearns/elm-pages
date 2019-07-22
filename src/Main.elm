@@ -109,9 +109,22 @@ indexView =
                 )
 
 
-postSummary : ( String, MarkParser.Metadata msg ) -> Element msg
-postSummary ( string, metadata ) =
+postSummary : ( List String, MarkParser.Metadata msg ) -> Element msg
+postSummary ( postPath, metadata ) =
     Element.paragraph [] metadata.title
+        |> linkToPost postPath
+
+
+linkToPost : List String -> Element msg -> Element msg
+linkToPost postPath content =
+    Element.link []
+        { url = postUrl postPath, label = content }
+
+
+postUrl : List String -> String
+postUrl postPath =
+    "/"
+        ++ String.join "/" postPath
 
 
 mainView : Url -> Element msg
