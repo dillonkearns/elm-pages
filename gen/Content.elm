@@ -17,9 +17,11 @@ type alias Data msg =
             )
     , pages :
         List
-            { body : List (Element msg)
-            , metadata : MarkParser.Metadata msg
-            }
+            ( List String
+            , { body : List (Element msg)
+              , metadata : MarkParser.Metadata msg
+              }
+            )
     }
 
 
@@ -27,13 +29,24 @@ allData : Result (Element msg) (Data msg)
 allData =
     case posts of
         Ok postListings ->
-            Ok
-                { posts = postListings
-                , pages = []
-                }
+            let
+                pageListings =
+                    pages
+                        |> List.map (\( path, markup ) -> ( path, Mark.compile (MarkParser.document Element.none) markup ))
+                        |> change2
+            in
+            case pageListings of
+                Ok successPageListings ->
+                    Ok
+                        { posts = postListings
+                        , pages = successPageListings
+                        }
+
+                Err _ ->
+                    Err (Element.text "Error... TODO give more details")
 
         Err errorErrorMarkList ->
-            Err (Element.text "Error...")
+            Err (Element.text "Error... TODO give more details")
 
 
 pages : List ( List String, String )
