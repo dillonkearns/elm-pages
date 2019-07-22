@@ -93,12 +93,9 @@ indexView =
     case Content.posts of
         Ok posts ->
             Element.column []
-                [ Element.text "index"
-                , Element.column []
-                    (posts
-                        |> List.map postSummary
-                    )
-                ]
+                (posts
+                    |> List.map postSummary
+                )
 
         Err markupErrors ->
             Element.column []
