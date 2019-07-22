@@ -24,10 +24,6 @@ main =
         }
 
 
-
--- MODEL
-
-
 type alias Model =
     { key : Nav.Key
     , url : Url.Url
@@ -37,10 +33,6 @@ type alias Model =
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     ( Model key url, Cmd.none )
-
-
-
--- UPDATE
 
 
 type Msg
@@ -65,17 +57,9 @@ update msg model =
             )
 
 
-
--- SUBSCRIPTIONS
-
-
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.none
-
-
-
--- VIEW
 
 
 view : Model -> Browser.Document Msg
@@ -85,8 +69,6 @@ view model =
         [ pageView
             |> Element.layout
                 [ Element.width Element.fill
-
-                -- , Element.explain Debug.todo
                 ]
         ]
     }
