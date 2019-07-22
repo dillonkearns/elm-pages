@@ -6,6 +6,7 @@ import Content exposing (aboutPage)
 import Element exposing (Element)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import List.Extra
 import Mark
 import Mark.Error
 import MarkParser
@@ -74,21 +75,40 @@ view model =
     }
 
 
+lookupPage : Url -> Maybe String
+lookupPage url =
+    List.Extra.find
+        (\( path, markup ) ->
+            (String.split "/" url.path
+                |> List.drop 1
+                |> Debug.log "left"
+            )
+                == (path |> Debug.log "right")
+        )
+        Content.pages
+        |> Maybe.map Tuple.second
+
+
 pageView : Url -> Element msg
 pageView url =
-    case Mark.compile MarkParser.document (aboutPage |> Tuple.second) of
-        Mark.Success markup ->
-            markup.body
-                |> Element.textColumn [ Element.width Element.fill ]
+    case lookupPage url of
+        Just page ->
+            case Mark.compile MarkParser.document page of
+                Mark.Success markup ->
+                    markup.body
+                        |> Element.textColumn [ Element.width Element.fill ]
 
-        Mark.Almost { errors, result } ->
-            errors
-                |> List.map (Mark.Error.toHtml Mark.Error.Light)
-                |> List.map Element.html
-                |> Element.column []
+                Mark.Almost { errors, result } ->
+                    errors
+                        |> List.map (Mark.Error.toHtml Mark.Error.Light)
+                        |> List.map Element.html
+                        |> Element.column []
 
-        Mark.Failure errors ->
-            errors
-                |> List.map (Mark.Error.toHtml Mark.Error.Light)
-                |> List.map Element.html
-                |> Element.column []
+                Mark.Failure errors ->
+                    errors
+                        |> List.map (Mark.Error.toHtml Mark.Error.Light)
+                        |> List.map Element.html
+                        |> Element.column []
+
+        Nothing ->
+            Element.text "Page not found..."

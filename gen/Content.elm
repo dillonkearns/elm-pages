@@ -11,7 +11,7 @@ servicesPage =
     ( [ "services" ]
     , """|> Article
     author = Matthew Griffith
-    title = How I Learned /elm-markup/
+    title = Services
     tags = software other
     description =
         How I learned to use elm-markup.
