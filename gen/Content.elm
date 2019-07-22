@@ -52,11 +52,19 @@ allData =
                         , pages = successPageListings
                         }
 
-                Err _ ->
-                    Err (Element.text "Error... TODO give more details")
+                Err errors ->
+                    Err (renderErrors errors)
 
-        Err errorErrorMarkList ->
-            Err (Element.text "Error... TODO give more details")
+        Err errors ->
+            Err (renderErrors errors)
+
+
+renderErrors : List Mark.Error.Error -> Element msg
+renderErrors errors =
+    errors
+        |> List.map (Mark.Error.toHtml Mark.Error.Light)
+        |> List.map Element.html
+        |> Element.column []
 
 
 pages : List ( List String, String )
@@ -218,6 +226,15 @@ Morbi ut porta justo. Integer ac eleifend sem. Fusce sed auctor velit, et condim
 |> Code
     This is a code block
     With Multiple lines
+
+|> H1
+    Articles
+
+
+|> IndexContent
+    posts = articles
+
+Here are a few articles you might like.
 
 |> H1
     My section on /lists/

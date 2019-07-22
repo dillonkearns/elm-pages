@@ -239,7 +239,20 @@ indexContent content =
         (\postsPath ->
             content
         )
-        |> Mark.field "posts" Mark.string
+        |> Mark.field "posts"
+            (Mark.string
+                |> Mark.verify
+                    (\postDirectory ->
+                        if postDirectory == "articles" then
+                            Ok "articles"
+
+                        else
+                            Err
+                                { title = "Could not find posts path `" ++ postDirectory ++ "`"
+                                , message = "Must be one of " :: [ "articles" ]
+                                }
+                    )
+            )
         |> Mark.toBlock
 
 
