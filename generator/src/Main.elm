@@ -5,7 +5,7 @@ import Cli.Program as Program
 import String.Interpolate exposing (interpolate)
 
 
-port print : String -> Cmd msg
+port writeFile : String -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -92,7 +92,7 @@ type alias PageOrPost =
 init : Flags -> CliOptions -> Cmd Never
 init flags Default =
     generate { pages = flags.pages, posts = flags.posts }
-        |> print
+        |> writeFile
 
 
 main : Program.StatelessProgram Never Extras

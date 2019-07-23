@@ -27,6 +27,7 @@ app.ports.printAndExitFailure.subscribe((message: string) => {
   process.exit(1);
 });
 
-app.ports.print.subscribe((message: string) => {
-  console.log(message);
+app.ports.writeFile.subscribe((contents: string) => {
+  fs.writeFileSync("./gen/RawContent.elm", contents);
+  // console.log(message);
 });

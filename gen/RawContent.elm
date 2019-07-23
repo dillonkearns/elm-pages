@@ -11,8 +11,9 @@ content =
 
 pages : List ( List String, String )
 pages =
-    [ ( [ "about" ]
-      , """|> Article
+    [
+    ( ["about"]
+      , """|> Article 
     author = Matthew Griffith
     title = How I Learned /elm-markup/
     tags = software other
@@ -56,19 +57,22 @@ What does a *list* look like?
             With some content
 """
       )
-    , ( [ "articles", "index" ]
+
+  ,( ["articles", "index"]
       , """Here are some articles. You can learn more at.....
 
 |> IndexContent
     posts = articles
 """
       )
+
     ]
 
 
 posts : List ( List String, String )
 posts =
-    [ ( [ "articles", "moving-faster-with-tiny-steps" ]
+    [
+    ( ["articles", "moving-faster-with-tiny-steps"]
       , """|> Article
     author = Dillon Kearns
     title = Moving Faster with Tiny Steps in Elm
@@ -99,7 +103,7 @@ The point of taking tiny steps is that you get constant, clear feedback. So befo
 |> H2
     The Problem
 
-We’re doing a simple blog page that looks up articles based on the URL. We’ve already got the wiring to get the article name from the URL (for example, localhost:8000\\/article\\/{Code|articlePath}). Now we just need to take that {Code|articlePath} and use it to look up the title and body of our article in a Dict.
+We’re doing a simple blog page that looks up articles based on the URL. We’ve already got the wiring to get the article name from the URL (for example, localhost:8000\\/article\\/`articlePath`{code}). Now we just need to take that `articlePath`{code} and use it to look up the title and body of our article in a Dict.
 
 |> H2
     The Tiny Steps
@@ -229,4 +233,5 @@ You can sign up here for more tips on writing Elm code incrementally. When you s
 Let me know how this technique goes! I’ve gotten a lot of great feedback from my clients about this approach, and I love hearing success stories. Hit reply and let me know how it goes! I’d love to hear how you’re able to apply this in your day-to-day work!
 """
       )
+
     ]
