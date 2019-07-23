@@ -15,7 +15,15 @@ port printAndExitFailure : String -> Cmd msg
 
 
 generate =
-    interpolate """
+    interpolate """module RawContent exposing (content)
+
+import Content
+
+
+content : Result (Element msg) (Content msg)
+content =
+    Content.buildAllData { pages = pages, posts = posts }
+
 
 pages : List ( List String, String )
 pages =
