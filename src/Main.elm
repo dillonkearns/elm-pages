@@ -12,6 +12,7 @@ import List.Extra
 import Mark
 import Mark.Error
 import MarkParser
+import RawContent
 import Url exposing (Url)
 
 
@@ -83,7 +84,7 @@ view model =
 
 mainView : Url -> Element msg
 mainView url =
-    case Content.allData of
+    case RawContent.content of
         Ok site ->
             pageView site url
 
