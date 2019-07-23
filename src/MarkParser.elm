@@ -138,9 +138,9 @@ applyTuple fn ( one, two ) =
 
 viewText : { a | bold : Bool, italic : Bool, strike : Bool } -> String -> Element msg
 viewText styles string =
-    Element.el
+    Element.paragraph
         (Element.width Element.fill :: stylesFor styles)
-        (Element.text string)
+        [ Element.text string ]
 
 
 stylesFor : { a | bold : Bool, italic : Bool, strike : Bool } -> List (Element.Attribute b)
@@ -316,7 +316,7 @@ renderList (Mark.Enumerated enum) =
     in
     -- group []
     --     (List.map renderItem enum.items)
-    Element.textColumn []
+    Element.column []
         (List.map renderItem enum.items)
 
 
@@ -326,7 +326,7 @@ renderItem (Mark.Item item) =
     --     [ Html.div [] item.content
     --     , renderList item.children
     --     ]
-    Element.paragraph [ Element.width Element.fill ]
+    Element.column [ Element.width Element.fill ]
         [ Element.row [ Element.spacing 10 ]
             [ Element.el [] (Element.text "•")
             , Element.paragraph [ Element.width Element.fill ] item.content
