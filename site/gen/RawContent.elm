@@ -59,7 +59,14 @@ What does a *list* look like?
       )
 
   ,( ["articles", "index"]
-      , """Here are some articles. You can learn more at.....
+      , """|> Article
+    author = Matthew Griffith
+    title = How I Learned /elm-markup/
+    tags = software other
+    description =
+        How I learned to use elm-markup.
+
+Here are some articles. You can learn more at.....
 
 |> IndexContent
     posts = articles
