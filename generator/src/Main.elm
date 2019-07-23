@@ -1,11 +1,11 @@
-port module Main exposing (generate)
+port module Main exposing (main)
 
 import Cli.OptionsParser as OptionsParser exposing (with)
 import Cli.Program as Program
 import String.Interpolate exposing (interpolate)
 
 
-port writeFile : String -> Cmd msg
+port writeFile : { rawContent : String, prerenderrc : String } -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -23,6 +23,24 @@ generatePage pageOrPost =
         [ pathFor pageOrPost
         , pageOrPost.contents
         ]
+
+
+prerenderRcFormattedPath : PageOrPost -> String
+prerenderRcFormattedPath pageOrPost =
+    pageOrPost.path
+        |> String.dropRight 4
+        |> String.split "/"
+        |> List.drop 1
+        |> String.join "/"
+
+
+preRenderRc : Extras -> String
+preRenderRc extras =
+    (extras.pages ++ extras.posts)
+        |> List.map prerenderRcFormattedPath
+        |> List.map (\path -> String.concat [ "\"", path, "\"" ])
+        |> String.join ", "
+        |> (\paths -> String.concat [ "[", paths, "]" ])
 
 
 pathFor : PageOrPost -> String
@@ -91,7 +109,10 @@ type alias PageOrPost =
 
 init : Flags -> CliOptions -> Cmd Never
 init flags Default =
-    generate { pages = flags.pages, posts = flags.posts }
+    { rawContent =
+        generate { pages = flags.pages, posts = flags.posts }
+    , prerenderrc = preRenderRc { pages = flags.pages, posts = flags.posts }
+    }
         |> writeFile
 
 

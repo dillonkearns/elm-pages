@@ -27,7 +27,9 @@ app.ports.printAndExitFailure.subscribe((message: string) => {
   process.exit(1);
 });
 
-app.ports.writeFile.subscribe((contents: string) => {
-  fs.writeFileSync("./gen/RawContent.elm", contents);
-  // console.log(message);
-});
+app.ports.writeFile.subscribe(
+  (contents: { rawContent: string; prerenderrc: string }) => {
+    fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
+    fs.writeFileSync("./.prerenderrc", contents.prerenderrc);
+  }
+);

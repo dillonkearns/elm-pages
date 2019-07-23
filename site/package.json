@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "Static site generator for elm-markup.",
   "scripts": {
-    "build": "parcel build generator/src/elm-markup-pages.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps"
+    "start": "parcel src/index.html",
+    "build": "rm -r dist && parcel build src/index.html --public-url ./",
+    "generator:build": "parcel build generator/src/elm-markup-pages.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps",
+    "test": "elm-test",
+    "autotest": "elm-test --watch"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
@@ -14,9 +18,11 @@
     "@types/glob": "^7.1.1",
     "@types/node": "^12.6.8",
     "elm": "^0.19.0-no-deps",
+    "elm-hot": "^1.0.1",
     "elm-test": "^0.19.0-rev6",
     "node-elm-compiler": "^5.0.3",
     "parcel-bundler": "^1.12.3",
+    "parcel-plugin-prerender": "^1.4.1",
     "typescript": "^3.5.3"
   }
 }
