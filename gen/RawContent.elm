@@ -1,4 +1,4 @@
-module RawContent exposing (pages, posts)
+module RawContent exposing (content)
 
 import Content exposing (Content)
 import Element exposing (Element)
