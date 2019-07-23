@@ -4,6 +4,8 @@ import Browser
 import Browser.Navigation as Nav
 import Content exposing (Content)
 import Element exposing (Element)
+import Element.Border
+import Element.Font as Font
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import List.Extra
@@ -113,7 +115,7 @@ pageView : Content msg -> Url -> Element msg
 pageView content url =
     case lookupPage content url of
         Just pageOrPost ->
-            pageOrPost.body
+            (header :: pageOrPost.body)
                 |> Element.textColumn [ Element.width Element.fill ]
 
         Nothing ->
@@ -125,3 +127,14 @@ pageView content url =
                     |> String.join ", "
                     |> Element.text
                 ]
+
+
+header =
+    Element.row [ Element.padding 20, Element.Border.width 2, Element.spaceEvenly ]
+        [ Element.el [ Font.size 30 ]
+            (Element.link [] { url = "/", label = Element.text "elm-markup-site" })
+        , Element.row [ Element.spacing 15 ]
+            [ Element.link [] { url = "/articles", label = Element.text "Articles" }
+            , Element.link [] { url = "/about", label = Element.text "About" }
+            ]
+        ]
