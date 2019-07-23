@@ -69,7 +69,18 @@ renderErrors errors =
 
 pages : List ( List String, String )
 pages =
-    [ ( [ "services" ]
+    [ ( [ "" ]
+      , """|> Article
+    author = Dillon Kearns
+    title = Home Page
+    tags = software other
+    description =
+        How I learned to use elm-markup.
+
+This is the home page.
+"""
+      )
+    , ( [ "services" ]
       , """|> Article
     author = Dillon Kearns
     title = Services
