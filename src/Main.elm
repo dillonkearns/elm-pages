@@ -81,26 +81,6 @@ view model =
     }
 
 
-lookupPage :
-    Content msg
-    -> Url
-    ->
-        Maybe
-            { body : List (Element msg)
-            , metadata : MarkParser.Metadata msg
-            }
-lookupPage content url =
-    List.Extra.find
-        (\( path, markup ) ->
-            (String.split "/" url.path
-                |> List.drop 1
-            )
-                == path
-        )
-        (content.pages ++ content.posts)
-        |> Maybe.map Tuple.second
-
-
 mainView : Url -> Element msg
 mainView url =
     case Content.allData of
@@ -113,7 +93,7 @@ mainView url =
 
 pageView : Content msg -> Url -> Element msg
 pageView content url =
-    case lookupPage content url of
+    case Content.lookup content url of
         Just pageOrPost ->
             (header :: pageOrPost.body)
                 |> Element.textColumn [ Element.width Element.fill ]

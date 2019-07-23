@@ -1,11 +1,33 @@
-module Content exposing (Content, allData)
+module Content exposing (Content, allData, lookup)
 
 import Element exposing (Element)
 import Index
+import List.Extra
 import Mark
 import Mark.Error
 import MarkParser
 import Result.Extra
+import Url exposing (Url)
+
+
+lookup :
+    Content msg
+    -> Url
+    ->
+        Maybe
+            { body : List (Element msg)
+            , metadata : MarkParser.Metadata msg
+            }
+lookup content url =
+    List.Extra.find
+        (\( path, markup ) ->
+            (String.split "/" url.path
+                |> List.drop 1
+            )
+                == path
+        )
+        (content.pages ++ content.posts)
+        |> Maybe.map Tuple.second
 
 
 type alias Content msg =
