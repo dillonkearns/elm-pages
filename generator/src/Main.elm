@@ -33,7 +33,8 @@ This is the home page.
 generate =
     interpolate """module RawContent exposing (content)
 
-import Content
+import Content exposing (Content)
+import Element exposing (Element)
 
 
 content : Result (Element msg) (Content msg)
@@ -46,29 +47,17 @@ pages =
     [
     {0}
     ]
-posts :
-    Result (List Mark.Error.Error)
-        (List
-            ( List String
-            , { body : List (Element msg)
-              , metadata : MarkParser.Metadata msg
-              }
-            )
-        )
-posts =
-    [ ( [ "articles", "tiny-steps" ]
-      , \"\"\"|> Article
-    author = Dillon Kearns
-    title = Tiny Steps
-    tags = software other
-    description =
-        How I learned to use elm-markup.
 
-  Here is an article.
-  \"\"\"
-      )
+
+posts : List ( List String, String )
+posts =
+    [
+    {1}
+    ]
 """
-        [ generatePage ]
+        [ generatePage
+        , generatePage
+        ]
 
 
 type CliOptions
