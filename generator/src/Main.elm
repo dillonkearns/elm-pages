@@ -14,8 +14,8 @@ port printAndExitSuccess : String -> Cmd msg
 port printAndExitFailure : String -> Cmd msg
 
 
-generatePage : String
-generatePage =
+generatePage : PageOrPost -> String
+generatePage pageOrPost =
     interpolate """( [ {0} ]
       , \"\"\"|> Article
     author = Dillon Kearns
@@ -31,8 +31,8 @@ This is the home page.
         [ "\"\"" ]
 
 
-generate : String
-generate =
+generate : { posts : List PageOrPost, pages : List PageOrPost } -> String
+generate content =
     interpolate """module RawContent exposing (content)
 
 import Content exposing (Content)
@@ -57,8 +57,8 @@ posts =
     {1}
     ]
 """
-        [ generatePage
-        , generatePage
+        [ List.map generatePage content.pages |> String.join "\n  ,"
+        , List.map generatePage content.posts |> String.join "\n  ,"
         ]
 
 
@@ -86,7 +86,7 @@ type alias PageOrPost =
 
 init : Flags -> CliOptions -> Cmd Never
 init flags Default =
-    generate
+    generate { pages = flags.pages, posts = flags.posts }
         |> print
 
 
