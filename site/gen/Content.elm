@@ -95,12 +95,15 @@ buildAllData record =
             Err (renderErrors errors)
 
 
-renderErrors : List Mark.Error.Error -> Element msg
-renderErrors errors =
-    errors
-        |> List.map (Mark.Error.toHtml Mark.Error.Light)
-        |> List.map Element.html
-        |> Element.column []
+renderErrors : ( List String, List Mark.Error.Error ) -> Element msg
+renderErrors ( path, errors ) =
+    Element.column []
+        [ Element.text (path |> String.join "/")
+        , errors
+            |> List.map (Mark.Error.toHtml Mark.Error.Light)
+            |> List.map Element.html
+            |> Element.column []
+        ]
 
 
 combineResults :
@@ -117,7 +120,7 @@ combineResults :
             }
         )
     ->
-        Result (List Mark.Error.Error)
+        Result ( List String, List Mark.Error.Error )
             (List
                 ( List String
                 , { body : List (Element msg)
@@ -135,9 +138,9 @@ combineResults list =
 
                     Mark.Almost partial ->
                         -- Err "Almost"
-                        Err partial.errors
+                        Err ( path, partial.errors )
 
                     Mark.Failure failures ->
-                        Err failures
+                        Err ( path, failures )
             )
         |> Result.Extra.combine
