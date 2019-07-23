@@ -1,23 +1,14 @@
 {
     "type": "application",
     "source-directories": [
-        "src",
-        "_layout",
-        "gen",
-        "generator"
+        "src"
     ],
     "elm-version": "0.19.0",
     "dependencies": {
         "direct": {
-            "elm/browser": "1.0.1",
             "elm/core": "1.0.2",
             "elm/html": "1.0.0",
-            "elm/url": "1.0.0",
-            "elm-community/list-extra": "8.2.0",
-            "elm-community/result-extra": "2.2.1",
-            "lukewestby/elm-string-interpolate": "1.0.3",
-            "mdgriffith/elm-markup": "3.0.1",
-            "mdgriffith/elm-ui": "1.1.0"
+            "lukewestby/elm-string-interpolate": "1.0.3"
         },
         "indirect": {
             "elm/json": "1.0.0",
