@@ -30,8 +30,24 @@ prerenderRcFormattedPath pageOrPost =
     pageOrPost.path
         |> String.dropRight 4
         |> String.split "/"
+        |> dropIndexFromLast
         |> List.drop 1
         |> String.join "/"
+
+
+dropIndexFromLast : List String -> List String
+dropIndexFromLast path =
+    path
+        |> List.reverse
+        |> (\reversePath ->
+                case List.head reversePath of
+                    Just "index" ->
+                        reversePath |> List.drop 1
+
+                    _ ->
+                        reversePath
+           )
+        |> List.reverse
 
 
 preRenderRc : Extras -> String
