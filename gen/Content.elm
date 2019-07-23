@@ -267,13 +267,16 @@ Why use tiny steps? Simple! Because we want to write Elm code faster, and with m
 The point of taking tiny steps is that you get constant, clear feedback. So before I walk through the steps, here are some things to set up in your editor to help you get more feedback:
 
 |> List
-    -- See Elm compiler errors instantly without manually running a command. For example, have elm-make run whenever your files change. Or run elm-live, webpack, or parcel in watch mode.
-    -- Even better, get error messages in your editor whenever you save. Here are some instructions for configuring Atom with in-editor compiler errors.
-    -- Note that with both of these workflows, I recommend saving constantly so you get instant error messages.
-    -- Atom also gives you auto-completion, which is another helpful form of feedback. Elm-IntelliJ is another good option for this.
+    - See Elm compiler errors instantly without manually running a command. For example, have elm-make run whenever your files change. Or run elm-live, webpack, or parcel in watch mode.
+    - Even better, get error messages in your editor whenever you save. Here are some instructions for configuring Atom with in-editor compiler errors.
+    - Note that with both of these workflows, I recommend saving constantly so you get instant error messages.
+    - Atom also gives you auto-completion, which is another helpful form of feedback. Elm-IntelliJ is another good option for this.
 
+|> H2
+    The Problem
 
-Let me know how this technique goes! I’ve gotten a lot of great feedback from my clients about this approach, and I love hearing success stories. Hit reply and let me know how it goes! I’d love to hear how you’re able to apply this in your day-to-day work!"""
+This is `some code`{code}
+"""
       )
     ]
         |> List.map (\( path, markup ) -> ( path, Mark.compile (MarkParser.document Element.none) markup ))

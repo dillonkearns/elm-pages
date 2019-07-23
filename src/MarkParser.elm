@@ -44,7 +44,7 @@ document indexView =
                 , code
                 , indexContent indexView
                 , Mark.map
-                    (Element.paragraph
+                    (Element.row
                         []
                     )
                     text
@@ -59,7 +59,6 @@ titleView title =
         , Font.center
         , Font.family [ Font.typeface "Raleway" ]
         , Font.bold
-        , Element.width Element.fill
         ]
         [ Element.row
             [ Element.centerX
@@ -91,6 +90,10 @@ text =
                         }
                 )
                 |> Mark.field "url" Mark.string
+            , Mark.verbatim "code"
+                (\str ->
+                    Element.el [ Font.color (Element.rgb255 200 50 50) ] (Element.text str)
+                )
             ]
         }
 
@@ -138,9 +141,7 @@ applyTuple fn ( one, two ) =
 
 viewText : { a | bold : Bool, italic : Bool, strike : Bool } -> String -> Element msg
 viewText styles string =
-    Element.paragraph
-        (Element.width Element.fill :: stylesFor styles)
-        [ Element.text string ]
+    Element.paragraph (stylesFor styles) [ Element.text string ]
 
 
 stylesFor : { a | bold : Bool, italic : Bool, strike : Bool } -> List (Element.Attribute b)
@@ -326,10 +327,10 @@ renderItem (Mark.Item item) =
     --     [ Html.div [] item.content
     --     , renderList item.children
     --     ]
-    Element.column [ Element.width Element.fill ]
+    Element.column []
         [ Element.row [ Element.spacing 10 ]
             [ Element.el [] (Element.text "•")
-            , Element.paragraph [ Element.width Element.fill ] item.content
+            , Element.paragraph [] item.content
             ]
         , renderList item.children
         ]
