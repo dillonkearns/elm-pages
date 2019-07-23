@@ -121,7 +121,7 @@ pageView content url =
         Nothing ->
             Element.column []
                 [ Element.text "Page not found. Valid routes:\n\n"
-                , Content.pages
+                , content.pages
                     |> List.map Tuple.first
                     |> List.map (String.join "/")
                     |> String.join ", "

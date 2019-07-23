@@ -1,4 +1,4 @@
-module Content exposing (Content, allData, pages, posts)
+module Content exposing (Content, allData)
 
 import Element exposing (Element)
 import Index
