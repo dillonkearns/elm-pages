@@ -316,7 +316,7 @@ renderList (Mark.Enumerated enum) =
     in
     -- group []
     --     (List.map renderItem enum.items)
-    Element.column []
+    Element.textColumn []
         (List.map renderItem enum.items)
 
 
@@ -326,7 +326,10 @@ renderItem (Mark.Item item) =
     --     [ Html.div [] item.content
     --     , renderList item.children
     --     ]
-    Element.row []
-        [ Element.row [] item.content
+    Element.paragraph [ Element.width Element.fill ]
+        [ Element.row [ Element.spacing 10 ]
+            [ Element.el [] (Element.text "•")
+            , Element.paragraph [ Element.width Element.fill ] item.content
+            ]
         , renderList item.children
         ]
