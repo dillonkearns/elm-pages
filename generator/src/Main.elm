@@ -14,6 +14,7 @@ port printAndExitSuccess : String -> Cmd msg
 port printAndExitFailure : String -> Cmd msg
 
 
+generatePage : String
 generatePage =
     interpolate """( [ {0} ]
       , \"\"\"|> Article
@@ -30,6 +31,7 @@ This is the home page.
         [ "\"\"" ]
 
 
+generate : String
 generate =
     interpolate """module RawContent exposing (content)
 
