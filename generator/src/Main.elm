@@ -16,13 +16,24 @@ port printAndExitFailure : String -> Cmd msg
 
 generatePage : PageOrPost -> String
 generatePage pageOrPost =
-    interpolate """( [ {0} ]
+    interpolate """( {0}
       , \"\"\"{1}\"\"\"
       )
 """
-        [ "\"\""
+        [ pathFor pageOrPost
         , pageOrPost.contents
         ]
+
+
+pathFor : PageOrPost -> String
+pathFor pageOrPost =
+    pageOrPost.path
+        |> String.dropRight 4
+        |> String.split "/"
+        |> List.drop 1
+        |> List.map (\pathPart -> String.concat [ "\"", pathPart, "\"" ])
+        |> String.join ", "
+        |> (\list -> String.concat [ "[", list, "]" ])
 
 
 generate : { posts : List PageOrPost, pages : List PageOrPost } -> String
