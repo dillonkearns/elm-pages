@@ -4,8 +4,7 @@
   "description": "Static site generator for elm-markup.",
   "scripts": {
     "start": "parcel src/index.html",
-    "build": "rm -r dist && parcel build src/index.html --public-url ./",
-    "generator:build": "parcel build generator/src/elm-markup-pages.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps",
+    "build": "rm -r dist && parcel build src/index.html",
     "test": "elm-test",
     "autotest": "elm-test --watch"
   },
