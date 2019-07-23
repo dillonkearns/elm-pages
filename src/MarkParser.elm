@@ -44,7 +44,7 @@ document indexView =
                 , code
                 , indexContent indexView
                 , Mark.map
-                    (Element.row
+                    (Element.paragraph
                         []
                     )
                     text
@@ -141,7 +141,7 @@ applyTuple fn ( one, two ) =
 
 viewText : { a | bold : Bool, italic : Bool, strike : Bool } -> String -> Element msg
 viewText styles string =
-    Element.paragraph (stylesFor styles) [ Element.text string ]
+    Element.el (stylesFor styles) (Element.text string)
 
 
 stylesFor : { a | bold : Bool, italic : Bool, strike : Bool } -> List (Element.Attribute b)
@@ -294,7 +294,7 @@ code =
 
 list : Mark.Block (Element msg)
 list =
-    Mark.tree "List" renderList (Mark.map (Element.column []) text)
+    Mark.tree "List" renderList (Mark.map (Element.paragraph []) text)
 
 
 
@@ -327,7 +327,7 @@ renderItem (Mark.Item item) =
     --     [ Html.div [] item.content
     --     , renderList item.children
     --     ]
-    Element.column []
+    Element.textColumn []
         [ Element.row [ Element.spacing 10 ]
             [ Element.el [] (Element.text "•")
             , Element.paragraph [] item.content
