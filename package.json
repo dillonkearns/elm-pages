@@ -11,8 +11,11 @@
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
-  "dependencies": {},
+  "dependencies": {
+    "glob": "^7.1.4"
+  },
   "devDependencies": {
+    "@types/glob": "^7.1.1",
     "@types/node": "^12.6.8",
     "elm": "^0.19.0-no-deps",
     "elm-hot": "^1.0.1",

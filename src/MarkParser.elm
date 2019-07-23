@@ -38,6 +38,7 @@ document indexView =
         , body =
             Mark.manyOf
                 [ header
+                , h2
                 , image
                 , list
                 , code
@@ -206,6 +207,21 @@ header =
         (\children ->
             Element.paragraph
                 [ Font.size 24
+                , Font.semiBold
+                , Font.center
+                , Font.family [ Font.typeface "Raleway" ]
+                ]
+                children
+        )
+        text
+
+
+h2 : Mark.Block (Element msg)
+h2 =
+    Mark.block "H2"
+        (\children ->
+            Element.paragraph
+                [ Font.size 18
                 , Font.semiBold
                 , Font.alignLeft
                 , Font.family [ Font.typeface "Raleway" ]

@@ -1,5 +1,9 @@
 const { Elm } = require("./Main.elm");
 const { version } = require("../../package.json");
+import * as glob from "glob";
+
+console.log("glob", glob.sync("_posts/**/*.emu", {}));
+console.log("glob", glob.sync("_pages/**/*.emu", {}));
 
 let app = Elm.Main.init({
   flags: { argv: process.argv, versionMessage: version }
