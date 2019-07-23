@@ -21,13 +21,21 @@ lookup :
 lookup content url =
     List.Extra.find
         (\( path, markup ) ->
-            (String.split "/" url.path
+            (String.split "/" (url.path |> dropTrailingSlash)
                 |> List.drop 1
             )
                 == path
         )
         (content.pages ++ content.posts)
         |> Maybe.map Tuple.second
+
+
+dropTrailingSlash path =
+    if path |> String.endsWith "/" then
+        String.dropRight 1 path
+
+    else
+        path
 
 
 type alias Content msg =
