@@ -253,7 +253,7 @@ posts =
         How I learned to use elm-markup.
 
 |> Image
-    src = mountains.jpg
+    src = https://incrementalelm.com/assets/mountains.jpg
     description = The Elm Architecture
 
 
