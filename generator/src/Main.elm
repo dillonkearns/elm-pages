@@ -71,7 +71,15 @@ program =
 
 
 type alias Flags =
-    Program.FlagsIncludingArgv {}
+    Program.FlagsIncludingArgv Extras
+
+
+type alias Extras =
+    { posts : List PageOrPost, pages : List PageOrPost }
+
+
+type alias PageOrPost =
+    { path : String, contents : String }
 
 
 init : Flags -> CliOptions -> Cmd Never
@@ -80,7 +88,7 @@ init flags Default =
         |> print
 
 
-main : Program.StatelessProgram Never {}
+main : Program.StatelessProgram Never Extras
 main =
     Program.stateless
         { printAndExitFailure = printAndExitFailure
