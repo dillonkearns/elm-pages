@@ -17,18 +17,12 @@ port printAndExitFailure : String -> Cmd msg
 generatePage : PageOrPost -> String
 generatePage pageOrPost =
     interpolate """( [ {0} ]
-      , \"\"\"|> Article
-    author = Dillon Kearns
-    title = Home Page
-    tags = software other
-    description =
-        How I learned to use elm-markup.
-
-This is the home page.
-\"\"\"
+      , \"\"\"{1}\"\"\"
       )
 """
-        [ "\"\"" ]
+        [ "\"\""
+        , pageOrPost.contents
+        ]
 
 
 generate : { posts : List PageOrPost, pages : List PageOrPost } -> String
