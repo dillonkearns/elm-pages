@@ -14,6 +14,22 @@ port printAndExitSuccess : String -> Cmd msg
 port printAndExitFailure : String -> Cmd msg
 
 
+generatePage =
+    interpolate """( [ {0} ]
+      , \"\"\"|> Article
+    author = Dillon Kearns
+    title = Home Page
+    tags = software other
+    description =
+        How I learned to use elm-markup.
+
+This is the home page.
+\"\"\"
+      )
+"""
+        [ "\"\"" ]
+
+
 generate =
     interpolate """module RawContent exposing (content)
 
@@ -27,17 +43,9 @@ content =
 
 pages : List ( List String, String )
 pages =
-    [ ( [ {0} ]
-      , \"\"\"|> Article
-    author = Dillon Kearns
-    title = Home Page
-    tags = software other
-    description =
-        How I learned to use elm-markup.
-
-This is the home page.
-\"\"\"
-      ) ]
+    [
+    {0}
+    ]
 posts :
     Result (List Mark.Error.Error)
         (List
@@ -60,7 +68,7 @@ posts =
   \"\"\"
       )
 """
-        [ "\"\"" ]
+        [ generatePage ]
 
 
 type CliOptions
