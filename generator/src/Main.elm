@@ -33,6 +33,7 @@ prerenderRcFormattedPath pageOrPost =
         |> dropIndexFromLast
         |> List.drop 1
         |> String.join "/"
+        |> (\path -> "/" ++ path)
 
 
 dropIndexFromLast : List String -> List String
@@ -56,7 +57,7 @@ preRenderRc extras =
         |> List.map prerenderRcFormattedPath
         |> List.map (\path -> String.concat [ "\"", path, "\"" ])
         |> String.join ", "
-        |> (\paths -> String.concat [ "[", paths, "]" ])
+        |> (\paths -> String.concat [ "[", paths, "]\n" ])
 
 
 pathFor : PageOrPost -> String
