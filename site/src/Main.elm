@@ -6,8 +6,6 @@ import Content exposing (Content)
 import Element exposing (Element)
 import Element.Border
 import Element.Font as Font
-import Html exposing (..)
-import Html.Attributes exposing (..)
 import List.Extra
 import Mark
 import Mark.Error
