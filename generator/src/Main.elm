@@ -5,7 +5,7 @@ import Cli.Program as Program
 import String.Interpolate exposing (interpolate)
 
 
-port writeFile : { rawContent : String, prerenderrc : String } -> Cmd msg
+port writeFile : { rawContent : String, prerenderrc : String, imageAssets : String } -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -130,6 +130,13 @@ init flags Default =
     { rawContent =
         generate { pages = flags.pages, posts = flags.posts }
     , prerenderrc = preRenderRc { pages = flags.pages, posts = flags.posts }
+    , imageAssets = """export const imageAssets = {
+  "dillon2.jpg": require("../../images/dillon2.jpg"),
+  "article-cover/exit.jpg": require("../../images/article-cover/exit.jpg"),
+  "article-cover/mountains.jpg": require("../../images/article-cover/mountains.jpg"),
+  "article-cover/thinker.jpg": require("../../images/article-cover/thinker.jpg")
+};
+"""
     }
         |> writeFile
 
