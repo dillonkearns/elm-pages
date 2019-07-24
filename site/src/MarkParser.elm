@@ -27,7 +27,7 @@ document indexView =
                     , Element.width Element.fill
                     , Element.padding 50
                     ]
-                    (titleView meta.title
+                    (titleView meta.title.styled
                         :: body
                     )
                 ]
@@ -52,7 +52,7 @@ document indexView =
         }
 
 
-titleView : List (Element msg) -> Element msg
+titleView : Element msg -> Element msg
 titleView title =
     Element.paragraph
         [ Font.size 56
@@ -60,7 +60,7 @@ titleView title =
         , Font.family [ Font.typeface "Raleway" ]
         , Font.bold
         ]
-        [ Element.row
+        [ Element.el
             [ Element.centerX
             , Element.width Element.shrink
             ]
@@ -98,26 +98,28 @@ text =
         }
 
 
-titleText : Mark.Block (List (Element msg))
+titleText : Mark.Block (List { styled : Element msg, raw : String })
 titleText =
     Mark.textWith
         { view =
             \styles string ->
-                viewText styles string
+                { styled = viewText styles string
+                , raw = string
+                }
         , replacements = Mark.commonReplacements
         , inlines =
-            [ Mark.annotation "link"
-                (\texts url ->
-                    Element.link []
-                        { url = url
-                        , label =
-                            Element.row
-                                [ Element.htmlAttribute (Attr.style "display" "inline-flex")
-                                ]
-                                (List.map (applyTuple viewText) texts)
-                        }
-                )
-                |> Mark.field "url" Mark.string
+            [-- Mark.annotation "link"
+             --    (\texts url ->
+             --        Element.link []
+             --            { url = url
+             --            , label =
+             --                Element.row
+             --                    [ Element.htmlAttribute (Attr.style "display" "inline-flex")
+             --                    ]
+             --                    (List.map (applyTuple viewText) texts)
+             --            }
+             --    )
+             --    |> Mark.field "url" Mark.string
             ]
         }
 
@@ -173,7 +175,7 @@ type alias Metadata msg =
     { author : String
     , description : List (Element msg)
     , tags : List String
-    , title : List (Element msg)
+    , title : { styled : Element msg, raw : String }
     }
 
 
@@ -190,12 +192,34 @@ metadata =
         |> Mark.field "author" Mark.string
         |> Mark.field "description" text
         |> Mark.field "title"
-            (titleText
-                |> Mark.map (Element.paragraph [])
-                |> Mark.map List.singleton
+            (Mark.map
+                gather
+                -- (\{ styled, raw } ->
+                --     { styled = Element.paragraph [] styled
+                --     , raw = raw |> String.join " "
+                --     }
+                titleText
             )
+        -- |> Mark.map List.singleton
+        -- )
         |> Mark.field "tags" (Mark.string |> Mark.map (String.split " "))
         |> Mark.toBlock
+
+
+gather : List { styled : Element msg, raw : String } -> { styled : Element msg, raw : String }
+gather myList =
+    let
+        styled =
+            myList
+                |> List.map .styled
+                |> Element.paragraph []
+
+        raw =
+            myList
+                |> List.map .raw
+                |> String.join " "
+    in
+    { styled = styled, raw = raw }
 
 
 

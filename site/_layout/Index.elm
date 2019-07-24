@@ -27,7 +27,7 @@ postSummary :
     )
     -> Element msg
 postSummary ( postPath, post ) =
-    Element.paragraph [] post.metadata.title
+    post.metadata.title.styled
         |> linkToPost postPath
 
 

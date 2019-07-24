@@ -70,9 +70,13 @@ subscriptions _ =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "URL Interceptor"
+    let
+        { title, body } =
+            mainView model.url
+    in
+    { title = title
     , body =
-        [ mainView model.url
+        [ body
             |> Element.layout
                 [ Element.width Element.fill
                 ]
@@ -80,32 +84,40 @@ view model =
     }
 
 
-mainView : Url -> Element msg
+mainView : Url -> { title : String, body : Element msg }
 mainView url =
     case RawContent.content of
         Ok site ->
             pageView site url
 
         Err errorView ->
-            errorView
+            { title = "Error parsing"
+            , body = errorView
+            }
 
 
-pageView : Content msg -> Url -> Element msg
+pageView : Content msg -> Url -> { title : String, body : Element msg }
 pageView content url =
     case Content.lookup content url of
         Just pageOrPost ->
-            (header :: pageOrPost.body)
-                |> Element.textColumn [ Element.width Element.fill ]
+            { title = pageOrPost.metadata.title.raw
+            , body =
+                (header :: pageOrPost.body)
+                    |> Element.textColumn [ Element.width Element.fill ]
+            }
 
         Nothing ->
-            Element.column []
-                [ Element.text "Page not found. Valid routes:\n\n"
-                , (content.pages ++ content.posts)
-                    |> List.map Tuple.first
-                    |> List.map (String.join "/")
-                    |> String.join ", "
-                    |> Element.text
-                ]
+            { title = "Page not found"
+            , body =
+                Element.column []
+                    [ Element.text "Page not found. Valid routes:\n\n"
+                    , (content.pages ++ content.posts)
+                        |> List.map Tuple.first
+                        |> List.map (String.join "/")
+                        |> String.join ", "
+                        |> Element.text
+                    ]
+            }
 
 
 header : Element msg
