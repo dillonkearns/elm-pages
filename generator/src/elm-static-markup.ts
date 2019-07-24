@@ -13,7 +13,7 @@ const pages = glob.sync("_pages/**/*.emu", {}).map(unpackFile);
 const images = glob.sync("images/**/*", {});
 
 let app = Elm.Main.init({
-  flags: { argv: process.argv, versionMessage: version, posts, pages }
+  flags: { argv: process.argv, versionMessage: version, posts, pages, images }
 });
 
 app.ports.printAndExitSuccess.subscribe((message: string) => {

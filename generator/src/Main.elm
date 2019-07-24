@@ -114,7 +114,7 @@ program =
 
 
 type alias Flags =
-    Program.FlagsIncludingArgv Extras
+    Program.FlagsIncludingArgv { posts : List PageOrPost, pages : List PageOrPost, images : List String }
 
 
 type alias Extras =
@@ -130,18 +130,29 @@ init flags Default =
     { rawContent =
         generate { pages = flags.pages, posts = flags.posts }
     , prerenderrc = preRenderRc { pages = flags.pages, posts = flags.posts }
-    , imageAssets = """export const imageAssets = {
-  "dillon2.jpg": require("../../images/dillon2.jpg"),
-  "article-cover/exit.jpg": require("../../images/article-cover/exit.jpg"),
-  "article-cover/mountains.jpg": require("../../images/article-cover/mountains.jpg"),
-  "article-cover/thinker.jpg": require("../../images/article-cover/thinker.jpg")
-};
-"""
+    , imageAssets = imageAssetsFile flags.images
     }
         |> writeFile
 
 
-main : Program.StatelessProgram Never Extras
+imageAssetsFile : List String -> String
+imageAssetsFile images =
+    interpolate """export const imageAssets = {
+  {0}
+};
+"""
+        [ images |> List.map imageAssetEntry |> String.join ",\n  " ]
+
+
+imageAssetEntry : String -> String
+imageAssetEntry string =
+    interpolate """"{0}": require("{1}")"""
+        [ string |> String.dropLeft 7
+        , "../../" ++ string
+        ]
+
+
+main : Program.StatelessProgram Never { posts : List PageOrPost, pages : List PageOrPost, images : List String }
 main =
     Program.stateless
         { printAndExitFailure = printAndExitFailure

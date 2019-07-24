@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Static site generator for elm-markup.",
   "scripts": {
-    "build": "parcel build generator/src/elm-static-markup.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps"
+    "build": "parcel build generator/src/elm-static-markup.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps --no-minify"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
