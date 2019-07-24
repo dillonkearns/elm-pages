@@ -108,6 +108,7 @@ pageView content url =
                 ]
 
 
+header : Element msg
 header =
     Element.row [ Element.padding 20, Element.Border.width 2, Element.spaceEvenly ]
         [ Element.el [ Font.size 30 ]
