@@ -1,4 +1,5 @@
-const { Elm } = require("./Main.elm");
+// @ts-ignore
+import { Elm } from "./Main.elm";
 import { version } from "../../package.json";
 import * as fs from "fs";
 import * as glob from "glob";
