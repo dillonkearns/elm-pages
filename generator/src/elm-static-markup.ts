@@ -10,7 +10,9 @@ function unpackFile(path: string) {
 
 const posts = glob.sync("_posts/**/*.emu", {}).map(unpackFile);
 const pages = glob.sync("_pages/**/*.emu", {}).map(unpackFile);
-const images = glob.sync("images/**/*", {});
+const images = glob
+  .sync("images/**/*", {})
+  .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
 
 let app = Elm.Main.init({
   flags: { argv: process.argv, versionMessage: version, posts, pages, images }
@@ -34,7 +36,6 @@ app.ports.writeFile.subscribe(
   }) => {
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
     fs.writeFileSync("./.prerenderrc", contents.prerenderrc);
-    console.log("image assets", contents.imageAssets);
     fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
   }
 );
