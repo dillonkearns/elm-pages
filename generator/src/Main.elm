@@ -66,6 +66,7 @@ pathFor pageOrPost =
         |> String.dropRight 4
         |> String.split "/"
         |> List.drop 1
+        |> dropIndexFromLast
         |> List.map (\pathPart -> String.concat [ "\"", pathPart, "\"" ])
         |> String.join ", "
         |> (\list -> String.concat [ "[", list, "]" ])

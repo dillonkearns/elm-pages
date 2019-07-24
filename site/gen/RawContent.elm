@@ -58,7 +58,7 @@ What does a *list* look like?
 """
       )
 
-  ,( ["articles", "index"]
+  ,( ["articles"]
       , """|> Article
     author = Matthew Griffith
     title = How I Learned /elm-markup/
