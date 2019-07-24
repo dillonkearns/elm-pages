@@ -1,4 +1,4 @@
-# elm-markup-pages
+# elm-static-markup
 
 Static site generator for elm-markup.
 
@@ -44,7 +44,7 @@ To install new Elm packages, run:
 
 ## Libraries & Tools
 
-These are the main libraries and tools used to build elm-markup-pages. If you're not
+These are the main libraries and tools used to build elm-static-markup. If you're not
 sure how something works, getting more familiar with these might help.
 
 ### [Elm](https://elm-lang.org)

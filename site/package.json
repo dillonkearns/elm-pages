@@ -1,5 +1,5 @@
 {
-  "name": "elm-markup-pages",
+  "name": "elm-static-markup",
   "version": "1.0.0",
   "description": "Static site generator for elm-markup.",
   "scripts": {
