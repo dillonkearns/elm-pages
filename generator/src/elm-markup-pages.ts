@@ -1,5 +1,5 @@
 const { Elm } = require("./Main.elm");
-const { version } = require("../../package.json");
+import { version } from "../../package.json";
 import * as fs from "fs";
 import * as glob from "glob";
 
