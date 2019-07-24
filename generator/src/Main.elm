@@ -77,12 +77,13 @@ generate content =
     interpolate """module RawContent exposing (content)
 
 import Content exposing (Content)
+import Dict exposing (Dict)
 import Element exposing (Element)
 
 
-content : Result (Element msg) (Content msg)
-content =
-    Content.buildAllData { pages = pages, posts = posts }
+content : Dict String String -> Result (Element msg) (Content msg)
+content imageAssets =
+    Content.buildAllData imageAssets { pages = pages, posts = posts }
 
 
 pages : List ( List String, String )
