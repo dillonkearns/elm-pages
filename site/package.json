@@ -4,6 +4,7 @@
   "description": "Static site generator for elm-markup.",
   "scripts": {
     "start": "parcel src/index.html",
+    "start:prod": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "rm -r dist && parcel build src/index.html",
     "test": "elm-test",
     "autotest": "elm-test --watch"
