@@ -11,9 +11,6 @@ function unpackFile(path: string) {
 const posts = glob.sync("_posts/**/*.emu", {}).map(unpackFile);
 const pages = glob.sync("_pages/**/*.emu", {}).map(unpackFile);
 
-// console.log("posts", posts);
-// console.log("pages", pages);
-
 let app = Elm.Main.init({
   flags: { argv: process.argv, versionMessage: version, posts, pages }
 });
