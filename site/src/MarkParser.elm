@@ -194,14 +194,8 @@ metadata =
         |> Mark.field "title"
             (Mark.map
                 gather
-                -- (\{ styled, raw } ->
-                --     { styled = Element.paragraph [] styled
-                --     , raw = raw |> String.join " "
-                --     }
                 titleText
             )
-        -- |> Mark.map List.singleton
-        -- )
         |> Mark.field "tags" (Mark.string |> Mark.map (String.split " "))
         |> Mark.toBlock
 
