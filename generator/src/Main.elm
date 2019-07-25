@@ -81,9 +81,8 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 
 
-content : Dict String String -> Result (Element msg) (Content msg)
-content imageAssets =
-    Content.buildAllData imageAssets { pages = pages, posts = posts }
+content =
+    { pages = pages, posts = posts }
 
 
 pages : List ( List String, String )
