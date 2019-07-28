@@ -81,25 +81,13 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 
 
+content : List ( List String, String )
 content =
-    { pages = pages, posts = posts }
-
-
-pages : List ( List String, String )
-pages =
     [
     {0}
     ]
-
-
-posts : List ( List String, String )
-posts =
-    [
-    {1}
-    ]
 """
-        [ List.map generatePage content.pages |> String.join "\n  ,"
-        , List.map generatePage content.posts |> String.join "\n  ,"
+        [ List.map generatePage (content.pages ++ content.posts) |> String.join "\n  ,"
         ]
 
 
