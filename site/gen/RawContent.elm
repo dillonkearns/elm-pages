@@ -1,24 +1,17 @@
 module RawContent exposing (content)
 
-import Content exposing (Content)
+import Pages.Content as Content exposing (Content)
+import Dict exposing (Dict)
 import Element exposing (Element)
 
 
-content : Result (Element msg) (Content msg)
+content : List ( List String, String )
 content =
-    Content.buildAllData { pages = pages, posts = posts }
-
-
-pages : List ( List String, String )
-pages =
     [
     ( ["about"]
-      , """|> Article 
-    author = Matthew Griffith
+      , """|> Article
     title = How I Learned /elm-markup/
-    tags = software other
-    description =
-        How I learned to use elm-markup.
+    description = How I learned to use elm-markup.
 
 dummy text of the printing and [typesetting industry]{link| url = http://mechanical-elephant.com }. Lorem Ipsum has been the industrys standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. In id pellentesque elit, id sollicitudin felis. Morbi eu risus molestie enim suscipit auctor. Morbi pharetra, nisl ut finibus ornare, dolor tortor aliquet est, quis feugiat odio sem ut sem. Nullam eu bibendum ligula. Nunc mollis tortor ac rutrum interdum. Nunc ultrices risus eu pretium interdum. Nullam maximus convallis quam vitae ullamcorper. Praesent sapien nulla, hendrerit quis tincidunt a, placerat et felis. Nullam consectetur magna nec lacinia egestas. Aenean rutrum nunc diam.
@@ -60,11 +53,8 @@ What does a *list* look like?
 
   ,( ["articles"]
       , """|> Article
-    author = Matthew Griffith
     title = How I Learned /elm-markup/
-    tags = software other
-    description =
-        How I learned to use elm-markup.
+    description = How I learned to use elm-markup.
 
 Here are some articles. You can learn more at.....
 
@@ -73,19 +63,10 @@ Here are some articles. You can learn more at.....
 """
       )
 
-    ]
-
-
-posts : List ( List String, String )
-posts =
-    [
-    ( ["articles", "moving-faster-with-tiny-steps"]
+  ,( ["articles", "moving-faster-with-tiny-steps"]
       , """|> Article
-    author = Dillon Kearns
     title = Moving Faster with Tiny Steps in Elm
-    tags = software other
-    description =
-        How I learned to use elm-markup.
+    description = How I learned to use elm-markup.
 
 |> Image
     src = mountains.jpg

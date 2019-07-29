@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Static site generator for elm-markup.",
   "scripts": {
-    "start": "parcel src/index.html",
+    "watch": "elm-pages --watch",
+    "start": "concurrently \"npm:watch\" \"parcel src/index.html\"",
     "start:prod": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "rm -r dist && parcel build src/index.html",
     "test": "elm-test",
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@types/glob": "^7.1.1",
     "@types/node": "^12.6.8",
+    "concurrently": "^4.1.1",
     "elm": "^0.19.0-no-deps",
     "elm-hot": "^1.0.1",
     "elm-test": "^0.19.0-rev6",

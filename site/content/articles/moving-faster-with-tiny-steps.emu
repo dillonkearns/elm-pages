@@ -1,9 +1,6 @@
 |> Article
-    author = Dillon Kearns
     title = Moving Faster with Tiny Steps in Elm
-    tags = software other
-    description =
-        How I learned to use elm-markup.
+    description = How I learned to use elm-markup.
 
 |> Image
     src = mountains.jpg

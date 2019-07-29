@@ -1,141 +1,199 @@
-module MarkParser exposing (Metadata, document)
+module MarkParser exposing (document)
 
+import Dict exposing (Dict)
 import Element exposing (Element)
+import Element.Background
 import Element.Border
 import Element.Font as Font
+import Element.Region
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Index
 import Mark
 import Mark.Error
+import Metadata exposing (Metadata)
+import Pages.Parser exposing (PageOrPost)
+
+
+normalizedUrl url =
+    url
+        |> String.split "#"
+        |> List.head
+        |> Maybe.withDefault ""
 
 
 document :
-    Element msg
-    ->
-        Mark.Document
-            { body : List (Element msg)
-            , metadata : Metadata msg
-            }
-document indexView =
-    Mark.documentWith
-        (\meta body ->
-            { metadata = meta
-            , body =
-                [ Element.textColumn
-                    [ Element.centerX
-                    , Element.spacing 20
-                    , Element.width Element.fill
-                    , Element.padding 50
-                    ]
-                    (titleView meta.title.styled
-                        :: body
-                    )
-                ]
-            }
-        )
-        -- We have some required metadata that starts our document.
-        { metadata = metadata
-        , body =
-            Mark.manyOf
-                [ header
-                , h2
-                , image
-                , list
-                , code
-                , indexContent indexView
-                , Mark.map
-                    (Element.paragraph
-                        []
-                    )
-                    text
-                ]
+    Dict String String
+    -> List String
+    -> List ( List String, Metadata msg )
+    -> Mark.Document (PageOrPost (Metadata msg) (Element msg))
+document imageAssets routes parsedMetadata =
+    Pages.Parser.document
+        (Metadata.metadata imageAssets)
+        { imageAssets = imageAssets
+        , routes = routes
+        , indexView = parsedMetadata
         }
+        (blocks { imageAssets = imageAssets, routes = routes, indexView = parsedMetadata })
 
 
-titleView : Element msg -> Element msg
-titleView title =
-    Element.paragraph
-        [ Font.size 56
-        , Font.center
-        , Font.family [ Font.typeface "Raleway" ]
-        , Font.bold
-        ]
-        [ Element.el
-            [ Element.centerX
-            , Element.width Element.shrink
-            ]
-            title
-        ]
+blocks :
+    Pages.Parser.AppData (Metadata msg)
+    -> List (Mark.Block (Element msg))
+blocks appData =
+    let
+        header : Mark.Block (Element msg)
+        header =
+            Mark.block "H1"
+                (\children ->
+                    Element.paragraph
+                        [ Font.size 36
+                        , Font.bold
+                        , Font.center
+                        , Font.family [ Font.typeface "Raleway" ]
+                        ]
+                        children
+                )
+                text
+
+        h2 : Mark.Block (Element msg)
+        h2 =
+            Mark.block "H2"
+                (\children ->
+                    Element.paragraph
+                        [ Font.size 24
+                        , Font.semiBold
+                        , Font.alignLeft
+                        , Font.family [ Font.typeface "Raleway" ]
+                        ]
+                        children
+                )
+                text
+
+        image : Mark.Block (Element msg)
+        image =
+            Mark.record "Image"
+                (\src description ->
+                    Element.image
+                        [ Element.width (Element.fill |> Element.maximum 600)
+                        , Element.centerX
+                        ]
+                        { src = src
+                        , description = description
+                        }
+                        |> Element.el [ Element.centerX ]
+                )
+                |> Mark.field "src" (Pages.Parser.imageSrc appData.imageAssets)
+                |> Mark.field "description" Mark.string
+                |> Mark.toBlock
+
+        text : Mark.Block (List (Element msg))
+        text =
+            Mark.textWith
+                { view =
+                    \styles string ->
+                        viewText styles string
+                , replacements = Mark.commonReplacements
+                , inlines =
+                    [ Mark.annotation "link"
+                        (\texts url ->
+                            Element.link []
+                                { url = url
+                                , label =
+                                    Element.row
+                                        [ Font.color
+                                            (Element.rgb
+                                                (17 / 255)
+                                                (132 / 255)
+                                                (206 / 255)
+                                            )
+                                        , Element.mouseOver
+                                            [ Font.color
+                                                (Element.rgb
+                                                    (234 / 255)
+                                                    (21 / 255)
+                                                    (122 / 255)
+                                                )
+                                            ]
+                                        , Element.htmlAttribute
+                                            (Attr.style "display" "inline-flex")
+                                        ]
+                                        (List.map (applyTuple viewText) texts)
+                                }
+                        )
+                        |> Mark.field "url"
+                            (Mark.string
+                                |> Mark.verify
+                                    (\url ->
+                                        if url |> String.startsWith "http" then
+                                            Ok url
+
+                                        else if List.member (normalizedUrl url) appData.routes then
+                                            Ok url
+
+                                        else
+                                            Err
+                                                { title = "Unknown relative URL " ++ url
+                                                , message =
+                                                    [ url
+                                                    , "\nMust be one of\n"
+                                                    , String.join "\n" appData.routes
+                                                    ]
+                                                }
+                                    )
+                            )
+                    , Mark.verbatim "code"
+                        (\str ->
+                            Element.el
+                                [ Element.Background.color
+                                    (Element.rgba 0 0 0 0.04)
+                                , Element.Border.rounded 2
+                                , Element.paddingXY 5 3
+                                , Font.size 16
+                                , Font.color (Element.rgba255 210 40 130 1)
+                                , Font.family [ Font.monospace ]
+                                ]
+                                (Element.text str)
+                        )
+                    ]
+                }
+
+        list : Mark.Block (Element msg)
+        list =
+            Mark.tree "List" renderList (Mark.map (Element.paragraph []) text)
+    in
+    [ header
+    , h2
+    , image
+    , list
+    , indexContent appData.indexView
+    , code
+    , Mark.map
+        (Element.paragraph
+            [ Element.spacing 15 ]
+        )
+        text
+    ]
+
+
+code =
+    Mark.block "Code"
+        (\codeSnippet ->
+            Element.paragraph
+                [ Element.Background.color (Element.rgb255 238 238 238)
+                , Element.padding 12
+                ]
+                [ Element.text codeSnippet ]
+        )
+        Mark.string
 
 
 
 {- Handle Text -}
 
 
-text : Mark.Block (List (Element msg))
-text =
-    Mark.textWith
-        { view =
-            \styles string ->
-                viewText styles string
-        , replacements = Mark.commonReplacements
-        , inlines =
-            [ Mark.annotation "link"
-                (\texts url ->
-                    Element.link []
-                        { url = url
-                        , label =
-                            Element.row [ Element.htmlAttribute (Attr.style "display" "inline-flex") ]
-                                (List.map (applyTuple viewText) texts)
-                        }
-                )
-                |> Mark.field "url" Mark.string
-            , Mark.verbatim "code"
-                (\str ->
-                    Element.el [ Font.color (Element.rgb255 200 50 50) ] (Element.text str)
-                )
-            ]
-        }
-
-
-titleText : Mark.Block (List { styled : Element msg, raw : String })
-titleText =
-    Mark.textWith
-        { view =
-            \styles string ->
-                { styled = viewText styles string
-                , raw = string
-                }
-        , replacements = Mark.commonReplacements
-        , inlines =
-            [-- Mark.annotation "link"
-             --    (\texts url ->
-             --        Element.link []
-             --            { url = url
-             --            , label =
-             --                Element.row
-             --                    [ Element.htmlAttribute (Attr.style "display" "inline-flex")
-             --                    ]
-             --                    (List.map (applyTuple viewText) texts)
-             --            }
-             --    )
-             --    |> Mark.field "url" Mark.string
-            ]
-        }
-
-
 {-| Render a text fragment.
 -}
-
-
-
--- textFragment : Mark.Text -> model -> Element msg
--- textFragment node model_ =
---     case node of
---         Mark.Text styles txt ->
---             Element.el (List.concatMap toStyles styles) (Element.text txt)
-
-
 applyTuple : (a -> b -> c) -> ( a, b ) -> c
 applyTuple fn ( one, two ) =
     fn one two
@@ -168,112 +226,13 @@ stylesFor styles =
 
 
 
-{- Handle Metadata -}
-
-
-type alias Metadata msg =
-    { author : String
-    , description : List (Element msg)
-    , tags : List String
-    , title : { styled : Element msg, raw : String }
-    }
-
-
-metadata : Mark.Block (Metadata msg)
-metadata =
-    Mark.record "Article"
-        (\author description title tags ->
-            { author = author
-            , description = description
-            , title = title
-            , tags = tags
-            }
-        )
-        |> Mark.field "author" Mark.string
-        |> Mark.field "description" text
-        |> Mark.field "title"
-            (Mark.map
-                gather
-                titleText
-            )
-        |> Mark.field "tags" (Mark.string |> Mark.map (String.split " "))
-        |> Mark.toBlock
-
-
-gather : List { styled : Element msg, raw : String } -> { styled : Element msg, raw : String }
-gather myList =
-    let
-        styled =
-            myList
-                |> List.map .styled
-                |> Element.paragraph []
-
-        raw =
-            myList
-                |> List.map .raw
-                |> String.join " "
-    in
-    { styled = styled, raw = raw }
-
-
-
 {- Handle Blocks -}
 
 
-header : Mark.Block (Element msg)
-header =
-    Mark.block "H1"
-        (\children ->
-            Element.paragraph
-                [ Font.size 24
-                , Font.semiBold
-                , Font.center
-                , Font.family [ Font.typeface "Raleway" ]
-                ]
-                children
-        )
-        text
-
-
-h2 : Mark.Block (Element msg)
-h2 =
-    Mark.block "H2"
-        (\children ->
-            Element.paragraph
-                [ Font.size 18
-                , Font.semiBold
-                , Font.alignLeft
-                , Font.family [ Font.typeface "Raleway" ]
-                ]
-                children
-        )
-        text
-
-
-image : Mark.Block (Element msg)
-image =
-    Mark.record "Image"
-        (\src description ->
-            Element.image
-                [ Element.width (Element.fill |> Element.maximum 600)
-                , Element.centerX
-                ]
-                { src = src
-                , description = description
-                }
-                |> Element.el [ Element.centerX ]
-        )
-        |> Mark.field "src" Mark.string
-        |> Mark.field "description" Mark.string
-        |> Mark.toBlock
-
-
-indexContent : Element msg -> Mark.Block (Element msg)
-indexContent content =
+indexContent : List ( List String, Metadata msg ) -> Mark.Block (Element msg)
+indexContent posts =
     Mark.record "IndexContent"
-        (\postsPath ->
-            content
-        )
+        (\postsPath -> Index.view posts)
         |> Mark.field "posts"
             (Mark.string
                 |> Mark.verify
@@ -291,31 +250,8 @@ indexContent content =
         |> Mark.toBlock
 
 
-code : Mark.Block (Element msg)
-code =
-    Mark.block "Code"
-        (\str ->
-            Html.pre
-                [ Attr.style "padding" "12px"
-                , Attr.style "background-color" "#eee"
-                ]
-                [ Html.text str ]
-                |> Element.html
-         -- TODO
-        )
-        Mark.string
-
-
 
 {- Handling bulleted and numbered lists -}
-
-
-list : Mark.Block (Element msg)
-list =
-    Mark.tree "List" renderList (Mark.map (Element.paragraph []) text)
-
-
-
 -- Note: we have to define this as a separate function because
 -- `Items` and `Node` are a pair of mutually recursive data structures.
 -- It's easiest to render them using two separate functions:
@@ -324,31 +260,26 @@ list =
 
 renderList : Mark.Enumerated (Element msg) -> Element msg
 renderList (Mark.Enumerated enum) =
-    let
-        group =
-            case enum.icon of
-                Mark.Bullet ->
-                    Html.ul
-
-                Mark.Number ->
-                    Html.ol
-    in
-    -- group []
-    --     (List.map renderItem enum.items)
     Element.column []
-        (List.map renderItem enum.items)
+        (List.map (renderItem enum.icon) enum.items)
 
 
-renderItem : Mark.Item (Element msg) -> Element msg
-renderItem (Mark.Item item) =
-    -- Html.li []
-    --     [ Html.div [] item.content
-    --     , renderList item.children
-    --     ]
-    Element.textColumn []
-        [ Element.row [ Element.spacing 10 ]
-            [ Element.el [] (Element.text "•")
-            , Element.paragraph [] item.content
+renderItem : Mark.Icon -> Mark.Item (Element msg) -> Element msg
+renderItem icon (Mark.Item item) =
+    Element.column [ Element.width Element.fill, Element.spacing 20 ]
+        [ Element.row [ Element.width Element.fill, Element.spacing 10 ]
+            [ Element.el [ Element.alignTop, Element.paddingEach { top = 0, right = 0, bottom = 0, left = 20 } ]
+                (Element.text
+                    (case icon of
+                        Mark.Bullet ->
+                            "•"
+
+                        Mark.Number ->
+                            (item.index |> Tuple.first |> (\n -> n + 1) |> String.fromInt)
+                                ++ "."
+                    )
+                )
+            , Element.row [ Element.width Element.fill ] item.content
             ]
         , renderList item.children
         ]
