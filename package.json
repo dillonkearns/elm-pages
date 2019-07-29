@@ -1,9 +1,9 @@
 {
-  "name": "elm-static-markup",
+  "name": "elm-pages",
   "version": "1.0.0",
   "description": "Static site generator for elm-markup.",
   "scripts": {
-    "build": "parcel build generator/src/elm-static-markup.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps"
+    "build": "parcel build generator/src/elm-pages.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
@@ -22,6 +22,6 @@
     "typescript": "^3.5.3"
   },
   "bin": {
-    "elm-static-markup": "generator/bin/elm-static-markup"
+    "elm-pages": "generator/bin/elm-pages"
   }
 }
