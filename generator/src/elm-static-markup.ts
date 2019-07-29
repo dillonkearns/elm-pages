@@ -10,6 +10,7 @@ function unpackFile(path: string) {
 }
 
 function run() {
+  console.log("Running elm-pages...");
   const content = glob.sync("content/**/*.emu", {}).map(unpackFile);
   const images = glob
     .sync("images/**/*", {})
@@ -38,6 +39,7 @@ function run() {
       fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
       fs.writeFileSync("./prerender.config.js", contents.prerenderrc);
       fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
+      console.log("elm-pages DONE");
     }
   );
 }
