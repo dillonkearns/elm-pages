@@ -5,13 +5,15 @@ import * as fs from "fs";
 import * as glob from "glob";
 import * as chokidar from "chokidar";
 
+const contentGlobPath = "content/**/*.emu";
+
 function unpackFile(path: string) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
 function run() {
   console.log("Running elm-pages...");
-  const content = glob.sync("content/**/*.emu", {}).map(unpackFile);
+  const content = glob.sync(contentGlobPath, {}).map(unpackFile);
   const images = glob
     .sync("images/**/*", {})
     .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
@@ -47,7 +49,7 @@ function run() {
 run();
 
 chokidar
-  .watch(["./_pages/**/*.emu", "./_posts/**/*.emu"], {
+  .watch([contentGlobPath], {
     awaitWriteFinish: {
       stabilityThreshold: 500
     },
