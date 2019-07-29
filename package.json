@@ -21,6 +21,10 @@
     "parcel-bundler": "^1.12.3",
     "typescript": "^3.5.3"
   },
+  "files": [
+    "dist/",
+    "generator/bin/elm-pages"
+  ],
   "bin": {
     "elm-pages": "generator/bin/elm-pages"
   }
