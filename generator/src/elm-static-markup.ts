@@ -10,14 +10,13 @@ function unpackFile(path: string) {
 }
 
 function run() {
-  const posts = glob.sync("_posts/**/*.emu", {}).map(unpackFile);
-  const pages = glob.sync("_pages/**/*.emu", {}).map(unpackFile);
+  const content = glob.sync("content/**/*.emu", {}).map(unpackFile);
   const images = glob
     .sync("images/**/*", {})
     .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
 
   let app = Elm.Main.init({
-    flags: { argv: process.argv, versionMessage: version, posts, pages, images }
+    flags: { argv: process.argv, versionMessage: version, content, images }
   });
 
   app.ports.printAndExitSuccess.subscribe((message: string) => {
@@ -37,7 +36,7 @@ function run() {
       imageAssets: string;
     }) => {
       fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
-      fs.writeFileSync("./.prerenderrc", contents.prerenderrc);
+      fs.writeFileSync("./prerender.config.js", contents.prerenderrc);
       fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
     }
   );

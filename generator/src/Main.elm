@@ -51,13 +51,25 @@ dropIndexFromLast path =
         |> List.reverse
 
 
-preRenderRc : Extras -> String
-preRenderRc extras =
-    (extras.pages ++ extras.posts)
+preRenderRc : List PageOrPost -> String
+preRenderRc content =
+    interpolate """
+  module.exports = {
+  routes: [
+  {0}
+  ],
+  rendererConfig: { renderAfterDocumentEvent: "prerender-trigger" }
+};
+
+"""
+        [ prerenderPaths content ]
+
+
+prerenderPaths content =
+    content
         |> List.map prerenderRcFormattedPath
         |> List.map (\path -> String.concat [ "\"", path, "\"" ])
         |> String.join ", "
-        |> (\paths -> String.concat [ "[", paths, "]\n" ])
 
 
 pathFor : PageOrPost -> String
@@ -72,7 +84,7 @@ pathFor pageOrPost =
         |> (\list -> String.concat [ "[", list, "]" ])
 
 
-generate : { posts : List PageOrPost, pages : List PageOrPost } -> String
+generate : List PageOrPost -> String
 generate content =
     interpolate """module RawContent exposing (content)
 
@@ -87,7 +99,7 @@ content =
     {0}
     ]
 """
-        [ List.map generatePage (content.pages ++ content.posts) |> String.join "\n  ,"
+        [ List.map generatePage content |> String.join "\n  ,"
         ]
 
 
@@ -102,11 +114,11 @@ program =
 
 
 type alias Flags =
-    Program.FlagsIncludingArgv { posts : List PageOrPost, pages : List PageOrPost, images : List String }
+    Program.FlagsIncludingArgv Extras
 
 
 type alias Extras =
-    { posts : List PageOrPost, pages : List PageOrPost }
+    { content : List PageOrPost, images : List String }
 
 
 type alias PageOrPost =
@@ -116,8 +128,8 @@ type alias PageOrPost =
 init : Flags -> CliOptions -> Cmd Never
 init flags Default =
     { rawContent =
-        generate { pages = flags.pages, posts = flags.posts }
-    , prerenderrc = preRenderRc { pages = flags.pages, posts = flags.posts }
+        generate flags.content
+    , prerenderrc = preRenderRc flags.content
     , imageAssets = imageAssetsFile flags.images
     }
         |> writeFile
@@ -140,7 +152,7 @@ imageAssetEntry string =
         ]
 
 
-main : Program.StatelessProgram Never { posts : List PageOrPost, pages : List PageOrPost, images : List String }
+main : Program.StatelessProgram Never Extras
 main =
     Program.stateless
         { printAndExitFailure = printAndExitFailure
