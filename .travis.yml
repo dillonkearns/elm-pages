@@ -1,0 +1,32 @@
+sudo: false
+
+language: node_js
+node_js: "8.11.4"
+
+os:
+  - linux
+
+env:
+  matrix:
+    - ELM_VERSION=0.19.0
+
+before_install:
+  - npm i -g npm@lts
+  - npm i -g elm@0.19.0-no-deps
+  - npm i -g npm@6.4.1
+
+install:
+  - npm ci
+
+script:
+  - echo '$TRAVIS_TAG is ' $TRAVIS_TAG
+  - npm run build
+
+deploy:
+  - provider: npm
+    email: dillon@dillonkearns.com
+    api_key: $NPM_TOKEN
+    skip_cleanup: true
+    on:
+      all_branches: true
+      condition: $TRAVIS_TAG =~ ^v
