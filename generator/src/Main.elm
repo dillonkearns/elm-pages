@@ -88,7 +88,7 @@ generate : List PageOrPost -> String
 generate content =
     interpolate """module RawContent exposing (content)
 
-import Content exposing (Content)
+import Pages.Content as Content exposing (Content)
 import Dict exposing (Dict)
 import Element exposing (Element)
 
