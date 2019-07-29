@@ -7,6 +7,8 @@ import * as chokidar from "chokidar";
 
 const contentGlobPath = "content/**/*.emu";
 
+let watcher: chokidar.FSWatcher | null = null;
+
 function unpackFile(path: string) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
@@ -37,26 +39,35 @@ function run() {
       rawContent: string;
       prerenderrc: string;
       imageAssets: string;
+      watch: boolean;
     }) => {
       fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
       fs.writeFileSync("./prerender.config.js", contents.prerenderrc);
       fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
       console.log("elm-pages DONE");
+      if (contents.watch) {
+        startWatchIfNeeded();
+      }
     }
   );
 }
 
 run();
 
-chokidar
-  .watch([contentGlobPath], {
-    awaitWriteFinish: {
-      stabilityThreshold: 500
-    },
-    ignoreInitial: true
-  })
-  .on("all", function(event, filePath) {
-    console.log(`Rerunning for ${filePath}...`);
-    run();
-    console.log("Done!");
-  });
+function startWatchIfNeeded() {
+  if (!watcher) {
+    console.log("Watching...");
+    watcher = chokidar
+      .watch([contentGlobPath], {
+        awaitWriteFinish: {
+          stabilityThreshold: 500
+        },
+        ignoreInitial: true
+      })
+      .on("all", function(event, filePath) {
+        console.log(`Rerunning for ${filePath}...`);
+        run();
+        console.log("Done!");
+      });
+  }
+}

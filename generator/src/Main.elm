@@ -1,11 +1,12 @@
 port module Main exposing (main)
 
+import Cli.Option
 import Cli.OptionsParser as OptionsParser exposing (with)
 import Cli.Program as Program
 import String.Interpolate exposing (interpolate)
 
 
-port writeFile : { rawContent : String, prerenderrc : String, imageAssets : String } -> Cmd msg
+port writeFile : { rawContent : String, prerenderrc : String, imageAssets : String, watch : Bool } -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -104,13 +105,16 @@ content =
 
 
 type CliOptions
-    = Default
+    = Default Bool
 
 
 program : Program.Config CliOptions
 program =
     Program.config
-        |> Program.add (OptionsParser.build Default)
+        |> Program.add
+            (OptionsParser.build Default
+                |> OptionsParser.with (Cli.Option.flag "watch")
+            )
 
 
 type alias Flags =
@@ -126,11 +130,12 @@ type alias PageOrPost =
 
 
 init : Flags -> CliOptions -> Cmd Never
-init flags Default =
+init flags (Default watch) =
     { rawContent =
         generate flags.content
     , prerenderrc = preRenderRc flags.content
     , imageAssets = imageAssetsFile flags.images
+    , watch = watch
     }
         |> writeFile
 
