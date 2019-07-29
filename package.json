@@ -1,7 +1,7 @@
 {
   "name": "elm-pages",
   "version": "1.0.0",
-  "description": "Static site generator for elm-markup.",
+  "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
   "scripts": {
     "build": "parcel build generator/src/elm-pages.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps"
   },
