@@ -161,8 +161,6 @@ generateMarkdownPage markdown =
         ( frontmatter, body ) =
             splitMarkdown markdown.contents
     in
-    -- interpolate """ ( [ "markdown" ], { frontMatter = "title: This is a markdown article\\n", body = "# Hey there 👋\\nWelcome to this markdown document!" } ) """
-    -- [ markdown.path ]
     interpolate """( {0}
   , { frontMatter = \"\"\"{1}
 \"\"\"

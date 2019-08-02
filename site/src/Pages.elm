@@ -116,10 +116,6 @@ something input =
         |> Result.Extra.combine
 
 
-
--- Result.Extra.com
-
-
 init :
     (String -> view)
     -> Yaml.Decode.Decoder metadata
@@ -145,12 +141,7 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
                 |> Result.withDefault Dict.empty
 
         parsedMarkdown =
-            -- markdown
-            --     |> splitMarkdownFrontmatter
             content.markdown
-                --                 """
-                --       title: This is markdown
-                -- """
                 |> List.map
                     (Tuple.mapSecond
                         (\{ frontMatter } ->
@@ -167,7 +158,6 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
                         )
                     )
 
-        -- |> Yaml.Decode.fromString frontmatterParser
         markdown =
             """---
 title: This is markdown
@@ -314,13 +304,6 @@ program config =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-
--- Result (Html msg) (List ( List String, { metadata : metadata , view : List view }))
--- TODO pass in the parsed frontmatter
--- TODO let the user render the markdown however the want... just give them the markdown as a String,
--- the parsed metadata, and let them return the view (either Html, or Element, or anything else)
 
 
 parseMarkdown :
