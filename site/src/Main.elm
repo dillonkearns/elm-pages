@@ -11,6 +11,7 @@ import List.Extra
 import Mark
 import Mark.Error
 import MarkParser
+import Markdown
 import Metadata exposing (Metadata)
 import Pages
 import Pages.Content as Content exposing (Content)
@@ -18,6 +19,7 @@ import Pages.HeadTag as HeadTag exposing (HeadTag)
 import Pages.Parser exposing (PageOrPost)
 import RawContent
 import Url exposing (Url)
+import Yaml.Decode
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -35,11 +37,33 @@ main =
         , update = update
         , subscriptions = subscriptions
         , parser = MarkParser.document
+        , frontmatterParser = frontmatterParser
         , content = RawContent.content
+        , markdownToHtml = markdownToHtml
         , toJsPort = toJsPort
         , headTags = headTags
         , siteUrl = "https://incrementalelm.com"
         }
+
+
+markdownToHtml : String -> Element msg
+markdownToHtml body =
+    Markdown.toHtmlWith
+        { githubFlavored = Just { tables = True, breaks = False }
+        , defaultHighlighting = Nothing
+        , sanitize = True
+        , smartypants = False
+        }
+        []
+        body
+        |> Element.html
+
+
+frontmatterParser : Yaml.Decode.Decoder (Metadata.Metadata msg)
+frontmatterParser =
+    Yaml.Decode.field "title" Yaml.Decode.string
+        |> Yaml.Decode.map Metadata.PageMetadata
+        |> Yaml.Decode.map Metadata.Page
 
 
 type alias Model =

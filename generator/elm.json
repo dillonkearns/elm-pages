@@ -10,12 +10,12 @@
             "elm/core": "1.0.2",
             "elm/html": "1.0.0",
             "elm/json": "1.1.3",
+            "elm-community/list-extra": "8.2.1",
             "lukewestby/elm-string-interpolate": "1.0.3"
         },
         "indirect": {
             "elm/regex": "1.0.0",
-            "elm/virtual-dom": "1.0.2",
-            "elm-community/list-extra": "8.2.0"
+            "elm/virtual-dom": "1.0.2"
         }
     },
     "test-dependencies": {

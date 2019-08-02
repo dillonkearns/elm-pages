@@ -16,12 +16,19 @@ function unpackFile(path: string) {
 function run() {
   console.log("Running elm-pages...");
   const content = glob.sync(contentGlobPath, {}).map(unpackFile);
+  const markdownContent = glob.sync("content/**/*.md", {}).map(unpackFile);
   const images = glob
     .sync("images/**/*", {})
     .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
 
   let app = Elm.Main.init({
-    flags: { argv: process.argv, versionMessage: version, content, images }
+    flags: {
+      argv: process.argv,
+      versionMessage: version,
+      content,
+      markdownContent,
+      images
+    }
   });
 
   app.ports.printAndExitSuccess.subscribe((message: string) => {

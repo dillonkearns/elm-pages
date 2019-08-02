@@ -1,4 +1,4 @@
-module Metadata exposing (ArticleMetadata, Metadata(..), metadata)
+module Metadata exposing (ArticleMetadata, Metadata(..), PageMetadata, metadata)
 
 import Dict exposing (Dict)
 import Element exposing (Element)
@@ -8,8 +8,12 @@ import Pages.Parser
 
 
 type Metadata msg
-    = Page { title : String }
+    = Page PageMetadata
     | Article (ArticleMetadata msg)
+
+
+type alias PageMetadata =
+    { title : String }
 
 
 type alias LearnMetadata =
