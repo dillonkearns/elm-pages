@@ -1,8 +1,8 @@
 module RawContent exposing (content)
 
+import Pages.Content as Content exposing (Content)
 import Dict exposing (Dict)
 import Element exposing (Element)
-import Pages.Content as Content exposing (Content)
 
 
 content : { markdown : List ( List String, { frontMatter : String, body : String } ), markup : List ( List String, String ) }
@@ -12,16 +12,23 @@ content =
 
 markdown : List ( List String, { frontMatter : String, body : String } )
 markdown =
-    [ ( [ "markdown" ], { frontMatter = """
-title: This is a markdown article
-""", body = """# Hey there 👋
-Welcome to this markdown document!""" } )
+    [ ( ["markdown"]
+  , { frontMatter = """title: This is a markdown article
+"""
+    , body = """
+# Hey there 👋
+
+Welcome to this markdown document!
+""" }
+  )
+
     ]
 
 
 markup : List ( List String, String )
 markup =
-    [ ( [ "about" ]
+    [
+    ( ["about"]
       , """|> Article
     title = How I Learned /elm-markup/
     description = How I learned to use elm-markup.
@@ -63,7 +70,8 @@ What does a *list* look like?
             With some content
 """
       )
-    , ( [ "articles" ]
+
+  ,( ["articles"]
       , """|> Article
     title = How I Learned /elm-markup/
     description = How I learned to use elm-markup.
@@ -74,7 +82,8 @@ Here are some articles. You can learn more at.....
     posts = articles
 """
       )
-    , ( [ "articles", "moving-faster-with-tiny-steps" ]
+
+  ,( ["articles", "moving-faster-with-tiny-steps"]
       , """|> Article
     title = Moving Faster with Tiny Steps in Elm
     description = How I learned to use elm-markup.
@@ -232,4 +241,5 @@ You can sign up here for more tips on writing Elm code incrementally. When you s
 Let me know how this technique goes! I’ve gotten a lot of great feedback from my clients about this approach, and I love hearing success stories. Hit reply and let me know how it goes! I’d love to hear how you’re able to apply this in your day-to-day work!
 """
       )
+
     ]

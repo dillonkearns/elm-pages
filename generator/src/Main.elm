@@ -3,6 +3,7 @@ port module Main exposing (main)
 import Cli.Option
 import Cli.OptionsParser as OptionsParser exposing (with)
 import Cli.Program as Program
+import List.Extra
 import String.Interpolate exposing (interpolate)
 
 
@@ -29,7 +30,7 @@ generatePage pageOrPost =
 prerenderRcFormattedPath : PageOrPost -> String
 prerenderRcFormattedPath pageOrPost =
     pageOrPost.path
-        |> String.dropRight 4
+        |> dropExtension
         |> String.split "/"
         |> dropIndexFromLast
         |> List.drop 1
@@ -76,7 +77,7 @@ prerenderPaths content =
 pathFor : PageOrPost -> String
 pathFor pageOrPost =
     pageOrPost.path
-        |> String.dropRight 4
+        |> dropExtension
         |> String.split "/"
         |> List.drop 1
         |> dropIndexFromLast
@@ -85,8 +86,20 @@ pathFor pageOrPost =
         |> (\list -> String.concat [ "[", list, "]" ])
 
 
-generate : List PageOrPost -> String
-generate content =
+dropExtension : String -> String
+dropExtension path =
+    if path |> String.endsWith ".emu" then
+        path |> String.dropRight 4
+
+    else if path |> String.endsWith ".md" then
+        path |> String.dropRight 3
+
+    else
+        path
+
+
+generate : List PageOrPost -> List PageOrPost -> String
+generate content markdownContent =
     interpolate """module RawContent exposing (content)
 
 import Pages.Content as Content exposing (Content)
@@ -94,13 +107,71 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 
 
-content : List ( List String, String )
+content : { markdown : List ( List String, { frontMatter : String, body : String } ), markup : List ( List String, String ) }
 content =
+    { markdown = markdown, markup = markup }
+
+
+markdown : List ( List String, { frontMatter : String, body : String } )
+markdown =
+    [ {1}
+    ]
+
+
+markup : List ( List String, String )
+markup =
     [
     {0}
     ]
 """
         [ List.map generatePage content |> String.join "\n  ,"
+        , List.map generateMarkdownPage markdownContent |> String.join "\n  ,"
+        ]
+
+
+isFrontmatterDelimeter : Maybe String -> Bool
+isFrontmatterDelimeter line =
+    line == Just "---"
+
+
+splitMarkdown : String -> ( String, String )
+splitMarkdown contents =
+    let
+        lines =
+            contents
+                |> String.lines
+    in
+    if lines |> List.head |> isFrontmatterDelimeter then
+        splitAtClosingDelimeter (lines |> List.drop 1)
+
+    else
+        ( "", lines |> String.join "\n" )
+
+
+splitAtClosingDelimeter : List String -> ( String, String )
+splitAtClosingDelimeter lines =
+    List.Extra.splitWhen (\line -> line == "---") lines
+        |> Maybe.map (Tuple.mapSecond (List.drop 1))
+        |> Maybe.withDefault ( [], [] )
+        |> Tuple.mapBoth (String.join "\n") (String.join "\n")
+
+
+generateMarkdownPage markdown =
+    let
+        ( frontmatter, body ) =
+            splitMarkdown markdown.contents
+    in
+    -- interpolate """ ( [ "markdown" ], { frontMatter = "title: This is a markdown article\\n", body = "# Hey there 👋\\nWelcome to this markdown document!" } ) """
+    -- [ markdown.path ]
+    interpolate """( {0}
+  , { frontMatter = \"\"\"{1}
+\"\"\"
+    , body = \"\"\"{2}\"\"\" }
+  )
+"""
+        [ pathFor markdown
+        , frontmatter
+        , body
         ]
 
 
@@ -122,7 +193,7 @@ type alias Flags =
 
 
 type alias Extras =
-    { content : List PageOrPost, images : List String }
+    { content : List PageOrPost, markdownContent : List PageOrPost, images : List String }
 
 
 type alias PageOrPost =
@@ -132,7 +203,7 @@ type alias PageOrPost =
 init : Flags -> CliOptions -> Cmd Never
 init flags (Default watch) =
     { rawContent =
-        generate flags.content
+        generate flags.content flags.markdownContent
     , prerenderrc = preRenderRc flags.content
     , imageAssets = imageAssetsFile flags.images
     , watch = watch
