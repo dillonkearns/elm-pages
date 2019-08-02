@@ -150,15 +150,6 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
                         )
                     )
 
-        markdown =
-            """---
-title: This is markdown
----
-
-# Markdown Rendered Successfully!
-Nice job, you did it! 😄
-"""
-
         metadata =
             [ Content.parseMetadata parser imageAssets content.markup
             , parsedMarkdown
