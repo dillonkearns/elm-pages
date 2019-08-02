@@ -95,10 +95,10 @@ type alias Flags userFlags =
     }
 
 
-something :
+combineTupleResults :
     List ( List String, Result error success )
     -> Result error (List ( List String, success ))
-something input =
+combineTupleResults input =
     input
         |> List.map
             (\( path, result ) ->
@@ -162,7 +162,7 @@ Nice job, you did it! 😄
         metadata =
             [ Content.parseMetadata parser imageAssets content.markup
             , parsedMarkdown
-                |> something
+                |> combineTupleResults
             ]
                 |> Result.Extra.combine
                 |> Result.map List.concat
@@ -328,4 +328,4 @@ parseMarkdown markdownToHtml frontmatterParser markdownContent =
                             )
                 )
             )
-        |> something
+        |> combineTupleResults
