@@ -13,11 +13,13 @@ import Pages.Content as Content exposing (Content)
 import Pages.HeadTag exposing (HeadTag)
 import Pages.Parser exposing (PageOrPost)
 import Platform.Sub exposing (Sub)
+import Result.Extra
 import Url exposing (Url)
+import Yaml.Decode
 
 
 type alias Content =
-    List ( List String, String )
+    { markdown : List ( List String, { frontMatter : String, body : String } ), markup : List ( List String, String ) }
 
 
 type alias Program userFlags userModel userMsg metadata view =
@@ -93,8 +95,35 @@ type alias Flags userFlags =
     }
 
 
+splitMarkdownFrontmatter : String -> ( String, String )
+splitMarkdownFrontmatter string =
+    ( """title: This is markdown""", """
+# Markdown Rendered Successfully!
+Nice job, you did it! 😄
+""" )
+
+
+something :
+    List ( List String, Result error success )
+    -> Result error (List ( List String, success ))
+something input =
+    input
+        |> List.map
+            (\( path, result ) ->
+                result
+                    |> Result.map (\success -> ( path, success ))
+            )
+        |> Result.Extra.combine
+
+
+
+-- Result.Extra.com
+
+
 init :
-    String
+    (String -> view)
+    -> Yaml.Decode.Decoder metadata
+    -> String
     -> (Json.Encode.Value -> Cmd (Msg userMsg))
     -> (String -> metadata -> List HeadTag)
     -> Parser metadata view
@@ -104,7 +133,7 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( Model userModel userMsg metadata view, Cmd (Msg userMsg) )
-init siteUrl toJsPort headTags parser content initUserModel flags url key =
+init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
             initUserModel flags
@@ -115,8 +144,46 @@ init siteUrl toJsPort headTags parser content initUserModel flags url key =
                 flags.imageAssets
                 |> Result.withDefault Dict.empty
 
+        parsedMarkdown =
+            -- markdown
+            --     |> splitMarkdownFrontmatter
+            content.markdown
+                --                 """
+                --       title: This is markdown
+                -- """
+                |> List.map
+                    (Tuple.mapSecond
+                        (\{ frontMatter } ->
+                            Yaml.Decode.fromString frontmatterParser frontMatter
+                                |> Result.mapError
+                                    (\error ->
+                                        case error of
+                                            Yaml.Decode.Parsing string ->
+                                                Html.text string
+
+                                            Yaml.Decode.Decoding string ->
+                                                Html.text string
+                                    )
+                        )
+                    )
+
+        -- |> Yaml.Decode.fromString frontmatterParser
+        markdown =
+            """---
+title: This is markdown
+---
+
+# Markdown Rendered Successfully!
+Nice job, you did it! 😄
+"""
+
         metadata =
-            Content.parseMetadata parser imageAssets content
+            [ Content.parseMetadata parser imageAssets content.markup
+            , parsedMarkdown
+                |> something
+            ]
+                |> Result.Extra.combine
+                |> Result.map List.concat
     in
     case metadata of
         Ok okMetadata ->
@@ -129,7 +196,11 @@ init siteUrl toJsPort headTags parser content initUserModel flags url key =
                     metadata
                         |> Result.andThen
                             (\m ->
-                                Content.buildAllData m parser imageAssets content
+                                [ Content.buildAllData m parser imageAssets content.markup
+                                , parseMarkdown markdownToHtml frontmatterParser content.markdown
+                                ]
+                                    |> Result.Extra.combine
+                                    |> Result.map List.concat
                             )
                 }
             , Cmd.batch
@@ -156,7 +227,7 @@ init siteUrl toJsPort headTags parser content initUserModel flags url key =
                     metadata
                         |> Result.andThen
                             (\m ->
-                                Content.buildAllData m parser imageAssets content
+                                Content.buildAllData m parser imageAssets content.markup
                             )
                 }
             , Cmd.batch
@@ -227,11 +298,13 @@ program :
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)
     , headTags : String -> metadata -> List HeadTag
     , siteUrl : String
+    , frontmatterParser : Yaml.Decode.Decoder metadata
+    , markdownToHtml : String -> view
     }
     -> Program userFlags userModel userMsg metadata view
 program config =
     Browser.application
-        { init = init config.siteUrl config.toJsPort config.headTags config.parser config.content config.init
+        { init = init config.markdownToHtml config.frontmatterParser config.siteUrl config.toJsPort config.headTags config.parser config.content config.init
         , view = view config.content config.parser config.view
         , update = update config.update
         , subscriptions =
@@ -241,3 +314,43 @@ program config =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
+
+
+
+-- Result (Html msg) (List ( List String, { metadata : metadata , view : List view }))
+-- TODO pass in the parsed frontmatter
+-- TODO let the user render the markdown however the want... just give them the markdown as a String,
+-- the parsed metadata, and let them return the view (either Html, or Element, or anything else)
+
+
+parseMarkdown :
+    (String -> view)
+    -> Yaml.Decode.Decoder metadata
+    -> List ( List String, { frontMatter : String, body : String } )
+    -> Result (Html msg) (Content.Content metadata view)
+parseMarkdown markdownToHtml frontmatterParser markdownContent =
+    markdownContent
+        |> List.map
+            (Tuple.mapSecond
+                (\{ frontMatter, body } ->
+                    Yaml.Decode.fromString frontmatterParser frontMatter
+                        |> Result.mapError
+                            (\error ->
+                                case error of
+                                    Yaml.Decode.Parsing string ->
+                                        Html.text string
+
+                                    Yaml.Decode.Decoding string ->
+                                        Html.text string
+                            )
+                        |> Result.map
+                            (\metadata ->
+                                { metadata = metadata
+                                , view =
+                                    [ markdownToHtml body
+                                    ]
+                                }
+                            )
+                )
+            )
+        |> something
