@@ -136,8 +136,9 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
             content.markdown
                 |> List.map
                     (Tuple.mapSecond
-                        (\{ frontMatter } ->
+                        (\{ frontMatter, body } ->
                             Yaml.Decode.fromString frontmatterParser frontMatter
+                                |> Result.map (\parsedFrontmatter -> { parsedFrontmatter = parsedFrontmatter, body = body })
                                 |> Result.mapError
                                     (\error ->
                                         case error of
@@ -153,6 +154,7 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
         metadata =
             [ Content.parseMetadata parser imageAssets content.markup
             , parsedMarkdown
+                |> List.map (Tuple.mapSecond (Result.map (\{ parsedFrontmatter } -> parsedFrontmatter)))
                 |> combineTupleResults
             ]
                 |> Result.Extra.combine
@@ -170,7 +172,7 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
                         |> Result.andThen
                             (\m ->
                                 [ Content.buildAllData m parser imageAssets content.markup
-                                , parseMarkdown markdownToHtml frontmatterParser content.markdown
+                                , parseMarkdown markdownToHtml parsedMarkdown
                                 ]
                                     |> Result.Extra.combine
                                     |> Result.map List.concat
@@ -291,32 +293,18 @@ program config =
 
 parseMarkdown :
     (String -> view)
-    -> Yaml.Decode.Decoder metadata
-    -> List ( List String, { frontMatter : String, body : String } )
+    -> List ( List String, Result (Html msg) { parsedFrontmatter : metadata, body : String } )
     -> Result (Html msg) (Content.Content metadata view)
-parseMarkdown markdownToHtml frontmatterParser markdownContent =
+parseMarkdown markdownToHtml markdownContent =
     markdownContent
         |> List.map
             (Tuple.mapSecond
-                (\{ frontMatter, body } ->
-                    Yaml.Decode.fromString frontmatterParser frontMatter
-                        |> Result.mapError
-                            (\error ->
-                                case error of
-                                    Yaml.Decode.Parsing string ->
-                                        Html.text string
-
-                                    Yaml.Decode.Decoding string ->
-                                        Html.text string
-                            )
-                        |> Result.map
-                            (\metadata ->
-                                { metadata = metadata
-                                , view =
-                                    [ markdownToHtml body
-                                    ]
-                                }
-                            )
+                (Result.map
+                    (\{ parsedFrontmatter, body } ->
+                        { metadata = parsedFrontmatter
+                        , view = [ markdownToHtml body ]
+                        }
+                    )
                 )
             )
         |> combineTupleResults
