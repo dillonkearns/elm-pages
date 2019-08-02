@@ -95,14 +95,6 @@ type alias Flags userFlags =
     }
 
 
-splitMarkdownFrontmatter : String -> ( String, String )
-splitMarkdownFrontmatter string =
-    ( """title: This is markdown""", """
-# Markdown Rendered Successfully!
-Nice job, you did it! 😄
-""" )
-
-
 something :
     List ( List String, Result error success )
     -> Result error (List ( List String, success ))
