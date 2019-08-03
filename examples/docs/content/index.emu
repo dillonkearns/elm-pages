@@ -1,0 +1,20 @@
+|> Page
+    title = Home
+
+
+
+|> Values
+    |> Value
+        title = If it compiles, it works
+        body =
+            `elm-pages`{code} just makes more of the things you do in your static site feel like elm. Did you misspell the name of an image asset or a link to a blog post? `elm-pages`{code} will give you a friendly error message and some helpful suggestions.
+
+    |> Value
+        title = Blazing fast
+        body =
+            All you have to do is create your content and choose how to present it. Optimized images, pre-rendered pages, and a snappy lightweight single-page app all come for free.
+
+    |> Value
+        title = Simple
+        body =
+            `elm-pages`{code} gives you the smallest set of core concepts possible, and a type system to make sure all the pieces fit together just right. The rest is up to you. Rather than remember a lot of magic and special cases, you can just rely on your elm types to build what you need with a set of simple primitives.
