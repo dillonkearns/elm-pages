@@ -65,7 +65,7 @@ function startWatchIfNeeded() {
   if (!watcher) {
     console.log("Watching...");
     watcher = chokidar
-      .watch([contentGlobPath], {
+      .watch([contentGlobPath, "content/**/*.md"], {
         awaitWriteFinish: {
           stabilityThreshold: 500
         },
