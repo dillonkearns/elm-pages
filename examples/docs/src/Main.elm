@@ -101,6 +101,9 @@ view model pageOrPost =
         body
             |> Element.layout
                 [ Element.width Element.fill
+                , Font.size 18
+                , Font.family [ Font.typeface "Roboto" ]
+                , Font.color (Element.rgba255 0 0 0 0.8)
                 ]
     }
 
@@ -112,7 +115,10 @@ pageOrPostView model pageOrPost =
             { title = metadata.title
             , body =
                 [ header
-                , Element.column [ Element.padding 50 ]
+                , Element.column
+                    [ Element.padding 50
+                    , Element.spacing 60
+                    ]
                     pageOrPost.view
                 ]
                     |> Element.textColumn
@@ -126,13 +132,14 @@ pageOrPostView model pageOrPost =
                 (header :: pageOrPost.view)
                     |> Element.textColumn
                         [ Element.width Element.fill
+                        , Element.spacing 80
                         ]
             }
 
 
 header : Element msg
 header =
-    Element.row [ Element.padding 20, Element.Border.width 2, Element.spaceEvenly ]
+    Element.row [ Element.padding 20, Element.spaceEvenly ]
         [ Element.el [ Font.size 30 ]
             (Element.link [] { url = "/", label = Element.text "elm-pages" })
         , Element.row [ Element.spacing 15 ]

@@ -247,6 +247,39 @@ Let me know how this technique goes! I’ve gotten a lot of great feedback from 
     title = Home
 
 
+|> Banner
+    A statically /typed/ site generator
+
+|> Boxes
+    |> Box
+        body =
+            |> H2
+                Pure Elm Configuration
+            Layouts, styles, even a full-fledged elm application.
+
+            |> H2
+                Type-Safe Content
+            Configuration, errors for broken links
+
+    |> Box
+        body =
+            |> H2
+                Pure Elm Configuration
+            Layouts, styles, even a full-fledged elm application.
+
+            |> H2
+                Type-Safe Content
+            Configuration, errors for broken links
+
+    |> Box
+        body =
+            |> H2
+                Pure Elm Configuration
+            Layouts, styles, even a full-fledged elm application.
+
+            |> H2
+                Type-Safe Content
+            Configuration, errors for broken links
 
 |> Values
     |> Value

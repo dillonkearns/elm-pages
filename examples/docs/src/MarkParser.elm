@@ -1,6 +1,7 @@
 module MarkParser exposing (document)
 
 import Dict exposing (Dict)
+import Dotted
 import Element exposing (Element)
 import Element.Background
 import Element.Border
@@ -13,6 +14,7 @@ import Mark
 import Mark.Error
 import Metadata exposing (Metadata)
 import Pages.Parser exposing (PageOrPost)
+import Palette
 
 
 normalizedUrl url =
@@ -42,15 +44,31 @@ blocks :
     -> List (Mark.Block (Element msg))
 blocks appData =
     let
+        banner : Mark.Block (Element msg)
+        banner =
+            Mark.block "Banner"
+                (\children ->
+                    Element.paragraph
+                        [ Font.bold
+                        , Font.center
+                        , Font.size 47
+                        , Font.family [ Font.typeface "Montserrat" ]
+                        , Font.color Palette.color.primary
+                        ]
+                        children
+                )
+                text
+
         header : Mark.Block (Element msg)
         header =
             Mark.block "H1"
                 (\children ->
                     Element.paragraph
-                        [ Font.size 36
-                        , Font.bold
+                        [ Font.bold
                         , Font.center
-                        , Font.family [ Font.typeface "Raleway" ]
+                        , Font.size 26
+                        , Font.family [ Font.typeface "Montserrat" ]
+                        , Font.color (Element.rgba255 0 0 0 0.8)
                         ]
                         children
                 )
@@ -61,10 +79,12 @@ blocks appData =
             Mark.block "H2"
                 (\children ->
                     Element.paragraph
-                        [ Font.size 24
+                        [ Font.size 20
                         , Font.semiBold
                         , Font.alignLeft
                         , Font.family [ Font.typeface "Raleway" ]
+                        , Font.family [ Font.typeface "Montserrat" ]
+                        , Font.color (Element.rgba255 0 0 0 0.8)
                         ]
                         children
                 )
@@ -198,14 +218,61 @@ blocks appData =
                 |> Mark.field "title" Mark.string
                 |> Mark.field "body" text
                 |> Mark.toBlock
+
+        boxes =
+            Mark.block "Boxes"
+                (\boxList ->
+                    boxList
+                        |> List.indexedMap
+                            (\index aBox ->
+                                let
+                                    isLast =
+                                        index == (List.length boxList - 1)
+                                in
+                                [ Just aBox
+                                , if isLast then
+                                    Nothing
+
+                                  else
+                                    Just Dotted.lines
+                                ]
+                                    |> List.filterMap identity
+                            )
+                        |> List.concat
+                        |> Element.column [ Element.centerX ]
+                )
+                (Mark.manyOf [ box ])
+
+        box =
+            Mark.record "Box"
+                (\children ->
+                    Element.column
+                        [ Element.centerX
+                        , Element.padding 30
+                        , Element.Border.shadow { offset = ( 2, 2 ), size = 3, blur = 3, color = Element.rgba255 40 80 80 0.1 }
+                        , Element.spacing 15
+                        ]
+                        children
+                )
+                |> Mark.field "body"
+                    (Mark.manyOf
+                        [ header
+                        , h2
+                        , Mark.map (Element.paragraph [ Element.spacing 15 ]) text
+                        ]
+                    )
+                |> Mark.toBlock
     in
     [ header
+    , banner
     , h2
     , image
     , list
     , indexContent appData.indexView
     , code
     , values
+    , boxes
+    , Mark.record "Dotted" Dotted.lines |> Mark.toBlock
     , Mark.map
         (Element.paragraph
             [ Element.spacing 15 ]
