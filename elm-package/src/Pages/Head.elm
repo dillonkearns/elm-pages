@@ -1,4 +1,4 @@
-module Pages.Head exposing (Tag, canonicalLink, metaName, metaProperty, toJson)
+module Pages.Head exposing (Tag, canonicalLink, description, metaName, metaProperty, toJson)
 
 import Json.Encode
 
@@ -40,6 +40,10 @@ metaProperty property content =
         [ ( "property", property )
         , ( "content", content )
         ]
+
+
+description descriptionValue =
+    metaName "description" descriptionValue
 
 
 {-| Example:

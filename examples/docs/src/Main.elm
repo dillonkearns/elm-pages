@@ -193,7 +193,7 @@ pageTags canonicalUrl metadata =
                 image =
                     ""
             in
-            [ Head.metaName "description" description
+            [ Head.description description
             , Head.metaName "image" image
             ]
                 ++ SocialMeta.summaryLarge
