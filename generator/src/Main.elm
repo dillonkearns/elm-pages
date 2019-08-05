@@ -16,7 +16,7 @@ port printAndExitSuccess : String -> Cmd msg
 port printAndExitFailure : String -> Cmd msg
 
 
-generatePage : PageOrPost -> String
+generatePage : Page -> String
 generatePage pageOrPost =
     interpolate """( {0}
       , \"\"\"{1}\"\"\"
@@ -27,7 +27,7 @@ generatePage pageOrPost =
         ]
 
 
-prerenderRcFormattedPath : PageOrPost -> String
+prerenderRcFormattedPath : Page -> String
 prerenderRcFormattedPath pageOrPost =
     pageOrPost.path
         |> dropExtension
@@ -53,7 +53,7 @@ dropIndexFromLast path =
         |> List.reverse
 
 
-preRenderRc : List PageOrPost -> String
+preRenderRc : List Page -> String
 preRenderRc content =
     interpolate """
   module.exports = {
@@ -98,7 +98,7 @@ dropExtension path =
         path
 
 
-generate : List PageOrPost -> List MarkdownContent -> String
+generate : List Page -> List MarkdownContent -> String
 generate content markdownContent =
     interpolate """module RawContent exposing (content)
 
@@ -192,10 +192,10 @@ type alias Flags =
 
 
 type alias Extras =
-    { content : List PageOrPost, markdownContent : List MarkdownContent, images : List String }
+    { content : List Page, markdownContent : List MarkdownContent, images : List String }
 
 
-type alias PageOrPost =
+type alias Page =
     { path : String, contents : String }
 
 

@@ -10,7 +10,7 @@ import Json.Encode
 import Mark
 import Pages.Content as Content exposing (Content)
 import Pages.Head as Head
-import Pages.Parser exposing (PageOrPost)
+import Pages.Parser exposing (Page)
 import Platform.Sub exposing (Sub)
 import Result.Extra
 import Url exposing (Url)
@@ -25,7 +25,7 @@ type alias Program userFlags userModel userMsg metadata view =
 
 
 mainView :
-    (userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg })
+    (userModel -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> { title : String, body : Html userMsg }
 mainView pageOrPostView model =
@@ -40,7 +40,7 @@ mainView pageOrPostView model =
 
 
 pageView :
-    (userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg })
+    (userModel -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Content.Content metadata view
     -> { title : String, body : Html userMsg }
@@ -66,7 +66,7 @@ pageView pageOrPostView model content =
 view :
     Content
     -> Parser metadata view
-    -> (userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg })
+    -> (userModel -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Browser.Document (Msg userMsg)
 view content parser pageOrPostView model =
@@ -250,14 +250,14 @@ type alias Parser metadata view =
     Dict String String
     -> List String
     -> List ( List String, metadata )
-    -> Mark.Document (PageOrPost metadata view)
+    -> Mark.Document (Page metadata view)
 
 
 application :
     { init : Flags userFlags -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> Page metadata view -> { title : String, body : Html userMsg }
     , parser : Parser metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)

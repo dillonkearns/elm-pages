@@ -1,4 +1,4 @@
-module Pages.Parser exposing (AppData, PageOrPost, document, imageSrc, normalizedUrl)
+module Pages.Parser exposing (AppData, Page, document, imageSrc, normalizedUrl)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
@@ -7,7 +7,7 @@ import Mark
 import Mark.Error
 
 
-type alias PageOrPost metadata view =
+type alias Page metadata view =
     { metadata : metadata
     , view : List view
     }
@@ -32,7 +32,7 @@ document :
     Mark.Block metadata
     -> AppData metadata
     -> List (Mark.Block view)
-    -> Mark.Document (PageOrPost metadata view)
+    -> Mark.Document (Page metadata view)
 document metadata appData blocks =
     Mark.documentWith
         (\meta body ->

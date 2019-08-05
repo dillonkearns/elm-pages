@@ -4,7 +4,7 @@ import Element exposing (Element)
 import Element.Border
 import Element.Font
 import Metadata exposing (Metadata)
-import Pages.Parser exposing (PageOrPost)
+import Pages.Parser exposing (Page)
 
 
 view :

@@ -12,7 +12,7 @@ import Index
 import Mark
 import Mark.Error
 import Metadata exposing (Metadata)
-import Pages.Parser exposing (PageOrPost)
+import Pages.Parser exposing (Page)
 
 
 normalizedUrl url =
@@ -26,7 +26,7 @@ document :
     Dict String String
     -> List String
     -> List ( List String, Metadata msg )
-    -> Mark.Document (PageOrPost (Metadata msg) (Element msg))
+    -> Mark.Document (Page (Metadata msg) (Element msg))
 document imageAssets routes parsedMetadata =
     Pages.Parser.document
         (Metadata.metadata imageAssets)

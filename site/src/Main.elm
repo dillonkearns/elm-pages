@@ -17,7 +17,7 @@ import Metadata exposing (Metadata)
 import Pages
 import Pages.Content as Content exposing (Content)
 import Pages.Head as Head
-import Pages.Parser exposing (PageOrPost)
+import Pages.Parser exposing (Page)
 import RawContent
 import Url exposing (Url)
 
@@ -93,7 +93,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> PageOrPost (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
+view : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
 view model pageOrPost =
     let
         { title, body } =
@@ -108,7 +108,7 @@ view model pageOrPost =
     }
 
 
-pageOrPostView : Model -> PageOrPost (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
+pageOrPostView : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
 pageOrPostView model pageOrPost =
     case pageOrPost.metadata of
         Metadata.Page metadata ->
