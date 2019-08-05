@@ -28,10 +28,10 @@ mainView :
     (userModel -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> { title : String, body : Html userMsg }
-mainView pageOrPostView model =
+mainView pageView model =
     case model.parsedContent of
         Ok site ->
-            pageView pageOrPostView model site
+            pageViewOrError pageView model site
 
         Err errorView ->
             { title = "Error parsing"
@@ -39,15 +39,15 @@ mainView pageOrPostView model =
             }
 
 
-pageView :
+pageViewOrError :
     (userModel -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Content.Content metadata view
     -> { title : String, body : Html userMsg }
-pageView pageOrPostView model content =
+pageViewOrError pageView model content =
     case Content.lookup content model.url of
         Just page ->
-            pageOrPostView model.userModel page
+            pageView model.userModel page
 
         Nothing ->
             { title = "Page not found"
@@ -69,10 +69,10 @@ view :
     -> (userModel -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Browser.Document (Msg userMsg)
-view content parser pageOrPostView model =
+view content parser pageView model =
     let
         { title, body } =
-            mainView pageOrPostView model
+            mainView pageView model
     in
     { title = title
     , body =
