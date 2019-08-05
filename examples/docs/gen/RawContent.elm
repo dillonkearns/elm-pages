@@ -283,10 +283,21 @@ Let me know how this technique goes! I’ve gotten a lot of great feedback from 
 
 |> Values
     |> Value
+        title = No magic, just types
+        body =
+            The magic is in how the pieces snap together. The basic platform provided is simple
+
+    |> Value
+        title = Extensible through pure elm
+        body =
+            Behavior is shared through packages exposing simple helper functions to help you build up your data.
+
+    |> Value
         title = If it compiles, it works
         body =
             `elm-pages`{code} just makes more of the things you do in your static site feel like elm. Did you misspell the name of an image asset or a link to a blog post? `elm-pages`{code} will give you a friendly error message and some helpful suggestions.
 
+|> Values
     |> Value
         title = Blazing fast
         body =
