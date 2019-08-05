@@ -43,5 +43,5 @@ tags content =
                 |> List.filterMap
                     (\( name, maybeContent ) ->
                         maybeContent
-                            |> Maybe.map (\metaContent -> Head.metaName name metaContent)
+                            |> Maybe.map (\metaContent -> Head.metaProperty name metaContent)
                     )
