@@ -1,4 +1,4 @@
-module OpenGraph exposing (Image, website)
+module OpenGraph exposing (Image, article, website)
 
 {-| <https://ogp.me/#>
 -}
@@ -20,12 +20,28 @@ website details =
         |> tags
 
 
+{-| See <https://ogp.me/#type_article>
+-}
+article details =
+    Article details
+        |> tags
+
+
 type Content
     = Website
         { url : String
         , name : String
         , image : Image
         , description : Maybe String
+        }
+    | Article
+        { image : Image
+        , name : String
+        , url : String
+        , description : String
+        , tags : List String
+        , section : Maybe String
+        , siteName : String
         }
 
 
@@ -39,6 +55,7 @@ type alias Image =
     }
 
 
+tagsForImage : Image -> List ( String, Maybe String )
 tagsForImage image =
     [ ( "og:image", Just image.url )
     , ( "og:image:alt", Just image.alt )
@@ -47,8 +64,9 @@ tagsForImage image =
     ]
 
 
+tags : Content -> List Head.Tag
 tags content =
-    case content of
+    (case content of
         Website details ->
             tagsForImage details.image
                 ++ [ ( "og:type", Just "website" )
@@ -58,8 +76,23 @@ tags content =
                    , ( "og:title", Just details.name )
                    , ( "og:description", details.description )
                    ]
-                |> List.filterMap
-                    (\( name, maybeContent ) ->
-                        maybeContent
-                            |> Maybe.map (\metaContent -> Head.metaProperty name metaContent)
-                    )
+
+        Article details ->
+            tagsForImage details.image
+                ++ [ ( "og:type", Just "article" )
+                   , ( "og:url", Just details.url )
+                   , ( "og:locale", Just "en" ) -- TODO make locale configurable
+                   , ( "og:site_name", Just details.siteName )
+                   , ( "og:title", Just details.name )
+                   , ( "og:description", Just details.description )
+                   , ( "article:section", details.section )
+                   ]
+                ++ List.map
+                    (\tag -> ( "article:tag", tag |> Just ))
+                    details.tags
+    )
+        |> List.filterMap
+            (\( name, maybeContent ) ->
+                maybeContent
+                    |> Maybe.map (\metaContent -> Head.metaProperty name metaContent)
+            )
