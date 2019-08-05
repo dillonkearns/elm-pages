@@ -111,9 +111,8 @@ combineTupleResults input =
 init :
     (String -> view)
     -> Yaml.Decode.Decoder metadata
-    -> String
     -> (Json.Encode.Value -> Cmd (Msg userMsg))
-    -> (String -> metadata -> List Head.Tag)
+    -> (metadata -> List Head.Tag)
     -> Parser metadata view
     -> Content
     -> (Flags userFlags -> ( userModel, Cmd userMsg ))
@@ -121,7 +120,7 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( Model userModel userMsg metadata view, Cmd (Msg userMsg) )
-init markdownToHtml frontmatterParser siteUrl toJsPort head parser content initUserModel flags url key =
+init markdownToHtml frontmatterParser toJsPort head parser content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
             initUserModel flags
@@ -180,10 +179,7 @@ init markdownToHtml frontmatterParser siteUrl toJsPort head parser content initU
                 }
             , Cmd.batch
                 ([ Content.lookup okMetadata url
-                    |> Maybe.map
-                        (head
-                            (siteUrl ++ url.path)
-                        )
+                    |> Maybe.map head
                     |> Maybe.map encodeHeads
                     |> Maybe.map toJsPort
                  , userCmd |> Cmd.map UserMsg |> Just
@@ -271,15 +267,14 @@ program :
     , parser : Parser metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)
-    , head : String -> metadata -> List Head.Tag
-    , siteUrl : String
+    , head : metadata -> List Head.Tag
     , frontmatterParser : Yaml.Decode.Decoder metadata
     , markdownToHtml : String -> view
     }
     -> Program userFlags userModel userMsg metadata view
 program config =
     Browser.application
-        { init = init config.markdownToHtml config.frontmatterParser config.siteUrl config.toJsPort config.head config.parser config.content config.init
+        { init = init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init
         , view = view config.content config.parser config.view
         , update = update config.update
         , subscriptions =

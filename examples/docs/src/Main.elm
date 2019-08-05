@@ -44,7 +44,6 @@ main =
         , markdownToHtml = markdownToHtml
         , toJsPort = toJsPort
         , head = head
-        , siteUrl = "https://elm-pages.com"
         }
 
 
@@ -156,8 +155,8 @@ header =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : String -> Metadata.Metadata msg -> List Head.Tag
-head canonicalUrl metadata =
+head : Metadata.Metadata msg -> List Head.Tag
+head metadata =
     let
         themeColor =
             "#ffffff"
@@ -165,14 +164,18 @@ head canonicalUrl metadata =
     [ Head.metaName "theme-color" themeColor
     , Head.canonicalLink canonicalUrl
     ]
-        ++ pageTags canonicalUrl metadata
+        ++ pageTags metadata
+
+
+canonicalUrl =
+    "https://elm-pages.com"
 
 
 siteTagline =
     "A statically typed site generator - elm-pages"
 
 
-pageTags canonicalUrl metadata =
+pageTags metadata =
     case metadata of
         Metadata.Page record ->
             OpenGraph.website

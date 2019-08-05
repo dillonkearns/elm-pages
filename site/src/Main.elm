@@ -42,8 +42,11 @@ main =
         , markdownToHtml = markdownToHtml
         , toJsPort = toJsPort
         , head = head
-        , siteUrl = "https://incrementalelm.com"
         }
+
+
+siteUrl =
+    "https://incrementalelm.com"
 
 
 markdownToHtml : String -> Element msg
@@ -140,8 +143,8 @@ header =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : String -> Metadata.Metadata msg -> List Head.Tag
-head canonicalUrl metadata =
+head : Metadata.Metadata msg -> List Head.Tag
+head metadata =
     let
         siteName =
             "Incremental Elm Consulting"
@@ -151,8 +154,8 @@ head canonicalUrl metadata =
     in
     [ Head.metaName "theme-color" themeColor
     , Head.metaProperty "og:site_name" siteName
-    , Head.metaProperty "og:url" canonicalUrl
-    , Head.canonicalLink canonicalUrl
+    , Head.metaProperty "og:url" siteUrl
+    , Head.canonicalLink siteUrl
     ]
         ++ pageTags metadata
 
