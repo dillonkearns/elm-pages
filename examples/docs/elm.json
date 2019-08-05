@@ -19,8 +19,7 @@
             "elm-explorations/markdown": "1.0.0",
             "lukewestby/elm-string-interpolate": "1.0.3",
             "mdgriffith/elm-markup": "3.0.1",
-            "mdgriffith/elm-ui": "1.1.2",
-            "terezka/yaml": "1.0.0"
+            "mdgriffith/elm-ui": "1.1.2"
         },
         "indirect": {
             "elm/parser": "1.1.0",
