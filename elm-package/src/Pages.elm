@@ -67,9 +67,9 @@ view :
     Content
     -> Parser metadata view
     -> (userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg })
-    -> Model userModel userMsg metadata view
+    -> ModelDetails userModel userMsg metadata view
     -> Browser.Document (Msg userMsg)
-view content parser pageOrPostView (Model model) =
+view content parser pageOrPostView model =
     let
         { title, body } =
             mainView pageOrPostView model
@@ -272,7 +272,7 @@ application config =
             \flags url key ->
                 init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init flags url key
                     |> Tuple.mapFirst Model
-        , view = view config.content config.parser config.view
+        , view = \(Model model) -> view config.content config.parser config.view model
         , update = \msg (Model model) -> update config.update msg model |> Tuple.mapFirst Model
         , subscriptions =
             \(Model model) ->
