@@ -2,11 +2,9 @@ module Pages.Content exposing (Content, buildAllData, lookup, parseMetadata)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
-import Index
 import List.Extra
 import Mark
 import Mark.Error
-import MarkParser
 import Pages.Parser exposing (PageOrPost)
 import Result.Extra
 import Url exposing (Url)

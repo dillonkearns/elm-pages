@@ -8,7 +8,6 @@ import Html.Attributes
 import Json.Decode
 import Json.Encode
 import Mark
-import MarkParser
 import Pages.Content as Content exposing (Content)
 import Pages.Head as Head
 import Pages.Parser exposing (PageOrPost)
