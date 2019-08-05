@@ -1,6 +1,7 @@
 module OpenGraph exposing (Image, article, buildCommon, song, website)
 
 {-| <https://ogp.me/#>
+<https://developers.facebook.com/docs/sharing/opengraph>
 -}
 
 import Pages.Head as Head
