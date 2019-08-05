@@ -116,7 +116,7 @@ Example:
 type alias Audio =
     { url : String
     , secureUrl : Maybe String
-    , mimeType : Maybe String
+    , mimeType : Maybe MimeType
     }
 
 
@@ -171,7 +171,7 @@ type alias Image =
     { url : String
     , alt : String
     , dimensions : Maybe { width : Int, height : Int }
-    , mimeType : Maybe String
+    , mimeType : Maybe MimeType
     , secureUrl : Maybe String
     }
 
@@ -190,7 +190,7 @@ tagsForImage image =
 -}
 type alias Video =
     { url : String
-    , mimeType : Maybe String
+    , mimeType : Maybe MimeType
     , dimensions : Maybe { width : Int, height : Int }
     , secureUrl : Maybe String
     }
