@@ -7,7 +7,7 @@
     "exposed-modules": [
         "Pages",
         "Pages.Content",
-        "Pages.HeadTag",
+        "Pages.Head",
         "Pages.Parser"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",

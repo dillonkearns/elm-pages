@@ -1,10 +1,10 @@
-module Pages.HeadTag exposing (HeadTag(..), node, toJson)
+module Pages.Head exposing (Tag, node, toJson)
 
 import Json.Encode
 
 
-type HeadTag
-    = HeadTag Details
+type Tag
+    = Tag Details
 
 
 type alias Details =
@@ -13,16 +13,16 @@ type alias Details =
     }
 
 
-node : String -> List ( String, String ) -> HeadTag
+node : String -> List ( String, String ) -> Tag
 node name attributes =
-    HeadTag
+    Tag
         { name = name
         , attributes = attributes
         }
 
 
-toJson : HeadTag -> Json.Encode.Value
-toJson (HeadTag tag) =
+toJson : Tag -> Json.Encode.Value
+toJson (Tag tag) =
     Json.Encode.object
         [ ( "name", Json.Encode.string tag.name )
         , ( "attributes", Json.Encode.list encodeProperty tag.attributes )

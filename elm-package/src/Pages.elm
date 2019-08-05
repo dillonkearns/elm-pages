@@ -10,7 +10,7 @@ import Json.Encode
 import Mark
 import MarkParser
 import Pages.Content as Content exposing (Content)
-import Pages.HeadTag exposing (HeadTag)
+import Pages.Head as Head
 import Pages.Parser exposing (PageOrPost)
 import Platform.Sub exposing (Sub)
 import Result.Extra
@@ -84,9 +84,9 @@ view content parser pageOrPostView (Model model) =
     }
 
 
-encodeHeadTags : List HeadTag -> Json.Encode.Value
-encodeHeadTags headTags =
-    Json.Encode.list Pages.HeadTag.toJson headTags
+encodeHeads : List Head.Tag -> Json.Encode.Value
+encodeHeads head =
+    Json.Encode.list Head.toJson head
 
 
 type alias Flags userFlags =
@@ -113,7 +113,7 @@ init :
     -> Yaml.Decode.Decoder metadata
     -> String
     -> (Json.Encode.Value -> Cmd (Msg userMsg))
-    -> (String -> metadata -> List HeadTag)
+    -> (String -> metadata -> List Head.Tag)
     -> Parser metadata view
     -> Content
     -> (Flags userFlags -> ( userModel, Cmd userMsg ))
@@ -121,7 +121,7 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( Model userModel userMsg metadata view, Cmd (Msg userMsg) )
-init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content initUserModel flags url key =
+init markdownToHtml frontmatterParser siteUrl toJsPort head parser content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
             initUserModel flags
@@ -181,10 +181,10 @@ init markdownToHtml frontmatterParser siteUrl toJsPort headTags parser content i
             , Cmd.batch
                 ([ Content.lookup okMetadata url
                     |> Maybe.map
-                        (headTags
+                        (head
                             (siteUrl ++ url.path)
                         )
-                    |> Maybe.map encodeHeadTags
+                    |> Maybe.map encodeHeads
                     |> Maybe.map toJsPort
                  , userCmd |> Cmd.map UserMsg |> Just
                  ]
@@ -271,7 +271,7 @@ program :
     , parser : Parser metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)
-    , headTags : String -> metadata -> List HeadTag
+    , head : String -> metadata -> List Head.Tag
     , siteUrl : String
     , frontmatterParser : Yaml.Decode.Decoder metadata
     , markdownToHtml : String -> view
@@ -279,7 +279,7 @@ program :
     -> Program userFlags userModel userMsg metadata view
 program config =
     Browser.application
-        { init = init config.markdownToHtml config.frontmatterParser config.siteUrl config.toJsPort config.headTags config.parser config.content config.init
+        { init = init config.markdownToHtml config.frontmatterParser config.siteUrl config.toJsPort config.head config.parser config.content config.init
         , view = view config.content config.parser config.view
         , update = update config.update
         , subscriptions =

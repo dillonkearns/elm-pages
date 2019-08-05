@@ -15,7 +15,7 @@ import Markdown
 import Metadata exposing (Metadata)
 import Pages
 import Pages.Content as Content exposing (Content)
-import Pages.HeadTag as HeadTag exposing (HeadTag)
+import Pages.Head as Head
 import Pages.Parser exposing (PageOrPost)
 import RawContent
 import Url exposing (Url)
@@ -41,7 +41,7 @@ main =
         , content = RawContent.content
         , markdownToHtml = markdownToHtml
         , toJsPort = toJsPort
-        , headTags = headTags
+        , head = head
         , siteUrl = "https://elm-pages.com"
         }
 
@@ -154,8 +154,8 @@ header =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-headTags : String -> Metadata.Metadata msg -> List HeadTag
-headTags canonicalUrl metadata =
+head : String -> Metadata.Metadata msg -> List Head.Tag
+head canonicalUrl metadata =
     let
         siteName =
             "A statically typed site generator - elm-pages"
@@ -163,16 +163,16 @@ headTags canonicalUrl metadata =
         themeColor =
             "#ffffff"
     in
-    [ HeadTag.node "meta" [ ( "name", "theme-color" ), ( "content", themeColor ) ]
-    , HeadTag.node "meta"
+    [ Head.node "meta" [ ( "name", "theme-color" ), ( "content", themeColor ) ]
+    , Head.node "meta"
         [ ( "property", "og:site_name" )
         , ( "content", siteName )
         ]
-    , HeadTag.node "meta"
+    , Head.node "meta"
         [ ( "property", "og:url" )
         , ( "content", canonicalUrl )
         ]
-    , HeadTag.node "link"
+    , Head.node "link"
         [ ( "rel", "canonical" )
         , ( "href", canonicalUrl )
         ]
@@ -205,43 +205,43 @@ pageTags metadata =
                 image =
                     ""
             in
-            [ HeadTag.node "meta"
+            [ Head.node "meta"
                 [ ( "property", "og:title" )
                 , ( "content", title )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "name", "description" )
                 , ( "content", description )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "property", "og:description" )
                 , ( "content", description )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "property", "og:image" )
                 , ( "content", image )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "name", "image" )
                 , ( "content", image )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "property", "og:type" )
                 , ( "content", "article" )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "name", "twitter:card" )
                 , ( "content", "summary_large_image" )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "name", "twitter:description" )
                 , ( "content", meta.title.raw )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "name", "twitter:image" )
                 , ( "content", image )
                 ]
-            , HeadTag.node "meta"
+            , Head.node "meta"
                 [ ( "name", "twitter:image:alt" )
                 , ( "content", description )
                 ]

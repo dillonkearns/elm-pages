@@ -9,19 +9,19 @@ document.addEventListener("DOMContentLoaded", function() {
     flags: { imageAssets, routes }
   });
 
-  app.ports.toJsPort.subscribe((headTags: [headTag]) => {
+  app.ports.toJsPort.subscribe((Heads: [Head]) => {
     if (navigator.userAgent.indexOf("Headless") >= 0) {
-      headTags.forEach(headTag => {
-        appendTag(headTag);
+      Heads.forEach(Head => {
+        appendTag(Head);
       });
     }
     document.dispatchEvent(new Event("prerender-trigger"));
   });
 });
 
-type headTag = { name: string; attributes: [[string, string]] };
+type Head = { name: string; attributes: [[string, string]] };
 
-function appendTag(tagDetails: headTag) {
+function appendTag(tagDetails: Head) {
   const meta = document.createElement(tagDetails.name);
   tagDetails.attributes.forEach(([name, value]) => {
     meta.setAttribute(name, value);
