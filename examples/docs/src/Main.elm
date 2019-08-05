@@ -181,7 +181,7 @@ pageTags metadata =
             OpenGraph.website
                 { url = canonicalUrl
                 , name = "elm-pages"
-                , imageUrl = ""
+                , image = { url = "", alt = "", dimensions = Nothing, secureUrl = Nothing }
                 , description = Just siteTagline
                 }
 
