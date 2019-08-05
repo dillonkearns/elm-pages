@@ -9,7 +9,8 @@
   "license": "BSD-3",
   "dependencies": {
     "chokidar": "^2.1.5",
-    "glob": "^7.1.4"
+    "glob": "^7.1.4",
+    "gray-matter": "^4.0.2"
   },
   "devDependencies": {
     "@types/chokidar": "^2.1.3",

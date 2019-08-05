@@ -4,6 +4,8 @@ import { version } from "../../package.json";
 import * as fs from "fs";
 import * as glob from "glob";
 import * as chokidar from "chokidar";
+// @ts-ignore
+const matter = require("gray-matter");
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -13,10 +15,21 @@ function unpackFile(path: string) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
+type Result = { path: string; metadata: any; body: string };
+function parseMarkdown(path: string, fileContents: string): Result {
+  const { content, data } = matter(fileContents);
+  return { path, metadata: JSON.stringify(data), body: content };
+}
+
 function run() {
   console.log("Running elm-pages...");
   const content = glob.sync(contentGlobPath, {}).map(unpackFile);
-  const markdownContent = glob.sync("content/**/*.md", {}).map(unpackFile);
+  const markdownContent = glob
+    .sync("content/**/*.md", {})
+    .map(unpackFile)
+    .map(({ path, contents }: { path: string; contents: string }) => {
+      return parseMarkdown(path, contents);
+    });
   const images = glob
     .sync("images/**/*", {})
     .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());

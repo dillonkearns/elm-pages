@@ -74,7 +74,7 @@ prerenderPaths content =
         |> String.join ", "
 
 
-pathFor : PageOrPost -> String
+pathFor : { entry | path : String } -> String
 pathFor pageOrPost =
     pageOrPost.path
         |> dropExtension
@@ -98,7 +98,7 @@ dropExtension path =
         path
 
 
-generate : List PageOrPost -> List PageOrPost -> String
+generate : List PageOrPost -> List MarkdownContent -> String
 generate content markdownContent =
     interpolate """module RawContent exposing (content)
 
@@ -156,10 +156,11 @@ splitAtClosingDelimeter lines =
         |> Tuple.mapBoth (String.join "\n") (String.join "\n")
 
 
+generateMarkdownPage : MarkdownContent -> String
 generateMarkdownPage markdown =
     let
         ( frontmatter, body ) =
-            splitMarkdown markdown.contents
+            ( markdown.metadata, markdown.body )
     in
     interpolate """( {0}
   , { frontMatter = \"\"\"{1}
@@ -191,11 +192,15 @@ type alias Flags =
 
 
 type alias Extras =
-    { content : List PageOrPost, markdownContent : List PageOrPost, images : List String }
+    { content : List PageOrPost, markdownContent : List MarkdownContent, images : List String }
 
 
 type alias PageOrPost =
     { path : String, contents : String }
+
+
+type alias MarkdownContent =
+    { path : String, metadata : String, body : String }
 
 
 init : Flags -> CliOptions -> Cmd Never
