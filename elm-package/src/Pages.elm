@@ -26,9 +26,9 @@ type alias Program userFlags userModel userMsg metadata view =
 
 mainView :
     (userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg })
-    -> Model userModel userMsg metadata view
+    -> ModelDetails userModel userMsg metadata view
     -> { title : String, body : Html userMsg }
-mainView pageOrPostView (Model model) =
+mainView pageOrPostView model =
     case model.parsedContent of
         Ok site ->
             pageView pageOrPostView model site
@@ -72,7 +72,7 @@ view :
 view content parser pageOrPostView (Model model) =
     let
         { title, body } =
-            mainView pageOrPostView (Model model)
+            mainView pageOrPostView model
     in
     { title = title
     , body =
@@ -223,20 +223,20 @@ type alias ModelDetails userModel userMsg metadata view =
 update :
     (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
-    -> Model userModel userMsg metadata view
-    -> ( Model userModel userMsg metadata view, Cmd (Msg userMsg) )
-update userUpdate msg (Model model) =
+    -> ModelDetails userModel userMsg metadata view
+    -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg) )
+update userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( Model model, Browser.Navigation.pushUrl model.key (Url.toString url) )
+                    ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
 
                 Browser.External href ->
-                    ( Model model, Browser.Navigation.load href )
+                    ( model, Browser.Navigation.load href )
 
         UrlChanged url ->
-            ( Model { model | url = url }
+            ( { model | url = url }
             , Cmd.none
             )
 
@@ -245,7 +245,7 @@ update userUpdate msg (Model model) =
                 ( userModel, userCmd ) =
                     userUpdate userMsg model.userModel
             in
-            ( Model { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
+            ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
 
 
 type alias Parser metadata view =
@@ -272,7 +272,7 @@ application config =
     Browser.application
         { init = init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init
         , view = view config.content config.parser config.view
-        , update = update config.update
+        , update = \msg (Model model) -> update config.update msg model |> Tuple.mapFirst Model
         , subscriptions =
             \(Model model) ->
                 config.subscriptions model.userModel
