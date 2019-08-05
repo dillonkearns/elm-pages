@@ -36,6 +36,7 @@ tags content =
             , ( "og:url", Just details.url )
             , ( "og:locale", Just "en" )
             , ( "og:site_name", Just details.name )
+            , ( "og:title", Just details.name )
             , ( "og:image", Just details.imageUrl )
             , ( "og:description", details.description )
             ]
