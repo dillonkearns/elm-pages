@@ -244,7 +244,7 @@ Let me know how this technique goes! I’ve gotten a lot of great feedback from 
 
   ,( []
       , """|> Page
-    title = Home
+    title = elm-pages - a statically typed site generator
 
 
 |> Banner

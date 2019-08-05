@@ -1,5 +1,5 @@
 |> Page
-    title = Home
+    title = elm-pages - a statically typed site generator
 
 
 |> Banner
