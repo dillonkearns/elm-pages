@@ -3,6 +3,8 @@ module SocialMeta exposing (summaryLarge, summaryRegular)
 import Pages.Head as Head
 
 
+{-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>
+-}
 summaryRegular details =
     Summary
         { title = details.title
@@ -14,6 +16,8 @@ summaryRegular details =
         |> tags
 
 
+{-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary-card-with-large-image.html>
+-}
 summaryLarge details =
     Summary
         { title = details.title
@@ -40,9 +44,7 @@ type SummarySize
 
 
 type TwitterCard
-    = -- https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary
-      -- https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary-card-with-large-image.html
-      Summary
+    = Summary
         { title : String
         , description : Maybe String
         , siteUser : Maybe String
