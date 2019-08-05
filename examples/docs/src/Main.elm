@@ -180,9 +180,20 @@ pageTags metadata =
         Metadata.Page record ->
             OpenGraph.website
                 { url = canonicalUrl
-                , name = "elm-pages"
-                , image = { url = "", alt = "", dimensions = Nothing, secureUrl = Nothing }
-                , description = Just siteTagline
+                , siteName = "elm-pages"
+                , image =
+                    { url = ""
+                    , alt = ""
+                    , dimensions = Nothing
+                    , secureUrl = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = siteTagline
+                , alternateLocales = []
+                , audio = Nothing
+                , locale = Nothing
+                , title = "elm-pages"
+                , video = Nothing
                 }
 
         Metadata.Article meta ->
@@ -214,11 +225,20 @@ pageTags metadata =
                         , alt = description
                         , dimensions = Nothing
                         , secureUrl = Nothing
+                        , mimeType = Nothing
                         }
-                    , name = title
+                    , title = title
                     , url = url
                     , description = ""
-                    , tags = []
-                    , section = Nothing
                     , siteName = "elm-pages"
+                    , alternateLocales = []
+                    , audio = Nothing
+                    , locale = Nothing
+                    , video = Nothing
+                    }
+                    { tags = []
+                    , section = Nothing
+                    , publishedTime = Nothing
+                    , modifiedTime = Nothing
+                    , expirationTime = Nothing
                     }
