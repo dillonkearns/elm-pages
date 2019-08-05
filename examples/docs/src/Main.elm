@@ -42,7 +42,7 @@ main =
         , markdownToHtml = markdownToHtml
         , toJsPort = toJsPort
         , headTags = headTags
-        , siteUrl = "https://incrementalelm.com"
+        , siteUrl = "https://elm-pages.com"
         }
 
 
@@ -158,7 +158,7 @@ headTags : String -> Metadata.Metadata msg -> List HeadTag
 headTags canonicalUrl metadata =
     let
         siteName =
-            "Incremental Elm Consulting"
+            "A statically typed site generator - elm-pages"
 
         themeColor =
             "#ffffff"
@@ -202,12 +202,6 @@ pageTags metadata =
                 title =
                     meta.title.raw
 
-                twitterUsername =
-                    "dillontkearns"
-
-                twitterSiteAccount =
-                    "incrementalelm"
-
                 image =
                     ""
             in
@@ -238,14 +232,6 @@ pageTags metadata =
             , HeadTag.node "meta"
                 [ ( "name", "twitter:card" )
                 , ( "content", "summary_large_image" )
-                ]
-            , HeadTag.node "meta"
-                [ ( "name", "twitter:creator" )
-                , ( "content", ensureAtPrefix twitterUsername )
-                ]
-            , HeadTag.node "meta"
-                [ ( "name", "twitter:site" )
-                , ( "content", ensureAtPrefix twitterSiteAccount )
                 ]
             , HeadTag.node "meta"
                 [ ( "name", "twitter:description" )
