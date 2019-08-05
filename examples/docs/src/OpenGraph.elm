@@ -149,6 +149,19 @@ type Content
         , isbn : Maybe String
         , releaseDate : Maybe Iso8601DateTime
         }
+    | Song
+        {-
+
+           TODO
+           music:album - music.album array - The album this song is from.
+           music:musician - profile array - The musician that made this song.
+        -}
+        Common
+        { duration : Maybe Int
+        , album : Maybe Int
+        , disc : Maybe Int
+        , track : Maybe Int
+        }
 
 
 {-| <https://en.wikipedia.org/wiki/ISO_8601>
@@ -238,6 +251,14 @@ tags content =
                 ++ List.map
                     (\tag -> ( "book:tag", tag |> Just ))
                     details.tags
+
+        Song common details ->
+            tagsForCommon common
+                ++ [ ( "og:type", Just "music.song" )
+                   , ( "music:duration", details.duration |> Maybe.map String.fromInt )
+                   , ( "music:album:disc", details.disc |> Maybe.map String.fromInt )
+                   , ( "music:album:track", details.track |> Maybe.map String.fromInt )
+                   ]
     )
         |> List.filterMap
             (\( name, maybeContent ) ->
