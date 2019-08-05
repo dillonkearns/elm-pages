@@ -117,7 +117,7 @@ init :
     -> Flags userFlags
     -> Url
     -> Browser.Navigation.Key
-    -> ( Model userModel userMsg metadata view, Cmd (Msg userMsg) )
+    -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg) )
 init markdownToHtml frontmatterParser toJsPort head parser content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
@@ -154,12 +154,11 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
     in
     case metadata of
         Ok okMetadata ->
-            ( Model
-                { key = key
-                , url = url
-                , imageAssets = imageAssets
-                , userModel = userModel
-                , parsedContent =
+            ( { key = key
+              , url = url
+              , imageAssets = imageAssets
+              , userModel = userModel
+              , parsedContent =
                     metadata
                         |> Result.andThen
                             (\m ->
@@ -169,7 +168,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                                     |> Result.Extra.combine
                                     |> Result.map List.concat
                             )
-                }
+              }
             , Cmd.batch
                 ([ Content.lookup okMetadata url
                     |> Maybe.map head
@@ -182,18 +181,17 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
             )
 
         Err _ ->
-            ( Model
-                { key = key
-                , url = url
-                , imageAssets = imageAssets
-                , userModel = userModel
-                , parsedContent =
+            ( { key = key
+              , url = url
+              , imageAssets = imageAssets
+              , userModel = userModel
+              , parsedContent =
                     metadata
                         |> Result.andThen
                             (\m ->
                                 Content.buildAllData m parser imageAssets content.markup
                             )
-                }
+              }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
                 ]
@@ -270,7 +268,10 @@ application :
     -> Program userFlags userModel userMsg metadata view
 application config =
     Browser.application
-        { init = init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init
+        { init =
+            \flags url key ->
+                init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init flags url key
+                    |> Tuple.mapFirst Model
         , view = view config.content config.parser config.view
         , update = \msg (Model model) -> update config.update msg model |> Tuple.mapFirst Model
         , subscriptions =
