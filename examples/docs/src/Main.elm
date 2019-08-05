@@ -91,10 +91,10 @@ subscriptions _ =
 
 
 view : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
-view model pageOrPost =
+view model page =
     let
         { title, body } =
-            pageOrPostView model pageOrPost
+            pageOrPostView model page
     in
     { title = title
     , body =
@@ -109,8 +109,8 @@ view model pageOrPost =
 
 
 pageOrPostView : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
-pageOrPostView model pageOrPost =
-    case pageOrPost.metadata of
+pageOrPostView model page =
+    case page.metadata of
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
@@ -119,7 +119,7 @@ pageOrPostView model pageOrPost =
                     [ Element.padding 50
                     , Element.spacing 60
                     ]
-                    pageOrPost.view
+                    page.view
                 ]
                     |> Element.textColumn
                         [ Element.width Element.fill
@@ -129,7 +129,7 @@ pageOrPostView model pageOrPost =
         Metadata.Article metadata ->
             { title = metadata.title.raw
             , body =
-                (header :: pageOrPost.view)
+                (header :: page.view)
                     |> Element.textColumn
                         [ Element.width Element.fill
                         , Element.spacing 80

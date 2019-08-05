@@ -46,8 +46,8 @@ pageView :
     -> { title : String, body : Html userMsg }
 pageView pageOrPostView model content =
     case Content.lookup content model.url of
-        Just pageOrPost ->
-            pageOrPostView model.userModel pageOrPost
+        Just page ->
+            pageOrPostView model.userModel page
 
         Nothing ->
             { title = "Page not found"

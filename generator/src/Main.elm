@@ -17,19 +17,19 @@ port printAndExitFailure : String -> Cmd msg
 
 
 generatePage : Page -> String
-generatePage pageOrPost =
+generatePage page =
     interpolate """( {0}
       , \"\"\"{1}\"\"\"
       )
 """
-        [ pathFor pageOrPost
-        , pageOrPost.contents
+        [ pathFor page
+        , page.contents
         ]
 
 
 prerenderRcFormattedPath : Page -> String
-prerenderRcFormattedPath pageOrPost =
-    pageOrPost.path
+prerenderRcFormattedPath page =
+    page.path
         |> dropExtension
         |> String.split "/"
         |> dropIndexFromLast
@@ -75,8 +75,8 @@ prerenderPaths content =
 
 
 pathFor : { entry | path : String } -> String
-pathFor pageOrPost =
-    pageOrPost.path
+pathFor page =
+    page.path
         |> dropExtension
         |> String.split "/"
         |> List.drop 1
