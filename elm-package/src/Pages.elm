@@ -31,7 +31,7 @@ mainView :
 mainView pageOrPostView (Model model) =
     case model.parsedContent of
         Ok site ->
-            pageView pageOrPostView (Model model) site
+            pageView pageOrPostView model site
 
         Err errorView ->
             { title = "Error parsing"
@@ -41,10 +41,10 @@ mainView pageOrPostView (Model model) =
 
 pageView :
     (userModel -> PageOrPost metadata view -> { title : String, body : Html userMsg })
-    -> Model userModel userMsg metadata view
+    -> ModelDetails userModel userMsg metadata view
     -> Content.Content metadata view
     -> { title : String, body : Html userMsg }
-pageView pageOrPostView (Model model) content =
+pageView pageOrPostView model content =
     case Content.lookup content model.url of
         Just pageOrPost ->
             pageOrPostView model.userModel pageOrPost
@@ -208,13 +208,16 @@ type Msg userMsg
 
 
 type Model userModel userMsg metadata view
-    = Model
-        { key : Browser.Navigation.Key
-        , url : Url.Url
-        , imageAssets : Dict String String
-        , parsedContent : Result (Html userMsg) (Content.Content metadata view)
-        , userModel : userModel
-        }
+    = Model (ModelDetails userModel userMsg metadata view)
+
+
+type alias ModelDetails userModel userMsg metadata view =
+    { key : Browser.Navigation.Key
+    , url : Url.Url
+    , imageAssets : Dict String String
+    , parsedContent : Result (Html userMsg) (Content.Content metadata view)
+    , userModel : userModel
+    }
 
 
 update :
