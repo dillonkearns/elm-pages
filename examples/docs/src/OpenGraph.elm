@@ -276,3 +276,19 @@ tags (Content common details) =
                 maybeContent
                     |> Maybe.map (\metaContent -> Head.metaProperty name metaContent)
             )
+
+
+
+{-
+   TODO remaining types:
+
+
+   - music.album
+   - music.playlist
+   - music.radio_station
+   - video.movie
+   - video.episode
+   - video.tv_show
+   - video.other
+
+-}
