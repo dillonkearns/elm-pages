@@ -13,7 +13,7 @@ content =
 markdown : List ( List String, { frontMatter : String, body : String } )
 markdown =
     [ ( ["markdown"]
-  , { frontMatter = """title: This is a markdown article
+  , { frontMatter = """{"title":"This is a markdown article"}
 """
     , body = """
 # Hey there 👋

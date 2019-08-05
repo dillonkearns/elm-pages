@@ -6,6 +6,7 @@ import Element exposing (Element)
 import Element.Border
 import Element.Font as Font
 import Html exposing (Html)
+import Json.Decode
 import Json.Encode
 import List.Extra
 import Mark
@@ -21,7 +22,6 @@ import Pages.Parser exposing (PageOrPost)
 import RawContent
 import SocialMeta
 import Url exposing (Url)
-import Yaml.Decode
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -60,11 +60,11 @@ markdownToHtml body =
         |> Element.html
 
 
-frontmatterParser : Yaml.Decode.Decoder (Metadata.Metadata msg)
+frontmatterParser : Json.Decode.Decoder (Metadata.Metadata msg)
 frontmatterParser =
-    Yaml.Decode.field "title" Yaml.Decode.string
-        |> Yaml.Decode.map Metadata.PageMetadata
-        |> Yaml.Decode.map Metadata.Page
+    Json.Decode.field "title" Json.Decode.string
+        |> Json.Decode.map Metadata.PageMetadata
+        |> Json.Decode.map Metadata.Page
 
 
 type alias Model =

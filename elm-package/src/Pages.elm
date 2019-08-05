@@ -15,7 +15,6 @@ import Pages.Parser exposing (PageOrPost)
 import Platform.Sub exposing (Sub)
 import Result.Extra
 import Url exposing (Url)
-import Yaml.Decode
 
 
 type alias Content =
@@ -110,7 +109,7 @@ combineTupleResults input =
 
 init :
     (String -> view)
-    -> Yaml.Decode.Decoder metadata
+    -> Json.Decode.Decoder metadata
     -> (Json.Encode.Value -> Cmd (Msg userMsg))
     -> (metadata -> List Head.Tag)
     -> Parser metadata view
@@ -136,16 +135,11 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                 |> List.map
                     (Tuple.mapSecond
                         (\{ frontMatter, body } ->
-                            Yaml.Decode.fromString frontmatterParser frontMatter
+                            Json.Decode.decodeString frontmatterParser frontMatter
                                 |> Result.map (\parsedFrontmatter -> { parsedFrontmatter = parsedFrontmatter, body = body })
                                 |> Result.mapError
                                     (\error ->
-                                        case error of
-                                            Yaml.Decode.Parsing string ->
-                                                Html.text string
-
-                                            Yaml.Decode.Decoding string ->
-                                                Html.text string
+                                        Html.text (Json.Decode.errorToString error)
                                     )
                         )
                     )
@@ -268,7 +262,7 @@ application :
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)
     , head : metadata -> List Head.Tag
-    , frontmatterParser : Yaml.Decode.Decoder metadata
+    , frontmatterParser : Json.Decode.Decoder metadata
     , markdownToHtml : String -> view
     }
     -> Program userFlags userModel userMsg metadata view
