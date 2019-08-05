@@ -133,7 +133,7 @@ tags content =
 
         Book details ->
             tagsForImage details.image
-                ++ [ ( "og:type", Just "article" )
+                ++ [ ( "og:type", Just "book" )
                    , ( "og:url", Just details.url )
                    , ( "og:locale", Just "en" ) -- TODO make locale configurable
                    , ( "og:site_name", Just details.siteName )
