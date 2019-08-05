@@ -16,8 +16,7 @@ website :
     }
     -> List Head.Tag
 website details =
-    Website details
-        |> tags
+    Website details |> tags
 
 
 {-| See <https://ogp.me/#type_article>
@@ -33,8 +32,24 @@ article :
     }
     -> List Head.Tag
 article details =
-    Article details
-        |> tags
+    Article details |> tags
+
+
+{-| See <https://ogp.me/#type_book>
+-}
+book :
+    { image : Image
+    , title : String
+    , url : String
+    , description : String
+    , tags : List String
+    , siteName : String
+    , isbn : Maybe String
+    , releaseDate : Maybe ISO8601DateTime
+    }
+    -> List Head.Tag
+book details =
+    Book details |> tags
 
 
 type Content
@@ -53,6 +68,21 @@ type Content
         , section : Maybe String
         , siteName : String
         }
+    | Book
+        { image : Image
+        , title : String
+        , url : String
+        , description : String
+        , tags : List String
+        , siteName : String
+        , isbn : Maybe String
+        , releaseDate : Maybe ISO8601DateTime
+        }
+
+
+type alias ISO8601DateTime =
+    -- TODO should be more type-safe here
+    String
 
 
 {-| See <https://ogp.me/#structured>
@@ -99,6 +129,21 @@ tags content =
                    ]
                 ++ List.map
                     (\tag -> ( "article:tag", tag |> Just ))
+                    details.tags
+
+        Book details ->
+            tagsForImage details.image
+                ++ [ ( "og:type", Just "article" )
+                   , ( "og:url", Just details.url )
+                   , ( "og:locale", Just "en" ) -- TODO make locale configurable
+                   , ( "og:site_name", Just details.siteName )
+                   , ( "og:title", Just details.title )
+                   , ( "og:description", Just details.description )
+                   , ( "og:isbn", details.isbn )
+                   , ( "og:release_date", details.releaseDate )
+                   ]
+                ++ List.map
+                    (\tag -> ( "book:tag", tag |> Just ))
                     details.tags
     )
         |> List.filterMap
