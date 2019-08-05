@@ -299,6 +299,12 @@ Let me know how this technique goes! I’ve gotten a lot of great feedback from 
 
 |> Values
     |> Value
+        title = An extended elm platform
+        body =
+            `elm-pages`{code} is just elm, but with a broader set of primitives for declaring meta tags to improve SEO, or generate RSS feeds and other files based on your static content.
+
+
+    |> Value
         title = Blazing fast
         body =
             All you have to do is create your content and choose how to present it. Optimized images, pre-rendered pages, and a snappy lightweight single-page app all come for free.
