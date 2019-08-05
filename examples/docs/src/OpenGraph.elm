@@ -1,9 +1,29 @@
-module OpenGraph exposing (Image, article, website)
+module OpenGraph exposing (Image, article, buildCommon, website)
 
 {-| <https://ogp.me/#>
 -}
 
 import Pages.Head as Head
+
+
+buildCommon : { url : String, siteName : String, image : { url : String, alt : String }, description : String, title : String } -> Common
+buildCommon builder =
+    { title = builder.title
+    , image =
+        { url = builder.image.url
+        , alt = builder.image.alt
+        , dimensions = Nothing
+        , mimeType = Nothing
+        , secureUrl = Nothing
+        }
+    , url = builder.url
+    , description = builder.description
+    , siteName = builder.siteName
+    , audio = Nothing
+    , video = Nothing
+    , locale = Nothing
+    , alternateLocales = []
+    }
 
 
 {-| <https://ogp.me/#type_website>

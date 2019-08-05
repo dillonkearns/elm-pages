@@ -179,22 +179,17 @@ pageTags metadata =
     case metadata of
         Metadata.Page record ->
             OpenGraph.website
-                { url = canonicalUrl
-                , siteName = "elm-pages"
-                , image =
-                    { url = ""
-                    , alt = ""
-                    , dimensions = Nothing
-                    , secureUrl = Nothing
-                    , mimeType = Nothing
+                (OpenGraph.buildCommon
+                    { url = canonicalUrl
+                    , siteName = "elm-pages"
+                    , image =
+                        { url = ""
+                        , alt = ""
+                        }
+                    , description = siteTagline
+                    , title = "elm-pages"
                     }
-                , description = siteTagline
-                , alternateLocales = []
-                , audio = Nothing
-                , locale = Nothing
-                , title = "elm-pages"
-                , video = Nothing
-                }
+                )
 
         Metadata.Article meta ->
             let
@@ -204,38 +199,33 @@ pageTags metadata =
                 title =
                     meta.title.raw
 
-                image =
+                imageUrl =
                     ""
 
                 url =
                     canonicalUrl
             in
             [ Head.description description
-            , Head.metaName "image" image
+            , Head.metaName "image" imageUrl
             ]
                 ++ SocialMeta.summaryLarge
                     { title = meta.title.raw
                     , description = Just description
                     , siteUser = Nothing
-                    , image = Just { url = image, alt = description }
+                    , image = Just { url = imageUrl, alt = description }
                     }
                 ++ OpenGraph.article
-                    { image =
-                        { url = image
-                        , alt = description
-                        , dimensions = Nothing
-                        , secureUrl = Nothing
-                        , mimeType = Nothing
+                    (OpenGraph.buildCommon
+                        { url = url
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = imageUrl
+                            , alt = description
+                            }
+                        , description = description
+                        , title = title
                         }
-                    , title = title
-                    , url = url
-                    , description = ""
-                    , siteName = "elm-pages"
-                    , alternateLocales = []
-                    , audio = Nothing
-                    , locale = Nothing
-                    , video = Nothing
-                    }
+                    )
                     { tags = []
                     , section = Nothing
                     , publishedTime = Nothing
