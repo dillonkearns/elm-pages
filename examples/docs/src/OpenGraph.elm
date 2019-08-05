@@ -31,8 +31,8 @@ buildCommon builder =
 website :
     Common
     -> List Head.Tag
-website details =
-    Website details |> tags
+website common =
+    Website |> Content common |> tags
 
 
 {-| See <https://ogp.me/#type_article>
@@ -48,7 +48,7 @@ article :
         }
     -> List Head.Tag
 article common details =
-    Article common details |> tags
+    Article details |> Content common |> tags
 
 
 {-| See <https://ogp.me/#type_book>
@@ -62,7 +62,7 @@ book :
         }
     -> List Head.Tag
 book common details =
-    Book common details |> tags
+    Book details |> Content common |> tags
 
 
 {-| These fields apply to any type in the og object types
@@ -134,9 +134,12 @@ type alias Locale =
 
 
 type Content
-    = Website Common
+    = Content Common ContentDetails
+
+
+type ContentDetails
+    = Website
     | Article
-        Common
         { tags : List String
         , section : Maybe String
         , publishedTime : Maybe Iso8601DateTime
@@ -144,7 +147,6 @@ type Content
         , expirationTime : Maybe Iso8601DateTime
         }
     | Book
-        Common
         { tags : List String
         , isbn : Maybe String
         , releaseDate : Maybe Iso8601DateTime
@@ -156,7 +158,6 @@ type Content
            music:album - music.album array - The album this song is from.
            music:musician - profile array - The musician that made this song.
         -}
-        Common
         { duration : Maybe Int
         , album : Maybe Int
         , disc : Maybe Int
@@ -219,47 +220,44 @@ tagsForVideo video =
 
 
 tags : Content -> List Head.Tag
-tags content =
-    (case content of
-        Website common ->
-            tagsForCommon common
-                ++ [ ( "og:type", Just "website" )
-                   ]
+tags (Content common details) =
+    tagsForCommon common
+        ++ (case details of
+                Website ->
+                    [ ( "og:type", Just "website" )
+                    ]
 
-        Article common details ->
-            {-
-               TODO
-               - article:author - profile array - Writers of the article.
-            -}
-            tagsForCommon common
-                ++ [ ( "og:type", Just "article" )
-                   , ( "article:section", details.section )
-                   , ( "article:published_time", details.publishedTime )
-                   , ( "article:modified_time", details.modifiedTime )
-                   , ( "article:expiration_time", details.expirationTime )
-                   ]
-                ++ List.map
-                    (\tag -> ( "article:tag", tag |> Just ))
-                    details.tags
+                Article articleDetails ->
+                    {-
+                       TODO
+                       - article:author - profile array - Writers of the article.
+                    -}
+                    [ ( "og:type", Just "article" )
+                    , ( "article:section", articleDetails.section )
+                    , ( "article:published_time", articleDetails.publishedTime )
+                    , ( "article:modified_time", articleDetails.modifiedTime )
+                    , ( "article:expiration_time", articleDetails.expirationTime )
+                    ]
+                        ++ List.map
+                            (\tag -> ( "article:tag", tag |> Just ))
+                            articleDetails.tags
 
-        Book common details ->
-            tagsForCommon common
-                ++ [ ( "og:type", Just "book" )
-                   , ( "og:isbn", details.isbn )
-                   , ( "og:release_date", details.releaseDate )
-                   ]
-                ++ List.map
-                    (\tag -> ( "book:tag", tag |> Just ))
-                    details.tags
+                Book bookDetails ->
+                    [ ( "og:type", Just "book" )
+                    , ( "og:isbn", bookDetails.isbn )
+                    , ( "og:release_date", bookDetails.releaseDate )
+                    ]
+                        ++ List.map
+                            (\tag -> ( "book:tag", tag |> Just ))
+                            bookDetails.tags
 
-        Song common details ->
-            tagsForCommon common
-                ++ [ ( "og:type", Just "music.song" )
-                   , ( "music:duration", details.duration |> Maybe.map String.fromInt )
-                   , ( "music:album:disc", details.disc |> Maybe.map String.fromInt )
-                   , ( "music:album:track", details.track |> Maybe.map String.fromInt )
-                   ]
-    )
+                Song songDetails ->
+                    [ ( "og:type", Just "music.song" )
+                    , ( "music:duration", songDetails.duration |> Maybe.map String.fromInt )
+                    , ( "music:album:disc", songDetails.disc |> Maybe.map String.fromInt )
+                    , ( "music:album:track", songDetails.track |> Maybe.map String.fromInt )
+                    ]
+           )
         |> List.filterMap
             (\( name, maybeContent ) ->
                 maybeContent
