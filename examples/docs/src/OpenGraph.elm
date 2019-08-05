@@ -88,6 +88,7 @@ type alias Common =
 
 tagsForCommon common =
     tagsForImage common.image
+        ++ (common.audio |> Maybe.map tagsForAudio |> Maybe.withDefault [])
         ++ (common.video |> Maybe.map tagsForVideo |> Maybe.withDefault [])
         ++ [ ( "og:title", Just common.title )
            , ( "og:url", Just common.url )
