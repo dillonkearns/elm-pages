@@ -49,8 +49,7 @@ blocks appData =
             Mark.block "Banner"
                 (\children ->
                     Element.paragraph
-                        [ Font.bold
-                        , Font.center
+                        [ Font.center
                         , Font.size 47
                         , Font.family [ Font.typeface "Montserrat" ]
                         , Font.color Palette.color.primary

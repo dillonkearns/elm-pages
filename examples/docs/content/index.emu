@@ -3,7 +3,7 @@
 
 
 |> Banner
-    A statically /typed/ site generator
+    A *statically typed* site generator
 
 |> Boxes
     |> Box

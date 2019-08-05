@@ -248,7 +248,7 @@ Let me know how this technique goes! I’ve gotten a lot of great feedback from 
 
 
 |> Banner
-    A statically /typed/ site generator
+    A *statically typed* site generator
 
 |> Boxes
     |> Box
