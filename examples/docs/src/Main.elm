@@ -33,7 +33,7 @@ type alias Flags =
 
 main : Pages.Program Flags Model Msg (Metadata Msg) (Element Msg)
 main =
-    Pages.program
+    Pages.application
         { init = init
         , view = view
         , update = update

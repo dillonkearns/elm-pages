@@ -177,8 +177,8 @@ type CliOptions
     = Default Bool
 
 
-program : Program.Config CliOptions
-program =
+application : Program.Config CliOptions
+application =
     Program.config
         |> Program.add
             (OptionsParser.build Default
@@ -232,5 +232,5 @@ main =
         { printAndExitFailure = printAndExitFailure
         , printAndExitSuccess = printAndExitSuccess
         , init = init
-        , config = program
+        , config = application
         }

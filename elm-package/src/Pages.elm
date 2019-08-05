@@ -1,4 +1,4 @@
-module Pages exposing (Flags, Parser, Program, program)
+module Pages exposing (Flags, Parser, Program, application)
 
 import Browser
 import Browser.Navigation
@@ -259,7 +259,7 @@ type alias Parser metadata view =
     -> Mark.Document (PageOrPost metadata view)
 
 
-program :
+application :
     { init : Flags userFlags -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
@@ -272,7 +272,7 @@ program :
     , markdownToHtml : String -> view
     }
     -> Program userFlags userModel userMsg metadata view
-program config =
+application config =
     Browser.application
         { init = init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init
         , view = view config.content config.parser config.view
