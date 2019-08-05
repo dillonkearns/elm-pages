@@ -40,7 +40,7 @@
     |> Value
         title = No magic, just types
         body =
-            The magic is in how the pieces snap together. The basic platform provided is simple
+            The magic is in how the pieces snap together. The basic platform provided is simple, letting you compose exactly what you need with types to support you.
 
     |> Value
         title = Extensible through pure elm
