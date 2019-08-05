@@ -163,7 +163,7 @@ generateMarkdownPage markdown =
             ( markdown.metadata, markdown.body )
     in
     interpolate """( {0}
-  , { frontMatter = \"\"\"{1}
+  , { frontMatter = \"\"\" {1}
 \"\"\"
     , body = \"\"\"{2}\"\"\" }
   )
