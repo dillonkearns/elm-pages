@@ -13,6 +13,7 @@ import Mark.Error
 import MarkParser
 import Markdown
 import Metadata exposing (Metadata)
+import OpenGraph
 import Pages
 import Pages.Content as Content exposing (Content)
 import Pages.Head as Head
@@ -158,24 +159,28 @@ header =
 head : String -> Metadata.Metadata msg -> List Head.Tag
 head canonicalUrl metadata =
     let
-        siteName =
-            "A statically typed site generator - elm-pages"
-
         themeColor =
             "#ffffff"
     in
     [ Head.metaName "theme-color" themeColor
-    , Head.metaProperty "og:site_name" siteName
-    , Head.metaProperty "og:url" canonicalUrl
     , Head.canonicalLink canonicalUrl
     ]
-        ++ pageTags metadata
+        ++ pageTags canonicalUrl metadata
 
 
-pageTags metadata =
+siteTagline =
+    "A statically typed site generator - elm-pages"
+
+
+pageTags canonicalUrl metadata =
     case metadata of
         Metadata.Page record ->
-            []
+            OpenGraph.website
+                { url = canonicalUrl
+                , name = "elm-pages"
+                , imageUrl = ""
+                , description = Just siteTagline
+                }
 
         Metadata.Article meta ->
             let
@@ -188,15 +193,11 @@ pageTags metadata =
                 image =
                     ""
             in
-            [ Head.metaProperty "og:title" title
-            , Head.metaName "description" description
-            , Head.metaProperty "og:description" description
-            , Head.metaProperty "og:image" image
+            [ Head.metaName "description" description
             , Head.metaName "image" image
-            , Head.metaProperty "og:type" "article"
             ]
                 ++ SocialMeta.summaryLarge
-                    { title = ""
+                    { title = meta.title.raw
                     , description = Just description
                     , siteUser = Nothing
                     , image = Just { url = image, alt = description }

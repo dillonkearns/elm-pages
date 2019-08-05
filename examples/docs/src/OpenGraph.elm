@@ -11,7 +11,8 @@ import Pages.Head as Head
 website :
     { url : String
     , name : String
-    , imageUrl : Maybe String
+    , imageUrl : String
+    , description : Maybe String
     }
     -> List Head.Tag
 website details =
@@ -23,7 +24,8 @@ type Content
     = Website
         { url : String
         , name : String
-        , imageUrl : Maybe String
+        , imageUrl : String
+        , description : Maybe String
         }
 
 
@@ -34,10 +36,8 @@ tags content =
             , ( "og:url", Just details.url )
             , ( "og:locale", Just "en" )
             , ( "og:site_name", Just details.name )
-            , ( "og:image", details.imageUrl )
-
-            -- , ( "og:image:width", Just "512" )
-            -- , ( "og:image:height", Just "512" )
+            , ( "og:image", Just details.imageUrl )
+            , ( "og:description", details.description )
             ]
                 |> List.filterMap
                     (\( name, maybeContent ) ->
