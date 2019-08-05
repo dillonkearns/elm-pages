@@ -18,6 +18,7 @@ import Pages.Content as Content exposing (Content)
 import Pages.Head as Head
 import Pages.Parser exposing (PageOrPost)
 import RawContent
+import SocialMeta
 import Url exposing (Url)
 import Yaml.Decode
 
@@ -171,15 +172,6 @@ head canonicalUrl metadata =
         ++ pageTags metadata
 
 
-ensureAtPrefix : String -> String
-ensureAtPrefix twitterUsername =
-    if twitterUsername |> String.startsWith "@" then
-        twitterUsername
-
-    else
-        "@" ++ twitterUsername
-
-
 pageTags metadata =
     case metadata of
         Metadata.Page record ->
@@ -202,8 +194,10 @@ pageTags metadata =
             , Head.metaProperty "og:image" image
             , Head.metaName "image" image
             , Head.metaProperty "og:type" "article"
-            , Head.metaName "twitter:card" "summary_large_image"
-            , Head.metaName "twitter:description" meta.title.raw
-            , Head.metaName "twitter:image" image
-            , Head.metaName "twitter:image:alt" description
             ]
+                ++ SocialMeta.summaryLarge
+                    { title = ""
+                    , description = Just description
+                    , siteUser = Nothing
+                    , image = Just { url = image, alt = description }
+                    }

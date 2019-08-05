@@ -1,6 +1,37 @@
-module SocialMeta exposing (SummarySize(..), TwitterCard(..), tags)
+module SocialMeta exposing (summaryLarge, summaryRegular)
 
 import Pages.Head as Head
+
+
+summaryRegular details =
+    Summary
+        { title = details.title
+        , description = details.description
+        , siteUser = details.siteUser
+        , image = details.image
+        , size = Regular
+        }
+        |> tags
+
+
+summaryLarge details =
+    Summary
+        { title = details.title
+        , description = details.description
+        , siteUser = details.siteUser
+        , image = details.image
+        , size = Large
+        }
+        |> tags
+
+
+ensureAtPrefix : String -> String
+ensureAtPrefix twitterUsername =
+    if twitterUsername |> String.startsWith "@" then
+        twitterUsername
+
+    else
+        "@" ++ twitterUsername
 
 
 type SummarySize
