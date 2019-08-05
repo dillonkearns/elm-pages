@@ -1,4 +1,4 @@
-module OpenGraph exposing (Image, article, buildCommon, website)
+module OpenGraph exposing (Image, article, buildCommon, song, website)
 
 {-| <https://ogp.me/#>
 -}
@@ -63,6 +63,19 @@ book :
     -> List Head.Tag
 book common details =
     Book details |> Content common |> tags
+
+
+song :
+    Common
+    ->
+        { duration : Maybe Int
+        , album : Maybe Int
+        , disc : Maybe Int
+        , track : Maybe Int
+        }
+    -> List Head.Tag
+song common details =
+    Song details |> Content common |> tags
 
 
 {-| These fields apply to any type in the og object types
