@@ -97,7 +97,7 @@ view : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Ht
 view model page =
     let
         { title, body } =
-            pageOrPostView model page
+            pageView model page
     in
     { title = title
     , body =
@@ -108,8 +108,8 @@ view model page =
     }
 
 
-pageOrPostView : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
-pageOrPostView model page =
+pageView : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
+pageView model page =
     case page.metadata of
         Metadata.Page metadata ->
             { title = metadata.title
