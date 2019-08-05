@@ -1,4 +1,4 @@
-module Pages.Head exposing (Tag, node, toJson)
+module Pages.Head exposing (Tag, canonicalLink, metaName, metaProperty, toJson)
 
 import Json.Encode
 
@@ -11,6 +11,52 @@ type alias Details =
     { name : String
     , attributes : List ( String, String )
     }
+
+
+{-| Example:
+
+    Head.canonicalLink "https://elm-pages.com"
+
+-}
+canonicalLink url =
+    node "link"
+        [ ( "rel", "canonical" )
+        , ( "href", url )
+        ]
+
+
+{-| Example:
+
+    metaProperty
+        [ ( "property", "og:type" )
+        , ( "content", "article" )
+        ]
+
+Results in `<meta property="og:type" content="article" />`
+
+-}
+metaProperty property content =
+    node "meta"
+        [ ( "property", "og:type" )
+        , ( "content", "article" )
+        ]
+
+
+{-| Example:
+
+    metaName
+        [ ( "name", "twitter:card" )
+        , ( "content", "summary_large_image" )
+        ]
+
+Results in `<meta name="twitter:card" content="summary_large_image" />`
+
+-}
+metaName name content =
+    node "meta"
+        [ ( "name", "twitter:card" )
+        , ( "content", "summary_large_image" )
+        ]
 
 
 node : String -> List ( String, String ) -> Tag

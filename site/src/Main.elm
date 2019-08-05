@@ -149,19 +149,10 @@ head canonicalUrl metadata =
         themeColor =
             "#ffffff"
     in
-    [ Head.node "meta" [ ( "name", "theme-color" ), ( "content", themeColor ) ]
-    , Head.node "meta"
-        [ ( "property", "og:site_name" )
-        , ( "content", siteName )
-        ]
-    , Head.node "meta"
-        [ ( "property", "og:url" )
-        , ( "content", canonicalUrl )
-        ]
-    , Head.node "link"
-        [ ( "rel", "canonical" )
-        , ( "href", canonicalUrl )
-        ]
+    [ Head.metaName "theme-color" themeColor
+    , Head.metaProperty "og:site_name" siteName
+    , Head.metaProperty "og:url" canonicalUrl
+    , Head.canonicalLink canonicalUrl
     ]
         ++ pageTags metadata
 
@@ -197,52 +188,16 @@ pageTags metadata =
                 image =
                     ""
             in
-            [ Head.node "meta"
-                [ ( "property", "og:title" )
-                , ( "content", title )
-                ]
-            , Head.node "meta"
-                [ ( "name", "description" )
-                , ( "content", description )
-                ]
-            , Head.node "meta"
-                [ ( "property", "og:description" )
-                , ( "content", description )
-                ]
-            , Head.node "meta"
-                [ ( "property", "og:image" )
-                , ( "content", image )
-                ]
-            , Head.node "meta"
-                [ ( "name", "image" )
-                , ( "content", image )
-                ]
-            , Head.node "meta"
-                [ ( "property", "og:type" )
-                , ( "content", "article" )
-                ]
-            , Head.node "meta"
-                [ ( "name", "twitter:card" )
-                , ( "content", "summary_large_image" )
-                ]
-            , Head.node "meta"
-                [ ( "name", "twitter:creator" )
-                , ( "content", ensureAtPrefix twitterUsername )
-                ]
-            , Head.node "meta"
-                [ ( "name", "twitter:site" )
-                , ( "content", ensureAtPrefix twitterSiteAccount )
-                ]
-            , Head.node "meta"
-                [ ( "name", "twitter:description" )
-                , ( "content", meta.title.raw )
-                ]
-            , Head.node "meta"
-                [ ( "name", "twitter:image" )
-                , ( "content", image )
-                ]
-            , Head.node "meta"
-                [ ( "name", "twitter:image:alt" )
-                , ( "content", description )
-                ]
+            [ Head.metaProperty "og:title" title
+            , Head.metaName "description" description
+            , Head.metaProperty "og:description" description
+            , Head.metaProperty "og:image" image
+            , Head.metaName "image" image
+            , Head.metaProperty "og:type" "article"
+            , Head.metaName "twitter:card" "summary_large_image"
+            , Head.metaName "twitter:creator" (ensureAtPrefix twitterUsername)
+            , Head.metaName "twitter:site" (ensureAtPrefix twitterSiteAccount)
+            , Head.metaName "twitter:description" meta.title.raw
+            , Head.metaName "twitter:image" image
+            , Head.metaName "twitter:image:alt" description
             ]
