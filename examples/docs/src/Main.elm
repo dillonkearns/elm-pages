@@ -195,6 +195,9 @@ pageTags metadata =
 
                 image =
                     ""
+
+                url =
+                    canonicalUrl
             in
             [ Head.description description
             , Head.metaName "image" image
@@ -204,4 +207,18 @@ pageTags metadata =
                     , description = Just description
                     , siteUser = Nothing
                     , image = Just { url = image, alt = description }
+                    }
+                ++ OpenGraph.article
+                    { image =
+                        { url = image
+                        , alt = description
+                        , dimensions = Nothing
+                        , secureUrl = Nothing
+                        }
+                    , name = title
+                    , url = url
+                    , description = ""
+                    , tags = []
+                    , section = Nothing
+                    , siteName = "elm-pages"
                     }

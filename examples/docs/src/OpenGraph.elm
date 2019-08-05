@@ -22,6 +22,16 @@ website details =
 
 {-| See <https://ogp.me/#type_article>
 -}
+article :
+    { image : Image
+    , name : String
+    , url : String
+    , description : String
+    , tags : List String
+    , section : Maybe String
+    , siteName : String
+    }
+    -> List Head.Tag
 article details =
     Article details
         |> tags
