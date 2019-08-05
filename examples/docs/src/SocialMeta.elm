@@ -1,4 +1,4 @@
-module SocialMeta exposing (TwitterCard(..))
+module SocialMeta exposing (SummarySize(..), TwitterCard(..), tags)
 
 import Pages.Head as Head
 
@@ -46,22 +46,38 @@ type TwitterCard
 
 tags : TwitterCard -> List Head.Tag
 tags card =
-    [ ( "twitter:card", cardValue card |> Just )
-    ]
+    (( "twitter:card", cardValue card |> Just )
+        :: (case card of
+                Summary details ->
+                    [ ( "twitter:title", Just details.title )
+                    , ( "twitter:site", details.siteUser )
+                    , ( "twitter:description", details.description )
+                    , ( "twitter:image", details.image |> Maybe.map .url )
+                    , ( "twitter:image:alt", details.image |> Maybe.map .alt )
+                    ]
+
+                App details ->
+                    [ ( "twitter:title", Just details.title )
+                    , ( "twitter:site", Just details.siteUser )
+                    , ( "twitter:description", details.description )
+                    , ( "twitter:image", details.image |> Maybe.map .url )
+                    , ( "twitter:image:alt", details.image |> Maybe.map .alt )
+                    ]
+
+                Player details ->
+                    [ ( "twitter:title", Just details.title )
+                    , ( "twitter:site", Just details.siteUser )
+                    , ( "twitter:description", details.description )
+                    , ( "twitter:image", Just details.image.url )
+                    , ( "twitter:image:alt", Just details.image.alt )
+                    ]
+           )
+    )
         |> List.filterMap
             (\( name, maybeContent ) ->
                 maybeContent
                     |> Maybe.map (\content -> Head.metaName name content)
             )
-
-
-
---   ("twitter:title", title)
---   -- optional
---    ("twitter:site", siteUser)
---   ("twitter:description", description)
---    ("twitter:image", image)
---    ("twitter:image:alt", imageAlt)
 
 
 cardValue : TwitterCard -> String
