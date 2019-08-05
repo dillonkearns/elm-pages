@@ -76,9 +76,8 @@ init flags =
     ( Model, Cmd.none )
 
 
-type Msg
-    = LinkClicked Browser.UrlRequest
-    | UrlChanged Url.Url
+type alias Msg =
+    ()
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
