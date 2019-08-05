@@ -37,8 +37,8 @@ Results in `<meta property="og:type" content="article" />`
 -}
 metaProperty property content =
     node "meta"
-        [ ( "property", "og:type" )
-        , ( "content", "article" )
+        [ ( "property", property )
+        , ( "content", content )
         ]
 
 
@@ -54,8 +54,8 @@ Results in `<meta name="twitter:card" content="summary_large_image" />`
 -}
 metaName name content =
     node "meta"
-        [ ( "name", "twitter:card" )
-        , ( "content", "summary_large_image" )
+        [ ( "name", name )
+        , ( "content", content )
         ]
 
 
