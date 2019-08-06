@@ -1,7 +1,6 @@
 export function pagesInit({ mainElmModule, imageAssets }: any) {
   document.addEventListener("DOMContentLoaded", function() {
     let app = mainElmModule.init({
-      node: document.getElementById("app"),
       flags: { imageAssets }
     });
 
