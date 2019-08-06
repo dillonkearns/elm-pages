@@ -1,8 +1,8 @@
-export function pagesInit({ mainElmModule, imageAssets, routes }: any) {
+export function pagesInit({ mainElmModule, imageAssets }: any) {
   document.addEventListener("DOMContentLoaded", function() {
     let app = mainElmModule.init({
       node: document.getElementById("app"),
-      flags: { imageAssets, routes }
+      flags: { imageAssets }
     });
 
     app.ports.toJsPort.subscribe((Heads: [Head]) => {
