@@ -4,10 +4,10 @@ export function pagesInit({ mainElmModule, imageAssets }: any) {
       flags: { imageAssets }
     });
 
-    app.ports.toJsPort.subscribe((Heads: [Head]) => {
+    app.ports.toJsPort.subscribe((headTags: [Head]) => {
       if (navigator.userAgent.indexOf("Headless") >= 0) {
-        Heads.forEach(Head => {
-          appendTag(Head);
+        headTags.forEach(headTag => {
+          appendTag(headTag);
         });
       }
       document.dispatchEvent(new Event("prerender-trigger"));
