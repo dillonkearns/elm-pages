@@ -14,7 +14,7 @@ export function pagesInit({ mainElmModule, imageAssets }: any) {
     });
   });
 
-  type Head = { name: string; attributes: [[string, string]] };
+  type Head = { name: string; attributes: [string, string][] };
 
   function appendTag(tagDetails: Head) {
     const meta = document.createElement(tagDetails.name);
