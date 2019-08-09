@@ -180,6 +180,15 @@ toJson config =
     , ( "short_name"
       , config.shortName |> Maybe.map Encode.string
       )
+    , ( "serviceworker"
+      , Encode.object
+            [ ( "src", Encode.string "/service-worker.js" )
+            , ( "scope", Encode.string "/" )
+            , ( "type", Encode.string "" )
+            , ( "update_via_cache", Encode.string "none" )
+            ]
+            |> Just
+      )
     ]
         |> List.filterMap
             (\( key, maybeValue ) ->
