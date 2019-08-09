@@ -10,6 +10,11 @@ export function pagesInit({ mainElmModule, imageAssets }: any) {
           appendTag(headTag);
         });
       }
+      appendTag({
+        name: "link",
+        attributes: [["rel", "manifest"], ["href", "/manifest.webmanifest"]]
+      });
+
       document.dispatchEvent(new Event("prerender-trigger"));
     });
   });
