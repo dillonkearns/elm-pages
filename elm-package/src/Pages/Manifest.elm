@@ -1,6 +1,7 @@
 module Pages.Manifest exposing (Config, DisplayMode(..), Orientation(..), generate, toJson)
 
 import Color exposing (Color)
+import Color.Convert
 import Json.Encode as Encode
 import Pages.Manifest.Category as Category exposing (Category)
 import Platform.Sub
@@ -120,17 +121,11 @@ displayModeToAttribute displayMode =
             "browser"
 
 
-toHexColor : Color -> String
-toHexColor color =
-    -- TODO use https://package.elm-lang.org/packages/rtfeldman/elm-hex/latest/Hex
-    "#ffffff"
-
-
 toJson : Config -> Encode.Value
 toJson config =
     [ ( "background_color"
       , config.backgroundColor
-            |> Maybe.map toHexColor
+            |> Maybe.map Color.Convert.colorToHex
             |> Maybe.map Encode.string
       )
     , ( "orientation"
@@ -166,17 +161,18 @@ toJson config =
             |> Just
       )
     , ( "prefer_related_applications"
-      , Encode.bool True
+      , Encode.bool False
             |> Just
         -- TODO remove hardcoding
       )
     , ( "related_applications"
-      , Encode.object [] |> Just
+      , Encode.list (\_ -> Encode.object []) []
+            |> Just
         -- TODO remove hardcoding https://developer.mozilla.org/en-US/docs/Web/Manifest/related_applications
       )
     , ( "theme_color"
       , config.themeColor
-            |> Maybe.map toHexColor
+            |> Maybe.map Color.Convert.colorToHex
             |> Maybe.map Encode.string
       )
     , ( "start_url"

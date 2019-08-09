@@ -14,14 +14,14 @@ main =
 
 
 config =
-    { backgroundColor = Just Color.white
+    { backgroundColor = Just Color.blue
     , categories = [ Pages.Manifest.Category.education ]
     , displayMode = Manifest.Standalone
     , orientation = Manifest.Portrait
     , description = "elm-pages - A statically typed site generator."
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
-    , themeColor = Just Color.white
+    , themeColor = Just Color.blue
     , startUrl = Just "/"
     , shortName = Just "elm-pages"
     }
