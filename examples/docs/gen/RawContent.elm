@@ -126,7 +126,6 @@ What does a *list* look like?
         body =
             `elm-pages`{code} just makes more of the things you do in your static site feel like elm. Did you misspell the name of an image asset or a link to a blog post? `elm-pages`{code} will give you a friendly error message and some helpful suggestions.
 
-|> Values
     |> Value
         title = An extended elm platform
         body =

@@ -183,7 +183,11 @@ blocks appData =
         values =
             Mark.block "Values"
                 (\valuesList ->
-                    Element.row [ Element.spacing 30 ] valuesList
+                    Element.row
+                        [ Element.spacing 30
+                        , Element.htmlAttribute (Attr.style "flex-wrap" "wrap")
+                        ]
+                        valuesList
                 )
                 (Mark.manyOf [ value ])
 
@@ -194,6 +198,7 @@ blocks appData =
                         [ Element.width Element.fill
                         , Element.padding 20
                         , Element.height Element.fill
+                        , Element.centerX
                         ]
                         [ Element.paragraph
                             [ Element.padding 12
