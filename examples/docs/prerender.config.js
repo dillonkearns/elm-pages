@@ -1,7 +1,7 @@
 
   module.exports = {
   routes: [
-  "/about", "/articles", "/articles/moving-faster-with-tiny-steps", "/"
+  "/about", "/"
   ],
   rendererConfig: { renderAfterDocumentEvent: "prerender-trigger" }
 };
