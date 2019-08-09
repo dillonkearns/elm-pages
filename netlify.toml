@@ -1,4 +1,4 @@
 [build]
   base = "examples/docs/"
   publish = "examples/docs/dist/"
-  command = "npm run build && npm run build:manifest"
+  command = "npm run build"
