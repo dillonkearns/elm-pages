@@ -1,10 +1,10 @@
 port module Main exposing (main)
 
 import Browser
-import Browser.Navigation as Nav
 import Element exposing (Element)
 import Element.Border
 import Element.Font as Font
+import Element.Region
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
@@ -118,6 +118,7 @@ pageView model page =
                 , Element.column
                     [ Element.padding 50
                     , Element.spacing 60
+                    , Element.Region.mainContent
                     ]
                     page.view
                 ]
@@ -139,7 +140,7 @@ pageView model page =
 
 header : Element msg
 header =
-    Element.row [ Element.padding 20, Element.spaceEvenly ]
+    Element.row [ Element.padding 20, Element.spaceEvenly, Element.Region.navigation ]
         [ Element.el [ Font.size 30 ]
             (Element.link [] { url = "/", label = Element.text "elm-pages" })
         , Element.row [ Element.spacing 15 ]
@@ -189,6 +190,8 @@ pageTags metadata =
                     , title = "elm-pages"
                     }
                 )
+                ++ [ Head.description siteTagline
+                   ]
 
         Metadata.Article meta ->
             let

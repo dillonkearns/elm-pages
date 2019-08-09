@@ -169,7 +169,8 @@ blocks appData =
                                 , Element.Border.rounded 2
                                 , Element.paddingXY 5 3
                                 , Font.size 16
-                                , Font.color (Element.rgba255 210 40 130 1)
+
+                                -- , Font.color (Element.rgba255 210 40 130 1)
                                 , Font.family [ Font.monospace ]
                                 ]
                                 (Element.text str)
