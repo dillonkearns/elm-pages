@@ -120,11 +120,17 @@ displayModeToAttribute displayMode =
             "browser"
 
 
+toHexColor : Color -> String
+toHexColor color =
+    -- TODO use https://package.elm-lang.org/packages/rtfeldman/elm-hex/latest/Hex
+    "#ffffff"
+
+
 toJson : Config -> Encode.Value
 toJson config =
     [ ( "background_color"
       , config.backgroundColor
-            |> Maybe.map Color.toCssString
+            |> Maybe.map toHexColor
             |> Maybe.map Encode.string
       )
     , ( "orientation"
@@ -170,7 +176,7 @@ toJson config =
       )
     , ( "theme_color"
       , config.themeColor
-            |> Maybe.map Color.toCssString
+            |> Maybe.map toHexColor
             |> Maybe.map Encode.string
       )
     , ( "start_url"
