@@ -1,7 +1,7 @@
 module.exports = {
   globDirectory: "dist/",
   globPatterns: ["**/*.{html,js}"],
-  swDest: "sw.js",
+  swDest: "dist/service-worker.js",
   runtimeCaching: [
     {
       // Match any request that ends with .png, .jpg, .jpeg or .svg.

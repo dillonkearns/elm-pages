@@ -6,8 +6,10 @@
     "watch": "elm-pages --watch",
     "start": "concurrently \"npm:watch\" \"parcel src/index.html\"",
     "start:prod": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
-    "build": "rm -rf dist && parcel build src/index.html",
+    "build": "npm run build:pages && npm run build:manifest && npm run build:serviceworker",
+    "build:pages": "rm -rf dist && parcel build src/index.html",
     "build:manifest": "parcel build src/js/generate-manifest.ts --out-file generate-manifest.js --target node --bundle-node-modules --no-source-maps && node ./dist/generate-manifest.js",
+    "build:serviceworker": "workbox generateSW workbox-config.js",
     "test": "elm-test",
     "autotest": "elm-test --watch"
   },
