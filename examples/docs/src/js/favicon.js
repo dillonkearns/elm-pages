@@ -1,5 +1,7 @@
 const fs = require("fs");
 const favicons = require("favicons");
+const manifestFileName = "./dist/manifest.webmanifest";
+const manifestJson = JSON.parse(fs.readFileSync(manifestFileName));
 
 const configuration = {
   path: "/", // Path for overriding default icons path. `string`
@@ -42,16 +44,30 @@ const configuration = {
     yandex: false // Create Yandex browser icon. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
   }
 };
+function writeToDist({ name, contents }) {
+  fs.writeFileSync(`dist/${name}`, contents);
+}
+
+function updateManifest(icons) {
+  manifestJson.icons = icons;
+
+  fs.writeFile(manifestFileName, JSON.stringify(manifestJson), function(err) {
+    if (err) {
+      console.log(err);
+      process.exit(1);
+    }
+  });
+}
 const callback = function(error, response) {
   if (error) {
-    console.log(error.message); // Error description e.g. "An unknown error has occurred"
+    console.log(error.message);
   } else {
-    // console.log(response.images); // Array of { name: string, contents: <buffer> }
-    response.images.forEach(({ name, contents }) => {
-      fs.writeFileSync(name, contents);
-    });
-    console.log(response.files); // Array of { name: string, contents: <string> }
-    console.log(response.html); // Array of strings (html elements)
+    response.images.forEach(writeToDist);
+
+    const manifestIcons = JSON.parse(response.files[0].contents).icons;
+    updateManifest(manifestIcons);
+
+    console.log(response.html.join("\n"));
   }
 };
 
