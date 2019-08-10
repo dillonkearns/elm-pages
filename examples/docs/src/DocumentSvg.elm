@@ -1,7 +1,7 @@
 module DocumentSvg exposing (view)
 
 import Color
-import Html exposing (Html)
+import Element exposing (Element)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
@@ -16,14 +16,28 @@ pageTextColor =
 
 
 fillColor =
-    -- "url(#grad1)"
-    "none"
+    "url(#grad1)"
+
+
+
+-- "none"
+
+
+fillGradient =
+    gradient
+        (Color.rgb255 5 117 230)
+        (Color.rgb255 0 242 96)
+
+
+
+-- (Color.rgb255 255 93 194)
+-- (Color.rgb255 255 150 250)
 
 
 gradient color1 color2 =
     linearGradient [ id "grad1", x1 "0%", y1 "0%", x2 "100%", y2 "0%" ]
         [ stop
-            [ offset "40%"
+            [ offset "10%"
             , Svg.Attributes.style ("stop-color:" ++ Color.toCssString color1 ++ ";stop-opacity:1")
             ]
             []
@@ -31,13 +45,14 @@ gradient color1 color2 =
         ]
 
 
-view : Html msg
+view : Element msg
 view =
     svg
         [ version "1.1"
         , viewBox "251.0485 144.52063 56.114286 74.5"
         , width "56.114286"
         , height "74.5"
+        , Svg.Attributes.width "50px"
         ]
         [ defs []
             [ fillGradient ]
@@ -70,9 +85,5 @@ view =
                 ]
             ]
         ]
-
-
-fillGradient =
-    gradient
-        (Color.rgb255 255 93 194)
-        (Color.rgb255 255 150 250)
+        |> Element.html
+        |> Element.el []

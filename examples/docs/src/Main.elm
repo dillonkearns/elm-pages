@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import DocumentSvg
 import Element exposing (Element)
 import Element.Border
 import Element.Font as Font
@@ -141,8 +142,14 @@ pageView model page =
 header : Element msg
 header =
     Element.row [ Element.padding 20, Element.spaceEvenly, Element.Region.navigation ]
-        [ Element.el [ Font.size 30 ]
-            (Element.link [] { url = "/", label = Element.text "elm-pages" })
+        [ Element.link []
+            { url = "/"
+            , label =
+                Element.row [ Font.size 30, Element.spacing 16 ]
+                    [ DocumentSvg.view
+                    , Element.text "elm-pages"
+                    ]
+            }
         , Element.row [ Element.spacing 15 ]
             [ Element.link [] { url = "/docs", label = Element.text "Docs" }
             , Element.link [] { url = "/blog", label = Element.text "Blog" }
