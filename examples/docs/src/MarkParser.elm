@@ -89,6 +89,27 @@ blocks appData =
                 )
                 text
 
+        subheading : Mark.Block (Element msg)
+        subheading =
+            Mark.block "Subheading"
+                (\{ raw, styled } ->
+                    Element.link []
+                        { url = "#" ++ String.toLower raw
+                        , label =
+                            Element.paragraph
+                                [ Font.size 20
+                                , Font.semiBold
+                                , Font.alignLeft
+                                , Font.family [ Font.typeface "Montserrat" ]
+                                , Font.color (Element.rgba255 0 0 0 0.8)
+                                , Element.htmlAttribute (Attr.id (String.toLower raw))
+                                , Element.Region.heading 2
+                                ]
+                                styled
+                        }
+                )
+                textWithoutInlines
+
         image : Mark.Block (Element msg)
         image =
             Mark.record "Image"
@@ -105,6 +126,19 @@ blocks appData =
                 |> Mark.field "src" (Pages.Parser.imageSrc appData.imageAssets)
                 |> Mark.field "description" Mark.string
                 |> Mark.toBlock
+
+        textWithoutInlines : Mark.Block { styled : List (Element msg), raw : String }
+        textWithoutInlines =
+            Mark.textWith
+                { view =
+                    \styles string ->
+                        { styled = viewText styles string
+                        , raw = string
+                        }
+                , replacements = Mark.commonReplacements
+                , inlines = []
+                }
+                |> Mark.map gather
 
         text : Mark.Block (List (Element msg))
         text =
@@ -269,6 +303,7 @@ blocks appData =
     [ header
     , banner
     , h2
+    , subheading
     , image
     , list
     , indexContent appData.indexView
@@ -282,6 +317,21 @@ blocks appData =
         )
         text
     ]
+
+
+gather : List { styled : Element msg, raw : String } -> { styled : List (Element msg), raw : String }
+gather myList =
+    let
+        styled =
+            myList
+                |> List.map .styled
+
+        raw =
+            myList
+                |> List.map .raw
+                |> String.join " "
+    in
+    { styled = styled, raw = raw }
 
 
 code =
