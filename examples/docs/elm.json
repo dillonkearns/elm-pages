@@ -17,6 +17,7 @@
             "elm/url": "1.0.0",
             "elm-community/list-extra": "8.2.0",
             "elm-community/result-extra": "2.2.1",
+            "elm-community/string-extra": "4.0.1",
             "elm-explorations/markdown": "1.0.0",
             "lukewestby/elm-string-interpolate": "1.0.3",
             "mdgriffith/elm-markup": "3.0.1",

@@ -75,7 +75,7 @@ What does a *list* look like?
       , """|> Doc
     title = Quick Start
 
-|> H2
+|> Subheading
     This should have an anchor tag.
 """
       )

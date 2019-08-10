@@ -15,6 +15,7 @@ import Mark.Error
 import Metadata exposing (Metadata)
 import Pages.Parser exposing (Page)
 import Palette
+import String.Extra
 
 
 normalizedUrl url =
@@ -93,8 +94,14 @@ blocks appData =
         subheading =
             Mark.block "Subheading"
                 (\{ raw, styled } ->
+                    let
+                        anchorFragmentId =
+                            raw
+                                |> String.toLower
+                                |> String.Extra.dasherize
+                    in
                     Element.link []
-                        { url = "#" ++ String.toLower raw
+                        { url = "#" ++ anchorFragmentId
                         , label =
                             Element.paragraph
                                 [ Font.size 20
@@ -102,7 +109,7 @@ blocks appData =
                                 , Font.alignLeft
                                 , Font.family [ Font.typeface "Montserrat" ]
                                 , Font.color (Element.rgba255 0 0 0 0.8)
-                                , Element.htmlAttribute (Attr.id (String.toLower raw))
+                                , Element.htmlAttribute (Attr.id anchorFragmentId)
                                 , Element.Region.heading 2
                                 ]
                                 styled
