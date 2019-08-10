@@ -138,6 +138,23 @@ pageView model page =
                         ]
             }
 
+        Metadata.Doc metadata ->
+            { title = metadata.title
+            , body =
+                [ header
+                , Element.el [] (Element.text metadata.title)
+                , Element.column
+                    [ Element.padding 50
+                    , Element.spacing 60
+                    , Element.Region.mainContent
+                    ]
+                    page.view
+                ]
+                    |> Element.textColumn
+                        [ Element.width Element.fill
+                        ]
+            }
+
 
 header : Element msg
 header =
@@ -185,6 +202,22 @@ siteTagline =
 pageTags metadata =
     case metadata of
         Metadata.Page record ->
+            OpenGraph.website
+                (OpenGraph.buildCommon
+                    { url = canonicalUrl
+                    , siteName = "elm-pages"
+                    , image =
+                        { url = ""
+                        , alt = ""
+                        }
+                    , description = siteTagline
+                    , title = "elm-pages"
+                    }
+                )
+                ++ [ Head.description siteTagline
+                   ]
+
+        Metadata.Doc record ->
             OpenGraph.website
                 (OpenGraph.buildCommon
                     { url = canonicalUrl

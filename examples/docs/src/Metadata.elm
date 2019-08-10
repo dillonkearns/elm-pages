@@ -10,13 +10,15 @@ import Pages.Parser
 type Metadata msg
     = Page PageMetadata
     | Article (ArticleMetadata msg)
+    | Doc DocMetadata
+
+
+type alias DocMetadata =
+    { title : String
+    }
 
 
 type alias PageMetadata =
-    { title : String }
-
-
-type alias LearnMetadata =
     { title : String }
 
 
@@ -50,6 +52,13 @@ metadata imageAssets =
         , Mark.record "Page"
             (\title ->
                 Page
+                    { title = title }
+            )
+            |> Mark.field "title" Mark.string
+            |> Mark.toBlock
+        , Mark.record "Doc"
+            (\title ->
+                Doc
                     { title = title }
             )
             |> Mark.field "title" Mark.string

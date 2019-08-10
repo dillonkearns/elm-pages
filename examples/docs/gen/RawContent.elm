@@ -71,6 +71,15 @@ What does a *list* look like?
 """
       )
 
+  ,( ["docs"]
+      , """|> Doc
+    title = Quick Start
+
+|> H2
+    This should have an anchor tag.
+"""
+      )
+
   ,( []
       , """|> Page
     title = elm-pages - a statically typed site generator
