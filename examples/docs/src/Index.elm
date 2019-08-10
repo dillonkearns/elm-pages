@@ -21,6 +21,9 @@ view posts =
 
                         Metadata.Article meta ->
                             Just ( path, meta )
+
+                        Metadata.Doc meta ->
+                            Nothing
                 )
             |> List.map postSummary
         )
