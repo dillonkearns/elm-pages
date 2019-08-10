@@ -228,7 +228,17 @@ update userUpdate msg model =
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
+                    let
+                        navigatingToSamePage =
+                            url.path == model.url.path
+                    in
+                    if navigatingToSamePage then
+                        -- this is a workaround for an issue with anchor fragment navigation
+                        -- see https://github.com/elm/browser/issues/39
+                        ( model, Browser.Navigation.load (Url.toString url) )
+
+                    else
+                        ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
 
                 Browser.External href ->
                     ( model, Browser.Navigation.load href )
