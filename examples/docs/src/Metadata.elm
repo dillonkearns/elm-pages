@@ -1,4 +1,4 @@
-module Metadata exposing (ArticleMetadata, Metadata(..), PageMetadata, metadata)
+module Metadata exposing (ArticleMetadata, DocMetadata, Metadata(..), PageMetadata, metadata)
 
 import Dict exposing (Dict)
 import Element exposing (Element)
