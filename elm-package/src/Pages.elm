@@ -25,7 +25,7 @@ type alias Program userFlags userModel userMsg metadata view =
 
 
 mainView :
-    (userModel -> Page metadata view -> { title : String, body : Html userMsg })
+    (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> { title : String, body : Html userMsg }
 mainView pageView model =
@@ -39,15 +39,28 @@ mainView pageView model =
             }
 
 
+extractMetadata :
+    Result (Html userMsg) (Content.Content metadata view)
+    -> List ( List String, metadata )
+extractMetadata result =
+    case result of
+        Ok content ->
+            content
+                |> List.map (Tuple.mapSecond .metadata)
+
+        Err userMsgHtml ->
+            []
+
+
 pageViewOrError :
-    (userModel -> Page metadata view -> { title : String, body : Html userMsg })
+    (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Content.Content metadata view
     -> { title : String, body : Html userMsg }
 pageViewOrError pageView model content =
     case Content.lookup content model.url of
         Just page ->
-            pageView model.userModel page
+            pageView model.userModel (extractMetadata model.parsedContent) page
 
         Nothing ->
             { title = "Page not found"
@@ -66,7 +79,7 @@ pageViewOrError pageView model content =
 view :
     Content
     -> Parser metadata view
-    -> (userModel -> Page metadata view -> { title : String, body : Html userMsg })
+    -> (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Browser.Document (Msg userMsg)
 view content parser pageView model =
@@ -267,7 +280,7 @@ application :
     { init : Flags userFlags -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> Page metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , parser : Parser metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)

@@ -91,8 +91,8 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
-view model page =
+view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
+view model metadata page =
     let
         { title, body } =
             pageView model page
