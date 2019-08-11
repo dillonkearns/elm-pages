@@ -71,12 +71,43 @@ What does a *list* look like?
 """
       )
 
+  ,( ["docs", "file-structure"]
+      , """|> Doc
+    title = File Structure
+
+|> Subheading
+    Philosophy
+
+As a general rule, `elm-pages` strives to be unopinionated about how you organize
+your files (both code and content).
+
+|> Subheading
+    `content` folder
+
+Each file in the `content` folder will result in a new route for your static site.
+The accepted formats currently are:
+
+|> List
+    - `.emu` (`elm-markup`)
+    - `.md` (Markdown)
+
+|> Subheading
+    Metadata
+
+TODO
+"""
+      )
+
   ,( ["docs"]
       , """|> Doc
     title = Quick Start
 
 |> Subheading
-    This should have an anchor tag.
+
+    Installing
+
+|> Code
+    git clone ......
 """
       )
 

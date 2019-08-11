@@ -1,5 +1,9 @@
 |> Doc
     title = Quick Start
 
-|> H2
-    This should have an anchor tag.
+|> Subheading
+
+    Installing
+
+|> Code
+    git clone ......

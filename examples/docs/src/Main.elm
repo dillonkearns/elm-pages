@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
 import Element.Border
@@ -92,10 +93,10 @@ subscriptions _ =
 
 
 view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
-view model metadata page =
+view model siteMetadata page =
     let
         { title, body } =
-            pageView model page
+            pageView model siteMetadata page
     in
     { title = title
     , body =
@@ -109,8 +110,8 @@ view model metadata page =
     }
 
 
-pageView : Model -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
-pageView model page =
+pageView : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
+pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->
             { title = metadata.title
@@ -142,13 +143,19 @@ pageView model page =
             { title = metadata.title
             , body =
                 [ header
-                , Element.el [] (Element.text metadata.title)
-                , Element.column
-                    [ Element.padding 50
-                    , Element.spacing 60
-                    , Element.Region.mainContent
+                , Element.row []
+                    [ DocSidebar.view siteMetadata
+                        |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
+                    , [ Element.el [] (Element.text metadata.title)
+                      , Element.column
+                            [ Element.padding 50
+                            , Element.spacing 60
+                            , Element.Region.mainContent
+                            ]
+                            page.view
+                      ]
+                        |> Element.column [ Element.width (Element.fillPortion 8) ]
                     ]
-                    page.view
                 ]
                     |> Element.textColumn
                         [ Element.width Element.fill
