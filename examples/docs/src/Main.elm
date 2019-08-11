@@ -159,13 +159,20 @@ pageView model siteMetadata page =
                 ]
                     |> Element.textColumn
                         [ Element.width Element.fill
+                        , Element.height Element.fill
                         ]
             }
 
 
 header : Element msg
 header =
-    Element.row [ Element.padding 20, Element.spaceEvenly, Element.Region.navigation ]
+    Element.row
+        [ Element.paddingXY 25 4
+        , Element.spaceEvenly
+        , Element.Region.navigation
+        , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+        , Element.Border.color (Element.rgba255 40 80 40 0.4)
+        ]
         [ Element.link []
             { url = "/"
             , label =
