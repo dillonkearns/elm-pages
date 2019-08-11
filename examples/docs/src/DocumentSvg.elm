@@ -30,6 +30,8 @@ fillGradient =
 
 
 
+-- (Color.rgb255 252 0 255)
+-- (Color.rgb255 0 219 222)
 -- (Color.rgb255 255 93 194)
 -- (Color.rgb255 255 150 250)
 
@@ -52,7 +54,7 @@ view =
         , viewBox "251.0485 144.52063 56.114286 74.5"
         , width "56.114286"
         , height "74.5"
-        , Svg.Attributes.width "50px"
+        , Svg.Attributes.width "30px"
         ]
         [ defs []
             [ fillGradient ]
