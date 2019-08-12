@@ -27,15 +27,15 @@ generatePage page =
         ]
 
 
-prerenderRcFormattedPath : Page -> String
-prerenderRcFormattedPath page =
-    page.path
+prerenderRcFormattedPath : String -> String
+prerenderRcFormattedPath path =
+    path
         |> dropExtension
         |> String.split "/"
         |> dropIndexFromLast
         |> List.drop 1
         |> String.join "/"
-        |> (\path -> "/" ++ path)
+        |> (\pathSoFar -> "/" ++ pathSoFar)
 
 
 dropIndexFromLast : List String -> List String
@@ -53,8 +53,8 @@ dropIndexFromLast path =
         |> List.reverse
 
 
-preRenderRc : List Page -> String
-preRenderRc content =
+preRenderRc : List String -> String
+preRenderRc paths =
     interpolate """
   module.exports = {
   routes: [
@@ -64,11 +64,11 @@ preRenderRc content =
 };
 
 """
-        [ prerenderPaths content ]
+        [ prerenderPaths paths ]
 
 
-prerenderPaths content =
-    content
+prerenderPaths paths =
+    paths
         |> List.map prerenderRcFormattedPath
         |> List.map (\path -> String.concat [ "\"", path, "\"" ])
         |> String.join ", "
@@ -207,7 +207,7 @@ init : Flags -> CliOptions -> Cmd Never
 init flags (Default watch) =
     { rawContent =
         generate flags.content flags.markdownContent
-    , prerenderrc = preRenderRc flags.content
+    , prerenderrc = preRenderRc (List.map .path flags.content ++ List.map .path flags.markdownContent)
     , imageAssets = imageAssetsFile flags.images
     , watch = watch
     }
