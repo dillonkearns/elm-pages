@@ -10,6 +10,7 @@
   "license": "BSD-3",
   "dependencies": {
     "chokidar": "^2.1.5",
+    "favicons": "^5.4.1",
     "glob": "^7.1.4",
     "gray-matter": "^4.0.2"
   },
