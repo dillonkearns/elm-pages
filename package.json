@@ -26,7 +26,8 @@
   },
   "files": [
     "dist/",
-    "generator/bin/elm-pages"
+    "generator/bin/elm-pages",
+    "lib/manifest/index.js"
   ],
   "bin": {
     "elm-pages": "generator/bin/elm-pages"
