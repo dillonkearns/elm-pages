@@ -3,14 +3,15 @@ const webpack = require("webpack");
 const middleware = require("webpack-dev-middleware");
 const express = require("express");
 const path = require("path");
+const HTMLWebpackPlugin = require("html-webpack-plugin");
 
 module.exports = { start };
 function start() {
   const compiler = webpack({
     // webpack options
     // entry: "index.html",
-    entry: "./index.html",
-    plugins: [],
+    entry: "./index.js",
+    plugins: [new HTMLWebpackPlugin({})],
     output: {
       publicPath: "/"
     },
@@ -96,3 +97,5 @@ function start() {
 
   // compiler.run();
 }
+
+start();
