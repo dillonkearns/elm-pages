@@ -4,6 +4,7 @@ import { version } from "../../package.json";
 import * as fs from "fs";
 import * as glob from "glob";
 import * as chokidar from "chokidar";
+import { buildSW } from "./build-service-worker";
 // @ts-ignore
 const matter = require("gray-matter");
 
