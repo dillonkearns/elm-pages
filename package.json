@@ -12,7 +12,8 @@
     "chokidar": "^2.1.5",
     "favicons": "^5.4.1",
     "glob": "^7.1.4",
-    "gray-matter": "^4.0.2"
+    "gray-matter": "^4.0.2",
+    "workbox-build": "^4.3.1"
   },
   "devDependencies": {
     "@types/chokidar": "^2.1.3",
