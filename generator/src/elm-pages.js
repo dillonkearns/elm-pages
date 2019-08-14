@@ -64,6 +64,7 @@ function run() {
       develop.start({ routes: contents.routes });
     } else {
       develop.run({ routes: contents.routes });
+      buildSW();
     }
   });
 }
