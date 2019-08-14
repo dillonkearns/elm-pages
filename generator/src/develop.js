@@ -9,7 +9,7 @@ const PrerenderSPAPlugin = require("prerender-spa-plugin");
 
 module.exports = { start, run };
 function start({ routes }) {
-  const compiler = webpack(webpackOptions(routes));
+  const compiler = webpack(webpackOptions(true, routes));
   const app = express();
 
   app.use(middleware(compiler, { publicPath: "/" }));
@@ -36,17 +36,22 @@ function start({ routes }) {
 }
 
 function run({ routes }) {
-  webpack(webpackOptions(routes)).run();
+  webpack(webpackOptions(false, routes)).run();
 }
 
-function webpackOptions(routes) {
+function webpackOptions(production, routes) {
   return {
     // webpack options
     // entry: "index.html",
-    entry: "./index.js",
-    mode: "development",
+    entry: { hello: "./index.js" },
+    mode: production ? "production" : "development",
     plugins: [
-      new HTMLWebpackPlugin({ inject: "head" }),
+      new HTMLWebpackPlugin({
+        inject: "head",
+        // template: require.resolve("./template.html")
+        // template: require.resolve(path.resolve(__dirname, "template.html"))
+        template: path.resolve(__dirname, "template.html")
+      }),
       new CopyPlugin([
         {
           from: "static/**/*",
@@ -113,12 +118,12 @@ function webpackOptions(routes) {
         {
           test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
           exclude: [/elm-stuff/, /node_modules/],
-          loader: "file-loader"
+          loader: require.resolve("file-loader")
         },
         {
           test: /\.(jpe?g|png|gif|svg|html)$/i,
           exclude: [/elm-stuff/, /node_modules/],
-          loader: "file-loader"
+          loader: require.resolve("file-loader")
         },
         {
           test: /\.elm$/,
