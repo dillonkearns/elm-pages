@@ -102,10 +102,21 @@ function start() {
   const app = express();
 
   app.use(middleware(compiler, { publicPath: "/" }));
-  // webpack-dev-middleware options
-  app.get("/", (req, res) => {
-    return res.sendFile(path.join(__dirname, "index.html"));
+
+  app.use("*", function(req, res, next) {
+    // don't know why this works, but it does
+    // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
+    var filename = path.join(compiler.outputPath, "index.html");
+    compiler.outputFileSystem.readFile(filename, function(err, result) {
+      if (err) {
+        return next(err);
+      }
+      res.set("content-type", "text/html");
+      res.send(result);
+      res.end();
+    });
   });
+
   app.listen(3000, () =>
     console.log("🚀 elm-pages develop running http://localhost:3000")
   );
