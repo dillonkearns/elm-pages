@@ -1,7 +1,8 @@
-// import * as workboxBuild from "workbox-build";
 const workboxBuild = require("workbox-build");
 
-export function buildSW(): Promise<void> {
+module.exports = { buildSW };
+
+function buildSW() {
   // This will return a Promise
   return workboxBuild.generateSW({
     globDirectory: "dist/",

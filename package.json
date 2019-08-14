@@ -4,7 +4,7 @@
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
   "main": "./lib/index.js",
   "scripts": {
-    "build": "parcel build generator/src/elm-pages.ts --out-file bundle.js --target node --bundle-node-modules --no-source-maps --no-minify"
+    "build": "cd generator && elm make src/Main.elm --output src/Main.js"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
@@ -47,6 +47,6 @@
     "lib/manifest/index.js"
   ],
   "bin": {
-    "elm-pages": "generator/bin/elm-pages"
+    "elm-pages": "generator/src/elm-pages.js"
   }
 }
