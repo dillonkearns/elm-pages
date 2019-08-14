@@ -61,7 +61,8 @@ function webpackOptions(routes) {
         // staticDir: "./dist",
         staticDir: path.join(process.cwd(), "dist"),
         // Required - Routes to render.
-        routes: routes
+        routes: routes,
+        renderAfterDocumentEvent: "prerender-trigger"
       })
     ],
     output: {
