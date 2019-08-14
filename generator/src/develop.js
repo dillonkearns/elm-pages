@@ -46,7 +46,7 @@ function webpackOptions(routes) {
     entry: "./index.js",
     mode: "development",
     plugins: [
-      new HTMLWebpackPlugin({}),
+      new HTMLWebpackPlugin({ inject: "head" }),
       new CopyPlugin([
         {
           from: "static/**/*",
