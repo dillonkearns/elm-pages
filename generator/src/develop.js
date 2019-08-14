@@ -74,9 +74,7 @@ function webpackOptions(production, routes) {
       publicPath: "/"
     },
     resolve: {
-      modules: [path.join(__dirname, "src"), "node_modules"],
-      extensions: [".js", ".elm", ".scss", ".png", ".html"],
-      symlinks: false
+      extensions: [".js", ".elm", ".scss", ".png", ".html"]
     },
     module: {
       rules: [
