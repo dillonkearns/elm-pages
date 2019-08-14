@@ -5,6 +5,7 @@ const express = require("express");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
+const PrerenderSPAPlugin = require("prerender-spa-plugin");
 
 module.exports = { start, run };
 function start() {
@@ -54,7 +55,34 @@ function webpackOptions() {
             return targetPath.substring(targetPath.indexOf("/") + 1);
           }
         }
-      ])
+      ]),
+      new PrerenderSPAPlugin({
+        // Required - The path to the webpack-outputted app to prerender.
+        // staticDir: "./dist",
+        staticDir: path.join(process.cwd(), "dist"),
+        // Required - Routes to render.
+        routes: [
+          "/404",
+          "/about",
+          "/cfp",
+          "/cfp/proposals",
+          "/",
+          "/register",
+          "/schedule",
+          "/speak-at-elm-conf",
+          "/speakers/abadi-kurniawan",
+          "/speakers/brooke-angel",
+          "/speakers/ian-mackenzie",
+          "/speakers/james-carlson",
+          "/speakers/james-gary",
+          "/speakers/katie-hughes",
+          "/speakers/katja-mordaunt",
+          "/speakers/liz-krane",
+          "/speakers/ryan-frazier",
+          "/speakers/tessa-kelly",
+          "/travel-and-venue"
+        ]
+      })
     ],
     output: {
       publicPath: "/"
