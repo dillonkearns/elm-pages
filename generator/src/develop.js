@@ -4,6 +4,7 @@ const middleware = require("webpack-dev-middleware");
 const express = require("express");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = { start };
 function start() {
@@ -12,7 +13,18 @@ function start() {
     // entry: "index.html",
     entry: "./index.js",
     mode: "development",
-    plugins: [new HTMLWebpackPlugin({})],
+    plugins: [
+      new HTMLWebpackPlugin({}),
+      new CopyPlugin([
+        {
+          from: "static/**/*",
+          transformPath(targetPath, absolutePath) {
+            // TODO this is a hack... how do I do this with proper config of `to` or similar?
+            return targetPath.substring(targetPath.indexOf("/") + 1);
+          }
+        }
+      ])
+    ],
     output: {
       publicPath: "/"
     },
