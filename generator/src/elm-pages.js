@@ -64,7 +64,7 @@ function run() {
       startWatchIfNeeded();
       develop.start();
     } else {
-      // TODO start prod mode build here
+      develop.run();
     }
   });
 }

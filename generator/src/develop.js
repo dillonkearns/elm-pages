@@ -6,7 +6,7 @@ const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 
-module.exports = { start };
+module.exports = { start, run };
 function start() {
   const compiler = webpack({
     // webpack options
@@ -126,4 +126,90 @@ function start() {
   // compiler.run();
 }
 
-// start();
+function run() {
+  const compiler = webpack({
+    // webpack options
+    // entry: "index.html",
+    entry: "./index.js",
+    mode: "development",
+    plugins: [
+      new HTMLWebpackPlugin({}),
+      new CopyPlugin([
+        {
+          from: "static/**/*",
+          transformPath(targetPath, absolutePath) {
+            // TODO this is a hack... how do I do this with proper config of `to` or similar?
+            return targetPath.substring(targetPath.indexOf("/") + 1);
+          }
+        }
+      ])
+    ],
+    output: {
+      publicPath: "/"
+    },
+    resolve: {
+      modules: [path.join(__dirname, "src"), "node_modules"],
+      extensions: [".js", ".elm", ".scss", ".png", ".html"],
+      symlinks: false
+    },
+    module: {
+      rules: [
+        {
+          test: /\.js$/,
+          exclude: /node_modules/,
+          use: {
+            // loader: "babel-loader"
+            loader: require.resolve("babel-loader")
+          }
+        },
+        {
+          test: /\.scss$/,
+          exclude: [/elm-stuff/, /node_modules/],
+          // see https://github.com/webpack-contrib/css-loader#url
+          loaders: ["style-loader", "css-loader?url=false", "sass-loader"]
+        },
+        {
+          test: /\.css$/,
+          exclude: [/elm-stuff/, /node_modules/],
+          loaders: ["style-loader", "css-loader?url=false"]
+        },
+        {
+          test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
+          exclude: [/elm-stuff/, /node_modules/],
+          loader: "url-loader",
+          options: {
+            limit: 10000,
+            mimetype: "application/font-woff"
+          }
+        },
+        {
+          test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
+          exclude: [/elm-stuff/, /node_modules/],
+          loader: "file-loader"
+        },
+        {
+          test: /\.(jpe?g|png|gif|svg|html)$/i,
+          exclude: [/elm-stuff/, /node_modules/],
+          loader: "file-loader"
+        },
+        {
+          test: /\.elm$/,
+          exclude: [/elm-stuff/, /node_modules/],
+          use: [
+            { loader: require.resolve("elm-hot-webpack-loader") },
+            {
+              loader: require.resolve("elm-webpack-loader"),
+              options: {
+                // add Elm's debug overlay to output?
+                debug: false,
+                forceWatch: true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  });
+
+  compiler.run();
+}
