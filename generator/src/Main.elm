@@ -175,16 +175,17 @@ generateMarkdownPage markdown =
 
 
 type CliOptions
-    = Default Bool
+    = Develop
+    | Build
 
 
 application : Program.Config CliOptions
 application =
     Program.config
         |> Program.add
-            (OptionsParser.build Default
-                |> OptionsParser.with (Cli.Option.flag "watch")
-            )
+            (OptionsParser.buildSubCommand "develop" Develop)
+        |> Program.add
+            (OptionsParser.buildSubCommand "build" Build)
 
 
 type alias Flags =
@@ -204,7 +205,16 @@ type alias MarkdownContent =
 
 
 init : Flags -> CliOptions -> Cmd Never
-init flags (Default watch) =
+init flags cliOptions =
+    let
+        watch =
+            case cliOptions of
+                Develop ->
+                    True
+
+                Build ->
+                    False
+    in
     { rawContent =
         generate flags.content flags.markdownContent
     , prerenderrc = preRenderRc (List.map .path flags.content ++ List.map .path flags.markdownContent)

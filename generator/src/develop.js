@@ -11,13 +11,15 @@ function start() {
     // webpack options
     // entry: "index.html",
     entry: "./index.js",
+    mode: "development",
     plugins: [new HTMLWebpackPlugin({})],
     output: {
       publicPath: "/"
     },
     resolve: {
       modules: [path.join(__dirname, "src"), "node_modules"],
-      extensions: [".js", ".elm", ".scss", ".png", ".html"]
+      extensions: [".js", ".elm", ".scss", ".png", ".html"],
+      symlinks: false
     },
     module: {
       rules: [
@@ -25,7 +27,8 @@ function start() {
           test: /\.js$/,
           exclude: /node_modules/,
           use: {
-            loader: "babel-loader"
+            // loader: "babel-loader"
+            loader: require.resolve("babel-loader")
           }
         },
         {
@@ -62,9 +65,9 @@ function start() {
           test: /\.elm$/,
           exclude: [/elm-stuff/, /node_modules/],
           use: [
-            { loader: "elm-hot-webpack-loader" },
+            { loader: require.resolve("elm-hot-webpack-loader") },
             {
-              loader: "elm-webpack-loader",
+              loader: require.resolve("elm-webpack-loader"),
               options: {
                 // add Elm's debug overlay to output?
                 debug: false,
@@ -91,11 +94,13 @@ function start() {
   app.get("/", (req, res) => {
     return res.sendFile(path.join(__dirname, "index.html"));
   });
-  app.listen(3000, () => console.log("Example listening on port 3000!"));
+  app.listen(3000, () =>
+    console.log("🚀 elm-pages develop running http://localhost:3000")
+  );
   // https://stackoverflow.com/questions/43667102/webpack-dev-middleware-and-static-files
-  app.use(express.static(__dirname + "/path-to-static-folder"));
+  // app.use(express.static(__dirname + "/path-to-static-folder"));
 
   // compiler.run();
 }
 
-start();
+// start();
