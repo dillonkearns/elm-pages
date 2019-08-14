@@ -87,12 +87,19 @@ function webpackOptions(routes) {
           test: /\.scss$/,
           exclude: [/elm-stuff/, /node_modules/],
           // see https://github.com/webpack-contrib/css-loader#url
-          loaders: ["style-loader", "css-loader?url=false", "sass-loader"]
+          loaders: [
+            require.resolve("style-loader"),
+            require.resolve("css-loader"),
+            require.resolve("sass-loader")
+          ]
         },
         {
           test: /\.css$/,
           exclude: [/elm-stuff/, /node_modules/],
-          loaders: ["style-loader", "css-loader?url=false"]
+          loaders: [
+            require.resolve("style-loader"),
+            require.resolve("css-loader")
+          ]
         },
         {
           test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
