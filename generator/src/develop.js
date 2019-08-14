@@ -8,8 +8,8 @@ const CopyPlugin = require("copy-webpack-plugin");
 const PrerenderSPAPlugin = require("prerender-spa-plugin");
 
 module.exports = { start, run };
-function start() {
-  const compiler = webpack(webpackOptions());
+function start({ routes }) {
+  const compiler = webpack(webpackOptions(routes));
   const app = express();
 
   app.use(middleware(compiler, { publicPath: "/" }));
@@ -35,11 +35,11 @@ function start() {
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run() {
-  webpack(webpackOptions()).run();
+function run({ routes }) {
+  webpack(webpackOptions(routes)).run();
 }
 
-function webpackOptions() {
+function webpackOptions(routes) {
   return {
     // webpack options
     // entry: "index.html",
@@ -61,27 +61,7 @@ function webpackOptions() {
         // staticDir: "./dist",
         staticDir: path.join(process.cwd(), "dist"),
         // Required - Routes to render.
-        routes: [
-          "/404",
-          "/about",
-          "/cfp",
-          "/cfp/proposals",
-          "/",
-          "/register",
-          "/schedule",
-          "/speak-at-elm-conf",
-          "/speakers/abadi-kurniawan",
-          "/speakers/brooke-angel",
-          "/speakers/ian-mackenzie",
-          "/speakers/james-carlson",
-          "/speakers/james-gary",
-          "/speakers/katie-hughes",
-          "/speakers/katja-mordaunt",
-          "/speakers/liz-krane",
-          "/speakers/ryan-frazier",
-          "/speakers/tessa-kelly",
-          "/travel-and-venue"
-        ]
+        routes: routes
       })
     ],
     output: {

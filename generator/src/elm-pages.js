@@ -57,14 +57,13 @@ function run() {
 
   app.ports.writeFile.subscribe(contents => {
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
-    fs.writeFileSync("./prerender.config.js", contents.prerenderrc);
     fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
     console.log("elm-pages DONE");
     if (contents.watch) {
       startWatchIfNeeded();
-      develop.start();
+      develop.start({ routes: contents.routes });
     } else {
-      develop.run();
+      develop.run({ routes: contents.routes });
     }
   });
 }

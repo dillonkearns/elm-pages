@@ -7,7 +7,7 @@ import List.Extra
 import String.Interpolate exposing (interpolate)
 
 
-port writeFile : { rawContent : String, prerenderrc : String, imageAssets : String, watch : Bool } -> Cmd msg
+port writeFile : { rawContent : String, routes : List String, imageAssets : String, watch : Bool } -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -53,25 +53,10 @@ dropIndexFromLast path =
         |> List.reverse
 
 
-preRenderRc : List String -> String
-preRenderRc paths =
-    interpolate """
-  module.exports = {
-  routes: [
-  {0}
-  ],
-  rendererConfig: { renderAfterDocumentEvent: "prerender-trigger" }
-};
-
-"""
-        [ prerenderPaths paths ]
-
-
-prerenderPaths paths =
+allRoutes : List String -> List String
+allRoutes paths =
     paths
         |> List.map prerenderRcFormattedPath
-        |> List.map (\path -> String.concat [ "\"", path, "\"" ])
-        |> String.join ", "
 
 
 pathFor : { entry | path : String } -> String
@@ -217,7 +202,7 @@ init flags cliOptions =
     in
     { rawContent =
         generate flags.content flags.markdownContent
-    , prerenderrc = preRenderRc (List.map .path flags.content ++ List.map .path flags.markdownContent)
+    , routes = allRoutes (List.map .path flags.content ++ List.map .path flags.markdownContent)
     , imageAssets = imageAssetsFile flags.images
     , watch = watch
     }
