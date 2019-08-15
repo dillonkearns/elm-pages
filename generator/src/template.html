@@ -6,7 +6,7 @@
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./service-worker.js");
+          navigator.serviceWorker.register("/service-worker.js");
         });
       } else {
         console.log("No service worker registered.");
