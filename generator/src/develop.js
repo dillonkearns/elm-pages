@@ -35,7 +35,19 @@ function start({ routes }) {
 }
 
 function run({ routes }) {
-  webpack(webpackOptions(false, routes)).run();
+  webpack(webpackOptions(false, routes)).run((err, stats) => {
+    if (err) {
+      console.error(err);
+      process.exit(1);
+    }
+
+    console.log(
+      stats.toString({
+        chunks: false, // Makes the build much quieter
+        colors: true // Shows colors in the console
+      })
+    );
+  });
 }
 
 function webpackOptions(production, routes) {
@@ -139,6 +151,17 @@ function webpackOptions(production, routes) {
           ]
         }
       ]
+    },
+    stats: {
+      // copied from `'minimal'`
+      all: false,
+      modules: true,
+      maxModules: 0,
+      errors: true,
+      warnings: true,
+      // our additional options
+      moduleTrace: true,
+      errorDetails: true
     }
   };
 }
