@@ -145,7 +145,8 @@ function webpackOptions(production, routes) {
               options: {
                 // add Elm's debug overlay to output?
                 debug: false,
-                forceWatch: true
+                forceWatch: !production,
+                optimize: production
               }
             }
           ]
