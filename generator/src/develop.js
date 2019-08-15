@@ -1,14 +1,16 @@
 const webpack = require("webpack");
+const elmMinify = require("elm-minify");
 const middleware = require("webpack-dev-middleware");
 const express = require("express");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const PrerenderSPAPlugin = require("prerender-spa-plugin");
+const merge = require("webpack-merge");
 
 module.exports = { start, run };
 function start({ routes }) {
-  const compiler = webpack(webpackOptions(true, routes));
+  const compiler = webpack(webpackOptions(false, routes));
   const app = express();
 
   app.use(middleware(compiler, { publicPath: "/" }));
@@ -34,11 +36,13 @@ function start({ routes }) {
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes }) {
-  webpack(webpackOptions(false, routes)).run((err, stats) => {
+function run({ routes }, callback) {
+  webpack(webpackOptions(true, routes)).run((err, stats) => {
     if (err) {
       console.error(err);
       process.exit(1);
+    } else {
+      callback();
     }
 
     console.log(
@@ -51,7 +55,7 @@ function run({ routes }) {
 }
 
 function webpackOptions(production, routes) {
-  return {
+  const common = {
     // webpack options
     // entry: "index.html",
     entry: { hello: "./index.js" },
@@ -165,4 +169,9 @@ function webpackOptions(production, routes) {
       errorDetails: true
     }
   };
+  if (production) {
+    return common;
+  } else {
+    return merge(common, {});
+  }
 }
