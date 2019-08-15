@@ -163,7 +163,7 @@ function webpackOptions(production, routes) {
             use: {
               loader: "elm-webpack-loader",
               options: {
-                optimize: true
+                optimize: false
               }
             }
           }
