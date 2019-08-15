@@ -85,7 +85,7 @@ function webpackOptions(production, routes) {
       publicPath: "/"
     },
     resolve: {
-      modules: [path.join(process.cwd(), "node_modules")],
+      modules: [path.resolve(process.cwd(), `./node_modules`)],
       extensions: [".js", ".elm", ".scss", ".png", ".html"]
     },
     module: {

@@ -2,7 +2,7 @@
   "name": "elm-pages",
   "version": "1.0.11",
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
-  "main": "./lib/index.js",
+  "main": "index.js",
   "scripts": {
     "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize"
   },
@@ -47,6 +47,7 @@
   },
   "files": [
     "dist/",
+    "index.js",
     "generator/bin/elm-pages",
     "generator/src/",
     "lib/manifest/index.js"
