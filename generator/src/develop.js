@@ -138,22 +138,6 @@ function webpackOptions(production, routes) {
           test: /\.(jpe?g|png|gif|svg|html)$/i,
           exclude: [/elm-stuff/, /node_modules/],
           loader: require.resolve("file-loader")
-        },
-        {
-          test: /\.elm$/,
-          exclude: [/elm-stuff/, /node_modules/],
-          use: [
-            { loader: require.resolve("elm-hot-webpack-loader") },
-            {
-              loader: require.resolve("elm-webpack-loader"),
-              options: {
-                // add Elm's debug overlay to output?
-                debug: false,
-                forceWatch: !production,
-                optimize: production
-              }
-            }
-          ]
         }
       ]
     },
@@ -170,8 +154,44 @@ function webpackOptions(production, routes) {
     }
   };
   if (production) {
-    return common;
+    return merge(common, {
+      module: {
+        rules: [
+          {
+            test: /\.elm$/,
+            exclude: [/elm-stuff/, /node_modules/],
+            use: {
+              loader: "elm-webpack-loader",
+              options: {
+                optimize: true
+              }
+            }
+          }
+        ]
+      }
+    });
   } else {
-    return merge(common, {});
+    return merge(common, {
+      module: {
+        rules: [
+          {
+            test: /\.elm$/,
+            exclude: [/elm-stuff/, /node_modules/],
+            use: [
+              { loader: "elm-hot-webpack-loader" },
+              {
+                loader: "elm-webpack-loader",
+                options: {
+                  // add Elm's debug overlay to output?
+                  debug: false,
+                  //
+                  forceWatch: true
+                }
+              }
+            ]
+          }
+        ]
+      }
+    });
   }
 }
