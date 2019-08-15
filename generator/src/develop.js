@@ -1,4 +1,3 @@
-// import * as webpack from "webpack";
 const webpack = require("webpack");
 const middleware = require("webpack-dev-middleware");
 const express = require("express");
