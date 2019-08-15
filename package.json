@@ -32,7 +32,7 @@
     "webpack": "^4.39.2",
     "webpack-dev-middleware": "^3.7.0",
     "webpack-merge": "^4.2.1",
-    "workbox-build": "^4.3.1"
+    "workbox-webpack-plugin": "^4.3.1"
   },
   "devDependencies": {
     "@types/chokidar": "^2.1.3",

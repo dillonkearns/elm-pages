@@ -6,7 +6,6 @@ const fs = require("fs");
 const glob = require("glob");
 const develop = require("./develop.js");
 const chokidar = require("chokidar");
-const { buildSW } = require("./build-service-worker.js");
 const matter = require("gray-matter");
 
 const contentGlobPath = "content/**/*.emu";
@@ -63,9 +62,7 @@ function run() {
       startWatchIfNeeded();
       develop.start({ routes: contents.routes });
     } else {
-      develop.run({ routes: contents.routes }, () => {
-        buildSW();
-      });
+      develop.run({ routes: contents.routes }, () => {});
     }
   });
 }

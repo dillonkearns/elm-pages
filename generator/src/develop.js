@@ -7,6 +7,7 @@ const HTMLWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const PrerenderSPAPlugin = require("prerender-spa-plugin");
 const merge = require("webpack-merge");
+const { GenerateSW } = require("workbox-webpack-plugin");
 
 module.exports = { start, run };
 function start({ routes }) {
@@ -83,6 +84,28 @@ function webpackOptions(production, routes) {
         // Required - Routes to render.
         routes: routes,
         renderAfterDocumentEvent: "prerender-trigger"
+      }),
+      new GenerateSW({
+        include: [/^index.html$/, /\.js$/],
+        navigateFallback: "index.html",
+        swDest: "service-worker.js",
+        runtimeCaching: [
+          {
+            // urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fonts"
+            }
+          },
+          {
+            urlPattern: /\.(?:png|gif|jpg|jpeg|svg)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images"
+            }
+          }
+        ]
       })
     ],
     output: {
