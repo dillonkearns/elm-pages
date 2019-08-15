@@ -60,7 +60,7 @@ function run() {
     console.log("elm-pages DONE");
     if (contents.watch) {
       startWatchIfNeeded();
-      develop.start({ routes: contents.routes });
+      develop.start({ routes: contents.routes, debug: contents.debug });
     } else {
       develop.run({ routes: contents.routes }, () => {});
     }

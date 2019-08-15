@@ -1,13 +1,20 @@
 port module Main exposing (main)
 
-import Cli.Option
+import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser exposing (with)
 import Cli.Program as Program
 import List.Extra
 import String.Interpolate exposing (interpolate)
 
 
-port writeFile : { rawContent : String, routes : List String, imageAssets : String, watch : Bool } -> Cmd msg
+port writeFile :
+    { rawContent : String
+    , routes : List String
+    , imageAssets : String
+    , watch : Bool
+    , debug : Bool
+    }
+    -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -160,7 +167,7 @@ generateMarkdownPage markdown =
 
 
 type CliOptions
-    = Develop
+    = Develop { debugger : Bool }
     | Build
 
 
@@ -168,7 +175,12 @@ application : Program.Config CliOptions
 application =
     Program.config
         |> Program.add
-            (OptionsParser.buildSubCommand "develop" Develop)
+            (OptionsParser.buildSubCommand "develop"
+                (\debugger ->
+                    Develop { debugger = debugger }
+                )
+                |> with (Option.flag "debug")
+            )
         |> Program.add
             (OptionsParser.buildSubCommand "build" Build)
 
@@ -192,19 +204,20 @@ type alias MarkdownContent =
 init : Flags -> CliOptions -> Cmd Never
 init flags cliOptions =
     let
-        watch =
+        ( watch, debug ) =
             case cliOptions of
-                Develop ->
-                    True
+                Develop options ->
+                    ( True, options.debugger )
 
                 Build ->
-                    False
+                    ( False, False )
     in
     { rawContent =
         generate flags.content flags.markdownContent
     , routes = allRoutes (List.map .path flags.content ++ List.map .path flags.markdownContent)
     , imageAssets = imageAssetsFile flags.images
     , watch = watch
+    , debug = debug
     }
         |> writeFile
 

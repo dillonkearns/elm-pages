@@ -10,8 +10,8 @@ const merge = require("webpack-merge");
 const { GenerateSW } = require("workbox-webpack-plugin");
 
 module.exports = { start, run };
-function start({ routes }) {
-  const compiler = webpack(webpackOptions(false, routes));
+function start({ routes, debug }) {
+  const compiler = webpack(webpackOptions(false, routes, { debug }));
   const app = express();
 
   app.use(middleware(compiler, { publicPath: "/" }));
@@ -55,7 +55,7 @@ function run({ routes }, callback) {
   });
 }
 
-function webpackOptions(production, routes) {
+function webpackOptions(production, routes, { debug }) {
   const common = {
     // webpack options
     // entry: "index.html",
@@ -206,7 +206,7 @@ function webpackOptions(production, routes) {
                 loader: "elm-webpack-loader",
                 options: {
                   // add Elm's debug overlay to output?
-                  debug: false,
+                  debug: debug,
                   //
                   forceWatch: true
                 }
