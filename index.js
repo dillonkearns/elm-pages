@@ -11,28 +11,6 @@ module.exports = function pagesInit({ mainElmModule, imageAssets }) {
         });
       }
 
-      appendTag({
-        name: "link",
-        attributes: [
-          ["rel", "apple-touch-icon"],
-          ["sizes", "180x180"],
-          ["href", "/apple-touch-icon-180x180.png"]
-        ]
-      });
-      appendTag({
-        name: "link",
-        attributes: [
-          ["rel", "apple-touch-icon"],
-          ["sizes", "1024x1024"],
-          ["href", "/apple-touch-icon-1024x1024.png"]
-        ]
-      });
-
-      appendTag({
-        name: "link",
-        attributes: [["rel", "manifest"], ["href", "/manifest.webmanifest"]]
-      });
-
       document.dispatchEvent(new Event("prerender-trigger"));
     });
   });
