@@ -11,8 +11,6 @@
   "dependencies": {
     "@babel/core": "^7.5.5",
     "@babel/preset-env": "^7.5.5",
-    "babel": "^6.23.0",
-    "babel-core": "^6.26.3",
     "babel-loader": "^8.0.6",
     "chokidar": "^2.1.5",
     "copy-webpack-plugin": "^5.0.4",
