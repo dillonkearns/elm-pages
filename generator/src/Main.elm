@@ -13,6 +13,7 @@ port writeFile :
     , imageAssets : String
     , watch : Bool
     , debug : Bool
+    , fileContents : List ( String, String )
     }
     -> Cmd msg
 
@@ -218,8 +219,20 @@ init flags cliOptions =
     , imageAssets = imageAssetsFile flags.images
     , watch = watch
     , debug = debug
+    , fileContents = generateFileContents flags.markdownContent
     }
         |> writeFile
+
+
+generateFileContents : List MarkdownContent -> List ( String, String )
+generateFileContents markdownFiles =
+    markdownFiles
+        |> List.map
+            (\file ->
+                ( prerenderRcFormattedPath file.path |> String.dropLeft 1
+                , file.body
+                )
+            )
 
 
 imageAssetsFile : List String -> String

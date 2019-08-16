@@ -49,14 +49,17 @@ class AddFilesPlugin {
   }
   apply(compiler) {
     compiler.hooks.afterCompile.tap("AddFilesPlugin", compilation => {
-      compilation.assets["about/content.txt"] = {
-        source: function() {
-          return aboutContent;
-        },
-        size: function() {
-          aboutContent.length;
-        }
-      };
+      this.filesList.forEach(file => {
+        console.log("adding file ", file);
+        compilation.assets[`${file.name}/content.txt`] = {
+          source: function() {
+            return file.content;
+          },
+          size: function() {
+            file.content.length;
+          }
+        };
+      });
     });
   }
 }
@@ -80,35 +83,31 @@ function start({ routes, debug }) {
   );
 }
 
-function run({ routes }, callback) {
-  webpack(webpackOptions(true, routes, { debug: false })).run((err, stats) => {
-    if (err) {
-      console.error(err);
-      process.exit(1);
-    } else {
-      callback();
-    }
+function run({ routes, fileContents }, callback) {
+  webpack(webpackOptions(true, routes, { debug: false, fileContents })).run(
+    (err, stats) => {
+      if (err) {
+        console.error(err);
+        process.exit(1);
+      } else {
+        callback();
+      }
 
-    console.log(
-      stats.toString({
-        chunks: false, // Makes the build much quieter
-        colors: true // Shows colors in the console
-      })
-    );
-  });
+      console.log(
+        stats.toString({
+          chunks: false, // Makes the build much quieter
+          colors: true // Shows colors in the console
+        })
+      );
+    }
+  );
 }
 
-function webpackOptions(production, routes, { debug }) {
+function webpackOptions(production, routes, { debug, fileContents }) {
   const common = {
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
     plugins: [
-      new AddFilesPlugin([
-        {
-          name: "about/content.txt",
-          content: aboutContent
-        }
-      ]),
       new HTMLWebpackPlugin({
         inject: "head",
         // template: require.resolve("./template.html")
@@ -269,6 +268,16 @@ function webpackOptions(production, routes, { debug }) {
   };
   if (production) {
     return merge(common, {
+      plugins: [
+        new AddFilesPlugin(
+          fileContents.map(([path, content]) => {
+            return {
+              name: path,
+              content: content
+            };
+          })
+        )
+      ],
       module: {
         rules: [
           {

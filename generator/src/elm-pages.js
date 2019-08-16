@@ -62,7 +62,10 @@ function run() {
       startWatchIfNeeded();
       develop.start({ routes: contents.routes, debug: contents.debug });
     } else {
-      develop.run({ routes: contents.routes }, () => {});
+      develop.run(
+        { routes: contents.routes, fileContents: contents.fileContents },
+        () => {}
+      );
     }
   });
 }
