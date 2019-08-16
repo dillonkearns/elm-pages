@@ -1,7 +1,6 @@
 const webpack = require("webpack");
 const elmMinify = require("elm-minify");
 const middleware = require("webpack-dev-middleware");
-const express = require("express");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
@@ -9,33 +8,76 @@ const PrerenderSPAPlugin = require("prerender-spa-plugin");
 const merge = require("webpack-merge");
 const { GenerateSW } = require("workbox-webpack-plugin");
 const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
+const AddAssetPlugin = require("add-asset-webpack-plugin");
+
+const aboutContent = `# About elm-conf
+
+elm-conf is a single-day, one-track conference for the Elm programming language community, now in its fourth year.
+Thank you to everyone who helps make elm-conf US a reality: speakers, attendees, the talk selection team, and our sponsors.
+
+Special thanks to [Strange Loop](http://www.thestrangeloop.com) for giving us space and time to put on the conference.
+It wouldn't have been possible without you!
+
+## General organizing principles
+
+1. **A thriving community is built on diversity.**
+   We encourage people from all backgrounds and walks of life to attend and speak.
+   To ensure that everyone is included, we follow and enforce a [code of conduct](http://thestrangeloop.com/policies.html).
+
+2. **We assume you know some Elm already.**
+   Beginner talks, while great, are more appropriate for a general-interest conference.
+
+3. **We cannot have a good conference without good speakers.**
+   We will take care of our speakers leading up to and during the conference and will make sure they have what they need to deliver their best talk.
+   Speakers have the final say on their representation in published materials, on the website, and in their published talks.
+
+3. **elm-conf is for the community.**
+   A conference can't exist without a healthy community.
+   We will do our part by choosing our words carefully and kindly, and communicating early and often about difficulties.
+
+## Organizers
+
+- Brian Hicks
+- Luke Westby
+- Emma Cunningham
+- D Pham
+`;
+
+class AddFilesPlugin {
+  constructor(filesList) {
+    this.filesList = filesList;
+  }
+  apply(compiler) {
+    compiler.hooks.afterCompile.tap("AddFilesPlugin", compilation => {
+      compilation.assets["about/content.txt"] = {
+        source: function() {
+          return aboutContent;
+        },
+        size: function() {
+          aboutContent.length;
+        }
+      };
+    });
+  }
+}
 
 module.exports = { start, run };
 function start({ routes, debug }) {
   const compiler = webpack(webpackOptions(false, routes, { debug }));
-  const app = express();
-
-  app.use(middleware(compiler, { publicPath: "/" }));
-
-  app.use("*", function(req, res, next) {
-    // don't know why this works, but it does
-    // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
-    var filename = path.join(compiler.outputPath, "index.html");
-    compiler.outputFileSystem.readFile(filename, function(err, result) {
+  const watching = compiler.watch(
+    {
+      aggregateTimeout: 300,
+      poll: undefined
+    },
+    (err, stats) => {
       if (err) {
-        return next(err);
+        console.error(err);
+        process.exit(1);
+      } else {
+        console.log(stats);
       }
-      res.set("content-type", "text/html");
-      res.send(result);
-      res.end();
-    });
-  });
-
-  app.listen(3000, () =>
-    console.log("🚀 elm-pages develop running http://localhost:3000")
+    }
   );
-  // https://stackoverflow.com/questions/43667102/webpack-dev-middleware-and-static-files
-  // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
 function run({ routes }, callback) {
@@ -58,11 +100,15 @@ function run({ routes }, callback) {
 
 function webpackOptions(production, routes, { debug }) {
   const common = {
-    // webpack options
-    // entry: "index.html",
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
     plugins: [
+      new AddFilesPlugin([
+        {
+          name: "about/content.txt",
+          content: aboutContent
+        }
+      ]),
       new HTMLWebpackPlugin({
         inject: "head",
         // template: require.resolve("./template.html")
