@@ -255,6 +255,57 @@ lazyGet cacheResult renderer url =
             ( Err error, Nothing )
 
 
+warmUpCache :
+    (Dict String String
+     -> List String
+     -> List ( List String, metadata )
+     -> Mark.Document (Page metadata view)
+    )
+    -> Dict String String
+    -> (String -> List view)
+    -> Url
+    -> ContentCache msg metadata view
+    -> ContentCache msg metadata view
+warmUpCache markupParser imageAssets renderer url cacheResult =
+    let
+        path =
+            pathForUrl url
+    in
+    case cacheResult of
+        Ok cache ->
+            Dict.get path cache
+                |> (\maybeEntry ->
+                        case maybeEntry of
+                            Just (Parsed metadata view) ->
+                                -- no parsing neeeded, just return the value
+                                Ok cache
+
+                            Just (Unparsed metadata content) ->
+                                let
+                                    parsedEntry =
+                                        Parsed metadata (renderer content)
+                                in
+                                -- update the cache and return the parsed value
+                                cache
+                                    |> Dict.insert path parsedEntry
+                                    |> Ok
+
+                            Just (NeedContent metadata) ->
+                                -- Parsed metadata (renderer "")
+                                --     |> Just
+                                Ok cache
+
+                            Nothing ->
+                                -- TODO this should be Err, not Ok
+                                Ok cache
+                   )
+
+        Err error ->
+            -- TODO update this ever???
+            -- Should this be something other than the raw HTML, or just concat the error HTML?
+            Err error
+
+
 update :
     ContentCache msg metadata view
     -> (String -> view)
