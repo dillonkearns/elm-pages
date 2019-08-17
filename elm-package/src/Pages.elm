@@ -24,7 +24,7 @@ type alias Content =
 
 
 type alias Program userFlags userModel userMsg metadata view =
-    Platform.Program (Flags userFlags) (Model userModel userMsg metadata view) (Msg userMsg)
+    Platform.Program (Flags userFlags) (Model userModel userMsg metadata view) (Msg userMsg metadata view)
 
 
 mainView :
@@ -99,7 +99,7 @@ view :
     -> Parser metadata view
     -> (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
-    -> Browser.Document (Msg userMsg)
+    -> Browser.Document (Msg userMsg metadata view)
 view content parser pageView model =
     let
         { title, body } =
@@ -140,7 +140,7 @@ combineTupleResults input =
 init :
     (String -> view)
     -> Json.Decode.Decoder metadata
-    -> (Json.Encode.Value -> Cmd (Msg userMsg))
+    -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
     -> (metadata -> List Head.Tag)
     -> Parser metadata view
     -> Content
@@ -148,7 +148,7 @@ init :
     -> Flags userFlags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg) )
+    -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg metadata view) )
 init markdownToHtml frontmatterParser toJsPort head parser content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
@@ -255,6 +255,11 @@ getPageData url =
         }
 
 
+succeedTask : Task Http.Error String
+succeedTask =
+    Task.succeed ""
+
+
 getPageDataTask : Url -> Task Http.Error String
 getPageDataTask url =
     Http.task
@@ -299,11 +304,12 @@ getPageDataTask url =
 --     }
 
 
-type Msg userMsg
+type Msg userMsg metadata view
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | UserMsg userMsg
     | GotContent Url (Result Http.Error String)
+    | UpdateCache (ContentCache userMsg metadata view)
 
 
 type Model userModel userMsg metadata view
@@ -324,9 +330,9 @@ update :
     Parser metadata view
     -> (String -> view)
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
-    -> Msg userMsg
+    -> Msg userMsg metadata view
     -> ModelDetails userModel userMsg metadata view
-    -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg) )
+    -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg metadata view) )
 update markupParser markdownToHtml userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
@@ -383,6 +389,9 @@ update markupParser markdownToHtml userUpdate msg model =
                 Err error ->
                     ( model, Cmd.none )
 
+        UpdateCache cache ->
+            ( { model | contentCache = cache }, Cmd.none )
+
 
 warmupCache markupParser markdownToHtml url model =
     { model
@@ -409,7 +418,7 @@ application :
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , parser : Parser metadata view
     , content : Content
-    , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg)
+    , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List Head.Tag
     , frontmatterParser : Json.Decode.Decoder metadata
     , markdownToHtml : String -> view
