@@ -5,7 +5,6 @@ import Browser.Navigation
 import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
-import Html.Attributes
 import Http
 import Json.Decode
 import Json.Encode
@@ -16,7 +15,6 @@ import Pages.Parser exposing (Page)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
-import Url.Builder
 
 
 type alias Content =
@@ -71,12 +69,10 @@ pageViewOrError pageView model cache =
                 Html.div []
                     [ Html.text "Page not found. Valid routes:\n\n"
 
-                    -- TODO re-implement this for new cache
-                    -- , cache
-                    --     |> List.map Tuple.first
-                    --     |> List.map (String.join "/")
-                    --     |> String.join ", "
-                    --     |> Html.text
+                    , cache
+                    |> ContentCache.routesForCache
+                        |> String.join ", "
+                        |> Html.text
                     ]
             }
 
