@@ -155,6 +155,11 @@ routes record =
         |> List.map (\route -> "/" ++ route)
 
 
+routesForCache : ContentCache msg metadata view -> List String
+routesForCache viewmetadataContentCache =
+    []
+
+
 type alias Page metadata view =
     { metadata : metadata
     , view : List view
@@ -282,13 +287,29 @@ warmUpCache markupParser imageAssets renderer url cacheResult =
 
                             Just (Unparsed metadata content) ->
                                 let
-                                    parsedEntry =
-                                        Parsed metadata (renderer content)
+                                    parsedMarkup =
+                                        Mark.compile
+                                            (markupParser imageAssets
+                                                (Ok cache |> routesForCache)
+                                                (extractMetadata (Ok cache))
+                                            )
+                                            content
                                 in
                                 -- update the cache and return the parsed value
-                                cache
-                                    |> Dict.insert path parsedEntry
-                                    |> Ok
+                                case parsedMarkup of
+                                    Mark.Success parsed ->
+                                        -- TODO feels strange that the metadata could change here... make a way to
+                                        -- only parse the metadata once
+                                        cache
+                                            |> Dict.insert path (Parsed metadata parsed.view)
+                                            |> Ok
+
+                                    Mark.Almost _ ->
+                                        -- TODO update record to error
+                                        Err (Html.text "Error parsing markup")
+
+                                    Mark.Failure _ ->
+                                        Err (Html.text "Error parsing markup")
 
                             Just (NeedContent metadata) ->
                                 -- Parsed metadata (renderer "")
