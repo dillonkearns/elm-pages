@@ -188,7 +188,6 @@ combineResults list =
                         Ok ( path, Unparsed parsedMarkup.metadata rawMarkup )
 
                     Mark.Almost partial ->
-                        -- Err "Almost"
                         Err ( path, partial.errors )
 
                     Mark.Failure failures ->
