@@ -209,6 +209,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                                     |> Result.map List.concat
                             )
               }
+                |> warmupCache parser markdownToHtml url
             , Cmd.batch
                 ([ Content.lookup okMetadata url
                     |> Maybe.map head
@@ -320,12 +321,13 @@ type alias ModelDetails userModel userMsg metadata view =
 
 
 update :
-    (String -> view)
+    Parser metadata view
+    -> (String -> view)
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> ModelDetails userModel userMsg metadata view
     -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg) )
-update markdownToHtml userUpdate msg model =
+update markupParser markdownToHtml userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -346,7 +348,14 @@ update markdownToHtml userUpdate msg model =
                     ( model, Browser.Navigation.load href )
 
         UrlChanged url ->
-            ( model
+            ( { model
+                | contentCache =
+                    model.contentCache
+                        |> ContentCache.warmUpCache markupParser
+                            model.imageAssets
+                            (markdownToHtml >> List.singleton)
+                            url
+              }
             , getPageDataTask url |> Task.attempt (GotContent url)
             )
 
@@ -373,6 +382,17 @@ update markdownToHtml userUpdate msg model =
 
                 Err error ->
                     ( model, Cmd.none )
+
+
+warmupCache markupParser markdownToHtml url model =
+    { model
+        | contentCache =
+            model.contentCache
+                |> ContentCache.warmUpCache markupParser
+                    model.imageAssets
+                    (markdownToHtml >> List.singleton)
+                    url
+    }
 
 
 type alias Parser metadata view =
@@ -402,7 +422,7 @@ application config =
                 init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init flags url key
                     |> Tuple.mapFirst Model
         , view = \(Model model) -> view config.content config.parser config.view model
-        , update = \msg (Model model) -> update config.markdownToHtml config.update msg model |> Tuple.mapFirst Model
+        , update = \msg (Model model) -> update config.parser config.markdownToHtml config.update msg model |> Tuple.mapFirst Model
         , subscriptions =
             \(Model model) ->
                 config.subscriptions model.userModel

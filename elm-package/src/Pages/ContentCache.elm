@@ -1,4 +1,4 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lookup, pathForUrl, update)
+module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lookup, pathForUrl, update, warmUpCache)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
