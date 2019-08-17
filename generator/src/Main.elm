@@ -100,12 +100,12 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 
 
-content : { markdown : List ( List String, { frontMatter : String, body : String } ), markup : List ( List String, String ) }
+content : { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
 content =
     { markdown = markdown, markup = markup }
 
 
-markdown : List ( List String, { frontMatter : String, body : String } )
+markdown : List ( List String, { frontMatter : String, body : Maybe String } )
 markdown =
     [ {1}
     ]
@@ -158,7 +158,7 @@ generateMarkdownPage markdown =
     interpolate """( {0}
   , { frontMatter = \"\"\" {1}
 \"\"\"
-    , body = \"\"\"{2}\"\"\" }
+    , body = Nothing }
   )
 """
         [ pathFor markdown
