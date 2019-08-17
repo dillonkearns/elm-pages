@@ -43,19 +43,6 @@ mainView pageView model =
             }
 
 
-extractMetadata :
-    Result (Html userMsg) (Content.Content metadata view)
-    -> List ( List String, metadata )
-extractMetadata result =
-    case result of
-        Ok content ->
-            content
-                |> List.map (Tuple.mapSecond .metadata)
-
-        Err userMsgHtml ->
-            []
-
-
 pageViewOrError :
     (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
@@ -371,22 +358,3 @@ application config =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-parseMarkdown :
-    (String -> view)
-    -> List ( List String, Result (Html msg) { parsedFrontmatter : metadata, body : String } )
-    -> Result (Html msg) (Content.Content metadata view)
-parseMarkdown markdownToHtml markdownContent =
-    markdownContent
-        |> List.map
-            (Tuple.mapSecond
-                (Result.map
-                    (\{ parsedFrontmatter, body } ->
-                        { metadata = parsedFrontmatter
-                        , view = [ markdownToHtml body ]
-                        }
-                    )
-                )
-            )
-        |> combineTupleResults
