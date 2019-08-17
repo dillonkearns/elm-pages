@@ -1,4 +1,4 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyGet, lazyLoad, lookup, pathForUrl, update, warmUpCache, routesForCache)
+module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyGet, lazyLoad, lookup, pathForUrl, update, routesForCache)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
@@ -263,71 +263,6 @@ lazyGet cacheResult renderer url =
             ( Err error, Nothing )
 
 
-warmUpCache :
-    (Dict String String
-     -> List String
-     -> List ( List String, metadata )
-     -> Mark.Document (Page metadata view)
-    )
-    -> Dict String String
-    -> (String -> List view)
-    -> Url
-    -> ContentCache msg metadata view
-    -> ContentCache msg metadata view
-warmUpCache markupParser imageAssets renderer url cacheResult =
-    let
-        path =
-            pathForUrl url
-    in
-    case cacheResult of
-        Ok cache ->
-            Dict.get path cache
-                |> (\maybeEntry ->
-                        case maybeEntry of
-                            Just (Parsed metadata view) ->
-                                -- no parsing neeeded, just return the value
-                                Ok cache
-
-                            Just (Unparsed metadata content) ->
-                                let
-                                    parsedMarkup =
-                                        Mark.compile
-                                            (markupParser imageAssets
-                                                (Ok cache |> routesForCache)
-                                                (extractMetadata (Ok cache))
-                                            )
-                                            content
-                                in
-                                -- update the cache and return the parsed value
-                                case parsedMarkup of
-                                    Mark.Success parsed ->
-                                        -- TODO feels strange that the metadata could change here... make a way to
-                                        -- only parse the metadata once
-                                        cache
-                                            |> Dict.insert path (Parsed metadata parsed.view)
-                                            |> Ok
-
-                                    Mark.Almost _ ->
-                                        -- TODO update record to error
-                                        Err (Html.text "Error parsing markup")
-
-                                    Mark.Failure _ ->
-                                        Err (Html.text "Error parsing markup")
-
-                            Just (NeedContent metadata) ->
-                                -- Parsed metadata (renderer "")
-                                --     |> Just
-                                Ok cache
-
-                            Nothing ->
-                                -- TODO this should be Err, not Ok
-                                Ok cache
-                   )
-
-        Err error ->
-            -- TODO update this ever???
-            -- Should this be something other than the raw HTML, or just concat the error HTML?
-            Err error
 
 
 lazyLoad :

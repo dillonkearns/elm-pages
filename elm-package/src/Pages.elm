@@ -68,9 +68,8 @@ pageViewOrError pageView model cache =
             , body =
                 Html.div []
                     [ Html.text "Page not found. Valid routes:\n\n"
-
                     , cache
-                    |> ContentCache.routesForCache
+                        |> ContentCache.routesForCache
                         |> String.join ", "
                         |> Html.text
                     ]
@@ -186,7 +185,6 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , userModel = userModel
               , contentCache = contentCache
               }
-                |> warmupCache parser markdownToHtml url
             , Cmd.batch
                 ([ Content.lookup okMetadata url
                     |> Maybe.map head
@@ -265,14 +263,7 @@ update markupParser markdownToHtml userUpdate msg model =
                     ( model, Browser.Navigation.load href )
 
         UrlChanged url ->
-            ( { model
-                | contentCache =
-                    model.contentCache
-                        |> ContentCache.warmUpCache markupParser
-                            model.imageAssets
-                            (markdownToHtml >> List.singleton)
-                            url
-              }
+            ( model
             , model.contentCache
                 |> ContentCache.lazyLoad markupParser model.imageAssets markdownToHtml url
                 |> Task.attempt (UpdateCacheAndUrl url)
@@ -306,17 +297,6 @@ update markupParser markdownToHtml userUpdate msg model =
                 Err _ ->
                     -- TODO handle error
                     ( { model | url = url }, Cmd.none )
-
-
-warmupCache markupParser markdownToHtml url model =
-    { model
-        | contentCache =
-            model.contentCache
-                |> ContentCache.warmUpCache markupParser
-                    model.imageAssets
-                    (markdownToHtml >> List.singleton)
-                    url
-    }
 
 
 type alias Parser metadata view =
