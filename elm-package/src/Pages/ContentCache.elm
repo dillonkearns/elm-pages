@@ -330,10 +330,6 @@ warmUpCache markupParser imageAssets renderer url cacheResult =
             Err error
 
 
-
--- ContentCache.update model.contentCache markdownToHtml url content
-
-
 lazyLoad :
     (Dict String String
      -> List String
@@ -346,24 +342,55 @@ lazyLoad :
     -> ContentCache msg metadata view
     -> Task Http.Error (ContentCache msg metadata view)
 lazyLoad markupParser imageAssets markdownToHtml url cacheResult =
-    case lookup cacheResult url of
-        Just entry ->
-            case entry of
-                NeedContent _ ->
-                    httpTask url
-                        |> Task.map
-                            (\downloadedContent ->
-                                update cacheResult markdownToHtml url downloadedContent
-                            )
-
-                Unparsed _ _ ->
-                    Task.succeed cacheResult
-
-                Parsed _ _ ->
-                    Task.succeed cacheResult
-
-        Nothing ->
+    case cacheResult of
+        Err _ ->
             Task.succeed cacheResult
+
+        Ok cache ->
+            case Dict.get (pathForUrl url) cache of
+                Just entry ->
+                    case entry of
+                        NeedContent _ ->
+                            httpTask url
+                                |> Task.map
+                                    (\downloadedContent ->
+                                        update cacheResult markdownToHtml url downloadedContent
+                                    )
+
+                        Unparsed metadata content ->
+                            let
+                                parsedMarkup =
+                                    Mark.compile
+                                        (markupParser imageAssets
+                                            (cacheResult |> routesForCache)
+                                            (extractMetadata cacheResult)
+                                        )
+                                        content
+                            in
+                            case parsedMarkup of
+                                Mark.Success parsed ->
+                                    -- TODO feels strange that the metadata could change here... make a way to
+                                    -- only parse the metadata once
+                                    cache
+                                        |> Dict.insert (pathForUrl url) (Parsed metadata parsed.view)
+                                        |> Ok
+                                        |> Task.succeed
+
+                                Mark.Almost _ ->
+                                    -- TODO handle errors properly
+                                    cacheResult
+                                        |> Task.succeed
+
+                                Mark.Failure _ ->
+                                    -- TODO handle errors properly
+                                    cacheResult
+                                        |> Task.succeed
+
+                        Parsed _ _ ->
+                            Task.succeed cacheResult
+
+                Nothing ->
+                    Task.succeed cacheResult
 
 
 httpTask url =
