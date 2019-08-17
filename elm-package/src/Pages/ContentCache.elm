@@ -140,7 +140,7 @@ parseMarkupMetadata parser imageAssets markupFiles =
         |> Result.mapError renderErrors
 
 
-routes : List ( List String, String ) -> List String
+routes : List ( List String, anything ) -> List String
 routes record =
     record
         |> List.map Tuple.first
@@ -149,8 +149,15 @@ routes record =
 
 
 routesForCache : ContentCache msg metadata view -> List String
-routesForCache viewmetadataContentCache =
-    []
+routesForCache cacheResult =
+    case cacheResult of
+        Ok cache ->
+            cache
+                |> Dict.toList
+                |> routes
+
+        Err _ ->
+            []
 
 
 type alias Page metadata view =
