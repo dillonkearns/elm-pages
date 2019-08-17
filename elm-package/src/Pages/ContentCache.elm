@@ -1,4 +1,4 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyGet, lazyLoad, lookup, pathForUrl, update, routesForCache)
+module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyGet, lazyLoad, lookup, pathForUrl, routesForCache, update)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
@@ -122,32 +122,22 @@ parseMarkupMetadata :
     -> Dict String String
     -> List ( List String, String )
     -> Result (Html msg) (List ( Path, Entry metadata view ))
-parseMarkupMetadata parser imageAssets record =
-    case
-        record
-            |> List.map
-                (\( path, markup ) ->
-                    ( path
-                    , Mark.compile
-                        (parser imageAssets
-                            (routes record)
-                            []
-                        )
-                        markup
-                    , markup
+parseMarkupMetadata parser imageAssets markupFiles =
+    markupFiles
+        |> List.map
+            (\( path, markup ) ->
+                ( path
+                , Mark.compile
+                    (parser imageAssets
+                        (routes markupFiles)
+                        []
                     )
+                    markup
+                , markup
                 )
-            |> combineResults
-    of
-        Ok pages ->
-            Ok
-                (pages
-                 -- |> List.map
-                 --     (Tuple.mapSecond (\thing -> Unparsed thing.metadata "thing.body"))
-                )
-
-        Err errors ->
-            Err (renderErrors errors)
+            )
+        |> combineResults
+        |> Result.mapError renderErrors
 
 
 routes : List ( List String, String ) -> List String
@@ -261,8 +251,6 @@ lazyGet cacheResult renderer url =
             -- TODO update this ever???
             -- Should this be something other than the raw HTML, or just concat the error HTML?
             ( Err error, Nothing )
-
-
 
 
 lazyLoad :
