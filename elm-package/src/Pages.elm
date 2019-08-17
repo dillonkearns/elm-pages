@@ -254,6 +254,7 @@ type Msg userMsg metadata view
     | UrlChanged Url.Url
     | UserMsg userMsg
     | UpdateCache (Result Http.Error (ContentCache userMsg metadata view))
+    | UpdateCacheAndUrl Url (Result Http.Error (ContentCache userMsg metadata view))
 
 
 type Model userModel userMsg metadata view
@@ -308,7 +309,7 @@ update markupParser markdownToHtml userUpdate msg model =
               }
             , model.contentCache
                 |> ContentCache.lazyLoad markupParser model.imageAssets markdownToHtml url
-                |> Task.attempt UpdateCache
+                |> Task.attempt (UpdateCacheAndUrl url)
             )
 
         UserMsg userMsg ->
@@ -328,6 +329,17 @@ update markupParser markdownToHtml userUpdate msg model =
                 Err _ ->
                     -- TODO handle error
                     ( model, Cmd.none )
+
+        UpdateCacheAndUrl url cacheUpdateResult ->
+            case cacheUpdateResult of
+                -- TODO can there be race conditions here? Might need to set something in the model
+                -- to keep track of the last url change
+                Ok updatedCache ->
+                    ( { model | url = url, contentCache = updatedCache }, Cmd.none )
+
+                Err _ ->
+                    -- TODO handle error
+                    ( { model | url = url }, Cmd.none )
 
 
 warmupCache markupParser markdownToHtml url model =
