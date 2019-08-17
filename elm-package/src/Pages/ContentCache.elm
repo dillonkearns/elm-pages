@@ -4,6 +4,7 @@ import Dict exposing (Dict)
 import Html exposing (Html)
 import Json.Decode
 import Mark
+import Mark.Error
 import Result.Extra
 import Url exposing (Url)
 
@@ -95,6 +96,91 @@ init frontmatterParser content parser imageAssets =
     parsedMarkdown
         |> combineTupleResults
         |> Result.map Dict.fromList
+
+
+parseMarkupMetadata :
+    (Dict String String
+     -> List String
+     -> List ( List String, metadata )
+     ->
+        Mark.Document
+            { metadata : metadata
+            , view : List view
+            }
+    )
+    -> Dict String String
+    -> List ( List String, String )
+    -> Result (Html msg) (List ( List String, metadata ))
+parseMarkupMetadata parser imageAssets record =
+    case
+        record
+            |> List.map
+                (\( path, markup ) ->
+                    ( path
+                    , Mark.compile
+                        (parser imageAssets
+                            (routes record)
+                            []
+                        )
+                        markup
+                    )
+                )
+            |> combineResults
+    of
+        Ok pages ->
+            Ok
+                (pages
+                    |> List.map
+                        (Tuple.mapSecond .metadata)
+                )
+
+        Err errors ->
+            Err (renderErrors errors)
+
+
+routes : List ( List String, String ) -> List String
+routes record =
+    record
+        |> List.map Tuple.first
+        |> List.map (String.join "/")
+        |> List.map (\route -> "/" ++ route)
+
+
+type alias Page metadata view =
+    { metadata : metadata
+    , view : List view
+    }
+
+
+renderErrors : ( List String, List Mark.Error.Error ) -> Html msg
+renderErrors ( path, errors ) =
+    Html.div []
+        [ Html.text (path |> String.join "/")
+        , errors
+            |> List.map (Mark.Error.toHtml Mark.Error.Light)
+            |> Html.div []
+        ]
+
+
+combineResults :
+    List ( List String, Mark.Outcome (List Mark.Error.Error) (Mark.Partial (Page metadata view)) (Page metadata view) )
+    -> Result ( List String, List Mark.Error.Error ) (List ( List String, Page metadata view ))
+combineResults list =
+    list
+        |> List.map
+            (\( path, outcome ) ->
+                case outcome of
+                    Mark.Success parsedMarkup ->
+                        Ok ( path, parsedMarkup )
+
+                    Mark.Almost partial ->
+                        -- Err "Almost"
+                        Err ( path, partial.errors )
+
+                    Mark.Failure failures ->
+                        Err ( path, failures )
+            )
+        |> Result.Extra.combine
 
 
 combineTupleResults :
