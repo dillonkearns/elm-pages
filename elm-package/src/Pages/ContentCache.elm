@@ -1,12 +1,15 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lookup, pathForUrl, update, warmUpCache)
+module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyLoad, lookup, pathForUrl, update, warmUpCache)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
+import Http
 import Json.Decode
 import Mark
 import Mark.Error
 import Result.Extra
+import Task exposing (Task)
 import Url exposing (Url)
+import Url.Builder
 
 
 type alias Content =
@@ -325,6 +328,60 @@ warmUpCache markupParser imageAssets renderer url cacheResult =
             -- TODO update this ever???
             -- Should this be something other than the raw HTML, or just concat the error HTML?
             Err error
+
+
+
+-- ContentCache.update model.contentCache markdownToHtml url content
+
+
+lazyLoad :
+    (String -> view)
+    -> Url
+    -> String
+    -> ContentCache msg metadata view
+    -> Task Http.Error (ContentCache msg metadata view)
+lazyLoad renderer url rawContent cacheResult =
+    httpTask url
+        |> Task.map
+            (\content ->
+                cacheResult
+            )
+
+
+httpTask url =
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url =
+            Url.Builder.absolute
+                ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
+                    ++ [ "content.txt"
+                       ]
+                )
+                []
+        , body = Http.emptyBody
+        , resolver =
+            Http.stringResolver
+                (\response ->
+                    case response of
+                        Http.BadUrl_ url_ ->
+                            Err (Http.BadUrl url_)
+
+                        Http.Timeout_ ->
+                            Err Http.Timeout
+
+                        Http.NetworkError_ ->
+                            Err Http.NetworkError
+
+                        Http.BadStatus_ metadata body ->
+                            Err (Http.BadStatus metadata.statusCode)
+
+                        Http.GoodStatus_ metadata body ->
+                            Ok body
+                 -- (Http.Response String.String -> Result.Result x a)
+                )
+        , timeout = Nothing
+        }
 
 
 update :
