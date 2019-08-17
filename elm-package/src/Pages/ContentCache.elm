@@ -335,11 +335,17 @@ warmUpCache markupParser imageAssets renderer url cacheResult =
 
 
 lazyLoad :
-    (String -> view)
+    (Dict String String
+     -> List String
+     -> List ( List String, metadata )
+     -> Mark.Document (Page metadata view)
+    )
+    -> Dict String String
+    -> (String -> view)
     -> Url
     -> ContentCache msg metadata view
     -> Task Http.Error (ContentCache msg metadata view)
-lazyLoad markdownToHtml url cacheResult =
+lazyLoad markupParser imageAssets markdownToHtml url cacheResult =
     case lookup cacheResult url of
         Just entry ->
             case entry of
@@ -390,7 +396,6 @@ httpTask url =
 
                         Http.GoodStatus_ metadata body ->
                             Ok body
-                 -- (Http.Response String.String -> Result.Result x a)
                 )
         , timeout = Nothing
         }

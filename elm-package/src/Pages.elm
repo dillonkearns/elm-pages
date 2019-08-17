@@ -221,7 +221,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                     |> Maybe.map toJsPort
                  , userCmd |> Cmd.map UserMsg |> Just
                  , contentCache
-                    |> ContentCache.lazyLoad markdownToHtml url
+                    |> ContentCache.lazyLoad parser imageAssets markdownToHtml url
                     |> Task.attempt UpdateCache
                     |> Just
                  ]
@@ -307,7 +307,7 @@ update markupParser markdownToHtml userUpdate msg model =
                             url
               }
             , model.contentCache
-                |> ContentCache.lazyLoad markdownToHtml url
+                |> ContentCache.lazyLoad markupParser model.imageAssets markdownToHtml url
                 |> Task.attempt UpdateCache
             )
 
