@@ -1,4 +1,4 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyGet, lazyLoad, lookup, pathForUrl, routesForCache, update)
+module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyLoad, lookup, pathForUrl, routesForCache, update)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
@@ -212,53 +212,6 @@ combineTupleResults input =
 {-| Get from the Cache... if it's not already parsed, it will
 parse it before returning it and store the parsed version in the Cache
 -}
-lazyGet :
-    ContentCache msg metadata view
-    -> (String -> List view)
-    -> Url
-    -> ( ContentCache msg metadata view, Maybe ( metadata, List view ) )
-lazyGet cacheResult renderer url =
-    let
-        path =
-            pathForUrl url
-    in
-    case cacheResult of
-        Ok cache ->
-            Dict.get path cache
-                |> (\maybeEntry ->
-                        case maybeEntry of
-                            Just (Parsed metadata view) ->
-                                -- no parsing neeeded, just return the value
-                                ( Ok cache, Just ( metadata, view ) )
-
-                            Just (Unparsed metadata content) ->
-                                let
-                                    parsedEntry =
-                                        Parsed metadata (renderer content)
-                                in
-                                -- update the cache and return the parsed value
-                                ( cache
-                                    |> Dict.insert path parsedEntry
-                                    |> Ok
-                                , Nothing
-                                )
-
-                            Just (NeedContent metadata) ->
-                                -- Parsed metadata (renderer "")
-                                --     |> Just
-                                ( Ok cache, Nothing )
-
-                            Nothing ->
-                                -- TODO this should be Err, not Ok
-                                ( Ok cache, Nothing )
-                   )
-
-        Err error ->
-            -- TODO update this ever???
-            -- Should this be something other than the raw HTML, or just concat the error HTML?
-            ( Err error, Nothing )
-
-
 lazyLoad :
     (Dict String String
      -> List String
