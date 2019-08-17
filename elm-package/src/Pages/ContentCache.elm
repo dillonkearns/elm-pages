@@ -7,6 +7,10 @@ import Result.Extra
 import Url exposing (Url)
 
 
+type alias Content =
+    { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
+
+
 type alias ContentCache msg metadata view =
     Result (Html msg) (Dict Path (Entry metadata view))
 
@@ -49,12 +53,12 @@ getMetadata entry =
 
 init :
     Json.Decode.Decoder metadata
-    -> List ( List String, { a | frontMatter : String } )
+    -> Content
     -> ContentCache msg metadata view
-init frontmatterParser rawFrontmatter =
+init frontmatterParser content =
     let
         parsedMarkdown =
-            rawFrontmatter
+            content.markdown
                 |> List.map
                     (\(( path, details ) as full) ->
                         Tuple.mapSecond

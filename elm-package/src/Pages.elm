@@ -197,12 +197,12 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , url = url
               , imageAssets = imageAssets
               , userModel = userModel
-              , contentCache = ContentCache.init frontmatterParser content.markdown
+              , contentCache = ContentCache.init frontmatterParser content
               , parsedContent =
                     metadata
                         |> Result.andThen
-                            (\m ->
-                                [ Content.buildAllData m parser imageAssets content.markup
+                            (\meta ->
+                                [ Content.buildAllData meta parser imageAssets content.markup
                                 , parseMarkdown markdownToHtml parsedMarkdown
                                 ]
                                     |> Result.Extra.combine
