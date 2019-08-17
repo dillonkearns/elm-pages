@@ -1,4 +1,4 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyLoad, lookup, pathForUrl, update, warmUpCache)
+module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetadata, init, lazyGet, lazyLoad, lookup, pathForUrl, update, warmUpCache)
 
 import Dict exposing (Dict)
 import Html exposing (Html)
@@ -337,14 +337,13 @@ warmUpCache markupParser imageAssets renderer url cacheResult =
 lazyLoad :
     (String -> view)
     -> Url
-    -> String
     -> ContentCache msg metadata view
     -> Task Http.Error (ContentCache msg metadata view)
-lazyLoad renderer url rawContent cacheResult =
+lazyLoad markdownToHtml url cacheResult =
     httpTask url
         |> Task.map
             (\content ->
-                cacheResult
+                update cacheResult markdownToHtml url content
             )
 
 

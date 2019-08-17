@@ -193,11 +193,15 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
     in
     case metadata of
         Ok okMetadata ->
+            let
+                contentCache =
+                    ContentCache.init frontmatterParser content parser imageAssets
+            in
             ( { key = key
               , url = url
               , imageAssets = imageAssets
               , userModel = userModel
-              , contentCache = ContentCache.init frontmatterParser content parser imageAssets
+              , contentCache = contentCache
               , parsedContent =
                     metadata
                         |> Result.andThen
@@ -216,7 +220,10 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                     |> Maybe.map encodeHeads
                     |> Maybe.map toJsPort
                  , userCmd |> Cmd.map UserMsg |> Just
-                 , getPageData url |> Just
+                 , contentCache
+                    |> ContentCache.lazyLoad markdownToHtml url
+                    |> Task.attempt UpdateCache
+                    |> Just
                  ]
                     |> List.filterMap identity
                 )
@@ -240,19 +247,6 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                 ]
               -- TODO handle errors better
             )
-
-
-getPageData url =
-    Http.get
-        { url =
-            Url.Builder.absolute
-                ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
-                    ++ [ "content.txt"
-                       ]
-                )
-                []
-        , expect = Http.expectString (GotContent url)
-        }
 
 
 succeedTask : Task Http.Error String
@@ -297,19 +291,11 @@ getPageDataTask url =
         }
 
 
-
--- Http.get
---     { url =
---     , expect = Http.expectString (GotContent url)
---     }
-
-
 type Msg userMsg metadata view
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | UserMsg userMsg
-    | GotContent Url (Result Http.Error String)
-    | UpdateCache (ContentCache userMsg metadata view)
+    | UpdateCache (Result Http.Error (ContentCache userMsg metadata view))
 
 
 type Model userModel userMsg metadata view
@@ -362,7 +348,9 @@ update markupParser markdownToHtml userUpdate msg model =
                             (markdownToHtml >> List.singleton)
                             url
               }
-            , getPageDataTask url |> Task.attempt (GotContent url)
+            , model.contentCache
+                |> ContentCache.lazyLoad markdownToHtml url
+                |> Task.attempt UpdateCache
             )
 
         UserMsg userMsg ->
@@ -372,25 +360,16 @@ update markupParser markdownToHtml userUpdate msg model =
             in
             ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
 
-        GotContent url contentResult ->
-            case contentResult of
-                Ok content ->
-                    ( { model
-                        | contentCache =
-                            ContentCache.update model.contentCache markdownToHtml url content
-                        , url = url
+        UpdateCache cacheUpdateResult ->
+            case cacheUpdateResult of
+                -- TODO can there be race conditions here? Might need to set something in the model
+                -- to keep track of the last url change
+                Ok updatedCache ->
+                    ( { model | contentCache = updatedCache }, Cmd.none )
 
-                        -- TODO can there be race conditions here? Might need to set something in the model
-                        -- to keep track of the last url change
-                      }
-                    , Cmd.none
-                    )
-
-                Err error ->
+                Err _ ->
+                    -- TODO handle error
                     ( model, Cmd.none )
-
-        UpdateCache cache ->
-            ( { model | contentCache = cache }, Cmd.none )
 
 
 warmupCache markupParser markdownToHtml url model =
