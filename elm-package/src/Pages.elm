@@ -202,16 +202,6 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , imageAssets = imageAssets
               , userModel = userModel
               , contentCache = contentCache
-              , parsedContent =
-                    metadata
-                        |> Result.andThen
-                            (\meta ->
-                                [ Content.buildAllData meta parser imageAssets content.markup
-                                , parseMarkdown markdownToHtml parsedMarkdown
-                                ]
-                                    |> Result.Extra.combine
-                                    |> Result.map List.concat
-                            )
               }
                 |> warmupCache parser markdownToHtml url
             , Cmd.batch
@@ -235,12 +225,6 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , imageAssets = imageAssets
               , userModel = userModel
               , contentCache = Ok Dict.empty -- TODO use ContentCache.init
-              , parsedContent =
-                    metadata
-                        |> Result.andThen
-                            (\m ->
-                                Content.buildAllData m parser imageAssets content.markup
-                            )
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -265,7 +249,6 @@ type alias ModelDetails userModel userMsg metadata view =
     { key : Browser.Navigation.Key
     , url : Url.Url
     , imageAssets : Dict String String
-    , parsedContent : Result (Html userMsg) (Content.Content metadata view)
     , contentCache : ContentCache userMsg metadata view
     , userModel : userModel
     }
