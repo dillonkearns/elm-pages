@@ -92,6 +92,9 @@ init frontmatterParser content parser imageAssets =
                             )
                             full
                     )
+
+        parsedMarkup =
+            parseMarkupMetadata parser imageAssets content.markup
     in
     parsedMarkdown
         |> combineTupleResults
@@ -110,7 +113,7 @@ parseMarkupMetadata :
     )
     -> Dict String String
     -> List ( List String, String )
-    -> Result (Html msg) (List ( List String, metadata ))
+    -> Result (Html msg) (List ( Path, metadata ))
 parseMarkupMetadata parser imageAssets record =
     case
         record
