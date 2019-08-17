@@ -20,6 +20,7 @@ type alias ContentCache msg metadata view =
 type Entry metadata view
     = NeedContent metadata
     | Unparsed metadata String
+      -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
     | Parsed metadata (List view)
 
 
@@ -96,8 +97,12 @@ init frontmatterParser content parser imageAssets =
         parsedMarkup =
             parseMarkupMetadata parser imageAssets content.markup
     in
-    parsedMarkdown
+    [ parsedMarkdown
         |> combineTupleResults
+    , parsedMarkup
+    ]
+        |> Result.Extra.combine
+        |> Result.map List.concat
         |> Result.map Dict.fromList
 
 
@@ -113,7 +118,7 @@ parseMarkupMetadata :
     )
     -> Dict String String
     -> List ( List String, String )
-    -> Result (Html msg) (List ( Path, metadata ))
+    -> Result (Html msg) (List ( Path, Entry metadata view ))
 parseMarkupMetadata parser imageAssets record =
     case
         record
@@ -126,6 +131,7 @@ parseMarkupMetadata parser imageAssets record =
                             []
                         )
                         markup
+                    , markup
                     )
                 )
             |> combineResults
@@ -133,8 +139,8 @@ parseMarkupMetadata parser imageAssets record =
         Ok pages ->
             Ok
                 (pages
-                    |> List.map
-                        (Tuple.mapSecond .metadata)
+                 -- |> List.map
+                 --     (Tuple.mapSecond (\thing -> Unparsed thing.metadata "thing.body"))
                 )
 
         Err errors ->
@@ -166,15 +172,15 @@ renderErrors ( path, errors ) =
 
 
 combineResults :
-    List ( List String, Mark.Outcome (List Mark.Error.Error) (Mark.Partial (Page metadata view)) (Page metadata view) )
-    -> Result ( List String, List Mark.Error.Error ) (List ( List String, Page metadata view ))
+    List ( List String, Mark.Outcome (List Mark.Error.Error) (Mark.Partial (Page metadata view)) (Page metadata view), String )
+    -> Result ( Path, List Mark.Error.Error ) (List ( Path, Entry metadata view ))
 combineResults list =
     list
         |> List.map
-            (\( path, outcome ) ->
+            (\( path, outcome, rawMarkup ) ->
                 case outcome of
                     Mark.Success parsedMarkup ->
-                        Ok ( path, parsedMarkup )
+                        Ok ( path, Unparsed parsedMarkup.metadata rawMarkup )
 
                     Mark.Almost partial ->
                         -- Err "Almost"
