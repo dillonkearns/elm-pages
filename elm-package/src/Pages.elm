@@ -197,7 +197,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , url = url
               , imageAssets = imageAssets
               , userModel = userModel
-              , contentCache = ContentCache.init frontmatterParser content
+              , contentCache = ContentCache.init frontmatterParser content parser imageAssets
               , parsedContent =
                     metadata
                         |> Result.andThen

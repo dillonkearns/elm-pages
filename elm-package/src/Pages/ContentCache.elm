@@ -3,6 +3,7 @@ module Pages.ContentCache exposing (ContentCache, Entry(..), Path, extractMetada
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Json.Decode
+import Mark
 import Result.Extra
 import Url exposing (Url)
 
@@ -54,8 +55,19 @@ getMetadata entry =
 init :
     Json.Decode.Decoder metadata
     -> Content
+    ->
+        (Dict String String
+         -> List String
+         -> List ( List String, metadata )
+         ->
+            Mark.Document
+                { metadata : metadata
+                , view : List view
+                }
+        )
+    -> Dict String String
     -> ContentCache msg metadata view
-init frontmatterParser content =
+init frontmatterParser content parser imageAssets =
     let
         parsedMarkdown =
             content.markdown
