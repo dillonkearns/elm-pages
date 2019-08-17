@@ -2,9 +2,3 @@
   base = "examples/docs/"
   publish = "examples/docs/dist/"
   command = "npm run build"
-
-[[headers]]
-  for = "/*"
-
-  [headers.values]
-    Link = <content.txt>; rel=preload; as=fetch
