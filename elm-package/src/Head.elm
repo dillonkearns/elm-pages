@@ -1,4 +1,4 @@
-module Pages.Head exposing (Tag, canonicalLink, description, metaName, metaProperty, toJson)
+module Head exposing (Tag, canonicalLink, description, metaName, metaProperty, toJson)
 
 import Json.Encode
 

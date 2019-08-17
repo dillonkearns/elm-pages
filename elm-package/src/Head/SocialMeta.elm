@@ -1,6 +1,6 @@
-module SocialMeta exposing (summaryLarge, summaryRegular)
+module Head.SocialMeta exposing (summaryLarge, summaryRegular)
 
-import Pages.Head as Head
+import Head
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>

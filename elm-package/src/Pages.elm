@@ -3,21 +3,24 @@ module Pages exposing (Flags, Parser, Program, application)
 import Browser
 import Browser.Navigation
 import Dict exposing (Dict)
+import Head
 import Html exposing (Html)
 import Html.Attributes
+import Http
 import Json.Decode
 import Json.Encode
 import Mark
 import Pages.Content as Content exposing (Content)
-import Pages.Head as Head
+import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Parser exposing (Page)
-import Platform.Sub exposing (Sub)
 import Result.Extra
+import Task exposing (Task)
 import Url exposing (Url)
+import Url.Builder
 
 
 type alias Content =
-    { markdown : List ( List String, { frontMatter : String, body : String } ), markup : List ( List String, String ) }
+    { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
 
 
 type alias Program userFlags userModel userMsg metadata view =
@@ -29,10 +32,11 @@ mainView :
     -> ModelDetails userModel userMsg metadata view
     -> { title : String, body : Html userMsg }
 mainView pageView model =
-    case model.parsedContent of
+    case model.contentCache of
         Ok site ->
-            pageViewOrError pageView model site
+            pageViewOrError pageView model (Ok site)
 
+        -- TODO these lookup helpers should not need it to be a Result
         Err errorView ->
             { title = "Error parsing"
             , body = errorView
@@ -55,23 +59,37 @@ extractMetadata result =
 pageViewOrError :
     (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
-    -> Content.Content metadata view
+    -> ContentCache userMsg metadata view
     -> { title : String, body : Html userMsg }
-pageViewOrError pageView model content =
-    case Content.lookup content model.url of
-        Just page ->
-            pageView model.userModel (extractMetadata model.parsedContent) page
+pageViewOrError pageView model cache =
+    case ContentCache.lookup cache model.url of
+        Just entry ->
+            case entry of
+                ContentCache.Parsed metadata viewList ->
+                    pageView model.userModel
+                        (ContentCache.extractMetadata cache)
+                        { metadata = metadata
+                        , view = viewList
+                        }
+
+                ContentCache.NeedContent _ ->
+                    { title = "Error", body = Html.text "TODO NeedContent" }
+
+                ContentCache.Unparsed _ _ ->
+                    { title = "Error", body = Html.text "TODO Unparsed" }
 
         Nothing ->
             { title = "Page not found"
             , body =
                 Html.div []
                     [ Html.text "Page not found. Valid routes:\n\n"
-                    , content
-                        |> List.map Tuple.first
-                        |> List.map (String.join "/")
-                        |> String.join ", "
-                        |> Html.text
+
+                    -- TODO re-implement this for new cache
+                    -- , cache
+                    --     |> List.map Tuple.first
+                    --     |> List.map (String.join "/")
+                    --     |> String.join ", "
+                    --     |> Html.text
                     ]
             }
 
@@ -145,15 +163,23 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
         parsedMarkdown =
             content.markdown
                 |> List.map
-                    (Tuple.mapSecond
-                        (\{ frontMatter, body } ->
-                            Json.Decode.decodeString frontmatterParser frontMatter
-                                |> Result.map (\parsedFrontmatter -> { parsedFrontmatter = parsedFrontmatter, body = body })
-                                |> Result.mapError
-                                    (\error ->
-                                        Html.text (Json.Decode.errorToString error)
-                                    )
-                        )
+                    (\(( path, details ) as full) ->
+                        Tuple.mapSecond
+                            (\{ frontMatter, body } ->
+                                Json.Decode.decodeString frontmatterParser frontMatter
+                                    |> Result.map (\parsedFrontmatter -> { parsedFrontmatter = parsedFrontmatter, body = body |> Maybe.withDefault "TODO get rid of this" })
+                                    |> Result.mapError
+                                        (\error ->
+                                            Html.div []
+                                                [ Html.h1 []
+                                                    [ Html.text ("Error with page /" ++ String.join "/" path)
+                                                    ]
+                                                , Html.text
+                                                    (Json.Decode.errorToString error)
+                                                ]
+                                        )
+                            )
+                            full
                     )
 
         metadata =
@@ -171,6 +197,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , url = url
               , imageAssets = imageAssets
               , userModel = userModel
+              , contentCache = ContentCache.init frontmatterParser content.markdown
               , parsedContent =
                     metadata
                         |> Result.andThen
@@ -188,6 +215,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                     |> Maybe.map encodeHeads
                     |> Maybe.map toJsPort
                  , userCmd |> Cmd.map UserMsg |> Just
+                 , getPageData url |> Just
                  ]
                     |> List.filterMap identity
                 )
@@ -198,6 +226,7 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , url = url
               , imageAssets = imageAssets
               , userModel = userModel
+              , contentCache = Ok Dict.empty -- TODO use ContentCache.init
               , parsedContent =
                     metadata
                         |> Result.andThen
@@ -212,10 +241,68 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
             )
 
 
+getPageData url =
+    Http.get
+        { url =
+            Url.Builder.absolute
+                ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
+                    ++ [ "content.txt"
+                       ]
+                )
+                []
+        , expect = Http.expectString (GotContent url)
+        }
+
+
+getPageDataTask : Url -> Task Http.Error String
+getPageDataTask url =
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url =
+            Url.Builder.absolute
+                ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
+                    ++ [ "content.txt"
+                       ]
+                )
+                []
+        , body = Http.emptyBody
+        , resolver =
+            Http.stringResolver
+                (\response ->
+                    case response of
+                        Http.BadUrl_ url_ ->
+                            Err (Http.BadUrl url_)
+
+                        Http.Timeout_ ->
+                            Err Http.Timeout
+
+                        Http.NetworkError_ ->
+                            Err Http.NetworkError
+
+                        Http.BadStatus_ metadata body ->
+                            Err (Http.BadStatus metadata.statusCode)
+
+                        Http.GoodStatus_ metadata body ->
+                            Ok body
+                 -- (Http.Response String.String -> Result.Result x a)
+                )
+        , timeout = Nothing
+        }
+
+
+
+-- Http.get
+--     { url =
+--     , expect = Http.expectString (GotContent url)
+--     }
+
+
 type Msg userMsg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | UserMsg userMsg
+    | GotContent Url (Result Http.Error String)
 
 
 type Model userModel userMsg metadata view
@@ -227,16 +314,18 @@ type alias ModelDetails userModel userMsg metadata view =
     , url : Url.Url
     , imageAssets : Dict String String
     , parsedContent : Result (Html userMsg) (Content.Content metadata view)
+    , contentCache : ContentCache userMsg metadata view
     , userModel : userModel
     }
 
 
 update :
-    (userMsg -> userModel -> ( userModel, Cmd userMsg ))
+    (String -> view)
+    -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> ModelDetails userModel userMsg metadata view
     -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg) )
-update userUpdate msg model =
+update markdownToHtml userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -257,8 +346,8 @@ update userUpdate msg model =
                     ( model, Browser.Navigation.load href )
 
         UrlChanged url ->
-            ( { model | url = url }
-            , Cmd.none
+            ( model
+            , getPageDataTask url |> Task.attempt (GotContent url)
             )
 
         UserMsg userMsg ->
@@ -267,6 +356,23 @@ update userUpdate msg model =
                     userUpdate userMsg model.userModel
             in
             ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
+
+        GotContent url contentResult ->
+            case contentResult of
+                Ok content ->
+                    ( { model
+                        | contentCache =
+                            ContentCache.update model.contentCache markdownToHtml url content
+                        , url = url
+
+                        -- TODO can there be race conditions here? Might need to set something in the model
+                        -- to keep track of the last url change
+                      }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    ( model, Cmd.none )
 
 
 type alias Parser metadata view =
@@ -296,7 +402,7 @@ application config =
                 init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init flags url key
                     |> Tuple.mapFirst Model
         , view = \(Model model) -> view config.content config.parser config.view model
-        , update = \msg (Model model) -> update config.update msg model |> Tuple.mapFirst Model
+        , update = \msg (Model model) -> update config.markdownToHtml config.update msg model |> Tuple.mapFirst Model
         , subscriptions =
             \(Model model) ->
                 config.subscriptions model.userModel

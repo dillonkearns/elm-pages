@@ -20,7 +20,12 @@ type alias Model =
 
 
 init config toJsPort =
-    ( (), toJsPort (toJson config) )
+    ( ()
+    , toJsPort
+        { sourceIcon = config.sourceIcon
+        , manifestJson = toJson config
+        }
+    )
 
 
 
@@ -102,6 +107,7 @@ type alias Config =
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
+    , sourceIcon : String
     }
 
 

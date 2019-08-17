@@ -1,10 +1,10 @@
-module OpenGraph exposing (Image, article, buildCommon, song, website)
+module Head.OpenGraph exposing (Image, article, buildCommon, song, website)
 
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
 -}
 
-import Pages.Head as Head
+import Head
 
 
 buildCommon : { url : String, siteName : String, image : { url : String, alt : String }, description : String, title : String } -> Common

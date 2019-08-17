@@ -7,6 +7,9 @@ import Element exposing (Element)
 import Element.Border
 import Element.Font as Font
 import Element.Region
+import Head
+import Head.OpenGraph as OpenGraph
+import Head.SocialMeta as SocialMeta
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
@@ -16,13 +19,10 @@ import Mark.Error
 import MarkParser
 import Markdown
 import Metadata exposing (Metadata)
-import OpenGraph
 import Pages
 import Pages.Content as Content exposing (Content)
-import Pages.Head as Head
 import Pages.Parser exposing (Page)
 import RawContent
-import SocialMeta
 import Url exposing (Url)
 
 

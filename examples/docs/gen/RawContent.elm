@@ -5,21 +5,17 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 
 
-content : { markdown : List ( List String, { frontMatter : String, body : String } ), markup : List ( List String, String ) }
+content : { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
 content =
     { markdown = markdown, markup = markup }
 
 
-markdown : List ( List String, { frontMatter : String, body : String } )
+markdown : List ( List String, { frontMatter : String, body : Maybe String } )
 markdown =
     [ ( ["markdown"]
   , { frontMatter = """ {"title":"This is a markdown article"}
 """
-    , body = """
-# Hey there 👋
-
-Welcome to this markdown document!
-""" }
+    , body = Nothing }
   )
 
     ]
