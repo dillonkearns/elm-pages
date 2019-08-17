@@ -9,6 +9,7 @@ const merge = require("webpack-merge");
 const { GenerateSW } = require("workbox-webpack-plugin");
 const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
 const AddAssetPlugin = require("add-asset-webpack-plugin");
+const webpackDevServer = require("webpack-dev-server");
 
 class AddFilesPlugin {
   constructor(filesList) {
@@ -33,21 +34,22 @@ class AddFilesPlugin {
 
 module.exports = { start, run };
 function start({ routes, debug }) {
-  const compiler = webpack(webpackOptions(false, routes, { debug }));
-  const watching = compiler.watch(
-    {
-      aggregateTimeout: 300,
-      poll: undefined
-    },
-    (err, stats) => {
-      if (err) {
-        console.error(err);
-        process.exit(1);
-      } else {
-        console.log(stats);
-      }
-    }
-  );
+  const config = webpackOptions(false, routes, { debug });
+  const compiler = webpack(config);
+
+  const options = {
+    contentBase: "./dist",
+    hot: true,
+    inline: false,
+    host: "localhost"
+  };
+
+  webpackDevServer.addDevServerEntrypoints(config, options);
+  const server = new webpackDevServer(webpack(config), options);
+
+  server.listen(3000, "localhost", () => {
+    console.log("🚀 elm-pages develop on http://localhost:3000");
+  });
 }
 
 function run({ routes, fileContents }, callback) {
