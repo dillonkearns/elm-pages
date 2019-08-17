@@ -79,10 +79,17 @@ init frontmatterParser content parser imageAssets =
                 |> List.map
                     (\(( path, details ) as full) ->
                         Tuple.mapSecond
-                            (\{ frontMatter } ->
+                            (\{ frontMatter, body } ->
                                 Json.Decode.decodeString frontmatterParser frontMatter
-                                    |> Result.map NeedContent
-                                    -- TODO include content when available here
+                                    |> Result.map
+                                        (\meta ->
+                                            case body of
+                                                Just actualBody ->
+                                                    Unparsed meta actualBody
+
+                                                Nothing ->
+                                                    NeedContent meta
+                                        )
                                     |> Result.mapError
                                         (\error ->
                                             Html.div []
