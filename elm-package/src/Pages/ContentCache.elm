@@ -340,11 +340,24 @@ lazyLoad :
     -> ContentCache msg metadata view
     -> Task Http.Error (ContentCache msg metadata view)
 lazyLoad markdownToHtml url cacheResult =
-    httpTask url
-        |> Task.map
-            (\content ->
-                update cacheResult markdownToHtml url content
-            )
+    case lookup cacheResult url of
+        Just entry ->
+            case entry of
+                NeedContent _ ->
+                    httpTask url
+                        |> Task.map
+                            (\downloadedContent ->
+                                update cacheResult markdownToHtml url downloadedContent
+                            )
+
+                Unparsed _ _ ->
+                    Task.succeed cacheResult
+
+                Parsed _ _ ->
+                    Task.succeed cacheResult
+
+        Nothing ->
+            Task.succeed cacheResult
 
 
 httpTask url =

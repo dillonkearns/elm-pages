@@ -249,48 +249,6 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
             )
 
 
-succeedTask : Task Http.Error String
-succeedTask =
-    Task.succeed ""
-
-
-getPageDataTask : Url -> Task Http.Error String
-getPageDataTask url =
-    Http.task
-        { method = "GET"
-        , headers = []
-        , url =
-            Url.Builder.absolute
-                ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
-                    ++ [ "content.txt"
-                       ]
-                )
-                []
-        , body = Http.emptyBody
-        , resolver =
-            Http.stringResolver
-                (\response ->
-                    case response of
-                        Http.BadUrl_ url_ ->
-                            Err (Http.BadUrl url_)
-
-                        Http.Timeout_ ->
-                            Err Http.Timeout
-
-                        Http.NetworkError_ ->
-                            Err Http.NetworkError
-
-                        Http.BadStatus_ metadata body ->
-                            Err (Http.BadStatus metadata.statusCode)
-
-                        Http.GoodStatus_ metadata body ->
-                            Ok body
-                 -- (Http.Response String.String -> Result.Result x a)
-                )
-        , timeout = Nothing
-        }
-
-
 type Msg userMsg metadata view
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
