@@ -19,4 +19,4 @@ function runElm(elmBaseDirectory, callback) {
   });
 }
 
-runElm("./examples/docs/", function() {});
+// runElm("./examples/docs/", function() {});

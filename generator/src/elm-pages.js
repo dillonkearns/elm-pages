@@ -7,6 +7,7 @@ const glob = require("glob");
 const develop = require("./develop.js");
 const chokidar = require("chokidar");
 const matter = require("gray-matter");
+const runElm = require("./compile-elm.js");
 
 const contentGlobPath = "content/**/*.emu";
 
