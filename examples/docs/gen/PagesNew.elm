@@ -1,4 +1,4 @@
-port module PagesNew exposing (application)
+port module PagesNew exposing (..)
 
 import Dict exposing (Dict)
 import Head
@@ -28,7 +28,7 @@ application :
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
-    Pages.cliApplication
+    Pages.application
         { init = config.init
         , view = config.view
         , update = config.update

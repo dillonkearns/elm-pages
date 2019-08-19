@@ -25,7 +25,7 @@ import Pages.Content as Content exposing (Content)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.Parser exposing (Page)
-import PagesNewUi
+import PagesNew
 import RawContent
 import Url exposing (Url)
 
@@ -55,7 +55,7 @@ type alias Flags =
 
 main : Pages.Program Model Msg (Metadata Msg) (Element Msg)
 main =
-    PagesNewUi.application
+    PagesNew.application
         { init = init
         , view = view
         , update = update
