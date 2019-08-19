@@ -1,10 +1,10 @@
 const { compileToString } = require("node-elm-compiler");
 
 module.exports = runElm;
-function runElm(callback) {
+function runElm(elmBaseDirectory, callback) {
   const startingDir = process.cwd();
   console.log("cwd", process.cwd());
-  process.chdir("./examples/docs/");
+  process.chdir(elmBaseDirectory);
   console.log("cwd", process.cwd());
   compileToString(["./src/Main.elm"], {}).then(function(data) {
     eval(data.toString());
@@ -19,4 +19,4 @@ function runElm(callback) {
   });
 }
 
-runElm(function() {});
+runElm("./examples/docs/", function() {});
