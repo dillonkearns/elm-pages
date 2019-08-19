@@ -108,7 +108,12 @@ displayModeToAttribute displayMode =
 
 toJson : Config -> Encode.Value
 toJson config =
-    [ ( "background_color"
+    [ ( "sourceIcon"
+      , config.sourceIcon
+            |> Encode.string
+            |> Just
+      )
+    , ( "background_color"
       , config.backgroundColor
             |> Maybe.map Color.Convert.colorToHex
             |> Maybe.map Encode.string

@@ -42,7 +42,7 @@ manifest =
     , themeColor = Just Color.blue
     , startUrl = Just "/"
     , shortName = Just "elm-pages"
-    , sourceIcon = "TODO"
+    , sourceIcon = "icon.svg"
     }
 
 

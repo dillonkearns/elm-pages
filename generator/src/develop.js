@@ -127,7 +127,7 @@ function webpackOptions(
         ]
       }),
       new FaviconsWebpackPlugin({
-        logo: path.resolve(process.cwd(), "./icon.svg"),
+        logo: path.resolve(process.cwd(), `./${manifestConfig.sourceIcon}`),
         favicons: {
           path: "/", // Path for overriding default icons path. `string`
           appName: manifestConfig.name, // Your application's name. `string`
