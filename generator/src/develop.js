@@ -8,7 +8,6 @@ const PrerenderSPAPlugin = require("prerender-spa-plugin");
 const merge = require("webpack-merge");
 const { GenerateSW } = require("workbox-webpack-plugin");
 const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
-const AddAssetPlugin = require("add-asset-webpack-plugin");
 const webpackDevServer = require("webpack-dev-server");
 
 class AddFilesPlugin {
