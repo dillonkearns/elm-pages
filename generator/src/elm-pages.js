@@ -9,6 +9,7 @@ const chokidar = require("chokidar");
 const matter = require("gray-matter");
 const runElm = require("./compile-elm.js");
 const doCliStuff = require("./generate-elm-stuff.js");
+const { elmPagesUiFile } = require("./elm-file-constants.js");
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -58,6 +59,7 @@ function run() {
 
   app.ports.writeFile.subscribe(contents => {
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
+    fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile);
     fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
     console.log("elm-pages DONE");
     doCliStuff(contents.rawContent, function(manifestConfig) {
