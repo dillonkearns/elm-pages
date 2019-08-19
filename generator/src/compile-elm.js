@@ -11,8 +11,8 @@ function runElm(callback) {
     const app = Elm.Main.init({ flags: { imageAssets: {} } });
 
     app.ports.toJsPort.subscribe(payload => {
-      callback(payload);
       process.chdir(startingDir);
+      callback(payload);
     });
   });
 }
