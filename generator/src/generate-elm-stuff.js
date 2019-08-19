@@ -47,7 +47,7 @@ application config =
         }
 `;
 
-module.exports = function run() {
+module.exports = function run(rawContentFile, callback) {
   // mkdir -p elm-stuff/elm-pages/
   // requires NodeJS >= 10.12.0
   fs.mkdirSync("./elm-stuff/elm-pages", { recursive: true });
@@ -56,13 +56,11 @@ module.exports = function run() {
   fs.writeFileSync("./elm-stuff/elm-pages/PagesNew.elm", elmPagesCliFile);
 
   // generate RawContent.elm
-  // TODO
+  fs.writeFileSync("./elm-stuff/elm-pages/RawContent.elm", rawContentFile);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();
 
   // run Main.elm from elm-stuff/elm-pages with `runElm`
-  runElm(function(payload) {
-    console.log("Received payload!", payload);
-  });
+  runElm(callback);
 };

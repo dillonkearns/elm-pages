@@ -33,8 +33,8 @@ class AddFilesPlugin {
 }
 
 module.exports = { start, run };
-function start({ routes, debug }) {
-  const config = webpackOptions(false, routes, { debug });
+function start({ routes, debug, manifestConfig }) {
+  const config = webpackOptions(false, routes, { debug, manifestConfig });
   const compiler = webpack(config);
 
   const options = {
@@ -52,27 +52,31 @@ function start({ routes, debug }) {
   });
 }
 
-function run({ routes, fileContents }, callback) {
-  webpack(webpackOptions(true, routes, { debug: false, fileContents })).run(
-    (err, stats) => {
-      if (err) {
-        console.error(err);
-        process.exit(1);
-      } else {
-        callback();
-      }
-
-      console.log(
-        stats.toString({
-          chunks: false, // Makes the build much quieter
-          colors: true // Shows colors in the console
-        })
-      );
+function run({ routes, fileContents, manifestConfig }, callback) {
+  webpack(
+    webpackOptions(true, routes, { debug: false, fileContents, manifestConfig })
+  ).run((err, stats) => {
+    if (err) {
+      console.error(err);
+      process.exit(1);
+    } else {
+      callback();
     }
-  );
+
+    console.log(
+      stats.toString({
+        chunks: false, // Makes the build much quieter
+        colors: true // Shows colors in the console
+      })
+    );
+  });
 }
 
-function webpackOptions(production, routes, { debug, fileContents }) {
+function webpackOptions(
+  production,
+  routes,
+  { debug, fileContents, manifestConfig }
+) {
   const common = {
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
@@ -126,20 +130,20 @@ function webpackOptions(production, routes, { debug, fileContents }) {
         logo: path.resolve(process.cwd(), "./icon.svg"),
         favicons: {
           path: "/", // Path for overriding default icons path. `string`
-          appName: null, // Your application's name. `string`
-          appShortName: null, // Your application's short_name. `string`. Optional. If not set, appName will be used
-          appDescription: null, // Your application's description. `string`
+          appName: manifestConfig.name, // Your application's name. `string`
+          appShortName: manifestConfig.short_name, // Your application's short_name. `string`. Optional. If not set, appName will be used
+          appDescription: manifestConfig.description, // Your application's description. `string`
           developerName: null, // Your (or your developer's) name. `string`
           developerURL: null, // Your (or your developer's) URL. `string`
           dir: "auto", // Primary text direction for name, short_name, and description
           lang: "en-US", // Primary language for name and short_name
-          background: "#fff", // Background colour for flattened icons. `string`
-          theme_color: "#fff", // Theme color user for example in Android's task switcher. `string`
+          background: manifestConfig.background_color, // Background colour for flattened icons. `string`
+          theme_color: manifestConfig.theme_color, // Theme color user for example in Android's task switcher. `string`
           appleStatusBarStyle: "black-translucent", // Style for Apple status bar: "black-translucent", "default", "black". `string`
-          display: "standalone", // Preferred display mode: "fullscreen", "standalone", "minimal-ui" or "browser". `string`
-          orientation: "any", // Default orientation: "any", "natural", "portrait" or "landscape". `string`
-          scope: "/", // set of URLs that the browser considers within your app
-          start_url: "/?homescreen=1", // Start URL when launching the application from a device. `string`
+          display: manifestConfig.display, // Preferred display mode: "fullscreen", "standalone", "minimal-ui" or "browser". `string`
+          orientation: manifestConfig.orientation, // Default orientation: "any", "natural", "portrait" or "landscape". `string`
+          scope: manifestConfig.serviceworker.scope, // set of URLs that the browser considers within your app
+          start_url: manifestConfig.start_url, // Start URL when launching the application from a device. `string`
           version: "1.0", // Your application's version string. `string`
           logging: false, // Print logs to console? `boolean`
           pixel_art: false, // Keeps pixels "sharp" when scaling up, for pixel art.  Only supported in offline mode.

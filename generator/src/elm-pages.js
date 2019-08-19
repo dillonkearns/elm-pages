@@ -8,6 +8,7 @@ const develop = require("./develop.js");
 const chokidar = require("chokidar");
 const matter = require("gray-matter");
 const runElm = require("./compile-elm.js");
+const doCliStuff = require("./generate-elm-stuff.js");
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -59,15 +60,25 @@ function run() {
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
     fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
     console.log("elm-pages DONE");
-    if (contents.watch) {
-      startWatchIfNeeded();
-      develop.start({ routes: contents.routes, debug: contents.debug });
-    } else {
-      develop.run(
-        { routes: contents.routes, fileContents: contents.fileContents },
-        () => {}
-      );
-    }
+    doCliStuff(contents.rawContent, function(manifestConfig) {
+      if (contents.watch) {
+        startWatchIfNeeded();
+        develop.start({
+          routes: contents.routes,
+          debug: contents.debug,
+          manifestConfig
+        });
+      } else {
+        develop.run(
+          {
+            routes: contents.routes,
+            fileContents: contents.fileContents,
+            manifestConfig
+          },
+          () => {}
+        );
+      }
+    });
   });
 }
 
