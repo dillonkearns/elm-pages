@@ -80,12 +80,6 @@ function webpackOptions(
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
     plugins: [
-      new HTMLWebpackPlugin({
-        inject: "head",
-        // template: require.resolve("./template.html")
-        // template: require.resolve(path.resolve(__dirname, "template.html"))
-        template: path.resolve(__dirname, "template.html")
-      }),
       new CopyPlugin([
         {
           from: "static/**/*",
@@ -168,6 +162,12 @@ function webpackOptions(
             yandex: false // Create Yandex browser icon. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
           }
         }
+      }),
+      new HTMLWebpackPlugin({
+        inject: "head",
+        // template: require.resolve("./template.html")
+        // template: require.resolve(path.resolve(__dirname, "template.html"))
+        template: path.resolve(__dirname, "template.html")
       })
     ],
     output: {
