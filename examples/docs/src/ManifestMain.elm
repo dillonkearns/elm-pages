@@ -1,4 +1,4 @@
-port module ManifestMain exposing (main)
+port module ManifestMain exposing (config)
 
 import Color exposing (Color)
 import Json.Encode
@@ -9,10 +9,7 @@ import Pages.Manifest.Category
 port generateManifest : Json.Encode.Value -> Cmd msg
 
 
-main =
-    Manifest.generate generateManifest config
-
-
+config : Manifest.Config
 config =
     { backgroundColor = Just Color.blue
     , categories = [ Pages.Manifest.Category.education ]
@@ -24,4 +21,5 @@ config =
     , themeColor = Just Color.blue
     , startUrl = Just "/"
     , shortName = Just "elm-pages"
+    , sourceIcon = "TODO"
     }

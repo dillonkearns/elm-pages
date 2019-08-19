@@ -11,6 +11,7 @@ import Json.Encode
 import Mark
 import Pages.Content as Content exposing (Content)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.Manifest as Manifest
 import Pages.Parser exposing (Page)
 import Result.Extra
 import Task exposing (Task)
@@ -21,8 +22,8 @@ type alias Content =
     { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
 
 
-type alias Program userFlags userModel userMsg metadata view =
-    Platform.Program (Flags userFlags) (Model userModel userMsg metadata view) (Msg userMsg metadata view)
+type alias Program userModel userMsg metadata view =
+    Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
 
 
 mainView :
@@ -100,9 +101,8 @@ encodeHeads head =
     Json.Encode.list Head.toJson head
 
 
-type alias Flags userFlags =
-    { userFlags
-        | imageAssets : Json.Decode.Value
+type alias Flags =
+    { imageAssets : Json.Decode.Value
     }
 
 
@@ -126,15 +126,15 @@ init :
     -> (metadata -> List Head.Tag)
     -> Parser metadata view
     -> Content
-    -> (Flags userFlags -> ( userModel, Cmd userMsg ))
-    -> Flags userFlags
+    -> ( userModel, Cmd userMsg )
+    -> Flags
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg metadata view) )
 init markdownToHtml frontmatterParser toJsPort head parser content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
-            initUserModel flags
+            initUserModel
 
         imageAssets =
             Json.Decode.decodeValue
@@ -307,7 +307,7 @@ type alias Parser metadata view =
 
 
 application :
-    { init : Flags userFlags -> ( userModel, Cmd userMsg )
+    { init : ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
@@ -317,8 +317,9 @@ application :
     , head : metadata -> List Head.Tag
     , frontmatterParser : Json.Decode.Decoder metadata
     , markdownToHtml : String -> view
+    , manifest : Manifest.Config
     }
-    -> Program userFlags userModel userMsg metadata view
+    -> Program userModel userMsg metadata view
 application config =
     Browser.application
         { init =

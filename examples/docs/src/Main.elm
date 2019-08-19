@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import Color exposing (Color)
 import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
@@ -21,9 +22,28 @@ import Markdown
 import Metadata exposing (Metadata)
 import Pages
 import Pages.Content as Content exposing (Content)
+import Pages.Manifest as Manifest
+import Pages.Manifest.Category
 import Pages.Parser exposing (Page)
+import PagesNewUi
 import RawContent
 import Url exposing (Url)
+
+
+manifest : Manifest.Config
+manifest =
+    { backgroundColor = Just Color.blue
+    , categories = [ Pages.Manifest.Category.education ]
+    , displayMode = Manifest.Standalone
+    , orientation = Manifest.Portrait
+    , description = "elm-pages - A statically typed site generator."
+    , iarcRatingId = Nothing
+    , name = "elm-pages docs"
+    , themeColor = Just Color.blue
+    , startUrl = Just "/"
+    , shortName = Just "elm-pages"
+    , sourceIcon = "TODO"
+    }
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -33,19 +53,18 @@ type alias Flags =
     {}
 
 
-main : Pages.Program Flags Model Msg (Metadata Msg) (Element Msg)
+main : Pages.Program Model Msg (Metadata Msg) (Element Msg)
 main =
-    Pages.application
+    PagesNewUi.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
         , parser = MarkParser.document
         , frontmatterParser = frontmatterParser
-        , content = RawContent.content
         , markdownToHtml = markdownToHtml
-        , toJsPort = toJsPort
         , head = head
+        , manifest = manifest
         }
 
 
@@ -73,8 +92,8 @@ type alias Model =
     {}
 
 
-init : Pages.Flags Flags -> ( Model, Cmd Msg )
-init flags =
+init : ( Model, Cmd Msg )
+init =
     ( Model, Cmd.none )
 
 

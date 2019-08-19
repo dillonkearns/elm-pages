@@ -1,31 +1,10 @@
-module Pages.Manifest exposing (Config, DisplayMode(..), Orientation(..), generate, toJson)
+module Pages.Manifest exposing (Config, DisplayMode(..), Orientation(..), toJson)
 
 import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
 import Pages.Manifest.Category as Category exposing (Category)
 import Platform.Sub
-
-
-generate toJsPort config =
-    Platform.worker
-        { init = \() -> init config toJsPort
-        , update = \msg model -> ( model, Cmd.none )
-        , subscriptions = \model -> Sub.none
-        }
-
-
-type alias Model =
-    ()
-
-
-init config toJsPort =
-    ( ()
-    , toJsPort
-        { sourceIcon = config.sourceIcon
-        , manifestJson = toJson config
-        }
-    )
 
 
 
