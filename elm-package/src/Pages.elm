@@ -1,4 +1,4 @@
-module Pages exposing (Flags, Parser, Program, application)
+module Pages exposing (Flags, Parser, Program, application, cliApplication)
 
 import Browser
 import Browser.Navigation
@@ -224,6 +224,7 @@ type Msg userMsg metadata view
 
 type Model userModel userMsg metadata view
     = Model (ModelDetails userModel userMsg metadata view)
+    | CliModel
 
 
 type alias ModelDetails userModel userMsg metadata view =
@@ -326,12 +327,59 @@ application config =
             \flags url key ->
                 init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init flags url key
                     |> Tuple.mapFirst Model
-        , view = \(Model model) -> view config.content config.parser config.view model
-        , update = \msg (Model model) -> update config.parser config.markdownToHtml config.update msg model |> Tuple.mapFirst Model
+        , view =
+            \outerModel ->
+                case outerModel of
+                    Model model ->
+                        view config.content config.parser config.view model
+
+                    CliModel ->
+                        { title = "Error"
+                        , body = [ Html.text "Unexpected state" ]
+                        }
+        , update =
+            \msg outerModel ->
+                case outerModel of
+                    Model model ->
+                        update config.parser config.markdownToHtml config.update msg model |> Tuple.mapFirst Model
+
+                    CliModel ->
+                        ( outerModel, Cmd.none )
         , subscriptions =
-            \(Model model) ->
-                config.subscriptions model.userModel
-                    |> Sub.map UserMsg
+            \outerModel ->
+                case outerModel of
+                    Model model ->
+                        config.subscriptions model.userModel
+                            |> Sub.map UserMsg
+
+                    CliModel ->
+                        Sub.none
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
+        }
+
+
+cliApplication :
+    { init : ( userModel, Cmd userMsg )
+    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , subscriptions : userModel -> Sub userMsg
+    , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
+    , parser : Parser metadata view
+    , content : Content
+    , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
+    , head : metadata -> List Head.Tag
+    , frontmatterParser : Json.Decode.Decoder metadata
+    , markdownToHtml : String -> view
+    , manifest : Manifest.Config
+    }
+    -> Program userModel userMsg metadata view
+cliApplication config =
+    Platform.worker
+        { init =
+            \flags ->
+                ( CliModel
+                , config.toJsPort (Manifest.toJson config.manifest)
+                )
+        , update = \msg model -> ( model, Cmd.none )
+        , subscriptions = \_ -> Sub.none
         }
