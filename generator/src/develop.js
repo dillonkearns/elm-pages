@@ -97,28 +97,6 @@ function webpackOptions(
         routes: routes,
         renderAfterDocumentEvent: "prerender-trigger"
       }),
-      new GenerateSW({
-        include: [/^index.html$/, /\.js$/],
-        navigateFallback: "index.html",
-        swDest: "service-worker.js",
-        runtimeCaching: [
-          {
-            // urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "fonts"
-            }
-          },
-          {
-            urlPattern: /\.(?:png|gif|jpg|jpeg|svg)$/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "images"
-            }
-          }
-        ]
-      }),
       new HTMLWebpackPlugin({
         inject: "head",
         template: path.resolve(__dirname, "template.html")
@@ -166,6 +144,34 @@ function webpackOptions(
             yandex: false // Create Yandex browser icon. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
           }
         }
+      }),
+
+      new GenerateSW({
+        navigateFallback: "index.html",
+        swDest: "service-worker.js",
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts"
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "google-fonts-stylesheets"
+            }
+          },
+          {
+            urlPattern: /\.(?:png|gif|jpg|jpeg|svg)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images"
+            }
+          }
+        ]
       })
     ],
     output: {
