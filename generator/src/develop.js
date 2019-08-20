@@ -12,26 +12,50 @@ const webpackDevServer = require("webpack-dev-server");
 const AddFilesPlugin = require("./add-files-plugin.js");
 const ImageminPlugin = require("imagemin-webpack-plugin").default;
 const imageminMozjpeg = require("imagemin-mozjpeg");
+const express = require("express");
 
 module.exports = { start, run };
-function start({ routes, debug, manifestConfig }) {
-  const config = webpackOptions(false, routes, { debug, manifestConfig });
+function start({ routes, debug, manifestConfig, fileContents }) {
+  const config = webpackOptions(false, routes, {
+    debug,
+    fileContents,
+    manifestConfig
+  });
+
   const compiler = webpack(config);
 
   const options = {
-    contentBase: "./dist",
-    hot: true,
+    contentBase: false,
+    // hot: true,
     inline: false,
     host: "localhost",
     stats: "errors-only"
   };
 
-  webpackDevServer.addDevServerEntrypoints(config, options);
-  const server = new webpackDevServer(webpack(config), options);
+  const app = express();
 
-  server.listen(3000, "localhost", () => {
-    console.log("🚀 elm-pages develop on http://localhost:3000");
+  app.use(middleware(compiler, { publicPath: "/" }));
+
+  app.use("*", function(req, res, next) {
+    console.log("req", path.basename(req.baseUrl));
+    // don't know why this works, but it does
+    // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
+    const filename = path.join(compiler.outputPath, "index.html");
+    compiler.outputFileSystem.readFile(filename, function(err, result) {
+      if (err) {
+        return next(err);
+      }
+      res.set("content-type", "text/html");
+      res.send(result);
+      res.end();
+    });
   });
+
+  app.listen(3000, () =>
+    console.log("🚀 elm-pages develop on http://localhost:3000")
+  );
+  // https://stackoverflow.com/questions/43667102/webpack-dev-middleware-and-static-files
+  // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
 function run({ routes, fileContents, manifestConfig }, callback) {
@@ -63,6 +87,14 @@ function webpackOptions(
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
     plugins: [
+      new AddFilesPlugin(
+        fileContents.map(([path, content]) => {
+          return {
+            name: path,
+            content: content
+          };
+        })
+      ),
       new CopyPlugin([
         {
           from: "static/**/*",
@@ -242,16 +274,7 @@ function webpackOptions(
   };
   if (production) {
     return merge(common, {
-      plugins: [
-        new AddFilesPlugin(
-          fileContents.map(([path, content]) => {
-            return {
-              name: path,
-              content: content
-            };
-          })
-        )
-      ],
+      plugins: [],
       module: {
         rules: [
           {
@@ -275,7 +298,7 @@ function webpackOptions(
             test: /\.elm$/,
             exclude: [/elm-stuff/, /node_modules/],
             use: [
-              { loader: require.resolve("elm-hot-webpack-loader") },
+              // { loader: require.resolve("elm-hot-webpack-loader") },
               {
                 loader: require.resolve("elm-webpack-loader"),
                 options: {

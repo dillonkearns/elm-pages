@@ -5,7 +5,7 @@ module.exports = class AddFilesPlugin {
     this.filesList = filesList;
   }
   apply(compiler) {
-    compiler.hooks.afterCompile.tap("AddFilesPlugin", compilation => {
+    compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
       this.filesList.forEach(file => {
         // Couldn't find this documented in the webpack docs,
         // but I found the example code for it here:

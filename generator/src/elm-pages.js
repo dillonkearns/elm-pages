@@ -70,6 +70,7 @@ function run() {
         develop.start({
           routes: contents.routes,
           debug: contents.debug,
+          fileContents: contents.fileContents,
           manifestConfig
         });
       } else {
