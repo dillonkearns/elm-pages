@@ -25,7 +25,7 @@ class AddFilesPlugin {
         compilation.fileDependencies.add(filename);
         compilation.assets[filename] = {
           source: () => file.content,
-          size: () => file.content.size
+          size: () => file.content.length
         };
       });
     });
