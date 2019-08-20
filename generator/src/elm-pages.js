@@ -61,6 +61,20 @@ function run() {
   });
 
   app.ports.writeFile.subscribe(contents => {
+    contents.rawContent =
+      contents.rawContent +
+      `
+
+type PageRoute = PageRoute (List String)
+
+${staticRoutes.allRoutes}
+
+${staticRoutes.routeRecord}
+
+${staticRoutes.urlParser}
+
+${staticRoutes.assetsRecord}
+`;
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
     fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile);
     fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);

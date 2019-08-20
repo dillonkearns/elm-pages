@@ -59,23 +59,23 @@ function generate(scanned) {
       captureRouteRecord(pathFragments, elmType, routeRecord);
       allRoutes.push(elmType);
       urlParser.push(formatUrlParser(elmType, pathFragments));
-      routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
-      routeToExt.push(formatCaseInstance(elmType, ext));
-      routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
+      // routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
+      // routeToExt.push(formatCaseInstance(elmType, ext));
+      // routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
     } else {
       captureRouteRecord(pathFragments, scanned[i].path, assetsRecord);
     }
   }
   return {
     exposing: "(simple, Route, all, pages, urlParser, routeToString, assets)",
-    routes: toFlatRouteType(allRoutes),
+    // routes: toFlatRouteType(allRoutes),
     allRoutes: formatAsElmList("all", allRoutes),
     routeRecord: toElmRecord("pages", routeRecord, true),
     urlParser: formatAsElmUrlParser(urlParser),
-    urlToString: formatAsElmUrlToString(urlParser),
-    routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
-    routeToDocExtension: formatCaseStatement("toExt", routeToExt),
-    routeToSource: formatCaseStatement("toSourcePath", routeToSource),
+    // urlToString: formatAsElmUrlToString(urlParser),
+    // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
+    // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
+    // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
     assetsRecord: toElmRecord("assets", assetsRecord, false)
   };
 }
