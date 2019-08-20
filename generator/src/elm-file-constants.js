@@ -1,4 +1,6 @@
-const elmPagesUiFile = `port module PagesNew exposing (application, PageRoute, all, pages, routeToString)
+const exposingList = "(application, PageRoute, all, pages, routeToString)";
+
+const elmPagesUiFile = `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
 import Head
@@ -44,7 +46,7 @@ application config =
         }
 `;
 
-const elmPagesCliFile = `port module PagesNew exposing (application)
+const elmPagesCliFile = `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
 import Head
@@ -56,6 +58,7 @@ import Pages
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest
 import RawContent
+import Url.Parser as Url exposing ((</>), s)
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
