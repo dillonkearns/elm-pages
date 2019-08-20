@@ -61,30 +61,11 @@ function run() {
   });
 
   app.ports.writeFile.subscribe(contents => {
-    const uiFile =
-      elmPagesUiFile +
-      `
-
-type PageRoute = PageRoute (List String)
-
-${staticRoutes.allRoutes}
-
-${staticRoutes.routeRecord}
-
-${staticRoutes.urlParser}
-
-${staticRoutes.assetsRecord}
-
-routeToString : PageRoute -> String
-routeToString (PageRoute route) =
-    "/"
-        ++ (route |> String.join "/")
-`;
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
-    fs.writeFileSync("./gen/PagesNew.elm", uiFile);
+    fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile(staticRoutes));
     fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
     console.log("elm-pages DONE");
-    doCliStuff(contents.rawContent, function(manifestConfig) {
+    doCliStuff(staticRoutes, contents.rawContent, function(manifestConfig) {
       if (contents.watch) {
         startWatchIfNeeded();
         develop.start({

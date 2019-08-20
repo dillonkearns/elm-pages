@@ -54,7 +54,6 @@ function generate(scanned) {
     //remove extesion and split into fragments
     pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
     const is404 = pathFragments.length == 1 && pathFragments[0] == "404";
-    console.log("is404", is404, pathFragments);
     const ext = path.extname(scanned[i].path);
     if (scanned[i].document) {
       // const elmType = pathFragments.map(toPascalCase).join("");

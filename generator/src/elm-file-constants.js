@@ -1,6 +1,27 @@
 const exposingList = "(application, PageRoute, all, pages, routeToString)";
 
-const elmPagesUiFile = `port module PagesNew exposing ${exposingList}
+function staticRouteStuff(staticRoutes) {
+  return `
+
+type PageRoute = PageRoute (List String)
+
+${staticRoutes.allRoutes}
+
+${staticRoutes.routeRecord}
+
+${staticRoutes.urlParser}
+
+${staticRoutes.assetsRecord}
+
+routeToString : PageRoute -> String
+routeToString (PageRoute route) =
+    "/"
+      ++ (route |> String.join "/")
+`;
+}
+
+function elmPagesUiFile(staticRoutes) {
+  return `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
 import Head
@@ -44,9 +65,12 @@ application config =
         , head = config.head
         , manifest = config.manifest
         }
+${staticRouteStuff(staticRoutes)}
 `;
+}
 
-const elmPagesCliFile = `port module PagesNew exposing ${exposingList}
+function elmPagesCliFile(staticRoutes) {
+  return `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
 import Head
@@ -90,5 +114,9 @@ application config =
         , head = config.head
         , manifest = config.manifest
         }
+
+
+${staticRouteStuff(staticRoutes)}
 `;
+}
 module.exports = { elmPagesUiFile, elmPagesCliFile };

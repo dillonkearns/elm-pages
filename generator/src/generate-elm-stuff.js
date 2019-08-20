@@ -3,13 +3,16 @@ const runElm = require("./compile-elm.js");
 const copyModifiedElmJson = require("./rewrite-elm-json.js");
 const { elmPagesCliFile } = require("./elm-file-constants.js");
 
-module.exports = function run(rawContentFile, callback) {
+module.exports = function run(staticRoutes, rawContentFile, callback) {
   // mkdir -p elm-stuff/elm-pages/
   // requires NodeJS >= 10.12.0
   fs.mkdirSync("./elm-stuff/elm-pages", { recursive: true });
 
   // write `PagesNew.elm` with cli interface
-  fs.writeFileSync("./elm-stuff/elm-pages/PagesNew.elm", elmPagesCliFile);
+  fs.writeFileSync(
+    "./elm-stuff/elm-pages/PagesNew.elm",
+    elmPagesCliFile(staticRoutes)
+  );
 
   // generate RawContent.elm
   fs.writeFileSync("./elm-stuff/elm-pages/RawContent.elm", rawContentFile);
