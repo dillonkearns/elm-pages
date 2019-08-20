@@ -53,6 +53,8 @@ function generate(scanned) {
     var pathFragments = scanned[i].path;
     //remove extesion and split into fragments
     pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+    const is404 = pathFragments.length == 1 && pathFragments[0] == "404";
+    console.log("is404", is404, pathFragments);
     const ext = path.extname(scanned[i].path);
     if (scanned[i].document) {
       // const elmType = pathFragments.map(toPascalCase).join("");
@@ -60,12 +62,14 @@ function generate(scanned) {
         "(PageRoute [ " +
         pathFragments.map(fragment => `"${fragment}"`).join(", ") +
         " ])";
-      captureRouteRecord(pathFragments, elmType, routeRecord);
-      allRoutes.push(elmType);
-      urlParser.push(formatUrlParser(elmType, pathFragments));
-      // routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
-      // routeToExt.push(formatCaseInstance(elmType, ext));
-      // routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
+      if (!is404) {
+        captureRouteRecord(pathFragments, elmType, routeRecord);
+        allRoutes.push(elmType);
+        urlParser.push(formatUrlParser(elmType, pathFragments));
+        // routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
+        // routeToExt.push(formatCaseInstance(elmType, ext));
+        // routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
+      }
     } else {
       captureRouteRecord(pathFragments, scanned[i].path, assetsRecord);
     }
