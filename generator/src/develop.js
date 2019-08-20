@@ -11,6 +11,7 @@ const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
 const webpackDevServer = require("webpack-dev-server");
 const AddFilesPlugin = require("./add-files-plugin.js");
 const ImageminPlugin = require("imagemin-webpack-plugin").default;
+const imageminMozjpeg = require("imagemin-mozjpeg");
 
 module.exports = { start, run };
 function start({ routes, debug, manifestConfig }) {
@@ -77,7 +78,13 @@ function webpackOptions(
         pngquant: {
           quality: "40-70",
           speed: 1
-        }
+        },
+        plugins: [
+          imageminMozjpeg({
+            quality: 75,
+            progressive: false
+          })
+        ]
       }),
 
       new PrerenderSPAPlugin({
