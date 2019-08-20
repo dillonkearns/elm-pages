@@ -24,6 +24,7 @@ function elmPagesUiFile(staticRoutes) {
   return `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
+import Color exposing (Color)
 import Head
 import Html exposing (Html)
 import Json.Decode
@@ -31,7 +32,8 @@ import Json.Encode
 import Mark
 import Pages
 import Pages.ContentCache exposing (Page)
-import Pages.Manifest
+import Pages.Manifest exposing (DisplayMode, Orientation)
+import Pages.Manifest.Category as Category exposing (Category)
 import RawContent
 import Url.Parser as Url exposing ((</>), s)
 
@@ -48,7 +50,19 @@ application :
     , head : metadata -> List Head.Tag
     , frontmatterParser : Json.Decode.Decoder metadata
     , markdownToHtml : String -> view
-    , manifest : Pages.Manifest.Config
+    , manifest :
+        { backgroundColor : Maybe Color
+        , categories : List Category
+        , displayMode : DisplayMode
+        , orientation : Orientation
+        , description : String
+        , iarcRatingId : Maybe String
+        , name : String
+        , themeColor : Maybe Color
+        , startUrl : PageRoute
+        , shortName : Maybe String
+        , sourceIcon : String
+        }
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -63,7 +77,19 @@ application config =
         , markdownToHtml = config.markdownToHtml
         , toJsPort = toJsPort
         , head = config.head
-        , manifest = config.manifest
+        , manifest =
+            { backgroundColor = config.manifest.backgroundColor
+            , categories = config.manifest.categories
+            , displayMode = config.manifest.displayMode
+            , orientation = config.manifest.orientation
+            , description = config.manifest.description
+            , iarcRatingId = config.manifest.iarcRatingId
+            , name = config.manifest.name
+            , themeColor = config.manifest.themeColor
+            , startUrl = Just (routeToString config.manifest.startUrl)
+            , shortName = config.manifest.shortName
+            , sourceIcon = config.manifest.sourceIcon
+            }
         }
 ${staticRouteStuff(staticRoutes)}
 `;
@@ -73,6 +99,7 @@ function elmPagesCliFile(staticRoutes) {
   return `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
+import Color exposing (Color)
 import Head
 import Html exposing (Html)
 import Json.Decode
@@ -80,7 +107,8 @@ import Json.Encode
 import Mark
 import Pages
 import Pages.ContentCache exposing (Page)
-import Pages.Manifest
+import Pages.Manifest exposing (DisplayMode, Orientation)
+import Pages.Manifest.Category as Category exposing (Category)
 import RawContent
 import Url.Parser as Url exposing ((</>), s)
 
@@ -97,7 +125,19 @@ application :
     , head : metadata -> List Head.Tag
     , frontmatterParser : Json.Decode.Decoder metadata
     , markdownToHtml : String -> view
-    , manifest : Pages.Manifest.Config
+    , manifest :
+        { backgroundColor : Maybe Color
+        , categories : List Category
+        , displayMode : DisplayMode
+        , orientation : Orientation
+        , description : String
+        , iarcRatingId : Maybe String
+        , name : String
+        , themeColor : Maybe Color
+        , startUrl : PageRoute
+        , shortName : Maybe String
+        , sourceIcon : String
+        }
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -112,7 +152,19 @@ application config =
         , markdownToHtml = config.markdownToHtml
         , toJsPort = toJsPort
         , head = config.head
-        , manifest = config.manifest
+        , manifest =
+            { backgroundColor = config.manifest.backgroundColor
+            , categories = config.manifest.categories
+            , displayMode = config.manifest.displayMode
+            , orientation = config.manifest.orientation
+            , description = config.manifest.description
+            , iarcRatingId = config.manifest.iarcRatingId
+            , name = config.manifest.name
+            , themeColor = config.manifest.themeColor
+            , startUrl = Just (routeToString config.manifest.startUrl)
+            , shortName = config.manifest.shortName
+            , sourceIcon = config.manifest.sourceIcon
+            }
         }
 
 
