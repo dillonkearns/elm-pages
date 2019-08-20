@@ -10,6 +10,7 @@ const { GenerateSW } = require("workbox-webpack-plugin");
 const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
 const webpackDevServer = require("webpack-dev-server");
 const AddFilesPlugin = require("./add-files-plugin.js");
+const ImageminPlugin = require("imagemin-webpack-plugin").default;
 
 module.exports = { start, run };
 function start({ routes, debug, manifestConfig }) {
@@ -70,6 +71,15 @@ function webpackOptions(
           }
         }
       ]),
+      new ImageminPlugin({
+        test: /\.(jpe?g|png|gif|svg)$/i,
+        disable: !production,
+        pngquant: {
+          quality: "40-70",
+          speed: 1
+        }
+      }),
+
       new PrerenderSPAPlugin({
         // Required - The path to the webpack-outputted app to prerender.
         // staticDir: "./dist",
