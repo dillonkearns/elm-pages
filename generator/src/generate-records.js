@@ -55,7 +55,11 @@ function generate(scanned) {
     pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
     const ext = path.extname(scanned[i].path);
     if (scanned[i].document) {
-      const elmType = pathFragments.map(toPascalCase).join("");
+      // const elmType = pathFragments.map(toPascalCase).join("");
+      const elmType =
+        "(PageRoute [ " +
+        pathFragments.map(fragment => `"${fragment}"`).join(", ") +
+        " ])";
       captureRouteRecord(pathFragments, elmType, routeRecord);
       allRoutes.push(elmType);
       urlParser.push(formatUrlParser(elmType, pathFragments));
@@ -148,7 +152,7 @@ function captureRouteRecord(pieces, elmType, record) {
 function formatAsElmList(name, items) {
   var formatted = items.join("\n    , ");
 
-  var signature = name + " : List Route\n";
+  var signature = name + " : List PageRoute\n";
 
   return signature + name + " =\n    [ " + formatted + "\n    ]";
 }
@@ -197,5 +201,6 @@ function formatAsElmUrlParser(pieces) {
   var parser =
     "    [ " + pieces.map(p => p.parser).join("\n        , ") + "\n        ]";
 
-  return `urlParser =\n    Url.oneOf\n    ${parser} `;
+  return `urlParser : Url.Parser (PageRoute -> a) a
+urlParser =\n    Url.oneOf\n    ${parser} `;
 }

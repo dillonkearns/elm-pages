@@ -95,9 +95,9 @@ generate : List Page -> List MarkdownContent -> String
 generate content markdownContent =
     interpolate """module RawContent exposing (content)
 
-import Pages.Content as Content exposing (Content)
 import Dict exposing (Dict)
-import Element exposing (Element)
+import Url.Parser as Url exposing ((</>), s)
+
 
 
 content : { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
