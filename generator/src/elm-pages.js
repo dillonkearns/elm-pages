@@ -10,6 +10,7 @@ const matter = require("gray-matter");
 const runElm = require("./compile-elm.js");
 const doCliStuff = require("./generate-elm-stuff.js");
 const { elmPagesUiFile } = require("./elm-file-constants.js");
+const generateRecords = require("./generate-records.js");
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -27,6 +28,8 @@ function parseMarkdown(path, fileContents) {
 function run() {
   console.log("Running elm-pages...");
   const content = glob.sync(contentGlobPath, {}).map(unpackFile);
+  const staticRoutes = generateRecords();
+
   const markdownContent = glob
     .sync("content/**/*.md", {})
     .map(unpackFile)
