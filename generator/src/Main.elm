@@ -96,8 +96,6 @@ generate content markdownContent =
     interpolate """module RawContent exposing (content)
 
 import Dict exposing (Dict)
-import Url.Parser as Url exposing ((</>), s)
-
 
 
 content : { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }

@@ -1,4 +1,4 @@
-const elmPagesUiFile = `port module PagesNew exposing (..)
+const elmPagesUiFile = `port module PagesNew exposing (application, PageRoute, all, pages, routeToString)
 
 import Dict exposing (Dict)
 import Head
@@ -10,6 +10,7 @@ import Pages
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest
 import RawContent
+import Url.Parser as Url exposing ((</>), s)
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
