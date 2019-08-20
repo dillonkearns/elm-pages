@@ -17,7 +17,7 @@ class AddFilesPlugin {
   apply(compiler) {
     compiler.hooks.afterCompile.tap("AddFilesPlugin", compilation => {
       this.filesList.forEach(file => {
-        compilation.assets[`${file.name}/content.txt`] = {
+        compilation.assets[path.join(file.name, "content.txt")] = {
           source: function() {
             return file.content;
           },
