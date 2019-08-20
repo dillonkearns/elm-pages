@@ -219,7 +219,7 @@ function webpackOptions(
         {
           test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
           exclude: [/elm-stuff/, /node_modules/],
-          loader: "url-loader",
+          loader: require.resolve("url-loader"),
           options: {
             limit: 10000,
             mimetype: "application/font-woff"
@@ -267,7 +267,7 @@ function webpackOptions(
             test: /\.elm$/,
             exclude: [/elm-stuff/, /node_modules/],
             use: {
-              loader: "elm-webpack-loader",
+              loader: require.resolve("elm-webpack-loader"),
               options: {
                 optimize: true
               }
@@ -284,9 +284,9 @@ function webpackOptions(
             test: /\.elm$/,
             exclude: [/elm-stuff/, /node_modules/],
             use: [
-              { loader: "elm-hot-webpack-loader" },
+              { loader: require.resolve("elm-hot-webpack-loader") },
               {
-                loader: "elm-webpack-loader",
+                loader: require.resolve("elm-webpack-loader"),
                 options: {
                   // add Elm's debug overlay to output?
                   debug: debug,
