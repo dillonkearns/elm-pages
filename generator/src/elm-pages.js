@@ -63,7 +63,6 @@ function run() {
   app.ports.writeFile.subscribe(contents => {
     fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
     fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile(staticRoutes));
-    fs.writeFileSync("./src/js/image-assets.js", contents.imageAssets);
     console.log("elm-pages DONE");
     doCliStuff(staticRoutes, contents.rawContent, function(manifestConfig) {
       if (contents.watch) {
