@@ -40,7 +40,7 @@ manifest =
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.blue
-    , startUrl = Just "/"
+    , startUrl = Just "."
     , shortName = Just "elm-pages"
     , sourceIcon = "icon.svg"
     }
