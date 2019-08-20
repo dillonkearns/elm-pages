@@ -40,7 +40,8 @@ function start({ routes, debug, manifestConfig }) {
     contentBase: "./dist",
     hot: true,
     inline: false,
-    host: "localhost"
+    host: "localhost",
+    stats: "errors-only"
   };
 
   webpackDevServer.addDevServerEntrypoints(config, options);
