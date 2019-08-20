@@ -145,8 +145,18 @@ function webpackOptions(
           }
         }
       }),
-
       new GenerateSW({
+        include: [
+          /^index\.html$/,
+          /\.js$/,
+          /content\.txt$/,
+          /\.(?:png|gif|jpg|jpeg|svg)$/
+        ],
+        exclude: [
+          /android-chrome-.*\.png$/,
+          /apple-touch-icon.*\.png/,
+          /favicon-.*\.png/
+        ],
         navigateFallback: "index.html",
         swDest: "service-worker.js",
         runtimeCaching: [
