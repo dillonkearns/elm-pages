@@ -217,15 +217,6 @@ function webpackOptions(
           ]
         },
         {
-          test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
-          exclude: [/elm-stuff/, /node_modules/],
-          loader: require.resolve("url-loader"),
-          options: {
-            limit: 10000,
-            mimetype: "application/font-woff"
-          }
-        },
-        {
           test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
           exclude: [/elm-stuff/, /node_modules/],
           loader: require.resolve("file-loader")
