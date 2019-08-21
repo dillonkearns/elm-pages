@@ -6,8 +6,16 @@
   "scripts": {
     "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize"
   },
+  "repository": "https://github.com/dillonkearns/elm-pages",
+  "keywords": [
+    "elm",
+    "JAM stack",
+    "ssg",
+    "static site generator",
+    "pwa"
+  ],
   "author": "Dillon Kearns",
-  "license": "BSD-3",
+  "license": "BSD-3-Clause",
   "dependencies": {
     "@babel/core": "^7.5.5",
     "@babel/preset-env": "^7.5.5",
