@@ -32,6 +32,15 @@ function unpackFile() {
   };
 }
 
+function relativeImagePath(imageFilepath) {
+  var pathFragments = imageFilepath;
+  //remove extesion and split into fragments
+  pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+  const fullPath = imageFilepath;
+  var relative = imageFilepath.slice(dir.length - 1);
+  return { path: relative, pathFragments };
+}
+
 function generate(scanned) {
   // Generate Pages/My/elm
   // Documents ->
@@ -43,12 +52,12 @@ function generate(scanned) {
   //     Record
 
   var routeRecord = {};
-  var assetsRecord = {};
   var allRoutes = [];
   var urlParser = [];
   var routeToMetadata = [];
   var routeToExt = [];
   var routeToSource = [];
+
   for (var i = 0; i < scanned.length; i++) {
     var pathFragments = scanned[i].path;
     //remove extesion and split into fragments
@@ -83,8 +92,20 @@ function generate(scanned) {
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
     // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
-    assetsRecord: toElmRecord("assets", assetsRecord, false)
+    imageAssetsRecord: toElmRecord("assets", getImageAssets(), false)
   };
+}
+function getImageAssets() {
+  var assetsRecord = {};
+
+  const content = glob
+    .sync("images/**/*", {})
+    .filter(filePath => !fs.lstatSync(filePath).isDirectory())
+    .map(relativeImagePath)
+    .forEach(info => {
+      captureRouteRecord(info.pathFragments, info.path, assetsRecord);
+    });
+  return assetsRecord;
 }
 function toPascalCase(str) {
   var pascal = str.replace(/(\-\w)/g, function(m) {

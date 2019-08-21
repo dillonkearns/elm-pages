@@ -11,7 +11,7 @@ ${staticRoutes.routeRecord}
 
 ${staticRoutes.urlParser}
 
-${staticRoutes.assetsRecord}
+${staticRoutes.imageAssetsRecord}
 
 routeToString : PageRoute -> String
 routeToString (PageRoute route) =
