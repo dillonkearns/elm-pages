@@ -26,15 +26,17 @@ function start({ routes, debug, manifestConfig, fileContents }) {
 
   const options = {
     contentBase: false,
-    // hot: true,
-    inline: false,
+    hot: true,
+    inline: true,
     host: "localhost",
-    stats: "errors-only"
+    stats: "errors-only",
+    publicPath: "/"
   };
+  const compiler = webpack(config);
 
   const app = express();
 
-  app.use(middleware(compiler, { publicPath: "/" }));
+  app.use(middleware(compiler, options));
 
   app.use("*", function(req, res, next) {
     // don't know why this works, but it does
