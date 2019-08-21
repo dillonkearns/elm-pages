@@ -69,7 +69,7 @@ application :
         , themeColor : Maybe Color
         , startUrl : PageRoute
         , shortName : Maybe String
-        , sourceIcon : String
+        , sourceIcon : Image
         }
     }
     -> Pages.Program userModel userMsg metadata view
@@ -96,7 +96,7 @@ application config =
             , themeColor = config.manifest.themeColor
             , startUrl = Just (routeToString config.manifest.startUrl)
             , shortName = config.manifest.shortName
-            , sourceIcon = config.manifest.sourceIcon
+            , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
             }
         }
 ${staticRouteStuff(staticRoutes)}
@@ -144,7 +144,7 @@ application :
         , themeColor : Maybe Color
         , startUrl : PageRoute
         , shortName : Maybe String
-        , sourceIcon : String
+        , sourceIcon : Image
         }
     }
     -> Pages.Program userModel userMsg metadata view
@@ -171,7 +171,7 @@ application config =
             , themeColor = config.manifest.themeColor
             , startUrl = Just (routeToString config.manifest.startUrl)
             , shortName = config.manifest.shortName
-            , sourceIcon = config.manifest.sourceIcon
+            , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
             }
         }
 
