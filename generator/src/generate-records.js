@@ -55,25 +55,22 @@ function generate(scanned) {
     pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
     const is404 = pathFragments.length == 1 && pathFragments[0] == "404";
     const ext = path.extname(scanned[i].path);
-    if (scanned[i].document) {
-      // const elmType = pathFragments.map(toPascalCase).join("");
-      const elmType =
-        "(PageRoute [ " +
-        pathFragments
-          .filter(fragment => fragment !== "index")
-          .map(fragment => `"${fragment}"`)
-          .join(", ") +
-        " ])";
-      if (!is404) {
-        captureRouteRecord(pathFragments, elmType, routeRecord);
-        allRoutes.push(elmType);
-        urlParser.push(formatUrlParser(elmType, pathFragments));
-        // routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
-        // routeToExt.push(formatCaseInstance(elmType, ext));
-        // routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
-      }
-    } else {
-      captureRouteRecord(pathFragments, scanned[i].path, assetsRecord);
+
+    // const elmType = pathFragments.map(toPascalCase).join("");
+    const elmType =
+      "(PageRoute [ " +
+      pathFragments
+        .filter(fragment => fragment !== "index")
+        .map(fragment => `"${fragment}"`)
+        .join(", ") +
+      " ])";
+    if (!is404) {
+      captureRouteRecord(pathFragments, elmType, routeRecord);
+      allRoutes.push(elmType);
+      urlParser.push(formatUrlParser(elmType, pathFragments));
+      // routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
+      // routeToExt.push(formatCaseInstance(elmType, ext));
+      // routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
     }
   }
   return {
