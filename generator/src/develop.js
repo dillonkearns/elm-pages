@@ -37,7 +37,6 @@ function start({ routes, debug, manifestConfig, fileContents }) {
   app.use(middleware(compiler, { publicPath: "/" }));
 
   app.use("*", function(req, res, next) {
-    console.log("req", path.basename(req.baseUrl));
     // don't know why this works, but it does
     // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
     const filename = path.join(compiler.outputPath, "index.html");
