@@ -49,9 +49,7 @@
     "typescript": "^3.5.3"
   },
   "files": [
-    "dist/",
     "index.js",
-    "generator/bin/elm-pages",
     "generator/src/"
   ],
   "bin": {
