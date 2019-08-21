@@ -15,6 +15,7 @@ const generateRecords = require("./generate-records.js");
 const contentGlobPath = "content/**/*.emu";
 
 let watcher = null;
+let devServerRunning = false;
 
 function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
@@ -67,12 +68,15 @@ function run() {
     doCliStuff(staticRoutes, contents.rawContent, function(manifestConfig) {
       if (contents.watch) {
         startWatchIfNeeded();
-        develop.start({
-          routes: contents.routes,
-          debug: contents.debug,
-          fileContents: contents.fileContents,
-          manifestConfig
-        });
+        if (!devServerRunning) {
+          devServerRunning = true;
+          develop.start({
+            routes: contents.routes,
+            debug: contents.debug,
+            fileContents: contents.fileContents,
+            manifestConfig
+          });
+        }
       } else {
         develop.run(
           {

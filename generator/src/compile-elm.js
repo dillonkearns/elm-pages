@@ -7,12 +7,15 @@ function runElm(callback) {
   const startingDir = process.cwd();
   process.chdir(elmBaseDirectory);
   compileToString([mainElmFile], {}).then(function(data) {
-    eval(data.toString());
-    const app = Elm.Main.init({ flags: { imageAssets: {} } });
+    (function() {
+      eval(data.toString());
+      const app = Elm.Main.init({ flags: { imageAssets: {} } });
 
-    app.ports.toJsPort.subscribe(payload => {
-      process.chdir(startingDir);
-      callback(payload);
-    });
+      app.ports.toJsPort.subscribe(payload => {
+        process.chdir(startingDir);
+        callback(payload);
+        delete Elm;
+      });
+    })();
   });
 }
