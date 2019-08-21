@@ -73,7 +73,19 @@ function run({ routes, fileContents, manifestConfig }, callback) {
     console.log(
       stats.toString({
         chunks: false, // Makes the build much quieter
-        colors: true // Shows colors in the console
+        colors: true, // Shows colors in the console
+        // copied from `'minimal'`
+        all: false,
+        modules: false,
+        performance: true,
+        timings: true,
+        outputPath: true,
+        maxModules: 0,
+        errors: true,
+        warnings: true,
+        // our additional options
+        moduleTrace: false,
+        errorDetails: false
       })
     );
   });
@@ -245,17 +257,6 @@ function webpackOptions(
           loader: require.resolve("file-loader")
         }
       ]
-    },
-    stats: {
-      // copied from `'minimal'`
-      all: false,
-      modules: true,
-      maxModules: 0,
-      errors: true,
-      warnings: true,
-      // our additional options
-      moduleTrace: true,
-      errorDetails: true
     }
   };
   if (production) {
