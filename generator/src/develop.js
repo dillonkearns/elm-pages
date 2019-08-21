@@ -32,7 +32,6 @@ function start({ routes, debug, manifestConfig, fileContents }) {
     stats: "errors-only",
     publicPath: "/"
   };
-  const compiler = webpack(config);
 
   const app = express();
 
