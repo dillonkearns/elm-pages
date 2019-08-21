@@ -15,10 +15,9 @@ const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
 
 module.exports = { start, run };
-function start({ routes, debug, manifestConfig, fileContents }) {
+function start({ routes, debug, manifestConfig }) {
   const config = webpackOptions(false, routes, {
     debug,
-    fileContents,
     manifestConfig
   });
 
@@ -58,43 +57,39 @@ function start({ routes, debug, manifestConfig, fileContents }) {
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes, fileContents, manifestConfig }, callback) {
-  webpack(
-    webpackOptions(true, routes, { debug: false, fileContents, manifestConfig })
-  ).run((err, stats) => {
-    if (err) {
-      console.error(err);
-      process.exit(1);
-    } else {
-      callback();
-    }
+function run({ routes, manifestConfig }, callback) {
+  webpack(webpackOptions(true, routes, { debug: false, manifestConfig })).run(
+    (err, stats) => {
+      if (err) {
+        console.error(err);
+        process.exit(1);
+      } else {
+        callback();
+      }
 
-    console.log(
-      stats.toString({
-        chunks: false, // Makes the build much quieter
-        colors: true, // Shows colors in the console
-        // copied from `'minimal'`
-        all: false,
-        modules: false,
-        performance: true,
-        timings: true,
-        outputPath: true,
-        maxModules: 0,
-        errors: true,
-        warnings: true,
-        // our additional options
-        moduleTrace: false,
-        errorDetails: false
-      })
-    );
-  });
+      console.log(
+        stats.toString({
+          chunks: false, // Makes the build much quieter
+          colors: true, // Shows colors in the console
+          // copied from `'minimal'`
+          all: false,
+          modules: false,
+          performance: true,
+          timings: true,
+          outputPath: true,
+          maxModules: 0,
+          errors: true,
+          warnings: true,
+          // our additional options
+          moduleTrace: false,
+          errorDetails: false
+        })
+      );
+    }
+  );
 }
 
-function webpackOptions(
-  production,
-  routes,
-  { debug, fileContents, manifestConfig }
-) {
+function webpackOptions(production, routes, { debug, manifestConfig }) {
   const common = {
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",

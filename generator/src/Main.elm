@@ -8,12 +8,8 @@ import String.Interpolate exposing (interpolate)
 
 
 port writeFile :
-    { rawContent : String
-    , routes : List String
-    , imageAssets : String
-    , watch : Bool
+    { watch : Bool
     , debug : Bool
-    , fileContents : List ( String, String )
     }
     -> Cmd msg
 
@@ -59,12 +55,6 @@ dropIndexFromLast path =
                         reversePath
            )
         |> List.reverse
-
-
-allRoutes : List String -> List String
-allRoutes paths =
-    paths
-        |> List.map prerenderRcFormattedPath
 
 
 pathFor : { entry | path : String } -> String
@@ -189,7 +179,7 @@ type alias Flags =
 
 
 type alias Extras =
-    { content : List Page, markdownContent : List MarkdownContent, images : List String }
+    {}
 
 
 type alias Page =
@@ -211,13 +201,8 @@ init flags cliOptions =
                 Build ->
                     ( False, False )
     in
-    { rawContent =
-        generate flags.content flags.markdownContent
-    , routes = allRoutes (List.map .path flags.content ++ List.map .path flags.markdownContent)
-    , imageAssets = imageAssetsFile flags.images
-    , watch = watch
+    { watch = watch
     , debug = debug
-    , fileContents = generateFileContents flags.markdownContent
     }
         |> writeFile
 
@@ -231,23 +216,6 @@ generateFileContents markdownFiles =
                 , file.body
                 )
             )
-
-
-imageAssetsFile : List String -> String
-imageAssetsFile images =
-    interpolate """export const imageAssets = {
-  {0}
-};
-"""
-        [ images |> List.map imageAssetEntry |> String.join ",\n  " ]
-
-
-imageAssetEntry : String -> String
-imageAssetEntry string =
-    interpolate """"{0}": require("{1}")"""
-        [ string |> String.dropLeft 7
-        , "../../" ++ string
-        ]
 
 
 main : Program.StatelessProgram Never Extras

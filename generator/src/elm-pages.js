@@ -11,6 +11,7 @@ const runElm = require("./compile-elm.js");
 const doCliStuff = require("./generate-elm-stuff.js");
 const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
+const generateRawContent = require("./generate-raw-content.js");
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -21,14 +22,42 @@ function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
+const markupFrontmatterOptions = {
+  language: "markup",
+  engines: {
+    markup: {
+      parse: function(string) {
+        console.log("@@@@@@", string);
+        return string;
+      },
+
+      // example of throwing an error to let users know stringifying is
+      // not supported (a TOML stringifier might exist, this is just an example)
+      stringify: function(string) {
+        return string;
+      }
+    }
+  }
+};
+
+function unpackMarkup(path) {
+  console.log("!!! 2");
+  const separated = matter(
+    fs.readFileSync(path).toString(),
+    markupFrontmatterOptions
+  );
+  return { path, metadata: separated.matter, body: separated.content };
+}
+
 function parseMarkdown(path, fileContents) {
-  const { content, data } = matter(fileContents);
+  console.log("!!! 3");
+  const { content, data } = matter(fileContents, markupFrontmatterOptions);
   return { path, metadata: JSON.stringify(data), body: content };
 }
 
 function run() {
   console.log("Running elm-pages...");
-  const content = glob.sync(contentGlobPath, {}).map(unpackFile);
+  const content = glob.sync(contentGlobPath, {}).map(unpackMarkup);
   const staticRoutes = generateRecords();
 
   const markdownContent = glob
@@ -62,10 +91,12 @@ function run() {
   });
 
   app.ports.writeFile.subscribe(contents => {
-    fs.writeFileSync("./gen/RawContent.elm", contents.rawContent);
+    const rawContent = generateRawContent(markdownContent, content);
+
+    fs.writeFileSync("./gen/RawContent.elm", rawContent);
     fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile(staticRoutes));
     console.log("elm-pages DONE");
-    doCliStuff(staticRoutes, contents.rawContent, function(manifestConfig) {
+    doCliStuff(staticRoutes, rawContent, function(manifestConfig) {
       if (contents.watch) {
         startWatchIfNeeded();
         if (!devServerRunning) {
@@ -73,7 +104,6 @@ function run() {
           develop.start({
             routes: contents.routes,
             debug: contents.debug,
-            fileContents: contents.fileContents,
             manifestConfig
           });
         }
@@ -81,7 +111,6 @@ function run() {
         develop.run(
           {
             routes: contents.routes,
-            fileContents: contents.fileContents,
             manifestConfig
           },
           () => {}
