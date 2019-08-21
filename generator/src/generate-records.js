@@ -59,7 +59,10 @@ function generate(scanned) {
       // const elmType = pathFragments.map(toPascalCase).join("");
       const elmType =
         "(PageRoute [ " +
-        pathFragments.map(fragment => `"${fragment}"`).join(", ") +
+        pathFragments
+          .filter(fragment => fragment !== "index")
+          .map(fragment => `"${fragment}"`)
+          .join(", ") +
         " ])";
       if (!is404) {
         captureRouteRecord(pathFragments, elmType, routeRecord);
