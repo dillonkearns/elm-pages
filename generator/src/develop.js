@@ -86,14 +86,7 @@ function webpackOptions(
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
     plugins: [
-      new AddFilesPlugin(
-        fileContents.map(([path, content]) => {
-          return {
-            name: path,
-            content: content
-          };
-        })
-      ),
+      new AddFilesPlugin(),
       new CopyPlugin([
         {
           from: "static/**/*",
