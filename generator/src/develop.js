@@ -111,14 +111,6 @@ function webpackOptions(
         ]
       }),
 
-      new PrerenderSPAPlugin({
-        // Required - The path to the webpack-outputted app to prerender.
-        // staticDir: "./dist",
-        staticDir: path.join(process.cwd(), "dist"),
-        // Required - Routes to render.
-        routes: routes,
-        renderAfterDocumentEvent: "prerender-trigger"
-      }),
       new HTMLWebpackPlugin({
         inject: "head",
         template: path.resolve(__dirname, "template.html")
@@ -266,7 +258,16 @@ function webpackOptions(
   };
   if (production) {
     return merge(common, {
-      plugins: [],
+      plugins: [
+        new PrerenderSPAPlugin({
+          // Required - The path to the webpack-outputted app to prerender.
+          // staticDir: "./dist",
+          staticDir: path.join(process.cwd(), "dist"),
+          // Required - Routes to render.
+          routes: routes,
+          renderAfterDocumentEvent: "prerender-trigger"
+        })
+      ],
       module: {
         rules: [
           {
