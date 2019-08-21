@@ -109,6 +109,11 @@ function webpackOptions(
           }
         }
       ]),
+      new CopyPlugin([
+        {
+          from: "images/**/*"
+        }
+      ]),
       new ImageminPlugin({
         test: /\.(jpe?g|png|gif|svg)$/i,
         disable: !production,

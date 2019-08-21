@@ -35,10 +35,11 @@ function unpackFile() {
 function relativeImagePath(imageFilepath) {
   var pathFragments = imageFilepath;
   //remove extesion and split into fragments
+  const fragmentsWithExtension = pathFragments.split(path.sep);
   pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
   const fullPath = imageFilepath;
   var relative = imageFilepath.slice(dir.length - 1);
-  return { path: relative, pathFragments };
+  return { path: relative, pathFragments, fragmentsWithExtension };
 }
 
 function generate(scanned) {
@@ -92,7 +93,7 @@ function generate(scanned) {
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
     // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
-    imageAssetsRecord: toElmRecord("assets", getImageAssets(), false)
+    imageAssetsRecord: toElmRecord("images", getImageAssets(), true)
   };
 }
 function getImageAssets() {
@@ -103,7 +104,14 @@ function getImageAssets() {
     .filter(filePath => !fs.lstatSync(filePath).isDirectory())
     .map(relativeImagePath)
     .forEach(info => {
-      captureRouteRecord(info.pathFragments, info.path, assetsRecord);
+      const elmType =
+        "(Image [ " +
+        info.fragmentsWithExtension
+          .map(fragment => `"${fragment}"`)
+          .join(", ") +
+        " ])";
+
+      captureRouteRecord(info.pathFragments, elmType, assetsRecord);
     });
   return assetsRecord;
 }

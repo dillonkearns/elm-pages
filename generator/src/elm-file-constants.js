@@ -1,9 +1,17 @@
-const exposingList = "(application, PageRoute, all, pages, routeToString)";
+const exposingList =
+  "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images)";
 
 function staticRouteStuff(staticRoutes) {
   return `
 
 type PageRoute = PageRoute (List String)
+
+type Image = Image (List String)
+
+imageUrl : Image -> String
+imageUrl (Image path) =
+    "/"
+        ++ String.join "/" path
 
 ${staticRoutes.allRoutes}
 
