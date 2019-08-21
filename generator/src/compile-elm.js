@@ -8,6 +8,8 @@ function runElm(callback) {
   process.chdir(elmBaseDirectory);
   compileToString([mainElmFile], {}).then(function(data) {
     (function() {
+      const warnOriginal = console.warn;
+      console.warn = function() {};
       eval(data.toString());
       const app = Elm.Main.init({ flags: { imageAssets: {} } });
 
@@ -15,6 +17,7 @@ function runElm(callback) {
         process.chdir(startingDir);
         callback(payload);
         delete Elm;
+        console.warn = warnOriginal;
       });
     })();
   });
