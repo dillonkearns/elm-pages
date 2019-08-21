@@ -11,7 +11,7 @@ type Image = Image (List String)
 imageUrl : Image -> String
 imageUrl (Image path) =
     "/"
-        ++ String.join "/" path
+        ++ String.join "/" ("images" :: path)
 
 ${staticRoutes.allRoutes}
 

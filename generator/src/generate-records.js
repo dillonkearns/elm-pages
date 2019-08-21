@@ -36,7 +36,9 @@ function relativeImagePath(imageFilepath) {
   var pathFragments = imageFilepath;
   //remove extesion and split into fragments
   const fragmentsWithExtension = pathFragments.split(path.sep);
+  fragmentsWithExtension.splice(0, 1);
   pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+  pathFragments.splice(0, 1);
   const fullPath = imageFilepath;
   var relative = imageFilepath.slice(dir.length - 1);
   return { path: relative, pathFragments, fragmentsWithExtension };
