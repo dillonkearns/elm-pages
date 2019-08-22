@@ -102,6 +102,7 @@ function run() {
 
   app.ports.writeFile.subscribe(contents => {
     const rawContent = generateRawContent(markdownContent, content);
+    const routes = toRoutes(markdownContent.concat(content));
 
     fs.writeFileSync("./gen/RawContent.elm", rawContent);
     fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile(staticRoutes));
@@ -112,7 +113,7 @@ function run() {
         if (!devServerRunning) {
           devServerRunning = true;
           develop.start({
-            routes: contents.routes,
+            routes,
             debug: contents.debug,
             manifestConfig
           });
@@ -120,7 +121,7 @@ function run() {
       } else {
         develop.run(
           {
-            routes: contents.routes,
+            routes,
             manifestConfig
           },
           () => {}
@@ -148,4 +149,17 @@ function startWatchIfNeeded() {
         console.log("Done!");
       });
   }
+}
+
+function toRoutes(entries) {
+  return entries.map(toRoute);
+}
+
+function toRoute(entry) {
+  let fullPath = entry.path
+    .replace(/(index)?\.[^/.]+$/, "")
+    .split("/")
+    .filter(item => item !== "");
+  fullPath.splice(0, 1);
+  return `/${fullPath.join("/")}`;
 }
