@@ -108,6 +108,15 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
     entry: { hello: "./index.js" },
     mode: production ? "production" : "development",
     plugins: [
+      new webpack.ProgressPlugin({
+        entries: true,
+        modules: true,
+        modulesCount: 100,
+        profile: true,
+        handler: (percentage, message, ...args) => {
+          printProgress(`${Math.floor(percentage * 100)}%`, message);
+        }
+      }),
       new AddFilesPlugin(),
       new CopyPlugin([
         {
