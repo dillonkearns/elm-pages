@@ -121,7 +121,8 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
       ]),
       new CopyPlugin([
         {
-          from: "images/"
+          from: "images/",
+          to: "images/"
         }
       ]),
       new ImageminPlugin({
