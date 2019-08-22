@@ -225,6 +225,9 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
           }
         ]
       })
+      // comment this out to do performance profiling
+      // (drag-and-drop `events.json` file into Chrome performance tab)
+      // , new webpack.debug.ProfilingPlugin()
     ],
     output: {
       publicPath: "/"
