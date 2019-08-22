@@ -13,6 +13,7 @@ const ImageminPlugin = require("imagemin-webpack-plugin").default;
 const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
 const ClosurePlugin = require("closure-webpack-plugin");
+const readline = require("readline");
 
 module.exports = { start, run };
 function start({ routes, debug, manifestConfig }) {
@@ -99,8 +100,8 @@ function roundToOneDecimal(n) {
 }
 
 function printProgress(progress, message) {
-  process.stdout.clearLine();
-  process.stdout.cursorTo(0);
+  readline.clearLine(process.stdout);
+  readline.cursorTo(process.stdout, 0);
   process.stdout.write(`${progress} ${message}`);
 }
 function webpackOptions(production, routes, { debug, manifestConfig }) {
