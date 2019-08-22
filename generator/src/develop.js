@@ -250,11 +250,6 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
           test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
           exclude: [/elm-stuff/, /node_modules/],
           loader: require.resolve("file-loader")
-        },
-        {
-          test: /\.(jpe?g|png|gif|svg|html)$/i,
-          exclude: [/elm-stuff/, /node_modules/],
-          loader: require.resolve("file-loader")
         }
       ]
     }
