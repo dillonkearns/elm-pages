@@ -1,31 +1,12 @@
 const path = require("path");
 const fs = require("fs");
 const glob = require("glob");
-const matter = require("gray-matter");
-
-const markupFrontmatterOptions = {
-  language: "markup",
-  engines: {
-    markup: {
-      parse: function(string) {
-        console.log("@@@@@@", string);
-        return string;
-      },
-
-      // example of throwing an error to let users know stringifying is
-      // not supported (a TOML stringifier might exist, this is just an example)
-      stringify: function(string) {
-        return string;
-      }
-    }
-  }
-};
+const parseFrontmatter = require("./frontmatter.js");
 
 function unpackFile(filePath) {
-  console.log("!!! 1");
-  const { content, data } = matter(
-    fs.readFileSync(filePath).toString(),
-    markupFrontmatterOptions
+  const { content, data } = parseFrontmatter(
+    filePath,
+    fs.readFileSync(filePath).toString()
   );
 
   const baseRoute = filePath

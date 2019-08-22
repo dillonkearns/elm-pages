@@ -6,12 +6,12 @@ const fs = require("fs");
 const glob = require("glob");
 const develop = require("./develop.js");
 const chokidar = require("chokidar");
-const matter = require("gray-matter");
 const runElm = require("./compile-elm.js");
 const doCliStuff = require("./generate-elm-stuff.js");
 const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
 const generateRawContent = require("./generate-raw-content.js");
+const parseFrontmatter = require("./frontmatter.js");
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -22,30 +22,8 @@ function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
-const markupFrontmatterOptions = {
-  language: "markup",
-  engines: {
-    markup: {
-      parse: function(string) {
-        console.log("@@@@@@", string);
-        return string;
-      },
-
-      // example of throwing an error to let users know stringifying is
-      // not supported (a TOML stringifier might exist, this is just an example)
-      stringify: function(string) {
-        return string;
-      }
-    }
-  }
-};
-
 function unpackMarkup(path) {
-  console.log("!!! 2");
-  const separated = matter(
-    fs.readFileSync(path).toString(),
-    markupFrontmatterOptions
-  );
+  const separated = parseFrontmatter(path, fs.readFileSync(path).toString());
   return {
     path,
     metadata: separated.matter,
@@ -55,8 +33,7 @@ function unpackMarkup(path) {
 }
 
 function parseMarkdown(path, fileContents) {
-  console.log("!!! 3");
-  const { content, data } = matter(fileContents, markupFrontmatterOptions);
+  const { content, data } = parseFrontmatter(path, fileContents);
   return {
     path,
     metadata: JSON.stringify(data),

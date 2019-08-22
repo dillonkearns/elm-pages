@@ -3,6 +3,7 @@ const matter = require("gray-matter");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
+const parseFrontmatter = require("./frontmatter.js");
 
 module.exports = function wrapper() {
   return generate(scan());
@@ -17,34 +18,16 @@ function scan() {
   return content;
 }
 
-const markupFrontmatterOptions = {
-  language: "markup",
-  engines: {
-    markup: {
-      parse: function(string) {
-        console.log("@@@@@@ 3", string);
-        return string;
-      },
-
-      // example of throwing an error to let users know stringifying is
-      // not supported (a TOML stringifier might exist, this is just an example)
-      stringify: function(string) {
-        return string;
-      }
-    }
-  }
-};
-
 function unpackFile() {
   return filepath => {
     const fullPath = filepath;
-    console.log("@$@$@$@ filepath", filepath);
+
     var relative = filepath.slice(dir.length);
 
-    const foundMetadata =
-      path.extname(filepath) === ".emu"
-        ? matter(fs.readFileSync(fullPath).toString(), markupFrontmatterOptions)
-        : matter(fs.readFileSync(fullPath).toString());
+    const foundMetadata = parseFrontmatter(
+      fullPath,
+      fs.readFileSync(fullPath).toString()
+    );
 
     const metadata = {
       path: relative,
