@@ -12,6 +12,7 @@ const AddFilesPlugin = require("./add-files-plugin.js");
 const ImageminPlugin = require("imagemin-webpack-plugin").default;
 const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
+const ClosurePlugin = require("closure-webpack-plugin");
 
 module.exports = { start, run };
 function start({ routes, debug, manifestConfig }) {
@@ -264,6 +265,22 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
   };
   if (production) {
     return merge(common, {
+      optimization: {
+        minimizer: [
+          new ClosurePlugin(
+            { mode: "STANDARD" },
+            {
+              // compiler flags here
+              //
+              // for debuging help, try these:
+              //
+              // formatting: 'PRETTY_PRINT'
+              // debug: true,
+              // renaming: false
+            }
+          )
+        ]
+      },
       plugins: [
         new PrerenderSPAPlugin({
           // Required - The path to the webpack-outputted app to prerender.
