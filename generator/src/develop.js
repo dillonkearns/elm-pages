@@ -106,15 +106,15 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
       ]),
       new CopyPlugin([
         {
-          from: "images/**/*"
+          from: "images/"
         }
       ]),
       new ImageminPlugin({
         test: /\.(jpe?g|png|gif|svg)$/i,
         disable: !production,
         pngquant: {
-          quality: "40-70",
-          speed: 1
+          quality: "50-70",
+          speed: 7
         },
         plugins: [
           imageminMozjpeg({
