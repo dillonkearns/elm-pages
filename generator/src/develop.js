@@ -75,7 +75,7 @@ function run({ routes, manifestConfig }, callback) {
           all: false,
           modules: false,
           performance: true,
-          timings: true,
+          timings: false,
           outputPath: true,
           maxModules: 0,
           errors: true,
@@ -85,8 +85,17 @@ function run({ routes, manifestConfig }, callback) {
           errorDetails: false
         })
       );
+
+      const duration = roundToOneDecimal(
+        (stats.endTime - stats.startTime) / 1000
+      );
+      console.log(`Duration: ${duration}s`);
     }
   );
+}
+
+function roundToOneDecimal(n) {
+  return Math.round(n * 10) / 10;
 }
 
 function webpackOptions(production, routes, { debug, manifestConfig }) {
