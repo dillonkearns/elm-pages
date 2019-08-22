@@ -98,6 +98,11 @@ function roundToOneDecimal(n) {
   return Math.round(n * 10) / 10;
 }
 
+function printProgress(progress, message) {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+  process.stdout.write(`${progress} ${message}`);
+}
 function webpackOptions(production, routes, { debug, manifestConfig }) {
   const common = {
     entry: { hello: "./index.js" },
