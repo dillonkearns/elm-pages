@@ -46,13 +46,23 @@ function unpackMarkup(path) {
     fs.readFileSync(path).toString(),
     markupFrontmatterOptions
   );
-  return { path, metadata: separated.matter, body: separated.content };
+  return {
+    path,
+    metadata: separated.matter,
+    body: separated.content,
+    extension: "emu"
+  };
 }
 
 function parseMarkdown(path, fileContents) {
   console.log("!!! 3");
   const { content, data } = matter(fileContents, markupFrontmatterOptions);
-  return { path, metadata: JSON.stringify(data), body: content };
+  return {
+    path,
+    metadata: JSON.stringify(data),
+    body: content,
+    extension: "md"
+  };
 }
 
 function run() {

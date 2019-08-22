@@ -4,21 +4,11 @@ module.exports = function(markdown, markup) {
 import Dict exposing (Dict)
 
 
-content : { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, { frontMatter : String, body : Maybe String } ) }
+content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
-    { markdown = markdown, markup = markup }
-
-
-markdown : List ( List String, { frontMatter : String, body : Maybe String } )
-markdown =
-    [ ${markdown.map(toEntry)}
+    [ ${markdown.concat(markup).map(toEntry)}
     ]
-
-
-markup : List ( List String, { frontMatter : String, body : Maybe String } )
-markup =
-    [ ${markup.map(toEntry)}
-    ]`;
+    `;
 };
 
 function toEntry(entry) {
@@ -32,6 +22,8 @@ function toEntry(entry) {
   return `
   ( [${fullPath.join(", ")}]
     , { frontMatter = """${entry.metadata}
-""", body = Nothing } )
+""" , body = Nothing
+    , extension = "${entry.extension}"
+    } )
   `;
 }

@@ -44,6 +44,7 @@ import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import RawContent
 import Url.Parser as Url exposing ((</>), s)
+import Pages.Document
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -54,10 +55,8 @@ application :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
-    , parser : Pages.Parser metadata view
     , head : metadata -> List Head.Tag
-    , frontmatterParser : Json.Decode.Decoder metadata
-    , markdownToHtml : String -> view
+    , document : Pages.Document.Document metadata view
     , manifest :
         { backgroundColor : Maybe Color
         , categories : List Category
@@ -79,10 +78,8 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , parser = config.parser
-        , frontmatterParser = config.frontmatterParser
+        , document = config.document
         , content = RawContent.content
-        , markdownToHtml = config.markdownToHtml
         , toJsPort = toJsPort
         , head = config.head
         , manifest =
@@ -119,6 +116,7 @@ import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import RawContent
 import Url.Parser as Url exposing ((</>), s)
+import Pages.Document
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -129,10 +127,8 @@ application :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
-    , parser : Pages.Parser metadata view
+    , document : Pages.Document.Document metadata view
     , head : metadata -> List Head.Tag
-    , frontmatterParser : Json.Decode.Decoder metadata
-    , markdownToHtml : String -> view
     , manifest :
         { backgroundColor : Maybe Color
         , categories : List Category
@@ -154,10 +150,8 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , parser = config.parser
-        , frontmatterParser = config.frontmatterParser
+        , document = config.document
         , content = RawContent.content
-        , markdownToHtml = config.markdownToHtml
         , toJsPort = toJsPort
         , head = config.head
         , manifest =
