@@ -288,10 +288,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
       },
       plugins: [
         new PrerenderSPAPlugin({
-          // Required - The path to the webpack-outputted app to prerender.
-          // staticDir: "./dist",
           staticDir: path.join(process.cwd(), "dist"),
-          // Required - Routes to render.
           routes: routes,
           renderAfterDocumentEvent: "prerender-trigger"
         })
