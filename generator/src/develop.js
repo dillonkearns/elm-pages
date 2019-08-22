@@ -125,7 +125,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
       ]),
       new ImageminPlugin({
         test: /\.(jpe?g|png|gif|svg)$/i,
-        cacheFolder: path.resolve(process.cwd(), "./cache"),
+        cacheFolder: path.resolve(process.cwd(), "./.cache"),
         disable: !production,
         pngquant: {
           quality: "50-70",
