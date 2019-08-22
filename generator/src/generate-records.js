@@ -101,7 +101,8 @@ function generate(scanned) {
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
     // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
-    imageAssetsRecord: toElmRecord("images", getImageAssets(), true)
+    imageAssetsRecord: toElmRecord("images", getImageAssets(), true),
+    allImages: allImageAssetNames()
   };
 }
 function getImageAssets() {
@@ -122,6 +123,21 @@ function getImageAssets() {
       captureRouteRecord(info.pathFragments, elmType, assetsRecord);
     });
   return assetsRecord;
+}
+function allImageAssetNames() {
+  return glob
+    .sync("images/**/*", {})
+    .filter(filePath => !fs.lstatSync(filePath).isDirectory())
+    .map(relativeImagePath)
+    .map(info => {
+      return (
+        "(Image [ " +
+        info.fragmentsWithExtension
+          .map(fragment => `"${fragment}"`)
+          .join(", ") +
+        " ])"
+      );
+    });
 }
 function toPascalCase(str) {
   var pascal = str.replace(/(\-\w)/g, function(m) {

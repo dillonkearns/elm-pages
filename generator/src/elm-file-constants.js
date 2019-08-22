@@ -1,5 +1,5 @@
 const exposingList =
-  "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images)";
+  "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages)";
 
 function staticRouteStuff(staticRoutes) {
   return `
@@ -20,6 +20,11 @@ ${staticRoutes.routeRecord}
 ${staticRoutes.urlParser}
 
 ${staticRoutes.imageAssetsRecord}
+
+allImages : List Image
+allImages =
+    [${staticRoutes.allImages.join("\n    , ")}
+    ]
 
 routeToString : PageRoute -> String
 routeToString (PageRoute route) =
