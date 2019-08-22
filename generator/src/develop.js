@@ -1,5 +1,4 @@
 const webpack = require("webpack");
-const elmMinify = require("elm-minify");
 const middleware = require("webpack-dev-middleware");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
