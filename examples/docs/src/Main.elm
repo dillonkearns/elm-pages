@@ -115,7 +115,7 @@ renderMarkdown markdown =
                         , Font.family [ Font.typeface "Raleway" ]
                         , Element.Region.heading level
                         ]
-                        [ content ]
+                        content
             , todo = Element.text "TODO"
             , htmlDecoder = Markdown.Parser.htmlOneOf []
             , raw = Element.paragraph []
@@ -133,35 +133,11 @@ renderMarkdown markdown =
                         [ Element.text content ]
             , code = code
             , plain = Element.text
-
-            -- , htmlDecoder =
-            --     Markdown.htmlOneOf
-            --         [ Markdown.htmlTag "Red"
-            --             (\children ->
-            --                 Html.div [ style "background-color" "red" ]
-            --                     children
-            --             )
-            --         , Markdown.htmlTag "Blue"
-            --             (\children ->
-            --                 Html.div [ style "background-color" "blue" ]
-            --                     children
-            --             )
-            --         ]
+            , link =
+                -- TODO use link.title
+                \link content ->
+                    Element.link [] { url = link.destination, label = Element.text content }
             }
-
-
-renderStyledText : List Markdown.Inlines.StyledString -> Element Msg
-renderStyledText styledBlocks =
-    styledBlocks
-        |> List.map
-            (\{ string, style } ->
-                if style.isCode then
-                    code string
-
-                else
-                    Element.text string
-            )
-        |> Element.row []
 
 
 code snippet =

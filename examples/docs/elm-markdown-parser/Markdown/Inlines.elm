@@ -5,6 +5,7 @@ import Char
 import Debug
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Markdown.Link as Link exposing (Link)
 import Parser
 import Parser.Advanced as Advanced exposing (..)
 
@@ -15,11 +16,15 @@ type alias Parser a =
 
 isUninteresting : Char -> Bool
 isUninteresting char =
-    char /= '*' && char /= '`'
+    char /= '*' && char /= '`' && char /= '['
 
 
 type alias Style =
-    { isCode : Bool, isBold : Bool, isItalic : Bool }
+    { isCode : Bool
+    , isBold : Bool
+    , isItalic : Bool
+    , link : Maybe { title : Maybe String, destination : String }
+    }
 
 
 type alias StyledString =
@@ -35,6 +40,22 @@ nextStepWhenFoundBold ( currStyle, revStyledStrings ) string =
     Loop
         ( { currStyle | isBold = not currStyle.isBold }
         , { style = currStyle, string = string } :: revStyledStrings
+        )
+
+
+nextStepWhenFoundLink : Link -> State -> String -> Step State (List StyledString)
+nextStepWhenFoundLink link ( currStyle, revStyledStrings ) string =
+    Loop
+        -- TODO
+        {-
+           | link =
+               { title = Nothing
+               , description = currStyle.link.description |> Maybe.withDefault ""
+               , destination = currStyle.link.destination |> Maybe.withDefault ""
+               }
+        -}
+        ( currStyle
+        , { style = { currStyle | link = Just { title = link.title, destination = link.destination } }, string = link.description } :: revStyledStrings
         )
 
 
@@ -65,7 +86,15 @@ nextStepWhenFoundNothing ( currStyle, revStyledStrings ) string =
 
 parse : Parser (List StyledString)
 parse =
-    loop ( { isCode = False, isBold = False, isItalic = False }, [] ) parseHelp
+    loop
+        ( { isCode = False
+          , isBold = False
+          , isItalic = False
+          , link = Nothing
+          }
+        , []
+        )
+        parseHelp
 
 
 parseHelp : State -> Parser (Step State (List StyledString))
@@ -73,7 +102,9 @@ parseHelp state =
     andThen
         (\chompedString ->
             oneOf
-                [ map
+                [ Link.parser
+                    |> map (\link -> nextStepWhenFoundLink link state chompedString)
+                , map
                     (\_ -> nextStepWhenFoundCode state chompedString)
                     (token (Token "`" (Parser.Expecting "`")))
                 , map

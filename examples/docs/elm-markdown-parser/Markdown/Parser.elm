@@ -79,7 +79,7 @@ htmlTag expectedTag a =
 
 
 type alias Renderer view =
-    { heading : Int -> view -> view
+    { heading : Int -> List view -> view
     , raw : List view -> view
     , todo : view
     , htmlDecoder : Decoder (List view -> view)
@@ -87,33 +87,41 @@ type alias Renderer view =
     , code : String -> view
     , bold : String -> view
     , italic : String -> view
+
+    -- TODO make this a `Result` so users can validate links
+    , link : { title : Maybe String, destination : String } -> String -> view
     }
 
 
-renderStyled : Renderer view -> List StyledString -> view
+renderStyled : Renderer view -> List StyledString -> List view
 renderStyled renderer styledStrings =
     styledStrings
         |> List.foldr (foldThing renderer) []
-        |> renderer.raw
 
 
 foldThing : Renderer view -> StyledString -> List view -> List view
 foldThing renderer { style, string } soFar =
-    if style.isBold then
-        renderer.bold string
-            :: soFar
+    case style.link of
+        Just link ->
+            renderer.link link string
+                :: soFar
 
-    else if style.isItalic then
-        renderer.italic string
-            :: soFar
+        Nothing ->
+            if style.isBold then
+                renderer.bold string
+                    :: soFar
 
-    else if style.isCode then
-        renderer.code string
-            :: soFar
+            else if style.isItalic then
+                renderer.italic string
+                    :: soFar
 
-    else
-        renderer.plain string
-            :: soFar
+            else if style.isCode then
+                renderer.code string
+                    :: soFar
+
+            else
+                renderer.plain string
+                    :: soFar
 
 
 renderHelper :
@@ -130,6 +138,7 @@ renderHelper renderer blocks =
 
                 Body content ->
                     renderStyled renderer content
+                        |> renderer.raw
                         |> Ok
 
                 Html tag attributes children ->
@@ -139,7 +148,18 @@ renderHelper renderer blocks =
 
 
 render :
-    Renderer view
+    { heading : Int -> List view -> view
+    , raw : List view -> view
+    , todo : view
+    , htmlDecoder : Decoder (List view -> view)
+    , plain : String -> view
+    , code : String -> view
+    , bold : String -> view
+    , italic : String -> view
+
+    -- TODO make this a `Result` so users can validate links
+    , link : { title : Maybe String, destination : String } -> String -> view
+    }
     -> String
     -> Result String (List view)
 render renderer markdownText =
@@ -254,9 +274,6 @@ type alias Attribute =
 
 plainLine : Parser (List StyledString)
 plainLine =
-    -- Inlines.parse
-    --     |. Advanced.chompUntilEndOr "\n"
-    --     |> Advanced.map Body
     succeed identity
         |= Advanced.getChompedString (Advanced.chompUntilEndOr "\n")
         |> Advanced.andThen
@@ -273,10 +290,23 @@ plainLine =
 lineParser : Parser Block
 lineParser =
     oneOf
-        [ heading
+        [ blankLine
+        , heading
         , htmlParser
         , plainLine |> Advanced.map Body
         ]
+
+
+
+-- make sure that blank lines are consumed
+-- to prevent failures or infinite loops for
+-- empty lines
+
+
+blankLine : Parser Block
+blankLine =
+    succeed (Body [])
+        |. symbol (Advanced.Token "\n" (Parser.Expecting "\n"))
 
 
 htmlParser : Parser Block
@@ -300,7 +330,12 @@ xmlNodeToHtmlNode parser =
                     Body
                         -- TODO remove hardcoding
                         [ { string = innerText
-                          , style = { isCode = False, isBold = False, isItalic = False }
+                          , style =
+                                { isCode = False
+                                , isBold = False
+                                , isItalic = False
+                                , link = Nothing
+                                }
                           }
                         ]
                         |> Advanced.succeed
@@ -364,19 +399,33 @@ childToParser node =
 multiParser : Parser (List Block)
 multiParser =
     loop [] statementsHelp
+        |. succeed Advanced.end
+        -- TODO find a more elegant way to exclude empty blocks for each blank lines
+        |> map (List.filter (\item -> item /= Body []))
 
 
 statementsHelp : List Block -> Parser (Step (List Block) (List Block))
 statementsHelp revStmts =
     oneOf
         [ succeed
-            (\stmt ->
-                Loop (stmt :: revStmts)
+            (\offsetBefore stmt offsetAfter ->
+                let
+                    madeProgress =
+                        offsetAfter > offsetBefore
+                in
+                if madeProgress then
+                    Loop (stmt :: revStmts)
+
+                else
+                    Done (List.reverse (stmt :: revStmts))
             )
+            |= Advanced.getOffset
             |= lineParser
-            -- TODO this is causing files to require newlines
-            -- at the end... how do I avoid this?
-            |. symbol (Advanced.Token "\n" (Parser.Expecting "newline"))
+            |= Advanced.getOffset
+
+        -- TODO this is causing files to require newlines
+        -- at the end... how do I avoid this?
+        -- |. symbol (Advanced.Token "\n" (Parser.Expecting "newline"))
         , succeed ()
             |> map (\_ -> Done (List.reverse revStmts))
         ]
