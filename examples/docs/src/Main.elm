@@ -63,7 +63,7 @@ main =
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , documents = [ markupDocument ]
+        , documents = [ markupDocument, markdownDocument ]
         , head = head
         , manifest = manifest
         }
@@ -83,20 +83,23 @@ markupDocument =
         )
 
 
-
--- [] [])
--- markdownDocument : Pages.Document.DocumentParser Metadata (Element Msg)
--- markdownDocument =
---     Pages.Document.parser
---         { extension = "md"
---         , metadata = frontmatterParser
---         , body = \content -> Ok (renderMarkdown content)
---         }
+markdownDocument : Pages.Document.DocumentParser (Metadata msg) (List (Element Msg))
+markdownDocument =
+    Pages.Document.parser
+        { extension = "md"
+        , metadata =
+            Json.Decode.field "title" Json.Decode.string
+                |> Json.Decode.map
+                    (\title ->
+                        Metadata.Page { title = title }
+                    )
+        , body = \content -> Ok (renderMarkdown content)
+        }
 
 
 renderMarkdown markdown =
     -- TODO implement this with parser
-    Element.text markdown
+    [ Element.text markdown ]
 
 
 markdownToHtml : String -> Element msg
