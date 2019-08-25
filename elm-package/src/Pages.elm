@@ -173,7 +173,7 @@ init document toJsPort head content initUserModel flags url key =
               , url = url
               , imageAssets = imageAssets
               , userModel = userModel
-              , contentCache = Ok Dict.empty -- TODO use ContentCache.init
+              , contentCache = contentCache
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
