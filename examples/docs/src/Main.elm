@@ -107,7 +107,14 @@ renderMarkdown markdown =
         |> Markdown.Parser.render
             { heading =
                 \level content ->
-                    Element.column [] [ Element.text content ]
+                    Element.paragraph
+                        [ Font.size 36
+                        , Font.bold
+                        , Font.center
+                        , Font.family [ Font.typeface "Raleway" ]
+                        , Element.Region.heading level
+                        ]
+                        [ Element.text content ]
             , raw = renderStyledText
             , todo = Element.text "TODO"
             , htmlDecoder = Markdown.Parser.htmlOneOf []
