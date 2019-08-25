@@ -22,6 +22,7 @@ import Mark
 import Mark.Error
 import MarkParser
 import Markdown
+import Markdown.Parser
 import Metadata exposing (Metadata)
 import Pages
 import Pages.Content as Content exposing (Content)
