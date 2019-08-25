@@ -1,5 +1,7 @@
+---
 |> Doc
     title = File Structure
+---
 
 |> Subheading
     Philosophy

@@ -50,7 +50,7 @@ parseMetadata :
     (Dict String String
      -> List String
      -> List ( List String, metadata )
-     -> Mark.Document (Page metadata view)
+     -> Mark.Document metadata
     )
     -> Dict String String
     -> List ( List String, String )
@@ -74,8 +74,8 @@ parseMetadata parser imageAssets record =
         Ok pages ->
             Ok
                 (pages
-                    |> List.map
-                        (Tuple.mapSecond .metadata)
+                 -- |> List.map
+                 --     (Tuple.mapSecond .metadata)
                 )
 
         Err errors ->
@@ -121,8 +121,8 @@ renderErrors ( path, errors ) =
 
 
 combineResults :
-    List ( List String, Mark.Outcome (List Mark.Error.Error) (Mark.Partial (Page metadata view)) (Page metadata view) )
-    -> Result ( List String, List Mark.Error.Error ) (List ( List String, Page metadata view ))
+    List ( List String, Mark.Outcome (List Mark.Error.Error) (Mark.Partial view) view )
+    -> Result ( List String, List Mark.Error.Error ) (List ( List String, view ))
 combineResults list =
     list
         |> List.map

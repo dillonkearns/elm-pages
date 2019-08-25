@@ -1,7 +1,10 @@
 port module Main exposing (main)
 
+-- import MarkParser
+
 import Browser
 import Color exposing (Color)
+import Dict
 import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
@@ -22,15 +25,15 @@ import Markdown
 import Metadata exposing (Metadata)
 import Pages
 import Pages.Content as Content exposing (Content)
+import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.Parser exposing (Page)
-import PagesNew
+import PagesNew exposing (images, pages)
 import RawContent
 import Url exposing (Url)
 
 
-manifest : Manifest.Config
 manifest =
     { backgroundColor = Just Color.blue
     , categories = [ Pages.Manifest.Category.education ]
@@ -40,9 +43,9 @@ manifest =
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.blue
-    , startUrl = Just "."
+    , startUrl = pages.index
     , shortName = Just "elm-pages"
-    , sourceIcon = "icon.svg"
+    , sourceIcon = images.icon
     }
 
 
@@ -53,19 +56,47 @@ type alias Flags =
     {}
 
 
-main : Pages.Program Model Msg (Metadata Msg) (Element Msg)
+main : Pages.Program Model Msg (Metadata Msg) (List (Element Msg))
 main =
     PagesNew.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , parser = MarkParser.document
-        , frontmatterParser = frontmatterParser
-        , markdownToHtml = markdownToHtml
+        , documents = [ markupDocument ]
         , head = head
         , manifest = manifest
         }
+
+
+markupDocument : Pages.Document.DocumentParser (Metadata Msg) (List (Element Msg))
+markupDocument =
+    Pages.Document.markupParser
+        (Metadata.metadata Dict.empty |> Mark.document identity)
+        (MarkParser.blocks
+            { imageAssets = Dict.empty
+            , routes = PagesNew.all |> List.map PagesNew.routeToString
+            , indexView = []
+            }
+            |> Mark.manyOf
+            |> Mark.document identity
+        )
+
+
+
+-- [] [])
+-- markdownDocument : Pages.Document.DocumentParser Metadata (Element Msg)
+-- markdownDocument =
+--     Pages.Document.parser
+--         { extension = "md"
+--         , metadata = frontmatterParser
+--         , body = \content -> Ok (renderMarkdown content)
+--         }
+
+
+renderMarkdown markdown =
+    -- TODO implement this with parser
+    Element.text markdown
 
 
 markdownToHtml : String -> Element msg
@@ -81,11 +112,12 @@ markdownToHtml body =
         |> Element.html
 
 
-frontmatterParser : Json.Decode.Decoder (Metadata.Metadata msg)
-frontmatterParser =
-    Json.Decode.field "title" Json.Decode.string
-        |> Json.Decode.map Metadata.PageMetadata
-        |> Json.Decode.map Metadata.Page
+
+-- frontmatterParser : Json.Decode.Decoder (Metadata Msg)
+-- frontmatterParser =
+--     Json.Decode.field "title" Json.Decode.string
+--         |> Json.Decode.map (\title -> { title = title })
+--         |> Json.Decode.map Page
 
 
 type alias Model =
@@ -111,7 +143,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Html Msg }
+view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (List (Element Msg)) -> { title : String, body : Html Msg }
 view model siteMetadata page =
     let
         { title, body } =
@@ -129,7 +161,7 @@ view model siteMetadata page =
     }
 
 
-pageView : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (Element Msg) -> { title : String, body : Element Msg }
+pageView : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (List (Element Msg)) -> { title : String, body : Element Msg }
 pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->
@@ -163,9 +195,10 @@ pageView model siteMetadata page =
             , body =
                 [ header
                 , Element.row []
-                    [ DocSidebar.view siteMetadata
-                        |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
-                    , [ Element.el [] (Element.text metadata.title)
+                    [ -- TODO restore sidebar view
+                      -- DocSidebar.view siteMetadata
+                      --     |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ],
+                      [ Element.el [] (Element.text metadata.title)
                       , Element.column
                             [ Element.padding 50
                             , Element.spacing 60
@@ -212,7 +245,7 @@ header =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : Metadata.Metadata msg -> List Head.Tag
+head : Metadata Msg -> List Head.Tag
 head metadata =
     let
         themeColor =
@@ -235,36 +268,36 @@ siteTagline =
 pageTags metadata =
     case metadata of
         Metadata.Page record ->
-            OpenGraph.website
-                (OpenGraph.buildCommon
-                    { url = canonicalUrl
-                    , siteName = "elm-pages"
-                    , image =
-                        { url = ""
-                        , alt = ""
-                        }
-                    , description = siteTagline
-                    , title = "elm-pages"
+            OpenGraph.summaryLarge
+                { url = canonicalUrl
+                , siteName = "elm-pages"
+                , image =
+                    { url = ""
+                    , alt = ""
+                    , dimensions = Nothing
+                    , mimeType = Nothing
                     }
-                )
-                ++ [ Head.description siteTagline
-                   ]
+                , description = siteTagline
+                , locale = Nothing
+                , title = "elm-pages"
+                }
+                |> OpenGraph.website
 
         Metadata.Doc record ->
-            OpenGraph.website
-                (OpenGraph.buildCommon
-                    { url = canonicalUrl
-                    , siteName = "elm-pages"
-                    , image =
-                        { url = ""
-                        , alt = ""
-                        }
-                    , description = siteTagline
-                    , title = "elm-pages"
+            OpenGraph.summaryLarge
+                { url = canonicalUrl
+                , siteName = "elm-pages"
+                , image =
+                    { url = ""
+                    , alt = ""
+                    , dimensions = Nothing
+                    , mimeType = Nothing
                     }
-                )
-                ++ [ Head.description siteTagline
-                   ]
+                , locale = Nothing
+                , description = siteTagline
+                , title = "elm-pages"
+                }
+                |> OpenGraph.website
 
         Metadata.Article meta ->
             let
@@ -280,27 +313,20 @@ pageTags metadata =
                 url =
                     canonicalUrl
             in
-            [ Head.description description
-            , Head.metaName "image" imageUrl
-            ]
-                ++ SocialMeta.summaryLarge
-                    { title = meta.title.raw
-                    , description = Just description
-                    , siteUser = Nothing
-                    , image = Just { url = imageUrl, alt = description }
+            OpenGraph.summaryLarge
+                { url = url
+                , siteName = "elm-pages"
+                , image =
+                    { url = imageUrl
+                    , alt = description
+                    , dimensions = Nothing
+                    , mimeType = Nothing
                     }
-                ++ OpenGraph.article
-                    (OpenGraph.buildCommon
-                        { url = url
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = imageUrl
-                            , alt = description
-                            }
-                        , description = description
-                        , title = title
-                        }
-                    )
+                , description = description
+                , locale = Nothing
+                , title = meta.title.raw
+                }
+                |> OpenGraph.article
                     { tags = []
                     , section = Nothing
                     , publishedTime = Nothing

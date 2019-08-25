@@ -1,6 +1,8 @@
+---
 |> Page
     title = elm-pages - a statically typed site generator
 
+---
 
 |> Banner
     A *statically typed* site generator

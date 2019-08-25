@@ -11,6 +11,7 @@ import Json.Encode
 import Mark
 import Pages.Content as Content exposing (Content)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Parser exposing (Page)
 import Result.Extra
@@ -19,7 +20,7 @@ import Url exposing (Url)
 
 
 type alias Content =
-    { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
+    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
 type alias Program userModel userMsg metadata view =
@@ -53,15 +54,17 @@ pageViewOrError pageView model cache =
             case entry of
                 ContentCache.Parsed metadata viewList ->
                     pageView model.userModel
-                        (ContentCache.extractMetadata cache)
+                        (Result.map ContentCache.extractMetadata cache |> Result.withDefault []
+                         -- TODO handle error better
+                        )
                         { metadata = metadata
                         , view = viewList
                         }
 
-                ContentCache.NeedContent _ ->
+                ContentCache.NeedContent extension _ ->
                     { title = "", body = Html.text "" }
 
-                ContentCache.Unparsed _ _ ->
+                ContentCache.Unparsed extension _ _ ->
                     { title = "", body = Html.text "" }
 
         Nothing ->
@@ -79,11 +82,10 @@ pageViewOrError pageView model cache =
 
 view :
     Content
-    -> Parser metadata view
     -> (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel userMsg metadata view
     -> Browser.Document (Msg userMsg metadata view)
-view content parser pageView model =
+view content pageView model =
     let
         { title, body } =
             mainView pageView model
@@ -120,18 +122,16 @@ combineTupleResults input =
 
 
 init :
-    (String -> view)
-    -> Json.Decode.Decoder metadata
+    Pages.Document.Document metadata view
     -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
     -> (metadata -> List Head.Tag)
-    -> Parser metadata view
     -> Content
     -> ( userModel, Cmd userMsg )
     -> Flags
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg metadata view) )
-init markdownToHtml frontmatterParser toJsPort head parser content initUserModel flags url key =
+init document toJsPort head content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
             initUserModel
@@ -142,43 +142,11 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
                 flags.imageAssets
                 |> Result.withDefault Dict.empty
 
-        parsedMarkdown =
-            content.markdown
-                |> List.map
-                    (\(( path, details ) as full) ->
-                        Tuple.mapSecond
-                            (\{ frontMatter, body } ->
-                                Json.Decode.decodeString frontmatterParser frontMatter
-                                    |> Result.map (\parsedFrontmatter -> { parsedFrontmatter = parsedFrontmatter, body = body |> Maybe.withDefault "TODO get rid of this" })
-                                    |> Result.mapError
-                                        (\error ->
-                                            Html.div []
-                                                [ Html.h1 []
-                                                    [ Html.text ("Error with page /" ++ String.join "/" path)
-                                                    ]
-                                                , Html.text
-                                                    (Json.Decode.errorToString error)
-                                                ]
-                                        )
-                            )
-                            full
-                    )
-
-        metadata =
-            [ Content.parseMetadata parser imageAssets content.markup
-            , parsedMarkdown
-                |> List.map (Tuple.mapSecond (Result.map (\{ parsedFrontmatter } -> parsedFrontmatter)))
-                |> combineTupleResults
-            ]
-                |> Result.Extra.combine
-                |> Result.map List.concat
+        contentCache =
+            ContentCache.init document content
     in
-    case metadata of
-        Ok okMetadata ->
-            let
-                contentCache =
-                    ContentCache.init frontmatterParser content parser imageAssets
-            in
+    case contentCache of
+        Ok okCache ->
             ( { key = key
               , url = url
               , imageAssets = imageAssets
@@ -186,13 +154,13 @@ init markdownToHtml frontmatterParser toJsPort head parser content initUserModel
               , contentCache = contentCache
               }
             , Cmd.batch
-                ([ Content.lookup okMetadata url
+                ([ Content.lookup (ContentCache.extractMetadata okCache) url
                     |> Maybe.map head
                     |> Maybe.map encodeHeads
                     |> Maybe.map toJsPort
                  , userCmd |> Cmd.map UserMsg |> Just
                  , contentCache
-                    |> ContentCache.lazyLoad parser imageAssets markdownToHtml url
+                    |> ContentCache.lazyLoad document url
                     |> Task.attempt UpdateCache
                     |> Just
                  ]
@@ -237,13 +205,12 @@ type alias ModelDetails userModel userMsg metadata view =
 
 
 update :
-    Parser metadata view
-    -> (String -> view)
+    Pages.Document.Document metadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg metadata view
     -> ModelDetails userModel userMsg metadata view
     -> ( ModelDetails userModel userMsg metadata view, Cmd (Msg userMsg metadata view) )
-update markupParser markdownToHtml userUpdate msg model =
+update document userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -266,7 +233,7 @@ update markupParser markdownToHtml userUpdate msg model =
         UrlChanged url ->
             ( model
             , model.contentCache
-                |> ContentCache.lazyLoad markupParser model.imageAssets markdownToHtml url
+                |> ContentCache.lazyLoad document url
                 |> Task.attempt (UpdateCacheAndUrl url)
             )
 
@@ -304,7 +271,7 @@ type alias Parser metadata view =
     Dict String String
     -> List String
     -> List ( List String, metadata )
-    -> Mark.Document (Page metadata view)
+    -> Mark.Document view
 
 
 application :
@@ -312,12 +279,10 @@ application :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
-    , parser : Parser metadata view
+    , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List Head.Tag
-    , frontmatterParser : Json.Decode.Decoder metadata
-    , markdownToHtml : String -> view
     , manifest : Manifest.Config
     }
     -> Program userModel userMsg metadata view
@@ -325,13 +290,13 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.markdownToHtml config.frontmatterParser config.toJsPort config.head config.parser config.content config.init flags url key
+                init config.document config.toJsPort config.head config.content config.init flags url key
                     |> Tuple.mapFirst Model
         , view =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        view config.content config.parser config.view model
+                        view config.content config.view model
 
                     CliModel ->
                         { title = "Error"
@@ -341,7 +306,7 @@ application config =
             \msg outerModel ->
                 case outerModel of
                     Model model ->
-                        update config.parser config.markdownToHtml config.update msg model |> Tuple.mapFirst Model
+                        update config.document config.update msg model |> Tuple.mapFirst Model
 
                     CliModel ->
                         ( outerModel, Cmd.none )
@@ -364,12 +329,10 @@ cliApplication :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
-    , parser : Parser metadata view
+    , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List Head.Tag
-    , frontmatterParser : Json.Decode.Decoder metadata
-    , markdownToHtml : String -> view
     , manifest : Manifest.Config
     }
     -> Program userModel userMsg metadata view

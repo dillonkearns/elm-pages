@@ -36,7 +36,7 @@ view posts =
 
 
 postSummary :
-    ( List String, Metadata.DocMetadata )
+    ( List String, { title : String } )
     -> Element msg
 postSummary ( postPath, post ) =
     [ Element.text post.title ]

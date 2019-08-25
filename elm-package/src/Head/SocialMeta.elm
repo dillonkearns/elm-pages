@@ -1,4 +1,4 @@
-module Head.SocialMeta exposing (summaryLarge, summaryRegular)
+module Head.SocialMeta exposing (SummarySize(..), TwitterCard(..), rawTags, summaryLarge, summaryRegular)
 
 import Head
 
@@ -103,9 +103,9 @@ type TwitterCard
         }
 
 
-tags : TwitterCard -> List Head.Tag
-tags card =
-    (( "twitter:card", cardValue card |> Just )
+rawTags : TwitterCard -> List ( String, Maybe String )
+rawTags card =
+    ( "twitter:card", cardValue card |> Just )
         :: (case card of
                 Summary details ->
                     [ ( "twitter:title", Just details.title )
@@ -141,7 +141,12 @@ tags card =
                     , ( "twitter:image:alt", Just details.image.alt )
                     ]
            )
-    )
+
+
+tags : TwitterCard -> List Head.Tag
+tags card =
+    card
+        |> rawTags
         |> List.filterMap
             (\( name, maybeContent ) ->
                 maybeContent

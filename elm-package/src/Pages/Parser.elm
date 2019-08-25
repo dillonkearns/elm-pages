@@ -9,7 +9,7 @@ import Mark.Error
 
 type alias Page metadata view =
     { metadata : metadata
-    , view : List view
+    , view : view
     }
 
 
@@ -32,7 +32,7 @@ document :
     Mark.Block metadata
     -> AppData metadata
     -> List (Mark.Block view)
-    -> Mark.Document (Page metadata view)
+    -> Mark.Document (Page metadata (List view))
 document metadata appData blocks =
     Mark.documentWith
         (\meta body ->

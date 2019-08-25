@@ -1,30 +1,185 @@
-module Head.OpenGraph exposing (Image, article, buildCommon, song, website)
+module Head.OpenGraph exposing
+    ( Image
+    , article
+    , audioPlayer
+    , song
+    , summary
+    , summaryLarge
+    , videoPlayer
+    , website
+    )
 
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
 -}
 
 import Head
+import Head.SocialMeta as Twitter
 
 
-buildCommon : { url : String, siteName : String, image : { url : String, alt : String }, description : String, title : String } -> Common
-buildCommon builder =
-    { title = builder.title
-    , image =
-        { url = builder.image.url
-        , alt = builder.image.alt
-        , dimensions = Nothing
-        , mimeType = Nothing
-        , secureUrl = Nothing
-        }
-    , url = builder.url
-    , description = builder.description
-    , siteName = builder.siteName
+{-| Will be displayed as a large card in twitter
+See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary-card-with-large-image>
+
+The options will also be used to build up the appropriate OpenGraph `<meta>` tags.
+
+Note: You cannot include audio or video tags with summaries.
+If you want one of those, use `audioPlayer` or `videoPlayer`
+
+-}
+summaryLarge :
+    { url : String
+    , siteName : String
+    , image : Image
+    , description : String
+    , title : String
+    , locale : Maybe Locale
+    }
+    -> Common
+summaryLarge config =
+    buildSummary config Twitter.Large
+
+
+{-| Will be displayed as a large card in twitter
+See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>
+
+    The options will also be used to build up the appropriate OpenGraph `<meta>` tags.
+
+    Note: You cannot include audio or video tags with summaries.
+    If you want one of those, use `audioPlayer` or `videoPlayer`
+
+-}
+summary :
+    { url : String
+    , siteName : String
+    , image : Image
+    , description : String
+    , title : String
+    , locale : Maybe Locale
+    }
+    -> Common
+summary config =
+    buildSummary config Twitter.Regular
+
+
+{-| Will be displayed as a Player card in twitter
+See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/player-card>
+
+OpenGraph audio will also be included.
+The options will also be used to build up the appropriate OpenGraph `<meta>` tags.
+
+-}
+audioPlayer :
+    { url : String
+    , siteName : String
+    , image : Image
+    , description : String
+    , title : String
+    , audio : Audio
+    , locale : Maybe Locale
+    }
+    -> Common
+audioPlayer { title, image, url, description, siteName, audio, locale } =
+    { title = title
+    , image = image
+    , url = url
+    , description = description
+    , siteName = siteName
+    , audio = Just audio
+    , video = Nothing
+    , locale = locale
+    , alternateLocales = [] -- TODO remove hardcoding
+    , twitterCard =
+        Twitter.Player
+            { title = title
+            , description = Just description
+            , siteUser = ""
+            , image = { url = image.url, alt = image.alt }
+            , player = audio.url
+
+            -- TODO what should I do here? These are requried by Twitter...
+            -- probably require them for both (strictest common requirement)
+            , width = 0
+            , height = 0
+            }
+    }
+
+
+{-| Will be displayed as a Player card in twitter
+See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/player-card>
+
+OpenGraph video will also be included.
+The options will also be used to build up the appropriate OpenGraph `<meta>` tags.
+
+-}
+videoPlayer :
+    { url : String
+    , siteName : String
+    , image : Image
+    , description : String
+    , title : String
+    , video : Video
+    , locale : Maybe Locale
+    }
+    -> Common
+videoPlayer { title, image, url, description, siteName, video, locale } =
+    { title = title
+    , image = image
+    , url = url
+    , description = description
+    , siteName = siteName
+    , audio = Nothing
+    , video = Just video
+    , locale = locale
+    , alternateLocales = [] -- TODO remove hardcoding
+    , twitterCard =
+        Twitter.Player
+            { title = title
+            , description = Just description
+            , siteUser = ""
+            , image = { url = image.url, alt = image.alt }
+            , player = video.url
+
+            -- TODO what should I do here? These are requried by Twitter...
+            -- probably require them for both (strictest common requirement)
+            , width = 0
+            , height = 0
+            }
+    }
+
+
+buildSummary :
+    { url : String
+    , siteName : String
+    , image : Image
+    , description : String
+    , title : String
+    , locale : Maybe Locale
+    }
+    -> Twitter.SummarySize
+    -> Common
+buildSummary { title, image, url, description, siteName, locale } summarySize =
+    { title = title
+    , image = image
+    , url = url
+    , description = description
+    , siteName = siteName
     , audio = Nothing
     , video = Nothing
-    , locale = Nothing
-    , alternateLocales = []
+    , locale = locale
+    , alternateLocales = [] -- TODO remove hardcoding
+    , twitterCard =
+        Twitter.Summary
+            { title = title
+            , description = Just description
+            , siteUser = Nothing -- TODO remove hardcoding
+            , image = Just { url = image.url, alt = image.alt }
+            , size = summarySize
+            }
     }
+
+
+
+-- TODO add constructor Twitter app-card
 
 
 {-| <https://ogp.me/#type_website>
@@ -39,16 +194,15 @@ website common =
 {-| See <https://ogp.me/#type_article>
 -}
 article :
-    Common
-    ->
-        { tags : List String
-        , section : Maybe String
-        , publishedTime : Maybe Iso8601DateTime
-        , modifiedTime : Maybe Iso8601DateTime
-        , expirationTime : Maybe Iso8601DateTime
-        }
+    { tags : List String
+    , section : Maybe String
+    , publishedTime : Maybe Iso8601DateTime
+    , modifiedTime : Maybe Iso8601DateTime
+    , expirationTime : Maybe Iso8601DateTime
+    }
+    -> Common
     -> List Head.Tag
-article common details =
+article details common =
     Article details |> Content common |> tags
 
 
@@ -97,6 +251,7 @@ type alias Common =
     , video : Maybe Video
     , locale : Maybe Locale
     , alternateLocales : List Locale
+    , twitterCard : Twitter.TwitterCard
     }
 
 
@@ -116,20 +271,19 @@ tagsForCommon common =
                         ( "og:locale:alternate", Just alternateLocale )
                     )
            )
+        ++ Twitter.rawTags common.twitterCard
 
 
 {-| See the audio section in <https://ogp.me/#structured>
 Example:
 
-    { url = "http://example.com/sound.mp3"
-    , secureUrl = Just "https://secure.example.com/sound.mp3"
+    { url = "https://example.com/sound.mp3"
      mimeType = Just "audio/mpeg"
     }
 
 -}
 type alias Audio =
     { url : String
-    , secureUrl : Maybe String
     , mimeType : Maybe MimeType
     }
 
@@ -137,7 +291,7 @@ type alias Audio =
 tagsForAudio : Audio -> List ( String, Maybe String )
 tagsForAudio audio =
     [ ( "og:audio", Just audio.url )
-    , ( "og:audio:secure_url", audio.secureUrl )
+    , ( "og:audio:secure_url", Just audio.url )
     , ( "og:audio:type", audio.mimeType )
     ]
 
@@ -200,14 +354,13 @@ type alias Image =
     , alt : String
     , dimensions : Maybe { width : Int, height : Int }
     , mimeType : Maybe MimeType
-    , secureUrl : Maybe String
     }
 
 
 tagsForImage : Image -> List ( String, Maybe String )
 tagsForImage image =
     [ ( "og:image", Just image.url )
-    , ( "og:image:secure_url", image.secureUrl )
+    , ( "og:image:secure_url", Just image.url )
     , ( "og:image:alt", Just image.alt )
     , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt )
     , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt )
@@ -220,14 +373,13 @@ type alias Video =
     { url : String
     , mimeType : Maybe MimeType
     , dimensions : Maybe { width : Int, height : Int }
-    , secureUrl : Maybe String
     }
 
 
 tagsForVideo : Video -> List ( String, Maybe String )
 tagsForVideo video =
     [ ( "og:video", Just video.url )
-    , ( "og:video:secure_url", video.secureUrl )
+    , ( "og:video:secure_url", Just video.url )
     , ( "og:video:width", video.dimensions |> Maybe.map .width |> Maybe.map String.fromInt )
     , ( "og:video:height", video.dimensions |> Maybe.map .height |> Maybe.map String.fromInt )
     ]

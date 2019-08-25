@@ -6,6 +6,7 @@ import Http
 import Json.Decode
 import Mark
 import Mark.Error
+import Pages.Document
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
@@ -13,44 +14,46 @@ import Url.Builder
 
 
 type alias Content =
-    { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
+    -- { markdown : List ( List String, { frontMatter : String, body : Maybe String } )
+    -- , markup :
+    --     List ( List String, { frontMatter : String, body : Maybe String } )
+    -- }
+    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
 type alias ContentCache msg metadata view =
     Result (Html msg) (Dict Path (Entry metadata view))
 
 
+type alias ContentCacheInner metadata view =
+    Dict Path (Entry metadata view)
+
+
 type Entry metadata view
-    = NeedContent metadata
-    | Unparsed metadata String
+    = NeedContent String metadata
+    | Unparsed String metadata String
       -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed metadata (List view)
+    | Parsed metadata view
 
 
 type alias Path =
     List String
 
 
-extractMetadata : ContentCache msg metadata view -> List ( Path, metadata )
-extractMetadata cacheResult =
-    case cacheResult of
-        Ok cache ->
-            cache
-                |> Dict.toList
-                |> List.map (\( path, entry ) -> ( path, getMetadata entry ))
-
-        Err _ ->
-            -- TODO just return a list, don't handle result here
-            []
+extractMetadata : ContentCacheInner metadata view -> List ( Path, metadata )
+extractMetadata cache =
+    cache
+        |> Dict.toList
+        |> List.map (\( path, entry ) -> ( path, getMetadata entry ))
 
 
 getMetadata : Entry metadata view -> metadata
 getMetadata entry =
     case entry of
-        NeedContent metadata ->
+        NeedContent extension metadata ->
             metadata
 
-        Unparsed metadata _ ->
+        Unparsed extension metadata _ ->
             metadata
 
         Parsed metadata _ ->
@@ -58,93 +61,20 @@ getMetadata entry =
 
 
 init :
-    Json.Decode.Decoder metadata
+    Pages.Document.Document metadata view
     -> Content
-    ->
-        (Dict String String
-         -> List String
-         -> List ( List String, metadata )
-         ->
-            Mark.Document
-                { metadata : metadata
-                , view : List view
-                }
-        )
-    -> Dict String String
     -> ContentCache msg metadata view
-init frontmatterParser content parser imageAssets =
-    let
-        parsedMarkdown =
-            content.markdown
-                |> List.map
-                    (\(( path, details ) as full) ->
-                        Tuple.mapSecond
-                            (\{ frontMatter, body } ->
-                                Json.Decode.decodeString frontmatterParser frontMatter
-                                    |> Result.map
-                                        (\meta ->
-                                            case body of
-                                                Just actualBody ->
-                                                    Unparsed meta actualBody
-
-                                                Nothing ->
-                                                    NeedContent meta
-                                        )
-                                    |> Result.mapError
-                                        (\error ->
-                                            Html.div []
-                                                [ Html.h1 []
-                                                    [ Html.text ("Error with page /" ++ String.join "/" path)
-                                                    ]
-                                                , Html.text
-                                                    (Json.Decode.errorToString error)
-                                                ]
-                                        )
-                            )
-                            full
-                    )
-
-        parsedMarkup =
-            parseMarkupMetadata parser imageAssets content.markup
-    in
-    [ parsedMarkdown
-        |> combineTupleResults
-    , parsedMarkup
-    ]
-        |> Result.Extra.combine
-        |> Result.map List.concat
-        |> Result.map Dict.fromList
-
-
-parseMarkupMetadata :
-    (Dict String String
-     -> List String
-     -> List ( List String, metadata )
-     ->
-        Mark.Document
-            { metadata : metadata
-            , view : List view
-            }
-    )
-    -> Dict String String
-    -> List ( List String, String )
-    -> Result (Html msg) (List ( Path, Entry metadata view ))
-parseMarkupMetadata parser imageAssets markupFiles =
-    markupFiles
+init document content =
+    Pages.Document.parseMetadata document content
         |> List.map
-            (\( path, markup ) ->
-                ( path
-                , Mark.compile
-                    (parser imageAssets
-                        (routes markupFiles)
-                        []
-                    )
-                    markup
-                , markup
+            (Tuple.mapSecond
+                (Result.map
+                    (\{ metadata, extension } -> NeedContent extension metadata)
                 )
             )
-        |> combineResults
-        |> Result.mapError renderErrors
+        |> combineTupleResults
+        |> Result.mapError (\_ -> Html.text "Error")
+        |> Result.map Dict.fromList
 
 
 routes : List ( List String, anything ) -> List String
@@ -169,7 +99,7 @@ routesForCache cacheResult =
 
 type alias Page metadata view =
     { metadata : metadata
-    , view : List view
+    , view : view
     }
 
 
@@ -181,26 +111,6 @@ renderErrors ( path, errors ) =
             |> List.map (Mark.Error.toHtml Mark.Error.Light)
             |> Html.div []
         ]
-
-
-combineResults :
-    List ( List String, Mark.Outcome (List Mark.Error.Error) (Mark.Partial (Page metadata view)) (Page metadata view), String )
-    -> Result ( Path, List Mark.Error.Error ) (List ( Path, Entry metadata view ))
-combineResults list =
-    list
-        |> List.map
-            (\( path, outcome, rawMarkup ) ->
-                case outcome of
-                    Mark.Success parsedMarkup ->
-                        Ok ( path, Unparsed parsedMarkup.metadata rawMarkup )
-
-                    Mark.Almost partial ->
-                        Err ( path, partial.errors )
-
-                    Mark.Failure failures ->
-                        Err ( path, failures )
-            )
-        |> Result.Extra.combine
 
 
 combineTupleResults :
@@ -220,17 +130,11 @@ combineTupleResults input =
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    (Dict String String
-     -> List String
-     -> List ( List String, metadata )
-     -> Mark.Document (Page metadata view)
-    )
-    -> Dict String String
-    -> (String -> view)
+    Pages.Document.Document metadata view
     -> Url
     -> ContentCache msg metadata view
     -> Task Http.Error (ContentCache msg metadata view)
-lazyLoad markupParser imageAssets markdownToHtml url cacheResult =
+lazyLoad document url cacheResult =
     case cacheResult of
         Err _ ->
             Task.succeed cacheResult
@@ -239,47 +143,40 @@ lazyLoad markupParser imageAssets markdownToHtml url cacheResult =
             case Dict.get (pathForUrl url) cache of
                 Just entry ->
                     case entry of
-                        NeedContent _ ->
+                        NeedContent extension _ ->
                             httpTask url
                                 |> Task.map
                                     (\downloadedContent ->
-                                        update cacheResult markdownToHtml url downloadedContent
+                                        -- |> Result.mapError (\_ -> Html.text "")
+                                        update cacheResult
+                                            (\thing ->
+                                                Pages.Document.parseContent extension thing document
+                                                    |> Result.mapError (\_ -> Html.text "TODO")
+                                            )
+                                            url
+                                            downloadedContent
                                     )
 
-                        Unparsed metadata content ->
-                            let
-                                parsedMarkup =
-                                    Mark.compile
-                                        (markupParser imageAssets
-                                            (cacheResult |> routesForCache)
-                                            (extractMetadata cacheResult)
-                                        )
-                                        content
-                            in
-                            case parsedMarkup of
-                                Mark.Success parsed ->
-                                    -- TODO feels strange that the metadata could change here... make a way to
-                                    -- only parse the metadata once
-                                    cache
-                                        |> Dict.insert (pathForUrl url) (Parsed metadata parsed.view)
-                                        |> Ok
-                                        |> Task.succeed
-
-                                Mark.Almost _ ->
-                                    -- TODO handle errors properly
-                                    cacheResult
-                                        |> Task.succeed
-
-                                Mark.Failure _ ->
-                                    -- TODO handle errors properly
-                                    cacheResult
-                                        |> Task.succeed
+                        Unparsed extension metadata content ->
+                            update cacheResult
+                                (\thing ->
+                                    Pages.Document.parseContent extension thing document
+                                        |> Result.mapError (\_ -> Html.text "TODO")
+                                )
+                                url
+                                content
+                                |> Task.succeed
 
                         Parsed _ _ ->
                             Task.succeed cacheResult
 
                 Nothing ->
                     Task.succeed cacheResult
+
+
+
+-- renderMarkup : String -> view
+-- ren
 
 
 httpTask url =
@@ -319,7 +216,7 @@ httpTask url =
 
 update :
     ContentCache msg metadata view
-    -> (String -> view)
+    -> (String -> Result (Html msg) view)
     -> Url
     -> String
     -> ContentCache msg metadata view
@@ -332,13 +229,21 @@ update cacheResult renderer url rawContent =
                         Just (Parsed metadata view) ->
                             entry
 
-                        Just (Unparsed metadata content) ->
-                            Parsed metadata (renderer content |> List.singleton)
-                                |> Just
+                        Just (Unparsed extension metadata content) ->
+                            case renderer content of
+                                Ok value ->
+                                    Just (Parsed metadata value)
 
-                        Just (NeedContent metadata) ->
-                            Parsed metadata (renderer rawContent |> List.singleton)
-                                |> Just
+                                Err _ ->
+                                    Nothing
+
+                        Just (NeedContent extension metadata) ->
+                            case renderer rawContent of
+                                Ok value ->
+                                    Just (Parsed metadata value)
+
+                                Err _ ->
+                                    Nothing
 
                         Nothing ->
                             -- TODO this should never happen

@@ -1,4 +1,4 @@
-module MarkParser exposing (document)
+module MarkParser exposing (blocks, document)
 
 import Dict exposing (Dict)
 import Dotted
@@ -29,7 +29,7 @@ document :
     Dict String String
     -> List String
     -> List ( List String, Metadata msg )
-    -> Mark.Document (Page (Metadata msg) (Element msg))
+    -> Mark.Document (Page (Metadata msg) (List (Element msg)))
 document imageAssets routes parsedMetadata =
     Pages.Parser.document
         (Metadata.metadata imageAssets)
@@ -130,7 +130,8 @@ blocks appData =
                         }
                         |> Element.el [ Element.centerX ]
                 )
-                |> Mark.field "src" (Pages.Parser.imageSrc appData.imageAssets)
+                -- |> Mark.field "src" (Pages.Parser.imageSrc appData.imageAssets)
+                |> Mark.field "src" Mark.string
                 |> Mark.field "description" Mark.string
                 |> Mark.toBlock
 
