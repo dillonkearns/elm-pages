@@ -15,11 +15,11 @@ type alias Parser a =
 
 isUninteresting : Char -> Bool
 isUninteresting char =
-    char /= '*'
+    char /= '*' && char /= '`'
 
 
 type alias Style =
-    { isBold : Bool, isItalic : Bool }
+    { isCode : Bool, isBold : Bool, isItalic : Bool }
 
 
 type alias StyledString =
@@ -38,6 +38,14 @@ nextStepWhenFoundBold ( currStyle, revStyledStrings ) string =
         )
 
 
+nextStepWhenFoundCode : State -> String -> Step State (List StyledString)
+nextStepWhenFoundCode ( currStyle, revStyledStrings ) string =
+    Loop
+        ( { currStyle | isCode = not currStyle.isCode }
+        , { style = currStyle, string = string } :: revStyledStrings
+        )
+
+
 nextStepWhenFoundItalic : State -> String -> Step State (List StyledString)
 nextStepWhenFoundItalic ( currStyle, revStyledStrings ) string =
     Loop
@@ -51,12 +59,13 @@ nextStepWhenFoundNothing ( currStyle, revStyledStrings ) string =
     Done
         (List.reverse
             ({ style = currStyle, string = string } :: revStyledStrings)
+            |> List.filter (\thing -> thing.string /= "")
         )
 
 
 parse : Parser (List StyledString)
 parse =
-    loop ( { isBold = False, isItalic = False }, [] ) parseHelp
+    loop ( { isCode = False, isBold = False, isItalic = False }, [] ) parseHelp
 
 
 parseHelp : State -> Parser (Step State (List StyledString))
@@ -65,6 +74,9 @@ parseHelp state =
         (\chompedString ->
             oneOf
                 [ map
+                    (\_ -> nextStepWhenFoundCode state chompedString)
+                    (token (Token "`" (Parser.Expecting "`")))
+                , map
                     (\_ -> nextStepWhenFoundBold state chompedString)
                     (token (Token "**" (Parser.Expecting "**")))
                 , map

@@ -76,9 +76,16 @@ mainView : Html msg
 mainView =
     markdown
         |> Markdown.render
-            { h1 = \content -> Html.h1 [] [ Html.text content ]
-            , h2 = \content -> Html.h2 [] [ Html.text content ]
-            , raw = Html.text
+            { heading = \level content -> Html.h1 [] [ Html.text content ]
+            , raw =
+                \styledList ->
+                    styledList
+                        |> List.map
+                            (\{ string, style } ->
+                                -- TODO use style here
+                                Html.text string
+                            )
+                        |> Html.p []
             , todo = Html.text "TODO"
             , htmlDecoder =
                 Markdown.htmlOneOf

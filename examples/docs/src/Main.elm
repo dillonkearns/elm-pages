@@ -8,6 +8,7 @@ import Dict
 import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
+import Element.Background
 import Element.Border
 import Element.Font as Font
 import Element.Region
@@ -114,10 +115,24 @@ renderMarkdown markdown =
                         , Font.family [ Font.typeface "Raleway" ]
                         , Element.Region.heading level
                         ]
-                        [ Element.text content ]
-            , raw = renderStyledText
+                        [ content ]
             , todo = Element.text "TODO"
             , htmlDecoder = Markdown.Parser.htmlOneOf []
+            , raw = Element.paragraph []
+            , bold =
+                \content ->
+                    Element.row
+                        [ Font.bold
+                        ]
+                        [ Element.text content ]
+            , italic =
+                \content ->
+                    Element.row
+                        [ Font.italic
+                        ]
+                        [ Element.text content ]
+            , code = code
+            , plain = Element.text
 
             -- , htmlDecoder =
             --     Markdown.htmlOneOf
@@ -138,8 +153,27 @@ renderMarkdown markdown =
 renderStyledText : List Markdown.Inlines.StyledString -> Element Msg
 renderStyledText styledBlocks =
     styledBlocks
-        |> List.map (\{ string } -> Element.text string)
+        |> List.map
+            (\{ string, style } ->
+                if style.isCode then
+                    code string
+
+                else
+                    Element.text string
+            )
         |> Element.row []
+
+
+code snippet =
+    Element.el
+        [ Element.Background.color
+            (Element.rgba 0 0 0 0.04)
+        , Element.Border.rounded 2
+        , Element.paddingXY 5 3
+        , Font.color (Element.rgba255 210 40 130 1)
+        , Font.family [ Font.monospace ]
+        ]
+        (Element.text snippet)
 
 
 markdownToHtml : String -> Element msg
