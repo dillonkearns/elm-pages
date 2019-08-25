@@ -22,6 +22,7 @@ import Mark
 import Mark.Error
 import MarkParser
 import Markdown
+import Markdown.Inlines
 import Markdown.Parser
 import Metadata exposing (Metadata)
 import Pages
@@ -94,14 +95,44 @@ markdownDocument =
                     (\title ->
                         Metadata.Page { title = title }
                     )
-        , body = \content -> Ok (renderMarkdown content)
+        , body = \content -> renderMarkdown content
         }
 
 
-renderMarkdown : String -> List (Element Msg)
+renderMarkdown : String -> Result String (List (Element Msg))
 renderMarkdown markdown =
     -- TODO implement this with parser
-    [ Element.text markdown ]
+    -- [ Element.text markdown ]
+    markdown
+        |> Markdown.Parser.render
+            { heading =
+                \level content ->
+                    Element.column [] [ Element.text content ]
+            , raw = renderStyledText
+            , todo = Element.text "TODO"
+            , htmlDecoder = Markdown.Parser.htmlOneOf []
+
+            -- , htmlDecoder =
+            --     Markdown.htmlOneOf
+            --         [ Markdown.htmlTag "Red"
+            --             (\children ->
+            --                 Html.div [ style "background-color" "red" ]
+            --                     children
+            --             )
+            --         , Markdown.htmlTag "Blue"
+            --             (\children ->
+            --                 Html.div [ style "background-color" "blue" ]
+            --                     children
+            --             )
+            --         ]
+            }
+
+
+renderStyledText : List Markdown.Inlines.StyledString -> Element Msg
+renderStyledText styledBlocks =
+    styledBlocks
+        |> List.map (\{ string } -> Element.text string)
+        |> Element.row []
 
 
 markdownToHtml : String -> Element msg
