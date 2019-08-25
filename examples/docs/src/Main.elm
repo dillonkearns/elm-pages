@@ -170,7 +170,7 @@ code snippet =
             (Element.rgba 0 0 0 0.04)
         , Element.Border.rounded 2
         , Element.paddingXY 5 3
-        , Font.color (Element.rgba255 210 40 130 1)
+        , Font.color (Element.rgba255 0 0 0 1)
         , Font.family [ Font.monospace ]
         ]
         (Element.text snippet)
