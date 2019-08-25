@@ -97,6 +97,7 @@ markdownDocument =
         }
 
 
+renderMarkdown : String -> List (Element Msg)
 renderMarkdown markdown =
     -- TODO implement this with parser
     [ Element.text markdown ]
