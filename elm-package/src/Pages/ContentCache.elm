@@ -73,7 +73,7 @@ init document content =
                 )
             )
         |> combineTupleResults
-        |> Result.mapError (\_ -> Html.text "Error")
+        |> Result.mapError (\error -> Html.text error)
         |> Result.map Dict.fromList
 
 
