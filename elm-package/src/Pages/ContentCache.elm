@@ -73,7 +73,14 @@ init document content =
                 )
             )
         |> combineTupleResults
-        |> Result.mapError (\error -> Html.text error)
+        |> Result.mapError
+            (\error ->
+                Html.div []
+                    [ Html.h2 []
+                        [ Html.text "I found an error parsing some metadata" ]
+                    , Html.text error
+                    ]
+            )
         |> Result.map Dict.fromList
 
 
