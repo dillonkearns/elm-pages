@@ -6,6 +6,12 @@ import Dict exposing (Dict)
 content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
     [ 
+  ( ["docs", "file-structure2"]
+    , { frontMatter = """{"title":"File Structure"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
   ( ["markdown"]
     , { frontMatter = """{"title":"Hello from markdown! 👋"}
 """ , body = Nothing

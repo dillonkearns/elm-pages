@@ -80,6 +80,7 @@ all : List PageRoute
 all =
     [ (PageRoute [ "about" ])
     , (PageRoute [ "docs", "file-structure" ])
+    , (PageRoute [ "docs", "file-structure2" ])
     , (PageRoute [ "docs" ])
     , (PageRoute [  ])
     , (PageRoute [ "markdown" ])
@@ -89,8 +90,9 @@ pages =
     { about = (PageRoute [ "about" ])
     , docs =
         { fileStructure = (PageRoute [ "docs", "file-structure" ])
+        , fileStructure2 = (PageRoute [ "docs", "file-structure2" ])
         , index = (PageRoute [ "docs" ])
-        , all = [ (PageRoute [ "docs", "file-structure" ]), (PageRoute [ "docs" ]) ]
+        , all = [ (PageRoute [ "docs", "file-structure" ]), (PageRoute [ "docs", "file-structure2" ]), (PageRoute [ "docs" ]) ]
         }
     , index = (PageRoute [  ])
     , markdown = (PageRoute [ "markdown" ])
@@ -102,6 +104,7 @@ urlParser =
     Url.oneOf
         [ Url.map (PageRoute [ "about" ]) (s "about")
         , Url.map (PageRoute [ "docs", "file-structure" ]) (s "docs" </> s "file-structure")
+        , Url.map (PageRoute [ "docs", "file-structure2" ]) (s "docs" </> s "file-structure2")
         , Url.map (PageRoute [ "docs" ]) (s "docs" </> s "index")
         , Url.map (PageRoute [  ]) (s "index")
         , Url.map (PageRoute [ "markdown" ]) (s "markdown")
