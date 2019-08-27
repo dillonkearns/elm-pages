@@ -100,16 +100,7 @@ renderMarkdown markdown =
     -- [ Element.text markdown ]
     markdown
         |> Markdown.Parser.render
-            { heading =
-                \level content ->
-                    Element.paragraph
-                        [ Font.size 36
-                        , Font.bold
-                        , Font.center
-                        , Font.family [ Font.typeface "Raleway" ]
-                        , Element.Region.heading level
-                        ]
-                        content
+            { heading = heading
             , todo = Element.text "TODO"
             , htmlDecoder = Markdown.Parser.htmlOneOf []
             , raw = Element.paragraph []
@@ -142,6 +133,28 @@ renderMarkdown markdown =
                                 )
                         )
             }
+
+
+heading level content =
+    Element.paragraph
+        [ Font.size
+            (case level of
+                1 ->
+                    36
+
+                2 ->
+                    24
+
+                _ ->
+                    20
+            )
+        , Font.bold
+
+        -- , Font.center
+        , Font.family [ Font.typeface "Raleway" ]
+        , Element.Region.heading level
+        ]
+        content
 
 
 code : String -> Element msg
@@ -234,15 +247,15 @@ pageView model siteMetadata page =
                 , Element.row []
                     [ DocSidebar.view siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
-                    , [ Element.el [] (Element.text metadata.title)
-                      , Element.column
+                    , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35 ]
+                        [ heading 1 [ Element.text metadata.title ]
+                        , Element.column
                             [ Element.padding 50
                             , Element.spacing 60
                             , Element.Region.mainContent
                             ]
                             page.view
-                      ]
-                        |> Element.column [ Element.width (Element.fillPortion 8) ]
+                        ]
                     ]
                 ]
                     |> Element.textColumn
