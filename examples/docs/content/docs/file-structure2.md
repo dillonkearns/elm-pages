@@ -1,5 +1,6 @@
 ---
 title: File Structure
+type: doc
 ---
 
 ## Philosophy

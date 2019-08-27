@@ -7,7 +7,7 @@ content : List ( List String, { extension: String, frontMatter : String, body : 
 content =
     [ 
   ( ["docs", "file-structure2"]
-    , { frontMatter = """{"title":"File Structure"}
+    , { frontMatter = """{"title":"File Structure","type":"doc"}
 """ , body = Nothing
     , extension = "md"
     } )

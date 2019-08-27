@@ -76,11 +76,19 @@ markdownDocument =
     Pages.Document.parser
         { extension = "md"
         , metadata =
-            Json.Decode.field "title" Json.Decode.string
-                |> Json.Decode.map
-                    (\title ->
-                        Metadata.Page { title = title }
-                    )
+            Json.Decode.map2
+                (\title maybeType ->
+                    case maybeType of
+                        Just "doc" ->
+                            Metadata.Doc { title = title }
+
+                        _ ->
+                            Metadata.Page { title = title }
+                )
+                (Json.Decode.field "title" Json.Decode.string)
+                (Json.Decode.field "type" Json.Decode.string
+                    |> Json.Decode.maybe
+                )
         , body = \content -> renderMarkdown content
         }
 
