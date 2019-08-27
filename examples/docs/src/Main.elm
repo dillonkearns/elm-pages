@@ -14,10 +14,8 @@ import Head
 import Head.OpenGraph as OpenGraph
 import Html exposing (Html)
 import Json.Decode
-import Json.Encode
 import Mark
 import MarkParser
-import Markdown
 import Markdown.Parser
 import Metadata exposing (Metadata)
 import Pages
@@ -134,6 +132,7 @@ renderMarkdown markdown =
             }
 
 
+code : String -> Element msg
 code snippet =
     Element.el
         [ Element.Background.color
@@ -144,27 +143,6 @@ code snippet =
         , Font.family [ Font.monospace ]
         ]
         (Element.text snippet)
-
-
-markdownToHtml : String -> Element msg
-markdownToHtml body =
-    Markdown.toHtmlWith
-        { githubFlavored = Just { tables = True, breaks = False }
-        , defaultHighlighting = Nothing
-        , sanitize = True
-        , smartypants = False
-        }
-        []
-        body
-        |> Element.html
-
-
-
--- frontmatterParser : Json.Decode.Decoder (Metadata Msg)
--- frontmatterParser =
---     Json.Decode.field "title" Json.Decode.string
---         |> Json.Decode.map (\title -> { title = title })
---         |> Json.Decode.map Page
 
 
 type alias Model =
@@ -304,10 +282,12 @@ head metadata =
         ++ pageTags metadata
 
 
+canonicalUrl : String
 canonicalUrl =
     "https://elm-pages.com"
 
 
+siteTagline : String
 siteTagline =
     "A statically typed site generator - elm-pages"
 

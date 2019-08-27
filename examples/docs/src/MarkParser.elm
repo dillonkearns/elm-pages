@@ -11,7 +11,6 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
 import Mark
-import Mark.Error
 import Metadata exposing (Metadata)
 import Pages.Parser exposing (Page)
 import Palette

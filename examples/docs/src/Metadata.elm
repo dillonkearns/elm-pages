@@ -4,7 +4,6 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 import Element.Font as Font
 import Mark
-import Pages.Parser
 
 
 type Metadata msg
@@ -23,8 +22,14 @@ type alias PageMetadata =
 
 
 type alias ArticleMetadata msg =
-    { title : { styled : List (Element msg), raw : String }
-    , description : { styled : List (Element msg), raw : String }
+    { title :
+        { styled : List (Element msg)
+        , raw : String
+        }
+    , description :
+        { styled : List (Element msg)
+        , raw : String
+        }
     }
 
 
