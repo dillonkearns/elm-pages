@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Color
 import Dict
+import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
 import Element.Background
@@ -231,10 +232,9 @@ pageView model siteMetadata page =
             , body =
                 [ header
                 , Element.row []
-                    [ -- TODO restore sidebar view
-                      -- DocSidebar.view siteMetadata
-                      --     |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ],
-                      [ Element.el [] (Element.text metadata.title)
+                    [ DocSidebar.view siteMetadata
+                        |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
+                    , [ Element.el [] (Element.text metadata.title)
                       , Element.column
                             [ Element.padding 50
                             , Element.spacing 60
