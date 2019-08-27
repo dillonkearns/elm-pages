@@ -246,24 +246,39 @@ pageView model siteMetadata page =
 
 header : Element msg
 header =
-    Element.row
-        [ Element.paddingXY 25 4
-        , Element.spaceEvenly
-        , Element.Region.navigation
-        , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-        , Element.Border.color (Element.rgba255 40 80 40 0.4)
-        ]
-        [ Element.link []
-            { url = "/"
-            , label =
-                Element.row [ Font.size 30, Element.spacing 16 ]
-                    [ DocumentSvg.view
-                    , Element.text "elm-pages"
+    Element.column [ Element.width Element.fill ]
+        [ Element.el
+            [ Element.height (Element.px 4)
+            , Element.width Element.fill
+            , Element.Background.gradient
+                { angle = 0.2
+                , steps =
+                    [ Element.rgb255 0 242 96
+                    , Element.rgb255 5 117 230
                     ]
-            }
-        , Element.row [ Element.spacing 15 ]
-            [ Element.link [] { url = "/docs", label = Element.text "Docs" }
-            , Element.link [] { url = "/blog", label = Element.text "Blog" }
+                }
+            ]
+            Element.none
+        , Element.row
+            [ Element.paddingXY 25 4
+            , Element.spaceEvenly
+            , Element.width Element.fill
+            , Element.Region.navigation
+            , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+            , Element.Border.color (Element.rgba255 40 80 40 0.4)
+            ]
+            [ Element.link []
+                { url = "/"
+                , label =
+                    Element.row [ Font.size 30, Element.spacing 16 ]
+                        [ DocumentSvg.view
+                        , Element.text "elm-pages"
+                        ]
+                }
+            , Element.row [ Element.spacing 15 ]
+                [ Element.link [] { url = "/docs", label = Element.text "Docs" }
+                , Element.link [] { url = "/blog", label = Element.text "Blog" }
+                ]
             ]
         ]
 
