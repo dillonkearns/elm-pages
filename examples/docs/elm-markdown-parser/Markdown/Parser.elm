@@ -1,5 +1,6 @@
 module Markdown.Parser exposing (..)
 
+import Markdown.CodeBlock
 import Markdown.Inlines as Inlines exposing (StyledString)
 import Markdown.List
 import Parser
@@ -71,6 +72,7 @@ type alias Renderer view =
     -- TODO make this a `Result` so users can validate links
     , link : { title : Maybe String, destination : String } -> String -> view
     , list : List view -> view
+    , codeBlock : { body : String, language : Maybe String } -> view
     }
 
 
@@ -130,6 +132,11 @@ renderHelper renderer blocks =
                         |> List.map (renderStyled renderer)
                         |> List.map renderer.raw
                         |> renderer.list
+                        |> Ok
+
+                CodeBlock codeBlock ->
+                    codeBlock
+                        |> renderer.codeBlock
                         |> Ok
         )
         blocks
@@ -244,13 +251,14 @@ type Block
     | Body (List StyledString)
     | Html String (List Attribute) (List Block)
     | ListBlock (List (List Inlines.StyledString))
+    | CodeBlock Markdown.CodeBlock.CodeBlock
 
 
 type alias Attribute =
     { name : String, value : String }
 
 
-plainLine : Parser (List StyledString)
+plainLine : Parser (List Block)
 plainLine =
     succeed identity
         |= Advanced.getChompedString (Advanced.chompUntilEndOr "\n")
@@ -263,17 +271,8 @@ plainLine =
                     Err error ->
                         problem (Parser.Expecting "....??? TODO")
             )
-
-
-lineParser : Parser Block
-lineParser =
-    oneOf
-        [ listBlock
-        , blankLine
-        , heading
-        , htmlParser
-        , plainLine |> Advanced.map Body
-        ]
+        |> Advanced.map Body
+        |> Advanced.map List.singleton
 
 
 listBlock : Parser Block
@@ -377,36 +376,53 @@ childToParser node =
 
 multiParser : Parser (List Block)
 multiParser =
-    loop [] statementsHelp
+    loop [ [] ] statementsHelp
         |. succeed Advanced.end
         -- TODO find a more elegant way to exclude empty blocks for each blank lines
         |> map (List.filter (\item -> item /= Body []))
 
 
-statementsHelp : List Block -> Parser (Step (List Block) (List Block))
+statementsHelp : List (List Block) -> Parser (Step (List (List Block)) (List Block))
 statementsHelp revStmts =
     oneOf
         [ succeed
-            (\offsetBefore stmt offsetAfter ->
+            (\offsetBefore stmts offsetAfter ->
                 let
                     madeProgress =
                         offsetAfter > offsetBefore
                 in
                 if madeProgress then
-                    Loop (stmt :: revStmts)
+                    Loop (stmts :: revStmts)
 
                 else
-                    Done (List.reverse (stmt :: revStmts))
+                    Done
+                        (List.reverse (stmts :: revStmts)
+                            |> List.concat
+                        )
             )
             |= Advanced.getOffset
-            |= lineParser
+            |= oneOf
+                [ listBlock |> map List.singleton
+                , blankLine |> map List.singleton
+                , heading |> map List.singleton
+                , Markdown.CodeBlock.parser |> map CodeBlock |> map List.singleton
+                , htmlParser |> map List.singleton
+                , htmlParser |> map List.singleton
+                , plainLine
+                ]
             |= Advanced.getOffset
 
         -- TODO this is causing files to require newlines
         -- at the end... how do I avoid this?
         -- |. symbol (Advanced.Token "\n" (Parser.Expecting "newline"))
         , succeed ()
-            |> map (\_ -> Done (List.reverse revStmts))
+            |> map
+                (\_ ->
+                    Done
+                        (List.reverse revStmts
+                            |> List.concat
+                        )
+                )
         ]
 
 

@@ -12,6 +12,7 @@ import Element.Region
 import Head
 import Head.OpenGraph as OpenGraph
 import Html exposing (Html)
+import Html.Attributes
 import Json.Decode
 import Mark
 import MarkParser
@@ -132,6 +133,7 @@ renderMarkdown markdown =
                                         [ Element.text "•", itemBlocks ]
                                 )
                         )
+            , codeBlock = codeBlock
             }
 
 
@@ -168,6 +170,22 @@ code snippet =
         , Font.family [ Font.monospace ]
         ]
         (Element.text snippet)
+
+
+codeBlock : { body : String, language : Maybe String } -> Element msg
+codeBlock details =
+    Element.column
+        [ Element.Background.color
+            (Element.rgba 0 0 0 0.04)
+        , Element.Border.rounded 2
+        , Element.padding 20
+        , Font.color (Element.rgba255 0 0 0 1)
+        , Font.family [ Font.monospace ]
+        , Element.width Element.fill
+        , Element.htmlAttribute (Html.Attributes.style "line-height" "1.4em")
+        , Element.htmlAttribute (Html.Attributes.style "white-space" "pre")
+        ]
+        [ Element.text details.body ]
 
 
 type alias Model =
