@@ -2,10 +2,8 @@ port module Main exposing (main)
 
 -- import MarkParser
 
-import Browser
-import Color exposing (Color)
+import Color
 import Dict
-import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
 import Element.Background
@@ -14,27 +12,20 @@ import Element.Font as Font
 import Element.Region
 import Head
 import Head.OpenGraph as OpenGraph
-import Head.SocialMeta as SocialMeta
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
-import List.Extra
 import Mark
-import Mark.Error
 import MarkParser
 import Markdown
-import Markdown.Inlines
 import Markdown.Parser
 import Metadata exposing (Metadata)
 import Pages
-import Pages.Content as Content exposing (Content)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.Parser exposing (Page)
 import PagesNew exposing (images, pages)
-import RawContent
-import Url exposing (Url)
 
 
 manifest =
@@ -50,13 +41,6 @@ manifest =
     , shortName = Just "elm-pages"
     , sourceIcon = images.icon
     }
-
-
-port toJsPort : Json.Encode.Value -> Cmd msg
-
-
-type alias Flags =
-    {}
 
 
 main : Pages.Program Model Msg (Metadata Msg) (List (Element Msg))
@@ -137,6 +121,16 @@ renderMarkdown markdown =
                 -- TODO use link.title
                 \link content ->
                     Element.link [] { url = link.destination, label = Element.text content }
+            , list =
+                \items ->
+                    Element.column []
+                        (items
+                            |> List.map
+                                (\itemBlocks ->
+                                    Element.row [ Element.spacing 5 ]
+                                        [ Element.text "•", itemBlocks ]
+                                )
+                        )
             }
 
 
@@ -320,7 +314,7 @@ siteTagline =
 
 pageTags metadata =
     case metadata of
-        Metadata.Page record ->
+        Metadata.Page _ ->
             OpenGraph.summaryLarge
                 { url = canonicalUrl
                 , siteName = "elm-pages"
@@ -336,7 +330,7 @@ pageTags metadata =
                 }
                 |> OpenGraph.website
 
-        Metadata.Doc record ->
+        Metadata.Doc _ ->
             OpenGraph.summaryLarge
                 { url = canonicalUrl
                 , siteName = "elm-pages"
