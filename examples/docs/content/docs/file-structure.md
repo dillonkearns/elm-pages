@@ -28,6 +28,4 @@ The accepted formats currently are:
 - `.emu` (`elm-markup`)
 - `.md` (Markdown)
 
-##
-
-    Metadata
+## Metadata

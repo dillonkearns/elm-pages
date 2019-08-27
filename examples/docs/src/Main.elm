@@ -269,7 +269,7 @@ pageView model siteMetadata page =
                         [ heading 1 [ Element.text metadata.title ]
                         , Element.column
                             [ Element.padding 50
-                            , Element.spacing 60
+                            , Element.spacing 30
                             , Element.Region.mainContent
                             ]
                             page.view
