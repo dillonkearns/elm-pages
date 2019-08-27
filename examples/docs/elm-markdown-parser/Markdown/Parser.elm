@@ -1,29 +1,9 @@
 module Markdown.Parser exposing (..)
 
 import Markdown.Inlines as Inlines exposing (StyledString)
+import Markdown.List
 import Parser
-import Parser.Advanced as Advanced
-    exposing
-        ( (|.)
-        , (|=)
-        , Nestable(..)
-        , Step(..)
-        , andThen
-        , chompUntil
-        , chompWhile
-        , getChompedString
-        , inContext
-        , int
-        , lazy
-        , loop
-        , map
-        , multiComment
-        , oneOf
-        , problem
-        , succeed
-        , symbol
-        , token
-        )
+import Parser.Advanced as Advanced exposing ((|.), (|=), Nestable(..), Step(..), andThen, chompUntil, chompWhile, getChompedString, inContext, int, lazy, loop, map, multiComment, oneOf, problem, succeed, symbol, token)
 import XmlParser exposing (Node(..))
 
 
@@ -90,6 +70,7 @@ type alias Renderer view =
 
     -- TODO make this a `Result` so users can validate links
     , link : { title : Maybe String, destination : String } -> String -> view
+    , list : List view -> view
     }
 
 
@@ -143,23 +124,19 @@ renderHelper renderer blocks =
 
                 Html tag attributes children ->
                     renderHtmlNode renderer tag attributes (children |> List.reverse)
+
+                ListBlock items ->
+                    items
+                        |> List.map (renderStyled renderer)
+                        |> List.map renderer.raw
+                        |> renderer.list
+                        |> Ok
         )
         blocks
 
 
 render :
-    { heading : Int -> List view -> view
-    , raw : List view -> view
-    , todo : view
-    , htmlDecoder : Decoder (List view -> view)
-    , plain : String -> view
-    , code : String -> view
-    , bold : String -> view
-    , italic : String -> view
-
-    -- TODO make this a `Result` so users can validate links
-    , link : { title : Maybe String, destination : String } -> String -> view
-    }
+    Renderer view
     -> String
     -> Result String (List view)
 render renderer markdownText =
@@ -266,6 +243,7 @@ type Block
     = Heading Int (List StyledString)
     | Body (List StyledString)
     | Html String (List Attribute) (List Block)
+    | ListBlock (List (List Inlines.StyledString))
 
 
 type alias Attribute =
@@ -290,17 +268,18 @@ plainLine =
 lineParser : Parser Block
 lineParser =
     oneOf
-        [ blankLine
+        [ listBlock
+        , blankLine
         , heading
         , htmlParser
         , plainLine |> Advanced.map Body
         ]
 
 
-
--- make sure that blank lines are consumed
--- to prevent failures or infinite loops for
--- empty lines
+listBlock : Parser Block
+listBlock =
+    Markdown.List.parser
+        |> map ListBlock
 
 
 blankLine : Parser Block
