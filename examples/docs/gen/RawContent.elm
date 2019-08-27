@@ -6,7 +6,7 @@ import Dict exposing (Dict)
 content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
     [ 
-  ( ["docs", "file-structure2"]
+  ( ["docs", "file-structure"]
     , { frontMatter = """{"title":"File Structure","type":"doc"}
 """ , body = Nothing
     , extension = "md"
@@ -24,14 +24,6 @@ content =
     title = How I Learned /elm-markup/
     description = How I learned to use elm-markup.
 
-""" , body = Nothing
-    , extension = "emu"
-    } )
-  ,
-  ( ["docs", "file-structure"]
-    , { frontMatter = """
-|> Doc
-    title = File Structure
 """ , body = Nothing
     , extension = "emu"
     } )
