@@ -1,4 +1,4 @@
-module Pages exposing (Flags, Parser, Program, application, cliApplication)
+module Pages exposing (Flags, Model, Msg, Parser, Program, application, cliApplication)
 
 import Browser
 import Browser.Navigation

@@ -1,6 +1,4 @@
-port module Main exposing (main)
-
--- import MarkParser
+module Main exposing (main)
 
 import Color
 import Dict
@@ -41,7 +39,12 @@ manifest =
     }
 
 
-main : Pages.Program Model Msg (Metadata Msg) (List (Element Msg))
+
+--main : Pages.Program Model Msg (Metadata Msg) (List (Element Msg))
+-- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
+
+
+main : Platform.Program Pages.Flags (Pages.Model Model Msg (Metadata Msg) (List (Element Msg))) (Pages.Msg Msg (Metadata Msg) (List (Element Msg)))
 main =
     PagesNew.application
         { init = init
