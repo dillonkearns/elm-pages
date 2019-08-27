@@ -371,7 +371,13 @@ childToParser node =
                     succeed value
 
                 Err error ->
-                    Advanced.problem (Parser.Expecting (error |> Debug.toString))
+                    Advanced.problem
+                        (Parser.Expecting
+                            (error
+                                |> List.map deadEndToString
+                                |> String.join "\n"
+                            )
+                        )
 
 
 multiParser : Parser (List Block)
