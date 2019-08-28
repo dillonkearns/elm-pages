@@ -1,6 +1,8 @@
-module Palette exposing (color)
+module Palette exposing (color, heading)
 
-import Element
+import Element exposing (Element)
+import Element.Font as Font
+import Element.Region
 
 
 color =
@@ -9,5 +11,22 @@ color =
     }
 
 
+heading : Int -> List (Element msg) -> Element msg
+heading level content =
+    Element.paragraph
+        [ Font.size
+            (case level of
+                1 ->
+                    36
 
--- 42 117 255
+                2 ->
+                    24
+
+                _ ->
+                    20
+            )
+        , Font.bold
+        , Font.family [ Font.typeface "Raleway" ]
+        , Element.Region.heading level
+        ]
+        content

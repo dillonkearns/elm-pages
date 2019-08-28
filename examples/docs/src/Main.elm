@@ -15,6 +15,7 @@ import Html exposing (Html)
 import Html.Attributes
 import Json.Decode
 import Markdown.Parser
+import MarkdownRenderer
 import Metadata exposing (Metadata)
 import Pages
 import Pages.Document
@@ -76,163 +77,8 @@ markdownDocument =
                 (Json.Decode.field "type" Json.Decode.string
                     |> Json.Decode.maybe
                 )
-        , body = \content -> renderMarkdown content
+        , body = MarkdownRenderer.view
         }
-
-
-renderMarkdown : String -> Result String (List (Element Msg))
-renderMarkdown markdown =
-    -- TODO implement this with parser
-    -- [ Element.text markdown ]
-    markdown
-        |> Markdown.Parser.render
-            { heading = heading
-            , todo = Element.text "TODO"
-            , htmlDecoder =
-                Markdown.Parser.htmlOneOf
-                    [ Markdown.Parser.htmlTag "Banner"
-                        (\children ->
-                            Element.paragraph
-                                [ Font.center
-                                , Font.size 47
-                                , Font.family [ Font.typeface "Montserrat" ]
-                                , Font.color Palette.color.primary
-                                ]
-                                children
-                        )
-                    , Markdown.Parser.htmlTag "Boxes"
-                        (\children ->
-                            children
-                                |> List.indexedMap
-                                    (\index aBox ->
-                                        let
-                                            isLast =
-                                                index == (List.length children - 1)
-                                        in
-                                        [ Just aBox
-                                        , if isLast then
-                                            Nothing
-
-                                          else
-                                            Just Dotted.lines
-                                        ]
-                                            |> List.filterMap identity
-                                    )
-                                |> List.concat
-                                |> Element.column [ Element.centerX ]
-                        )
-                    , Markdown.Parser.htmlTag "Box"
-                        (\children ->
-                            -- Element.column [] children
-                            Element.column
-                                [ Element.centerX
-                                , Element.padding 30
-                                , Element.Border.shadow { offset = ( 2, 2 ), size = 3, blur = 3, color = Element.rgba255 40 80 80 0.1 }
-                                , Element.spacing 15
-                                ]
-                                children
-                        )
-                    , Markdown.Parser.htmlTag "Values"
-                        (\children ->
-                            Element.row
-                                [ Element.spacing 30
-                                , Element.htmlAttribute (Html.Attributes.style "flex-wrap" "wrap")
-                                ]
-                                children
-                        )
-                    , Markdown.Parser.htmlTag "Value"
-                        (\children ->
-                            Element.column
-                                [ Element.width Element.fill
-                                , Element.padding 20
-                                , Element.spacing 20
-                                , Element.height Element.fill
-                                , Element.centerX
-                                ]
-                                children
-                        )
-                    ]
-            , raw = Element.paragraph []
-            , bold =
-                \content ->
-                    Element.row
-                        [ Font.bold
-                        ]
-                        [ Element.text content ]
-            , italic =
-                \content ->
-                    Element.row
-                        [ Font.italic
-                        ]
-                        [ Element.text content ]
-            , code = code
-            , plain = Element.text
-            , link =
-                -- TODO use link.title
-                \link content ->
-                    Element.link [] { url = link.destination, label = Element.text content }
-            , list =
-                \items ->
-                    Element.column []
-                        (items
-                            |> List.map
-                                (\itemBlocks ->
-                                    Element.row [ Element.spacing 5 ]
-                                        [ Element.text "•", itemBlocks ]
-                                )
-                        )
-            , codeBlock = codeBlock
-            }
-
-
-heading : Int -> List (Element msg) -> Element msg
-heading level content =
-    Element.paragraph
-        [ Font.size
-            (case level of
-                1 ->
-                    36
-
-                2 ->
-                    24
-
-                _ ->
-                    20
-            )
-        , Font.bold
-        , Font.family [ Font.typeface "Raleway" ]
-        , Element.Region.heading level
-        ]
-        content
-
-
-code : String -> Element msg
-code snippet =
-    Element.el
-        [ Element.Background.color
-            (Element.rgba 0 0 0 0.04)
-        , Element.Border.rounded 2
-        , Element.paddingXY 5 3
-        , Font.color (Element.rgba255 0 0 0 1)
-        , Font.family [ Font.monospace ]
-        ]
-        (Element.text snippet)
-
-
-codeBlock : { body : String, language : Maybe String } -> Element msg
-codeBlock details =
-    Element.column
-        [ Element.Background.color
-            (Element.rgba 0 0 0 0.04)
-        , Element.Border.rounded 2
-        , Element.padding 20
-        , Font.color (Element.rgba255 0 0 0 1)
-        , Font.family [ Font.monospace ]
-        , Element.width Element.fill
-        , Element.htmlAttribute (Html.Attributes.style "line-height" "1.4em")
-        , Element.htmlAttribute (Html.Attributes.style "white-space" "pre")
-        ]
-        [ Element.text details.body ]
 
 
 type alias Model =
@@ -315,7 +161,7 @@ pageView model siteMetadata page =
                     [ DocSidebar.view siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                     , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35 ]
-                        [ heading 1 [ Element.text metadata.title ]
+                        [ Palette.heading 1 [ Element.text metadata.title ]
                         , Element.column
                             [ Element.padding 50
                             , Element.spacing 30
