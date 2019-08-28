@@ -151,11 +151,22 @@ renderMarkdown markdown =
                         )
                     , Markdown.Parser.htmlTag "Values"
                         (\children ->
-                            Element.column [] children
+                            Element.row
+                                [ Element.spacing 30
+                                , Element.htmlAttribute (Html.Attributes.style "flex-wrap" "wrap")
+                                ]
+                                children
                         )
                     , Markdown.Parser.htmlTag "Value"
                         (\children ->
-                            Element.column [] children
+                            Element.column
+                                [ Element.width Element.fill
+                                , Element.padding 20
+                                , Element.spacing 20
+                                , Element.height Element.fill
+                                , Element.centerX
+                                ]
+                                children
                         )
                     ]
             , raw = Element.paragraph []
