@@ -33,7 +33,11 @@ type Entry metadata view
     = NeedContent String metadata
     | Unparsed String metadata String
       -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed metadata view
+    | Parsed metadata (Result ParseError view)
+
+
+type alias ParseError =
+    String
 
 
 type alias Path =
@@ -154,11 +158,9 @@ lazyLoad document url cacheResult =
                             httpTask url
                                 |> Task.map
                                     (\downloadedContent ->
-                                        -- |> Result.mapError (\_ -> Html.text "")
                                         update cacheResult
                                             (\thing ->
                                                 Pages.Document.parseContent extension thing document
-                                                    |> Result.mapError (\_ -> Html.text "TODO")
                                             )
                                             url
                                             downloadedContent
@@ -168,7 +170,6 @@ lazyLoad document url cacheResult =
                             update cacheResult
                                 (\thing ->
                                     Pages.Document.parseContent extension thing document
-                                        |> Result.mapError (\_ -> Html.text "TODO")
                                 )
                                 url
                                 content
@@ -223,7 +224,7 @@ httpTask url =
 
 update :
     ContentCache msg metadata view
-    -> (String -> Result (Html msg) view)
+    -> (String -> Result ParseError view)
     -> Url
     -> String
     -> ContentCache msg metadata view
@@ -237,20 +238,12 @@ update cacheResult renderer url rawContent =
                             entry
 
                         Just (Unparsed extension metadata content) ->
-                            case renderer content of
-                                Ok value ->
-                                    Just (Parsed metadata value)
-
-                                Err _ ->
-                                    Nothing
+                            Parsed metadata (renderer content)
+                                |> Just
 
                         Just (NeedContent extension metadata) ->
-                            case renderer rawContent of
-                                Ok value ->
-                                    Just (Parsed metadata value)
-
-                                Err _ ->
-                                    Nothing
+                            Parsed metadata (renderer rawContent)
+                                |> Just
 
                         Nothing ->
                             -- TODO this should never happen

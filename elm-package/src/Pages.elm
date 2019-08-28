@@ -34,7 +34,7 @@ mainView :
 mainView pageView model =
     case model.contentCache of
         Ok site ->
-            pageViewOrError pageView model (Ok site)
+            pageViewOrError pageView model model.contentCache
 
         -- TODO these lookup helpers should not need it to be a Result
         Err errorView ->
@@ -52,14 +52,22 @@ pageViewOrError pageView model cache =
     case ContentCache.lookup cache model.url of
         Just entry ->
             case entry of
-                ContentCache.Parsed metadata viewList ->
-                    pageView model.userModel
-                        (Result.map ContentCache.extractMetadata cache |> Result.withDefault []
-                         -- TODO handle error better
-                        )
-                        { metadata = metadata
-                        , view = viewList
-                        }
+                ContentCache.Parsed metadata viewResult ->
+                    case viewResult of
+                        Ok viewList ->
+                            pageView model.userModel
+                                (Result.map ContentCache.extractMetadata cache
+                                    |> Result.withDefault []
+                                 -- TODO handle error better
+                                )
+                                { metadata = metadata
+                                , view = viewList
+                                }
+
+                        Err error ->
+                            { title = "Parsing error"
+                            , body = Html.text error
+                            }
 
                 ContentCache.NeedContent extension _ ->
                     { title = "", body = Html.text "" }
