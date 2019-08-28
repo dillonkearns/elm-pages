@@ -108,7 +108,6 @@ view markdown =
                                 )
                         )
             , codeBlock = codeBlock
-            , todo = Element.text "TODO"
             }
 
 

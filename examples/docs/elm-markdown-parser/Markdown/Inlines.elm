@@ -2,6 +2,7 @@ module Markdown.Inlines exposing (State, Style, StyledString, isUninteresting, n
 
 import Browser
 import Char
+import Debug
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Markdown.Link as Link exposing (Link)

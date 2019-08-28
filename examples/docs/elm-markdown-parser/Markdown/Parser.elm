@@ -30,13 +30,6 @@ htmlOneOf decoders =
         decoders
 
 
-
--- (\decoder soFar -> soFar)
--- (\_ _ -> Debug.todo "")
--- (\node -> Err "No decoders")
--- decoders
-
-
 resultOr : Result e a -> Result e a -> Result e a
 resultOr ra rb =
     case ra of
@@ -62,7 +55,6 @@ htmlTag expectedTag a =
 type alias Renderer view =
     { heading : Int -> List view -> view
     , raw : List view -> view
-    , todo : view
     , htmlDecoder : Decoder (List view -> view)
     , plain : String -> view
     , code : String -> view
