@@ -12,6 +12,12 @@ content =
     , extension = "md"
     } )
   ,
+  ( ["docs"]
+    , { frontMatter = """{"title":"Quick Start"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
   ( []
     , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
 """ , body = Nothing
@@ -30,14 +36,6 @@ content =
     title = How I Learned /elm-markup/
     description = How I learned to use elm-markup.
 
-""" , body = Nothing
-    , extension = "emu"
-    } )
-  ,
-  ( ["docs"]
-    , { frontMatter = """
-|> Doc
-    title = Quick Start
 """ , body = Nothing
     , extension = "emu"
     } )

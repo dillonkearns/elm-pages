@@ -15,8 +15,6 @@ import Head.OpenGraph as OpenGraph
 import Html exposing (Html)
 import Html.Attributes
 import Json.Decode
-import Mark
-import MarkParser
 import Markdown.Parser
 import Metadata exposing (Metadata)
 import Pages
@@ -55,24 +53,10 @@ main =
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , documents = [ markupDocument, markdownDocument ]
+        , documents = [ markdownDocument ]
         , head = head
         , manifest = manifest
         }
-
-
-markupDocument : Pages.Document.DocumentParser (Metadata Msg) (List (Element Msg))
-markupDocument =
-    Pages.Document.markupParser
-        (Metadata.metadata Dict.empty |> Mark.document identity)
-        (MarkParser.blocks
-            { imageAssets = Dict.empty
-            , routes = PagesNew.all |> List.map PagesNew.routeToString
-            , indexView = []
-            }
-            |> Mark.manyOf
-            |> Mark.document identity
-        )
 
 
 markdownDocument : Pages.Document.DocumentParser (Metadata msg) (List (Element Msg))
