@@ -29,13 +29,20 @@ parser =
 singleItemParser : Parser ListItem
 singleItemParser =
     succeed
-        (\string ->
-            -- TODO use the Inline parser
-            [ { string = string, style = { isCode = False, isBold = False, isItalic = False, link = Nothing } } ]
-        )
+        identity
         |. Advanced.symbol (Advanced.Token "-" (Parser.ExpectingSymbol "-"))
         |. chompWhile (\c -> c == ' ')
-        |= Advanced.getChompedString (Advanced.chompUntilEndOr "\n")
+        |= (Advanced.getChompedString (Advanced.chompUntilEndOr "\n")
+                |> andThen
+                    (\listItemContent ->
+                        case listItemContent |> Advanced.run Markdown.Inlines.parse of
+                            Ok content ->
+                                succeed content
+
+                            Err errors ->
+                                problem (Parser.Expecting "Error parsing inlines TODO")
+                    )
+           )
         |. Advanced.symbol (Advanced.Token "\n" (Parser.ExpectingSymbol "\n"))
 
 
