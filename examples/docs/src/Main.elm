@@ -1,7 +1,6 @@
 module Main exposing (main)
 
 import Color
-import Dict
 import DocSidebar
 import DocumentSvg
 import Dotted
@@ -186,6 +185,7 @@ renderMarkdown markdown =
             }
 
 
+heading : Int -> List (Element msg) -> Element msg
 heading level content =
     Element.paragraph
         [ Font.size
@@ -200,8 +200,6 @@ heading level content =
                     20
             )
         , Font.bold
-
-        -- , Font.center
         , Font.family [ Font.typeface "Raleway" ]
         , Element.Region.heading level
         ]
@@ -252,7 +250,9 @@ type alias Msg =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        () ->
+            ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -398,6 +398,7 @@ siteTagline =
     "A statically typed site generator - elm-pages"
 
 
+pageTags : Metadata Msg -> List Head.Tag
 pageTags metadata =
     case metadata of
         Metadata.Page _ ->
@@ -436,9 +437,6 @@ pageTags metadata =
             let
                 description =
                     meta.description.raw
-
-                title =
-                    meta.title.raw
 
                 imageUrl =
                     ""
