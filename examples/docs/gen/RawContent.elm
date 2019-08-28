@@ -29,16 +29,6 @@ content =
 """ , body = Nothing
     , extension = "md"
     } )
-  ,
-  ( ["about"]
-    , { frontMatter = """
-|> Article
-    title = How I Learned /elm-markup/
-    description = How I learned to use elm-markup.
-
-""" , body = Nothing
-    , extension = "emu"
-    } )
   
     ]
     
