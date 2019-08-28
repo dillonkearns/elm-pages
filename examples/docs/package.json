@@ -12,7 +12,7 @@
   "dependencies": {},
   "devDependencies": {
     "elm": "^0.19.0-no-deps",
-    "elm-pages": "^1.0.16",
+    "elm-pages": "^1.0.28",
     "elm-test": "^0.19.0-rev6",
     "http-server": "^0.11.1"
   }
