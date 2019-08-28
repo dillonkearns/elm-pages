@@ -4,6 +4,7 @@ import Color
 import Dict
 import DocSidebar
 import DocumentSvg
+import Dotted
 import Element exposing (Element)
 import Element.Background
 import Element.Border
@@ -118,11 +119,35 @@ renderMarkdown markdown =
                         )
                     , Markdown.Parser.htmlTag "Boxes"
                         (\children ->
-                            Element.column [] children
+                            children
+                                |> List.indexedMap
+                                    (\index aBox ->
+                                        let
+                                            isLast =
+                                                index == (List.length children - 1)
+                                        in
+                                        [ Just aBox
+                                        , if isLast then
+                                            Nothing
+
+                                          else
+                                            Just Dotted.lines
+                                        ]
+                                            |> List.filterMap identity
+                                    )
+                                |> List.concat
+                                |> Element.column [ Element.centerX ]
                         )
                     , Markdown.Parser.htmlTag "Box"
                         (\children ->
-                            Element.column [] children
+                            -- Element.column [] children
+                            Element.column
+                                [ Element.centerX
+                                , Element.padding 30
+                                , Element.Border.shadow { offset = ( 2, 2 ), size = 3, blur = 3, color = Element.rgba255 40 80 80 0.1 }
+                                , Element.spacing 15
+                                ]
+                                children
                         )
                     , Markdown.Parser.htmlTag "Values"
                         (\children ->

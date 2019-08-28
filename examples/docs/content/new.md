@@ -10,7 +10,27 @@ title: elm-pages - a statically typed site generator
 
 Layouts, styles, even a full-fledged elm application.
 
-# Type-Safe Content
+## Type-Safe Content
+
+Configuration, errors for broken links
+</Box>
+<Box>
+
+## Pure Elm Configuration
+
+Layouts, styles, even a full-fledged elm application.
+
+## Type-Safe Content
+
+Configuration, errors for broken links
+</Box>
+<Box>
+
+## Pure Elm Configuration
+
+Layouts, styles, even a full-fledged elm application.
+
+## Type-Safe Content
 
 Configuration, errors for broken links
 </Box>
