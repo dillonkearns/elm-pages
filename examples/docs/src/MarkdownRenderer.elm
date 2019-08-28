@@ -24,7 +24,7 @@ view markdown =
             , link = \link body -> Element.link [] { url = link.destination, label = Element.text body }
             , list =
                 \items ->
-                    Element.column []
+                    Element.column [ Element.spacing 15 ]
                         (items
                             |> List.map
                                 (\itemBlocks ->
