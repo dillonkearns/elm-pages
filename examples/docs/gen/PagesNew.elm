@@ -83,7 +83,6 @@ all =
     , (PageRoute [ "docs" ])
     , (PageRoute [  ])
     , (PageRoute [ "markdown" ])
-    , (PageRoute [ "new" ])
     ]
 
 pages =
@@ -95,8 +94,7 @@ pages =
         }
     , index = (PageRoute [  ])
     , markdown = (PageRoute [ "markdown" ])
-    , new = (PageRoute [ "new" ])
-    , all = [ (PageRoute [ "about" ]), (PageRoute [  ]), (PageRoute [ "markdown" ]), (PageRoute [ "new" ]) ]
+    , all = [ (PageRoute [ "about" ]), (PageRoute [  ]), (PageRoute [ "markdown" ]) ]
     }
 
 urlParser : Url.Parser (PageRoute -> a) a
@@ -107,7 +105,6 @@ urlParser =
         , Url.map (PageRoute [ "docs" ]) (s "docs" </> s "index")
         , Url.map (PageRoute [  ]) (s "index")
         , Url.map (PageRoute [ "markdown" ]) (s "markdown")
-        , Url.map (PageRoute [ "new" ]) (s "new")
         ] 
 
 images =

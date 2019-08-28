@@ -12,14 +12,14 @@ content =
     , extension = "md"
     } )
   ,
-  ( ["markdown"]
-    , { frontMatter = """{"title":"Hello from markdown! 👋"}
+  ( []
+    , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
 """ , body = Nothing
     , extension = "md"
     } )
   ,
-  ( ["new"]
-    , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
+  ( ["markdown"]
+    , { frontMatter = """{"title":"Hello from markdown! 👋"}
 """ , body = Nothing
     , extension = "md"
     } )
@@ -38,15 +38,6 @@ content =
     , { frontMatter = """
 |> Doc
     title = Quick Start
-""" , body = Nothing
-    , extension = "emu"
-    } )
-  ,
-  ( []
-    , { frontMatter = """
-|> Page
-    title = elm-pages - a statically typed site generator
-
 """ , body = Nothing
     , extension = "emu"
     } )
