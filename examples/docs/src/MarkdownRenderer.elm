@@ -16,6 +16,23 @@ view markdown =
     markdown
         |> Markdown.Parser.render
             { heading = heading
+            , raw = Element.paragraph []
+            , plain = Element.text
+            , bold = \content -> Element.row [ Font.bold ] [ Element.text content ]
+            , italic = \content -> Element.row [ Font.italic ] [ Element.text content ]
+            , code = code
+            , link = \link body -> Element.link [] { url = link.destination, label = Element.text body }
+            , list =
+                \items ->
+                    Element.column []
+                        (items
+                            |> List.map
+                                (\itemBlocks ->
+                                    Element.row [ Element.spacing 5 ]
+                                        [ Element.text "•", itemBlocks ]
+                                )
+                        )
+            , codeBlock = codeBlock
             , htmlDecoder =
                 Markdown.Parser.htmlOneOf
                     [ Markdown.Parser.htmlTag "Banner"
@@ -79,35 +96,6 @@ view markdown =
                                 children
                         )
                     ]
-            , raw = Element.paragraph []
-            , bold =
-                \content ->
-                    Element.row
-                        [ Font.bold
-                        ]
-                        [ Element.text content ]
-            , italic =
-                \content ->
-                    Element.row
-                        [ Font.italic
-                        ]
-                        [ Element.text content ]
-            , code = code
-            , plain = Element.text
-            , link =
-                \link body ->
-                    Element.link [] { url = link.destination, label = Element.text body }
-            , list =
-                \items ->
-                    Element.column []
-                        (items
-                            |> List.map
-                                (\itemBlocks ->
-                                    Element.row [ Element.spacing 5 ]
-                                        [ Element.text "•", itemBlocks ]
-                                )
-                        )
-            , codeBlock = codeBlock
             }
 
 
