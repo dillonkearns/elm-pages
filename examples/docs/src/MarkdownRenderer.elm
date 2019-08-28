@@ -16,7 +16,6 @@ view markdown =
     markdown
         |> Markdown.Parser.render
             { heading = heading
-            , todo = Element.text "TODO"
             , htmlDecoder =
                 Markdown.Parser.htmlOneOf
                     [ Markdown.Parser.htmlTag "Banner"
@@ -52,7 +51,6 @@ view markdown =
                         )
                     , Markdown.Parser.htmlTag "Box"
                         (\children ->
-                            -- Element.column [] children
                             Element.column
                                 [ Element.centerX
                                 , Element.padding 30
@@ -97,9 +95,8 @@ view markdown =
             , code = code
             , plain = Element.text
             , link =
-                -- TODO use link.title
-                \link content ->
-                    Element.link [] { url = link.destination, label = Element.text content }
+                \link body ->
+                    Element.link [] { url = link.destination, label = Element.text body }
             , list =
                 \items ->
                     Element.column []
@@ -111,6 +108,7 @@ view markdown =
                                 )
                         )
             , codeBlock = codeBlock
+            , todo = Element.text "TODO"
             }
 
 
