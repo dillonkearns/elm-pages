@@ -6,8 +6,8 @@ import Dict exposing (Dict)
 content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
     [ 
-  ( ["docs", "file-structure"]
-    , { frontMatter = """{"title":"File Structure","type":"doc"}
+  ( ["docs", "directory-structure"]
+    , { frontMatter = """{"title":"Directory Structure","type":"doc"}
 """ , body = Nothing
     , extension = "md"
     } )

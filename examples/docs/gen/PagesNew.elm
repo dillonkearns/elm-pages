@@ -1,4 +1,4 @@
-port module PagesNew exposing (application, PageRoute, all, pages, routeToString, Image, imageUrl, images)
+port module PagesNew exposing (application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages)
 
 import Dict exposing (Dict)
 import Color exposing (Color)
@@ -78,7 +78,7 @@ imageUrl (Image path) =
 
 all : List PageRoute
 all =
-    [ (PageRoute [ "docs", "file-structure" ])
+    [ (PageRoute [ "docs", "directory-structure" ])
     , (PageRoute [ "docs" ])
     , (PageRoute [  ])
     , (PageRoute [ "markdown" ])
@@ -86,9 +86,9 @@ all =
 
 pages =
     { docs =
-        { fileStructure = (PageRoute [ "docs", "file-structure" ])
+        { directoryStructure = (PageRoute [ "docs", "directory-structure" ])
         , index = (PageRoute [ "docs" ])
-        , all = [ (PageRoute [ "docs", "file-structure" ]), (PageRoute [ "docs" ]) ]
+        , all = [ (PageRoute [ "docs", "directory-structure" ]), (PageRoute [ "docs" ]) ]
         }
     , index = (PageRoute [  ])
     , markdown = (PageRoute [ "markdown" ])
@@ -98,7 +98,7 @@ pages =
 urlParser : Url.Parser (PageRoute -> a) a
 urlParser =
     Url.oneOf
-        [ Url.map (PageRoute [ "docs", "file-structure" ]) (s "docs" </> s "file-structure")
+        [ Url.map (PageRoute [ "docs", "directory-structure" ]) (s "docs" </> s "directory-structure")
         , Url.map (PageRoute [ "docs" ]) (s "docs" </> s "index")
         , Url.map (PageRoute [  ]) (s "index")
         , Url.map (PageRoute [ "markdown" ]) (s "markdown")
@@ -109,6 +109,12 @@ images =
     , mountains = (Image [ "mountains.jpg" ])
     , all = [ (Image [ "icon.svg" ]), (Image [ "mountains.jpg" ]) ]
     }
+
+allImages : List Image
+allImages =
+    [(Image [ "icon.svg" ])
+    , (Image [ "mountains.jpg" ])
+    ]
 
 routeToString : PageRoute -> String
 routeToString (PageRoute route) =
