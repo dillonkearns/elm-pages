@@ -24,6 +24,7 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.Parser exposing (Page)
 import PagesNew exposing (images, pages)
+import Palette
 
 
 manifest =
@@ -103,7 +104,35 @@ renderMarkdown markdown =
         |> Markdown.Parser.render
             { heading = heading
             , todo = Element.text "TODO"
-            , htmlDecoder = Markdown.Parser.htmlOneOf []
+            , htmlDecoder =
+                Markdown.Parser.htmlOneOf
+                    [ Markdown.Parser.htmlTag "Banner"
+                        (\children ->
+                            Element.paragraph
+                                [ Font.center
+                                , Font.size 47
+                                , Font.family [ Font.typeface "Montserrat" ]
+                                , Font.color Palette.color.primary
+                                ]
+                                children
+                        )
+                    , Markdown.Parser.htmlTag "Boxes"
+                        (\children ->
+                            Element.column [] children
+                        )
+                    , Markdown.Parser.htmlTag "Box"
+                        (\children ->
+                            Element.column [] children
+                        )
+                    , Markdown.Parser.htmlTag "Values"
+                        (\children ->
+                            Element.column [] children
+                        )
+                    , Markdown.Parser.htmlTag "Value"
+                        (\children ->
+                            Element.column [] children
+                        )
+                    ]
             , raw = Element.paragraph []
             , bold =
                 \content ->

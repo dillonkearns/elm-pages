@@ -18,6 +18,12 @@ content =
     , extension = "md"
     } )
   ,
+  ( ["new"]
+    , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
   ( ["about"]
     , { frontMatter = """
 |> Article
