@@ -140,6 +140,7 @@ codeBlock : { body : String, language : Maybe String } -> Element msg
 codeBlock details =
     Html.node "code-editor" [ editorValue details.body ] []
         |> Element.html
+        |> Element.el [ Element.width Element.fill ]
 
 
 

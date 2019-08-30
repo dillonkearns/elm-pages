@@ -1,6 +1,5 @@
-import CodeMirror from "codemirror";
-import "./codemirror.css";
-import elm from "codemirror/mode/elm/elm.js";
+import Prism from "prismjs";
+import "prismjs/components/prism-elm";
 
 customElements.define(
   "code-editor",
@@ -23,14 +22,16 @@ customElements.define(
     }
 
     connectedCallback() {
-      this._editor = CodeMirror(this, {
-        identUnit: 4,
-        viewportMargin: Infinity,
-        mode: "elm",
-        lineNumbers: false,
-        readOnly: "nocursor",
-        value: this._editorValue
-      });
+      let shadow = this.attachShadow({ mode: "open" });
+      shadow.innerHTML = `
+      <style>@import "https://cdnjs.cloudflare.com/ajax/libs/prism/1.17.1/themes/prism-okaidia.min.css";</style>
+
+      <pre class="line-numbers" style="padding: 20px; background: black;">
+        <code class="language-elm">
+${Prism.highlight(this._editorValue, Prism.languages.elm, "elm")}
+        </code>
+      </pre>
+      `;
     }
   }
 );

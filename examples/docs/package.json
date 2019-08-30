@@ -11,9 +11,11 @@
   "license": "BSD-3",
   "dependencies": {
     "codemirror": "^5.48.4",
-    "node-sass": "^4.12.0"
+    "node-sass": "^4.12.0",
+    "prismjs": "^1.17.1"
   },
   "devDependencies": {
+    "babel-plugin-prismjs": "^1.1.1",
     "elm": "^0.19.0-no-deps",
     "elm-pages": "^1.0.28",
     "elm-test": "^0.19.0-rev6",
