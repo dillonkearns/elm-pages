@@ -20,11 +20,17 @@ view markdown =
         |> Markdown.Parser.render
             { heading = heading
             , raw = Element.paragraph []
+
+            -- TODO
+            , thematicBreak = Element.none
             , plain = Element.text
             , bold = \content -> Element.row [ Font.bold ] [ Element.text content ]
             , italic = \content -> Element.row [ Font.italic ] [ Element.text content ]
             , code = code
-            , link = \link body -> Element.link [] { url = link.destination, label = Element.text body }
+            , link =
+                \link body ->
+                    Element.link [] { url = link.destination, label = Element.text body }
+                        |> Ok
             , list =
                 \items ->
                     Element.column [ Element.spacing 15 ]
