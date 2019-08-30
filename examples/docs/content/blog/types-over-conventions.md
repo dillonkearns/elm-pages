@@ -17,15 +17,19 @@ If we wanted to define a particular layout for blog posts, and a different layou
 
 So here's the frontmatter for a blog post:
 
-```yaml
+```markdown
+---
 author: Dillon Kearns
 title: Types Over Conventions
+---
 ```
 
 And here's the frontmatter for a regular page:
 
-```yaml
+```markdown
+---
 name: About elm-pages
+---
 ```
 
 As far as `elm-pages` is concerned, this is just data. We define the rules for what to do with those different data types in our code.

@@ -163,7 +163,9 @@ pageView model siteMetadata page =
                         , Element.width (Element.fill |> Element.maximum 1000)
                         , Element.centerX
                         ]
-                        page.view
+                        (Palette.blogHeading metadata.title
+                            :: page.view
+                        )
                     ]
             }
 

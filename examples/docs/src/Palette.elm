@@ -1,4 +1,4 @@
-module Palette exposing (color, heading)
+module Palette exposing (blogHeading, color, heading)
 
 import Element exposing (Element)
 import Element.Font as Font
@@ -14,19 +14,31 @@ color =
 heading : Int -> List (Element msg) -> Element msg
 heading level content =
     Element.paragraph
-        [ Font.size
-            (case level of
-                1 ->
-                    36
+        ([ Font.bold
+         , Font.family [ Font.typeface "Raleway" ]
+         , Element.Region.heading level
+         ]
+            ++ (case level of
+                    1 ->
+                        [ Font.size 36 ]
 
-                2 ->
-                    24
+                    2 ->
+                        [ Font.size 24 ]
 
-                _ ->
-                    20
-            )
-        , Font.bold
-        , Font.family [ Font.typeface "Raleway" ]
-        , Element.Region.heading level
-        ]
+                    _ ->
+                        [ Font.size 20 ]
+               )
+        )
         content
+
+
+blogHeading : String -> Element msg
+blogHeading title =
+    Element.paragraph
+        [ Font.bold
+        , Font.family [ Font.typeface "Raleway" ]
+        , Element.Region.heading 1
+        , Font.size 36
+        , Font.center
+        ]
+        [ Element.text title ]
