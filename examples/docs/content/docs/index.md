@@ -1,5 +1,6 @@
 ---
 title: Quick Start
+type: doc
 ---
 
 ## Installing

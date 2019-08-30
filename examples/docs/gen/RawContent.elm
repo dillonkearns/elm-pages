@@ -19,7 +19,7 @@ content =
     } )
   ,
   ( ["docs"]
-    , { frontMatter = """{"title":"Quick Start"}
+    , { frontMatter = """{"title":"Quick Start","type":"doc"}
 """ , body = Nothing
     , extension = "md"
     } )
