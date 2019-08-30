@@ -1,5 +1,5 @@
 const exposingList =
-  "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages)";
+  "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages, isValidRoute)";
 
 function staticRouteStuff(staticRoutes) {
   return `
@@ -30,6 +30,26 @@ routeToString : PageRoute -> String
 routeToString (PageRoute route) =
     "/"
       ++ (route |> String.join "/")
+
+
+isValidRoute : String -> Result String ()
+isValidRoute route =
+    let
+        validRoutes =
+            List.map routeToString all
+    in
+    if
+        (route |> String.startsWith "http://")
+            || (route |> String.startsWith "https://")
+            || (validRoutes |> List.member route)
+    then
+        Ok ()
+
+    else
+        ("Valid routes:\\n"
+            ++ String.join "\\n\\n" validRoutes
+        )
+            |> Err
 `;
 }
 

@@ -11,6 +11,7 @@ import Html.Attributes exposing (property)
 import Html.Events exposing (on)
 import Json.Encode as Encode exposing (Value)
 import Markdown.Parser
+import PagesNew
 import Palette
 
 
@@ -29,8 +30,11 @@ view markdown =
             , code = code
             , link =
                 \link body ->
-                    Element.link [] { url = link.destination, label = Element.text body }
-                        |> Ok
+                    PagesNew.isValidRoute link.destination
+                        |> Result.map
+                            (\() ->
+                                Element.link [] { url = link.destination, label = Element.text body }
+                            )
             , list =
                 \items ->
                     Element.column [ Element.spacing 15 ]
