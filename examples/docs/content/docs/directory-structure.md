@@ -22,7 +22,7 @@ your files (both code and content).
 
 ## `content` folder
 
-Each file in the `content` folder will result in a new route for your static site. You can define how to render the types of document in the `content` folder based on the extension any way you like:
+Each file in the `content` folder will result in a new route for your static site. You can define how to render the types of document in the `content` folder based on the extension any way you like.
 
 ```elm
 helloDocument : Pages.Document.DocumentParser (Metadata) (List (Html Msg))
@@ -30,6 +30,8 @@ helloDocument =
     Pages.Document.parser
         { extension = "txt"
         , metadata =
+            -- pages will use the layout for Docs if they have
+            -- `type: doc` in their markdown frontmatter
             Json.Decode.map2
                 (\title maybeType ->
                     case maybeType of

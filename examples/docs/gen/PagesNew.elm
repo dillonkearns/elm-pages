@@ -78,14 +78,19 @@ imageUrl (Image path) =
 
 all : List PageRoute
 all =
-    [ (PageRoute [ "docs", "directory-structure" ])
+    [ (PageRoute [ "blog", "types-over-conventions" ])
+    , (PageRoute [ "docs", "directory-structure" ])
     , (PageRoute [ "docs" ])
     , (PageRoute [  ])
     , (PageRoute [ "markdown" ])
     ]
 
 pages =
-    { docs =
+    { blog =
+        { typesOverConventions = (PageRoute [ "blog", "types-over-conventions" ])
+        , all = [ (PageRoute [ "blog", "types-over-conventions" ]) ]
+        }
+    , docs =
         { directoryStructure = (PageRoute [ "docs", "directory-structure" ])
         , index = (PageRoute [ "docs" ])
         , all = [ (PageRoute [ "docs", "directory-structure" ]), (PageRoute [ "docs" ]) ]
@@ -98,7 +103,8 @@ pages =
 urlParser : Url.Parser (PageRoute -> a) a
 urlParser =
     Url.oneOf
-        [ Url.map (PageRoute [ "docs", "directory-structure" ]) (s "docs" </> s "directory-structure")
+        [ Url.map (PageRoute [ "blog", "types-over-conventions" ]) (s "blog" </> s "types-over-conventions")
+        , Url.map (PageRoute [ "docs", "directory-structure" ]) (s "docs" </> s "directory-structure")
         , Url.map (PageRoute [ "docs" ]) (s "docs" </> s "index")
         , Url.map (PageRoute [  ]) (s "index")
         , Url.map (PageRoute [ "markdown" ]) (s "markdown")

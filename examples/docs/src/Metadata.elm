@@ -1,4 +1,4 @@
-module Metadata exposing (ArticleMetadata, DocMetadata, Metadata(..), PageMetadata)
+module Metadata exposing (DocMetadata, Metadata(..), PageMetadata)
 
 import Dict exposing (Dict)
 import Element exposing (Element)
@@ -7,7 +7,7 @@ import Element.Font as Font
 
 type Metadata msg
     = Page PageMetadata
-    | Article (ArticleMetadata msg)
+    | Article { author : String, title : String }
     | Doc DocMetadata
 
 
@@ -18,18 +18,6 @@ type alias DocMetadata =
 
 type alias PageMetadata =
     { title : String }
-
-
-type alias ArticleMetadata msg =
-    { title :
-        { styled : List (Element msg)
-        , raw : String
-        }
-    , description :
-        { styled : List (Element msg)
-        , raw : String
-        }
-    }
 
 
 gather : List { styled : Element msg, raw : String } -> { styled : List (Element msg), raw : String }

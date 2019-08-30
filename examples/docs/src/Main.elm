@@ -64,19 +64,27 @@ markdownDocument =
     Pages.Document.parser
         { extension = "md"
         , metadata =
-            Json.Decode.map2
-                (\title maybeType ->
-                    case maybeType of
-                        Just "doc" ->
-                            Metadata.Doc { title = title }
+            Json.Decode.oneOf
+                [ Json.Decode.map2
+                    (\author title ->
+                        Metadata.Article { author = author, title = title }
+                    )
+                    (Json.Decode.field "author" Json.Decode.string)
+                    (Json.Decode.field "title" Json.Decode.string)
+                , Json.Decode.map2
+                    (\title maybeType ->
+                        case maybeType of
+                            Just "doc" ->
+                                Metadata.Doc { title = title }
 
-                        _ ->
-                            Metadata.Page { title = title }
-                )
-                (Json.Decode.field "title" Json.Decode.string)
-                (Json.Decode.field "type" Json.Decode.string
-                    |> Json.Decode.maybe
-                )
+                            _ ->
+                                Metadata.Page { title = title }
+                    )
+                    (Json.Decode.field "title" Json.Decode.string)
+                    (Json.Decode.field "type" Json.Decode.string
+                        |> Json.Decode.maybe
+                    )
+                ]
         , body = MarkdownRenderer.view
         }
 
@@ -144,13 +152,19 @@ pageView model siteMetadata page =
             }
 
         Metadata.Article metadata ->
-            { title = metadata.title.raw
+            { title = metadata.title
             , body =
-                (header :: page.view)
-                    |> Element.textColumn
-                        [ Element.width Element.fill
-                        , Element.spacing 80
+                Element.column [ Element.width Element.fill ]
+                    [ header
+                    , Element.column
+                        [ Element.padding 100
+                        , Element.spacing 60
+                        , Element.Region.mainContent
+                        , Element.width (Element.fill |> Element.maximum 1000)
+                        , Element.centerX
                         ]
+                        page.view
+                    ]
             }
 
         Metadata.Doc metadata ->
@@ -282,7 +296,9 @@ pageTags metadata =
         Metadata.Article meta ->
             let
                 description =
-                    meta.description.raw
+                    -- TODO
+                    -- meta.description.raw
+                    ""
 
                 imageUrl =
                     ""
@@ -301,7 +317,7 @@ pageTags metadata =
                     }
                 , description = description
                 , locale = Nothing
-                , title = meta.title.raw
+                , title = meta.title
                 }
                 |> OpenGraph.article
                     { tags = []
