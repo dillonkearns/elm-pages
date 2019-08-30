@@ -46,16 +46,10 @@ nextStepWhenFoundBold ( currStyle, revStyledStrings ) string =
 nextStepWhenFoundLink : Link -> State -> String -> Step State (List StyledString)
 nextStepWhenFoundLink link ( currStyle, revStyledStrings ) string =
     Loop
-        -- TODO
-        {-
-           | link =
-               { title = Nothing
-               , description = currStyle.link.description |> Maybe.withDefault ""
-               , destination = currStyle.link.destination |> Maybe.withDefault ""
-               }
-        -}
         ( currStyle
-        , { style = { currStyle | link = Just { title = link.title, destination = link.destination } }, string = link.description } :: revStyledStrings
+        , { style = { currStyle | link = Just { title = link.title, destination = link.destination } }, string = link.description }
+            :: { style = currStyle, string = string }
+            :: revStyledStrings
         )
 
 
