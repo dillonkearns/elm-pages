@@ -9,7 +9,10 @@
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
-  "dependencies": {},
+  "dependencies": {
+    "codemirror": "^5.48.4",
+    "node-sass": "^4.12.0"
+  },
   "devDependencies": {
     "elm": "^0.19.0-no-deps",
     "elm-pages": "^1.0.28",

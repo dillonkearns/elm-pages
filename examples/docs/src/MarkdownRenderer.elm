@@ -6,7 +6,10 @@ import Element.Background
 import Element.Border
 import Element.Font as Font
 import Element.Region
-import Html.Attributes
+import Html exposing (Attribute, Html)
+import Html.Attributes exposing (property)
+import Html.Events exposing (on)
+import Json.Encode as Encode exposing (Value)
 import Markdown.Parser
 import Palette
 
@@ -135,15 +138,28 @@ code snippet =
 
 codeBlock : { body : String, language : Maybe String } -> Element msg
 codeBlock details =
-    Element.column
-        [ Element.Background.color
-            (Element.rgba 0 0 0 0.04)
-        , Element.Border.rounded 2
-        , Element.padding 20
-        , Font.color (Element.rgba255 0 0 0 1)
-        , Font.family [ Font.monospace ]
-        , Element.width Element.fill
-        , Element.htmlAttribute (Html.Attributes.style "line-height" "1.4em")
-        , Element.htmlAttribute (Html.Attributes.style "white-space" "pre")
-        ]
-        [ Element.text details.body ]
+    Html.node "code-editor" [ editorValue details.body ] []
+        |> Element.html
+
+
+
+-- Element.column
+--     [ Element.Background.color
+--         (Element.rgba 0 0 0 0.04)
+--     , Element.Border.rounded 2
+--     , Element.padding 20
+--     , Font.color (Element.rgba255 0 0 0 1)
+--     , Font.family [ Font.monospace ]
+--     , Element.width Element.fill
+--     , Element.htmlAttribute (Html.Attributes.style "line-height" "1.4em")
+--     , Element.htmlAttribute (Html.Attributes.style "white-space" "pre")
+--     ]
+--     [ Element.text details.body ]
+
+
+editorValue : String -> Attribute msg
+editorValue value =
+    value
+        |> String.trim
+        |> Encode.string
+        |> property "editorValue"
