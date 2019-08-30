@@ -157,10 +157,10 @@ pageView model siteMetadata page =
                 Element.column [ Element.width Element.fill ]
                     [ header
                     , Element.column
-                        [ Element.padding 100
+                        [ Element.padding 30
                         , Element.spacing 60
                         , Element.Region.mainContent
-                        , Element.width (Element.fill |> Element.maximum 1000)
+                        , Element.width (Element.fill |> Element.maximum 800)
                         , Element.centerX
                         ]
                         (Palette.blogHeading metadata.title
