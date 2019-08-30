@@ -1,5 +1,6 @@
 import Prism from "prismjs";
 import "prismjs/components/prism-elm";
+import "./native-shim.js";
 
 customElements.define(
   "code-editor",
