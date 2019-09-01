@@ -53,7 +53,7 @@ htmlTag expectedTag a =
 
 
 type alias Renderer view =
-    { heading : Int -> List view -> view
+    { heading : { level : Int, rawText : String, children : List view } -> view
     , raw : List view -> view
     , htmlDecoder : Decoder (List view -> view)
     , plain : String -> view
@@ -111,7 +111,11 @@ renderHelper renderer blocks =
             case block of
                 Heading level content ->
                     renderStyled renderer content
-                        |> Result.map (renderer.heading level)
+                        |> Result.map
+                            (\children ->
+                                renderer.heading
+                                    { level = level, rawText = Inlines.toString content, children = children }
+                            )
 
                 Body content ->
                     renderStyled renderer content
@@ -145,6 +149,21 @@ render :
 render renderer markdownText =
     markdownText
         |> parse
+        |> Result.mapError deadEndsToString
+        |> Result.andThen
+            (\markdownAst ->
+                markdownAst
+                    |> renderHelper renderer
+                    |> combineResults
+            )
+
+
+renderAst :
+    Renderer view
+    -> Result (List (Advanced.DeadEnd String Parser.Problem)) (List Block)
+    -> Result String (List view)
+renderAst renderer astResult =
+    astResult
         |> Result.mapError deadEndsToString
         |> Result.andThen
             (\markdownAst ->
@@ -405,11 +424,11 @@ statementsHelp revStmts =
             )
             |= Advanced.getOffset
             |= oneOf
-                [ thematicBreak |> map List.singleton
+                [ Markdown.CodeBlock.parser |> map CodeBlock |> map List.singleton
+                , thematicBreak |> map List.singleton
                 , listBlock |> map List.singleton
                 , blankLine |> map List.singleton
                 , heading |> map List.singleton
-                , Markdown.CodeBlock.parser |> map CodeBlock |> map List.singleton
                 , htmlParser |> map List.singleton
                 , plainLine
                 ]

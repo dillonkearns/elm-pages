@@ -13,7 +13,23 @@ parser =
     oneOf
         [ parserHelp "```"
         , parserHelp "~~~"
+        , indentedBlock
         ]
+
+
+indentedBlock : Parser CodeBlock
+indentedBlock =
+    succeed
+        (\body ->
+            { body = body
+            , language = Nothing
+            }
+        )
+        |. oneOf
+            [ Advanced.symbol (Advanced.Token "    " (Parser.ExpectingSymbol "Indentation"))
+            , Advanced.symbol (Advanced.Token "\t" (Parser.ExpectingSymbol "Indentation"))
+            ]
+        |= getChompedString (Advanced.chompUntilEndOr "\n")
 
 
 parserHelp : String -> Parser CodeBlock

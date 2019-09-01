@@ -10,17 +10,78 @@ import Html exposing (Attribute, Html)
 import Html.Attributes exposing (property)
 import Html.Events exposing (on)
 import Json.Encode as Encode exposing (Value)
+import Markdown.Inlines
 import Markdown.Parser
 import PagesNew
 import Palette
 
 
+addToc : List Markdown.Parser.Block -> List Markdown.Parser.Block
+addToc blocks =
+    let
+        headings =
+            gatherHeadings blocks
+
+        toc =
+            Markdown.Parser.ListBlock
+                (headings
+                    |> List.map Tuple.second
+                    |> List.map
+                        (\styledList ->
+                            List.map
+                                (\{ string, style } ->
+                                    { string = string
+                                    , style =
+                                        { style
+                                            | link =
+                                                Just
+                                                    { title = Nothing, destination = "#" ++ styledToString styledList }
+                                        }
+                                    }
+                                )
+                                styledList
+                        )
+                )
+    in
+    toc
+        :: blocks
+
+
+styledToString : List Markdown.Inlines.StyledString -> String
+styledToString list =
+    List.map .string list
+        |> String.join "-"
+
+
+
+-- list
+-- ""
+
+
+gatherHeadings : List Markdown.Parser.Block -> List ( Int, List Markdown.Inlines.StyledString )
+gatherHeadings blocks =
+    List.filterMap
+        (\block ->
+            case block of
+                Markdown.Parser.Heading level content ->
+                    Just ( level, content )
+
+                _ ->
+                    Nothing
+        )
+        blocks
+
+
 view : String -> Result String (List (Element msg))
 view markdown =
     markdown
-        |> Markdown.Parser.render
+        |> Markdown.Parser.parse
+        |> Result.map addToc
+        |> Markdown.Parser.renderAst
             { heading = heading
-            , raw = Element.paragraph []
+            , raw =
+                Element.paragraph
+                    []
 
             -- TODO
             , thematicBreak = Element.none
@@ -112,8 +173,8 @@ view markdown =
             }
 
 
-heading : Int -> List (Element msg) -> Element msg
-heading level content =
+heading : { level : Int, rawText : String, children : List (Element msg) } -> Element msg
+heading { level, rawText, children } =
     Element.paragraph
         [ Font.size
             (case level of
@@ -129,8 +190,12 @@ heading level content =
         , Font.bold
         , Font.family [ Font.typeface "Raleway" ]
         , Element.Region.heading level
+        , Element.htmlAttribute
+            (Html.Attributes.attribute "name" rawText)
+        , Element.htmlAttribute
+            (Html.Attributes.id rawText)
         ]
-        content
+        children
 
 
 code : String -> Element msg

@@ -1,4 +1,4 @@
-module Markdown.Inlines exposing (State, Style, StyledString, isUninteresting, nextStepWhenFoundBold, nextStepWhenFoundItalic, nextStepWhenFoundNothing, parse, parseHelp)
+module Markdown.Inlines exposing (State, Style, StyledString, isUninteresting, nextStepWhenFoundBold, nextStepWhenFoundItalic, nextStepWhenFoundNothing, parse, parseHelp, toString)
 
 import Browser
 import Char
@@ -8,6 +8,12 @@ import Html.Attributes as Attr
 import Markdown.Link as Link exposing (Link)
 import Parser
 import Parser.Advanced as Advanced exposing (..)
+
+
+toString : List StyledString -> String
+toString list =
+    List.map .string list
+        |> String.join "-"
 
 
 type alias Parser a =
