@@ -46,7 +46,7 @@ manifest =
 -- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
 
 
-main : Platform.Program Pages.Flags (Pages.Model Model Msg (Metadata Msg) (List (Element Msg))) (Pages.Msg Msg (Metadata Msg) (List (Element Msg)))
+main : Platform.Program Pages.Flags (Pages.Model Model Msg (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Msg Msg (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
 main =
     PagesNew.application
         { init = init
@@ -59,7 +59,7 @@ main =
         }
 
 
-markdownDocument : Pages.Document.DocumentParser (Metadata msg) (List (Element Msg))
+markdownDocument : Pages.Document.DocumentParser (Metadata msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 markdownDocument =
     Pages.Document.parser
         { extension = "md"
@@ -114,7 +114,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (List (Element Msg)) -> { title : String, body : Html Msg }
+view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Html Msg }
 view model siteMetadata page =
     let
         { title, body } =
@@ -132,7 +132,7 @@ view model siteMetadata page =
     }
 
 
-pageView : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) (List (Element Msg)) -> { title : String, body : Element Msg }
+pageView : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Element Msg }
 pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->
@@ -144,7 +144,7 @@ pageView model siteMetadata page =
                     , Element.spacing 60
                     , Element.Region.mainContent
                     ]
-                    page.view
+                    (Tuple.second page.view)
                 ]
                     |> Element.textColumn
                         [ Element.width Element.fill
@@ -164,7 +164,7 @@ pageView model siteMetadata page =
                         , Element.centerX
                         ]
                         (Palette.blogHeading metadata.title
-                            :: page.view
+                            :: Tuple.second page.view
                         )
                     ]
             }
@@ -183,7 +183,7 @@ pageView model siteMetadata page =
                             , Element.spacing 30
                             , Element.Region.mainContent
                             ]
-                            page.view
+                            (Tuple.second page.view)
                         ]
                     ]
                 ]
