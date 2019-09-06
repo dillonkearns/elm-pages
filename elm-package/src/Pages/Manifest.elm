@@ -4,7 +4,6 @@ import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
 import Pages.Manifest.Category as Category exposing (Category)
-import Platform.Sub
 
 
 
