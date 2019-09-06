@@ -11,7 +11,6 @@ import Pages
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
-import RawContent
 import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
 
@@ -48,7 +47,7 @@ application config =
         , update = config.update
         , subscriptions = config.subscriptions
         , document = Dict.fromList config.documents
-        , content = RawContent.content
+        , content = content
         , toJsPort = toJsPort
         , head = config.head
         , manifest =
@@ -147,3 +146,38 @@ isValidRoute route =
         )
             |> Err
 
+
+content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
+content =
+    [ 
+  ( ["blog", "types-over-conventions"]
+    , { frontMatter = """{"author":"Dillon Kearns","title":"Types Over Conventions"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( ["docs", "directory-structure"]
+    , { frontMatter = """{"title":"Directory Structure","type":"doc"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( ["docs"]
+    , { frontMatter = """{"title":"Quick Start","type":"doc"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( []
+    , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( ["markdown"]
+    , { frontMatter = """{"title":"Hello from markdown! 👋"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  
+    ]
