@@ -1,4 +1,4 @@
-module Pages.Path exposing (Path(..), ResourceType(..), buildPath)
+module Pages.Path exposing (Path(..), ResourceType(..), buildPath, toString)
 
 
 type ResourceType
@@ -8,6 +8,14 @@ type ResourceType
 
 type Path key
     = Path ResourceType (List String)
+
+
+toString : Path key -> String
+toString (Path resourceType rawPath) =
+    "/"
+        ++ (rawPath
+                |> String.join "/"
+           )
 
 
 buildPath : ResourceType -> key -> List String -> Path key

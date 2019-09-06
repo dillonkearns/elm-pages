@@ -4,6 +4,7 @@ import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
 import Pages.Manifest.Category as Category exposing (Category)
+import Pages.Path as Path exposing (Path)
 
 
 
@@ -70,7 +71,7 @@ orientationToString orientation =
             "portrait-secondary"
 
 
-type alias Config =
+type alias Config pathKey =
     { backgroundColor : Maybe Color
     , categories : List Category
     , displayMode : DisplayMode
@@ -85,7 +86,7 @@ type alias Config =
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : String
+    , sourceIcon : Path pathKey
     }
 
 
@@ -105,10 +106,11 @@ displayModeToAttribute displayMode =
             "browser"
 
 
-toJson : Config -> Encode.Value
+toJson : Config pathKey -> Encode.Value
 toJson config =
     [ ( "sourceIcon"
       , config.sourceIcon
+            |> Path.toString
             |> Encode.string
             |> Just
       )

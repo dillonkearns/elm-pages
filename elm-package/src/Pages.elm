@@ -296,7 +296,7 @@ application :
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List Head.Tag
-    , manifest : Manifest.Config
+    , manifest : Manifest.Config pathKey
     }
     -> Program userModel userMsg metadata view
 application config =
@@ -346,7 +346,7 @@ cliApplication :
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List Head.Tag
-    , manifest : Manifest.Config
+    , manifest : Manifest.Config pathKey
     }
     -> Program userModel userMsg metadata view
 cliApplication config =

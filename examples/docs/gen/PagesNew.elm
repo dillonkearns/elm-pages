@@ -1,7 +1,7 @@
-port module PagesNew exposing (application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages, isValidRoute)
+port module PagesNew exposing (Image, PageRoute, PathKey, all, allImages, application, imageUrl, images, isValidRoute, pages, routeToString)
 
-import Dict exposing (Dict)
 import Color exposing (Color)
+import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
 import Json.Decode
@@ -9,10 +9,20 @@ import Json.Encode
 import Mark
 import Pages
 import Pages.ContentCache exposing (Page)
+import Pages.Document
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
+import Pages.Path as Path exposing (Path)
 import Url.Parser as Url exposing ((</>), s)
-import Pages.Document
+
+
+type PathKey
+    = PathKey
+
+
+buildImage : Image -> Path PathKey
+buildImage (Image path) =
+    Path.buildPath Path.Image PathKey path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -61,43 +71,52 @@ application config =
             , themeColor = config.manifest.themeColor
             , startUrl = Just (routeToString config.manifest.startUrl)
             , shortName = config.manifest.shortName
-            , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
+
+            -- , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
+            , sourceIcon = buildImage config.manifest.sourceIcon
             }
         }
 
 
-type PageRoute = PageRoute (List String)
+type PageRoute
+    = PageRoute (List String)
 
-type Image = Image (List String)
+
+type Image
+    = Image (List String)
+
 
 imageUrl : Image -> String
 imageUrl (Image path) =
     "/"
         ++ String.join "/" ("images" :: path)
 
+
 all : List PageRoute
 all =
-    [ (PageRoute [ "blog", "types-over-conventions" ])
-    , (PageRoute [ "docs", "directory-structure" ])
-    , (PageRoute [ "docs" ])
-    , (PageRoute [  ])
-    , (PageRoute [ "markdown" ])
+    [ PageRoute [ "blog", "types-over-conventions" ]
+    , PageRoute [ "docs", "directory-structure" ]
+    , PageRoute [ "docs" ]
+    , PageRoute []
+    , PageRoute [ "markdown" ]
     ]
+
 
 pages =
     { blog =
-        { typesOverConventions = (PageRoute [ "blog", "types-over-conventions" ])
-        , all = [ (PageRoute [ "blog", "types-over-conventions" ]) ]
+        { typesOverConventions = PageRoute [ "blog", "types-over-conventions" ]
+        , all = [ PageRoute [ "blog", "types-over-conventions" ] ]
         }
     , docs =
-        { directoryStructure = (PageRoute [ "docs", "directory-structure" ])
-        , index = (PageRoute [ "docs" ])
-        , all = [ (PageRoute [ "docs", "directory-structure" ]), (PageRoute [ "docs" ]) ]
+        { directoryStructure = PageRoute [ "docs", "directory-structure" ]
+        , index = PageRoute [ "docs" ]
+        , all = [ PageRoute [ "docs", "directory-structure" ], PageRoute [ "docs" ] ]
         }
-    , index = (PageRoute [  ])
-    , markdown = (PageRoute [ "markdown" ])
-    , all = [ (PageRoute [  ]), (PageRoute [ "markdown" ]) ]
+    , index = PageRoute []
+    , markdown = PageRoute [ "markdown" ]
+    , all = [ PageRoute [], PageRoute [ "markdown" ] ]
     }
+
 
 urlParser : Url.Parser (PageRoute -> a) a
 urlParser =
@@ -105,26 +124,29 @@ urlParser =
         [ Url.map (PageRoute [ "blog", "types-over-conventions" ]) (s "blog" </> s "types-over-conventions")
         , Url.map (PageRoute [ "docs", "directory-structure" ]) (s "docs" </> s "directory-structure")
         , Url.map (PageRoute [ "docs" ]) (s "docs" </> s "index")
-        , Url.map (PageRoute [  ]) (s "index")
+        , Url.map (PageRoute []) (s "index")
         , Url.map (PageRoute [ "markdown" ]) (s "markdown")
-        ] 
+        ]
+
 
 images =
-    { icon = (Image [ "icon.svg" ])
-    , mountains = (Image [ "mountains.jpg" ])
-    , all = [ (Image [ "icon.svg" ]), (Image [ "mountains.jpg" ]) ]
+    { icon = Image [ "icon.svg" ]
+    , mountains = Image [ "mountains.jpg" ]
+    , all = [ Image [ "icon.svg" ], Image [ "mountains.jpg" ] ]
     }
+
 
 allImages : List Image
 allImages =
-    [(Image [ "icon.svg" ])
-    , (Image [ "mountains.jpg" ])
+    [ Image [ "icon.svg" ]
+    , Image [ "mountains.jpg" ]
     ]
+
 
 routeToString : PageRoute -> String
 routeToString (PageRoute route) =
     "/"
-      ++ (route |> String.join "/")
+        ++ (route |> String.join "/")
 
 
 isValidRoute : String -> Result String ()
@@ -147,37 +169,41 @@ isValidRoute route =
             |> Err
 
 
-content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
+content : List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 content =
-    [ 
-  ( ["blog", "types-over-conventions"]
-    , { frontMatter = """{"author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO"}
-""" , body = Nothing
-    , extension = "md"
-    } )
-  ,
-  ( ["docs", "directory-structure"]
-    , { frontMatter = """{"title":"Directory Structure","type":"doc"}
-""" , body = Nothing
-    , extension = "md"
-    } )
-  ,
-  ( ["docs"]
-    , { frontMatter = """{"title":"Quick Start","type":"doc"}
-""" , body = Nothing
-    , extension = "md"
-    } )
-  ,
-  ( []
-    , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
-""" , body = Nothing
-    , extension = "md"
-    } )
-  ,
-  ( ["markdown"]
-    , { frontMatter = """{"title":"Hello from markdown! 👋"}
-""" , body = Nothing
-    , extension = "md"
-    } )
-  
+    [ ( [ "blog", "types-over-conventions" ]
+      , { frontMatter = """{"author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO"}
+"""
+        , body = Nothing
+        , extension = "md"
+        }
+      )
+    , ( [ "docs", "directory-structure" ]
+      , { frontMatter = """{"title":"Directory Structure","type":"doc"}
+"""
+        , body = Nothing
+        , extension = "md"
+        }
+      )
+    , ( [ "docs" ]
+      , { frontMatter = """{"title":"Quick Start","type":"doc"}
+"""
+        , body = Nothing
+        , extension = "md"
+        }
+      )
+    , ( []
+      , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
+"""
+        , body = Nothing
+        , extension = "md"
+        }
+      )
+    , ( [ "markdown" ]
+      , { frontMatter = """{"title":"Hello from markdown! 👋"}
+"""
+        , body = Nothing
+        , extension = "md"
+        }
+      )
     ]
