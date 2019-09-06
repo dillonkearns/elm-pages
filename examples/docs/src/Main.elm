@@ -17,11 +17,10 @@ import Json.Decode
 import Markdown.Parser
 import MarkdownRenderer
 import Metadata exposing (Metadata)
-import Pages
+import Pages exposing (Page)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
-import Pages.Parser exposing (Page)
 import PagesNew exposing (images, pages)
 import Palette
 
@@ -65,12 +64,17 @@ markdownDocument =
         { extension = "md"
         , metadata =
             Json.Decode.oneOf
-                [ Json.Decode.map2
-                    (\author title ->
-                        Metadata.Article { author = author, title = title }
+                [ Json.Decode.map3
+                    (\author title description ->
+                        Metadata.Article
+                            { author = author
+                            , title = title
+                            , description = description
+                            }
                     )
                     (Json.Decode.field "author" Json.Decode.string)
                     (Json.Decode.field "title" Json.Decode.string)
+                    (Json.Decode.field "description" Json.Decode.string)
                 , Json.Decode.map2
                     (\title maybeType ->
                         case maybeType of

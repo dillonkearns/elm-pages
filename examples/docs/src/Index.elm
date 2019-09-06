@@ -4,7 +4,7 @@ import Element exposing (Element)
 import Element.Border
 import Element.Font
 import Metadata exposing (Metadata)
-import Pages.Parser exposing (Page)
+import Pages exposing (Page)
 
 
 view :
@@ -30,7 +30,7 @@ view posts =
 
 
 postSummary :
-    ( List String, Metadata.ArticleMetadata msg )
+    ( List String, Metadata.ArticleMetadata )
     -> Element msg
 postSummary ( postPath, post ) =
     articleIndex post
@@ -61,7 +61,7 @@ title text =
             ]
 
 
-articleIndex : Metadata.ArticleMetadata msg -> Element msg
+articleIndex : Metadata.ArticleMetadata -> Element msg
 articleIndex metadata =
     Element.el
         [ Element.centerX
@@ -89,7 +89,7 @@ readMoreLink =
             ]
 
 
-postPreview : Metadata.ArticleMetadata msg -> Element msg
+postPreview : Metadata.ArticleMetadata -> Element msg
 postPreview post =
     Element.textColumn
         [ Element.centerX
@@ -97,8 +97,10 @@ postPreview post =
         , Element.spacing 30
         , Element.Font.size 18
         ]
-        [ title post.title.raw
-        , post.description.styled
+        [ title post.title
+        , post.description
+            |> Element.text
+            |> List.singleton
             |> Element.paragraph
                 [ Element.Font.size 22
                 , Element.Font.center

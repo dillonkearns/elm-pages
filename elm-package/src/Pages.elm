@@ -1,4 +1,4 @@
-module Pages exposing (Flags, Model, Msg, Parser, Program, application, cliApplication)
+module Pages exposing (Flags, Model, Msg, Page, Parser, Program, application, cliApplication)
 
 import Browser
 import Browser.Navigation
@@ -13,10 +13,15 @@ import Pages.Content as Content exposing (Content)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Manifest as Manifest
-import Pages.Parser exposing (Page)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
+
+
+type alias Page metadata view =
+    { metadata : metadata
+    , view : view
+    }
 
 
 type alias Content =

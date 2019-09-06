@@ -4,7 +4,6 @@ import Element exposing (Element)
 import Element.Border as Border
 import Element.Font
 import Metadata exposing (Metadata)
-import Pages.Parser exposing (Page)
 
 
 view :

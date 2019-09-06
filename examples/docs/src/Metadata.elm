@@ -1,4 +1,4 @@
-module Metadata exposing (DocMetadata, Metadata(..), PageMetadata)
+module Metadata exposing (ArticleMetadata, DocMetadata, Metadata(..), PageMetadata)
 
 import Dict exposing (Dict)
 import Element exposing (Element)
@@ -7,8 +7,12 @@ import Element.Font as Font
 
 type Metadata msg
     = Page PageMetadata
-    | Article { author : String, title : String }
+    | Article ArticleMetadata
     | Doc DocMetadata
+
+
+type alias ArticleMetadata =
+    { author : String, title : String, description : String }
 
 
 type alias DocMetadata =
