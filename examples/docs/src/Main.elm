@@ -176,14 +176,17 @@ pageView model siteMetadata page =
                 , Element.row []
                     [ DocSidebar.view siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
-                    , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35 ]
+                    , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
                         [ Palette.heading 1 [ Element.text metadata.title ]
-                        , Element.column
-                            [ Element.padding 50
-                            , Element.spacing 30
-                            , Element.Region.mainContent
+                        , Element.column [ Element.spacing 20 ]
+                            [ tocView (Tuple.first page.view)
+                            , Element.column
+                                [ Element.padding 50
+                                , Element.spacing 30
+                                , Element.Region.mainContent
+                                ]
+                                (Tuple.second page.view)
                             ]
-                            (Tuple.second page.view)
                         ]
                     ]
                 ]
@@ -328,3 +331,20 @@ pageTags metadata =
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }
+
+
+tocView : MarkdownRenderer.TableOfContents -> Element msg
+tocView toc =
+    Element.column [ Element.alignTop, Element.spacing 20 ]
+        [ Element.el [ Font.bold, Font.size 22 ] (Element.text "Table of Contents")
+        , Element.column [ Element.spacing 10 ]
+            (toc
+                |> List.map
+                    (\heading ->
+                        Element.link [ Font.color (Element.rgb255 100 100 100) ]
+                            { url = "#" ++ heading.anchorId
+                            , label = Element.text heading.name
+                            }
+                    )
+            )
+        ]
