@@ -22,6 +22,7 @@ import PagesNew exposing (images, pages)
 import Palette
 
 
+manifest : Manifest.Config PagesNew.PathKey
 manifest =
     { backgroundColor = Just Color.white
     , categories = [ Pages.Manifest.Category.education ]

@@ -1,4 +1,4 @@
-port module PagesNew exposing (Image, PageRoute, PathKey, all, allImages, application, imageUrl, images, isValidRoute, pages, routeToString)
+port module PagesNew exposing (PathKey, all, allImages, application, buildPage, images, isValidRoute, pages)
 
 import Color exposing (Color)
 import Dict exposing (Dict)
@@ -20,9 +20,14 @@ type PathKey
     = PathKey
 
 
-buildImage : Image -> Path PathKey
-buildImage (Image path) =
-    Path.buildPath Path.Image PathKey path
+buildImage : List String -> Path PathKey Path.ToImage
+buildImage path =
+    Path.buildImage PathKey path
+
+
+buildPage : List String -> Path PathKey Path.ToPage
+buildPage path =
+    Path.buildPage PathKey path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -35,19 +40,7 @@ application :
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , head : metadata -> List Head.Tag
     , documents : List (Pages.Document.DocumentParser metadata view)
-    , manifest :
-        { backgroundColor : Maybe Color
-        , categories : List Category
-        , displayMode : DisplayMode
-        , orientation : Orientation
-        , description : String
-        , iarcRatingId : Maybe String
-        , name : String
-        , themeColor : Maybe Color
-        , startUrl : PageRoute
-        , shortName : Maybe String
-        , sourceIcon : Image
-        }
+    , manifest : Pages.Manifest.Config PathKey
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -60,100 +53,66 @@ application config =
         , content = content
         , toJsPort = toJsPort
         , head = config.head
-        , manifest =
-            { backgroundColor = config.manifest.backgroundColor
-            , categories = config.manifest.categories
-            , displayMode = config.manifest.displayMode
-            , orientation = config.manifest.orientation
-            , description = config.manifest.description
-            , iarcRatingId = config.manifest.iarcRatingId
-            , name = config.manifest.name
-            , themeColor = config.manifest.themeColor
-            , startUrl = Just (routeToString config.manifest.startUrl)
-            , shortName = config.manifest.shortName
-
-            -- , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
-            , sourceIcon = buildImage config.manifest.sourceIcon
-            }
+        , manifest = config.manifest
         }
 
 
-type PageRoute
-    = PageRoute (List String)
-
-
-type Image
-    = Image (List String)
-
-
-imageUrl : Image -> String
-imageUrl (Image path) =
-    "/"
-        ++ String.join "/" ("images" :: path)
-
-
-all : List PageRoute
+all : List (Path PathKey Path.ToPage)
 all =
-    [ PageRoute [ "blog", "types-over-conventions" ]
-    , PageRoute [ "docs", "directory-structure" ]
-    , PageRoute [ "docs" ]
-    , PageRoute []
-    , PageRoute [ "markdown" ]
+    [ buildPage [ "blog", "types-over-conventions" ]
+    , buildPage [ "docs", "directory-structure" ]
+    , buildPage [ "docs" ]
+    , buildPage []
+    , buildPage [ "markdown" ]
     ]
 
 
 pages =
     { blog =
-        { typesOverConventions = PageRoute [ "blog", "types-over-conventions" ]
-        , all = [ PageRoute [ "blog", "types-over-conventions" ] ]
+        { typesOverConventions = buildPage [ "blog", "types-over-conventions" ]
+        , all = [ buildPage [ "blog", "types-over-conventions" ] ]
         }
     , docs =
-        { directoryStructure = PageRoute [ "docs", "directory-structure" ]
-        , index = PageRoute [ "docs" ]
-        , all = [ PageRoute [ "docs", "directory-structure" ], PageRoute [ "docs" ] ]
+        { directoryStructure = buildPage [ "docs", "directory-structure" ]
+        , index = buildPage [ "docs" ]
+        , all = [ buildPage [ "docs", "directory-structure" ], buildPage [ "docs" ] ]
         }
-    , index = PageRoute []
-    , markdown = PageRoute [ "markdown" ]
-    , all = [ PageRoute [], PageRoute [ "markdown" ] ]
+    , index = buildPage []
+    , markdown = buildPage [ "markdown" ]
+    , all = [ buildPage [], buildPage [ "markdown" ] ]
     }
 
 
-urlParser : Url.Parser (PageRoute -> a) a
+urlParser : Url.Parser (Path PathKey Path.ToPage -> a) a
 urlParser =
     Url.oneOf
-        [ Url.map (PageRoute [ "blog", "types-over-conventions" ]) (s "blog" </> s "types-over-conventions")
-        , Url.map (PageRoute [ "docs", "directory-structure" ]) (s "docs" </> s "directory-structure")
-        , Url.map (PageRoute [ "docs" ]) (s "docs" </> s "index")
-        , Url.map (PageRoute []) (s "index")
-        , Url.map (PageRoute [ "markdown" ]) (s "markdown")
+        [ Url.map (buildPage [ "blog", "types-over-conventions" ]) (s "blog" </> s "types-over-conventions")
+        , Url.map (buildPage [ "docs", "directory-structure" ]) (s "docs" </> s "directory-structure")
+        , Url.map (buildPage [ "docs" ]) (s "docs" </> s "index")
+        , Url.map (buildPage []) (s "index")
+        , Url.map (buildPage [ "markdown" ]) (s "markdown")
         ]
 
 
 images =
-    { icon = Image [ "icon.svg" ]
-    , mountains = Image [ "mountains.jpg" ]
-    , all = [ Image [ "icon.svg" ], Image [ "mountains.jpg" ] ]
+    { icon = buildImage [ "icon.svg" ]
+    , mountains = buildImage [ "mountains.jpg" ]
+    , all = [ buildImage [ "icon.svg" ], buildImage [ "mountains.jpg" ] ]
     }
 
 
-allImages : List Image
+allImages : List (Path PathKey Path.ToImage)
 allImages =
-    [ Image [ "icon.svg" ]
-    , Image [ "mountains.jpg" ]
+    [ buildImage [ "icon.svg" ]
+    , buildImage [ "mountains.jpg" ]
     ]
-
-
-routeToString : PageRoute -> String
-routeToString (PageRoute route) =
-    "/"
-        ++ (route |> String.join "/")
 
 
 isValidRoute : String -> Result String ()
 isValidRoute route =
     let
         validRoutes =
-            List.map routeToString all
+            List.map Path.toString all
     in
     if
         (route |> String.startsWith "http://")

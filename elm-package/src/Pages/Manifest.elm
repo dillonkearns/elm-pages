@@ -82,11 +82,11 @@ type alias Config pathKey =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : Maybe String
+    , startUrl : Path pathKey Path.ToPage
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : Path pathKey
+    , sourceIcon : Path pathKey Path.ToImage
     }
 
 
@@ -168,7 +168,9 @@ toJson config =
       )
     , ( "start_url"
       , config.startUrl
-            |> Maybe.map Encode.string
+            |> Path.toString
+            |> Encode.string
+            |> Just
       )
     , ( "short_name"
       , config.shortName |> Maybe.map Encode.string

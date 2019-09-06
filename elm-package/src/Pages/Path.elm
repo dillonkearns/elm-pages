@@ -1,23 +1,31 @@
-module Pages.Path exposing (Path(..), ResourceType(..), buildPath, toString)
+module Pages.Path exposing (Path(..), ToImage, ToPage, buildImage, buildPage, toString)
 
 
-type ResourceType
-    = Image
-    | Page
+type ToImage
+    = ToImage
 
 
-type Path key
-    = Path ResourceType (List String)
+type ToPage
+    = ToPage
 
 
-toString : Path key -> String
-toString (Path resourceType rawPath) =
+type Path key resource
+    = Path (List String)
+
+
+toString : Path key resource -> String
+toString (Path rawPath) =
     "/"
         ++ (rawPath
                 |> String.join "/"
            )
 
 
-buildPath : ResourceType -> key -> List String -> Path key
-buildPath resourceType key path =
-    Path resourceType path
+buildImage : key -> List String -> Path key ToImage
+buildImage key path =
+    Path path
+
+
+buildPage : key -> List String -> Path key ToPage
+buildPage key path =
+    Path path
