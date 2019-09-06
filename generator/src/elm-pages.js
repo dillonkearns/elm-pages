@@ -10,7 +10,6 @@ const runElm = require("./compile-elm.js");
 const doCliStuff = require("./generate-elm-stuff.js");
 const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
-const generateRawContent = require("./generate-raw-content.js");
 const parseFrontmatter = require("./frontmatter.js");
 
 const contentGlobPath = "content/**/*.emu";
@@ -78,13 +77,16 @@ function run() {
   });
 
   app.ports.writeFile.subscribe(contents => {
-    const rawContent = generateRawContent(markdownContent, content);
     const routes = toRoutes(markdownContent.concat(content));
 
-    fs.writeFileSync("./gen/RawContent.elm", rawContent);
-    fs.writeFileSync("./gen/PagesNew.elm", elmPagesUiFile(staticRoutes));
+    fs.writeFileSync(
+      "./gen/PagesNew.elm",
+      elmPagesUiFile(staticRoutes, markdownContent, content)
+    );
     console.log("elm-pages DONE");
-    doCliStuff(staticRoutes, rawContent, function(manifestConfig) {
+    doCliStuff(staticRoutes, markdownContent, content, function(
+      manifestConfig
+    ) {
       if (contents.watch) {
         startWatchIfNeeded();
         if (!devServerRunning) {

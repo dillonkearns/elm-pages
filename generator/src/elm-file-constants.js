@@ -1,3 +1,4 @@
+generateRawContent = require("./generate-raw-content.js");
 const exposingList =
   "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages, isValidRoute)";
 
@@ -53,7 +54,7 @@ isValidRoute route =
 `;
 }
 
-function elmPagesUiFile(staticRoutes) {
+function elmPagesUiFile(staticRoutes, markdownContent, markupContent) {
   return `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
@@ -67,7 +68,6 @@ import Pages
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
-import RawContent
 import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
 
@@ -104,7 +104,7 @@ application config =
         , update = config.update
         , subscriptions = config.subscriptions
         , document = Dict.fromList config.documents
-        , content = RawContent.content
+        , content = content
         , toJsPort = toJsPort
         , head = config.head
         , manifest =
@@ -122,10 +122,12 @@ application config =
             }
         }
 ${staticRouteStuff(staticRoutes)}
+
+${generateRawContent(markdownContent, markupContent)}
 `;
 }
 
-function elmPagesCliFile(staticRoutes) {
+function elmPagesCliFile(staticRoutes, markdownContent, markupContent) {
   return `port module PagesNew exposing ${exposingList}
 
 import Dict exposing (Dict)
@@ -139,7 +141,6 @@ import Pages
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
-import RawContent
 import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
 
@@ -176,7 +177,7 @@ application config =
         , update = config.update
         , subscriptions = config.subscriptions
         , document = Dict.fromList config.documents
-        , content = RawContent.content
+        , content = content
         , toJsPort = toJsPort
         , head = config.head
         , manifest =
@@ -196,6 +197,8 @@ application config =
 
 
 ${staticRouteStuff(staticRoutes)}
+
+${generateRawContent(markdownContent, markupContent)}
 `;
 }
 module.exports = { elmPagesUiFile, elmPagesCliFile };
