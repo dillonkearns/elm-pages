@@ -27,14 +27,14 @@ import Palette
 
 
 manifest =
-    { backgroundColor = Just Color.blue
+    { backgroundColor = Just Color.white
     , categories = [ Pages.Manifest.Category.education ]
     , displayMode = Manifest.Standalone
     , orientation = Manifest.Portrait
     , description = "elm-pages - A statically typed site generator."
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
-    , themeColor = Just Color.blue
+    , themeColor = Just Color.white
     , startUrl = pages.index
     , shortName = Just "elm-pages"
     , sourceIcon = images.icon
