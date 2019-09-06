@@ -76,7 +76,7 @@ function generate(scanned) {
 
     // const elmType = pathFragments.map(toPascalCase).join("");
     const elmType =
-      "(PageRoute [ " +
+      "(buildPage [ " +
       pathFragments
         .filter(fragment => fragment !== "index")
         .map(fragment => `"${fragment}"`)
@@ -114,7 +114,7 @@ function getImageAssets() {
     .map(relativeImagePath)
     .forEach(info => {
       const elmType =
-        "(Image [ " +
+        "(buildImage [ " +
         info.fragmentsWithExtension
           .map(fragment => `"${fragment}"`)
           .join(", ") +
@@ -131,7 +131,7 @@ function allImageAssetNames() {
     .map(relativeImagePath)
     .map(info => {
       return (
-        "(Image [ " +
+        "(buildImage [ " +
         info.fragmentsWithExtension
           .map(fragment => `"${fragment}"`)
           .join(", ") +
@@ -208,7 +208,7 @@ function captureRouteRecord(pieces, elmType, record) {
 function formatAsElmList(name, items) {
   var formatted = items.join("\n    , ");
 
-  var signature = name + " : List PageRoute\n";
+  var signature = name + " : List (Path PathKey Path.ToPage)\n";
 
   return signature + name + " =\n    [ " + formatted + "\n    ]";
 }
@@ -257,6 +257,6 @@ function formatAsElmUrlParser(pieces) {
   var parser =
     "    [ " + pieces.map(p => p.parser).join("\n        , ") + "\n        ]";
 
-  return `urlParser : Url.Parser (PageRoute -> a) a
+  return `urlParser : Url.Parser (Path PathKey Path.ToPage -> a) a
 urlParser =\n    Url.oneOf\n    ${parser} `;
 }

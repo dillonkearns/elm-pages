@@ -1,18 +1,10 @@
 generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-  "(application, PageRoute, all, pages, routeToString, Image, imageUrl, images, allImages, isValidRoute)";
+  "(PathKey, all, allImages, application, buildPage, images, isValidRoute, pages)";
 
 function staticRouteStuff(staticRoutes) {
   return `
 
-type PageRoute = PageRoute (List String)
-
-type Image = Image (List String)
-
-imageUrl : Image -> String
-imageUrl (Image path) =
-    "/"
-        ++ String.join "/" ("images" :: path)
 
 ${staticRoutes.allRoutes}
 
@@ -22,26 +14,22 @@ ${staticRoutes.urlParser}
 
 ${staticRoutes.imageAssetsRecord}
 
-allImages : List Image
+allImages : List (Path PathKey Path.ToImage)
 allImages =
     [${staticRoutes.allImages.join("\n    , ")}
     ]
-
-routeToString : PageRoute -> String
-routeToString (PageRoute route) =
-    "/"
-      ++ (route |> String.join "/")
 
 
 isValidRoute : String -> Result String ()
 isValidRoute route =
     let
         validRoutes =
-            List.map routeToString all
+            List.map Path.toString all
     in
     if
         (route |> String.startsWith "http://")
             || (route |> String.startsWith "https://")
+            || (route |> String.startsWith "#")
             || (validRoutes |> List.member route)
     then
         Ok ()
@@ -70,8 +58,22 @@ import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
+import Pages.Path as Path exposing (Path)
 
 
+type PathKey
+    = PathKey
+
+
+buildImage : List String -> Path PathKey Path.ToImage
+buildImage path =
+    Path.buildImage PathKey ("images" :: path)
+
+
+
+buildPage : List String -> Path PathKey Path.ToPage
+buildPage path =
+    Path.buildPage PathKey path
 port toJsPort : Json.Encode.Value -> Cmd msg
 
 
@@ -82,19 +84,7 @@ application :
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , head : metadata -> List Head.Tag
     , documents : List (Pages.Document.DocumentParser metadata view)
-    , manifest :
-        { backgroundColor : Maybe Color
-        , categories : List Category
-        , displayMode : DisplayMode
-        , orientation : Orientation
-        , description : String
-        , iarcRatingId : Maybe String
-        , name : String
-        , themeColor : Maybe Color
-        , startUrl : PageRoute
-        , shortName : Maybe String
-        , sourceIcon : Image
-        }
+    , manifest : Pages.Manifest.Config PathKey
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -107,19 +97,7 @@ application config =
         , content = content
         , toJsPort = toJsPort
         , head = config.head
-        , manifest =
-            { backgroundColor = config.manifest.backgroundColor
-            , categories = config.manifest.categories
-            , displayMode = config.manifest.displayMode
-            , orientation = config.manifest.orientation
-            , description = config.manifest.description
-            , iarcRatingId = config.manifest.iarcRatingId
-            , name = config.manifest.name
-            , themeColor = config.manifest.themeColor
-            , startUrl = Just (routeToString config.manifest.startUrl)
-            , shortName = config.manifest.shortName
-            , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
-            }
+        , manifest = config.manifest
         }
 ${staticRouteStuff(staticRoutes)}
 
@@ -143,7 +121,20 @@ import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
+import Pages.Path as Path exposing (Path)
 
+type PathKey
+    = PathKey
+
+
+buildImage : List String -> Path PathKey Path.ToImage
+buildImage path =
+    Path.buildImage PathKey ("images" :: path)
+
+
+buildPage : List String -> Path PathKey Path.ToPage
+buildPage path =
+    Path.buildPage PathKey path
 
 port toJsPort : Json.Encode.Value -> Cmd msg
 
@@ -155,19 +146,7 @@ application :
     , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , documents : List (Pages.Document.DocumentParser metadata view)
     , head : metadata -> List Head.Tag
-    , manifest :
-        { backgroundColor : Maybe Color
-        , categories : List Category
-        , displayMode : DisplayMode
-        , orientation : Orientation
-        , description : String
-        , iarcRatingId : Maybe String
-        , name : String
-        , themeColor : Maybe Color
-        , startUrl : PageRoute
-        , shortName : Maybe String
-        , sourceIcon : Image
-        }
+    , manifest : Pages.Manifest.Config PathKey
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -180,19 +159,7 @@ application config =
         , content = content
         , toJsPort = toJsPort
         , head = config.head
-        , manifest =
-            { backgroundColor = config.manifest.backgroundColor
-            , categories = config.manifest.categories
-            , displayMode = config.manifest.displayMode
-            , orientation = config.manifest.orientation
-            , description = config.manifest.description
-            , iarcRatingId = config.manifest.iarcRatingId
-            , name = config.manifest.name
-            , themeColor = config.manifest.themeColor
-            , startUrl = Just (routeToString config.manifest.startUrl)
-            , shortName = config.manifest.shortName
-            , sourceIcon = "./" ++ imageUrl config.manifest.sourceIcon
-            }
+        , manifest = config.manifest
         }
 
 
