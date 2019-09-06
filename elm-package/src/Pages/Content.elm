@@ -5,9 +5,14 @@ import Html exposing (Html)
 import List.Extra
 import Mark
 import Mark.Error
-import Pages.Parser exposing (Page)
 import Result.Extra
 import Url exposing (Url)
+
+
+type alias Page metadata view =
+    { metadata : metadata
+    , view : view
+    }
 
 
 lookup :
