@@ -3,7 +3,6 @@ module Main exposing (main)
 import Color
 import DocSidebar
 import DocumentSvg
-import Dotted
 import Element exposing (Element)
 import Element.Background
 import Element.Border
@@ -12,9 +11,7 @@ import Element.Region
 import Head
 import Head.OpenGraph as OpenGraph
 import Html exposing (Html)
-import Html.Attributes
 import Json.Decode
-import Markdown.Parser
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import Pages exposing (Page)
