@@ -151,7 +151,7 @@ content : List ( List String, { extension: String, frontMatter : String, body : 
 content =
     [ 
   ( ["blog", "types-over-conventions"]
-    , { frontMatter = """{"author":"Dillon Kearns","title":"Types Over Conventions"}
+    , { frontMatter = """{"author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO"}
 """ , body = Nothing
     , extension = "md"
     } )

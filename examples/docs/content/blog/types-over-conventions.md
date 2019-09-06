@@ -1,6 +1,7 @@
 ---
 author: Dillon Kearns
 title: Types Over Conventions
+description: TODO
 ---
 
 Rails started a movement of simplifying project setup with [a philosophy of "Convention Over Configuration"](https://rubyonrails.org/doctrine/#convention-over-configuration). This made for a very easy experience bootstrapping a new web server. The downside is that you have a lot of implicit rules that can be hard to follow.
