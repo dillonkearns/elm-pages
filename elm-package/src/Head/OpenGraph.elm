@@ -15,6 +15,7 @@ module Head.OpenGraph exposing
 
 import Head
 import Head.SocialMeta as Twitter
+import Pages.Path
 
 
 {-| Will be displayed as a large card in twitter
@@ -29,12 +30,12 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 summaryLarge :
     { url : String
     , siteName : String
-    , image : Image
+    , image : Image pathKey
     , description : String
     , title : String
     , locale : Maybe Locale
     }
-    -> Common
+    -> Common pathKey
 summaryLarge config =
     buildSummary config Twitter.Large
 
@@ -51,12 +52,12 @@ See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/
 summary :
     { url : String
     , siteName : String
-    , image : Image
+    , image : Image pathKey
     , description : String
     , title : String
     , locale : Maybe Locale
     }
-    -> Common
+    -> Common pathKey
 summary config =
     buildSummary config Twitter.Regular
 
@@ -71,13 +72,13 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 audioPlayer :
     { url : String
     , siteName : String
-    , image : Image
+    , image : Image pathKey
     , description : String
     , title : String
     , audio : Audio
     , locale : Maybe Locale
     }
-    -> Common
+    -> Common pathKey
 audioPlayer { title, image, url, description, siteName, audio, locale } =
     { title = title
     , image = image
@@ -114,13 +115,13 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 videoPlayer :
     { url : String
     , siteName : String
-    , image : Image
+    , image : Image pathKey
     , description : String
     , title : String
     , video : Video
     , locale : Maybe Locale
     }
-    -> Common
+    -> Common pathKey
 videoPlayer { title, image, url, description, siteName, video, locale } =
     { title = title
     , image = image
@@ -150,13 +151,13 @@ videoPlayer { title, image, url, description, siteName, video, locale } =
 buildSummary :
     { url : String
     , siteName : String
-    , image : Image
+    , image : Image pathKey
     , description : String
     , title : String
     , locale : Maybe Locale
     }
     -> Twitter.SummarySize
-    -> Common
+    -> Common pathKey
 buildSummary { title, image, url, description, siteName, locale } summarySize =
     { title = title
     , image = image
@@ -185,7 +186,7 @@ buildSummary { title, image, url, description, siteName, locale } summarySize =
 {-| <https://ogp.me/#type_website>
 -}
 website :
-    Common
+    Common pathKey
     -> List (Head.Tag pathKey)
 website common =
     Website |> Content common |> tags
@@ -200,7 +201,7 @@ article :
     , modifiedTime : Maybe Iso8601DateTime
     , expirationTime : Maybe Iso8601DateTime
     }
-    -> Common
+    -> Common pathKey
     -> List (Head.Tag pathKey)
 article details common =
     Article details |> Content common |> tags
@@ -209,7 +210,7 @@ article details common =
 {-| See <https://ogp.me/#type_book>
 -}
 book :
-    Common
+    Common pathKey
     ->
         { tags : List String
         , isbn : Maybe String
@@ -221,7 +222,7 @@ book common details =
 
 
 song :
-    Common
+    Common pathKey
     ->
         { duration : Maybe Int
         , album : Maybe Int
@@ -241,9 +242,9 @@ Skipping this for now, if there's a use case I can add it in:
   - og:determiner - The word that appears before this object's title in a sentence. An enum of (a, an, the, "", auto). If auto is chosen, the consumer of your data should chose between "a" or "an". Default is "" (blank).
 
 -}
-type alias Common =
+type alias Common pathKey =
     { title : String
-    , image : Image
+    , image : Image pathKey
     , url : String
     , description : String
     , siteName : String
@@ -251,7 +252,7 @@ type alias Common =
     , video : Maybe Video
     , locale : Maybe Locale
     , alternateLocales : List Locale
-    , twitterCard : Twitter.TwitterCard
+    , twitterCard : Twitter.TwitterCard pathKey
     }
 
 
@@ -301,8 +302,8 @@ type alias Locale =
     String
 
 
-type Content
-    = Content Common ContentDetails
+type Content pathKey
+    = Content (Common pathKey) ContentDetails
 
 
 type ContentDetails
@@ -349,18 +350,18 @@ type alias MimeType =
 
 {-| See <https://ogp.me/#structured>
 -}
-type alias Image =
-    { url : String
+type alias Image pathKey =
+    { url : Pages.Path.Path pathKey Pages.Path.ToImage
     , alt : String
     , dimensions : Maybe { width : Int, height : Int }
     , mimeType : Maybe MimeType
     }
 
 
-tagsForImage : Image -> List ( String, Maybe String )
+tagsForImage : Image pathKey -> List ( String, Maybe String )
 tagsForImage image =
-    [ ( "og:image", Just image.url )
-    , ( "og:image:secure_url", Just image.url )
+    [ ( "og:image", Just (Pages.Path.toString image.url) )
+    , ( "og:image:secure_url", Just (Pages.Path.toString image.url) )
     , ( "og:image:alt", Just image.alt )
     , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt )
     , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt )
@@ -385,7 +386,7 @@ tagsForVideo video =
     ]
 
 
-tags : Content -> List (Head.Tag pathKey)
+tags : Content pathKey -> List (Head.Tag pathKey)
 tags (Content common details) =
     tagsForCommon common
         ++ (case details of

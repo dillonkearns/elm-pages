@@ -243,7 +243,7 @@ header =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : Metadata Msg -> List Head.Tag
+head : Metadata Msg -> List (Head.Tag PagesNew.PathKey)
 head metadata =
     let
         themeColor =
@@ -265,7 +265,7 @@ siteTagline =
     "A statically typed site generator - elm-pages"
 
 
-pageTags : Metadata Msg -> List Head.Tag
+pageTags : Metadata Msg -> List (Head.Tag PagesNew.PathKey)
 pageTags metadata =
     case metadata of
         Metadata.Page _ ->
@@ -273,7 +273,7 @@ pageTags metadata =
                 { url = canonicalUrl
                 , siteName = "elm-pages"
                 , image =
-                    { url = ""
+                    { url = PagesNew.images.icon
                     , alt = ""
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -289,7 +289,7 @@ pageTags metadata =
                 { url = canonicalUrl
                 , siteName = "elm-pages"
                 , image =
-                    { url = ""
+                    { url = PagesNew.images.icon
                     , alt = ""
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -317,7 +317,7 @@ pageTags metadata =
                 { url = url
                 , siteName = "elm-pages"
                 , image =
-                    { url = imageUrl
+                    { url = PagesNew.images.icon
                     , alt = description
                     , dimensions = Nothing
                     , mimeType = Nothing

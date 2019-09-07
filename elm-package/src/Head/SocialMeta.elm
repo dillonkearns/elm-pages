@@ -1,6 +1,7 @@
 module Head.SocialMeta exposing (SummarySize(..), TwitterCard(..), rawTags, summaryLarge, summaryRegular)
 
 import Head
+import Pages.Path
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>
@@ -35,7 +36,7 @@ app :
     { title : String
     , description : Maybe String
     , siteUser : String
-    , image : Maybe { url : String, alt : String }
+    , image : Maybe (Image pathKey)
     , appIdIphone : Maybe Int
     , appIdIpad : Maybe Int
     , appIdGooglePlay : Maybe String
@@ -67,19 +68,25 @@ type SummarySize
     | Large
 
 
-type TwitterCard
+type alias Image pathKey =
+    { url : Pages.Path.Path pathKey Pages.Path.ToImage
+    , alt : String
+    }
+
+
+type TwitterCard pathKey
     = Summary
         { title : String
         , description : Maybe String
         , siteUser : Maybe String
-        , image : Maybe { url : String, alt : String }
+        , image : Maybe (Image pathKey)
         , size : SummarySize
         }
     | App
         { title : String
         , description : Maybe String
         , siteUser : String
-        , image : Maybe { url : String, alt : String }
+        , image : Maybe (Image pathKey)
         , appIdIphone : Maybe Int
         , appIdIpad : Maybe Int
         , appIdGooglePlay : Maybe String
@@ -96,14 +103,14 @@ type TwitterCard
         { title : String
         , description : Maybe String
         , siteUser : String
-        , image : { url : String, alt : String }
+        , image : Image pathKey
         , player : String
         , width : Int
         , height : Int
         }
 
 
-rawTags : TwitterCard -> List ( String, Maybe String )
+rawTags : TwitterCard pathKey -> List ( String, Maybe String )
 rawTags card =
     ( "twitter:card", cardValue card |> Just )
         :: (case card of
@@ -111,7 +118,7 @@ rawTags card =
                     [ ( "twitter:title", Just details.title )
                     , ( "twitter:site", details.siteUser )
                     , ( "twitter:description", details.description )
-                    , ( "twitter:image", details.image |> Maybe.map .url )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Pages.Path.toString )
                     , ( "twitter:image:alt", details.image |> Maybe.map .alt )
                     ]
 
@@ -119,7 +126,7 @@ rawTags card =
                     [ ( "twitter:title", Just details.title )
                     , ( "twitter:site", Just details.siteUser )
                     , ( "twitter:description", details.description )
-                    , ( "twitter:image", details.image |> Maybe.map .url )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Pages.Path.toString )
                     , ( "twitter:image:alt", details.image |> Maybe.map .alt )
                     , ( "twitter:app:name:iphone", details.appNameIphone )
                     , ( "twitter:app:name:ipad", details.appNameIpad )
@@ -137,13 +144,13 @@ rawTags card =
                     [ ( "twitter:title", Just details.title )
                     , ( "twitter:site", Just details.siteUser )
                     , ( "twitter:description", details.description )
-                    , ( "twitter:image", Just details.image.url )
+                    , ( "twitter:image", Just (Pages.Path.toString details.image.url) )
                     , ( "twitter:image:alt", Just details.image.alt )
                     ]
            )
 
 
-tags : TwitterCard -> List (Head.Tag pathKey)
+tags : TwitterCard pathKey -> List (Head.Tag pathKey)
 tags card =
     card
         |> rawTags
@@ -154,7 +161,7 @@ tags card =
             )
 
 
-cardValue : TwitterCard -> String
+cardValue : TwitterCard pathKey -> String
 cardValue card =
     case card of
         Summary details ->
