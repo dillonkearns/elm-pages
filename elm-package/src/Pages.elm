@@ -117,8 +117,7 @@ encodeHeads head =
 
 
 type alias Flags =
-    { imageAssets : Json.Decode.Value
-    }
+    {}
 
 
 combineTupleResults :
@@ -149,12 +148,6 @@ init document toJsPort head content initUserModel flags url key =
         ( userModel, userCmd ) =
             initUserModel
 
-        imageAssets =
-            Json.Decode.decodeValue
-                (Json.Decode.dict Json.Decode.string)
-                flags.imageAssets
-                |> Result.withDefault Dict.empty
-
         contentCache =
             ContentCache.init document content
     in
@@ -162,7 +155,6 @@ init document toJsPort head content initUserModel flags url key =
         Ok okCache ->
             ( { key = key
               , url = url
-              , imageAssets = imageAssets
               , userModel = userModel
               , contentCache = contentCache
               }
@@ -184,7 +176,6 @@ init document toJsPort head content initUserModel flags url key =
         Err _ ->
             ( { key = key
               , url = url
-              , imageAssets = imageAssets
               , userModel = userModel
               , contentCache = contentCache
               }
@@ -211,7 +202,6 @@ type Model userModel userMsg metadata view
 type alias ModelDetails userModel userMsg metadata view =
     { key : Browser.Navigation.Key
     , url : Url.Url
-    , imageAssets : Dict String String
     , contentCache : ContentCache userMsg metadata view
     , userModel : userModel
     }

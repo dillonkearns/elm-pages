@@ -1,7 +1,7 @@
-module.exports = function pagesInit({ mainElmModule, imageAssets }) {
+module.exports = function pagesInit({ mainElmModule }) {
   document.addEventListener("DOMContentLoaded", function() {
     let app = mainElmModule.init({
-      flags: { imageAssets }
+      flags: {}
     });
 
     app.ports.toJsPort.subscribe(headTags => {
