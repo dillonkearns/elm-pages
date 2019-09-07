@@ -111,7 +111,7 @@ view content pageView model =
     }
 
 
-encodeHeads : List Head.Tag -> Json.Encode.Value
+encodeHeads : List (Head.Tag pathKey) -> Json.Encode.Value
 encodeHeads head =
     Json.Encode.list Head.toJson head
 
@@ -137,7 +137,7 @@ combineTupleResults input =
 init :
     Pages.Document.Document metadata view
     -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
-    -> (metadata -> List Head.Tag)
+    -> (metadata -> List (Head.Tag pathKey))
     -> Content
     -> ( userModel, Cmd userMsg )
     -> Flags
@@ -295,7 +295,7 @@ application :
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
-    , head : metadata -> List Head.Tag
+    , head : metadata -> List (Head.Tag pathKey)
     , manifest : Manifest.Config pathKey
     }
     -> Program userModel userMsg metadata view
@@ -345,7 +345,7 @@ cliApplication :
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
-    , head : metadata -> List Head.Tag
+    , head : metadata -> List (Head.Tag pathKey)
     , manifest : Manifest.Config pathKey
     }
     -> Program userModel userMsg metadata view

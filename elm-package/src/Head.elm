@@ -3,7 +3,7 @@ module Head exposing (Tag, canonicalLink, description, metaName, metaProperty, t
 import Json.Encode
 
 
-type Tag
+type Tag pathKey
     = Tag Details
 
 
@@ -63,7 +63,7 @@ metaName name content =
         ]
 
 
-node : String -> List ( String, String ) -> Tag
+node : String -> List ( String, String ) -> Tag pathKey
 node name attributes =
     Tag
         { name = name
@@ -71,7 +71,7 @@ node name attributes =
         }
 
 
-toJson : Tag -> Json.Encode.Value
+toJson : Tag pathKey -> Json.Encode.Value
 toJson (Tag tag) =
     Json.Encode.object
         [ ( "name", Json.Encode.string tag.name )

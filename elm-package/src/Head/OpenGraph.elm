@@ -186,7 +186,7 @@ buildSummary { title, image, url, description, siteName, locale } summarySize =
 -}
 website :
     Common
-    -> List Head.Tag
+    -> List (Head.Tag pathKey)
 website common =
     Website |> Content common |> tags
 
@@ -201,7 +201,7 @@ article :
     , expirationTime : Maybe Iso8601DateTime
     }
     -> Common
-    -> List Head.Tag
+    -> List (Head.Tag pathKey)
 article details common =
     Article details |> Content common |> tags
 
@@ -215,7 +215,7 @@ book :
         , isbn : Maybe String
         , releaseDate : Maybe Iso8601DateTime
         }
-    -> List Head.Tag
+    -> List (Head.Tag pathKey)
 book common details =
     Book details |> Content common |> tags
 
@@ -228,7 +228,7 @@ song :
         , disc : Maybe Int
         , track : Maybe Int
         }
-    -> List Head.Tag
+    -> List (Head.Tag pathKey)
 song common details =
     Song details |> Content common |> tags
 
@@ -385,7 +385,7 @@ tagsForVideo video =
     ]
 
 
-tags : Content -> List Head.Tag
+tags : Content -> List (Head.Tag pathKey)
 tags (Content common details) =
     tagsForCommon common
         ++ (case details of

@@ -47,7 +47,7 @@ app :
     , appNameIpad : Maybe String
     , appNameGooglePlay : Maybe String
     }
-    -> List Head.Tag
+    -> List (Head.Tag pathKey)
 app details =
     App details
         |> tags
@@ -143,7 +143,7 @@ rawTags card =
            )
 
 
-tags : TwitterCard -> List Head.Tag
+tags : TwitterCard -> List (Head.Tag pathKey)
 tags card =
     card
         |> rawTags
