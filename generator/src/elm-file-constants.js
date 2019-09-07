@@ -1,6 +1,6 @@
 generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-  "(PathKey, all, allImages, application, buildPage, images, isValidRoute, pages)";
+  "(PathKey, all, allImages, application, images, isValidRoute, pages)";
 
 function staticRouteStuff(staticRoutes) {
   return `
