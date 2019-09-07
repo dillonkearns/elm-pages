@@ -302,14 +302,6 @@ pageTags metadata =
 
         Metadata.Article meta ->
             let
-                description =
-                    -- TODO
-                    -- meta.description.raw
-                    ""
-
-                imageUrl =
-                    ""
-
                 url =
                     canonicalUrl
             in
@@ -318,11 +310,11 @@ pageTags metadata =
                 , siteName = "elm-pages"
                 , image =
                     { url = PagesNew.images.icon
-                    , alt = description
+                    , alt = meta.description
                     , dimensions = Nothing
                     , mimeType = Nothing
                     }
-                , description = description
+                , description = meta.description
                 , locale = Nothing
                 , title = meta.title
                 }
