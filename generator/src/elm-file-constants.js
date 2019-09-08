@@ -10,8 +10,6 @@ ${staticRoutes.allRoutes}
 
 ${staticRoutes.routeRecord}
 
-${staticRoutes.urlParser}
-
 ${staticRoutes.imageAssetsRecord}
 
 allImages : List (Path PathKey Path.ToImage)

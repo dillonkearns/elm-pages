@@ -62,7 +62,6 @@ function generate(scanned) {
 
   var routeRecord = {};
   var allRoutes = [];
-  var urlParser = [];
   var routeToMetadata = [];
   var routeToExt = [];
   var routeToSource = [];
@@ -85,19 +84,15 @@ function generate(scanned) {
     if (!is404) {
       captureRouteRecord(pathFragments, elmType, routeRecord);
       allRoutes.push(elmType);
-      urlParser.push(formatUrlParser(elmType, pathFragments));
       // routeToMetadata.push(formatCaseInstance(elmType, scanned[i].metadata));
       // routeToExt.push(formatCaseInstance(elmType, ext));
       // routeToSource.push(formatCaseInstance(elmType, scanned[i].path));
     }
   }
   return {
-    exposing: "(simple, Route, all, pages, urlParser, routeToString, assets)",
     // routes: toFlatRouteType(allRoutes),
     allRoutes: formatAsElmList("all", allRoutes),
     routeRecord: toElmRecord("pages", routeRecord, true),
-    urlParser: formatAsElmUrlParser(urlParser),
-    // urlToString: formatAsElmUrlToString(urlParser),
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
     // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
@@ -233,17 +228,6 @@ ${name} route =
 ${branches.join("\n\n")}`;
 }
 
-function formatUrlParser(elmType, filepathPieces) {
-  const urlParser = filepathPieces.map(literalUrl).join(" </> ");
-
-  const urlStringList = filepathPieces.map(quote).join(", ");
-
-  return {
-    toString: `        ${elmType} ->\n            Url.Builder.absolute [ ${urlStringList} ] []`,
-    parser: `Url.map ${elmType} (${urlParser})`
-  };
-}
-
 function formatAsElmUrlToString(pieces) {
   var toString = pieces.map(p => p.toString).join("\n\n");
 
@@ -251,12 +235,4 @@ function formatAsElmUrlToString(pieces) {
 routeToString route =
     case route of
 ${toString} `;
-}
-
-function formatAsElmUrlParser(pieces) {
-  var parser =
-    "    [ " + pieces.map(p => p.parser).join("\n        , ") + "\n        ]";
-
-  return `urlParser : Url.Parser (Path PathKey Path.ToPage -> a) a
-urlParser =\n    Url.oneOf\n    ${parser} `;
 }
