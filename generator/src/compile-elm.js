@@ -14,10 +14,6 @@ function runElm(callback) {
       const app = Elm.Main.init({ flags: { imageAssets: {} } });
 
       app.ports.toJsPort.subscribe(payload => {
-        if (payload.errors) {
-          printErrorsAndExit(payload.errors);
-        }
-
         process.chdir(startingDir);
         callback(payload);
         delete Elm;
@@ -25,12 +21,4 @@ function runElm(callback) {
       });
     })();
   });
-}
-
-function printErrorsAndExit(errors) {
-  console.error(
-    "Found errors. Exiting. Fix your content or parsers and re-run, or run in dev mode with `elm-pages develop`."
-  );
-  console.error(errors);
-  process.exit(1);
 }

@@ -101,7 +101,7 @@ application config =
         }
 ${staticRouteStuff(staticRoutes)}
 
-${generateRawContent(markdownContent, markupContent)}
+${generateRawContent(markdownContent, markupContent, false)}
 `;
 }
 
@@ -167,7 +167,7 @@ application config =
 
 ${staticRouteStuff(staticRoutes)}
 
-${generateRawContent(markdownContent, markupContent)}
+${generateRawContent(markdownContent, markupContent, true)}
 `;
 }
 module.exports = { elmPagesUiFile, elmPagesCliFile };

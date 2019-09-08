@@ -1,11 +1,11 @@
-module.exports = function(markdown, markup) {
+module.exports = function(markdown, markup, includeBody) {
   return `content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
-    [ ${markdown.concat(markup).map(toEntry)}
+    [ ${markdown.concat(markup).map(entry => toEntry(entry, includeBody))}
     ]`;
 };
 
-function toEntry(entry) {
+function toEntry(entry, includeBody) {
   let fullPath = entry.path
     .replace(/(index)?\.[^/.]+$/, "")
     .split("/")
@@ -16,8 +16,18 @@ function toEntry(entry) {
   return `
   ( [${fullPath.join(", ")}]
     , { frontMatter = """${entry.metadata}
-""" , body = Nothing
+""" , body = ${body(entry, includeBody)}
     , extension = "${entry.extension}"
     } )
   `;
+}
+
+function body(entry, includeBody) {
+  if (includeBody) {
+    return `Just """${entry.body}
+"""
+`;
+  } else {
+    return `Nothing`;
+  }
 }

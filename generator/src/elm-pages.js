@@ -6,7 +6,6 @@ const fs = require("fs");
 const glob = require("glob");
 const develop = require("./develop.js");
 const chokidar = require("chokidar");
-const runElm = require("./compile-elm.js");
 const doCliStuff = require("./generate-elm-stuff.js");
 const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
@@ -84,9 +83,7 @@ function run() {
       elmPagesUiFile(staticRoutes, markdownContent, content)
     );
     console.log("elm-pages DONE");
-    doCliStuff(staticRoutes, markdownContent, content, function(
-      manifestConfig
-    ) {
+    doCliStuff(staticRoutes, markdownContent, content, function(payload) {
       if (contents.watch) {
         startWatchIfNeeded();
         if (!devServerRunning) {
@@ -94,14 +91,18 @@ function run() {
           develop.start({
             routes,
             debug: contents.debug,
-            manifestConfig
+            manifestConfig: payload.manifest
           });
         }
       } else {
+        if (payload.errors) {
+          printErrorsAndExit(payload.errors);
+        }
+
         develop.run(
           {
             routes,
-            manifestConfig
+            manifestConfig: payload.manifest
           },
           () => {}
         );
@@ -111,6 +112,14 @@ function run() {
 }
 
 run();
+
+function printErrorsAndExit(errors) {
+  console.error(
+    "Found errors. Exiting. Fix your content or parsers and re-run, or run in dev mode with `elm-pages develop`."
+  );
+  console.error(errors);
+  process.exit(1);
+}
 
 function startWatchIfNeeded() {
   if (!watcher) {
