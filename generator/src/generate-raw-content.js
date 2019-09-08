@@ -24,7 +24,7 @@ function toEntry(entry, includeBody) {
 
 function body(entry, includeBody) {
   if (includeBody) {
-    return `Just """${entry.body}
+    return `Just """${entry.body.replace(/\\/g, "\\\\")}
 """
 `;
   } else {
