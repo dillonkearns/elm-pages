@@ -1,4 +1,4 @@
-module Pages.Path exposing (Path(..), ToImage, ToPage, buildImage, buildPage, toString)
+module Pages.Path exposing (Path, ToImage, ToPage, buildImage, buildPage, toString)
 
 
 type ToImage

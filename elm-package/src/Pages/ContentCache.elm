@@ -1,12 +1,27 @@
-module Pages.ContentCache exposing (ContentCache, Entry(..), Page, Path, extractMetadata, init, lazyLoad, lookup, pathForUrl, routesForCache, update)
+module Pages.ContentCache exposing
+    ( ContentCache
+    , Entry(..)
+    , Page
+    , Path
+    , errorView
+    , extractMetadata
+    , init
+    , lazyLoad
+    , lookup
+    , pagesWithErrors
+    , pathForUrl
+    , routesForCache
+    , update
+    )
 
 import Dict exposing (Dict)
 import Html exposing (Html)
+import Html.Attributes as Attr
 import Http
 import Json.Decode
 import Mark
 import Mark.Error
-import Pages.Document
+import Pages.Document as Document exposing (Document)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
@@ -14,15 +29,15 @@ import Url.Builder
 
 
 type alias Content =
-    -- { markdown : List ( List String, { frontMatter : String, body : Maybe String } )
-    -- , markup :
-    --     List ( List String, { frontMatter : String, body : Maybe String } )
-    -- }
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias ContentCache msg metadata view =
-    Result (Html msg) (Dict Path (Entry metadata view))
+type alias ContentCache metadata view =
+    Result Errors (Dict Path (Entry metadata view))
+
+
+type alias Errors =
+    Dict Path String
 
 
 type alias ContentCacheInner metadata view =
@@ -64,28 +79,128 @@ getMetadata entry =
             metadata
 
 
+pagesWithErrors : ContentCache metadata view -> Maybe (Dict (List String) String)
+pagesWithErrors cache =
+    cache
+        |> Result.map
+            (\okCache ->
+                okCache
+                    |> Dict.toList
+                    |> List.filterMap
+                        (\( path, value ) ->
+                            case value of
+                                Parsed metadata (Err parseError) ->
+                                    Just ( path, parseError )
+
+                                _ ->
+                                    Nothing
+                        )
+            )
+        |> Result.map
+            (\errors ->
+                case errors of
+                    [] ->
+                        Nothing
+
+                    _ ->
+                        errors
+                            |> Dict.fromList
+                            |> Just
+            )
+        |> Result.withDefault Nothing
+
+
 init :
-    Pages.Document.Document metadata view
+    Document metadata view
     -> Content
-    -> ContentCache msg metadata view
+    -> ContentCache metadata view
 init document content =
-    Pages.Document.parseMetadata document content
+    parseMetadata document content
         |> List.map
-            (Tuple.mapSecond
-                (Result.map
-                    (\{ metadata, extension } -> NeedContent extension metadata)
-                )
+            (\tuple ->
+                Tuple.mapSecond
+                    (\result ->
+                        result
+                            |> Result.mapError (\error -> ( Tuple.first tuple, error ))
+                    )
+                    tuple
             )
         |> combineTupleResults
-        |> Result.mapError
-            (\error ->
-                Html.div []
-                    [ Html.h2 []
-                        [ Html.text "I found an error parsing some metadata" ]
-                    , Html.text error
-                    ]
-            )
+        |> Result.mapError Dict.fromList
         |> Result.map Dict.fromList
+
+
+parseMetadata :
+    Document metadata view
+    -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
+    -> List ( List String, Result String (Entry metadata view) )
+parseMetadata document content =
+    content
+        |> List.map
+            (Tuple.mapSecond
+                (\{ frontMatter, extension, body } ->
+                    let
+                        maybeDocumentEntry =
+                            Dict.get extension document
+                    in
+                    case maybeDocumentEntry of
+                        Just documentEntry ->
+                            frontMatter
+                                |> documentEntry.frontmatterParser
+                                |> Result.map
+                                    (\metadata ->
+                                        case body of
+                                            Just presentBody ->
+                                                Parsed metadata
+                                                    (parseContent extension presentBody document)
+
+                                            Nothing ->
+                                                NeedContent extension metadata
+                                    )
+
+                        Nothing ->
+                            Err ("Could not find extension '" ++ extension ++ "'")
+                )
+            )
+
+
+parseContent :
+    String
+    -> String
+    -> Document metadata view
+    -> Result String view
+parseContent extension body document =
+    let
+        maybeDocumentEntry =
+            Dict.get extension document
+    in
+    case maybeDocumentEntry of
+        Just documentEntry ->
+            documentEntry.contentParser body
+
+        Nothing ->
+            Err ("Could not find extension '" ++ extension ++ "'")
+
+
+errorView : Errors -> Html msg
+errorView errors =
+    errors
+        |> Dict.toList
+        |> List.map errorEntryView
+        |> Html.div
+            [ Attr.style "padding" "20px 100px"
+            ]
+
+
+errorEntryView : ( Path, String ) -> Html msg
+errorEntryView ( path, error ) =
+    Html.div []
+        [ Html.h2 []
+            [ Html.text ("/" ++ (path |> String.join "/"))
+            ]
+        , Html.p [] [ Html.text "I couldn't parse the frontmatter in this page. I ran into this error with your JSON decoder:" ]
+        , Html.pre [] [ Html.text error ]
+        ]
 
 
 routes : List ( List String, anything ) -> List String
@@ -96,7 +211,7 @@ routes record =
         |> List.map (\route -> "/" ++ route)
 
 
-routesForCache : ContentCache msg metadata view -> List String
+routesForCache : ContentCache metadata view -> List String
 routesForCache cacheResult =
     case cacheResult of
         Ok cache ->
@@ -126,7 +241,7 @@ renderErrors ( path, errors ) =
 
 combineTupleResults :
     List ( List String, Result error success )
-    -> Result error (List ( List String, success ))
+    -> Result (List error) (List ( List String, success ))
 combineTupleResults input =
     input
         |> List.map
@@ -134,17 +249,47 @@ combineTupleResults input =
                 result
                     |> Result.map (\success -> ( path, success ))
             )
-        |> Result.Extra.combine
+        |> combine
+
+
+combine : List (Result error ( List String, success )) -> Result (List error) (List ( List String, success ))
+combine list =
+    list
+        |> List.foldr resultFolder (Ok [])
+
+
+resultFolder : Result error a -> Result (List error) (List a) -> Result (List error) (List a)
+resultFolder current soFarResult =
+    case soFarResult of
+        Ok soFarOk ->
+            case current of
+                Ok currentOk ->
+                    currentOk
+                        :: soFarOk
+                        |> Ok
+
+                Err error ->
+                    Err [ error ]
+
+        Err soFarErr ->
+            case current of
+                Ok currentOk ->
+                    Err soFarErr
+
+                Err error ->
+                    error
+                        :: soFarErr
+                        |> Err
 
 
 {-| Get from the Cache... if it's not already parsed, it will
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    Pages.Document.Document metadata view
+    Document metadata view
     -> Url
-    -> ContentCache msg metadata view
-    -> Task Http.Error (ContentCache msg metadata view)
+    -> ContentCache metadata view
+    -> Task Http.Error (ContentCache metadata view)
 lazyLoad document url cacheResult =
     case cacheResult of
         Err _ ->
@@ -160,7 +305,7 @@ lazyLoad document url cacheResult =
                                     (\downloadedContent ->
                                         update cacheResult
                                             (\thing ->
-                                                Pages.Document.parseContent extension thing document
+                                                parseContent extension thing document
                                             )
                                             url
                                             downloadedContent
@@ -169,7 +314,7 @@ lazyLoad document url cacheResult =
                         Unparsed extension metadata content ->
                             update cacheResult
                                 (\thing ->
-                                    Pages.Document.parseContent extension thing document
+                                    parseContent extension thing document
                                 )
                                 url
                                 content
@@ -180,11 +325,6 @@ lazyLoad document url cacheResult =
 
                 Nothing ->
                     Task.succeed cacheResult
-
-
-
--- renderMarkup : String -> view
--- ren
 
 
 httpTask url =
@@ -223,11 +363,11 @@ httpTask url =
 
 
 update :
-    ContentCache msg metadata view
+    ContentCache metadata view
     -> (String -> Result ParseError view)
     -> Url
     -> String
-    -> ContentCache msg metadata view
+    -> ContentCache metadata view
 update cacheResult renderer url rawContent =
     case cacheResult of
         Ok cache ->
@@ -267,7 +407,7 @@ pathForUrl url =
 
 
 lookup :
-    ContentCache msg metadata view
+    ContentCache metadata view
     -> Url
     -> Maybe (Entry metadata view)
 lookup content url =

@@ -9,7 +9,7 @@ import Element.Border
 import Element.Font as Font
 import Element.Region
 import Head
-import Head.OpenGraph as OpenGraph
+import Head.Seo as Seo
 import Html exposing (Html)
 import Json.Decode
 import MarkdownRenderer
@@ -53,6 +53,7 @@ main =
         , documents = [ markdownDocument ]
         , head = head
         , manifest = manifest
+        , canonicalSiteUrl = canonicalSiteUrl
         }
 
 
@@ -245,32 +246,10 @@ header =
 -}
 head : Metadata Msg -> List (Head.Tag PagesNew.PathKey)
 head metadata =
-    let
-        themeColor =
-            "#ffffff"
-    in
-    [ Head.metaName "theme-color" themeColor
-    , Head.canonicalLink canonicalUrl
-    ]
-        ++ pageTags metadata
-
-
-canonicalUrl : String
-canonicalUrl =
-    "https://elm-pages.com"
-
-
-siteTagline : String
-siteTagline =
-    "A statically typed site generator - elm-pages"
-
-
-pageTags : Metadata Msg -> List (Head.Tag PagesNew.PathKey)
-pageTags metadata =
     case metadata of
         Metadata.Page _ ->
-            OpenGraph.summaryLarge
-                { url = canonicalUrl
+            Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
                     { url = PagesNew.images.icon
@@ -282,11 +261,11 @@ pageTags metadata =
                 , locale = Nothing
                 , title = "elm-pages"
                 }
-                |> OpenGraph.website
+                |> Seo.website
 
         Metadata.Doc _ ->
-            OpenGraph.summaryLarge
-                { url = canonicalUrl
+            Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
                     { url = PagesNew.images.icon
@@ -298,15 +277,11 @@ pageTags metadata =
                 , description = siteTagline
                 , title = "elm-pages"
                 }
-                |> OpenGraph.website
+                |> Seo.website
 
         Metadata.Article meta ->
-            let
-                url =
-                    canonicalUrl
-            in
-            OpenGraph.summaryLarge
-                { url = url
+            Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
                     { url = PagesNew.images.icon
@@ -318,13 +293,23 @@ pageTags metadata =
                 , locale = Nothing
                 , title = meta.title
                 }
-                |> OpenGraph.article
+                |> Seo.article
                     { tags = []
                     , section = Nothing
                     , publishedTime = Nothing
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }
+
+
+canonicalSiteUrl : String
+canonicalSiteUrl =
+    "https://elm-pages.com"
+
+
+siteTagline : String
+siteTagline =
+    "A statically typed site generator - elm-pages"
 
 
 tocView : MarkdownRenderer.TableOfContents -> Element msg

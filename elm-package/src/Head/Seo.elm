@@ -1,4 +1,4 @@
-module Head.OpenGraph exposing
+module Head.Seo exposing
     ( Image
     , article
     , audioPlayer
@@ -28,7 +28,7 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summaryLarge :
-    { url : String
+    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -50,7 +50,7 @@ See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/
 
 -}
 summary :
-    { url : String
+    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -70,7 +70,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 audioPlayer :
-    { url : String
+    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -79,10 +79,10 @@ audioPlayer :
     , locale : Maybe Locale
     }
     -> Common pathKey
-audioPlayer { title, image, url, description, siteName, audio, locale } =
+audioPlayer { title, image, canonicalUrlOverride, description, siteName, audio, locale } =
     { title = title
     , image = image
-    , url = url
+    , canonicalUrlOverride = canonicalUrlOverride
     , description = description
     , siteName = siteName
     , audio = Just audio
@@ -113,7 +113,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 videoPlayer :
-    { url : String
+    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -122,10 +122,10 @@ videoPlayer :
     , locale : Maybe Locale
     }
     -> Common pathKey
-videoPlayer { title, image, url, description, siteName, video, locale } =
+videoPlayer { title, image, canonicalUrlOverride, description, siteName, video, locale } =
     { title = title
     , image = image
-    , url = url
+    , canonicalUrlOverride = canonicalUrlOverride
     , description = description
     , siteName = siteName
     , audio = Nothing
@@ -149,7 +149,7 @@ videoPlayer { title, image, url, description, siteName, video, locale } =
 
 
 buildSummary :
-    { url : String
+    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -158,10 +158,10 @@ buildSummary :
     }
     -> Twitter.SummarySize
     -> Common pathKey
-buildSummary { title, image, url, description, siteName, locale } summarySize =
+buildSummary { title, image, canonicalUrlOverride, description, siteName, locale } summarySize =
     { title = title
     , image = image
-    , url = url
+    , canonicalUrlOverride = canonicalUrlOverride
     , description = description
     , siteName = siteName
     , audio = Nothing
@@ -245,7 +245,7 @@ Skipping this for now, if there's a use case I can add it in:
 type alias Common pathKey =
     { title : String
     , image : Image pathKey
-    , url : String
+    , canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
     , description : String
     , siteName : String
     , audio : Maybe Audio
@@ -256,20 +256,21 @@ type alias Common pathKey =
     }
 
 
+tagsForCommon : Common pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
 tagsForCommon common =
     tagsForImage common.image
         ++ (common.audio |> Maybe.map tagsForAudio |> Maybe.withDefault [])
         ++ (common.video |> Maybe.map tagsForVideo |> Maybe.withDefault [])
-        ++ [ ( "og:title", Just common.title )
-           , ( "og:url", Just common.url )
-           , ( "og:description", Just common.description )
-           , ( "og:site_name", Just common.siteName )
-           , ( "og:locale", common.locale )
+        ++ [ ( "og:title", Just (Head.raw common.title) )
+           , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.fullUrl |> Maybe.withDefault Head.currentPageFullUrl |> Just )
+           , ( "og:description", Just (Head.raw common.description) )
+           , ( "og:site_name", Just (Head.raw common.siteName) )
+           , ( "og:locale", common.locale |> Maybe.map Head.raw )
            ]
         ++ (common.alternateLocales
                 |> List.map
                     (\alternateLocale ->
-                        ( "og:locale:alternate", Just alternateLocale )
+                        ( "og:locale:alternate", alternateLocale |> Head.raw |> Just )
                     )
            )
         ++ Twitter.rawTags common.twitterCard
@@ -289,11 +290,11 @@ type alias Audio =
     }
 
 
-tagsForAudio : Audio -> List ( String, Maybe String )
+tagsForAudio : Audio -> List ( String, Maybe (Head.AttributeValue pathKey) )
 tagsForAudio audio =
-    [ ( "og:audio", Just audio.url )
-    , ( "og:audio:secure_url", Just audio.url )
-    , ( "og:audio:type", audio.mimeType )
+    [ ( "og:audio", audio.url |> Head.raw |> Just )
+    , ( "og:audio:secure_url", audio.url |> Head.raw |> Just )
+    , ( "og:audio:type", audio.mimeType |> Maybe.map Head.raw )
     ]
 
 
@@ -358,13 +359,13 @@ type alias Image pathKey =
     }
 
 
-tagsForImage : Image pathKey -> List ( String, Maybe String )
+tagsForImage : Image pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
 tagsForImage image =
-    [ ( "og:image", Just (Pages.Path.toString image.url) )
-    , ( "og:image:secure_url", Just (Pages.Path.toString image.url) )
-    , ( "og:image:alt", Just image.alt )
-    , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt )
-    , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt )
+    [ ( "og:image", Just (Head.fullUrl image.url) )
+    , ( "og:image:secure_url", Just (Head.fullUrl image.url) )
+    , ( "og:image:alt", image.alt |> Head.raw |> Just )
+    , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+    , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     ]
 
 
@@ -377,12 +378,12 @@ type alias Video =
     }
 
 
-tagsForVideo : Video -> List ( String, Maybe String )
+tagsForVideo : Video -> List ( String, Maybe (Head.AttributeValue pathKey) )
 tagsForVideo video =
-    [ ( "og:video", Just video.url )
-    , ( "og:video:secure_url", Just video.url )
-    , ( "og:video:width", video.dimensions |> Maybe.map .width |> Maybe.map String.fromInt )
-    , ( "og:video:height", video.dimensions |> Maybe.map .height |> Maybe.map String.fromInt )
+    [ ( "og:video", video.url |> Head.raw |> Just )
+    , ( "og:video:secure_url", video.url |> Head.raw |> Just )
+    , ( "og:video:width", video.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+    , ( "og:video:height", video.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     ]
 
 
@@ -391,7 +392,7 @@ tags (Content common details) =
     tagsForCommon common
         ++ (case details of
                 Website ->
-                    [ ( "og:type", Just "website" )
+                    [ ( "og:type", "website" |> Head.raw |> Just )
                     ]
 
                 Article articleDetails ->
@@ -399,30 +400,30 @@ tags (Content common details) =
                        TODO
                        - article:author - profile array - Writers of the article.
                     -}
-                    [ ( "og:type", Just "article" )
-                    , ( "article:section", articleDetails.section )
-                    , ( "article:published_time", articleDetails.publishedTime )
-                    , ( "article:modified_time", articleDetails.modifiedTime )
-                    , ( "article:expiration_time", articleDetails.expirationTime )
+                    [ ( "og:type", "article" |> Head.raw |> Just )
+                    , ( "article:section", articleDetails.section |> Maybe.map Head.raw )
+                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map Head.raw )
+                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map Head.raw )
+                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map Head.raw )
                     ]
                         ++ List.map
-                            (\tag -> ( "article:tag", tag |> Just ))
+                            (\tag -> ( "article:tag", tag |> Head.raw |> Just ))
                             articleDetails.tags
 
                 Book bookDetails ->
-                    [ ( "og:type", Just "book" )
-                    , ( "og:isbn", bookDetails.isbn )
-                    , ( "og:release_date", bookDetails.releaseDate )
+                    [ ( "og:type", "book" |> Head.raw |> Just )
+                    , ( "og:isbn", bookDetails.isbn |> Maybe.map Head.raw )
+                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map Head.raw )
                     ]
                         ++ List.map
-                            (\tag -> ( "book:tag", tag |> Just ))
+                            (\tag -> ( "book:tag", tag |> Head.raw |> Just ))
                             bookDetails.tags
 
                 Song songDetails ->
-                    [ ( "og:type", Just "music.song" )
-                    , ( "music:duration", songDetails.duration |> Maybe.map String.fromInt )
-                    , ( "music:album:disc", songDetails.disc |> Maybe.map String.fromInt )
-                    , ( "music:album:track", songDetails.track |> Maybe.map String.fromInt )
+                    [ ( "og:type", "music.song" |> Head.raw |> Just )
+                    , ( "music:duration", songDetails.duration |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+                    , ( "music:album:disc", songDetails.disc |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+                    , ( "music:album:track", songDetails.track |> Maybe.map String.fromInt |> Maybe.map Head.raw )
                     ]
            )
         |> List.filterMap
@@ -430,6 +431,10 @@ tags (Content common details) =
                 maybeContent
                     |> Maybe.map (\metaContent -> Head.metaProperty name metaContent)
             )
+        |> List.append
+            [ Head.canonicalLink common.canonicalUrlOverride
+            , Head.metaName "description" (Head.raw common.description)
+            ]
 
 
 

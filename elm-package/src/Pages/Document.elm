@@ -2,8 +2,6 @@ module Pages.Document exposing
     ( Document
     , DocumentParser
     , markupParser
-    , parseContent
-    , parseMetadata
     , parser
     )
 
@@ -92,51 +90,3 @@ renderMarkup markBodyParser markupBody =
                     Mark.Almost failure ->
                         Err "TODO almost failure"
            )
-
-
-parseMetadata :
-    Document metadata view
-    -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
-    -> List ( List String, Result String { extension : String, metadata : metadata } )
-parseMetadata document content =
-    content
-        |> List.map
-            (Tuple.mapSecond
-                (\{ frontMatter, extension } ->
-                    let
-                        maybeDocumentEntry =
-                            Dict.get extension document
-                    in
-                    case maybeDocumentEntry of
-                        Just documentEntry ->
-                            frontMatter
-                                |> documentEntry.frontmatterParser
-                                |> Result.map
-                                    (\metadata ->
-                                        { metadata = metadata
-                                        , extension = extension
-                                        }
-                                    )
-
-                        Nothing ->
-                            Err ("Could not find extension '" ++ extension ++ "'")
-                )
-            )
-
-
-parseContent :
-    String
-    -> String
-    -> Document metadata view
-    -> Result String view
-parseContent extension body document =
-    let
-        maybeDocumentEntry =
-            Dict.get extension document
-    in
-    case maybeDocumentEntry of
-        Just documentEntry ->
-            documentEntry.contentParser body
-
-        Nothing ->
-            Err ("Could not find extension '" ++ extension ++ "'")

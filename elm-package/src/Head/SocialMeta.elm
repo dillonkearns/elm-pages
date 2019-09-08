@@ -110,42 +110,42 @@ type TwitterCard pathKey
         }
 
 
-rawTags : TwitterCard pathKey -> List ( String, Maybe String )
+rawTags : TwitterCard pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
 rawTags card =
-    ( "twitter:card", cardValue card |> Just )
+    ( "twitter:card", cardValue card |> Head.raw |> Just )
         :: (case card of
                 Summary details ->
-                    [ ( "twitter:title", Just details.title )
-                    , ( "twitter:site", details.siteUser )
-                    , ( "twitter:description", details.description )
-                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Pages.Path.toString )
-                    , ( "twitter:image:alt", details.image |> Maybe.map .alt )
+                    [ ( "twitter:title", details.title |> Head.raw |> Just )
+                    , ( "twitter:site", details.siteUser |> Maybe.map Head.raw )
+                    , ( "twitter:description", details.description |> Maybe.map Head.raw )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.fullUrl )
+                    , ( "twitter:image:alt", details.image |> Maybe.map .alt |> Maybe.map Head.raw )
                     ]
 
                 App details ->
-                    [ ( "twitter:title", Just details.title )
-                    , ( "twitter:site", Just details.siteUser )
-                    , ( "twitter:description", details.description )
-                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Pages.Path.toString )
-                    , ( "twitter:image:alt", details.image |> Maybe.map .alt )
-                    , ( "twitter:app:name:iphone", details.appNameIphone )
-                    , ( "twitter:app:name:ipad", details.appNameIpad )
-                    , ( "twitter:app:name:googleplay", details.appNameGooglePlay )
-                    , ( "twitter:app:id:iphone", details.appIdIphone |> Maybe.map String.fromInt )
-                    , ( "twitter:app:id:ipad", details.appIdIpad |> Maybe.map String.fromInt )
-                    , ( "twitter:app:id:googleplay", details.appIdGooglePlay )
-                    , ( "twitter:app:url:iphone", details.appUrlIphone )
-                    , ( "twitter:app:url:ipad", details.appUrlIpad )
-                    , ( "twitter:app:url:googleplay", details.appUrlGooglePlay )
-                    , ( "twitter:app:country", details.appCountry )
+                    [ ( "twitter:title", details.title |> Head.raw |> Just )
+                    , ( "twitter:site", details.siteUser |> Head.raw |> Just )
+                    , ( "twitter:description", details.description |> Maybe.map Head.raw )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.fullUrl )
+                    , ( "twitter:image:alt", details.image |> Maybe.map .alt |> Maybe.map Head.raw )
+                    , ( "twitter:app:name:iphone", details.appNameIphone |> Maybe.map Head.raw )
+                    , ( "twitter:app:name:ipad", details.appNameIpad |> Maybe.map Head.raw )
+                    , ( "twitter:app:name:googleplay", details.appNameGooglePlay |> Maybe.map Head.raw )
+                    , ( "twitter:app:id:iphone", details.appIdIphone |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+                    , ( "twitter:app:id:ipad", details.appIdIpad |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+                    , ( "twitter:app:id:googleplay", details.appIdGooglePlay |> Maybe.map Head.raw )
+                    , ( "twitter:app:url:iphone", details.appUrlIphone |> Maybe.map Head.raw )
+                    , ( "twitter:app:url:ipad", details.appUrlIpad |> Maybe.map Head.raw )
+                    , ( "twitter:app:url:googleplay", details.appUrlGooglePlay |> Maybe.map Head.raw )
+                    , ( "twitter:app:country", details.appCountry |> Maybe.map Head.raw )
                     ]
 
                 Player details ->
-                    [ ( "twitter:title", Just details.title )
-                    , ( "twitter:site", Just details.siteUser )
-                    , ( "twitter:description", details.description )
-                    , ( "twitter:image", Just (Pages.Path.toString details.image.url) )
-                    , ( "twitter:image:alt", Just details.image.alt )
+                    [ ( "twitter:title", details.title |> Head.raw |> Just )
+                    , ( "twitter:site", details.siteUser |> Head.raw |> Just )
+                    , ( "twitter:description", details.description |> Maybe.map Head.raw )
+                    , ( "twitter:image", Just (Head.fullUrl details.image.url) )
+                    , ( "twitter:image:alt", details.image.alt |> Head.raw |> Just )
                     ]
            )
 
