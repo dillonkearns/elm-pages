@@ -85,6 +85,7 @@ application :
     , head : metadata -> List (Head.Tag PathKey)
     , documents : List (Pages.Document.DocumentParser metadata view)
     , manifest : Pages.Manifest.Config PathKey
+    , siteUrl : String
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -98,6 +99,7 @@ application config =
         , toJsPort = toJsPort
         , head = config.head
         , manifest = config.manifest
+        , siteUrl = config.siteUrl
         }
 ${staticRouteStuff(staticRoutes)}
 
@@ -147,6 +149,7 @@ application :
     , documents : List (Pages.Document.DocumentParser metadata view)
     , head : metadata -> List (Head.Tag PathKey)
     , manifest : Pages.Manifest.Config PathKey
+    , siteUrl : String
     }
     -> Pages.Program userModel userMsg metadata view
 application config =
@@ -160,6 +163,7 @@ application config =
         , toJsPort = toJsPort
         , head = config.head
         , manifest = config.manifest
+        , siteUrl = config.siteUrl
         }
 
 
