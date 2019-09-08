@@ -1,6 +1,6 @@
 generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-  "(PathKey, all, allImages, application, images, isValidRoute, pages)";
+  "(PathKey, allPages, allImages, application, images, isValidRoute, pages)";
 
 function staticRouteStuff(staticRoutes) {
   return `
@@ -22,7 +22,7 @@ isValidRoute : String -> Result String ()
 isValidRoute route =
     let
         validRoutes =
-            List.map Path.toString all
+            List.map Path.toString allPages
     in
     if
         (route |> String.startsWith "http://")

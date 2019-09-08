@@ -91,7 +91,7 @@ function generate(scanned) {
   }
   return {
     // routes: toFlatRouteType(allRoutes),
-    allRoutes: formatAsElmList("all", allRoutes),
+    allRoutes: formatAsElmList("allPages", allRoutes),
     routeRecord: toElmRecord("pages", routeRecord, true),
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
