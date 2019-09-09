@@ -65,7 +65,6 @@ allPages =
     , (buildPage [ "docs", "directory-structure" ])
     , (buildPage [ "docs" ])
     , (buildPage [  ])
-    , (buildPage [ "markdown" ])
     ]
 
 pages =
@@ -79,8 +78,7 @@ pages =
         , all = [ (buildPage [ "docs", "directory-structure" ]), (buildPage [ "docs" ]) ]
         }
     , index = (buildPage [  ])
-    , markdown = (buildPage [ "markdown" ])
-    , all = [ (buildPage [  ]), (buildPage [ "markdown" ]) ]
+    , all = [ (buildPage [  ]) ]
     }
 
 images =
@@ -121,7 +119,7 @@ content : List ( List String, { extension: String, frontMatter : String, body : 
 content =
     [ 
   ( ["blog", "types-over-conventions"]
-    , { frontMatter = """{"author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO"}
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO","published":"2019-09-09"}
 """ , body = Nothing
     , extension = "md"
     } )
@@ -139,13 +137,7 @@ content =
     } )
   ,
   ( []
-    , { frontMatter = """{"title":"elm-pages - a statically typed site generator"}
-""" , body = Nothing
-    , extension = "md"
-    } )
-  ,
-  ( ["markdown"]
-    , { frontMatter = """{"title":"Hello from markdown! 👋"}
+    , { frontMatter = """{"title":"elm-pages - a statically typed site generator","type":"page"}
 """ , body = Nothing
     , extension = "md"
     } )

@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import Color
+import Date
 import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
@@ -62,32 +63,48 @@ markdownDocument =
     Pages.Document.parser
         { extension = "md"
         , metadata =
-            Json.Decode.oneOf
-                [ Json.Decode.map3
-                    (\author title description ->
-                        Metadata.Article
-                            { author = author
-                            , title = title
-                            , description = description
-                            }
-                    )
-                    (Json.Decode.field "author" Json.Decode.string)
-                    (Json.Decode.field "title" Json.Decode.string)
-                    (Json.Decode.field "description" Json.Decode.string)
-                , Json.Decode.map2
-                    (\title maybeType ->
-                        case maybeType of
-                            Just "doc" ->
-                                Metadata.Doc { title = title }
+            Json.Decode.field "type" Json.Decode.string
+                |> Json.Decode.andThen
+                    (\pageType ->
+                        case pageType of
+                            "doc" ->
+                                Json.Decode.field "title" Json.Decode.string
+                                    |> Json.Decode.map (\title -> Metadata.Doc { title = title })
+
+                            "page" ->
+                                Json.Decode.field "title" Json.Decode.string
+                                    |> Json.Decode.map (\title -> Metadata.Page { title = title })
+
+                            "blog" ->
+                                Json.Decode.map4
+                                    (\author title description published ->
+                                        Metadata.Article
+                                            { author = author
+                                            , title = title
+                                            , description = description
+                                            , published = published
+                                            }
+                                    )
+                                    (Json.Decode.field "author" Json.Decode.string)
+                                    (Json.Decode.field "title" Json.Decode.string)
+                                    (Json.Decode.field "description" Json.Decode.string)
+                                    (Json.Decode.field "published"
+                                        (Json.Decode.string
+                                            |> Json.Decode.andThen
+                                                (\isoString ->
+                                                    case Date.fromIsoString isoString of
+                                                        Ok date ->
+                                                            Json.Decode.succeed date
+
+                                                        Err error ->
+                                                            Json.Decode.fail error
+                                                )
+                                        )
+                                    )
 
                             _ ->
-                                Metadata.Page { title = title }
+                                Json.Decode.fail <| "Unexpected page type " ++ pageType
                     )
-                    (Json.Decode.field "title" Json.Decode.string)
-                    (Json.Decode.field "type" Json.Decode.string
-                        |> Json.Decode.maybe
-                    )
-                ]
         , body = MarkdownRenderer.view
         }
 
@@ -296,7 +313,7 @@ head metadata =
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Nothing
+                    , publishedTime = Just "May 13"
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }
