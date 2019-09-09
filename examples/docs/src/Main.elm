@@ -62,49 +62,7 @@ markdownDocument : Pages.Document.DocumentParser Metadata ( MarkdownRenderer.Tab
 markdownDocument =
     Pages.Document.parser
         { extension = "md"
-        , metadata =
-            Json.Decode.field "type" Json.Decode.string
-                |> Json.Decode.andThen
-                    (\pageType ->
-                        case pageType of
-                            "doc" ->
-                                Json.Decode.field "title" Json.Decode.string
-                                    |> Json.Decode.map (\title -> Metadata.Doc { title = title })
-
-                            "page" ->
-                                Json.Decode.field "title" Json.Decode.string
-                                    |> Json.Decode.map (\title -> Metadata.Page { title = title })
-
-                            "blog" ->
-                                Json.Decode.map4
-                                    (\author title description published ->
-                                        Metadata.Article
-                                            { author = author
-                                            , title = title
-                                            , description = description
-                                            , published = published
-                                            }
-                                    )
-                                    (Json.Decode.field "author" Json.Decode.string)
-                                    (Json.Decode.field "title" Json.Decode.string)
-                                    (Json.Decode.field "description" Json.Decode.string)
-                                    (Json.Decode.field "published"
-                                        (Json.Decode.string
-                                            |> Json.Decode.andThen
-                                                (\isoString ->
-                                                    case Date.fromIsoString isoString of
-                                                        Ok date ->
-                                                            Json.Decode.succeed date
-
-                                                        Err error ->
-                                                            Json.Decode.fail error
-                                                )
-                                        )
-                                    )
-
-                            _ ->
-                                Json.Decode.fail <| "Unexpected page type " ++ pageType
-                    )
+        , metadata = Metadata.decoder
         , body = MarkdownRenderer.view
         }
 
