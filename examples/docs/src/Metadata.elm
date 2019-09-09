@@ -6,7 +6,7 @@ import Element exposing (Element)
 import Element.Font as Font
 
 
-type Metadata msg
+type Metadata
     = Page PageMetadata
     | Article ArticleMetadata
     | Doc DocMetadata

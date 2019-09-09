@@ -40,11 +40,11 @@ manifest =
 
 
 
---main : Pages.Program Model Msg (Metadata Msg) (List (Element Msg))
+--main : Pages.Program Model Msg (Metadata ) (List (Element Msg))
 -- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
 
 
-main : Platform.Program Pages.Flags (Pages.Model Model Msg (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Msg Msg (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
+main : Platform.Program Pages.Flags (Pages.Model Model Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Msg Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
 main =
     PagesNew.application
         { init = init
@@ -58,7 +58,7 @@ main =
         }
 
 
-markdownDocument : Pages.Document.DocumentParser (Metadata msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) )
+markdownDocument : Pages.Document.DocumentParser Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 markdownDocument =
     Pages.Document.parser
         { extension = "md"
@@ -134,7 +134,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Html Msg }
+view : Model -> List ( List String, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Html Msg }
 view model siteMetadata page =
     let
         { title, body } =
@@ -152,7 +152,7 @@ view model siteMetadata page =
     }
 
 
-pageView : Model -> List ( List String, Metadata Msg ) -> Page (Metadata Msg) ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Element Msg }
+pageView : Model -> List ( List String, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Element Msg }
 pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->
@@ -262,7 +262,7 @@ header =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : Metadata Msg -> List (Head.Tag PagesNew.PathKey)
+head : Metadata -> List (Head.Tag PagesNew.PathKey)
 head metadata =
     case metadata of
         Metadata.Page meta ->
@@ -314,7 +314,7 @@ head metadata =
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Just "May 13"
+                    , publishedTime = Just (Date.toIsoString meta.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }

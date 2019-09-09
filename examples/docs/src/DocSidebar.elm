@@ -7,7 +7,7 @@ import Metadata exposing (Metadata)
 
 
 view :
-    List ( List String, Metadata msg )
+    List ( List String, Metadata )
     -> Element msg
 view posts =
     Element.column
