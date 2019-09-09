@@ -1,6 +1,6 @@
 {
   "name": "elm-pages",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
   "main": "index.js",
   "scripts": {
