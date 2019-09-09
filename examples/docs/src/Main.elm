@@ -184,6 +184,7 @@ pageView model siteMetadata page =
                         , Element.centerX
                         ]
                         (Palette.blogHeading metadata.title
+                            :: publishedDateView metadata
                             :: Tuple.second page.view
                         )
                     ]
@@ -344,3 +345,10 @@ tocView toc =
                     )
             )
         ]
+
+
+publishedDateView metadata =
+    Element.text
+        (metadata.published
+            |> Date.format "MMMM ddd, yyyy"
+        )
