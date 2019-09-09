@@ -247,35 +247,35 @@ header =
 head : Metadata Msg -> List (Head.Tag PagesNew.PathKey)
 head metadata =
     case metadata of
-        Metadata.Page _ ->
+        Metadata.Page meta ->
             Seo.summaryLarge
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = PagesNew.images.icon
-                    , alt = ""
+                    { url = images.icon
+                    , alt = "elm-pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
                     }
                 , description = siteTagline
                 , locale = Nothing
-                , title = "elm-pages"
+                , title = meta.title
                 }
                 |> Seo.website
 
-        Metadata.Doc _ ->
+        Metadata.Doc meta ->
             Seo.summaryLarge
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = PagesNew.images.icon
-                    , alt = ""
+                    { url = images.icon
+                    , alt = "elm pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
                     }
                 , locale = Nothing
                 , description = siteTagline
-                , title = "elm-pages"
+                , title = meta.title
                 }
                 |> Seo.website
 
