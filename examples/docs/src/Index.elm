@@ -8,7 +8,7 @@ import Pages exposing (Page)
 
 
 view :
-    List ( List String, Metadata msg )
+    List ( List String, Metadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
@@ -19,10 +19,16 @@ view posts =
                         Metadata.Page meta ->
                             Nothing
 
+                        Metadata.Doc meta ->
+                            Nothing
+
+                        Metadata.Author _ ->
+                            Nothing
+
                         Metadata.Article meta ->
                             Just ( path, meta )
 
-                        Metadata.Doc meta ->
+                        Metadata.BlogIndex ->
                             Nothing
                 )
             |> List.map postSummary

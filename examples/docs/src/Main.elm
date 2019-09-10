@@ -14,6 +14,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Index
 import Json.Decode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
@@ -200,6 +201,15 @@ pageView model siteMetadata page =
                     ]
             }
 
+        Metadata.BlogIndex ->
+            { title = "elm-pages blog"
+            , body =
+                Element.column [ Element.width Element.fill ]
+                    [ header
+                    , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
+                    ]
+            }
+
 
 header : Element msg
 header =
@@ -336,6 +346,22 @@ head metadata =
                     , lastName = lastName
                     , username = Nothing
                     }
+
+        Metadata.BlogIndex ->
+            Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = images.icon
+                    , alt = "elm-pages logo"
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = siteTagline
+                , locale = Nothing
+                , title = "elm-pages blog"
+                }
+                |> Seo.website
 
 
 canonicalSiteUrl : String

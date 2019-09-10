@@ -32,6 +32,9 @@ view posts =
 
                         Metadata.Doc meta ->
                             Just ( path, meta )
+
+                        Metadata.BlogIndex ->
+                            Nothing
                 )
             |> List.map postSummary
         )

@@ -61,7 +61,7 @@ application config =
 
 allPages : List (Path PathKey Path.ToPage)
 allPages =
-    [ (buildPage [ "authors", "dillon-kearns" ])
+    [ (buildPage [ "blog" ])
     , (buildPage [ "blog", "types-over-conventions" ])
     , (buildPage [ "docs", "directory-structure" ])
     , (buildPage [ "docs" ])
@@ -69,13 +69,10 @@ allPages =
     ]
 
 pages =
-    { authors =
-        { dillonKearns = (buildPage [ "authors", "dillon-kearns" ])
-        , all = [ (buildPage [ "authors", "dillon-kearns" ]) ]
-        }
-    , blog =
-        { typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
-        , all = [ (buildPage [ "blog", "types-over-conventions" ]) ]
+    { blog =
+        { index = (buildPage [ "blog" ])
+        , typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
+        , all = [ (buildPage [ "blog" ]), (buildPage [ "blog", "types-over-conventions" ]) ]
         }
     , docs =
         { directoryStructure = (buildPage [ "docs", "directory-structure" ])
@@ -125,8 +122,8 @@ isValidRoute route =
 content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
     [ 
-  ( ["authors", "dillon-kearns"]
-    , { frontMatter = """{"name":"Dillon Kearns","avatar":"/images/dillon.jpg","bio":"Elm developer and educator. Founder of Incremental Elm Consulting.","type":"author"}
+  ( ["blog"]
+    , { frontMatter = """{"title":"elm-pages blog","type":"blog-index"}
 """ , body = Nothing
     , extension = "md"
     } )
