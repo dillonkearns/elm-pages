@@ -140,14 +140,25 @@ pageView model siteMetadata page =
                     [ header
                     , Element.column
                         [ Element.padding 30
-                        , Element.spacing 60
+                        , Element.spacing 40
                         , Element.Region.mainContent
                         , Element.width (Element.fill |> Element.maximum 800)
                         , Element.centerX
                         ]
-                        (Palette.blogHeading metadata.title
-                            :: publishedDateView metadata
-                            :: Author.view [] metadata.author
+                        (Element.column [ Element.spacing 10 ]
+                            [ Element.row [ Element.spacing 10 ]
+                                [ Author.view [] metadata.author
+                                , Element.column [ Element.spacing 10, Element.width Element.fill ]
+                                    [ Element.paragraph [ Font.bold, Font.size 24 ]
+                                        [ Element.text metadata.author.name
+                                        ]
+                                    , Element.paragraph [ Font.size 16 ]
+                                        [ Element.text metadata.author.bio ]
+                                    ]
+                                ]
+                            ]
+                            :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+                            :: Palette.blogHeading metadata.title
                             :: Tuple.second page.view
                         )
                     ]
