@@ -147,7 +147,7 @@ pageView model siteMetadata page =
                         ]
                         (Palette.blogHeading metadata.title
                             :: publishedDateView metadata
-                            :: Author.view metadata.author
+                            :: Author.view [] metadata.author
                             :: Tuple.second page.view
                         )
                     ]
@@ -195,7 +195,7 @@ pageView model siteMetadata page =
                         , Element.centerX
                         ]
                         [ Palette.blogHeading author.name
-                        , Author.view author
+                        , Author.view [] author
                         , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second page.view)
                         ]
                     ]

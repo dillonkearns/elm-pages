@@ -38,10 +38,11 @@ decoder =
             )
 
 
-view : Author -> Element msg
-view author =
+view : List (Element.Attribute msg) -> Author -> Element msg
+view attributes author =
     Element.image
-        [ Element.width (Element.px 70)
-        , Element.htmlAttribute (Attr.class "avatar")
-        ]
+        (Element.width (Element.px 70)
+            :: Element.htmlAttribute (Attr.class "avatar")
+            :: attributes
+        )
         { src = Path.toString author.avatar, description = author.name }

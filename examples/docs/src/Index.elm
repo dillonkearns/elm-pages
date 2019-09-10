@@ -1,5 +1,7 @@
 module Index exposing (view)
 
+import Data.Author
+import Date
 import Element exposing (Element)
 import Element.Border
 import Element.Font
@@ -104,6 +106,12 @@ postPreview post =
         , Element.Font.size 18
         ]
         [ title post.title
+        , Element.row [ Element.spacing 10, Element.centerX ]
+            [ Data.Author.view [ Element.width (Element.px 40) ] post.author
+            , Element.text post.author.name
+            , Element.text "•"
+            , Element.text (post.published |> Date.format "MMMM ddd, yyyy")
+            ]
         , post.description
             |> Element.text
             |> List.singleton
