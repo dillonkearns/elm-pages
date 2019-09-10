@@ -107,7 +107,7 @@ view model siteMetadata page =
         body
             |> Element.layout
                 [ Element.width Element.fill
-                , Font.size 18
+                , Font.size 20
                 , Font.family [ Font.typeface "Roboto" ]
                 , Font.color (Element.rgba255 0 0 0 0.8)
                 ]

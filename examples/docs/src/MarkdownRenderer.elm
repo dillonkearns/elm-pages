@@ -79,7 +79,7 @@ renderer =
     { heading = heading
     , raw =
         Element.paragraph
-            []
+            [ Element.spacing 15 ]
     , thematicBreak = Element.none
     , plain = Element.text
     , bold = \content -> Element.row [ Font.bold ] [ Element.text content ]
