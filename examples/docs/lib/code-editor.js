@@ -27,7 +27,7 @@ customElements.define(
       shadow.innerHTML = `
       <style>@import "https://cdnjs.cloudflare.com/ajax/libs/prism/1.17.1/themes/prism-okaidia.min.css";</style>
 
-      <pre class="line-numbers" style="padding: 20px; background: black;">
+      <pre class="line-numbers" style="padding: 20px; background: black; overflow: scroll;">
         <code class="language-elm">
 ${Prism.highlight(this._editorValue, Prism.languages.elm, "elm")}
         </code>
