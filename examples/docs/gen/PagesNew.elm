@@ -61,14 +61,19 @@ application config =
 
 allPages : List (Path PathKey Path.ToPage)
 allPages =
-    [ (buildPage [ "blog", "types-over-conventions" ])
+    [ (buildPage [ "authors", "dillon-kearns" ])
+    , (buildPage [ "blog", "types-over-conventions" ])
     , (buildPage [ "docs", "directory-structure" ])
     , (buildPage [ "docs" ])
     , (buildPage [  ])
     ]
 
 pages =
-    { blog =
+    { authors =
+        { dillonKearns = (buildPage [ "authors", "dillon-kearns" ])
+        , all = [ (buildPage [ "authors", "dillon-kearns" ]) ]
+        }
+    , blog =
         { typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
         , all = [ (buildPage [ "blog", "types-over-conventions" ]) ]
         }
@@ -120,6 +125,12 @@ isValidRoute route =
 content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
     [ 
+  ( ["authors", "dillon-kearns"]
+    , { frontMatter = """{"name":"Dillon Kearns","avatar":"/images/dillon.jpg","bio":"Elm developer and educator. Founder of Incremental Elm Consulting.","type":"author"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
   ( ["blog", "types-over-conventions"]
     , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO","published":"2019-09-09"}
 """ , body = Nothing

@@ -14,13 +14,14 @@ type Metadata
     = Page PageMetadata
     | Article ArticleMetadata
     | Doc DocMetadata
+    | Author AuthorMetadata
 
 
 type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , author : Author
+    , author : AuthorMetadata
     }
 
 
@@ -45,6 +46,13 @@ decoder =
                     "page" ->
                         Decode.field "title" Decode.string
                             |> Decode.map (\title -> Page { title = title })
+
+                    "author" ->
+                        Decode.map3 AuthorMetadata
+                            (Decode.field "name" Decode.string)
+                            (Decode.field "avatar" imageDecoder)
+                            (Decode.field "bio" Decode.string)
+                            |> Decode.map Author
 
                     "blog" ->
                         Decode.map4 ArticleMetadata
@@ -71,13 +79,14 @@ decoder =
             )
 
 
-type alias Author =
+type alias AuthorMetadata =
     { name : String
     , avatar : Path PagesNew.PathKey Path.ToImage
+    , bio : String
     }
 
 
-authorDecoder : Decoder Author
+authorDecoder : Decoder AuthorMetadata
 authorDecoder =
     Decode.string
         |> Decode.andThen
@@ -85,6 +94,7 @@ authorDecoder =
                 Decode.succeed
                     { name = "Dillon Kearns"
                     , avatar = PagesNew.images.dillon
+                    , bio = ""
                     }
             )
 

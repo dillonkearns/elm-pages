@@ -14,3 +14,7 @@
     stroke-dashoffset: 10;
   }
 }
+
+.avatar img {
+  border-radius: 50%;
+}

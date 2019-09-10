@@ -27,6 +27,9 @@ view posts =
                         Metadata.Article meta ->
                             Nothing
 
+                        Metadata.Author _ ->
+                            Nothing
+
                         Metadata.Doc meta ->
                             Just ( path, meta )
                 )

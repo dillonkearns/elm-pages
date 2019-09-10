@@ -12,6 +12,7 @@ import Element.Region
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
+import Html.Attributes as Attr
 import Json.Decode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
@@ -22,6 +23,7 @@ import Pages.Manifest.Category
 import Pages.Path as Path
 import PagesNew exposing (images, pages)
 import Palette
+import View.Avatar as Avatar
 
 
 manifest : Manifest.Config PagesNew.PathKey
@@ -144,10 +146,7 @@ pageView model siteMetadata page =
                         ]
                         (Palette.blogHeading metadata.title
                             :: publishedDateView metadata
-                            :: Element.image
-                                [ Element.width (Element.px 70)
-                                ]
-                                { src = Path.toString metadata.author.avatar, description = metadata.author.name }
+                            :: Avatar.view metadata.author
                             :: Tuple.second page.view
                         )
                     ]
@@ -178,6 +177,27 @@ pageView model siteMetadata page =
                         [ Element.width Element.fill
                         , Element.height Element.fill
                         ]
+            }
+
+        Metadata.Author author ->
+            { title = author.name
+            , body =
+                Element.column
+                    [ Element.width Element.fill
+                    ]
+                    [ header
+                    , Element.column
+                        [ Element.padding 30
+                        , Element.spacing 20
+                        , Element.Region.mainContent
+                        , Element.width (Element.fill |> Element.maximum 800)
+                        , Element.centerX
+                        ]
+                        [ Palette.blogHeading author.name
+                        , Avatar.view author
+                        , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second page.view)
+                        ]
+                    ]
             }
 
 
@@ -280,6 +300,41 @@ head metadata =
                     , publishedTime = Just (Date.toIsoString meta.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
+                    }
+
+        Metadata.Author meta ->
+            let
+                ( firstName, lastName ) =
+                    case meta.name |> String.split " " of
+                        [ first, last ] ->
+                            ( first, last )
+
+                        [ first, middle, last ] ->
+                            ( first ++ " " ++ middle, last )
+
+                        [] ->
+                            ( "", "" )
+
+                        _ ->
+                            ( meta.name, "" )
+            in
+            Seo.summary
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = meta.avatar
+                    , alt = meta.name ++ "'s elm-pages articles."
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = meta.bio
+                , locale = Nothing
+                , title = meta.name ++ "'s elm-pages articles."
+                }
+                |> Seo.profile
+                    { firstName = firstName
+                    , lastName = lastName
+                    , username = Nothing
                     }
 
 
