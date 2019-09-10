@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import Color
+import Data.Author as Author
 import Date
 import DocSidebar
 import DocumentSvg
@@ -23,7 +24,6 @@ import Pages.Manifest.Category
 import Pages.Path as Path
 import PagesNew exposing (images, pages)
 import Palette
-import View.Avatar as Avatar
 
 
 manifest : Manifest.Config PagesNew.PathKey
@@ -146,7 +146,7 @@ pageView model siteMetadata page =
                         ]
                         (Palette.blogHeading metadata.title
                             :: publishedDateView metadata
-                            :: Avatar.view metadata.author
+                            :: Author.view metadata.author
                             :: Tuple.second page.view
                         )
                     ]
@@ -194,7 +194,7 @@ pageView model siteMetadata page =
                         , Element.centerX
                         ]
                         [ Palette.blogHeading author.name
-                        , Avatar.view author
+                        , Author.view author
                         , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second page.view)
                         ]
                     ]

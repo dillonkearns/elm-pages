@@ -1,5 +1,6 @@
 module Metadata exposing (ArticleMetadata, DocMetadata, Metadata(..), PageMetadata, decoder)
 
+import Data.Author
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Element exposing (Element)
@@ -14,14 +15,14 @@ type Metadata
     = Page PageMetadata
     | Article ArticleMetadata
     | Doc DocMetadata
-    | Author AuthorMetadata
+    | Author Data.Author.Author
 
 
 type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , author : AuthorMetadata
+    , author : Data.Author.Author
     }
 
 
@@ -48,7 +49,7 @@ decoder =
                             |> Decode.map (\title -> Page { title = title })
 
                     "author" ->
-                        Decode.map3 AuthorMetadata
+                        Decode.map3 Data.Author.Author
                             (Decode.field "name" Decode.string)
                             (Decode.field "avatar" imageDecoder)
                             (Decode.field "bio" Decode.string)
@@ -71,31 +72,11 @@ decoder =
                                         )
                                 )
                             )
-                            (Decode.field "author" authorDecoder)
+                            (Decode.field "author" Data.Author.decoder)
                             |> Decode.map Article
 
                     _ ->
                         Decode.fail <| "Unexpected page type " ++ pageType
-            )
-
-
-type alias AuthorMetadata =
-    { name : String
-    , avatar : Path PagesNew.PathKey Path.ToImage
-    , bio : String
-    }
-
-
-authorDecoder : Decoder AuthorMetadata
-authorDecoder =
-    Decode.string
-        |> Decode.andThen
-            (\authorName ->
-                Decode.succeed
-                    { name = "Dillon Kearns"
-                    , avatar = PagesNew.images.dillon
-                    , bio = ""
-                    }
             )
 
 
