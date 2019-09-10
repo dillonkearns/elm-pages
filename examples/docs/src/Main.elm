@@ -19,6 +19,7 @@ import Pages exposing (Page)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
+import Pages.Path as Path
 import PagesNew exposing (images, pages)
 import Palette
 
@@ -143,6 +144,10 @@ pageView model siteMetadata page =
                         ]
                         (Palette.blogHeading metadata.title
                             :: publishedDateView metadata
+                            :: Element.image
+                                [ Element.width (Element.px 70)
+                                ]
+                                { src = Path.toString metadata.author.avatar, description = metadata.author.name }
                             :: Tuple.second page.view
                         )
                     ]

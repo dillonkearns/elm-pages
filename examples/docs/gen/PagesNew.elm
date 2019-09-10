@@ -82,14 +82,16 @@ pages =
     }
 
 images =
-    { icon = (buildImage [ "icon.svg" ])
+    { dillon = (buildImage [ "dillon.jpg" ])
+    , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
-    , all = [ (buildImage [ "icon.svg" ]), (buildImage [ "mountains.jpg" ]) ]
+    , all = [ (buildImage [ "dillon.jpg" ]), (buildImage [ "icon.svg" ]), (buildImage [ "mountains.jpg" ]) ]
     }
 
 allImages : List (Path PathKey Path.ToImage)
 allImages =
-    [(buildImage [ "icon.svg" ])
+    [(buildImage [ "dillon.jpg" ])
+    , (buildImage [ "icon.svg" ])
     , (buildImage [ "mountains.jpg" ])
     ]
 

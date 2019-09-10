@@ -4,7 +4,8 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Element exposing (Element)
 import Element.Font as Font
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder)
+import List.Extra
 import Pages.Path as Path exposing (Path)
 import PagesNew
 
@@ -16,10 +17,10 @@ type Metadata
 
 
 type alias ArticleMetadata =
-    { author : String
-    , title : String
+    { title : String
     , description : String
     , published : Date
+    , author : Author
     }
 
 
@@ -47,7 +48,6 @@ decoder =
 
                     "blog" ->
                         Decode.map4 ArticleMetadata
-                            (Decode.field "author" Decode.string)
                             (Decode.field "title" Decode.string)
                             (Decode.field "description" Decode.string)
                             (Decode.field "published"
@@ -63,8 +63,51 @@ decoder =
                                         )
                                 )
                             )
+                            (Decode.field "author" authorDecoder)
                             |> Decode.map Article
 
                     _ ->
                         Decode.fail <| "Unexpected page type " ++ pageType
+            )
+
+
+type alias Author =
+    { name : String
+    , avatar : Path PagesNew.PathKey Path.ToImage
+    }
+
+
+authorDecoder : Decoder Author
+authorDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\authorName ->
+                Decode.succeed
+                    { name = "Dillon Kearns"
+                    , avatar = PagesNew.images.dillon
+                    }
+            )
+
+
+imageDecoder : Decoder (Path PagesNew.PathKey Path.ToImage)
+imageDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\imageAssetPath ->
+                case findMatchingImage imageAssetPath of
+                    Nothing ->
+                        Decode.fail "Couldn't find image."
+
+                    Just imagePath ->
+                        Decode.succeed imagePath
+            )
+
+
+findMatchingImage : String -> Maybe (Path PagesNew.PathKey Path.ToImage)
+findMatchingImage imageAssetPath =
+    PagesNew.allImages
+        |> List.Extra.find
+            (\image ->
+                Path.toString image
+                    == imageAssetPath
             )
