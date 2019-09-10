@@ -4,7 +4,6 @@ import Dict exposing (Dict)
 import Element exposing (Element)
 import Element.Font as Font
 import Mark
-import Pages.Parser
 
 
 type Metadata msg

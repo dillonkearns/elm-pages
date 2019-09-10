@@ -2,6 +2,7 @@ module Head.Seo exposing
     ( Image
     , article
     , audioPlayer
+    , profile
     , song
     , summary
     , summaryLarge
@@ -221,6 +222,19 @@ book common details =
     Book details |> Content common |> tags
 
 
+{-| See <https://ogp.me/#type_profile>
+-}
+profile :
+    { firstName : String
+    , lastName : String
+    , username : Maybe String
+    }
+    -> Common pathKey
+    -> List (Head.Tag pathKey)
+profile details common =
+    Profile details |> Content common |> tags
+
+
 song :
     Common pathKey
     ->
@@ -333,6 +347,11 @@ type ContentDetails
         , disc : Maybe Int
         , track : Maybe Int
         }
+    | Profile
+        { firstName : String
+        , lastName : String
+        , username : Maybe String
+        }
 
 
 {-| <https://en.wikipedia.org/wiki/ISO_8601>
@@ -424,6 +443,13 @@ tags (Content common details) =
                     , ( "music:duration", songDetails.duration |> Maybe.map String.fromInt |> Maybe.map Head.raw )
                     , ( "music:album:disc", songDetails.disc |> Maybe.map String.fromInt |> Maybe.map Head.raw )
                     , ( "music:album:track", songDetails.track |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+                    ]
+
+                Profile profileDetails ->
+                    [ ( "og:type", "profile" |> Head.raw |> Just )
+                    , ( "profile:first_name", profileDetails.firstName |> Head.raw |> Just )
+                    , ( "profile:last_name", profileDetails.lastName |> Head.raw |> Just )
+                    , ( "profile:username", profileDetails.username |> Maybe.map Head.raw )
                     ]
            )
         |> List.filterMap
