@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "elm": "^0.19.0-no-deps",
+    "elm-oembed": "0.0.2",
     "elm-pages": "^1.0.31",
     "elm-test": "^0.19.0-rev6",
     "http-server": "^0.11.1"
