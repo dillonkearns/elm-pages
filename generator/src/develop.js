@@ -106,7 +106,7 @@ function printProgress(progress, message) {
 }
 function webpackOptions(production, routes, { debug, manifestConfig }) {
   const common = {
-    entry: { hello: "./index.js" },
+    entry: "./index.js",
     mode: production ? "production" : "development",
     plugins: [
       new AddFilesPlugin(),
