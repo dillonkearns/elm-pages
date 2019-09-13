@@ -13,25 +13,10 @@ import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Manifest as Manifest
+import Pages.PagePath as PagePath exposing (PagePath)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
-
-
-lookup :
-    List ( List String, lookupResult )
-    -> Url
-    -> Maybe lookupResult
-lookup content url =
-    List.Extra.find
-        (\( path, markup ) ->
-            (String.split "/" (url.path |> dropTrailingSlash)
-                |> List.drop 1
-            )
-                == path
-        )
-        content
-        |> Maybe.map Tuple.second
 
 
 dropTrailingSlash path =
@@ -57,13 +42,14 @@ type alias Program userModel userMsg metadata view =
 
 
 mainView :
-    (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
+    pathKey
+    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel metadata view
     -> { title : String, body : Html userMsg }
-mainView pageView model =
+mainView pathKey pageView model =
     case model.contentCache of
         Ok site ->
-            pageViewOrError pageView model model.contentCache
+            pageViewOrError pathKey pageView model model.contentCache
 
         -- TODO these lookup helpers should not need it to be a Result
         Err errors ->
@@ -73,11 +59,12 @@ mainView pageView model =
 
 
 pageViewOrError :
-    (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
+    pathKey
+    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel metadata view
     -> ContentCache metadata view
     -> { title : String, body : Html userMsg }
-pageViewOrError pageView model cache =
+pageViewOrError pathKey pageView model cache =
     case ContentCache.lookup cache model.url of
         Just entry ->
             case entry of
@@ -85,7 +72,8 @@ pageViewOrError pageView model cache =
                     case viewResult of
                         Ok viewList ->
                             pageView model.userModel
-                                (Result.map ContentCache.extractMetadata cache
+                                (cache
+                                    |> Result.map (ContentCache.extractMetadata pathKey)
                                     |> Result.withDefault []
                                  -- TODO handle error better
                                 )
@@ -118,14 +106,15 @@ pageViewOrError pageView model cache =
 
 
 view :
-    Content
-    -> (userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
+    pathKey
+    -> Content
+    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
     -> ModelDetails userModel metadata view
     -> Browser.Document (Msg userMsg metadata view)
-view content pageView model =
+view pathKey content pageView model =
     let
         { title, body } =
-            mainView pageView model
+            mainView pathKey pageView model
     in
     { title = title
     , body =
@@ -158,7 +147,8 @@ combineTupleResults input =
 
 
 init :
-    String
+    pathKey
+    -> String
     -> Pages.Document.Document metadata view
     -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
     -> (metadata -> List (Head.Tag pathKey))
@@ -168,7 +158,7 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
-init canonicalSiteUrl document toJsPort head content initUserModel flags url key =
+init pathKey canonicalSiteUrl document toJsPort head content initUserModel flags url key =
     let
         ( userModel, userCmd ) =
             initUserModel
@@ -184,7 +174,7 @@ init canonicalSiteUrl document toJsPort head content initUserModel flags url key
               , contentCache = contentCache
               }
             , Cmd.batch
-                ([ lookup (ContentCache.extractMetadata okCache) url
+                ([ ContentCache.lookupMetadata (Ok okCache) url
                     |> Maybe.map head
                     |> Maybe.map (encodeHeads canonicalSiteUrl url.path)
                     |> Maybe.map toJsPort
@@ -306,26 +296,27 @@ application :
     { init : ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List (Head.Tag pathKey)
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
+    , pathKey : pathKey
     }
     -> Program userModel userMsg metadata view
 application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.canonicalSiteUrl config.document config.toJsPort config.head config.content config.init flags url key
+                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.head config.content config.init flags url key
                     |> Tuple.mapFirst Model
         , view =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        view config.content config.view model
+                        view config.pathKey config.content config.view model
 
                     CliModel ->
                         { title = "Error"
@@ -357,13 +348,14 @@ cliApplication :
     { init : ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
     , head : metadata -> List (Head.Tag pathKey)
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
+    , pathKey : pathKey
     }
     -> Program userModel userMsg metadata view
 cliApplication config =

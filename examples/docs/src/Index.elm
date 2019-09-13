@@ -7,10 +7,12 @@ import Element.Border
 import Element.Font
 import Metadata exposing (Metadata)
 import Pages exposing (Page)
+import Pages.PagePath as PagePath exposing (PagePath)
+import PagesNew
 
 
 view :
-    List ( List String, Metadata )
+    List ( PagePath PagesNew.PathKey, Metadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
@@ -38,23 +40,17 @@ view posts =
 
 
 postSummary :
-    ( List String, Metadata.ArticleMetadata )
+    ( PagePath PagesNew.PathKey, Metadata.ArticleMetadata )
     -> Element msg
 postSummary ( postPath, post ) =
     articleIndex post
         |> linkToPost postPath
 
 
-linkToPost : List String -> Element msg -> Element msg
+linkToPost : PagePath PagesNew.PathKey -> Element msg -> Element msg
 linkToPost postPath content =
     Element.link [ Element.width Element.fill ]
-        { url = postUrl postPath, label = content }
-
-
-postUrl : List String -> String
-postUrl postPath =
-    "/"
-        ++ String.join "/" postPath
+        { url = PagePath.toString postPath, label = content }
 
 
 title : String -> Element msg

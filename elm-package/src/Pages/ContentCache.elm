@@ -8,6 +8,7 @@ module Pages.ContentCache exposing
     , init
     , lazyLoad
     , lookup
+    , lookupMetadata
     , pagesWithErrors
     , pathForUrl
     , routesForCache
@@ -22,6 +23,7 @@ import Json.Decode
 import Mark
 import Mark.Error
 import Pages.Document as Document exposing (Document)
+import Pages.PagePath as PagePath exposing (PagePath)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
@@ -59,11 +61,11 @@ type alias Path =
     List String
 
 
-extractMetadata : ContentCacheInner metadata view -> List ( Path, metadata )
-extractMetadata cache =
+extractMetadata : pathKey -> ContentCacheInner metadata view -> List ( PagePath pathKey, metadata )
+extractMetadata pathKey cache =
     cache
         |> Dict.toList
-        |> List.map (\( path, entry ) -> ( path, getMetadata entry ))
+        |> List.map (\( path, entry ) -> ( PagePath.build pathKey path, getMetadata entry ))
 
 
 getMetadata : Entry metadata view -> metadata
@@ -417,6 +419,26 @@ lookup content url =
 
         Err _ ->
             Nothing
+
+
+lookupMetadata :
+    ContentCache metadata view
+    -> Url
+    -> Maybe metadata
+lookupMetadata content url =
+    lookup content url
+        |> Maybe.map
+            (\entry ->
+                case entry of
+                    NeedContent _ metadata ->
+                        metadata
+
+                    Unparsed _ metadata _ ->
+                        metadata
+
+                    Parsed metadata _ ->
+                        metadata
+            )
 
 
 dropTrailingSlash path =

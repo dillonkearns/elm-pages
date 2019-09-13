@@ -4,10 +4,12 @@ import Element exposing (Element)
 import Element.Border as Border
 import Element.Font
 import Metadata exposing (Metadata)
+import Pages.PagePath as PagePath exposing (PagePath)
+import PagesNew
 
 
 view :
-    List ( List String, Metadata )
+    List ( PagePath PagesNew.PathKey, Metadata )
     -> Element msg
 view posts =
     Element.column
@@ -41,7 +43,7 @@ view posts =
 
 
 postSummary :
-    ( List String, { title : String } )
+    ( PagePath PagesNew.PathKey, { title : String } )
     -> Element msg
 postSummary ( postPath, post ) =
     [ Element.text post.title ]
@@ -54,10 +56,10 @@ postSummary ( postPath, post ) =
         |> linkToPost postPath
 
 
-linkToPost : List String -> Element msg -> Element msg
+linkToPost : PagePath PagesNew.PathKey -> Element msg -> Element msg
 linkToPost postPath content =
     Element.link [ Element.width Element.fill ]
-        { url = docUrl postPath, label = content }
+        { url = PagePath.toString postPath, label = content }
 
 
 docUrl : List String -> String

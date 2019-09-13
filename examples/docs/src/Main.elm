@@ -22,6 +22,7 @@ import Pages exposing (Page)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
+import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Path as Path
 import PagesNew exposing (images, pages)
 import Palette
@@ -96,7 +97,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( List String, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Html Msg }
+view : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Html Msg }
 view model siteMetadata page =
     let
         { title, body } =
@@ -114,7 +115,7 @@ view model siteMetadata page =
     }
 
 
-pageView : Model -> List ( List String, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Element Msg }
+pageView : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Element Msg }
 pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->

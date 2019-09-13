@@ -39,7 +39,7 @@ application :
     { init : ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( List String, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
     , head : metadata -> List (Head.Tag PathKey)
     , documents : List (Pages.Document.DocumentParser metadata view)
     , manifest : Pages.Manifest.Config PathKey
@@ -58,6 +58,7 @@ application config =
         , head = config.head
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
+        , pathKey = PathKey
         }
 
 
