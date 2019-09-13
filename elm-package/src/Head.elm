@@ -1,7 +1,8 @@
-module Head exposing (AttributeValue, Tag, canonicalLink, currentPageFullUrl, description, fullUrl, metaName, metaProperty, raw, toJson)
+module Head exposing (AttributeValue, Tag, canonicalLink, currentPageFullUrl, description, fullImageUrl, fullPageUrl, metaName, metaProperty, raw, toJson)
 
 import Json.Encode
-import Pages.Path as Path exposing (Path)
+import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
 
 
 type Tag pathKey
@@ -19,9 +20,14 @@ raw value =
     Raw value
 
 
-fullUrl : Path pathKey any -> AttributeValue pathKey
-fullUrl value =
-    FullUrl (Path.toString value)
+fullImageUrl : ImagePath pathKey -> AttributeValue pathKey
+fullImageUrl value =
+    FullUrl (ImagePath.toString value)
+
+
+fullPageUrl : PagePath pathKey -> AttributeValue pathKey
+fullPageUrl value =
+    FullUrl (PagePath.toString value)
 
 
 currentPageFullUrl : AttributeValue pathKey
@@ -40,12 +46,12 @@ type AttributeValue pathKey
     Head.canonicalLink "https://elm-pages.com"
 
 -}
-canonicalLink : Maybe (Path pathKey Path.ToPage) -> Tag pathKey
+canonicalLink : Maybe (PagePath pathKey) -> Tag pathKey
 canonicalLink maybePath =
     node "link"
         [ ( "rel", raw "canonical" )
         , ( "href"
-          , maybePath |> Maybe.map fullUrl |> Maybe.withDefault currentPageFullUrl
+          , maybePath |> Maybe.map fullPageUrl |> Maybe.withDefault currentPageFullUrl
           )
         ]
 

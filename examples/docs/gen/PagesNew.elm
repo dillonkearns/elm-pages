@@ -13,22 +13,25 @@ import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
-import Pages.Path as Path exposing (Path)
+import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
 
 
 type PathKey
     = PathKey
 
 
-buildImage : List String -> Path PathKey Path.ToImage
+buildImage : List String -> ImagePath PathKey
 buildImage path =
-    Path.buildImage PathKey ("images" :: path)
+    ImagePath.build PathKey ("images" :: path)
 
 
 
-buildPage : List String -> Path PathKey Path.ToPage
+buildPage : List String -> PagePath PathKey
 buildPage path =
-    Path.buildPage PathKey path
+    PagePath.build PathKey path
+
+
 port toJsPort : Json.Encode.Value -> Cmd msg
 
 
@@ -59,7 +62,7 @@ application config =
 
 
 
-allPages : List (Path PathKey Path.ToPage)
+allPages : List (PagePath PathKey)
 allPages =
     [ (buildPage [ "blog" ])
     , (buildPage [ "blog", "types-over-conventions" ])
@@ -90,7 +93,7 @@ images =
     , all = [ (buildImage [ "dillon.jpg" ]), (buildImage [ "icon.svg" ]), (buildImage [ "mountains.jpg" ]) ]
     }
 
-allImages : List (Path PathKey Path.ToImage)
+allImages : List (ImagePath PathKey)
 allImages =
     [(buildImage [ "dillon.jpg" ])
     , (buildImage [ "icon.svg" ])
@@ -102,7 +105,7 @@ isValidRoute : String -> Result String ()
 isValidRoute route =
     let
         validRoutes =
-            List.map Path.toString allPages
+            List.map PagePath.toString allPages
     in
     if
         (route |> String.startsWith "http://")

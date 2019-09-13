@@ -16,7 +16,8 @@ module Head.Seo exposing
 
 import Head
 import Head.SocialMeta as Twitter
-import Pages.Path
+import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
 
 
 {-| Will be displayed as a large card in twitter
@@ -29,7 +30,7 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summaryLarge :
-    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
+    { canonicalUrlOverride : Maybe (PagePath pathKey)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -51,7 +52,7 @@ See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/
 
 -}
 summary :
-    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
+    { canonicalUrlOverride : Maybe (PagePath pathKey)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -71,7 +72,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 audioPlayer :
-    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
+    { canonicalUrlOverride : Maybe (PagePath pathKey)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -114,7 +115,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 videoPlayer :
-    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
+    { canonicalUrlOverride : Maybe (PagePath pathKey)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -150,7 +151,7 @@ videoPlayer { title, image, canonicalUrlOverride, description, siteName, video, 
 
 
 buildSummary :
-    { canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
+    { canonicalUrlOverride : Maybe (PagePath pathKey)
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -259,7 +260,7 @@ Skipping this for now, if there's a use case I can add it in:
 type alias Common pathKey =
     { title : String
     , image : Image pathKey
-    , canonicalUrlOverride : Maybe (Pages.Path.Path pathKey Pages.Path.ToPage)
+    , canonicalUrlOverride : Maybe (PagePath pathKey)
     , description : String
     , siteName : String
     , audio : Maybe Audio
@@ -276,7 +277,7 @@ tagsForCommon common =
         ++ (common.audio |> Maybe.map tagsForAudio |> Maybe.withDefault [])
         ++ (common.video |> Maybe.map tagsForVideo |> Maybe.withDefault [])
         ++ [ ( "og:title", Just (Head.raw common.title) )
-           , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.fullUrl |> Maybe.withDefault Head.currentPageFullUrl |> Just )
+           , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.fullPageUrl |> Maybe.withDefault Head.currentPageFullUrl |> Just )
            , ( "og:description", Just (Head.raw common.description) )
            , ( "og:site_name", Just (Head.raw common.siteName) )
            , ( "og:locale", common.locale |> Maybe.map Head.raw )
@@ -371,7 +372,7 @@ type alias MimeType =
 {-| See <https://ogp.me/#structured>
 -}
 type alias Image pathKey =
-    { url : Pages.Path.Path pathKey Pages.Path.ToImage
+    { url : ImagePath pathKey
     , alt : String
     , dimensions : Maybe { width : Int, height : Int }
     , mimeType : Maybe MimeType
@@ -380,8 +381,8 @@ type alias Image pathKey =
 
 tagsForImage : Image pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
 tagsForImage image =
-    [ ( "og:image", Just (Head.fullUrl image.url) )
-    , ( "og:image:secure_url", Just (Head.fullUrl image.url) )
+    [ ( "og:image", Just (Head.fullImageUrl image.url) )
+    , ( "og:image:secure_url", Just (Head.fullImageUrl image.url) )
     , ( "og:image:alt", image.alt |> Head.raw |> Just )
     , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )

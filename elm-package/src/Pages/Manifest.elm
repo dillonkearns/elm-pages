@@ -3,8 +3,9 @@ module Pages.Manifest exposing (Config, DisplayMode(..), Orientation(..), toJson
 import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
-import Pages.Path as Path exposing (Path)
+import Pages.PagePath as PagePath exposing (PagePath)
 
 
 
@@ -82,11 +83,11 @@ type alias Config pathKey =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : Path pathKey Path.ToPage
+    , startUrl : PagePath pathKey
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : Path pathKey Path.ToImage
+    , sourceIcon : ImagePath pathKey
     }
 
 
@@ -110,7 +111,7 @@ toJson : Config pathKey -> Encode.Value
 toJson config =
     [ ( "sourceIcon"
       , config.sourceIcon
-            |> Path.toString
+            |> ImagePath.toString
             |> Encode.string
             |> Just
       )
@@ -168,7 +169,7 @@ toJson config =
       )
     , ( "start_url"
       , config.startUrl
-            |> Path.toString
+            |> PagePath.toString
             |> Encode.string
             |> Just
       )
