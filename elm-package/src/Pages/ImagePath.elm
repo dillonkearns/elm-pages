@@ -1,16 +1,27 @@
-module Pages.ImagePath exposing (ImagePath, build, toString)
+module Pages.ImagePath exposing (ImagePath, build, external, toString)
 
 
 type ImagePath key
-    = ImagePath (List String)
+    = Internal (List String)
+    | External String
 
 
 toString : ImagePath key -> String
-toString (ImagePath rawPath) =
-    "/"
-        ++ (rawPath |> String.join "/")
+toString path =
+    case path of
+        Internal rawPath ->
+            "/"
+                ++ (rawPath |> String.join "/")
+
+        External url ->
+            url
 
 
 build : key -> List String -> ImagePath key
 build key path =
-    ImagePath path
+    Internal path
+
+
+external : String -> ImagePath key
+external url =
+    External url
