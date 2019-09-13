@@ -4,13 +4,13 @@ import Element exposing (Element)
 import Html.Attributes as Attr
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
-import Pages.Path as Path exposing (Path)
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 import PagesNew
 
 
 type alias Author =
     { name : String
-    , avatar : Path PagesNew.PathKey Path.ToImage
+    , avatar : ImagePath PagesNew.PathKey
     , bio : String
     }
 
@@ -45,4 +45,4 @@ view attributes author =
             :: Element.htmlAttribute (Attr.class "avatar")
             :: attributes
         )
-        { src = Path.toString author.avatar, description = author.name }
+        { src = ImagePath.toString author.avatar, description = author.name }
