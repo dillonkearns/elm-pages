@@ -6,13 +6,17 @@ module.exports = function pagesInit({ mainElmModule }) {
       flags: {}
     });
 
-    app.ports.toJsPort.subscribe(headTags => {
-      if (navigator.userAgent.indexOf("Headless") >= 0) {
-        headTags.forEach(headTag => {
-          appendTag(headTag);
-        });
-      } else {
+    app.ports.toJsPort.subscribe(payload => {
+      if (payload.event === "page-changed") {
         setupLinkPrefetching();
+      } else {
+        if (navigator.userAgent.indexOf("Headless") >= 0) {
+          headTags.forEach(headTag => {
+            appendTag(headTag);
+          });
+        } else {
+          setupLinkPrefetching();
+        }
       }
 
       document.dispatchEvent(new Event("prerender-trigger"));

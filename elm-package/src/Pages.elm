@@ -223,12 +223,13 @@ type alias ModelDetails userModel metadata view =
 
 
 update :
-    Pages.Document.Document metadata view
+    (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
+    -> Pages.Document.Document metadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
-update document userUpdate msg model =
+update toJsPort document userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -278,7 +279,13 @@ update document userUpdate msg model =
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
                 Ok updatedCache ->
-                    ( { model | url = url, contentCache = updatedCache }, Cmd.none )
+                    ( { model | url = url, contentCache = updatedCache }
+                    , toJsPort
+                        (Json.Encode.object
+                            [ ( "event", Json.Encode.string "page-changed" )
+                            ]
+                        )
+                    )
 
                 Err _ ->
                     -- TODO handle error
@@ -326,7 +333,7 @@ application config =
             \msg outerModel ->
                 case outerModel of
                     Model model ->
-                        update config.document config.update msg model |> Tuple.mapFirst Model
+                        update config.toJsPort config.document config.update msg model |> Tuple.mapFirst Model
 
                     CliModel ->
                         ( outerModel, Cmd.none )
