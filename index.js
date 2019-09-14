@@ -24,23 +24,22 @@ module.exports = function pagesInit({ mainElmModule }) {
   });
 
   function setupLinkPrefetching() {
-    setTimeout(function() {
-      // TODO instead of setTimeout,
-      // send an event from elm when rendering is complete
-      // (Should work if you just send after `update`, not `init`)
-      console.log("Setting up link hover prefetches...");
-      const links = document.querySelectorAll("a");
-      console.log("links", links);
-      links.forEach(link => {
-        link.addEventListener("mouseenter", function(event) {
-          if (event && event.target) {
-            prefetchIfNeeded(event.target);
-          } else {
-            console.log("Couldn't prefetch with event", event);
-          }
-        });
+    setTimeout(setupLinkPrefetchingHelp, 1000);
+  }
+
+  function setupLinkPrefetchingHelp() {
+    console.log("Setting up link hover prefetches...");
+    const links = document.querySelectorAll("a");
+    console.log("links", links);
+    links.forEach(link => {
+      link.addEventListener("mouseenter", function(event) {
+        if (event && event.target) {
+          prefetchIfNeeded(event.target);
+        } else {
+          console.log("Couldn't prefetch with event", event);
+        }
       });
-    }, 1000);
+    });
   }
 
   function prefetchIfNeeded(target) {
