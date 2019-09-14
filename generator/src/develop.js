@@ -199,7 +199,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
         exclude: [
           /android-chrome-.*\.png$/,
           /apple-touch-icon.*\.png/,
-          /favicon-.*\.png/
+          /assets\//
         ],
         navigateFallback: "index.html",
         swDest: "service-worker.js",
