@@ -12,11 +12,11 @@ type WithoutIndex
 
 
 type Directory key hasIndex
-    = Directory (List (PagePath key)) (List String)
+    = Directory key (List (PagePath key)) (List String)
 
 
 includes : Directory key hasIndex -> PagePath key -> Bool
-includes (Directory allPagePaths directoryPath) pagePath =
+includes (Directory key allPagePaths directoryPath) pagePath =
     allPagePaths
         |> List.filter
             (\path ->
@@ -26,9 +26,9 @@ includes (Directory allPagePaths directoryPath) pagePath =
         |> List.member pagePath
 
 
-indexPath : Directory key WithIndex -> String
-indexPath (Directory allPagePaths directoryPath) =
-    toString directoryPath
+indexPath : Directory key WithIndex -> PagePath key
+indexPath (Directory key allPagePaths directoryPath) =
+    PagePath.build key directoryPath
 
 
 toString : List String -> String
@@ -37,16 +37,11 @@ toString rawPath =
         ++ (rawPath |> String.join "/")
 
 
-build : hasIndex -> key -> List (PagePath key) -> List String -> Directory key hasIndex
-build hasIndex key allPagePaths path =
-    Directory allPagePaths path
-
-
 withIndex : key -> List (PagePath key) -> List String -> Directory key WithIndex
 withIndex key allPagePaths path =
-    Directory allPagePaths path
+    Directory key allPagePaths path
 
 
 withoutIndex : key -> List (PagePath key) -> List String -> Directory key WithoutIndex
 withoutIndex key allPagePaths path =
-    Directory allPagePaths path
+    Directory key allPagePaths path

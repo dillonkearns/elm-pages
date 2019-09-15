@@ -282,7 +282,9 @@ highlightableLink currentPath linkDirectory displayName =
          else
             []
         )
-        { url = Directory.indexPath linkDirectory, label = Element.text displayName }
+        { url = linkDirectory |> Directory.indexPath |> PagePath.toString
+        , label = Element.text displayName
+        }
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
