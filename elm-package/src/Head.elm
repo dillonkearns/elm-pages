@@ -1,16 +1,31 @@
 module Head exposing
-    ( Tag, AttributeValue, currentPageFullUrl, description, fullImageUrl, fullPageUrl, metaName, metaProperty, raw
-    , toJson, canonicalLink
+    ( Tag, metaName, metaProperty
+    , AttributeValue
+    , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
+    , toJson, canonicalLink, description
     )
 
-{-|
+{-| This module contains low-level functions for building up
+values that will be rendered into the page's `<head>` tag
+when you run `elm-pages build`. Most likely the `Head.Seo` module
+will do everything you need out of the box, and you will just need to import `Head`
+so you can use the `Tag` type in your type annotations.
 
-@docs Tag, AttributeValue, currentPageFullUrl, description, fullImageUrl, fullPageUrl, metaName, metaProperty, raw
+But this module might be useful if you have a special use case, or if you are
+writing a plugin package to extend `elm-pages`.
+
+@docs Tag, metaName, metaProperty
+
+
+## `AttributeValue`s
+
+@docs AttributeValue
+@docs currentPageFullUrl, fullImageUrl, fullPageUrl, raw
 
 
 ## Functions for use by generated code
 
-@docs toJson, canonicalLink
+@docs toJson, canonicalLink, description
 
 -}
 
@@ -29,21 +44,29 @@ type alias Details pathKey =
     }
 
 
+{-| Create a raw `AttributeValue` (as opposed to some kind of absolute URL).
+-}
 raw : String -> AttributeValue pathKey
 raw value =
     Raw value
 
 
+{-| Create an `AttributeValue` from an `ImagePath`.
+-}
 fullImageUrl : ImagePath pathKey -> AttributeValue pathKey
 fullImageUrl value =
     FullUrl (ImagePath.toString value)
 
 
+{-| Create an `AttributeValue` from a `PagePath`.
+-}
 fullPageUrl : PagePath pathKey -> AttributeValue pathKey
 fullPageUrl value =
     FullUrl (PagePath.toString value)
 
 
+{-| Create an `AttributeValue` representing the current page's full url.
+-}
 currentPageFullUrl : AttributeValue pathKey
 currentPageFullUrl =
     FullUrlToCurrentPage
