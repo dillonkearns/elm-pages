@@ -31,7 +31,34 @@ the blog posts in your site.
 
 You can lookup a specific static route based on its path using the record-based lookup:
 
-    Pages.allPages : List (PagePath Pages.PathKey)
+    Pages.pages
+
+This gives you a record, based on your local `content` directory, that lets you look paths up like so:
+
+    import Pages
+    import Pages.PagePath as PagePath exposing (PagePath)
+
+    homePath : PagePath Pages.PathKey
+    homePath =
+        Pages.pages.index
+
+    -- PagePath.toString homePath
+    -- => "/"
+
+or
+
+    import Pages
+    import Pages.PagePath as PagePath exposing (PagePath)
+
+    helloWorldPostPath : PagePath Pages.PathKey
+    helloWorldPostPath =
+        Pages.pages.blog.helloWorld
+
+    -- PagePath.toString helloWorldPostPath
+    -- => "/blog/hello-world"
+
+Note that in the `hello-world` example it changes from the kebab casing of the actual
+URL to camelCasing for the record key.
 
 This is useful for referring to static routes directly from your Elm code (you'll
 need a different technique for verifying that a link in your markup content
