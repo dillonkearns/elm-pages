@@ -1,4 +1,4 @@
-module Pages.Directory exposing (Directory, build, includes)
+module Pages.Directory exposing (Directory, build, includes, indexPath)
 
 import Pages.PagePath as PagePath exposing (PagePath)
 
@@ -16,6 +16,11 @@ includes (Directory allPagePaths directoryPath) pagePath =
                     |> String.startsWith (toString directoryPath)
             )
         |> List.member pagePath
+
+
+indexPath : Directory key -> String
+indexPath (Directory allPagePaths directoryPath) =
+    toString directoryPath
 
 
 toString : List String -> String

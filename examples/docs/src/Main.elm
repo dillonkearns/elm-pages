@@ -19,6 +19,7 @@ import Json.Decode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import Pages exposing (Page)
+import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
@@ -255,8 +256,8 @@ header currentPath =
                         ]
                 }
             , Element.row [ Element.spacing 15 ]
-                [ highlightableLink currentPath pages.docs.index "Docs"
-                , highlightableLink currentPath pages.blog.index "Blog"
+                [ highlightableLink currentPath pages.docs.directory "Docs"
+                , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
             ]
         ]
@@ -264,13 +265,13 @@ header currentPath =
 
 highlightableLink :
     PagePath PagesNew.PathKey
-    -> PagePath PagesNew.PathKey
+    -> Directory PagesNew.PathKey
     -> String
     -> Element msg
-highlightableLink currentPath linkPath displayName =
+highlightableLink currentPath linkDirectory displayName =
     let
         isHighlighted =
-            currentPath |> PagePath.inFolder linkPath
+            currentPath |> Directory.includes linkDirectory
     in
     Element.link
         (if isHighlighted then
@@ -281,7 +282,7 @@ highlightableLink currentPath linkPath displayName =
          else
             []
         )
-        { url = PagePath.toString linkPath, label = Element.text displayName }
+        { url = Directory.indexPath linkDirectory, label = Element.text displayName }
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
