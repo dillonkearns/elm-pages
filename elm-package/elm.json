@@ -25,5 +25,7 @@
         "mdgriffith/elm-markup": "3.0.1 <= v < 4.0.0",
         "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0"
     },
-    "test-dependencies": {}
+    "test-dependencies": {
+        "elm-explorations/test": "1.2.2 <= v < 2.0.0"
+    }
 }
