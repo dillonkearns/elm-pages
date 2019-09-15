@@ -1,18 +1,10 @@
-module Head.Seo exposing
-    ( Common
-    , Image
-    , article
-    , audioPlayer
-    , profile
-    , song
-    , summary
-    , summaryLarge
-    , videoPlayer
-    , website
-    )
+module Head.Seo exposing (Common, Image, article, audioPlayer, profile, song, summary, summaryLarge, videoPlayer, website)
 
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
+
+@docs Common, Image, article, audioPlayer, profile, song, summary, summaryLarge, videoPlayer, website
+
 -}
 
 import Head
@@ -237,6 +229,8 @@ profile details common =
     Profile details |> Content common |> tags
 
 
+{-| See <https://ogp.me/#type_music.song>
+-}
 song :
     Common pathKey
     ->
