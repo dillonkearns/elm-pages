@@ -182,7 +182,7 @@ function formatRecord(directoryPath, rec, asType, level) {
     }
   }
   keyVals.push(
-    `directory = buildDirectory [${directoryPath
+    `directory = directoryWithIndex [${directoryPath
       .map(pathFragment => `"${pathFragment}"`)
       .join(", ")}]`
   );

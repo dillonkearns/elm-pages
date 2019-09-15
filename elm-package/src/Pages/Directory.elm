@@ -1,13 +1,21 @@
-module Pages.Directory exposing (Directory, build, includes, indexPath)
+module Pages.Directory exposing (Directory, WithIndex, WithoutIndex, includes, indexPath, withIndex, withoutIndex)
 
 import Pages.PagePath as PagePath exposing (PagePath)
 
 
-type Directory key
+type WithIndex
+    = WithIndex
+
+
+type WithoutIndex
+    = WithoutIndex
+
+
+type Directory key hasIndex
     = Directory (List (PagePath key)) (List String)
 
 
-includes : Directory key -> PagePath key -> Bool
+includes : Directory key hasIndex -> PagePath key -> Bool
 includes (Directory allPagePaths directoryPath) pagePath =
     allPagePaths
         |> List.filter
@@ -18,7 +26,7 @@ includes (Directory allPagePaths directoryPath) pagePath =
         |> List.member pagePath
 
 
-indexPath : Directory key -> String
+indexPath : Directory key WithIndex -> String
 indexPath (Directory allPagePaths directoryPath) =
     toString directoryPath
 
@@ -29,6 +37,16 @@ toString rawPath =
         ++ (rawPath |> String.join "/")
 
 
-build : key -> List (PagePath key) -> List String -> Directory key
-build key allPagePaths path =
+build : hasIndex -> key -> List (PagePath key) -> List String -> Directory key hasIndex
+build hasIndex key allPagePaths path =
+    Directory allPagePaths path
+
+
+withIndex : key -> List (PagePath key) -> List String -> Directory key WithIndex
+withIndex key allPagePaths path =
+    Directory allPagePaths path
+
+
+withoutIndex : key -> List (PagePath key) -> List String -> Directory key WithoutIndex
+withoutIndex key allPagePaths path =
     Directory allPagePaths path

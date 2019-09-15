@@ -33,9 +33,14 @@ buildPage path =
     PagePath.build PathKey path
 
 
-buildDirectory : List String -> Directory PathKey
-buildDirectory path =
-    Directory.build PathKey allPages path
+directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
+directoryWithIndex path =
+    Directory.withIndex PathKey allPages path
+
+
+directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
+directoryWithoutIndex path =
+    Directory.withoutIndex PathKey allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -82,22 +87,22 @@ pages =
     { blog =
         { index = (buildPage [ "blog" ])
         , typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
-        , directory = buildDirectory ["blog"]
+        , directory = directoryWithIndex ["blog"]
         }
     , docs =
         { directoryStructure = (buildPage [ "docs", "directory-structure" ])
         , index = (buildPage [ "docs" ])
-        , directory = buildDirectory ["docs"]
+        , directory = directoryWithIndex ["docs"]
         }
     , index = (buildPage [  ])
-    , directory = buildDirectory []
+    , directory = directoryWithIndex []
     }
 
 images =
     { dillon = (buildImage [ "dillon.jpg" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
-    , directory = buildDirectory []
+    , directory = directoryWithIndex []
     }
 
 allImages : List (ImagePath PathKey)

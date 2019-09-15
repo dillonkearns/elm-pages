@@ -76,9 +76,14 @@ buildPage path =
     PagePath.build PathKey path
 
 
-buildDirectory : List String -> Directory PathKey
-buildDirectory path =
-    Directory.build PathKey allPages path
+directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
+directoryWithIndex path =
+    Directory.withIndex PathKey allPages path
+
+
+directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
+directoryWithoutIndex path =
+    Directory.withoutIndex PathKey allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -150,9 +155,14 @@ buildPage path =
     PagePath.build PathKey path
 
 
-buildDirectory : List String -> Directory PathKey
-buildDirectory path =
-    Directory.build PathKey allPages path
+directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
+directoryWithIndex path =
+    Directory.withIndex PathKey allPages path
+
+
+directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
+directoryWithoutIndex path =
+    Directory.withoutIndex PathKey allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg

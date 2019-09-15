@@ -265,7 +265,7 @@ header currentPath =
 
 highlightableLink :
     PagePath PagesNew.PathKey
-    -> Directory PagesNew.PathKey
+    -> Directory PagesNew.PathKey Directory.WithIndex
     -> String
     -> Element msg
 highlightableLink currentPath linkDirectory displayName =
