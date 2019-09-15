@@ -1,8 +1,7 @@
-module Head.SocialMeta exposing (SummarySize(..), TwitterCard(..), rawTags, summaryLarge, summaryRegular)
+module Head.Twitter exposing (SummarySize(..), TwitterCard(..), rawTags, summaryLarge, summaryRegular)
 
 import Head
-import Pages.ImagePath as ImagePath exposing (ImagePath)
-import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.ImagePath exposing (ImagePath)
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>

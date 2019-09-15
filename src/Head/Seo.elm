@@ -8,7 +8,7 @@ module Head.Seo exposing (Common, Image, article, audioPlayer, profile, song, su
 -}
 
 import Head
-import Head.SocialMeta as Twitter
+import Head.Twitter as Twitter
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 
