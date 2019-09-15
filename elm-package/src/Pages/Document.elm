@@ -1,10 +1,7 @@
 module Pages.Document exposing
-    ( Document
-    , DocumentHandler
-    , fromList
-    , get
-    , markupParser
-    , parser
+    ( Document, DocumentHandler
+    , parser, markupParser
+    , fromList, get
     )
 
 {-| The `Document` represents all the ways to handle the frontmatter metadata
@@ -82,6 +79,14 @@ Hello!!!
                                 (Decode.field "title" Decode.string)
                 )
 
+@docs Document, DocumentHandler
+@docs parser, markupParser
+
+
+## Functions for use by generated code
+
+@docs fromList, get
+
 -}
 
 import Dict exposing (Dict)
@@ -91,10 +96,16 @@ import Mark
 import Mark.Error
 
 
+{-| Represents all of the `DocumentHandler`s. You register a handler for each
+extension that tells it how to parse frontmatter and content for that extension.
+-}
 type Document metadata view
     = Document (Dict String (DocumentHandler metadata view))
 
 
+{-| How to parse the frontmatter and content for a given extension. Build one
+using `Document.parser` (see above for an example).
+-}
 type DocumentHandler metadata view
     = DocumentHandler
         { frontmatterParser : String -> Result String metadata
@@ -102,6 +113,9 @@ type DocumentHandler metadata view
         }
 
 
+{-| Used by the generated `Pages.elm` module. There's no need to use this
+outside of the generated code.
+-}
 get :
     String
     -> Document metadata view
@@ -116,11 +130,16 @@ get extension (Document document) =
         |> Maybe.map (\(DocumentHandler handler) -> handler)
 
 
+{-| Used by the generated `Pages.elm` module. There's no need to use this
+outside of the generated code.
+-}
 fromList : List ( String, DocumentHandler metadata view ) -> Document metadata view
 fromList list =
     Document (Dict.fromList list)
 
 
+{-| Create a Document Handler for the given extension.
+-}
 parser :
     { extension : String
     , metadata : Json.Decode.Decoder metadata
@@ -140,6 +159,9 @@ parser { extension, body, metadata } =
     )
 
 
+{-| Register an [`elm-markup`](https://github.com/mdgriffith/elm-markup/)
+parser for your `.emu` files.
+-}
 markupParser :
     Mark.Document metadata
     -> Mark.Document view
