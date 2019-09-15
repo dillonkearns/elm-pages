@@ -24,7 +24,6 @@ import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.Path as Path
 import PagesNew exposing (images, pages)
 import Palette
 
