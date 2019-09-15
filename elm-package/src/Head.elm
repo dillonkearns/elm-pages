@@ -34,6 +34,9 @@ import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 
 
+{-| Values that can be passed to the generated `Pages.application` config
+through the `head` function.
+-}
 type Tag pathKey
     = Tag (Details pathKey)
 
@@ -121,6 +124,9 @@ metaProperty property content =
         ]
 
 
+{-| The `Head.Seo` module will already add this for you, so it's probably
+best to use that directly.
+-}
 description : String -> Tag pathKey
 description descriptionValue =
     metaName "description" (raw descriptionValue)
@@ -136,6 +142,7 @@ description descriptionValue =
 Results in `<meta name="twitter:card" content="summary_large_image" />`
 
 -}
+metaName : String -> AttributeValue pathKey -> Tag pathKey
 metaName name content =
     node "meta"
         [ ( "name", Raw name )
