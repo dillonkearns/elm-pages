@@ -121,7 +121,7 @@ pageView model siteMetadata page =
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
-                [ header
+                [ header page.path
                 , Element.column
                     [ Element.padding 50
                     , Element.spacing 60
@@ -138,7 +138,7 @@ pageView model siteMetadata page =
             { title = metadata.title
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header
+                    [ header page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 40
@@ -168,7 +168,7 @@ pageView model siteMetadata page =
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
-                [ header
+                [ header page.path
                 , Element.row []
                     [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
@@ -198,7 +198,7 @@ pageView model siteMetadata page =
                 Element.column
                     [ Element.width Element.fill
                     ]
-                    [ header
+                    [ header page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 20
@@ -217,14 +217,14 @@ pageView model siteMetadata page =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header
+                    [ header page.path
                     , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
 
 
-header : Element msg
-header =
+header : PagePath PagesNew.PathKey -> Element msg
+header currentPath =
     Element.column [ Element.width Element.fill ]
         [ Element.el
             [ Element.height (Element.px 4)
@@ -255,11 +255,31 @@ header =
                         ]
                 }
             , Element.row [ Element.spacing 15 ]
-                [ Element.link [] { url = "/docs", label = Element.text "Docs" }
-                , Element.link [] { url = "/blog", label = Element.text "Blog" }
+                [ highlightableLink currentPath pages.docs.index "Docs"
+                , highlightableLink currentPath pages.blog.index "Blog"
                 ]
             ]
         ]
+
+
+highlightableLink :
+    PagePath PagesNew.PathKey
+    -> PagePath PagesNew.PathKey
+    -> String
+    -> Element msg
+highlightableLink currentPath linkPath displayName =
+    let
+        isHighlighted =
+            currentPath |> PagePath.inFolder linkPath
+    in
+    Element.link
+        (if isHighlighted then
+            [ Font.underline ]
+
+         else
+            []
+        )
+        { url = PagePath.toString linkPath, label = Element.text displayName }
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>

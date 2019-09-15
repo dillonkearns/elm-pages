@@ -1,9 +1,15 @@
-module Pages.PagePath exposing (PagePath, build, external, toString)
+module Pages.PagePath exposing (PagePath, build, external, inFolder, toString)
 
 
 type PagePath key
     = Internal (List String)
     | External String
+
+
+inFolder : PagePath key -> PagePath key -> Bool
+inFolder folder page =
+    toString page
+        |> String.startsWith (toString folder)
 
 
 toString : PagePath key -> String
