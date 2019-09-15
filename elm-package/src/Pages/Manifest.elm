@@ -1,5 +1,47 @@
 module Pages.Manifest exposing (Config, DisplayMode(..), Orientation(..), toJson)
 
+{-| Represents the configuration of a
+[web manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest).
+
+You pass your `Pages.Manifest.Config` record into the `Pages.application` function
+(from your generated `Pages.elm` file).
+
+    import Pages
+    import Pages.Manifest as Manifest
+    import Pages.Manifest.Category
+    import Pages.PagePath as PagePath exposing (PagePath)
+    import Palette
+
+    manifest : Manifest.Config PagesNew.PathKey
+    manifest =
+        { backgroundColor = Just Color.white
+        , categories = [ Pages.Manifest.Category.education ]
+        , displayMode = Manifest.Standalone
+        , orientation = Manifest.Portrait
+        , description = "elm-pages - A statically typed site generator."
+        , iarcRatingId = Nothing
+        , name = "elm-pages docs"
+        , themeColor = Just Color.white
+        , startUrl = Pages.pages.index
+        , shortName = Just "elm-pages"
+        , sourceIcon = Pages.images.icon
+        }
+
+    main : Pages.Program Model Msg Metadata (List (Element Msg))
+    main =
+        PagesNew.application
+            { init = init
+            , view = view
+            , update = update
+            , subscriptions = subscriptions
+            , documents = [ markdownDocument ]
+            , head = head
+            , manifest = manifest
+            , canonicalSiteUrl = canonicalSiteUrl
+            }
+
+-}
+
 import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
