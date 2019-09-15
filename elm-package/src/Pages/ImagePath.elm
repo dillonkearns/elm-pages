@@ -65,6 +65,24 @@ type ImagePath key
     | External String
 
 
+{-| Gives you the image's absolute URL as a String. This is useful for constructing `<img>` tags:
+
+    import Html exposing (Html, img)
+    import Html.Attributes exposing (src)
+    import Pages
+    import Pages.ImagePath as ImagePath exposing (ImagePath)
+
+
+    -- `Pages` is a generated module
+    logoImagePath : ImagePath Pages.PathKey
+    logoImagePath =
+        Pages.pages.index
+
+    linkToHome : Html msg
+    linkToHome =
+        img [ src (ImagePath.toString logoImagePath) ] []
+
+-}
 toString : ImagePath key -> String
 toString path =
     case path of
@@ -76,7 +94,7 @@ toString path =
             url
 
 
-{-| This is not useful except for the internal generated code to construct a PagePath.
+{-| This is not useful except for the internal generated code to construct an `ImagePath`.
 -}
 build : key -> List String -> ImagePath key
 build key path =
@@ -84,21 +102,24 @@ build key path =
 
 
 {-| This allows you to build a URL to an external resource. Avoid using
-`PagePath.external` to refer to statically available routes. Instead, use
-this only to point to outside pages.
+`ImagePath.external` to refer to statically available image resources. Instead, use
+this only to point to outside images.
 
     import Pages
-    import Pages.PagePath as PagePath exposing (PagePath)
+    import Pages.ImagePath as ImagePath exposing (ImagePath)
 
 
     -- The `Pages` module is generated in your codebase.
-    -- Notice that we can still annotate this external link
-    -- with `Pages.PathKey`, since external links are always valid
-    -- (unlike internal routes, which are guaranteed to be present
+    -- Notice that we can still annotate this external image
+    -- with `Pages.PathKey`, since external images are always valid
+    -- (unlike internal images, which are guaranteed to be present
     -- if your code compiles).
-    googlePath : PagePath Pages.PathKey
-    googlePath =
-        PagePath.external "https://google.com"
+    benchmarkImagePath : ImagePath Pages.PathKey
+    benchmarkImagePath =
+        PagePath.external "https://elm-lang.org/assets/home/benchmark.png"
+
+    -- ImagePath.toString benchmarkImagePath
+    -- => "https://elm-lang.org/assets/home/benchmark.png"
 
 -}
 external : String -> ImagePath key

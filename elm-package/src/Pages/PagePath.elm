@@ -92,7 +92,7 @@ type PagePath key
     | External String
 
 
-{-| Gives you the URL as a String. This is useful for constructing links:
+{-| Gives you the page's absolute URL as a String. This is useful for constructing links:
 
     import Html exposing (Html, a)
     import Html.Attributes exposing (href)
