@@ -1,4 +1,8 @@
-module Pages.Manifest exposing (Config, DisplayMode(..), Orientation(..), toJson)
+module Pages.Manifest exposing
+    ( Config
+    , toJson
+    , DisplayMode(..), Orientation(..)
+    )
 
 {-| Represents the configuration of a
 [web manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest).
@@ -39,6 +43,13 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
             , manifest = manifest
             , canonicalSiteUrl = canonicalSiteUrl
             }
+
+@docs Config
+
+
+## Functions for use by the generated code (`Pages.elm`)
+
+@docs toJson
 
 -}
 
@@ -114,6 +125,26 @@ orientationToString orientation =
             "portrait-secondary"
 
 
+{-| Represents a [web app manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest)
+(see above for how to use it).
+
+The `sourceIcon` is used to automatically generate all of the Favicons and manifest
+icons of the appropriate sizes (512x512, etc) for Android, iOS, etc. So you just
+point at a single image asset and you will have optimized images following all
+the best practices!
+
+
+## Type-safe static paths
+
+The `pathKey` in this type is used to ensure that you are using
+known static resources for any internal image or page paths.
+
+  - The `startUrl` is a type-safe `PagePath`, ensuring that any internal links
+    are present (not broken links).
+  - The `sourceIcon` is a type-safe `ImagePath`, ensuring that any internal images
+    are present (not broken images).
+
+-}
 type alias Config pathKey =
     { backgroundColor : Maybe Color
     , categories : List Category
@@ -149,6 +180,9 @@ displayModeToAttribute displayMode =
             "browser"
 
 
+{-| Feel free to use this, but in 99% of cases you won't need it. The generated
+code will run this for you to generate your `manifest.json` file automatically!
+-}
 toJson : Config pathKey -> Encode.Value
 toJson config =
     [ ( "sourceIcon"
