@@ -43,7 +43,6 @@ isValidRoute route =
 function elmPagesUiFile(staticRoutes, markdownContent, markupContent) {
   return `port module PagesNew exposing ${exposingList}
 
-import Dict exposing (Dict)
 import Color exposing (Color)
 import Head
 import Html exposing (Html)
@@ -55,7 +54,7 @@ import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
-import Pages.Document
+import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
@@ -95,7 +94,7 @@ application :
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
     , head : metadata -> List (Head.Tag PathKey)
-    , documents : List ( String, Pages.Document.DocumentHandler metadata view )
+    , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String
     }
@@ -106,7 +105,7 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , document = Dict.fromList config.documents
+        , document = Document.fromList config.documents
         , content = content
         , toJsPort = toJsPort
         , head = config.head
@@ -123,7 +122,6 @@ ${generateRawContent(markdownContent, markupContent, false)}
 function elmPagesCliFile(staticRoutes, markdownContent, markupContent) {
   return `port module PagesNew exposing ${exposingList}
 
-import Dict exposing (Dict)
 import Color exposing (Color)
 import Head
 import Html exposing (Html)
@@ -135,7 +133,7 @@ import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
-import Pages.Document
+import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
@@ -173,7 +171,7 @@ application :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
-    , documents : List ( String, Pages.Document.DocumentHandler metadata view )
+    , documents : List ( String, Document.DocumentHandler metadata view )
     , head : metadata -> List (Head.Tag PathKey)
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String
@@ -185,7 +183,7 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , document = Dict.fromList config.documents
+        , document = Document.fromList config.documents
         , content = content
         , toJsPort = toJsPort
         , head = config.head

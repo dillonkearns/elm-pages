@@ -143,7 +143,7 @@ parseMetadata document content =
                 (\{ frontMatter, extension, body } ->
                     let
                         maybeDocumentEntry =
-                            Dict.get extension document
+                            Document.get extension document
                     in
                     case maybeDocumentEntry of
                         Just documentEntry ->
@@ -174,7 +174,7 @@ parseContent :
 parseContent extension body document =
     let
         maybeDocumentEntry =
-            Dict.get extension document
+            Document.get extension document
     in
     case maybeDocumentEntry of
         Just documentEntry ->

@@ -10,7 +10,7 @@ import Mark
 import Pages
 import Pages.ContentCache exposing (Page)
 import Pages.Directory as Directory exposing (Directory)
-import Pages.Document
+import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
@@ -51,7 +51,7 @@ application :
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
     , head : metadata -> List (Head.Tag PathKey)
-    , documents : List ( String, Pages.Document.DocumentHandler metadata view )
+    , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String
     }
@@ -62,7 +62,7 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , document = Dict.fromList config.documents
+        , document = Document.fromList config.documents
         , content = content
         , toJsPort = toJsPort
         , head = config.head

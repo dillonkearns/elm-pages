@@ -1,6 +1,8 @@
 module Pages.Document exposing
     ( Document
     , DocumentHandler
+    , fromList
+    , get
     , markupParser
     , parser
     )
@@ -12,14 +14,31 @@ import Mark
 import Mark.Error
 
 
-type alias Document metadata view =
-    Dict String (DocumentHandler metadata view)
+type Document metadata view
+    = Document (Dict String (DocumentHandler metadata view))
 
 
 type alias DocumentHandler metadata view =
     { frontmatterParser : String -> Result String metadata
     , contentParser : String -> Result String view
     }
+
+
+get :
+    String
+    -> Document metadata view
+    ->
+        Maybe
+            { frontmatterParser : String -> Result String metadata
+            , contentParser : String -> Result String view
+            }
+get extension (Document document) =
+    document |> Dict.get extension
+
+
+fromList : List ( String, DocumentHandler metadata view ) -> Document metadata view
+fromList list =
+    Document (Dict.fromList list)
 
 
 parser :
