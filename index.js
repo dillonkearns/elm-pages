@@ -7,16 +7,12 @@ module.exports = function pagesInit({ mainElmModule }) {
     });
 
     app.ports.toJsPort.subscribe(payload => {
-      if (payload.event === "page-changed") {
-        setupLinkPrefetching();
+      if (navigator.userAgent.indexOf("Headless") >= 0) {
+        headTags.forEach(headTag => {
+          appendTag(headTag);
+        });
       } else {
-        if (navigator.userAgent.indexOf("Headless") >= 0) {
-          headTags.forEach(headTag => {
-            appendTag(headTag);
-          });
-        } else {
-          setupLinkPrefetching();
-        }
+        setupLinkPrefetching();
       }
 
       document.dispatchEvent(new Event("prerender-trigger"));
@@ -24,14 +20,48 @@ module.exports = function pagesInit({ mainElmModule }) {
   });
 
   function setupLinkPrefetching() {
-    setTimeout(setupLinkPrefetchingHelp, 1000);
+    new MutationObserver(observeFirstRender).observe(document.body, {
+      attributes: true,
+      childList: true,
+      subtree: true
+    });
   }
 
-  function setupLinkPrefetchingHelp() {
-    console.log("Setting up link hover prefetches...");
+  function observeFirstRender(mutationList, firstRenderObserver) {
+    for (let mutation of mutationList) {
+      if (mutation.type === "childList") {
+        console.log(
+          "Setting up prefetch links for ",
+          mutation.target.attributes["data-url"]
+        );
+        setupLinkPrefetchingHelp();
+      }
+    }
+    firstRenderObserver.disconnect();
+    new MutationObserver(observeUrlChanges).observe(document.body.children[0], {
+      attributes: true,
+      childList: false,
+      subtree: false
+    });
+  }
+  function observeUrlChanges(mutationList, theObserver) {
+    for (let mutation of mutationList) {
+      if (mutation.type === "attributes") {
+        console.log(
+          "Setting up prefetch links for ",
+          mutation.target.attributes["data-url"]
+        );
+        setupLinkPrefetchingHelp();
+      }
+    }
+  }
+
+  function setupLinkPrefetchingHelp(mutationList, theObserver) {
     const links = document.querySelectorAll("a");
-    console.log("links", links);
+    window.links = links;
+    console.log("LINKS");
     links.forEach(link => {
+      console.log(link.pathname);
       link.addEventListener("mouseenter", function(event) {
         if (event && event.target) {
           prefetchIfNeeded(event.target);
@@ -51,13 +81,6 @@ module.exports = function pagesInit({ mainElmModule }) {
         console.log("Preloading...", target.pathname);
         const link = document.createElement("link");
         link.setAttribute("rel", "prefetch");
-        console.log(
-          origin,
-          " + ",
-          "content.txt",
-          " = ",
-          origin + target.pathname + "/content.txt"
-        );
         link.setAttribute("href", origin + target.pathname + "/content.txt");
         document.head.appendChild(link);
       }
