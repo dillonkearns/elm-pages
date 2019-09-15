@@ -27,8 +27,9 @@ dropTrailingSlash path =
         path
 
 
-type alias Page metadata view =
+type alias Page metadata view pathKey =
     { metadata : metadata
+    , path : PagePath pathKey
     , view : view
     }
 
@@ -43,7 +44,7 @@ type alias Program userModel userMsg metadata view =
 
 mainView :
     pathKey
-    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
+    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
     -> ModelDetails userModel metadata view
     -> { title : String, body : Html userMsg }
 mainView pathKey pageView model =
@@ -60,13 +61,13 @@ mainView pathKey pageView model =
 
 pageViewOrError :
     pathKey
-    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
+    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
     -> ModelDetails userModel metadata view
     -> ContentCache metadata view
     -> { title : String, body : Html userMsg }
 pageViewOrError pathKey pageView model cache =
-    case ContentCache.lookup cache model.url of
-        Just entry ->
+    case ContentCache.lookup pathKey cache model.url of
+        Just ( pagePath, entry ) ->
             case entry of
                 ContentCache.Parsed metadata viewResult ->
                     case viewResult of
@@ -78,6 +79,7 @@ pageViewOrError pathKey pageView model cache =
                                  -- TODO handle error better
                                 )
                                 { metadata = metadata
+                                , path = pagePath
                                 , view = viewList
                                 }
 
@@ -108,7 +110,7 @@ pageViewOrError pathKey pageView model cache =
 view :
     pathKey
     -> Content
-    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg })
+    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
     -> ModelDetails userModel metadata view
     -> Browser.Document (Msg userMsg metadata view)
 view pathKey content pageView model =
@@ -303,7 +305,7 @@ application :
     { init : ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
@@ -355,7 +357,7 @@ cliApplication :
     { init : ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view -> { title : String, body : Html userMsg }
+    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)

@@ -97,7 +97,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Html Msg }
+view : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) PagesNew.PathKey -> { title : String, body : Html Msg }
 view model siteMetadata page =
     let
         { title, body } =
@@ -115,7 +115,7 @@ view model siteMetadata page =
     }
 
 
-pageView : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) -> { title : String, body : Element Msg }
+pageView : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) PagesNew.PathKey -> { title : String, body : Element Msg }
 pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->

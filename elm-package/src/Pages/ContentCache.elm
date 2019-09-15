@@ -225,8 +225,9 @@ routesForCache cacheResult =
             []
 
 
-type alias Page metadata view =
+type alias Page metadata view pathKey =
     { metadata : metadata
+    , path : PagePath pathKey
     , view : view
     }
 
@@ -409,13 +410,22 @@ pathForUrl url =
 
 
 lookup :
-    ContentCache metadata view
+    pathKey
+    -> ContentCache metadata view
     -> Url
-    -> Maybe (Entry metadata view)
-lookup content url =
+    -> Maybe ( PagePath pathKey, Entry metadata view )
+lookup pathKey content url =
     case content of
         Ok dict ->
-            Dict.get (pathForUrl url) dict
+            let
+                path =
+                    pathForUrl url
+            in
+            Dict.get path dict
+                |> Maybe.map
+                    (\entry ->
+                        ( PagePath.build pathKey path, entry )
+                    )
 
         Err _ ->
             Nothing
@@ -426,9 +436,9 @@ lookupMetadata :
     -> Url
     -> Maybe metadata
 lookupMetadata content url =
-    lookup content url
+    lookup () content url
         |> Maybe.map
-            (\entry ->
+            (\( pagePath, entry ) ->
                 case entry of
                     NeedContent _ metadata ->
                         metadata
