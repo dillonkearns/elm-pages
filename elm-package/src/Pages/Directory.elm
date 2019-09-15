@@ -3,16 +3,16 @@ module Pages.Directory exposing (Directory, WithIndex, WithoutIndex, includes, i
 import Pages.PagePath as PagePath exposing (PagePath)
 
 
+type Directory key hasIndex
+    = Directory key (List (PagePath key)) (List String)
+
+
 type WithIndex
     = WithIndex
 
 
 type WithoutIndex
     = WithoutIndex
-
-
-type Directory key hasIndex
-    = Directory key (List (PagePath key)) (List String)
 
 
 includes : Directory key hasIndex -> PagePath key -> Bool

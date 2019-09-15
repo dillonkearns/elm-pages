@@ -1,5 +1,6 @@
 module Head.Seo exposing
-    ( Image
+    ( Common
+    , Image
     , article
     , audioPlayer
     , profile

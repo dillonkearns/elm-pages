@@ -5,10 +5,14 @@
     "license": "BSD-3-Clause",
     "version": "1.0.0",
     "exposed-modules": [
-        "Pages",
-        "Pages.Content",
-        "Pages.Head",
-        "Pages.Parser"
+        "Head",
+        "Head.Seo",
+        "Pages.Document",
+        "Pages.ImagePath",
+        "Pages.PagePath",
+        "Pages.Directory",
+        "Pages.Manifest",
+        "Pages.Manifest.Category"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
