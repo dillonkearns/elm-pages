@@ -1,6 +1,6 @@
 module Pages.Document exposing
     ( Document
-    , DocumentParser
+    , DocumentHandler
     , markupParser
     , parser
     )
@@ -13,18 +13,13 @@ import Mark.Error
 
 
 type alias Document metadata view =
-    Dict String
-        { frontmatterParser : String -> Result String metadata
-        , contentParser : String -> Result String view
-        }
+    Dict String (DocumentHandler metadata view)
 
 
-type alias DocumentParser metadata view =
-    ( String
-    , { frontmatterParser : String -> Result String metadata
-      , contentParser : String -> Result String view
-      }
-    )
+type alias DocumentHandler metadata view =
+    { frontmatterParser : String -> Result String metadata
+    , contentParser : String -> Result String view
+    }
 
 
 parser :
@@ -32,7 +27,7 @@ parser :
     , metadata : Json.Decode.Decoder metadata
     , body : String -> Result String view
     }
-    -> DocumentParser metadata view
+    -> ( String, DocumentHandler metadata view )
 parser { extension, body, metadata } =
     ( extension
     , { contentParser = body
@@ -48,7 +43,7 @@ parser { extension, body, metadata } =
 markupParser :
     Mark.Document metadata
     -> Mark.Document view
-    -> DocumentParser metadata view
+    -> ( String, DocumentHandler metadata view )
 markupParser metadataParser markBodyParser =
     ( "emu"
     , { contentParser = renderMarkup markBodyParser

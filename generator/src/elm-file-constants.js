@@ -95,7 +95,7 @@ application :
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
     , head : metadata -> List (Head.Tag PathKey)
-    , documents : List (Pages.Document.DocumentParser metadata view)
+    , documents : List ( String, Pages.Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String
     }
@@ -173,7 +173,7 @@ application :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
-    , documents : List (Pages.Document.DocumentParser metadata view)
+    , documents : List ( String, Pages.Document.DocumentHandler metadata view )
     , head : metadata -> List (Head.Tag PathKey)
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String

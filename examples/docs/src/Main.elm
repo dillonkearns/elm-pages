@@ -63,7 +63,7 @@ main =
         }
 
 
-markdownDocument : Pages.Document.DocumentParser Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )
+markdownDocument : ( String, Pages.Document.DocumentHandler Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) )
 markdownDocument =
     Pages.Document.parser
         { extension = "md"
