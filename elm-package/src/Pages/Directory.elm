@@ -1,6 +1,6 @@
 module Pages.Directory exposing (Directory, build, includes)
 
-import Pages.PagePath exposing (PagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
 
 
 type Directory key
@@ -8,16 +8,20 @@ type Directory key
 
 
 includes : Directory key -> PagePath key -> Bool
-includes pathKeyDirectory pathKeyPagePath =
-    False
+includes (Directory allPagePaths directoryPath) pagePath =
+    allPagePaths
+        |> List.filter
+            (\path ->
+                PagePath.toString path
+                    |> String.startsWith (toString directoryPath)
+            )
+        |> List.member pagePath
 
 
-toString : Directory key -> String
-toString path =
-    case path of
-        Directory allPagePaths rawPath ->
-            "/"
-                ++ (rawPath |> String.join "/")
+toString : List String -> String
+toString rawPath =
+    "/"
+        ++ (rawPath |> String.join "/")
 
 
 build : key -> List (PagePath key) -> List String -> Directory key
