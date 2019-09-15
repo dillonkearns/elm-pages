@@ -58,6 +58,7 @@ import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Directory as Directory exposing (Directory)
 
 
 type PathKey
@@ -73,6 +74,11 @@ buildImage path =
 buildPage : List String -> PagePath PathKey
 buildPage path =
     PagePath.build PathKey path
+
+
+buildDirectory : List String -> Directory PathKey
+buildDirectory path =
+    Directory.build PathKey allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -127,6 +133,7 @@ import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Directory as Directory exposing (Directory)
 
 
 type PathKey
@@ -141,6 +148,12 @@ buildImage path =
 buildPage : List String -> PagePath PathKey
 buildPage path =
     PagePath.build PathKey path
+
+
+buildDirectory : List String -> Directory PathKey
+buildDirectory path =
+    Directory.build PathKey allPages path
+
 
 port toJsPort : Json.Encode.Value -> Cmd msg
 

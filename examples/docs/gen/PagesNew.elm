@@ -15,6 +15,7 @@ import Url.Parser as Url exposing ((</>), s)
 import Pages.Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Directory as Directory exposing (Directory)
 
 
 type PathKey
@@ -30,6 +31,11 @@ buildImage path =
 buildPage : List String -> PagePath PathKey
 buildPage path =
     PagePath.build PathKey path
+
+
+buildDirectory : List String -> Directory PathKey
+buildDirectory path =
+    Directory.build PathKey allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -76,22 +82,22 @@ pages =
     { blog =
         { index = (buildPage [ "blog" ])
         , typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
-        , all = [ (buildPage [ "blog" ]), (buildPage [ "blog", "types-over-conventions" ]) ]
+        , directory = buildDirectory ["blog"]
         }
     , docs =
         { directoryStructure = (buildPage [ "docs", "directory-structure" ])
         , index = (buildPage [ "docs" ])
-        , all = [ (buildPage [ "docs", "directory-structure" ]), (buildPage [ "docs" ]) ]
+        , directory = buildDirectory ["docs"]
         }
     , index = (buildPage [  ])
-    , all = [ (buildPage [  ]) ]
+    , directory = buildDirectory []
     }
 
 images =
     { dillon = (buildImage [ "dillon.jpg" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
-    , all = [ (buildImage [ "dillon.jpg" ]), (buildImage [ "icon.svg" ]), (buildImage [ "mountains.jpg" ]) ]
+    , directory = buildDirectory []
     }
 
 allImages : List (ImagePath PathKey)

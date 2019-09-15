@@ -155,10 +155,10 @@ function toFlatRouteType(routes) {
 }
 
 function toElmRecord(name, routeRecord, asType) {
-  return name + " =\n" + formatRecord(routeRecord, asType, 1);
+  return name + " =\n" + formatRecord([], routeRecord, asType, 1);
 }
 
-function formatRecord(rec, asType, level) {
+function formatRecord(directoryPath, rec, asType, level) {
   var keyVals = [];
   const indentation = " ".repeat(level * 4);
   var valsAtThisLevel = [];
@@ -174,10 +174,18 @@ function formatRecord(rec, asType, level) {
         valsAtThisLevel.push('"' + val + '"');
       }
     } else {
-      keyVals.push(key + " =\n" + formatRecord(val, asType, level + 1));
+      keyVals.push(
+        key +
+          " =\n" +
+          formatRecord(directoryPath.concat(key), val, asType, level + 1)
+      );
     }
   }
-  keyVals.push(`all = [ ${valsAtThisLevel.join(", ")} ]`);
+  keyVals.push(
+    `directory = buildDirectory [${directoryPath
+      .map(pathFragment => `"${pathFragment}"`)
+      .join(", ")}]`
+  );
   const indentationDelimiter = `\n${indentation}, `;
   return `${indentation}{ ${keyVals.join(indentationDelimiter)}
 ${indentation}}`;
