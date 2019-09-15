@@ -1,7 +1,7 @@
 module Pages.Manifest exposing
     ( Config
-    , toJson
     , DisplayMode(..), Orientation(..)
+    , toJson
     )
 
 {-| Represents the configuration of a
@@ -45,6 +45,11 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
             }
 
 @docs Config
+
+
+## Config options
+
+@docs DisplayMode, Orientation
 
 
 ## Functions for use by the generated code (`Pages.elm`)
