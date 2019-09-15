@@ -1,4 +1,18 @@
-module Head exposing (AttributeValue, Tag, canonicalLink, currentPageFullUrl, description, fullImageUrl, fullPageUrl, metaName, metaProperty, raw, toJson)
+module Head exposing
+    ( Tag, AttributeValue, currentPageFullUrl, description, fullImageUrl, fullPageUrl, metaName, metaProperty, raw
+    , toJson, canonicalLink
+    )
+
+{-|
+
+@docs Tag, AttributeValue, currentPageFullUrl, description, fullImageUrl, fullPageUrl, metaName, metaProperty, raw
+
+
+## Functions for use by generated code
+
+@docs toJson, canonicalLink
+
+-}
 
 import Json.Encode
 import Pages.ImagePath as ImagePath exposing (ImagePath)
@@ -41,7 +55,10 @@ type AttributeValue pathKey
     | FullUrlToCurrentPage
 
 
-{-| Example:
+{-| It's recommended that you use the `Seo` module helpers, which will provide this
+for you, rather than directly using this.
+
+Example:
 
     Head.canonicalLink "https://elm-pages.com"
 
@@ -96,6 +113,8 @@ metaName name content =
         ]
 
 
+{-| Low-level function for creating a tag for the HTML document's `<head>`.
+-}
 node : String -> List ( String, AttributeValue pathKey ) -> Tag pathKey
 node name attributes =
     Tag
@@ -104,6 +123,9 @@ node name attributes =
         }
 
 
+{-| Feel free to use this, but in 99% of cases you won't need it. The generated
+code will run this for you to generate your `manifest.json` file automatically!
+-}
 toJson : String -> String -> Tag pathKey -> Json.Encode.Value
 toJson canonicalSiteUrl currentPagePath (Tag tag) =
     Json.Encode.object
