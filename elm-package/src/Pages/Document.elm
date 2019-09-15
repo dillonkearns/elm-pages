@@ -18,10 +18,11 @@ type Document metadata view
     = Document (Dict String (DocumentHandler metadata view))
 
 
-type alias DocumentHandler metadata view =
-    { frontmatterParser : String -> Result String metadata
-    , contentParser : String -> Result String view
-    }
+type DocumentHandler metadata view
+    = DocumentHandler
+        { frontmatterParser : String -> Result String metadata
+        , contentParser : String -> Result String view
+        }
 
 
 get :
@@ -33,7 +34,9 @@ get :
             , contentParser : String -> Result String view
             }
 get extension (Document document) =
-    document |> Dict.get extension
+    document
+        |> Dict.get extension
+        |> Maybe.map (\(DocumentHandler handler) -> handler)
 
 
 fromList : List ( String, DocumentHandler metadata view ) -> Document metadata view
@@ -49,13 +52,14 @@ parser :
     -> ( String, DocumentHandler metadata view )
 parser { extension, body, metadata } =
     ( extension
-    , { contentParser = body
-      , frontmatterParser =
+    , DocumentHandler
+        { contentParser = body
+        , frontmatterParser =
             \frontmatter ->
                 frontmatter
                     |> Json.Decode.decodeString metadata
                     |> Result.mapError Json.Decode.errorToString
-      }
+        }
     )
 
 
@@ -65,8 +69,9 @@ markupParser :
     -> ( String, DocumentHandler metadata view )
 markupParser metadataParser markBodyParser =
     ( "emu"
-    , { contentParser = renderMarkup markBodyParser
-      , frontmatterParser =
+    , DocumentHandler
+        { contentParser = renderMarkup markBodyParser
+        , frontmatterParser =
             \frontMatter ->
                 Mark.compile metadataParser
                     frontMatter
@@ -81,7 +86,7 @@ markupParser metadataParser markBodyParser =
                                 Mark.Almost failure ->
                                     Err "Almost failure"
                        )
-      }
+        }
     )
 
 
