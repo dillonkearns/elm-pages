@@ -1,7 +1,6 @@
-port module PagesNew exposing (PathKey, allImages, allPages, application, images, isValidRoute, pages)
+port module PagesNew exposing (PathKey, allPages, allImages, application, images, isValidRoute, pages)
 
 import Color exposing (Color)
-import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
 import Json.Decode
@@ -9,13 +8,13 @@ import Json.Encode
 import Mark
 import Pages
 import Pages.ContentCache exposing (Page)
-import Pages.Directory as Directory exposing (Directory)
-import Pages.Document as Document
-import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
-import Pages.PagePath as PagePath exposing (PagePath)
 import Url.Parser as Url exposing ((</>), s)
+import Pages.Document as Document
+import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Directory as Directory exposing (Directory)
 
 
 type PathKey
@@ -25,6 +24,7 @@ type PathKey
 buildImage : List String -> ImagePath PathKey
 buildImage path =
     ImagePath.build PathKey ("images" :: path)
+
 
 
 buildPage : List String -> PagePath PathKey
@@ -72,45 +72,43 @@ application config =
         }
 
 
+
 allPages : List (PagePath PathKey)
 allPages =
-    [ buildPage [ "blog" ]
-    , buildPage [ "blog", "types-over-conventions" ]
-    , buildPage [ "docs", "directory-structure" ]
-    , buildPage [ "docs" ]
-    , buildPage []
+    [ (buildPage [ "blog" ])
+    , (buildPage [ "blog", "types-over-conventions" ])
+    , (buildPage [ "docs", "directory-structure" ])
+    , (buildPage [ "docs" ])
+    , (buildPage [  ])
     ]
-
 
 pages =
     { blog =
-        { index = buildPage [ "blog" ]
-        , typesOverConventions = buildPage [ "blog", "types-over-conventions" ]
-        , directory = directoryWithIndex [ "blog" ]
+        { index = (buildPage [ "blog" ])
+        , typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
+        , directory = directoryWithIndex ["blog"]
         }
     , docs =
-        { directoryStructure = buildPage [ "docs", "directory-structure" ]
-        , index = buildPage [ "docs" ]
-        , directory = directoryWithIndex [ "docs" ]
+        { directoryStructure = (buildPage [ "docs", "directory-structure" ])
+        , index = (buildPage [ "docs" ])
+        , directory = directoryWithIndex ["docs"]
         }
-    , index = buildPage []
+    , index = (buildPage [  ])
     , directory = directoryWithIndex []
     }
 
-
 images =
-    { dillon = buildImage [ "dillon.jpg" ]
-    , icon = buildImage [ "icon.svg" ]
-    , mountains = buildImage [ "mountains.jpg" ]
+    { dillon = (buildImage [ "dillon.jpg" ])
+    , icon = (buildImage [ "icon.svg" ])
+    , mountains = (buildImage [ "mountains.jpg" ])
     , directory = directoryWithoutIndex []
     }
 
-
 allImages : List (ImagePath PathKey)
 allImages =
-    [ buildImage [ "dillon.jpg" ]
-    , buildImage [ "icon.svg" ]
-    , buildImage [ "mountains.jpg" ]
+    [(buildImage [ "dillon.jpg" ])
+    , (buildImage [ "icon.svg" ])
+    , (buildImage [ "mountains.jpg" ])
     ]
 
 
@@ -135,41 +133,37 @@ isValidRoute route =
             |> Err
 
 
-content : List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
+content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
-    [ ( [ "blog" ]
-      , { frontMatter = """{"title":"elm-pages blog","type":"blog-index"}
-"""
-        , body = Nothing
-        , extension = "md"
-        }
-      )
-    , ( [ "blog", "types-over-conventions" ]
-      , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO","published":"2019-09-09"}
-"""
-        , body = Nothing
-        , extension = "md"
-        }
-      )
-    , ( [ "docs", "directory-structure" ]
-      , { frontMatter = """{"title":"Directory Structure","type":"doc"}
-"""
-        , body = Nothing
-        , extension = "md"
-        }
-      )
-    , ( [ "docs" ]
-      , { frontMatter = """{"title":"Quick Start","type":"doc"}
-"""
-        , body = Nothing
-        , extension = "md"
-        }
-      )
-    , ( []
-      , { frontMatter = """{"title":"elm-pages - a statically typed site generator","type":"page"}
-"""
-        , body = Nothing
-        , extension = "md"
-        }
-      )
+    [ 
+  ( ["blog"]
+    , { frontMatter = """{"title":"elm-pages blog","type":"blog-index"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( ["blog", "types-over-conventions"]
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO","published":"2019-09-09"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( ["docs", "directory-structure"]
+    , { frontMatter = """{"title":"Directory Structure","type":"doc"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( ["docs"]
+    , { frontMatter = """{"title":"Quick Start","type":"doc"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
+  ( []
+    , { frontMatter = """{"title":"elm-pages - a statically typed site generator","type":"page"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  
     ]
