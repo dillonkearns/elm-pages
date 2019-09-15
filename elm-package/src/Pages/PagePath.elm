@@ -1,4 +1,7 @@
-module Pages.PagePath exposing (PagePath, build, external, inFolder, toString)
+module Pages.PagePath exposing
+    ( PagePath, toString, external
+    , build
+    )
 
 {-| You can get data representing type-safe, guaranteed-available
 routes from your generated `Pages` module in your repo. If the file
@@ -36,10 +39,14 @@ is valid).
 
 For example, you might have a navbar that links to specific routes.
 
+@docs PagePath, toString, external
 
-## Using
 
-You can use this information to
+## Internal
+
+Don't bother using these.
+
+@docs build
 
 -}
 
@@ -56,12 +63,24 @@ type PagePath key
     | External String
 
 
-inFolder : PagePath key -> PagePath key -> Bool
-inFolder folder page =
-    toString page
-        |> String.startsWith (toString folder)
+{-| Gives you the URL as a String. This is useful for constructing links:
+
+    import Html exposing (Html, a)
+    import Html.Attributes exposing (href)
+    import Pages
+    import Pages.PagePath as PagePath exposing (PagePath)
 
 
+    -- `Pages` is a generated module
+    homePath : PagePath Pages.PathKey
+    homePath =
+        Pages.pages.index
+
+    linkToHome : Html msg
+    linkToHome =
+        a [ href (PagePath.toString homePath) ] [ text "🏡 Home" ]
+
+-}
 toString : PagePath key -> String
 toString path =
     case path of
@@ -73,11 +92,31 @@ toString path =
             url
 
 
+{-| This allows you to build a URL to an external resource. Avoid using
+`PagePath.external` to refer to statically available routes. Instead, use
+this only to point to outside pages.
+
+    import Pages
+    import Pages.PagePath as PagePath exposing (PagePath)
+
+
+    -- The `Pages` module is generated in your codebase.
+    -- Notice that we can still annotate this external link
+    -- with `Pages.PathKey`, since external links are always valid
+    -- (unlike internal routes, which are guaranteed to be present
+    -- if your code compiles).
+    googlePath : PagePath Pages.PathKey
+    googlePath =
+        PagePath.external "https://google.com"
+
+-}
 external : String -> PagePath key
 external url =
     External url
 
 
+{-| This is not useful except for the internal generated code to construct a PagePath.
+-}
 build : key -> List String -> PagePath key
 build key path =
     Internal path
