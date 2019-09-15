@@ -24,6 +24,11 @@ suite =
                 notInDocsDir
                     |> Directory.includes (Directory.build () [ performance, quickStart, notInDocsDir ] [ "docs" ])
                     |> Expect.equal False
+        , test "index file is in the directory of the same name" <|
+            \() ->
+                docsIndex
+                    |> Directory.includes (Directory.build () [ performance, quickStart, notInDocsDir, docsIndex ] [ "docs" ])
+                    |> Expect.equal True
         ]
 
 
@@ -33,6 +38,10 @@ quickStart =
 
 performance =
     PagePath.build () [ "docs", "performance" ]
+
+
+docsIndex =
+    PagePath.build () [ "docs" ]
 
 
 notInDocsDir =
