@@ -6,6 +6,7 @@ import Element.Font
 import Metadata exposing (Metadata)
 import Pages.PagePath as PagePath exposing (PagePath)
 import PagesNew
+import Palette
 
 
 view :
@@ -55,7 +56,9 @@ postSummary ( isCurrentPage, postPath, post ) =
              , Element.padding 16
              ]
                 ++ (if isCurrentPage then
-                        [ Element.Font.underline ]
+                        [ Element.Font.underline
+                        , Element.Font.color Palette.color.primary
+                        ]
 
                     else
                         []

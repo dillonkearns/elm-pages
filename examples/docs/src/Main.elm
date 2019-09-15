@@ -274,7 +274,9 @@ highlightableLink currentPath linkPath displayName =
     in
     Element.link
         (if isHighlighted then
-            [ Font.underline ]
+            [ Font.underline
+            , Font.color Palette.color.primary
+            ]
 
          else
             []
