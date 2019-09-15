@@ -69,7 +69,7 @@ For example, you might have a navbar that links to specific routes.
 @docs PagePath, toString, external
 
 
-## Internal
+## Functions for code generation only
 
 Don't bother using these.
 
@@ -78,11 +78,13 @@ Don't bother using these.
 -}
 
 
-{-| There are only two ways to get a `PagePath` representing a static route
-in your site.
+{-| There are only two ways to get a `PagePath`:
 
-1.  Get a value using the generated `Pages.elm` module in your repo, or
+1.  Get a value using the generated `Pages.elm` module in your repo (see above), or
 2.  Generate an external route using `PagePath.external`.
+
+So `PagePath` represents either a 1) known, static page path, or 2) an
+external page path (which is not validated so use these carefully!).
 
 -}
 type PagePath key

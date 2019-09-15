@@ -1,4 +1,7 @@
-module Pages.ImagePath exposing (ImagePath, build, external, toString)
+module Pages.ImagePath exposing
+    ( ImagePath, toString, external
+    , build
+    )
 
 {-| This module is analgous to `Pages.PagePath`, except it represents an
 Image Path rather than a Page Path. Rather than copy-pasting those docs, I'll
@@ -36,9 +39,27 @@ or
     -- ImagePath.toString helloWorldPostPath
     -- => "/images/profile-photos/dillon.jpg"
 
+@docs ImagePath, toString, external
+
+
+## Functions for code generation only
+
+Don't bother using these.
+
+@docs build
+
 -}
 
 
+{-| There are only two ways to get an `ImagePath`:
+
+1.  Get a value using the generated `Pages.elm` module in your repo (see above), or
+2.  Generate an external route using `PagePath.external`.
+
+So `ImagePath` represents either a 1) known, static image asset path, or 2) an
+external image path (which is not validated so use these carefully!).
+
+-}
 type ImagePath key
     = Internal (List String)
     | External String
@@ -55,11 +76,31 @@ toString path =
             url
 
 
+{-| This is not useful except for the internal generated code to construct a PagePath.
+-}
 build : key -> List String -> ImagePath key
 build key path =
     Internal path
 
 
+{-| This allows you to build a URL to an external resource. Avoid using
+`PagePath.external` to refer to statically available routes. Instead, use
+this only to point to outside pages.
+
+    import Pages
+    import Pages.PagePath as PagePath exposing (PagePath)
+
+
+    -- The `Pages` module is generated in your codebase.
+    -- Notice that we can still annotate this external link
+    -- with `Pages.PathKey`, since external links are always valid
+    -- (unlike internal routes, which are guaranteed to be present
+    -- if your code compiles).
+    googlePath : PagePath Pages.PathKey
+    googlePath =
+        PagePath.external "https://google.com"
+
+-}
 external : String -> ImagePath key
 external url =
     External url
