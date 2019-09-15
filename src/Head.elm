@@ -2,7 +2,7 @@ module Head exposing
     ( Tag, metaName, metaProperty
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
-    , toJson, canonicalLink, description
+    , toJson, canonicalLink
     )
 
 {-| This module contains low-level functions for building up
@@ -25,7 +25,7 @@ writing a plugin package to extend `elm-pages`.
 
 ## Functions for use by generated code
 
-@docs toJson, canonicalLink, description
+@docs toJson, canonicalLink
 
 -}
 
@@ -122,14 +122,6 @@ metaProperty property content =
         [ ( "property", raw property )
         , ( "content", content )
         ]
-
-
-{-| The `Head.Seo` module will already add this for you, so it's probably
-best to use that directly.
--}
-description : String -> Tag pathKey
-description descriptionValue =
-    metaName "description" (raw descriptionValue)
 
 
 {-| Example:
