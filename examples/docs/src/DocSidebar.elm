@@ -9,9 +9,10 @@ import PagesNew
 
 
 view :
-    List ( PagePath PagesNew.PathKey, Metadata )
+    PagePath PagesNew.PathKey
+    -> List ( PagePath PagesNew.PathKey, Metadata )
     -> Element msg
-view posts =
+view currentPage posts =
     Element.column
         [ Element.spacing 10
         , Border.widthEach { bottom = 0, left = 0, right = 1, top = 0 }
@@ -33,7 +34,7 @@ view posts =
                             Nothing
 
                         Metadata.Doc meta ->
-                            Just ( path, meta )
+                            Just ( currentPage == path, path, meta )
 
                         Metadata.BlogIndex ->
                             Nothing
@@ -43,16 +44,23 @@ view posts =
 
 
 postSummary :
-    ( PagePath PagesNew.PathKey, { title : String } )
+    ( Bool, PagePath PagesNew.PathKey, { title : String } )
     -> Element msg
-postSummary ( postPath, post ) =
+postSummary ( isCurrentPage, postPath, post ) =
     [ Element.text post.title ]
         |> Element.paragraph
-            [ Element.Font.size 18
-            , Element.Font.family [ Element.Font.typeface "Roboto" ]
-            , Element.Font.semiBold
-            , Element.padding 16
-            ]
+            ([ Element.Font.size 18
+             , Element.Font.family [ Element.Font.typeface "Roboto" ]
+             , Element.Font.semiBold
+             , Element.padding 16
+             ]
+                ++ (if isCurrentPage then
+                        [ Element.Font.underline ]
+
+                    else
+                        []
+                   )
+            )
         |> linkToPost postPath
 
 

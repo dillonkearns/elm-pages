@@ -170,7 +170,7 @@ pageView model siteMetadata page =
             , body =
                 [ header
                 , Element.row []
-                    [ DocSidebar.view siteMetadata
+                    [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                     , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
                         [ Palette.heading 1 [ Element.text metadata.title ]
