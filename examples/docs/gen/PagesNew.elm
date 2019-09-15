@@ -102,7 +102,7 @@ images =
     { dillon = (buildImage [ "dillon.jpg" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
-    , directory = directoryWithIndex []
+    , directory = directoryWithoutIndex []
     }
 
 allImages : List (ImagePath PathKey)

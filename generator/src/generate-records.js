@@ -162,7 +162,8 @@ function formatRecord(directoryPath, rec, asType, level) {
   var keyVals = [];
   const indentation = " ".repeat(level * 4);
   var valsAtThisLevel = [];
-  for (const key of Object.keys(rec)) {
+  const keys = Object.keys(rec);
+  for (const key of keys) {
     var val = rec[key];
 
     if (typeof val === "string") {
@@ -182,9 +183,9 @@ function formatRecord(directoryPath, rec, asType, level) {
     }
   }
   keyVals.push(
-    `directory = directoryWithIndex [${directoryPath
-      .map(pathFragment => `"${pathFragment}"`)
-      .join(", ")}]`
+    `directory = ${
+      keys.includes("index") ? "directoryWithIndex" : "directoryWithoutIndex"
+    } [${directoryPath.map(pathFragment => `"${pathFragment}"`).join(", ")}]`
   );
   const indentationDelimiter = `\n${indentation}, `;
   return `${indentation}{ ${keyVals.join(indentationDelimiter)}
