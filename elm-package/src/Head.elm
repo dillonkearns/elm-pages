@@ -72,6 +72,13 @@ currentPageFullUrl =
     FullUrlToCurrentPage
 
 
+{-| Values, such as between the `<>`'s here:
+
+```html
+<meta name="<THIS IS A VALUE>" content="<THIS IS A VALUE>" />
+```
+
+-}
 type AttributeValue pathKey
     = Raw String
     | FullUrl String
