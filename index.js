@@ -1,6 +1,9 @@
+// @ts-ignore
 const elmPagesVersion = require("./package.json").version;
 
-module.exports = function pagesInit({ mainElmModule }) {
+module.exports = function pagesInit(
+  /** @type { { mainElmModule: { init: any  } } } */ { mainElmModule }
+) {
   let prefetchedPages = [window.location.pathname];
 
   document.addEventListener("DOMContentLoaded", function() {
@@ -8,7 +11,9 @@ module.exports = function pagesInit({ mainElmModule }) {
       flags: {}
     });
 
-    app.ports.toJsPort.subscribe(payload => {
+    app.ports.toJsPort.subscribe((
+      /** @type { HeadTag[] } headTags */ headTags
+    ) => {
       appendTag({
         name: "meta",
         attributes: [
@@ -21,6 +26,11 @@ module.exports = function pagesInit({ mainElmModule }) {
           appendTag(headTag);
         });
       } else {
+        console.log("headTags", headTags);
+
+        headTags.forEach(headTag => {
+          appendTag(headTag);
+        });
         setupLinkPrefetching();
       }
 
@@ -36,7 +46,10 @@ module.exports = function pagesInit({ mainElmModule }) {
     });
   }
 
-  function observeFirstRender(mutationList, firstRenderObserver) {
+  function observeFirstRender(
+    /** @type {MutationRecord[]} */ mutationList,
+    /** @type {MutationObserver} */ firstRenderObserver
+  ) {
     for (let mutation of mutationList) {
       if (mutation.type === "childList") {
         console.log(
@@ -53,7 +66,10 @@ module.exports = function pagesInit({ mainElmModule }) {
       subtree: false
     });
   }
-  function observeUrlChanges(mutationList, theObserver) {
+  function observeUrlChanges(
+    /** @type {MutationRecord[]} */ mutationList,
+    /** @type {MutationObserver} */ _theObserver
+  ) {
     for (let mutation of mutationList) {
       if (mutation.type === "attributes") {
         console.log(
@@ -65,14 +81,19 @@ module.exports = function pagesInit({ mainElmModule }) {
     }
   }
 
-  function setupLinkPrefetchingHelp(mutationList, theObserver) {
+  function setupLinkPrefetchingHelp(
+    /** @type {MutationObserver} */ _mutationList,
+    /** @type {MutationObserver} */ _theObserver
+  ) {
     const links = document.querySelectorAll("a");
-    window.links = links;
-    console.log("LINKS");
     links.forEach(link => {
-      console.log(link.pathname);
+      // console.log(link.pathname);
       link.addEventListener("mouseenter", function(event) {
-        if (event && event.target) {
+        if (
+          event &&
+          event.target &&
+          event.target instanceof HTMLAnchorElement
+        ) {
           prefetchIfNeeded(event.target);
         } else {
           console.log("Couldn't prefetch with event", event);
@@ -81,10 +102,10 @@ module.exports = function pagesInit({ mainElmModule }) {
     });
   }
 
-  function prefetchIfNeeded(target) {
+  function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     if (target.host === window.location.host) {
       if (prefetchedPages.includes(target.pathname)) {
-        console.log("Already preloaded", event.target.href);
+        console.log("Already preloaded", target.href);
       } else {
         prefetchedPages.push(target.pathname);
         console.log("Preloading...", target.pathname);
@@ -96,7 +117,8 @@ module.exports = function pagesInit({ mainElmModule }) {
     }
   }
 
-  function appendTag(tagDetails) {
+  /** @typedef {{ name: string; attributes: string[][]; }} HeadTag */
+  function appendTag(/** @type {HeadTag} */ tagDetails) {
     const meta = document.createElement(tagDetails.name);
     tagDetails.attributes.forEach(([name, value]) => {
       meta.setAttribute(name, value);

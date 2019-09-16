@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "removeComments": true,
+    "strictNullChecks": true,
+    "sourceMap": false,
+    "resolveJsonModule": true,
+    "lib": ["es5", "es2015.promise", "dom", "es2015"],
+    "checkJs": true
+  }
+}

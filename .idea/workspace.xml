@@ -2,14 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="c325a920-5a8e-47c6-96fc-aa52e4ce7aea" name="Default Changelist" comment="Rename module.">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/src/Head/Seo.elm" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/src/Head/Seo.elm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/src/Head/SocialMeta.elm" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/src/Head/Twitter.elm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Head/Seo.elm" beforeDir="false" afterPath="$PROJECT_DIR$/src/Head/Seo.elm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Head/SocialMeta.elm" beforeDir="false" afterPath="$PROJECT_DIR$/src/Head/Twitter.elm" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -122,7 +115,9 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="COLUMN_ORDER" />
+            </State>
           </value>
         </entry>
       </map>
