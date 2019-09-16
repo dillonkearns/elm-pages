@@ -1,4 +1,4 @@
 [build]
   base = "examples/docs/"
   publish = "examples/docs/dist/"
-  command = "pwd && npm install && npm run build"
+  command = "cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
