@@ -18,17 +18,17 @@ import Index
 import Json.Decode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
-import Pages exposing (Page)
+import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
-import PagesNew exposing (images, pages)
+import Pages.Platform exposing (Page)
 import Palette
 
 
-manifest : Manifest.Config PagesNew.PathKey
+manifest : Manifest.Config Pages.PathKey
 manifest =
     { backgroundColor = Just Color.white
     , categories = [ Pages.Manifest.Category.education ]
@@ -45,13 +45,13 @@ manifest =
 
 
 
---main : Pages.Program Model Msg (Metadata ) (List (Element Msg))
+--main : Pages.Platform.Program Model Msg (Metadata ) (List (Element Msg))
 -- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
 
 
-main : Platform.Program Pages.Flags (Pages.Model Model Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Msg Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
+main : Platform.Program Pages.Platform.Flags (Pages.Platform.Model Model Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Platform.Msg Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
 main =
-    PagesNew.application
+    Pages.application
         { init = init
         , view = view
         , update = update
@@ -97,7 +97,7 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) PagesNew.PathKey -> { title : String, body : Html Msg }
+view : Model -> List ( PagePath Pages.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) Pages.PathKey -> { title : String, body : Html Msg }
 view model siteMetadata page =
     let
         { title, body } =
@@ -115,7 +115,7 @@ view model siteMetadata page =
     }
 
 
-pageView : Model -> List ( PagePath PagesNew.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) PagesNew.PathKey -> { title : String, body : Element Msg }
+pageView : Model -> List ( PagePath Pages.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) Pages.PathKey -> { title : String, body : Element Msg }
 pageView model siteMetadata page =
     case page.metadata of
         Metadata.Page metadata ->
@@ -223,7 +223,7 @@ pageView model siteMetadata page =
             }
 
 
-header : PagePath PagesNew.PathKey -> Element msg
+header : PagePath Pages.PathKey -> Element msg
 header currentPath =
     Element.column [ Element.width Element.fill ]
         [ Element.el
@@ -263,8 +263,8 @@ header currentPath =
 
 
 highlightableLink :
-    PagePath PagesNew.PathKey
-    -> Directory PagesNew.PathKey Directory.WithIndex
+    PagePath Pages.PathKey
+    -> Directory Pages.PathKey Directory.WithIndex
     -> String
     -> Element msg
 highlightableLink currentPath linkDirectory displayName =
@@ -291,7 +291,7 @@ highlightableLink currentPath linkDirectory displayName =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : Metadata -> List (Head.Tag PagesNew.PathKey)
+head : Metadata -> List (Head.Tag Pages.PathKey)
 head metadata =
     case metadata of
         Metadata.Page meta ->
@@ -331,7 +331,7 @@ head metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = PagesNew.images.icon
+                    { url = Pages.images.icon
                     , alt = meta.description
                     , dimensions = Nothing
                     , mimeType = Nothing

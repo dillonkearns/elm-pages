@@ -8,7 +8,7 @@ import Element.Font as Font
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
 import Pages.ImagePath as ImagePath exposing (ImagePath)
-import PagesNew
+import Pages
 
 
 type Metadata
@@ -84,7 +84,7 @@ decoder =
             )
 
 
-imageDecoder : Decoder (ImagePath PagesNew.PathKey)
+imageDecoder : Decoder (ImagePath Pages.PathKey)
 imageDecoder =
     Decode.string
         |> Decode.andThen
@@ -98,9 +98,9 @@ imageDecoder =
             )
 
 
-findMatchingImage : String -> Maybe (ImagePath PagesNew.PathKey)
+findMatchingImage : String -> Maybe (ImagePath Pages.PathKey)
 findMatchingImage imageAssetPath =
-    PagesNew.allImages
+    Pages.allImages
         |> List.Extra.find
             (\image ->
                 ImagePath.toString image

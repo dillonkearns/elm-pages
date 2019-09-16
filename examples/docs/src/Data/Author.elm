@@ -5,12 +5,12 @@ import Html.Attributes as Attr
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
 import Pages.ImagePath as ImagePath exposing (ImagePath)
-import PagesNew
+import Pages
 
 
 type alias Author =
     { name : String
-    , avatar : ImagePath PagesNew.PathKey
+    , avatar : ImagePath Pages.PathKey
     , bio : String
     }
 
@@ -18,7 +18,7 @@ type alias Author =
 all : List Author
 all =
     [ { name = "Dillon Kearns"
-      , avatar = PagesNew.images.dillon
+      , avatar = Pages.images.dillon
       , bio = "Elm developer and educator. Founder of Incremental Elm Consulting."
       }
     ]

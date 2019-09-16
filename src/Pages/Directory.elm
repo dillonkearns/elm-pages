@@ -58,7 +58,7 @@ your generated `Pages.elm` module).
     import Element.Font as Font
     import Pages.Directory as Directory exposing (Directory)
 
-    navbar : PagePath PagesNew.PathKey -> Element msg
+    navbar : PagePath Pages.PathKey -> Element msg
     navbar currentPage =
         Element.row [ Element.spacing 15 ]
             [ navbarLink currentPath pages.docs.directory "Docs"
@@ -66,8 +66,8 @@ your generated `Pages.elm` module).
             ]
 
     navbarLink :
-        PagePath PagesNew.PathKey
-        -> Directory PagesNew.PathKey Directory.WithIndex
+        PagePath Pages.PathKey
+        -> Directory Pages.PathKey Directory.WithIndex
         -> String
         -> Element msg
     navbarLink currentPath linkDirectory displayName =

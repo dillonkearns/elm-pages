@@ -5,13 +5,13 @@ import Element.Border as Border
 import Element.Font
 import Metadata exposing (Metadata)
 import Pages.PagePath as PagePath exposing (PagePath)
-import PagesNew
+import Pages
 import Palette
 
 
 view :
-    PagePath PagesNew.PathKey
-    -> List ( PagePath PagesNew.PathKey, Metadata )
+    PagePath Pages.PathKey
+    -> List ( PagePath Pages.PathKey, Metadata )
     -> Element msg
 view currentPage posts =
     Element.column
@@ -45,7 +45,7 @@ view currentPage posts =
 
 
 postSummary :
-    ( Bool, PagePath PagesNew.PathKey, { title : String } )
+    ( Bool, PagePath Pages.PathKey, { title : String } )
     -> Element msg
 postSummary ( isCurrentPage, postPath, post ) =
     [ Element.text post.title ]
@@ -67,7 +67,7 @@ postSummary ( isCurrentPage, postPath, post ) =
         |> linkToPost postPath
 
 
-linkToPost : PagePath PagesNew.PathKey -> Element msg -> Element msg
+linkToPost : PagePath Pages.PathKey -> Element msg -> Element msg
 linkToPost postPath content =
     Element.link [ Element.width Element.fill ]
         { url = PagePath.toString postPath, label = content }

@@ -16,7 +16,7 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
     import Pages.PagePath as PagePath exposing (PagePath)
     import Palette
 
-    manifest : Manifest.Config PagesNew.PathKey
+    manifest : Manifest.Config Pages.PathKey
     manifest =
         { backgroundColor = Just Color.white
         , categories = [ Pages.Manifest.Category.education ]
@@ -33,7 +33,7 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 
     main : Pages.Program Model Msg Metadata (List (Element Msg))
     main =
-        PagesNew.application
+        Pages.application
             { init = init
             , view = view
             , update = update

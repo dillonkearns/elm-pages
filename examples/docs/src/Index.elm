@@ -6,13 +6,13 @@ import Element exposing (Element)
 import Element.Border
 import Element.Font
 import Metadata exposing (Metadata)
-import Pages exposing (Page)
+import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
-import PagesNew
+import Pages.Platform exposing (Page)
 
 
 view :
-    List ( PagePath PagesNew.PathKey, Metadata )
+    List ( PagePath Pages.PathKey, Metadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
@@ -40,14 +40,14 @@ view posts =
 
 
 postSummary :
-    ( PagePath PagesNew.PathKey, Metadata.ArticleMetadata )
+    ( PagePath Pages.PathKey, Metadata.ArticleMetadata )
     -> Element msg
 postSummary ( postPath, post ) =
     articleIndex post
         |> linkToPost postPath
 
 
-linkToPost : PagePath PagesNew.PathKey -> Element msg -> Element msg
+linkToPost : PagePath Pages.PathKey -> Element msg -> Element msg
 linkToPost postPath content =
     Element.link [ Element.width Element.fill ]
         { url = PagePath.toString postPath, label = content }

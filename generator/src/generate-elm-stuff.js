@@ -13,9 +13,9 @@ module.exports = function run(
   // requires NodeJS >= 10.12.0
   fs.mkdirSync("./elm-stuff/elm-pages", { recursive: true });
 
-  // write `PagesNew.elm` with cli interface
+  // write `Pages.elm` with cli interface
   fs.writeFileSync(
-    "./elm-stuff/elm-pages/PagesNew.elm",
+    "./elm-stuff/elm-pages/Pages.elm",
     elmPagesCliFile(staticRoutes, markdownContent, markupContent)
   );
 

@@ -79,7 +79,7 @@ function run() {
     const routes = toRoutes(markdownContent.concat(content));
 
     fs.writeFileSync(
-      "./gen/PagesNew.elm",
+      "./gen/Pages.elm",
       elmPagesUiFile(staticRoutes, markdownContent, content)
     );
     console.log("elm-pages DONE");

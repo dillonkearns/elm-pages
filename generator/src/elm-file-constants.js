@@ -41,7 +41,7 @@ isValidRoute route =
 }
 
 function elmPagesUiFile(staticRoutes, markdownContent, markupContent) {
-  return `port module PagesNew exposing ${exposingList}
+  return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
 import Head
@@ -49,7 +49,7 @@ import Html exposing (Html)
 import Json.Decode
 import Json.Encode
 import Mark
-import Pages
+import Pages.Platform
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
@@ -98,9 +98,9 @@ application :
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String
     }
-    -> Pages.Program userModel userMsg metadata view
+    -> Pages.Platform.Program userModel userMsg metadata view
 application config =
-    Pages.application
+    Pages.Platform.application
         { init = config.init
         , view = config.view
         , update = config.update
@@ -120,7 +120,7 @@ ${generateRawContent(markdownContent, markupContent, false)}
 }
 
 function elmPagesCliFile(staticRoutes, markdownContent, markupContent) {
-  return `port module PagesNew exposing ${exposingList}
+  return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
 import Head
@@ -128,7 +128,7 @@ import Html exposing (Html)
 import Json.Decode
 import Json.Encode
 import Mark
-import Pages
+import Pages.Platform
 import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
@@ -176,9 +176,9 @@ application :
     , manifest : Pages.Manifest.Config PathKey
     , canonicalSiteUrl : String
     }
-    -> Pages.Program userModel userMsg metadata view
+    -> Pages.Platform.Program userModel userMsg metadata view
 application config =
-    Pages.cliApplication
+    Pages.Platform.cliApplication
         { init = config.init
         , view = config.view
         , update = config.update

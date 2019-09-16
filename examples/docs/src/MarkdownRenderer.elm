@@ -12,7 +12,7 @@ import Html.Events exposing (on)
 import Json.Encode as Encode exposing (Value)
 import Markdown.Inlines
 import Markdown.Parser
-import PagesNew
+import Pages
 import Palette
 
 
@@ -87,7 +87,7 @@ renderer =
     , code = code
     , link =
         \link body ->
-            PagesNew.isValidRoute link.destination
+            Pages.isValidRoute link.destination
                 |> Result.map
                     (\() ->
                         Element.link [] { url = link.destination, label = Element.text body }
