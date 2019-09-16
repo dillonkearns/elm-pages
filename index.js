@@ -1,3 +1,5 @@
+const elmPagesVersion = require("./package.json").version;
+
 module.exports = function pagesInit({ mainElmModule }) {
   let prefetchedPages = [window.location.pathname];
 
@@ -7,6 +9,13 @@ module.exports = function pagesInit({ mainElmModule }) {
     });
 
     app.ports.toJsPort.subscribe(payload => {
+      appendTag({
+        name: "meta",
+        attributes: [
+          ["name", "generator"],
+          ["content", `elm-pages v${elmPagesVersion}`]
+        ]
+      });
       if (navigator.userAgent.indexOf("Headless") >= 0) {
         headTags.forEach(headTag => {
           appendTag(headTag);
