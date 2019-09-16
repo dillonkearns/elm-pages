@@ -108,12 +108,9 @@ canonicalLink maybePath =
 
 {-| Example:
 
-    metaProperty
-        [ ( "property", "og:type" )
-        , ( "content", "article" )
-        ]
+    Head.metaProperty "fb:app_id" ( Head.raw "123456789" )
 
-Results in `<meta property="og:type" content="article" />`
+Results in `<meta property="fb:app_id" content="123456789" />`
 
 -}
 metaProperty : String -> AttributeValue pathKey -> Tag pathKey
