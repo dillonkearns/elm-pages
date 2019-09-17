@@ -190,6 +190,8 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
         }
       }),
       new GenerateSW({
+        skipWaiting: true,
+        clientsClaim: true,
         include: [
           /^index\.html$/,
           /\.js$/,
