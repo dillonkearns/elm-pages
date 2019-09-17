@@ -94,10 +94,10 @@ module.exports = function pagesInit(
   function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     if (target.host === window.location.host) {
       if (prefetchedPages.includes(target.pathname)) {
-        console.log("Already preloaded", target.href);
+        // console.log("Already preloaded", target.href);
       } else {
         prefetchedPages.push(target.pathname);
-        console.log("Preloading...", target.pathname);
+        // console.log("Preloading...", target.pathname);
         const link = document.createElement("link");
         link.setAttribute("rel", "prefetch");
         link.setAttribute("href", origin + target.pathname + "/content.txt");
