@@ -26,11 +26,6 @@ module.exports = function pagesInit(
           appendTag(headTag);
         });
       } else {
-        console.log("headTags", headTags);
-
-        headTags.forEach(headTag => {
-          appendTag(headTag);
-        });
         setupLinkPrefetching();
       }
 
