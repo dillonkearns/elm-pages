@@ -3,6 +3,46 @@ module Head.Seo exposing (Common, Image, article, audioPlayer, profile, song, su
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
 
+This module encapsulates some of the best practices for SEO for your site.
+
+`elm-pages` will pre-render each of the static pages (in your `content` directory) so that
+web crawlers can efficiently and accurately process it. The functions in this module are for use
+with the `head` function that you pass to your Pages config (`Pages.application`).
+
+    import Head
+    import Head.Seo as Seo
+    import Date -- justinmimbs/date package
+
+    type alias ArticleMetadata =
+        { title : String
+        , description : String
+        , published : Date
+        , author : Data.Author.Author
+        }
+
+    head : ArticleMetadata -> List (Head.Tag Pages.PathKey)
+    head articleMetadata =
+        Seo.summaryLarge
+            { canonicalUrlOverride = Nothing
+            , siteName = "elm-pages"
+            , image =
+                { url = Pages.images.icon
+                , alt = articleMetadata.description
+                , dimensions = Nothing
+                , mimeType = Nothing
+                }
+            , description = articleMetadata.description
+            , locale = Nothing
+            , title = articleMetadata.title
+            }
+            |> Seo.article
+                { tags = []
+                , section = Nothing
+                , publishedTime = Just (Date.toIsoString articleMetadata.published)
+                , modifiedTime = Nothing
+                , expirationTime = Nothing
+                }
+
 @docs Common, Image, article, audioPlayer, profile, song, summary, summaryLarge, videoPlayer, website
 
 -}
