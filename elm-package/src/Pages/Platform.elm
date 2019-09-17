@@ -5,6 +5,7 @@ import Browser.Navigation
 import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
+import Html.Attributes
 import Http
 import Json.Decode
 import Json.Encode
@@ -120,8 +121,12 @@ view pathKey content pageView model =
     in
     { title = title
     , body =
-        [ body
-            |> Html.map UserMsg
+        [ Html.div
+            [ Html.Attributes.attribute "data-url" (Url.toString model.url)
+            ]
+            [ body
+                |> Html.map UserMsg
+            ]
         ]
     }
 
@@ -282,11 +287,7 @@ update toJsPort document userUpdate msg model =
                 -- to keep track of the last url change
                 Ok updatedCache ->
                     ( { model | url = url, contentCache = updatedCache }
-                    , toJsPort
-                        (Json.Encode.object
-                            [ ( "event", Json.Encode.string "page-changed" )
-                            ]
-                        )
+                    , Cmd.none
                     )
 
                 Err _ ->

@@ -46,10 +46,6 @@ module.exports = function pagesInit(
   ) {
     for (let mutation of mutationList) {
       if (mutation.type === "childList") {
-        console.log(
-          "Setting up prefetch links for ",
-          mutation.target.attributes["data-url"]
-        );
         setupLinkPrefetchingHelp();
       }
     }
@@ -65,11 +61,10 @@ module.exports = function pagesInit(
     /** @type {MutationObserver} */ _theObserver
   ) {
     for (let mutation of mutationList) {
-      if (mutation.type === "attributes") {
-        console.log(
-          "Setting up prefetch links for ",
-          mutation.target.attributes["data-url"]
-        );
+      if (
+        mutation.type === "attributes" &&
+        mutation.attributeName === "data-url"
+      ) {
         setupLinkPrefetchingHelp();
       }
     }
