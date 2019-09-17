@@ -1,4 +1,3 @@
-// @ts-ignore
 const elmPagesVersion = require("./package.json").version;
 
 module.exports = function pagesInit(
