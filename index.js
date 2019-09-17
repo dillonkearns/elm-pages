@@ -99,6 +99,8 @@ module.exports = function pagesInit(
         prefetchedPages.push(target.pathname);
         // console.log("Preloading...", target.pathname);
         const link = document.createElement("link");
+        link.setAttribute("as", "fetch");
+
         link.setAttribute("rel", "prefetch");
         link.setAttribute("href", origin + target.pathname + "/content.txt");
         document.head.appendChild(link);
