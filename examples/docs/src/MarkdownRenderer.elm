@@ -134,12 +134,14 @@ renderer =
                                     |> List.filterMap identity
                             )
                         |> List.concat
+                        |> List.reverse
                         |> Element.column [ Element.centerX ]
                 )
             , Markdown.Parser.htmlTag "Box"
                 (\children ->
-                    Element.column
+                    Element.textColumn
                         [ Element.centerX
+                        , Font.center
                         , Element.padding 30
                         , Element.Border.shadow { offset = ( 2, 2 ), size = 3, blur = 3, color = Element.rgba255 40 80 80 0.1 }
                         , Element.spacing 15

@@ -7,33 +7,30 @@ type: page
 
 <Boxes>
 <Box>
-## Pure Elm Configuration
+### Pure Elm Configuration
 
 Layouts, styles, even a full-fledged elm application.
 
-## Type-Safe Content
+### 📄 Type-Safe Content
 
 Configuration, errors for broken links
 </Box>
 <Box>
 
-## Pure Elm Configuration
+### 🚀 `elm-pages build`
 
-Layouts, styles, even a full-fledged elm application.
+No `elm make` or `webpack` setup needed! Just one simple command.
 
-## Type-Safe Content
-
-Configuration, errors for broken links
 </Box>
 <Box>
 
-## Pure Elm Configuration
+### 📦 Optimized Elm Progressive Web App
 
 Layouts, styles, even a full-fledged elm application.
 
-## Type-Safe Content
+### Deploy anywhere
 
-Configuration, errors for broken links
+Ship to Netlify,
 </Box>
 </Boxes>
 
