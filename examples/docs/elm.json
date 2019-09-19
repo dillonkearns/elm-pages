@@ -11,6 +11,7 @@
     "dependencies": {
         "direct": {
             "avh4/elm-color": "1.0.0",
+            "dillonkearns/elm-oembed": "1.0.0",
             "elm/browser": "1.0.1",
             "elm/core": "1.0.2",
             "elm/html": "1.0.0",
@@ -19,14 +20,14 @@
             "elm/parser": "1.1.0",
             "elm/svg": "1.0.1",
             "elm/url": "1.0.0",
-            "elm-community/list-extra": "8.2.0",
+            "elm-community/list-extra": "8.2.2",
             "elm-community/result-extra": "2.2.1",
             "elm-community/string-extra": "4.0.1",
             "elm-explorations/markdown": "1.0.0",
             "justinmimbs/date": "3.1.2",
-            "lukewestby/elm-string-interpolate": "1.0.3",
+            "lukewestby/elm-string-interpolate": "1.0.4",
             "mdgriffith/elm-markup": "3.0.1",
-            "mdgriffith/elm-ui": "1.1.4",
+            "mdgriffith/elm-ui": "1.1.5",
             "noahzgordon/elm-color-extra": "1.0.2",
             "rtfeldman/elm-hex": "1.0.0"
         },

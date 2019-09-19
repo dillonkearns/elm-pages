@@ -1,5 +1,6 @@
 module Markdown.Parser exposing (..)
 
+import List.Extra
 import Markdown.CodeBlock
 import Markdown.Inlines as Inlines exposing (StyledString)
 import Markdown.List
@@ -12,6 +13,19 @@ type Decoder a
     = Decoder (String -> List Attribute -> List Block -> Result String a)
 
 
+mapDecoder : (a -> b) -> Decoder a -> Decoder b
+mapDecoder function (Decoder handler) =
+    (\tagName attributes innerBlocks ->
+        handler tagName attributes innerBlocks
+            |> Result.map function
+    )
+        |> Decoder
+
+
+
+-- Debug.todo ""
+
+
 htmlSucceed : view -> Decoder view
 htmlSucceed value =
     Decoder (\_ _ _ -> Ok value)
@@ -19,25 +33,84 @@ htmlSucceed value =
 
 htmlOneOf : List (Decoder view) -> Decoder view
 htmlOneOf decoders =
+    let
+        unwrappedDecoders =
+            decoders
+                |> List.map
+                    (\(Decoder rawDecoder) -> rawDecoder)
+    in
     List.foldl
-        (\(Decoder decoder) (Decoder soFar) ->
-            Decoder
-                (\tag attributes children ->
-                    resultOr (decoder tag attributes children) (soFar tag attributes children)
-                )
+        (\decoder soFar ->
+            \tag attributes children ->
+                resultOr (decoder tag attributes children) (soFar tag attributes children)
         )
-        (Decoder (\tag attributes children -> Err "No Html Decoders succeeded in oneOf."))
-        decoders
+        (\tag attributes children ->
+            Err []
+        )
+        unwrappedDecoders
+        |> (\rawDecoder ->
+                (\tagName attributes innerBlocks ->
+                    rawDecoder tagName attributes innerBlocks
+                        |> Result.mapError
+                            (\errors ->
+                                case errors of
+                                    [] ->
+                                        "Ran into a oneOf with no possibilities!"
+
+                                    [ singleError ] ->
+                                        """Problem with the given value:
+
+<signup-form>
+
+"""
+                                            ++ singleError
+                                            ++ "\n"
+
+                                    _ ->
+                                        """oneOf failed parsing this value:
+    """
+                                            ++ tagToString tagName attributes
+                                            ++ """
+
+Parsing failed in the following 2 ways:
 
 
-resultOr : Result e a -> Result e a -> Result e a
+"""
+                                            ++ (List.indexedMap
+                                                    (\index error ->
+                                                        "("
+                                                            ++ String.fromInt (index + 1)
+                                                            ++ ") "
+                                                            ++ error
+                                                    )
+                                                    errors
+                                                    |> String.join "\n\n"
+                                               )
+                                            ++ "\n"
+                            )
+                )
+                    |> Decoder
+           )
+
+
+tagToString : String -> List Attribute -> String
+tagToString tagName attributes =
+    "<" ++ tagName ++ ">"
+
+
+resultOr : Result e a -> Result (List e) a -> Result (List e) a
 resultOr ra rb =
     case ra of
-        Err _ ->
-            rb
+        Err singleError ->
+            case rb of
+                Ok okValue ->
+                    Ok okValue
 
-        Ok _ ->
-            ra
+                Err errorsSoFar ->
+                    Err (singleError :: errorsSoFar)
+
+        Ok okValue ->
+            Ok okValue
 
 
 htmlTag : String -> view -> Decoder view
@@ -50,6 +123,32 @@ htmlTag expectedTag a =
             else
                 Err ("Expected " ++ expectedTag ++ " but was " ++ tag)
         )
+
+
+withAttribute : String -> Decoder (String -> view) -> Decoder view
+withAttribute attributeName (Decoder handler) =
+    (\tagName attributes innerBlocks ->
+        handler tagName attributes innerBlocks
+            |> (case
+                    attributes
+                        |> List.Extra.find
+                            (\{ name, value } ->
+                                name == attributeName
+                            )
+                of
+                    Just { value } ->
+                        Result.map ((|>) value)
+
+                    Nothing ->
+                        \_ ->
+                            Err
+                                ("Expecting attribute \""
+                                    ++ attributeName
+                                    ++ "\"."
+                                )
+               )
+    )
+        |> Decoder
 
 
 type alias Renderer view =

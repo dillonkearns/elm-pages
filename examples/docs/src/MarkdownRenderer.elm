@@ -12,6 +12,7 @@ import Html.Events exposing (on)
 import Json.Encode as Encode exposing (Value)
 import Markdown.Inlines
 import Markdown.Parser
+import Oembed
 import Pages
 import Palette
 
@@ -167,6 +168,14 @@ renderer =
                         ]
                         children
                 )
+            , Markdown.Parser.htmlTag "Oembed"
+                (\url children ->
+                    Oembed.view [] Nothing url
+                        |> Maybe.map Element.html
+                        |> Maybe.withDefault Element.none
+                        |> Element.el [ Element.centerX ]
+                )
+                |> Markdown.Parser.withAttribute "url"
             ]
     }
 
