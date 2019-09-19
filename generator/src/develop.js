@@ -5,7 +5,7 @@ const HTMLWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const PrerenderSPAPlugin = require("prerender-spa-plugin");
 const merge = require("webpack-merge");
-const { GenerateSW } = require("workbox-webpack-plugin");
+const { InjectManifest } = require("workbox-webpack-plugin");
 const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
 const webpackDevServer = require("webpack-dev-server");
 const AddFilesPlugin = require("./add-files-plugin.js");
@@ -189,45 +189,15 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
           }
         }
       }),
-      new GenerateSW({
-        skipWaiting: true,
-        clientsClaim: true,
-        include: [
-          /^index\.html$/,
-          /\.js$/,
-          /content\.txt$/,
-          /\.(?:png|gif|jpg|jpeg|svg)$/
-        ],
+      new InjectManifest({
+        swSrc: path.resolve(__dirname, "./service-worker-template.js"),
+        include: [/^index\.html$/, /\.js$/, /\.(?:png|gif|jpg|jpeg|svg)$/],
         exclude: [
           /android-chrome-.*\.png$/,
           /apple-touch-icon.*\.png/,
           /assets\//
         ],
-        navigateFallback: "index.html",
-        swDest: "service-worker.js",
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-webfonts"
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "google-fonts-stylesheets"
-            }
-          },
-          {
-            urlPattern: /\.(?:png|gif|jpg|jpeg|svg)$/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "images"
-            }
-          }
-        ]
+        swDest: "service-worker.js"
       })
       // comment this out to do performance profiling
       // (drag-and-drop `events.json` file into Chrome performance tab)
