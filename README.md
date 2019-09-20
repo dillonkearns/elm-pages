@@ -52,7 +52,7 @@ sure your page is blazing fast on any device.
 
 Try out `elm-pages`, open up Lighthouse, and
 see for yourself! Or check out https://elm-pages.com
-(find the source code in the `examples/docs/` folder).
+(find the source code in the [`examples/docs/`](https://github.com/dillonkearns/elm-pages/tree/master/examples/docs) folder).
 
 ## Built-in type-safety
 
