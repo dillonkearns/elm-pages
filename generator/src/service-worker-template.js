@@ -1,11 +1,9 @@
 workbox.core.skipWaiting();
 workbox.core.clientsClaim();
-workbox.routing.registerNavigationRoute("index.html");
-
-// workbox.routing.registerNavigationRoute(
-//   workbox.precaching.getCacheKeyForURL("index.html")
-// );
-
+workbox.precaching.precacheAndRoute(self.__precacheManifest);
+workbox.routing.registerNavigationRoute(
+  workbox.precaching.getCacheKeyForURL("/index.html")
+);
 workbox.routing.registerRoute(
   /^https:\/\/fonts\.gstatic\.com/,
   new workbox.strategies.CacheFirst({
@@ -15,7 +13,7 @@ workbox.routing.registerRoute(
   "GET"
 );
 workbox.routing.registerRoute(
-  /(^index\.html$|.js$)/,
+  /.js$/,
   new workbox.strategies.NetworkFirst({
     cacheName: "shell",
     plugins: []
@@ -35,11 +33,6 @@ workbox.routing.registerRoute(
   new workbox.strategies.CacheFirst({ cacheName: "images", plugins: [] }),
   "GET"
 );
-workbox.routing.registerRoute(
-  /\.(?:png|gif|jpg|jpeg|svg)$/,
-  new workbox.strategies.CacheFirst({ cacheName: "images", plugins: [] }),
-  "GET"
-);
 
 workbox.routing.registerRoute(
   /content\.txt$/,
@@ -50,4 +43,22 @@ workbox.routing.registerRoute(
   "GET"
 );
 
-workbox.precaching.precacheAndRoute(self.__precacheManifest);
+self.addEventListener("install", event => {
+  // TODO load the list of content files to warm up in the cache here
+
+  // TODO store content in a cache that is hashed based on the webpack bundle hash,
+  // then delete the old cache on activate
+  const contentUrls = [
+    // "/blog/content.txt",
+    // "/blog/types-over-conventions/content.txt"
+  ];
+  const coreUrls = ["/main.js"];
+  const preloadContent = caches
+    .open("content")
+    .then(cache => cache.addAll(contentUrls));
+  const preloadCore = caches
+    .open("shell")
+    .then(cache => cache.addAll(coreUrls));
+  const warmUp = Promise.all([preloadContent, preloadCore]);
+  return warmUp;
+});

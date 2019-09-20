@@ -191,7 +191,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
       }),
       new InjectManifest({
         swSrc: path.resolve(__dirname, "./service-worker-template.js"),
-        include: [],
+        include: [/^index\.html$/],
         exclude: [
           /android-chrome-.*\.png$/,
           /apple-touch-icon.*\.png/,
