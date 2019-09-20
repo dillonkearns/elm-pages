@@ -96,3 +96,37 @@ secondPost : PagePath Pages.PathKey
 secondPost =
   pages.blog.secondPost
 ```
+
+## Offline Support
+
+`elm-pages` uses pure elm configuration to setup
+your progressive web app settings. This includes
+a "source icon" which is used to generate your favicons
+and icons for the images following best practices for
+a progressive web app. The image is even a type-safe
+`ImagePath` that guarantees you are using an available
+image!
+
+```elm
+manifest : Manifest.Config Pages.PathKey
+manifest =
+    { backgroundColor = Just Color.white
+    , categories = [ Pages.Manifest.Category.education ]
+    , displayMode = Manifest.Standalone
+    , orientation = Manifest.Portrait
+    , description = "elm-pages - A statically typed site generator."
+    , iarcRatingId = Nothing
+    , name = "elm-pages docs"
+    , themeColor = Just Color.white
+    , startUrl = pages.index
+    , shortName = Just "elm-pages"
+    , sourceIcon = images.icon
+    }
+```
+
+It will also take care of setting up a service worker
+which will automatically cache the basic shell
+for your application's compiled Elm code and
+HTML container. The page content is currently cached
+as it is loaded, but in the future there will
+be an API to choose some pages to "warm up" in the cache.
