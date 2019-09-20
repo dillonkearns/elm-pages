@@ -15,6 +15,14 @@ workbox.routing.registerRoute(
   "GET"
 );
 workbox.routing.registerRoute(
+  /(^index\.html$|.js$)/,
+  new workbox.strategies.NetworkFirst({
+    cacheName: "shell",
+    plugins: []
+  }),
+  "GET"
+);
+workbox.routing.registerRoute(
   /^https:\/\/fonts\.googleapis\.com/,
   new workbox.strategies.StaleWhileRevalidate({
     cacheName: "google-fonts-stylesheets",
