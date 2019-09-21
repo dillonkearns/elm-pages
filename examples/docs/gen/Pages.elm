@@ -100,8 +100,11 @@ pages =
     }
 
 images =
-    { compilerError = (buildImage [ "compiler-error.png" ])
-    , dillon = (buildImage [ "dillon.jpg" ])
+    { author =
+        { dillon = (buildImage [ "author", "dillon.jpg" ])
+        , directory = directoryWithoutIndex ["author"]
+        }
+    , compilerError = (buildImage [ "compiler-error.png" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
     , directory = directoryWithoutIndex []
@@ -109,8 +112,8 @@ images =
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [(buildImage [ "compiler-error.png" ])
-    , (buildImage [ "dillon.jpg" ])
+    [(buildImage [ "author", "dillon.jpg" ])
+    , (buildImage [ "compiler-error.png" ])
     , (buildImage [ "icon.svg" ])
     , (buildImage [ "mountains.jpg" ])
     ]
@@ -147,7 +150,7 @@ content =
     } )
   ,
   ( ["blog", "introducing-elm-pages"]
-    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages - elm's answer to Gatsby","description":"TODO","published":"2019-09-20"}
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages 🚀 - elm's answer to Gatsby","description":"Elm is the perfect fit for a static site generator. Learn about some of the features and philosophy behind elm-pages.","published":"2019-09-21"}
 """ , body = Nothing
     , extension = "md"
     } )
