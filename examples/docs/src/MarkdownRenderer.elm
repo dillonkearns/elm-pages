@@ -112,7 +112,11 @@ renderer =
                     |> List.map
                         (\itemBlocks ->
                             Element.row [ Element.spacing 5 ]
-                                [ Element.text "•", itemBlocks ]
+                                [ Element.el
+                                    [ Element.alignTop ]
+                                    (Element.text "•")
+                                , itemBlocks
+                                ]
                         )
                 )
     , codeBlock = codeBlock
