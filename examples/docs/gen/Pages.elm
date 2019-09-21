@@ -76,6 +76,7 @@ application config =
 allPages : List (PagePath PathKey)
 allPages =
     [ (buildPage [ "blog" ])
+    , (buildPage [ "blog", "introducing-elm-pages" ])
     , (buildPage [ "blog", "types-over-conventions" ])
     , (buildPage [ "docs", "directory-structure" ])
     , (buildPage [ "docs" ])
@@ -85,6 +86,7 @@ allPages =
 pages =
     { blog =
         { index = (buildPage [ "blog" ])
+        , introducingElmPages = (buildPage [ "blog", "introducing-elm-pages" ])
         , typesOverConventions = (buildPage [ "blog", "types-over-conventions" ])
         , directory = directoryWithIndex ["blog"]
         }
@@ -98,7 +100,8 @@ pages =
     }
 
 images =
-    { dillon = (buildImage [ "dillon.jpg" ])
+    { compilerError = (buildImage [ "compiler-error.png" ])
+    , dillon = (buildImage [ "dillon.jpg" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
     , directory = directoryWithoutIndex []
@@ -106,7 +109,8 @@ images =
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [(buildImage [ "dillon.jpg" ])
+    [(buildImage [ "compiler-error.png" ])
+    , (buildImage [ "dillon.jpg" ])
     , (buildImage [ "icon.svg" ])
     , (buildImage [ "mountains.jpg" ])
     ]
@@ -142,8 +146,14 @@ content =
     , extension = "md"
     } )
   ,
+  ( ["blog", "introducing-elm-pages"]
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages - elm's answer to Gatsby","description":"TODO","published":"2019-09-20"}
+""" , body = Nothing
+    , extension = "md"
+    } )
+  ,
   ( ["blog", "types-over-conventions"]
-    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"TODO","published":"2019-09-09"}
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"How elm-pages approaches configuration, using type-safe Elm.","published":"2019-09-21"}
 """ , body = Nothing
     , extension = "md"
     } )

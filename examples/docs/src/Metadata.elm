@@ -7,8 +7,8 @@ import Element exposing (Element)
 import Element.Font as Font
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
-import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 
 
 type Metadata
