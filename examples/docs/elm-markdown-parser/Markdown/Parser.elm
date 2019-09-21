@@ -162,6 +162,7 @@ type alias Renderer view =
 
     -- TODO make this a `Result` so users can validate links
     , link : { title : Maybe String, destination : String } -> String -> Result String view
+    , image : { src : String } -> String -> Result String view
     , list : List view -> view
     , codeBlock : { body : String, language : Maybe String } -> view
     , thematicBreak : view
@@ -179,8 +180,14 @@ foldThing : Renderer view -> StyledString -> List (Result String view) -> List (
 foldThing renderer { style, string } soFar =
     case style.link of
         Just link ->
-            renderer.link link string
-                :: soFar
+            case link.destination of
+                Inlines.Link destination ->
+                    renderer.link { title = link.title, destination = destination } string
+                        :: soFar
+
+                Inlines.Image src ->
+                    renderer.image { src = src } string
+                        :: soFar
 
         Nothing ->
             if style.isBold then

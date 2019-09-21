@@ -1,4 +1,4 @@
-module Markdown.Inlines exposing (State, Style, StyledString, isUninteresting, nextStepWhenFoundBold, nextStepWhenFoundItalic, nextStepWhenFoundNothing, parse, parseHelp, toString)
+module Markdown.Inlines exposing (LinkUrl(..), State, Style, StyledString, isUninteresting, nextStepWhenFoundBold, nextStepWhenFoundItalic, nextStepWhenFoundNothing, parse, parseHelp, toString)
 
 import Browser
 import Char
@@ -22,15 +22,20 @@ type alias Parser a =
 
 isUninteresting : Char -> Bool
 isUninteresting char =
-    char /= '*' && char /= '`' && char /= '['
+    char /= '*' && char /= '`' && char /= '[' && char /= '!'
 
 
 type alias Style =
     { isCode : Bool
     , isBold : Bool
     , isItalic : Bool
-    , link : Maybe { title : Maybe String, destination : String }
+    , link : Maybe { title : Maybe String, destination : LinkUrl }
     }
+
+
+type LinkUrl
+    = Image String
+    | Link String
 
 
 type alias StyledString =
@@ -51,12 +56,22 @@ nextStepWhenFoundBold ( currStyle, revStyledStrings ) string =
 
 nextStepWhenFoundLink : Link -> State -> String -> Step State (List StyledString)
 nextStepWhenFoundLink link ( currStyle, revStyledStrings ) string =
-    Loop
-        ( currStyle
-        , { style = { currStyle | link = Just { title = link.title, destination = link.destination } }, string = link.description }
-            :: { style = currStyle, string = string }
-            :: revStyledStrings
-        )
+    case link of
+        Link.Link record ->
+            Loop
+                ( currStyle
+                , { style = { currStyle | link = Just { title = record.title, destination = Link record.destination } }, string = record.description }
+                    :: { style = currStyle, string = string }
+                    :: revStyledStrings
+                )
+
+        Link.Image record ->
+            Loop
+                ( currStyle
+                , { style = { currStyle | link = Just { title = Nothing, destination = Image record.src } }, string = record.alt }
+                    :: { style = currStyle, string = string }
+                    :: revStyledStrings
+                )
 
 
 nextStepWhenFoundCode : State -> String -> Step State (List StyledString)

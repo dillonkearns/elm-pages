@@ -91,8 +91,20 @@ renderer =
             Pages.isValidRoute link.destination
                 |> Result.map
                     (\() ->
-                        Element.link [] { url = link.destination, label = Element.text body }
+                        Element.link
+                            [ Font.color Palette.color.primary
+                            ]
+                            { url = link.destination, label = Element.text body }
                     )
+    , image =
+        \image body ->
+            -- Pages.isValidRoute image.src
+            --     |> Result.map
+            -- (\() ->
+            Element.image [ Element.width Element.fill ] { src = image.src, description = body }
+                |> Ok
+
+    -- )
     , list =
         \items ->
             Element.column [ Element.spacing 15 ]
