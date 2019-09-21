@@ -30,7 +30,10 @@ workbox.routing.registerRoute(
 );
 workbox.routing.registerRoute(
   /\.(?:png|gif|jpg|jpeg|svg)$/,
-  new workbox.strategies.CacheFirst({ cacheName: "images", plugins: [] }),
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: "images",
+    plugins: []
+  }),
   "GET"
 );
 
