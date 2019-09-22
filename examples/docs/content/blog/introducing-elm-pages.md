@@ -11,7 +11,8 @@
 After a round of closed beta testing (thank you to Brian and the [`elm-conf 2019`](https://2019.elm-conf.com/) organizing team!), I'm excited to share a new static site generator for Elm!
 
 ## What is `elm-pages` exactly?
-Well, this site you're looking at *right now* is built with `elm-pages`! For example, the raw content for this post is from [`content/blog/introducing-elm-pages.md`](https://github.com/dillonkearns/elm-pages/blob/master/examples/docs/content/blog/introducing-elm-pages.md).
+
+Well, this site you're looking at _right now_ is built with `elm-pages`! For example, the raw content for this post is from [`content/blog/introducing-elm-pages.md`](https://github.com/dillonkearns/elm-pages/blob/master/examples/docs/content/blog/introducing-elm-pages.md).
 
 `elm-pages` takes your static content and turns it into a modern, performant, single-page app. You can do anything you can with a regular Elm site, and yet the framework does a lot for you to optimize site performance and minimize tedious work.
 
@@ -24,6 +25,14 @@ I see a lot of "roll your own" Elm static sites out there these days. When you r
 I hope that `elm-pages` will make people's lives easier (and their load times faster). But `elm-pages` is for more than just building your blog or portfolio site. There's a movement now called JAMstack (JavaScript, APIs, and Markup) that is solving a broader set of problems with static sites. JAMstack apps do this by pulling in data from external sources, and using modern frontend frameworks to render the content (which then rehydrate into interactive apps). The goal is to move as much work as possible away from the user's browser and into a build step before pushing static files to your CDN host (but without sacrificing functionality). More and more sites are seeing that optimizing performance improves conversion rates and user engagement, and it can also make apps simpler to maintain.
 
 This is just the first release of `elm-pages`, but I've built a prototype for pulling in external data and am refining the design in preparation for the next release. Once that ships, the use cases `elm-pages` can handle will expand to things like ecommerce sites, job boards, and sites with content written by non-technical content editors. You can find a very informative FAQ and resources page about these ideas at [jamstack.org](https://jamstack.org/) (plus a more in-depth definition of the term JAMstack).
+
+## Comparing `elm-pages` and `elmstatic`
+
+`elm-pages` and [`elmstatic`](https://korban.net/elm/elmstatic/) have a lot of differences. At the core, they have two different goals. `elmstatic` generates HTML for you that doesn't include an Elm runtime. It uses Elm as a templating engine to do page layouts. It also makes some assumptions about the structure of your page content, separating `posts` and `pages` and automatically generating post indexes based on the top-level directories within the `posts` folder. It's heavily inspired by traditional static site generators like Jekyll.
+
+`elm-pages` hydrates into a single-page app that includes a full Elm runtime, meaning that you can have whatever client-side interactivity you want. It supports similar use cases to static site generators like [Gatsby](http://gatsbyjs.org). `elm-pages` makes a lot of optimizations by splitting and lazy-loading pages, optimizing image assets, and using service workers for repeat visits. It pre-renders HTML for fast first renders, but because it ships with JavaScript code it is also able to do some performance optimizations to make page changes faster (and without page flashes). So keep in mind that shipping without JavaScript doesn't necessarily mean your site performance suffers! You may have good reasons to want a static site with no JavaScript, but open up a Lighthouse audit and try it out for yourself rather than speculating about performance!
+
+Either framework might be the right fit depending on your goals. I hope this helps illuminate the differences!
 
 ## How does `elm-pages` work?
 
@@ -69,15 +78,16 @@ And the end result is that `elm-pages` gets everything it needs about your site 
 - Enforced by the Elm compiler
 - Or at the very least the path of least resistence
 
-
 ## What makes Elm awesome for building static sites
 
 JAMstack frameworks, like [Gatsby](http://gatsbyjs.org), can make powerful optimizations because they are dealing with strong constraints (specifically, content that is known at build time). Elm is the perfect tool for the JAMstack because it can leverage those constraints and turn them into compiler guarantees. Not only can we do more with static guarantees using Elm, but we can get additional guarantees using Elm's type-system and managed side-effects. It's a virtuous cycle that enables a lot of innovation.
 
 ## Why use `elm-pages`?
+
 Let's take a look at a few of the features that make `elm-pages` worthwhile for the users (both the end users, and the team using it to build their site).
 
 ### Performance
+
 - Pre-rendered pages for blazing fast first renders and improved SEO
 - Your content is loaded as a single-page app behind the scenes, giving you smooth page changes
 - Split individual page content and lazy load each page
@@ -125,11 +135,11 @@ We then get this elm compiler error:
 ![Missing image compiler error](/images/compiler-error.png)
 
 ## `elm-pages` is just Elm!
+
 `elm-pages` hydrates into a full-fledged Elm app (the pre-rendered pages are just for faster loads and better SEO). So you can do whatever you need to using Elm and the typed data that `elm-pages` provides you with. In a future post, I'll explain some of the ways that `elm-pages` leverages the Elm type system for a better developer experience. There's a lot to explore here, this really just scratches the surface!
 
 ## SEO
+
 One of the main motivations for building `elm-pages` was to make SEO easier and less error-prone. Have you ever seen a link shared on Twitter or elsewhere online that just renders like a plain link? No image, no title, no description. As I user, I'm a little afraid to click those links because I don't have any clues about where it will take me. As a user posting those links, it's very anticlimactic to share the blog post that I lovingly wrote only to see a boring link there in my tweet sharing it with the world.
 
-
 I'll also be digging into the topic of SEO in a future post, showing how `elm-pages` makes SEO dead simple. For now, you can take a look at [the built-in `elm-pages` SEO module](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Head-Seo) or take a look at [how this site uses the SEO module](https://github.com/dillonkearns/elm-pages/blob/8448bb60b680fb171319988fb716cb21e0345826/examples/docs/src/Main.elm#L294-L400).
-

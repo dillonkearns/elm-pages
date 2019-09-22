@@ -28,7 +28,7 @@ buildToc blocks =
         |> List.map
             (\styledList ->
                 { anchorId = styledToString styledList
-                , name = styledToString styledList
+                , name = styledToString styledList |> rawTextToId
                 , level = 1
                 }
             )
@@ -196,6 +196,12 @@ renderer =
     }
 
 
+rawTextToId rawText =
+    rawText
+        |> String.toLower
+        |> String.replace " " ""
+
+
 heading : { level : Int, rawText : String, children : List (Element msg) } -> Element msg
 heading { level, rawText, children } =
     Element.paragraph
@@ -214,9 +220,9 @@ heading { level, rawText, children } =
         , Font.family [ Font.typeface "Raleway" ]
         , Element.Region.heading level
         , Element.htmlAttribute
-            (Html.Attributes.attribute "name" rawText)
+            (Html.Attributes.attribute "name" (rawTextToId rawText))
         , Element.htmlAttribute
-            (Html.Attributes.id rawText)
+            (Html.Attributes.id (rawTextToId rawText))
         ]
         children
 
