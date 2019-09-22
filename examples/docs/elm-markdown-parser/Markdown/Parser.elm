@@ -391,7 +391,7 @@ plainLine =
                         succeed styledLine
 
                     Err error ->
-                        problem (Parser.Expecting "....??? TODO")
+                        problem (Parser.Expecting (error |> List.map deadEndToString |> String.join "\n"))
             )
         |> Advanced.map Body
         |> Advanced.map List.singleton

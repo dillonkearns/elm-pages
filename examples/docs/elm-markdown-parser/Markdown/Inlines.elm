@@ -22,7 +22,14 @@ type alias Parser a =
 
 isUninteresting : Char -> Bool
 isUninteresting char =
-    char /= '*' && char /= '`' && char /= '[' && char /= '!'
+    char
+        /= '*'
+        && char
+        /= '`'
+        && char
+        /= '['
+        && char
+        /= '!'
 
 
 type alias Style =
@@ -43,19 +50,20 @@ type alias StyledString =
 
 
 type alias State =
-    ( Style, List StyledString )
+    ( Style, List StyledString, Maybe String )
 
 
 nextStepWhenFoundBold : State -> String -> Step State (List StyledString)
-nextStepWhenFoundBold ( currStyle, revStyledStrings ) string =
+nextStepWhenFoundBold ( currStyle, revStyledStrings, _ ) string =
     Loop
         ( { currStyle | isBold = not currStyle.isBold }
         , { style = currStyle, string = string } :: revStyledStrings
+        , Nothing
         )
 
 
 nextStepWhenFoundLink : Link -> State -> String -> Step State (List StyledString)
-nextStepWhenFoundLink link ( currStyle, revStyledStrings ) string =
+nextStepWhenFoundLink link ( currStyle, revStyledStrings, _ ) string =
     case link of
         Link.Link record ->
             Loop
@@ -63,6 +71,7 @@ nextStepWhenFoundLink link ( currStyle, revStyledStrings ) string =
                 , { style = { currStyle | link = Just { title = record.title, destination = Link record.destination } }, string = record.description }
                     :: { style = currStyle, string = string }
                     :: revStyledStrings
+                , Nothing
                 )
 
         Link.Image record ->
@@ -71,32 +80,41 @@ nextStepWhenFoundLink link ( currStyle, revStyledStrings ) string =
                 , { style = { currStyle | link = Just { title = Nothing, destination = Image record.src } }, string = record.alt }
                     :: { style = currStyle, string = string }
                     :: revStyledStrings
+                , Nothing
                 )
 
 
 nextStepWhenFoundCode : State -> String -> Step State (List StyledString)
-nextStepWhenFoundCode ( currStyle, revStyledStrings ) string =
+nextStepWhenFoundCode ( currStyle, revStyledStrings, _ ) string =
     Loop
         ( { currStyle | isCode = not currStyle.isCode }
         , { style = currStyle, string = string } :: revStyledStrings
+        , Nothing
         )
 
 
 nextStepWhenFoundItalic : State -> String -> Step State (List StyledString)
-nextStepWhenFoundItalic ( currStyle, revStyledStrings ) string =
+nextStepWhenFoundItalic ( currStyle, revStyledStrings, _ ) string =
     Loop
         ( { currStyle | isItalic = not currStyle.isItalic }
         , { style = currStyle, string = string } :: revStyledStrings
+        , Nothing
         )
 
 
 nextStepWhenFoundNothing : State -> String -> Step State (List StyledString)
-nextStepWhenFoundNothing ( currStyle, revStyledStrings ) string =
+nextStepWhenFoundNothing ( currStyle, revStyledStrings, _ ) string =
     Done
         (List.reverse
             ({ style = currStyle, string = string } :: revStyledStrings)
             |> List.filter (\thing -> thing.string /= "")
         )
+
+
+nextStepWhenAllFailed : State -> String -> Step State (List StyledString)
+nextStepWhenAllFailed ( currStyle, revStyledStrings, _ ) string =
+    Loop
+        ( currStyle, revStyledStrings, Just string )
 
 
 parse : Parser (List StyledString)
@@ -108,12 +126,13 @@ parse =
           , link = Nothing
           }
         , []
+        , Nothing
         )
         parseHelp
 
 
 parseHelp : State -> Parser (Step State (List StyledString))
-parseHelp state =
+parseHelp (( _, _, allFailed ) as state) =
     andThen
         (\chompedString ->
             oneOf
@@ -128,10 +147,17 @@ parseHelp state =
                 , map
                     (\_ -> nextStepWhenFoundItalic state chompedString)
                     (token (Token "*" (Parser.Expecting "*")))
-                , succeed
-                    (nextStepWhenFoundNothing state chompedString)
+                , succeed identity
+                    |= succeed (nextStepWhenFoundNothing state chompedString)
+                    |. end (Parser.Expecting "End of inlines")
+                , succeed (nextStepWhenAllFailed state chompedString)
                 ]
         )
-        (getChompedString
-            (chompWhile isUninteresting)
+        (case allFailed of
+            Nothing ->
+                getChompedString (chompWhile isUninteresting)
+
+            Just unhanldedString ->
+                succeed (\chomped -> unhanldedString ++ chomped)
+                    |= getChompedString (chompIf (\_ -> True) (Parser.Expecting "*"))
         )
