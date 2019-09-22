@@ -21,6 +21,7 @@ import Metadata exposing (Metadata)
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -255,7 +256,8 @@ header currentPath =
                         ]
                 }
             , Element.row [ Element.spacing 15 ]
-                [ highlightableLink currentPath pages.docs.directory "Docs"
+                [ githubRepoLink
+                , highlightableLink currentPath pages.docs.directory "Docs"
                 , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
             ]
@@ -432,3 +434,16 @@ publishedDateView metadata =
         (metadata.published
             |> Date.format "MMMM ddd, yyyy"
         )
+
+
+githubRepoLink : Element msg
+githubRepoLink =
+    Element.newTabLink []
+        { url = "https://github.com/dillonkearns/elm-pages"
+        , label =
+            Element.image
+                [ Element.width (Element.px 22)
+                , Font.color Palette.color.primary
+                ]
+                { src = ImagePath.toString Pages.images.github, description = "Github repo" }
+        }

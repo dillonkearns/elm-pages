@@ -105,6 +105,7 @@ images =
         , directory = directoryWithoutIndex ["author"]
         }
     , compilerError = (buildImage [ "compiler-error.png" ])
+    , github = (buildImage [ "github.svg" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
     , directory = directoryWithoutIndex []
@@ -114,6 +115,7 @@ allImages : List (ImagePath PathKey)
 allImages =
     [(buildImage [ "author", "dillon.jpg" ])
     , (buildImage [ "compiler-error.png" ])
+    , (buildImage [ "github.svg" ])
     , (buildImage [ "icon.svg" ])
     , (buildImage [ "mountains.jpg" ])
     ]
