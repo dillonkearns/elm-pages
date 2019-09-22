@@ -30,7 +30,7 @@ Layouts, styles, even a full-fledged elm application.
 
 ### Deploy anywhere
 
-Ship to Netlify,
+Ship to Netlify, Github Pages, or any host that will serve up static files!
 </Box>
 </Boxes>
 
