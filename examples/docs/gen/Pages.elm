@@ -150,7 +150,7 @@ content =
     } )
   ,
   ( ["blog", "introducing-elm-pages"]
-    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages 🚀 - elm's answer to Gatsby","description":"Elm is the perfect fit for a static site generator. Learn about some of the features and philosophy behind elm-pages.","published":"2019-09-21"}
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages 🚀 - a type-centric static site generator","description":"Elm is the perfect fit for a static site generator. Learn about some of the features and philosophy behind elm-pages.","published":"2019-09-21"}
 """ , body = Nothing
     , extension = "md"
     } )
