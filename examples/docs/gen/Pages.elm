@@ -105,6 +105,7 @@ images =
         , directory = directoryWithoutIndex ["author"]
         }
     , compilerError = (buildImage [ "compiler-error.png" ])
+    , elmLogo = (buildImage [ "elm-logo.svg" ])
     , github = (buildImage [ "github.svg" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
@@ -115,6 +116,7 @@ allImages : List (ImagePath PathKey)
 allImages =
     [(buildImage [ "author", "dillon.jpg" ])
     , (buildImage [ "compiler-error.png" ])
+    , (buildImage [ "elm-logo.svg" ])
     , (buildImage [ "github.svg" ])
     , (buildImage [ "icon.svg" ])
     , (buildImage [ "mountains.jpg" ])
