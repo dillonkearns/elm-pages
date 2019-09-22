@@ -3,6 +3,7 @@ const elmPagesVersion = require("./package.json").version;
 module.exports = function pagesInit(
   /** @type { { mainElmModule: { init: any  } } } */ { mainElmModule }
 ) {
+  const initialLocationHash = document.location.hash.replace(/^#/, "");
   let prefetchedPages = [window.location.pathname];
 
   document.addEventListener("DOMContentLoaded", function() {
@@ -40,10 +41,20 @@ module.exports = function pagesInit(
     });
   }
 
+  function loadNamedAnchor() {
+    if (initialLocationHash !== "") {
+      const namedAnchor = document.querySelector(
+        `[name=${initialLocationHash}]`
+      );
+      namedAnchor && namedAnchor.scrollIntoView();
+    }
+  }
+
   function observeFirstRender(
     /** @type {MutationRecord[]} */ mutationList,
     /** @type {MutationObserver} */ firstRenderObserver
   ) {
+    loadNamedAnchor();
     for (let mutation of mutationList) {
       if (mutation.type === "childList") {
         setupLinkPrefetchingHelp();
