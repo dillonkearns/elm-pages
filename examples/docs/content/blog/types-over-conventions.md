@@ -4,6 +4,7 @@
   "author": "Dillon Kearns",
   "title": "Types Over Conventions",
   "description": "How elm-pages approaches configuration, using type-safe Elm.",
+  "image": "/images/article-covers/introducing-elm-pages.jpg",
   "published": "2019-09-21",
 }
 ---

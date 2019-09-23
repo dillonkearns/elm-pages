@@ -100,7 +100,11 @@ pages =
     }
 
 images =
-    { author =
+    { articleCovers =
+        { introducingElmPages = (buildImage [ "article-covers", "introducing-elm-pages.jpg" ])
+        , directory = directoryWithoutIndex ["articleCovers"]
+        }
+    , author =
         { dillon = (buildImage [ "author", "dillon.jpg" ])
         , directory = directoryWithoutIndex ["author"]
         }
@@ -114,7 +118,8 @@ images =
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [(buildImage [ "author", "dillon.jpg" ])
+    [(buildImage [ "article-covers", "introducing-elm-pages.jpg" ])
+    , (buildImage [ "author", "dillon.jpg" ])
     , (buildImage [ "compiler-error.png" ])
     , (buildImage [ "elm-logo.svg" ])
     , (buildImage [ "github.svg" ])
@@ -154,13 +159,13 @@ content =
     } )
   ,
   ( ["blog", "introducing-elm-pages"]
-    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages 🚀 - a type-centric static site generator","description":"Elm is the perfect fit for a static site generator. Learn about some of the features and philosophy behind elm-pages.","published":"2019-09-21"}
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Introducing elm-pages 🚀 - a type-centric static site generator","description":"Elm is the perfect fit for a static site generator. Learn about some of the features and philosophy behind elm-pages.","image":"/images/article-covers/introducing-elm-pages.jpg","published":"2019-09-21"}
 """ , body = Nothing
     , extension = "md"
     } )
   ,
   ( ["blog", "types-over-conventions"]
-    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"How elm-pages approaches configuration, using type-safe Elm.","published":"2019-09-21"}
+    , { frontMatter = """{"type":"blog","author":"Dillon Kearns","title":"Types Over Conventions","description":"How elm-pages approaches configuration, using type-safe Elm.","image":"/images/article-covers/introducing-elm-pages.jpg","published":"2019-09-21"}
 """ , body = Nothing
     , extension = "md"
     } )

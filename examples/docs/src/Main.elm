@@ -161,6 +161,7 @@ pageView model siteMetadata page =
                             ]
                             :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
                             :: Palette.blogHeading metadata.title
+                            :: articleImageView metadata.image
                             :: Tuple.second page.view
                         )
                     ]
@@ -222,6 +223,14 @@ pageView model siteMetadata page =
                     , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
+
+
+articleImageView : ImagePath Pages.PathKey -> Element msg
+articleImageView articleImage =
+    Element.image [ Element.width Element.fill ]
+        { src = ImagePath.toString articleImage
+        , description = "Article cover photo"
+        }
 
 
 header : PagePath Pages.PathKey -> Element msg
@@ -334,7 +343,7 @@ head metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = Pages.images.icon
+                    { url = meta.image
                     , alt = meta.description
                     , dimensions = Nothing
                     , mimeType = Nothing
