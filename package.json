@@ -29,7 +29,7 @@
     "elm-hot-webpack-loader": "^1.1.2",
     "elm-webpack-loader": "^5.0.0",
     "express": "^4.17.1",
-    "favicons-webpack-plugin": "^1.0.0",
+    "favicons-webpack-plugin": "^1.0.2",
     "file-loader": "^4.2.0",
     "glob": "^7.1.4",
     "google-closure-compiler": "^20190819.0.0",
