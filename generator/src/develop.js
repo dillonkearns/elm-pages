@@ -164,7 +164,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
           scope: manifestConfig.serviceworker.scope, // set of URLs that the browser considers within your app
           start_url: manifestConfig.start_url, // Start URL when launching the application from a device. `string`
           version: "1.0", // Your application's version string. `string`
-          logging: false, // Print logs to console? `boolean`
+          logging: true, // Print logs to console? `boolean`
           pixel_art: false, // Keeps pixels "sharp" when scaling up, for pixel art.  Only supported in offline mode.
           loadManifestWithCredentials: false, // Browsers don't send cookies when fetching a manifest, enable this to fix that. `boolean`
           icons: {
