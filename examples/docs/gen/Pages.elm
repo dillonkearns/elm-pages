@@ -111,6 +111,7 @@ images =
     , compilerError = (buildImage [ "compiler-error.png" ])
     , elmLogo = (buildImage [ "elm-logo.svg" ])
     , github = (buildImage [ "github.svg" ])
+    , iconPng = (buildImage [ "icon-png.png" ])
     , icon = (buildImage [ "icon.svg" ])
     , mountains = (buildImage [ "mountains.jpg" ])
     , directory = directoryWithoutIndex []
@@ -123,6 +124,7 @@ allImages =
     , (buildImage [ "compiler-error.png" ])
     , (buildImage [ "elm-logo.svg" ])
     , (buildImage [ "github.svg" ])
+    , (buildImage [ "icon-png.png" ])
     , (buildImage [ "icon.svg" ])
     , (buildImage [ "mountains.jpg" ])
     ]

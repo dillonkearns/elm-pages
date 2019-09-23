@@ -41,7 +41,7 @@ manifest =
     , themeColor = Just Color.white
     , startUrl = pages.index
     , shortName = Just "elm-pages"
-    , sourceIcon = images.icon
+    , sourceIcon = images.iconPng
     }
 
 
@@ -311,7 +311,7 @@ head metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.icon
+                    { url = images.iconPng
                     , alt = "elm-pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -327,7 +327,7 @@ head metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.icon
+                    { url = images.iconPng
                     , alt = "elm pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -400,7 +400,7 @@ head metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.icon
+                    { url = images.iconPng
                     , alt = "elm-pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
