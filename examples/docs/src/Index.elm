@@ -30,7 +30,11 @@ view posts =
                             Nothing
 
                         Metadata.Article meta ->
-                            Just ( path, meta )
+                            if meta.draft then
+                                Nothing
+
+                            else
+                                Just ( path, meta )
 
                         Metadata.BlogIndex ->
                             Nothing
