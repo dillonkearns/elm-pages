@@ -146,3 +146,17 @@ We then get this elm compiler error:
 One of the main motivations for building `elm-pages` was to make SEO easier and less error-prone. Have you ever seen a link shared on Twitter or elsewhere online that just renders like a plain link? No image, no title, no description. As I user, I'm a little afraid to click those links because I don't have any clues about where it will take me. As a user posting those links, it's very anticlimactic to share the blog post that I lovingly wrote only to see a boring link there in my tweet sharing it with the world.
 
 I'll also be digging into the topic of SEO in a future post, showing how `elm-pages` makes SEO dead simple. For now, you can take a look at [the built-in `elm-pages` SEO module](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Head-Seo) or take a look at [how this site uses the SEO module](https://github.com/dillonkearns/elm-pages/blob/8448bb60b680fb171319988fb716cb21e0345826/examples/docs/src/Main.elm#L294-L400).
+
+## Next steps
+There are so many possibilities when you pair Elm with static content! I'm excited to explore this area further with the help of the community. Here are some features that are on my radar.
+
+- Allow users to pass a set of HTTP requests to fetch during the build step (for making CMS or API data available statically in the build)
+- An API to programmatically add pages from metadata (rather than just from files in the `content` folder)
+- Allow users to configure the caching strategy for service workers (through pure Elm config of course)
+- More SEO features (possibly an API for adding structured data, i.e. JSON-LD, for more interactive and engaging search results)
+
+And of course, responding to your feedback! Please don't hesitate to share your thoughts, on everything from the documentation to the developer experience. I'd love to hear from you!
+
+## Getting started with `elm-pages`
+
+Thanks for reading!
