@@ -9,7 +9,9 @@
 }
 ---
 
-After a round of closed beta testing (thank you to Brian and the [`elm-conf 2019`](https://2019.elm-conf.com/) organizing team!), I'm excited to share a new static site generator for Elm!
+After a round of closed beta testing (thank you to [Brian](https://twitter.com/brianhicks) and the [`elm-conf 2019`](https://2019.elm-conf.com/) organizing team!), I'm excited to share a new static site generator for Elm!
+
+[Matthew Griffith](https://twitter.com/mech_elephant) and I have had a lot of design discussions and sending code snippets back-and-forth to get to the current design. A big thank you to Matthew for the great discussions and, as always, his ability to look at the bigger picture and question basic assumptions to come up with awesome innovations!
 
 ## What is `elm-pages` exactly?
 
