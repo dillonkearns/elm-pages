@@ -76,6 +76,7 @@ view markdown =
             Err (error |> List.map Markdown.Parser.deadEndToString |> String.join "\n")
 
 
+renderer : Markdown.Parser.Renderer (Element msg)
 renderer =
     { heading = heading
     , raw =
@@ -92,9 +93,15 @@ renderer =
                 |> Result.map
                     (\() ->
                         Element.link
-                            [ Font.color Palette.color.primary
+                            [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
                             ]
-                            { url = link.destination, label = Element.text body }
+                            { url = link.destination
+                            , label =
+                                Element.paragraph
+                                    [ Font.color Palette.color.primary
+                                    ]
+                                    body
+                            }
                     )
     , image =
         \image body ->
@@ -234,7 +241,6 @@ code snippet =
             (Element.rgba 0 0 0 0.04)
         , Element.Border.rounded 2
         , Element.paddingXY 5 3
-        , Font.color (Element.rgba255 0 0 0 1)
         , Font.family [ Font.monospace ]
         ]
         (Element.text snippet)

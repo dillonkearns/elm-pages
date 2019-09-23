@@ -161,7 +161,7 @@ type alias Renderer view =
     , italic : String -> view
 
     -- TODO make this a `Result` so users can validate links
-    , link : { title : Maybe String, destination : String } -> String -> Result String view
+    , link : { title : Maybe String, destination : String } -> List view -> Result String view
     , image : { src : String } -> String -> Result String view
     , list : List view -> view
     , codeBlock : { body : String, language : Maybe String } -> view
@@ -182,8 +182,19 @@ foldThing renderer { style, string } soFar =
         Just link ->
             case link.destination of
                 Inlines.Link destination ->
-                    renderer.link { title = link.title, destination = destination } string
-                        :: soFar
+                    case Advanced.run Inlines.parse string of
+                        Ok styledLine ->
+                            (renderStyled renderer styledLine
+                                |> Result.andThen
+                                    (\children ->
+                                        renderer.link { title = link.title, destination = destination } children
+                                    )
+                            )
+                                :: soFar
+
+                        Err error ->
+                            (error |> List.map deadEndToString |> List.map Err)
+                                ++ soFar
 
                 Inlines.Image src ->
                     renderer.image { src = src } string
