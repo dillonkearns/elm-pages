@@ -161,3 +161,5 @@ And of course, responding to your feedback! Please don't hesitate to share your 
 ## Getting started with `elm-pages`
 
 If you'd like to try out `elm-pages` for yourself, or look at some code, the best place to start is the [`elm-pages-starter` repo](https://github.com/dillonkearns/elm-pages-starter). See the site live at [elm-pages-starter.netlify.com](https://elm-pages-starter.netlify.com). Let me know your thoughts on Slack, I'd love to hear from you! Or continue the conversation on Twitter!
+
+<Oembed url="https://twitter.com/dillontkearns/status/1176556756249432065" />
