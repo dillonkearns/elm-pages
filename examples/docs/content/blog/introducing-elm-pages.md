@@ -42,7 +42,7 @@ Either framework might be the right fit depending on your goals. I hope this hel
 The flow is something like this:
 
 - Put your static content in your `content` folder (it could be Markdown, `elm-markup`, or something else entirely)
-- Register Elm functions that define what to do with the frontmatter and the body of each type of file you want to handle
+- Register Elm functions that define what to do with the [frontmatter](https://jekyllrb.com/docs/front-matter/) (that YAML data at the top of your markup files) and the body of each type of file you want to handle
 - Define your app's configuration in pure Elm (just like a regular Elm `Browser.application` but with a few extra functions for SEO and site configuration)
 - Run `elm-pages build` and ship your static files (JS, HTML, etc.) to Netlify, Github Pages, or your CDN of choice!
 
