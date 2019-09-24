@@ -259,7 +259,11 @@ header currentPath =
             [ Element.link []
                 { url = "/"
                 , label =
-                    Element.row [ Font.size 30, Element.spacing 16 ]
+                    Element.row
+                        [ Font.size 30
+                        , Element.spacing 16
+                        , Element.htmlAttribute (Attr.id "navbar-title")
+                        ]
                         [ DocumentSvg.view
                         , Element.text "elm-pages"
                         ]
