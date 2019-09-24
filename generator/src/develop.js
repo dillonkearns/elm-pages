@@ -221,7 +221,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
         },
         {
           test: /\.scss$/,
-          exclude: [/elm-stuff/, /node_modules/],
+          exclude: [/elm-stuff/],
           // see https://github.com/webpack-contrib/css-loader#url
           loaders: [
             require.resolve("style-loader"),
@@ -231,7 +231,7 @@ function webpackOptions(production, routes, { debug, manifestConfig }) {
         },
         {
           test: /\.css$/,
-          exclude: [/elm-stuff/, /node_modules/],
+          exclude: [/elm-stuff/],
           loaders: [
             require.resolve("style-loader"),
             require.resolve("css-loader")
