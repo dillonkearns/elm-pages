@@ -2,7 +2,6 @@
     "type": "application",
     "source-directories": [
         "src",
-        "../../elm-package/src",
         "../../src",
         "gen",
         "elm-markdown-parser"
