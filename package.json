@@ -61,7 +61,8 @@
   },
   "files": [
     "index.js",
-    "generator/src/"
+    "generator/src/",
+    "elm-package/src"
   ],
   "bin": {
     "elm-pages": "generator/src/elm-pages.js"
