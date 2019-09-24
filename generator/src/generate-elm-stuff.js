@@ -10,9 +10,8 @@ module.exports = function run(
   markupContent,
   callback
 ) {
-  // mkdir -p elm-stuff/elm-pages/
-  // requires NodeJS >= 10.12.0
-  fs.mkdirSync("./elm-stuff/elm-pages", { recursive: true });
+  ensureDirSync("./elm-stuff");
+  ensureDirSync("./elm-stuff/elm-pages");
 
   // write `Pages.elm` with cli interface
   fs.writeFileSync(

@@ -79,6 +79,7 @@ function run() {
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent.concat(content));
 
+    ensureDirSync("./gen");
     fs.writeFileSync(
       "./gen/Pages.elm",
       elmPagesUiFile(staticRoutes, markdownContent, content)
