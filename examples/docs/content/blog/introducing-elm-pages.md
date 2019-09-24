@@ -148,6 +148,7 @@ One of the main motivations for building `elm-pages` was to make SEO easier and 
 I'll also be digging into the topic of SEO in a future post, showing how `elm-pages` makes SEO dead simple. For now, you can take a look at [the built-in `elm-pages` SEO module](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Head-Seo) or take a look at [how this site uses the SEO module](https://github.com/dillonkearns/elm-pages/blob/8448bb60b680fb171319988fb716cb21e0345826/examples/docs/src/Main.elm#L294-L400).
 
 ## Next steps
+
 There are so many possibilities when you pair Elm with static content! I'm excited to explore this area further with the help of the community. Here are some features that are on my radar.
 
 - Allow users to pass a set of HTTP requests to fetch during the build step (for making CMS or API data available statically in the build)
@@ -159,4 +160,4 @@ And of course, responding to your feedback! Please don't hesitate to share your 
 
 ## Getting started with `elm-pages`
 
-Thanks for reading!
+If you'd like to try out `elm-pages` for yourself, or look at some code, the best place to start is the [`elm-pages-starter` repo](https://github.com/dillonkearns/elm-pages-starter). See the site live at [elm-pages-starter.netlify.com](https://elm-pages-starter.netlify.com). Let me know your thoughts on Slack, I'd love to hear from you! Or continue the conversation on Twitter!
