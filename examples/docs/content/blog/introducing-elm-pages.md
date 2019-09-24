@@ -143,7 +143,7 @@ We then get this elm compiler error:
 
 ## SEO
 
-One of the main motivations for building `elm-pages` was to make SEO easier and less error-prone. Have you ever seen a link shared on Twitter or elsewhere online that just renders like a plain link? No image, no title, no description. As I user, I'm a little afraid to click those links because I don't have any clues about where it will take me. As a user posting those links, it's very anticlimactic to share the blog post that I lovingly wrote only to see a boring link there in my tweet sharing it with the world.
+One of the main motivations for building `elm-pages` was to make SEO easier and less error-prone. Have you ever seen a link shared on Twitter or elsewhere online that just renders like a plain link? No image, no title, no description. As a user, I'm a little afraid to click those links because I don't have any clues about where it will take me. As a user posting those links, it's very anticlimactic to share the blog post that I lovingly wrote only to see a boring link there in my tweet sharing it with the world.
 
 I'll also be digging into the topic of SEO in a future post, showing how `elm-pages` makes SEO dead simple. For now, you can take a look at [the built-in `elm-pages` SEO module](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Head-Seo) or take a look at [how this site uses the SEO module](https://github.com/dillonkearns/elm-pages/blob/8448bb60b680fb171319988fb716cb21e0345826/examples/docs/src/Main.elm#L294-L400).
 
