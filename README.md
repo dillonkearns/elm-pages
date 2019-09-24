@@ -2,6 +2,13 @@
 
 A **statically typed** site generator, written with pure Elm.
 
+## Getting Started Resources
+
+- [Quick start repo](https://github.com/dillonkearns/elm-pages-starter) [(live site hosted here)](https://elm-pages-starter.netlify.com)
+- [Introducing `elm-pages` blog post](https://elm-pages.com/blog/introducing-elm-pages)
+- [Quick Start page in docs site](https://elm-pages.com/docs)
+- [`examples` folder](https://github.com/dillonkearns/elm-pages/blob/master/examples/) (includes https://elm-pages.com site source)
+
 ## Key features
 
 ### SEO made easy
