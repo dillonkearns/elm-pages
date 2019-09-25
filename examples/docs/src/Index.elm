@@ -63,7 +63,7 @@ title text =
         |> Element.paragraph
             [ Element.Font.size 36
             , Element.Font.center
-            , Element.Font.family [ Element.Font.typeface "Raleway" ]
+            , Element.Font.family [ Element.Font.typeface "Montserrat" ]
             , Element.Font.semiBold
             , Element.padding 16
             ]
@@ -118,7 +118,6 @@ postPreview post =
             |> Element.paragraph
                 [ Element.Font.size 22
                 , Element.Font.center
-                , Element.Font.family [ Element.Font.typeface "Raleway" ]
                 ]
         , readMoreLink
         ]

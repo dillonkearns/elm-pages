@@ -224,7 +224,7 @@ heading { level, rawText, children } =
                     20
             )
         , Font.bold
-        , Font.family [ Font.typeface "Raleway" ]
+        , Font.family [ Font.typeface "Montserrat" ]
         , Element.Region.heading level
         , Element.htmlAttribute
             (Html.Attributes.attribute "name" (rawTextToId rawText))
