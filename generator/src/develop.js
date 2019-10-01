@@ -51,8 +51,9 @@ function start({ routes, debug, manifestConfig }) {
     });
   });
 
-  app.listen(3000, () =>
-    console.log("🚀 elm-pages develop on http://localhost:3000")
+  const port = $.process.PORT || 3000;
+  app.listen(port, () =>
+    console.log("🚀 elm-pages develop on http://localhost:port")
   );
   // https://stackoverflow.com/questions/43667102/webpack-dev-middleware-and-static-files
   // app.use(express.static(__dirname + "/path-to-static-folder"));
