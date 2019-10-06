@@ -10,14 +10,15 @@ import Html exposing (Attribute, Html)
 import Html.Attributes exposing (property)
 import Html.Events exposing (on)
 import Json.Encode as Encode exposing (Value)
-import Markdown.Inlines
+import Markdown.Block
+import Markdown.Html
 import Markdown.Parser
 import Oembed
 import Pages
 import Palette
 
 
-buildToc : List Markdown.Parser.Block -> TableOfContents
+buildToc : List Markdown.Block.Block -> TableOfContents
 buildToc blocks =
     let
         headings =
@@ -34,18 +35,18 @@ buildToc blocks =
             )
 
 
-styledToString : List Markdown.Inlines.StyledString -> String
+styledToString : List Markdown.Block.Inline -> String
 styledToString list =
     List.map .string list
         |> String.join "-"
 
 
-gatherHeadings : List Markdown.Parser.Block -> List ( Int, List Markdown.Inlines.StyledString )
+gatherHeadings : List Markdown.Block.Block -> List ( Int, List Markdown.Block.Inline )
 gatherHeadings blocks =
     List.filterMap
         (\block ->
             case block of
-                Markdown.Parser.Heading level content ->
+                Markdown.Block.Heading level content ->
                     Just ( level, content )
 
                 _ ->
@@ -65,7 +66,7 @@ view markdown =
             |> Markdown.Parser.parse
     of
         Ok okAst ->
-            case Markdown.Parser.renderAst renderer (Ok okAst) of
+            case Markdown.Parser.render renderer okAst of
                 Ok rendered ->
                     Ok ( buildToc okAst, rendered )
 
@@ -89,20 +90,22 @@ renderer =
     , code = code
     , link =
         \link body ->
-            Pages.isValidRoute link.destination
-                |> Result.map
-                    (\() ->
-                        Element.link
-                            [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
-                            ]
-                            { url = link.destination
-                            , label =
-                                Element.paragraph
-                                    [ Font.color Palette.color.primary
-                                    ]
-                                    body
-                            }
-                    )
+            -- Pages.isValidRoute link.destination
+            --     |> Result.map
+            --         (\() ->
+            Element.link
+                [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
+                ]
+                { url = link.destination
+                , label =
+                    Element.paragraph
+                        [ Font.color Palette.color.primary
+                        ]
+                        body
+                }
+                |> Ok
+
+    -- )
     , image =
         \image body ->
             -- Pages.isValidRoute image.src
@@ -127,9 +130,9 @@ renderer =
                         )
                 )
     , codeBlock = codeBlock
-    , htmlDecoder =
-        Markdown.Parser.htmlOneOf
-            [ Markdown.Parser.htmlTag "Banner"
+    , html =
+        Markdown.Html.oneOf
+            [ Markdown.Html.tag "Banner"
                 (\children ->
                     Element.paragraph
                         [ Font.center
@@ -139,7 +142,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Parser.htmlTag "Boxes"
+            , Markdown.Html.tag "Boxes"
                 (\children ->
                     children
                         |> List.indexedMap
@@ -161,7 +164,7 @@ renderer =
                         |> List.reverse
                         |> Element.column [ Element.centerX ]
                 )
-            , Markdown.Parser.htmlTag "Box"
+            , Markdown.Html.tag "Box"
                 (\children ->
                     Element.textColumn
                         [ Element.centerX
@@ -172,7 +175,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Parser.htmlTag "Values"
+            , Markdown.Html.tag "Values"
                 (\children ->
                     Element.row
                         [ Element.spacing 30
@@ -180,7 +183,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Parser.htmlTag "Value"
+            , Markdown.Html.tag "Value"
                 (\children ->
                     Element.column
                         [ Element.width Element.fill
@@ -191,14 +194,14 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Parser.htmlTag "Oembed"
+            , Markdown.Html.tag "Oembed"
                 (\url children ->
                     Oembed.view [] Nothing url
                         |> Maybe.map Element.html
                         |> Maybe.withDefault Element.none
                         |> Element.el [ Element.centerX ]
                 )
-                |> Markdown.Parser.withAttribute "url"
+                |> Markdown.Html.withAttribute "url"
             ]
     }
 
