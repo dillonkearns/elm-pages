@@ -176,7 +176,7 @@ That said, the goal is not to get to 100% compliance with the Github-Flavored Ma
 [My link](/home oh wait I forgot to close this link tag...
 ```
 
-⚠️ This is technically **valid** Markdown! ⚠️
+⚠️ This is technically **valid** Markdown!
 
 It "does the best it can" with the input and renders to a raw string rather than rendering a link. So this is an example that is squarely in the category of markup that **"probably doesn't do what you expected."**
 
