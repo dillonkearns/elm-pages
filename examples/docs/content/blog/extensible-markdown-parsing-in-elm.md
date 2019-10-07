@@ -12,7 +12,10 @@
 
 I'm excited to share a new approach to markdown parsing for the Elm ecosystem: [`dillonkearns/elm-markdown`](https://package.elm-lang.org/packages/dillonkearns/elm-markdown/latest/)!
 
-As a matter of fact, the blog post you're reading right now is being rendered with it. If you want to jump straight to a live demo, you can [check out this Ellie example](https://ellie-app.com/6QH7BxdcWxKa1). It extracts a table of contents from the parsed Markdown and then renders to `elm-ui` `Element`s. It's a good illustration of many of the features discussed below.
+As a matter of fact, the blog post you're reading right now is being rendered with it! If you want to jump straight to a live demo, you can check out:
+
+- [This Ellie example showing custom HTML elements in action](https://ellie-app.com/6QH7BxdcWxKa1), or
+- [This Ellie example that extracts a table of contents](https://ellie-app.com/6QtYW8pcCDna1) from the parsed markdown blocks
 
 ## Why does Elm need another markdown parser?
 
