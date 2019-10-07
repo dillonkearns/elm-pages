@@ -6,6 +6,7 @@ import Element.Background
 import Element.Border
 import Element.Font as Font
 import Element.Region
+import Ellie
 import Html exposing (Attribute, Html)
 import Html.Attributes exposing (property)
 import Html.Events exposing (on)
@@ -202,6 +203,15 @@ renderer =
                         |> Element.el [ Element.centerX ]
                 )
                 |> Markdown.Html.withAttribute "url"
+            , Markdown.Html.tag "ellie-output"
+                (\ellieId children ->
+                    -- Oembed.view [] Nothing url
+                    --     |> Maybe.map Element.html
+                    --     |> Maybe.withDefault Element.none
+                    --     |> Element.el [ Element.centerX ]
+                    Ellie.outputTab ellieId
+                )
+                |> Markdown.Html.withAttribute "id"
             ]
     }
 

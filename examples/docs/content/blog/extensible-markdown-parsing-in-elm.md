@@ -33,9 +33,9 @@ And yet, I wanted to do all of this with the benefits that come from using stand
 
 So how do you get the best of both worlds? There are three key features that give `dillonkearns/elm-markdown` rich extensibility without actually adding to the Markdown syntax:
 
-- ⚙️ **Map HTML to custom Elm rendering functions** - to give you fully extensible markdown!
-- 🎨 **Use [custom renderers](https://package.elm-lang.org/packages/dillonkearns/elm-markdown/latest/Markdown-Parser#Renderer)** - to allow users to do custom rendering using their preferred style and UI library
-- 🌳 **Give users access to the parsed Markdown Blocks before rendering** - (i.e. abstract syntax tree) allow users to inspect, transform, or extract data from the parsed Markdown before passing it on to their custom Markdown Renderer
+- ⚙️ **Map HTML to custom Elm rendering functions** (for extensible markdown!)
+- 🎨 **Use [custom renderers](https://package.elm-lang.org/packages/dillonkearns/elm-markdown/latest/Markdown-Parser#Renderer)** (for custom rendering with your preferred styles and UI library)
+- 🌳 **Give users access to the parsed Markdown Blocks before rendering** (for inspecting, transforming, or extracting data from the parsed Markdown before passing it to your Markdown Renderer)
 
 Let's explore these three key features in more depth.
 
@@ -43,54 +43,42 @@ Let's explore these three key features in more depth.
 
 I didn't want to add additional features that weren't already a part of Markdown syntax. Since HTML is already valid Markdown, it seemed ideal to just use declarative HTML tags to express these custom view elements. `dillonkearns/elm-markdown` leverages that to give you a declarative Elm syntax to explicitly say what kind of HTML is accepted (think JSON Decoders) and, given that accepted HTML, how to render it.
 
+## Markdown Within HTML Tags
+
 What makes this especially useful is that we can render any Markdown content within our HTML tags. So you could have a Markdown file that looks like this.
 
 ```markdown
-# My Favorite Books
+## Markdown Within HTML (Within Markdown)
 
-This is a **markdown** page,
-but I added some rich elements using
-HTML to spice things up.
+You can now:
 
-<book-review star-rating="4.6" title="Crime and Punishment">
+- Render HTML within your Markdown
+- Render Markdown within that HTML!
 
-If you liked this book, you might also enjoy
-[Notes From Underground](https://en.wikipedia.org/wiki/Notes_from_Underground).
-
-You'll like this book if
-
-- You like a slow burn
-- You don't mind a dark story
-
-</book-review>
-```
-
-If you're familiar with [MDX](https://mdxjs.com) (it's Markdown syntax, but extended with some extra syntax from JSX, including like JS `import`s and JSX HTML tags). Guillermo Rauch, the creator of MDX even talks about the benefits that a more declarative approach, like the one `dillonkearns/elm-markdown` takes, could have over the current MDX approach of using low-level `import` statements and JSX syntax [in this talk (around 20:36 - 22:30)](https://www.youtube.com/watch?v=8oFJPVOT7FU&feature=youtu.be&t=1236).
-
-### Avoiding low-level HTML in markdown
-
-I like to think of the HTML tags within these markdown documents as similar to a WebComponent. It should be a very high-level way of expressing your custom views. With standard Github-flavored markdown, you'll often see people injecting `<div>` tags with styles, or `<img>` tags, etc. To me, I consider this too low-level to be injecting into Markdown. The Markdown document should be more declarative, concerned only with _what_ to render, not _how_ to render it.
-
-### An example of custom HTML in `dillonkearns/elm-markdown`
-
-Let's say we want to abstract the expected data and presentation logic for team members' bios on an `about-us` page. And you'll probably want to have richer presentation logic than plain markdown gives you (for example, showing icons with the right dimensions, and displaying them in a row not column view, etc.) Also, since we're using Elm, we get pretty spoiled by explicit and precise error messages. So we'd like to get an error message if we don't provide a required attribute! Here's what that might look like:
-
-```elm
 <bio
-  name="Dillon Kearns"
-  photo="https://avatars2.githubusercontent.com/u/1384166"
-  twitter="dillontkearns"
-  github="dillonkearns"
+name="Dillon Kearns"
+photo="https://avatars2.githubusercontent.com/u/1384166"
+twitter="dillontkearns"
+github="dillonkearns"
+
 >
+
 Dillon really likes building things with Elm!
 
 Here are some links:
 
 - [Articles](https://incrementalelm.com/articles)
+
 </bio>
 ```
 
-Our Elm code to handle this type of HTML tag looks like this:
+And here's the output:
+
+<ellie-output id="6RCVwj43wQfa1" />
+
+This is a nice way to abstract the presentation logic for team members' bios on an `about-us` page. We want richer presentation logic than plain markdown provides (for example, showing icons with the right dimensions, and displaying them in a row not column view, etc.) Also, since we're using Elm, we get pretty spoiled by explicit and precise error messages. So we'd like to get an error message if we don't provide a required attribute!
+
+Here's the relevant code for handling the `<bio>` HTML tag in our Markdown:
 
 ```elm
 Markdown.Html.oneOf
@@ -106,7 +94,7 @@ Markdown.Html.oneOf
   ]
 ```
 
-Now, if we forget to pass in a `photo` attribute, we'll get an error message like this:
+If we forget to pass in the required `photo` attribute, we'll get an error message like this:
 
 ```
 Problem with the given value:
@@ -119,6 +107,12 @@ Problem with the given value:
 
 Expecting attribute "photo".
 ```
+
+### Avoiding low-level HTML in markdown
+
+If you're familiar with [MDX](https://mdxjs.com) (it's Markdown syntax, but extended with some extra syntax from JSX, including like JS `import`s and JSX HTML tags). Guillermo Rauch, the creator of MDX even talks about the benefits that a more declarative approach, like the one `dillonkearns/elm-markdown` takes, could have over the current MDX approach of using low-level `import` statements and JSX syntax [in this talk (around 20:36 - 22:30)](https://www.youtube.com/watch?v=8oFJPVOT7FU&feature=youtu.be&t=1236).
+
+I like to think of the HTML tags within these markdown documents as similar to a WebComponent. It should be a very high-level way of expressing your custom views. With standard Github-flavored markdown, you'll often see people injecting `<div>` tags with styles, or `<img>` tags, etc. To me, I consider this too low-level to be injecting into Markdown. The Markdown document should be more declarative, concerned only with _what_ to render, not _how_ to render it.
 
 ## 🎨 Use custom renderers
 
