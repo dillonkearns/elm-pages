@@ -112,7 +112,7 @@ Expecting attribute "photo".
 
 If you're familiar with [MDX](https://mdxjs.com) (it's Markdown syntax, but extended with some extra syntax from JSX, including like JS `import`s and JSX HTML tags). Guillermo Rauch, the creator of MDX even talks about the benefits that a more declarative approach, like the one `dillonkearns/elm-markdown` takes, could have over the current MDX approach of using low-level `import` statements and JSX syntax [in this talk (around 20:36 - 22:30)](https://www.youtube.com/watch?v=8oFJPVOT7FU&feature=youtu.be&t=1236).
 
-I like to think of the HTML tags within these markdown documents as similar to a WebComponent. It should be a very high-level way of expressing your custom views. With standard Github-flavored markdown, you'll often see people injecting `<div>` tags with styles, or `<img>` tags, etc. To me, I consider this too low-level to be injecting into Markdown. The Markdown document should be more declarative, concerned only with _what_ to render, not _how_ to render it.
+Even with this declarative approach to explicitly allowing the HTML tags you want, it's possible to get very low-level and just create mappings to standard HTML tags. I like to treat the HTML tags within these markdown documents like Web Components rather than raw HTML. That means using it as a very high-level way of expressing your custom views. With standard Github-flavored markdown, you'll often see people injecting `<div>` tags with styles, or `<img>` tags, etc. I consider this too low-level to be injecting into Markdown in most cases. The Markdown document should be more declarative, concerned only with _what_ to render, not _how_ to render it.
 
 ## 🎨 Use custom renderers
 
