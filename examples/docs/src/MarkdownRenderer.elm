@@ -93,7 +93,7 @@ renderer =
             -- Pages.isValidRoute link.destination
             --     |> Result.map
             --         (\() ->
-            Element.link
+            Element.newTabLink
                 [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
                 ]
                 { url = link.destination
@@ -117,7 +117,7 @@ renderer =
     -- )
     , list =
         \items ->
-            Element.column [ Element.spacing 15 ]
+            Element.textColumn [ Element.spacing 15 ]
                 (items
                     |> List.map
                         (\itemBlocks ->
