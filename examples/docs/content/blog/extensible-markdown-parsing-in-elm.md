@@ -69,7 +69,7 @@ If you're familiar with [MDX](https://mdxjs.com) (it's Markdown syntax, but exte
 
 ### Avoiding low-level HTML in markdown
 
-I like to think of the HTML tags within these markdown documents as similar to a WebComponent. It should be a very high-level way of expressing the data you need for a custom view. With standard Github-flavored markdown, you'll often see people injecting `<div>` tags with styles, or `<img>` tags, etc. To me, I consider this too low-level to be injecting into Markdown. The Markdown document should be more declarative, concerned only with _what_ to render, not _how_ to render it.
+I like to think of the HTML tags within these markdown documents as similar to a WebComponent. It should be a very high-level way of expressing your custom views. With standard Github-flavored markdown, you'll often see people injecting `<div>` tags with styles, or `<img>` tags, etc. To me, I consider this too low-level to be injecting into Markdown. The Markdown document should be more declarative, concerned only with _what_ to render, not _how_ to render it.
 
 ### An example of custom HTML in `dillonkearns/elm-markdown`
 
@@ -77,10 +77,10 @@ Let's say we want to abstract the expected data and presentation logic for team 
 
 ```elm
 <bio
-	name="Dillon Kearns"
-	photo="https://avatars2.githubusercontent.com/u/1384166"
-	twitter="dillontkearns"
-	github="dillonkearns"
+  name="Dillon Kearns"
+  photo="https://avatars2.githubusercontent.com/u/1384166"
+  twitter="dillontkearns"
+  github="dillonkearns"
 >
 Dillon really likes building things with Elm!
 
