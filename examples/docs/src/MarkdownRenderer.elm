@@ -117,7 +117,7 @@ renderer =
     -- )
     , list =
         \items ->
-            Element.textColumn [ Element.spacing 15 ]
+            Element.column [ Element.spacing 15 ]
                 (items
                     |> List.map
                         (\itemBlocks ->
