@@ -12,16 +12,13 @@
 
 I'm excited to share a new approach to markdown parsing for the Elm ecosystem: [`dillonkearns/elm-markdown`](https://package.elm-lang.org/packages/dillonkearns/elm-markdown/latest/)!
 
-As a matter of fact, the blog post you're reading right now is being rendered with it! If you want to jump straight to a live demo, you can check out:
-
-- [This Ellie example showing custom HTML elements in action](https://ellie-app.com/6QH7BxdcWxKa1), or
-- [This Ellie example that extracts a table of contents](https://ellie-app.com/6QtYW8pcCDna1) from the parsed markdown blocks
+As a matter of fact, the blog post you're reading right now is being rendered with it.
 
 ## Why does Elm need another markdown parser?
 
-I built this tool was so that I could:
+I built this tool so that I could:
 
-- Render my markdown blocks using my preferred UI library (`elm-ui`, in my case, but you could use `elm-css` or anything else!)
+- Render markdown blocks using my preferred UI library (`elm-ui`, in my case, but you could use `elm-css` or anything else!)
 - Extend what can be expressed beyond the standard markdown blocks like headings, lists, etc.
 - Inject data from my Elm model into my markdown
 
@@ -45,6 +42,28 @@ Let's explore these three key features in more depth.
 ## ⚙️ Map HTML to custom Elm rendering functions
 
 I didn't want to add additional features that weren't already a part of Markdown syntax. Since HTML is already valid Markdown, it seemed ideal to just use declarative HTML tags to express these custom view elements. `dillonkearns/elm-markdown` leverages that to give you a declarative Elm syntax to explicitly say what kind of HTML is accepted (think JSON Decoders) and, given that accepted HTML, how to render it.
+
+What makes this especially useful is that we can render any Markdown content within our HTML tags. So you could have a Markdown file that looks like this.
+
+```markdown
+# My Favorite Books
+
+This is a **markdown** page,
+but I added some rich elements using
+HTML to spice things up.
+
+<book-review star-rating="4.6" title="Crime and Punishment">
+
+If you liked this book, you might also enjoy
+[Notes From Underground](https://en.wikipedia.org/wiki/Notes_from_Underground).
+
+You'll like this book if
+
+- You like a slow burn
+- You don't mind a dark story
+
+</book-review>
+```
 
 If you're familiar with [MDX](https://mdxjs.com) (it's Markdown syntax, but extended with some extra syntax from JSX, including like JS `import`s and JSX HTML tags). Guillermo Rauch, the creator of MDX even talks about the benefits that a more declarative approach, like the one `dillonkearns/elm-markdown` takes, could have over the current MDX approach of using low-level `import` statements and JSX syntax [in this talk (around 20:36 - 22:30)](https://www.youtube.com/watch?v=8oFJPVOT7FU&feature=youtu.be&t=1236).
 
