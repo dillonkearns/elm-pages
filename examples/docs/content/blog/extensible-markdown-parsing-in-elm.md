@@ -158,9 +158,9 @@ Here are some use cases that this feature enables:
 
 I've been really enjoying using this in production for several weeks. But it certainly isn't fully handling all cases in Github-flavored markdown.
 
-I'm running all 1400 end-to-end test cases from the Marked.js test suite (which is what `elm-explorations/markdown` runs under the hood). And that test suite includes running through every example in the [Github-flavored markdown spec](https://github.github.com/gfm/). I'm working through handling more of these cases to make it more widely useful, but feel free to use it now with that caveat in mind.
+I'm running all 1400 end-to-end test cases from the Marked.js test suite (which is what `elm-explorations/markdown` runs under the hood). And that test suite includes running through every example in the [Github-flavored markdown spec](https://github.github.com/gfm/). You can see nicely formatted markdown with all of the current failures [here](https://github.com/dillonkearns/elm-markdown/tree/master/test-results/failing/GFM). It includes all failures from the Marked.js test suite, organized by feature area. I'm working through handling more of these cases to make it more widely useful, but feel free to use it now with that caveat in mind.
 
-Pull requests are very welcome, I would love community contributions on this project!
+Pull requests are very welcome, I would love community contributions on this project! If you're interested in contributing, check out [the contributing guide in the Github repo](https://github.com/dillonkearns/elm-markdown/blob/master/CONTRIBUTING.md).
 
 ### Fault-Tolerance Versus Helpful Errors
 
