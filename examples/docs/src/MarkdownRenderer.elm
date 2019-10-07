@@ -85,8 +85,8 @@ renderer =
             [ Element.spacing 15 ]
     , thematicBreak = Element.none
     , plain = Element.text
-    , bold = \content -> Element.row [ Font.bold ] [ Element.text content ]
-    , italic = \content -> Element.row [ Font.italic ] [ Element.text content ]
+    , bold = \content -> Element.el [ Font.bold ] (Element.text content)
+    , italic = \content -> Element.el [ Font.italic ] (Element.text content)
     , code = code
     , link =
         \link body ->
@@ -121,7 +121,7 @@ renderer =
                 (items
                     |> List.map
                         (\itemBlocks ->
-                            Element.row [ Element.spacing 5 ]
+                            Element.wrappedRow [ Element.spacing 5 ]
                                 [ Element.el
                                     [ Element.alignTop ]
                                     (Element.text "•")
