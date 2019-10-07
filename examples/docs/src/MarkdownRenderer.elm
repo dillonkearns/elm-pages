@@ -251,7 +251,11 @@ code snippet =
 
 codeBlock : { body : String, language : Maybe String } -> Element msg
 codeBlock details =
-    Html.node "code-editor" [ editorValue details.body ] []
+    Html.node "code-editor"
+        [ editorValue details.body
+        , Html.Attributes.style "white-space" "normal"
+        ]
+        []
         |> Element.html
         |> Element.el [ Element.width Element.fill ]
 
