@@ -183,3 +183,7 @@ So the rule of thumb for `dillonkearns/elm-markdown` is:
 You can follow along with the [current GFM Spec Compliance here](https://github.com/dillonkearns/elm-markdown#current-github-flavored-markdown-compliance).
 
 Thanks for reading! If you give this library a try, let me know what you think. I'd love to hear from you!
+
+You can keep the conversation going on the #elm-pages channel on [the Elm Slack](http://elmlang.herokuapp.com/), or on this Twitter thread 👇
+
+<Oembed url="https://twitter.com/dillontkearns/status/1181588809349091328" />
