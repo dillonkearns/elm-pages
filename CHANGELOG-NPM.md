@@ -12,3 +12,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Use hidden `<div>` to listen for Elm view renders instead of wrapping entire
    page in an extra div. Fixes [#5](https://github.com/dillonkearns/elm-pages/issues/5).
+
+### Changed
+- Add `onPageChange : PagePath Pages.PathKey -> userMsg` field to `Pages.application` config record.
+    This is analagous to `onUrlChange` in `Browser.application`, except that you get a
+    type-safe `PagePath Pages.PathKey` because it is guaranteed that you will only
+    go to one of your static routes when this `Msg` is fired. Fixes [#4](https://github.com/dillonkearns/elm-pages/issues/4).

@@ -60,6 +60,7 @@ main =
         , documents = [ markdownDocument ]
         , head = head
         , manifest = manifest
+        , onPageChange = OnPageChange
         , canonicalSiteUrl = canonicalSiteUrl
         }
 
@@ -82,14 +83,14 @@ init =
     ( Model, Cmd.none )
 
 
-type alias Msg =
-    ()
+type Msg
+    = OnPageChange (PagePath Pages.PathKey)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        () ->
+        OnPageChange page ->
             ( model, Cmd.none )
 
 

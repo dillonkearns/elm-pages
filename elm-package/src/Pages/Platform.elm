@@ -60,6 +60,15 @@ mainView pathKey pageView model =
             }
 
 
+urlToPagePath : pathKey -> Url -> PagePath pathKey
+urlToPagePath pathKey url =
+    url.path
+        |> dropTrailingSlash
+        |> String.split "/"
+        |> List.drop 1
+        |> PagePath.build pathKey
+
+
 pageViewOrError :
     pathKey
     -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
@@ -126,15 +135,18 @@ view pathKey content pageView model =
         ]
     }
 
+
 onViewChangeElement currentUrl =
--- this is a hidden tag
--- it is used from the JS-side to reliably 
--- check when Elm has changed pages
--- (and completed rendering the view)
-    Html.div 
-      [ Html.Attributes.attribute "data-url" (Url.toString currentUrl) 
-      , Html.Attributes.attribute "display" "none"
-      ] []
+    -- this is a hidden tag
+    -- it is used from the JS-side to reliably
+    -- check when Elm has changed pages
+    -- (and completed rendering the view)
+    Html.div
+        [ Html.Attributes.attribute "data-url" (Url.toString currentUrl)
+        , Html.Attributes.attribute "display" "none"
+        ]
+        []
+
 
 encodeHeads : String -> String -> List (Head.Tag pathKey) -> Json.Encode.Value
 encodeHeads canonicalSiteUrl currentPagePath head =
@@ -235,13 +247,15 @@ type alias ModelDetails userModel metadata view =
 
 
 update :
-    (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
+    pathKey
+    -> (PagePath pathKey -> userMsg)
+    -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
     -> Pages.Document.Document metadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
-update toJsPort document userUpdate msg model =
+update pathKey onPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -291,8 +305,18 @@ update toJsPort document userUpdate msg model =
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
                 Ok updatedCache ->
-                    ( { model | url = url, contentCache = updatedCache }
-                    , Cmd.none
+                    let
+                        ( userModel, userCmd ) =
+                            userUpdate
+                                (onPageChangeMsg (url |> urlToPagePath pathKey))
+                                model.userModel
+                    in
+                    ( { model
+                        | url = url
+                        , contentCache = updatedCache
+                        , userModel = userModel
+                      }
+                    , userCmd |> Cmd.map UserMsg
                     )
 
                 Err _ ->
@@ -319,6 +343,7 @@ application :
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
     , pathKey : pathKey
+    , onPageChange : PagePath pathKey -> userMsg
     }
     -> Program userModel userMsg metadata view
 application config =
@@ -341,7 +366,7 @@ application config =
             \msg outerModel ->
                 case outerModel of
                     Model model ->
-                        update config.toJsPort config.document config.update msg model |> Tuple.mapFirst Model
+                        update config.pathKey config.onPageChange config.toJsPort config.document config.update msg model |> Tuple.mapFirst Model
 
                     CliModel ->
                         ( outerModel, Cmd.none )
@@ -371,6 +396,7 @@ cliApplication :
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
     , pathKey : pathKey
+    , onPageChange : PagePath pathKey -> userMsg
     }
     -> Program userModel userMsg metadata view
 cliApplication config =
@@ -418,3 +444,4 @@ encodeErrors errors =
         |> Json.Encode.dict
             (\path -> "/" ++ String.join "/" path)
             (\errorsForPath -> Json.Encode.string errorsForPath)
+

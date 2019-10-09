@@ -96,6 +96,7 @@ application :
     , head : metadata -> List (Head.Tag PathKey)
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
+    , onPageChange : PagePath PathKey -> userMsg
     , canonicalSiteUrl : String
     }
     -> Pages.Platform.Program userModel userMsg metadata view
@@ -111,6 +112,7 @@ application config =
         , head = config.head
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
+        , onPageChange = config.onPageChange
         , pathKey = PathKey
         }
 ${staticRouteStuff(staticRoutes)}
@@ -174,6 +176,7 @@ application :
     , documents : List ( String, Document.DocumentHandler metadata view )
     , head : metadata -> List (Head.Tag PathKey)
     , manifest : Pages.Manifest.Config PathKey
+    , onPageChange : PagePath PathKey -> userMsg
     , canonicalSiteUrl : String
     }
     -> Pages.Platform.Program userModel userMsg metadata view
@@ -189,6 +192,7 @@ application config =
         , head = config.head
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
+        , onPageChange = config.onPageChange
         , pathKey = PathKey
         }
 
