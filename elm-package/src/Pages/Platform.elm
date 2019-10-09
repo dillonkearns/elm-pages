@@ -121,15 +121,20 @@ view pathKey content pageView model =
     in
     { title = title
     , body =
-        [ Html.div
-            [ Html.Attributes.attribute "data-url" (Url.toString model.url)
-            ]
-            [ body
-                |> Html.map UserMsg
-            ]
+        [ onViewChangeElement model.url
+        , body |> Html.map UserMsg
         ]
     }
 
+onViewChangeElement currentUrl =
+-- this is a hidden tag
+-- it is used from the JS-side to reliably 
+-- check when Elm has changed pages
+-- (and completed rendering the view)
+    Html.div 
+      [ Html.Attributes.attribute "data-url" (Url.toString currentUrl) 
+      , Html.Attributes.attribute "display" "none"
+      ] []
 
 encodeHeads : String -> String -> List (Head.Tag pathKey) -> Json.Encode.Value
 encodeHeads canonicalSiteUrl currentPagePath head =
