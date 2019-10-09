@@ -78,8 +78,8 @@ type alias Model =
     {}
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Maybe (PagePath Pages.PathKey) -> ( Model, Cmd Msg )
+init maybePagePath =
     ( Model, Cmd.none )
 
 

@@ -177,28 +177,37 @@ init :
     -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
     -> (metadata -> List (Head.Tag pathKey))
     -> Content
-    -> ( userModel, Cmd userMsg )
+    -> (Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg ))
     -> Flags
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
 init pathKey canonicalSiteUrl document toJsPort head content initUserModel flags url key =
     let
-        ( userModel, userCmd ) =
-            initUserModel
-
         contentCache =
             ContentCache.init document content
     in
     case contentCache of
         Ok okCache ->
+            let
+                ( userModel, userCmd ) =
+                    initUserModel maybePagePath
+
+                ( maybePagePath, maybeMetadata ) =
+                    case ContentCache.lookupMetadata pathKey (Ok okCache) url of
+                        Just ( pagePath, metadata ) ->
+                            ( Just pagePath, Just metadata )
+
+                        Nothing ->
+                            ( Nothing, Nothing )
+            in
             ( { key = key
               , url = url
               , userModel = userModel
               , contentCache = contentCache
               }
             , Cmd.batch
-                ([ ContentCache.lookupMetadata (Ok okCache) url
+                ([ maybeMetadata
                     |> Maybe.map head
                     |> Maybe.map (encodeHeads canonicalSiteUrl url.path)
                     |> Maybe.map toJsPort
@@ -213,6 +222,10 @@ init pathKey canonicalSiteUrl document toJsPort head content initUserModel flags
             )
 
         Err _ ->
+            let
+                ( userModel, userCmd ) =
+                    initUserModel Nothing
+            in
             ( { key = key
               , url = url
               , userModel = userModel
@@ -332,7 +345,7 @@ type alias Parser metadata view =
 
 
 application :
-    { init : ( userModel, Cmd userMsg )
+    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg }
@@ -385,7 +398,7 @@ application config =
 
 
 cliApplication :
-    { init : ( userModel, Cmd userMsg )
+    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg }
@@ -444,4 +457,3 @@ encodeErrors errors =
         |> Json.Encode.dict
             (\path -> "/" ++ String.join "/" path)
             (\errorsForPath -> Json.Encode.string errorsForPath)
-

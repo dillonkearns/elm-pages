@@ -89,7 +89,7 @@ port toJsPort : Json.Encode.Value -> Cmd msg
 
 
 application :
-    { init : ( userModel, Cmd userMsg )
+    { init : Maybe (PagePath PathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
@@ -169,7 +169,7 @@ port toJsPort : Json.Encode.Value -> Cmd msg
 
 
 application :
-    { init : ( userModel, Cmd userMsg )
+    { init : Maybe (PagePath PathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }

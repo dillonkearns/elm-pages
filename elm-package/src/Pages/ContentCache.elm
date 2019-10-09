@@ -432,22 +432,23 @@ lookup pathKey content url =
 
 
 lookupMetadata :
-    ContentCache metadata view
+    pathKey
+    -> ContentCache metadata view
     -> Url
-    -> Maybe metadata
-lookupMetadata content url =
-    lookup () content url
+    -> Maybe ( PagePath pathKey, metadata )
+lookupMetadata pathKey content url =
+    lookup pathKey content url
         |> Maybe.map
             (\( pagePath, entry ) ->
                 case entry of
                     NeedContent _ metadata ->
-                        metadata
+                        ( pagePath, metadata )
 
                     Unparsed _ metadata _ ->
-                        metadata
+                        ( pagePath, metadata )
 
                     Parsed metadata _ ->
-                        metadata
+                        ( pagePath, metadata )
             )
 
 
