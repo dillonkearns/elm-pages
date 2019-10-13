@@ -92,8 +92,22 @@ application :
     { init : Maybe (PagePath PathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
-    , head : metadata -> List (Head.Tag PathKey)
+    , view : 
+        List ( PagePath PathKey, metadata )
+        ->
+            { path : PagePath PathKey
+            , frontmatter : metadata
+            }
+        ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag PathKey)
+            }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
     , onPageChange : PagePath PathKey -> userMsg
@@ -109,7 +123,6 @@ application config =
         , document = Document.fromList config.documents
         , content = content
         , toJsPort = toJsPort
-        , head = config.head
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , onPageChange = config.onPageChange
@@ -172,9 +185,23 @@ application :
     { init : Maybe (PagePath PathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( PagePath PathKey, metadata ) -> Page metadata view PathKey -> { title : String, body : Html userMsg }
+    , view :
+        List ( PagePath PathKey, metadata )
+        ->
+            { path : PagePath PathKey
+            , frontmatter : metadata
+            }
+        ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag PathKey)
+            }
     , documents : List ( String, Document.DocumentHandler metadata view )
-    , head : metadata -> List (Head.Tag PathKey)
     , manifest : Pages.Manifest.Config PathKey
     , onPageChange : PagePath PathKey -> userMsg
     , canonicalSiteUrl : String
@@ -189,7 +216,6 @@ application config =
         , document = Document.fromList config.documents
         , content = content
         , toJsPort = toJsPort
-        , head = config.head
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , onPageChange = config.onPageChange

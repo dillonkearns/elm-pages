@@ -50,6 +50,10 @@ manifest =
 -- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
 
 
+type alias View =
+    ( MarkdownRenderer.TableOfContents, List (Element Msg) )
+
+
 main : Platform.Program Pages.Platform.Flags (Pages.Platform.Model Model Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Platform.Msg Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
 main =
     Pages.application
@@ -58,7 +62,6 @@ main =
         , update = update
         , subscriptions = subscriptions
         , documents = [ markdownDocument ]
-        , head = head
         , manifest = manifest
         , onPageChange = OnPageChange
         , canonicalSiteUrl = canonicalSiteUrl
@@ -99,22 +102,53 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( PagePath Pages.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) Pages.PathKey -> { title : String, body : Html Msg }
-view model siteMetadata page =
+view :
+    List ( PagePath Pages.PathKey, Metadata )
+    ->
+        { path : PagePath Pages.PathKey
+        , frontmatter : Metadata
+        }
+    ->
+        { view :
+            Model
+            -> View
+            ->
+                { title : String
+                , body : Html Msg
+                }
+        , head : List (Head.Tag Pages.PathKey)
+        }
+view siteMetadata page =
     let
-        { title, body } =
-            pageView model siteMetadata page
+        viewFn =
+            \model viewForPage ->
+                pageView model
+                    siteMetadata
+                    { path = page.path
+                    , metadata = page.frontmatter
+                    , view =
+                        viewForPage
+                    }
+                    |> wrapBody
     in
-    { title = title
-    , body =
-        body
-            |> Element.layout
-                [ Element.width Element.fill
-                , Font.size 20
-                , Font.family [ Font.typeface "Roboto" ]
-                , Font.color (Element.rgba255 0 0 0 0.8)
-                ]
+    { view =
+        viewFn
+    , head =
+        head page.frontmatter
+
+    --    title = title
+    --    , body =
+    --        body
     }
+
+
+
+--Model
+--            -> view
+--            ->
+--                { title : String
+--                , body : Html Msg
+--                }
 
 
 pageView : Model -> List ( PagePath Pages.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) Pages.PathKey -> { title : String, body : Element Msg }
@@ -224,6 +258,19 @@ pageView model siteMetadata page =
                     , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
+
+
+wrapBody { body, title } =
+    { body =
+        body
+            |> Element.layout
+                [ Element.width Element.fill
+                , Font.size 20
+                , Font.family [ Font.typeface "Roboto" ]
+                , Font.color (Element.rgba255 0 0 0 0.8)
+                ]
+    , title = title
+    }
 
 
 articleImageView : ImagePath Pages.PathKey -> Element msg

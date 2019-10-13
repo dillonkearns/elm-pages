@@ -45,7 +45,23 @@ type alias Program userModel userMsg metadata view =
 
 mainView :
     pathKey
-    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
+    ->
+        (List ( PagePath pathKey, metadata )
+         ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+         ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag pathKey)
+            }
+        )
     -> ModelDetails userModel metadata view
     -> { title : String, body : Html userMsg }
 mainView pathKey pageView model =
@@ -71,27 +87,45 @@ urlToPagePath pathKey url =
 
 pageViewOrError :
     pathKey
-    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
+    ->
+        (List ( PagePath pathKey, metadata )
+         ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+         ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag pathKey)
+            }
+        )
     -> ModelDetails userModel metadata view
     -> ContentCache metadata view
     -> { title : String, body : Html userMsg }
-pageViewOrError pathKey pageView model cache =
+pageViewOrError pathKey viewFn model cache =
     case ContentCache.lookup pathKey cache model.url of
         Just ( pagePath, entry ) ->
             case entry of
                 ContentCache.Parsed metadata viewResult ->
-                    case viewResult of
-                        Ok viewList ->
-                            pageView model.userModel
+                    let
+                        pageView =
+                            viewFn
                                 (cache
                                     |> Result.map (ContentCache.extractMetadata pathKey)
                                     |> Result.withDefault []
                                  -- TODO handle error better
                                 )
-                                { metadata = metadata
-                                , path = pagePath
-                                , view = viewList
-                                }
+                                { path = pagePath, frontmatter = metadata }
+                                |> .view
+                    in
+                    case viewResult of
+                        Ok viewList ->
+                            pageView model.userModel viewList
 
                         Err error ->
                             { title = "Parsing error"
@@ -120,13 +154,29 @@ pageViewOrError pathKey pageView model cache =
 view :
     pathKey
     -> Content
-    -> (userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg })
+    ->
+        (List ( PagePath pathKey, metadata )
+         ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+         ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag pathKey)
+            }
+        )
     -> ModelDetails userModel metadata view
     -> Browser.Document (Msg userMsg metadata view)
-view pathKey content pageView model =
+view pathKey content viewFn model =
     let
         { title, body } =
-            mainView pathKey pageView model
+            mainView pathKey viewFn model
     in
     { title = title
     , body =
@@ -175,14 +225,30 @@ init :
     -> String
     -> Pages.Document.Document metadata view
     -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
-    -> (metadata -> List (Head.Tag pathKey))
+    ->
+        (List ( PagePath pathKey, metadata )
+         ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+         ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag pathKey)
+            }
+        )
     -> Content
     -> (Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg ))
     -> Flags
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
-init pathKey canonicalSiteUrl document toJsPort head content initUserModel flags url key =
+init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
             ContentCache.init document content
@@ -192,6 +258,31 @@ init pathKey canonicalSiteUrl document toJsPort head content initUserModel flags
             let
                 ( userModel, userCmd ) =
                     initUserModel maybePagePath
+
+                cmd =
+                    case ( maybePagePath, maybeMetadata ) of
+                        ( Just pagePath, Just frontmatter ) ->
+                            let
+                                head =
+                                    viewFn
+                                        (ContentCache.extractMetadata pathKey okCache)
+                                        { path = pagePath
+                                        , frontmatter = frontmatter
+                                        }
+                                        |> .head
+                            in
+                            Cmd.batch
+                                [ head
+                                    |> encodeHeads canonicalSiteUrl url.path
+                                    |> toJsPort
+                                , userCmd |> Cmd.map UserMsg
+                                , contentCache
+                                    |> ContentCache.lazyLoad document url
+                                    |> Task.attempt UpdateCache
+                                ]
+
+                        _ ->
+                            Cmd.none
 
                 ( maybePagePath, maybeMetadata ) =
                     case ContentCache.lookupMetadata pathKey (Ok okCache) url of
@@ -206,19 +297,7 @@ init pathKey canonicalSiteUrl document toJsPort head content initUserModel flags
               , userModel = userModel
               , contentCache = contentCache
               }
-            , Cmd.batch
-                ([ maybeMetadata
-                    |> Maybe.map head
-                    |> Maybe.map (encodeHeads canonicalSiteUrl url.path)
-                    |> Maybe.map toJsPort
-                 , userCmd |> Cmd.map UserMsg |> Just
-                 , contentCache
-                    |> ContentCache.lazyLoad document url
-                    |> Task.attempt UpdateCache
-                    |> Just
-                 ]
-                    |> List.filterMap identity
-                )
+            , cmd
             )
 
         Err _ ->
@@ -348,11 +427,25 @@ application :
     { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg }
+    , view :
+        List ( PagePath pathKey, metadata )
+        ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag pathKey)
+            }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
-    , head : metadata -> List (Head.Tag pathKey)
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
     , pathKey : pathKey
@@ -363,7 +456,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.head config.content config.init flags url key
+                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
                     |> Tuple.mapFirst Model
         , view =
             \outerModel ->
@@ -401,11 +494,25 @@ cliApplication :
     { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
-    , view : userModel -> List ( PagePath pathKey, metadata ) -> Page metadata view pathKey -> { title : String, body : Html userMsg }
+    , view :
+        List ( PagePath pathKey, metadata )
+        ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            { view :
+                userModel
+                -> view
+                ->
+                    { title : String
+                    , body : Html userMsg
+                    }
+            , head : List (Head.Tag pathKey)
+            }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd (Msg userMsg metadata view)
-    , head : metadata -> List (Head.Tag pathKey)
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
     , pathKey : pathKey
