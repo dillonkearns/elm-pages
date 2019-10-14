@@ -15,6 +15,8 @@ import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
+import Pages.StaticHttpRequest as StaticHttpRequest
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
@@ -53,13 +55,15 @@ mainView :
             }
          ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag pathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
         )
     -> ModelDetails userModel metadata view
@@ -95,13 +99,15 @@ pageViewOrError :
             }
          ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag pathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
         )
     -> ModelDetails userModel metadata view
@@ -113,6 +119,22 @@ pageViewOrError pathKey viewFn model cache =
             case entry of
                 ContentCache.Parsed metadata viewResult ->
                     let
+                        dummyInputString =
+                            "TODO"
+
+                        staticData =
+                            (viewFn
+                                (cache
+                                    |> Result.map (ContentCache.extractMetadata pathKey)
+                                    |> Result.withDefault []
+                                 -- TODO handle error better
+                                )
+                                { path = pagePath, frontmatter = metadata }
+                                |> .staticRequest
+                                |> StaticHttpRequest.parser
+                            )
+                                dummyInputString
+
                         pageView =
                             viewFn
                                 (cache
@@ -125,7 +147,7 @@ pageViewOrError pathKey viewFn model cache =
                     in
                     case viewResult of
                         Ok viewList ->
-                            pageView model.userModel viewList
+                            pageView staticData model.userModel viewList
 
                         Err error ->
                             { title = "Parsing error"
@@ -162,13 +184,15 @@ view :
             }
          ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag pathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
         )
     -> ModelDetails userModel metadata view
@@ -233,13 +257,15 @@ init :
             }
          ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag pathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
         )
     -> Content
@@ -435,13 +461,15 @@ application :
             }
         ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag pathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
     , document : Pages.Document.Document metadata view
     , content : Content
@@ -502,13 +530,15 @@ cliApplication :
             }
         ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag pathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
     , document : Pages.Document.Document metadata view
     , content : Content

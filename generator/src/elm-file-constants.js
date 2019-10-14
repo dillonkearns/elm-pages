@@ -58,6 +58,8 @@ import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
+import Pages.StaticHttp as StaticHttp
+
 
 
 type PathKey
@@ -100,13 +102,15 @@ application :
             }
         ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag PathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
@@ -193,13 +197,15 @@ application :
             }
         ->
             { view :
-                userModel
+                staticData
+                -> userModel
                 -> view
                 ->
                     { title : String
                     , body : Html userMsg
                     }
             , head : List (Head.Tag PathKey)
+            , staticRequest : StaticHttp.Request staticData
             }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey

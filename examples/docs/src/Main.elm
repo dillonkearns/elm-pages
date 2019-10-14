@@ -26,6 +26,7 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
+import Pages.StaticHttp as StaticHttp
 import Palette
 
 
@@ -110,18 +111,20 @@ view :
         }
     ->
         { view :
-            Model
+            ()
+            -> Model
             -> View
             ->
                 { title : String
                 , body : Html Msg
                 }
         , head : List (Head.Tag Pages.PathKey)
+        , staticRequest : StaticHttp.Request ()
         }
 view siteMetadata page =
     let
         viewFn =
-            \model viewForPage ->
+            \() model viewForPage ->
                 pageView model
                     siteMetadata
                     { path = page.path
@@ -135,6 +138,7 @@ view siteMetadata page =
         viewFn
     , head =
         head page.frontmatter
+    , staticRequest = StaticHttp.none
 
     --    title = title
     --    , body =
