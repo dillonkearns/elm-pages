@@ -156,6 +156,7 @@ import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
+import Pages.StaticHttp as StaticHttp
 
 
 type PathKey
