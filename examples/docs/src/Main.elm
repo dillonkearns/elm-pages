@@ -123,138 +123,152 @@ view :
         }
 view siteMetadata page =
     let
-        viewFn =
-            \staticData model viewForPage ->
-                (case page.frontmatter of
-                    Metadata.Page metadata ->
+        ( staticRequest, viewFn ) =
+            case page.frontmatter of
+                Metadata.Page metadata ->
+                    ( StaticHttp.get "" (\_ -> 123)
+                    , \staticData model viewForPage ->
                         { title = metadata.title
                         , body =
-                            Element.text <| "The value is: " ++ String.fromInt staticData
-
-                        --                                        [
-                        --                                        header page.path
-                        --                                        , Element.column
-                        --                                            [ Element.padding 50
-                        --                                            , Element.spacing 60
-                        --                                            , Element.Region.mainContent
-                        --                                            ]
-                        --                                            (Tuple.second viewForPage)
-                        --                                        ]
-                        --                                            |> Element.textColumn
-                        --                                                [ Element.width Element.fill
-                        --                                                ]
+                            "The value is: "
+                                ++ String.fromInt staticData
+                                |> Element.text
+                                |> wrapBody
                         }
+                    )
 
-                    Metadata.Article metadata ->
-                        { title = metadata.title
+                _ ->
+                    ( StaticHttp.get "" (\_ -> 456)
+                    , \staticData model viewForPage ->
+                        { title = "Test"
                         , body =
-                            Element.column [ Element.width Element.fill ]
-                                [ header page.path
-                                , Element.column
-                                    [ Element.padding 30
-                                    , Element.spacing 40
-                                    , Element.Region.mainContent
-                                    , Element.width (Element.fill |> Element.maximum 800)
-                                    , Element.centerX
-                                    ]
-                                    (Element.column [ Element.spacing 10 ]
-                                        [ Element.row [ Element.spacing 10 ]
-                                            [ Author.view [] metadata.author
-                                            , Element.column [ Element.spacing 10, Element.width Element.fill ]
-                                                [ Element.paragraph [ Font.bold, Font.size 24 ]
-                                                    [ Element.text metadata.author.name
-                                                    ]
-                                                , Element.paragraph [ Font.size 16 ]
-                                                    [ Element.text metadata.author.bio ]
-                                                ]
-                                            ]
-                                        ]
-                                        :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                                        :: Palette.blogHeading metadata.title
-                                        :: articleImageView metadata.image
-                                        :: Tuple.second viewForPage
-                                    )
-                                ]
+                            "The value is: "
+                                ++ String.fromInt staticData
+                                |> Element.text
+                                |> wrapBody
                         }
+                    )
 
-                    Metadata.Doc metadata ->
-                        { title = metadata.title
-                        , body =
-                            [ header page.path
-                            , Element.row []
-                                [ DocSidebar.view page.path siteMetadata
-                                    |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
-                                , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
-                                    [ Palette.heading 1 [ Element.text metadata.title ]
-                                    , Element.column [ Element.spacing 20 ]
-                                        [ tocView (Tuple.first viewForPage)
-                                        , Element.column
-                                            [ Element.padding 50
-                                            , Element.spacing 30
-                                            , Element.Region.mainContent
-                                            ]
-                                            (Tuple.second viewForPage)
-                                        ]
-                                    ]
-                                ]
-                            ]
-                                |> Element.textColumn
-                                    [ Element.width Element.fill
-                                    , Element.height Element.fill
-                                    ]
-                        }
-
-                    Metadata.Author author ->
-                        { title = author.name
-                        , body =
-                            Element.column
-                                [ Element.width Element.fill
-                                ]
-                                [ header page.path
-                                , Element.column
-                                    [ Element.padding 30
-                                    , Element.spacing 20
-                                    , Element.Region.mainContent
-                                    , Element.width (Element.fill |> Element.maximum 800)
-                                    , Element.centerX
-                                    ]
-                                    [ Palette.blogHeading author.name
-                                    , Author.view [] author
-                                    , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second viewForPage)
-                                    ]
-                                ]
-                        }
-
-                    Metadata.BlogIndex ->
-                        { title = "elm-pages blog"
-                        , body =
-                            Element.column [ Element.width Element.fill ]
-                                [ header page.path
-                                , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
-                                ]
-                        }
-                )
-                    |> wrapBody
+        --                                        [
+        --                                        header page.path
+        --                                        , Element.column
+        --                                            [ Element.padding 50
+        --                                            , Element.spacing 60
+        --                                            , Element.Region.mainContent
+        --                                            ]
+        --                                            (Tuple.second viewForPage)
+        --                                        ]
+        --                                            |> Element.textColumn
+        --                                                [ Element.width Element.fill
+        --                                                ]
+        --                    }
+        --                Metadata.Article metadata ->
+        --                    { title = metadata.title
+        --                    , body =
+        --                        Element.column [ Element.width Element.fill ]
+        --                            [ header page.path
+        --                            , Element.column
+        --                                [ Element.padding 30
+        --                                , Element.spacing 40
+        --                                , Element.Region.mainContent
+        --                                , Element.width (Element.fill |> Element.maximum 800)
+        --                                , Element.centerX
+        --                                ]
+        --                                (Element.column [ Element.spacing 10 ]
+        --                                    [ Element.row [ Element.spacing 10 ]
+        --                                        [ Author.view [] metadata.author
+        --                                        , Element.column [ Element.spacing 10, Element.width Element.fill ]
+        --                                            [ Element.paragraph [ Font.bold, Font.size 24 ]
+        --                                                [ Element.text metadata.author.name
+        --                                                ]
+        --                                            , Element.paragraph [ Font.size 16 ]
+        --                                                [ Element.text metadata.author.bio ]
+        --                                            ]
+        --                                        ]
+        --                                    ]
+        --                                    :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+        --                                    :: Palette.blogHeading metadata.title
+        --                                    :: articleImageView metadata.image
+        --                                    :: Tuple.second viewForPage
+        --                                )
+        --                            ]
+        --                    }
+        --
+        --                Metadata.Doc metadata ->
+        --                    { title = metadata.title
+        --                    , body =
+        --                        [ header page.path
+        --                        , Element.row []
+        --                            [ DocSidebar.view page.path siteMetadata
+        --                                |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
+        --                            , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
+        --                                [ Palette.heading 1 [ Element.text metadata.title ]
+        --                                , Element.column [ Element.spacing 20 ]
+        --                                    [ tocView (Tuple.first viewForPage)
+        --                                    , Element.column
+        --                                        [ Element.padding 50
+        --                                        , Element.spacing 30
+        --                                        , Element.Region.mainContent
+        --                                        ]
+        --                                        (Tuple.second viewForPage)
+        --                                    ]
+        --                                ]
+        --                            ]
+        --                        ]
+        --                            |> Element.textColumn
+        --                                [ Element.width Element.fill
+        --                                , Element.height Element.fill
+        --                                ]
+        --                    }
+        --
+        --                Metadata.Author author ->
+        --                    { title = author.name
+        --                    , body =
+        --                        Element.column
+        --                            [ Element.width Element.fill
+        --                            ]
+        --                            [ header page.path
+        --                            , Element.column
+        --                                [ Element.padding 30
+        --                                , Element.spacing 20
+        --                                , Element.Region.mainContent
+        --                                , Element.width (Element.fill |> Element.maximum 800)
+        --                                , Element.centerX
+        --                                ]
+        --                                [ Palette.blogHeading author.name
+        --                                , Author.view [] author
+        --                                , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second viewForPage)
+        --                                ]
+        --                            ]
+        --                    }
+        --
+        --                Metadata.BlogIndex ->
+        --                    { title = "elm-pages blog"
+        --                    , body =
+        --                        Element.column [ Element.width Element.fill ]
+        --                            [ header page.path
+        --                            , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
+        --                            ]
+        --                    }
+        --            )
+        --                |> wrapBody
     in
     { view =
         viewFn
     , head =
         head page.frontmatter
-    , staticRequest = StaticHttp.get "" (\_ -> 123)
+    , staticRequest = staticRequest
     }
 
 
-wrapBody { body, title } =
-    { body =
-        body
-            |> Element.layout
-                [ Element.width Element.fill
-                , Font.size 20
-                , Font.family [ Font.typeface "Roboto" ]
-                , Font.color (Element.rgba255 0 0 0 0.8)
-                ]
-    , title = title
-    }
+wrapBody body =
+    body
+        |> Element.layout
+            [ Element.width Element.fill
+            , Font.size 20
+            , Font.family [ Font.typeface "Roboto" ]
+            , Font.color (Element.rgba255 0 0 0 0.8)
+            ]
 
 
 articleImageView : ImagePath Pages.PathKey -> Element msg
