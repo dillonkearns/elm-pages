@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c325a920-5a8e-47c6-96fc-aa52e4ce7aea" name="Default Changelist" comment="Rename module.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="c325a920-5a8e-47c6-96fc-aa52e4ce7aea" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -18,7 +16,14 @@
     <elmProjects>
       <project path="$PROJECT_DIR$/examples/docs/elm.json" />
     </elmProjects>
-    <settings elmCompilerPath="$PROJECT_DIR$/node_modules/.bin/elm" elmFormatPath="$PROJECT_DIR$/node_modules/.bin/elm-format" elmTestPath="$PROJECT_DIR$/node_modules/.bin/elm-test" isElmFormatOnSaveEnabled="false" />
+    <settings elmCompilerPath="$PROJECT_DIR$/node_modules/.bin/elm" elmFormatPath="$PROJECT_DIR$/node_modules/.bin/elm-format" elmTestPath="$PROJECT_DIR$/node_modules/.bin/elm-test" isElmFormatOnSaveEnabled="true" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Elm Module" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -35,12 +40,19 @@
     </option>
   </component>
   <component name="ProjectId" id="1QtXjJ20a8EvyLrv5tZwGc0VILz" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/examples/docs/elm.json" />
-    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.Elm" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/Pages" />
+    </key>
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -125,7 +137,9 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Rename module." />
-    <option name="LAST_COMMIT_MESSAGE" value="Rename module." />
+    <MESSAGE value="Get basic types wired up for static data." />
+    <MESSAGE value="Add idea config files." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add idea config files." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
 </project>
