@@ -96,22 +96,25 @@ application :
     , subscriptions : userModel -> Sub userMsg
     , view : 
         List ( PagePath PathKey, metadata )
-        ->
-            { path : PagePath PathKey
-            , frontmatter : metadata
-            }
-        ->
-            { view :
-                staticData
-                -> userModel
-                -> view
+            ->
+                { path : PagePath PathKey
+                , frontmatter : metadata
+                }
+            ->
+                ( StaticHttp.Request
+                , String
                 ->
-                    { title : String
-                    , body : Html userMsg
-                    }
-            , head : List (Head.Tag PathKey)
-            , staticRequest : StaticHttp.Request staticData
-            }
+                    Result String
+                        { view :
+                            userModel
+                            -> view
+                            ->
+                                { title : String
+                                , body : Html userMsg
+                                }
+                        , head : List (Head.Tag PathKey)
+                        }
+                )
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
     , onPageChange : PagePath PathKey -> userMsg
@@ -192,22 +195,25 @@ application :
     , subscriptions : userModel -> Sub userMsg
     , view :
         List ( PagePath PathKey, metadata )
-        ->
-            { path : PagePath PathKey
-            , frontmatter : metadata
-            }
-        ->
-            { view :
-                staticData
-                -> userModel
-                -> view
+            ->
+                { path : PagePath PathKey
+                , frontmatter : metadata
+                }
+            ->
+                ( StaticHttp.Request
+                , String
                 ->
-                    { title : String
-                    , body : Html userMsg
-                    }
-            , head : List (Head.Tag PathKey)
-            , staticRequest : StaticHttp.Request staticData
-            }
+                    Result String
+                        { view :
+                            userModel
+                            -> view
+                            ->
+                                { title : String
+                                , body : Html userMsg
+                                }
+                        , head : List (Head.Tag PathKey)
+                        }
+                )
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config PathKey
     , onPageChange : PagePath PathKey -> userMsg

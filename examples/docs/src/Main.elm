@@ -15,7 +15,7 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
-import Json.Decode
+import Json.Decode as Decode exposing (Decoder)
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import Pages exposing (images, pages)
@@ -110,45 +110,69 @@ view :
         , frontmatter : Metadata
         }
     ->
-        { view :
-            Int
-            -> Model
-            -> View
-            ->
-                { title : String
-                , body : Html Msg
+        ( StaticHttp.Request
+        , String
+          ->
+            Result String
+                { view :
+                    Model
+                    -> View
+                    ->
+                        { title : String
+                        , body : Html Msg
+                        }
+                , head : List (Head.Tag Pages.PathKey)
                 }
-        , head : List (Head.Tag Pages.PathKey)
-        , staticRequest : StaticHttp.Request Int
-        }
+        )
 view siteMetadata page =
     let
-        ( staticRequest, viewFn ) =
+        viewFn =
             case page.frontmatter of
                 Metadata.Page metadata ->
-                    ( StaticHttp.get "" (\_ -> 123)
-                    , \staticData model viewForPage ->
-                        { title = metadata.title
-                        , body =
-                            "The value is: "
-                                ++ String.fromInt staticData
-                                |> Element.text
-                                |> wrapBody
-                        }
-                    )
+                    StaticHttp.withData ""
+                        (Decode.succeed "abcdefg")
+                        (\staticData ->
+                            { view =
+                                \model viewForPage ->
+                                    { title = metadata.title
+                                    , body =
+                                        "The value is: "
+                                            ++ staticData
+                                            |> Element.text
+                                            |> wrapBody
+                                    }
+                            , head = head page.frontmatter
+                            }
+                        )
 
                 _ ->
-                    ( StaticHttp.get "" (\_ -> 456)
-                    , \staticData model viewForPage ->
-                        { title = "Test"
-                        , body =
-                            "The value is: "
-                                ++ String.fromInt staticData
-                                |> Element.text
-                                |> wrapBody
-                        }
-                    )
+                    StaticHttp.withData ""
+                        (Decode.succeed 987)
+                        (\staticData ->
+                            { view =
+                                \model viewForPage ->
+                                    { title = "Other"
+                                    , body =
+                                        "The value is: "
+                                            ++ String.fromInt staticData
+                                            |> Element.text
+                                            |> wrapBody
+                                    }
+                            , head = head page.frontmatter
+                            }
+                        )
 
+        --                _ ->
+        --                    ( StaticHttp.get "" (\_ -> 456)
+        --                    , \staticData model viewForPage ->
+        --                        { title = "Test"
+        --                        , body =
+        --                            "The value is: "
+        --                                ++ String.fromInt staticData
+        --                                |> Element.text
+        --                                |> wrapBody
+        --                        }
+        --                    )
         --                                        [
         --                                        header page.path
         --                                        , Element.column
@@ -253,12 +277,7 @@ view siteMetadata page =
         --            )
         --                |> wrapBody
     in
-    { view =
-        viewFn
-    , head =
-        head page.frontmatter
-    , staticRequest = staticRequest
-    }
+    viewFn
 
 
 wrapBody body =
