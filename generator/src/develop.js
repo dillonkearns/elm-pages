@@ -16,7 +16,7 @@ const ClosurePlugin = require("closure-webpack-plugin");
 const readline = require("readline");
 
 module.exports = { start, run };
-function start({ routes, debug, manifestConfig }) {
+function start({ routes, debug, customPort, manifestConfig }) {
   const config = webpackOptions(false, routes, {
     debug,
     manifestConfig
@@ -51,9 +51,9 @@ function start({ routes, debug, manifestConfig }) {
     });
   });
 
-  const port = $.process.PORT || 3000;
+  const port = customPort || process.env.PORT || 3000;
   app.listen(port, () =>
-    console.log("🚀 elm-pages develop on http://localhost:port")
+    console.log(`🚀 elm-pages develop on http://localhost:${port}`)
   );
   // https://stackoverflow.com/questions/43667102/webpack-dev-middleware-and-static-files
   // app.use(express.static(__dirname + "/path-to-static-folder"));

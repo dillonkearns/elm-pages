@@ -102,6 +102,7 @@ function run() {
           develop.start({
             routes,
             debug: contents.debug,
+            customPort: contents.customPort,
             manifestConfig: payload.manifest
           });
         }
