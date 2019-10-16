@@ -7,7 +7,7 @@ import Head
 import Html exposing (Html)
 import Html.Attributes
 import Http
-import Json.Decode
+import Json.Decode as Decode
 import Json.Encode
 import List.Extra
 import Mark
@@ -55,7 +55,7 @@ mainView :
             }
          ->
             ( StaticHttp.Request
-            , String
+            , Decode.Value
               ->
                 Result String
                     { view :
@@ -102,7 +102,7 @@ pageViewOrError :
             }
          ->
             ( StaticHttp.Request
-            , String
+            , Decode.Value
               ->
                 Result String
                     { view :
@@ -138,19 +138,9 @@ pageViewOrError pathKey viewFn model cache =
                                 { path = pagePath, frontmatter = metadata }
                                 |> Tuple.second
                             )
-                                dummyInputString
-
-                        --                        pageView =
-                        --                            viewFn
-                        --                                (cache
-                        --                                    |> Result.map (ContentCache.extractMetadata pathKey)
-                        --                                    |> Result.withDefault []
-                        --                                 -- TODO handle error better
-                        --                                )
-                        --                                { path = pagePath, frontmatter = metadata }
-                        --                                |> .view
+                                viewResult.staticData
                     in
-                    case viewResult of
+                    case viewResult.body of
                         Ok viewList ->
                             case viewFnResult of
                                 Ok okViewFn ->
@@ -199,7 +189,7 @@ view :
             }
          ->
             ( StaticHttp.Request
-            , String
+            , Decode.Value
               ->
                 Result String
                     { view :
@@ -275,7 +265,7 @@ init :
             }
          ->
             ( StaticHttp.Request
-            , String
+            , Decode.Value
               ->
                 Result String
                     { view :
@@ -311,33 +301,38 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                         ( Just pagePath, Just frontmatter ) ->
                             let
                                 headFnResult =
-                                    (viewFn
+                                    viewFn
                                         (ContentCache.extractMetadata pathKey okCache)
                                         { path = pagePath
                                         , frontmatter = frontmatter
                                         }
                                         |> Tuple.second
-                                    )
-                                        """ 123456789 """
 
+                                --                                        """ 123456789 """
                                 --                                        "asdfasdf"
                                 --                                        |> .head
                             in
-                            case headFnResult |> Result.map .head of
-                                Ok head ->
-                                    Cmd.batch
-                                        [ head
-                                            |> encodeHeads canonicalSiteUrl url.path
-                                            |> toJsPort
-                                        , userCmd |> Cmd.map UserMsg
-                                        , contentCache
-                                            |> ContentCache.lazyLoad document url
-                                            |> Task.attempt UpdateCache
-                                        ]
+                            Cmd.batch
+                                [ userCmd |> Cmd.map UserMsg
+                                , contentCache
+                                    |> ContentCache.lazyLoad document url
+                                    |> Task.attempt UpdateCache
+                                ]
 
-                                Err error ->
-                                    Debug.todo error
-
+                        --                            case headFnResult |> Result.map .head of
+                        --                                Ok head ->
+                        --                                    Cmd.batch
+                        --                                        [ head
+                        --                                            |> encodeHeads canonicalSiteUrl url.path
+                        --                                            |> toJsPort
+                        --                                        , userCmd |> Cmd.map UserMsg
+                        --                                        , contentCache
+                        --                                            |> ContentCache.lazyLoad document url
+                        --                                            |> Task.attempt UpdateCache
+                        --                                        ]
+                        --
+                        --                                Err error ->
+                        --                                    Debug.todo error
                         --                                    Cmd.none
                         _ ->
                             Cmd.none
@@ -493,7 +488,7 @@ application :
             }
         ->
             ( StaticHttp.Request
-            , String
+            , Decode.Value
               ->
                 Result String
                     { view :
@@ -565,7 +560,7 @@ cliApplication :
             }
         ->
             ( StaticHttp.Request
-            , String
+            , Decode.Value
               ->
                 Result String
                     { view :

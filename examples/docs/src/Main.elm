@@ -111,7 +111,7 @@ view :
         }
     ->
         ( StaticHttp.Request
-        , String
+        , Decode.Value
           ->
             Result String
                 { view :

@@ -58,7 +58,7 @@ withData :
         )
     ->
         ( Request
-        , String
+        , Decode.Value
           ->
             Result String
                 { view :
@@ -74,7 +74,7 @@ withData :
 withData url decoder buildFns =
     ( Request { url = url }
     , \stringData ->
-        case stringData |> Decode.decodeString decoder of
+        case stringData |> Decode.decodeValue decoder of
             Ok staticData ->
                 buildFns staticData
                     |> Ok

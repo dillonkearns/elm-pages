@@ -113,7 +113,7 @@ module.exports = function pagesInit(
         link.setAttribute("as", "fetch");
 
         link.setAttribute("rel", "prefetch");
-        link.setAttribute("href", origin + target.pathname + "/content.txt");
+        link.setAttribute("href", origin + target.pathname + "/content.json");
         document.head.appendChild(link);
       }
     }

@@ -30,12 +30,16 @@ module.exports = class AddFilesPlugin {
         // but I found the example code for it here:
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-        const filename = path.join(file.baseRoute, "content.txt");
+        const filename = path.join(file.baseRoute, "content.json");
         compilation.fileDependencies.add(filename);
+        const rawContents = JSON.stringify({
+          body: file.content,
+          staticData: { stargazers_count: 85 }
+        });
 
         compilation.assets[filename] = {
-          source: () => file.content,
-          size: () => file.content.length
+          source: () => rawContents,
+          size: () => rawContents.length
         };
       });
     });

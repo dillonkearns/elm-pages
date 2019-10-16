@@ -102,7 +102,7 @@ application :
                 }
             ->
                 ( StaticHttp.Request
-                , String
+                , Json.Decode.Value
                 ->
                     Result String
                         { view :
@@ -201,7 +201,7 @@ application :
                 }
             ->
                 ( StaticHttp.Request
-                , String
+                , Json.Decode.Value
                 ->
                     Result String
                         { view :

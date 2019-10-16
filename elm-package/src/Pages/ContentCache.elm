@@ -19,7 +19,7 @@ import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
-import Json.Decode
+import Json.Decode as Decode
 import Mark
 import Mark.Error
 import Pages.Document as Document exposing (Document)
@@ -48,9 +48,9 @@ type alias ContentCacheInner metadata view =
 
 type Entry metadata view
     = NeedContent String metadata
-    | Unparsed String metadata String
+    | Unparsed String metadata (ContentJson String)
       -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed metadata (Result ParseError view)
+    | Parsed metadata (ContentJson (Result ParseError view))
 
 
 type alias ParseError =
@@ -91,8 +91,13 @@ pagesWithErrors cache =
                     |> List.filterMap
                         (\( path, value ) ->
                             case value of
-                                Parsed metadata (Err parseError) ->
-                                    Just ( path, parseError )
+                                Parsed metadata { body } ->
+                                    case body of
+                                        Err parseError ->
+                                            Just ( path, parseError )
+
+                                        _ ->
+                                            Nothing
 
                                 _ ->
                                     Nothing
@@ -151,13 +156,16 @@ parseMetadata document content =
                                 |> documentEntry.frontmatterParser
                                 |> Result.map
                                     (\metadata ->
-                                        case body of
-                                            Just presentBody ->
-                                                Parsed metadata
-                                                    (parseContent extension presentBody document)
-
-                                            Nothing ->
-                                                NeedContent extension metadata
+                                        -- TODO do I need to handle this case?
+                                        --                                        case body of
+                                        --                                            Just presentBody ->
+                                        --                                                Parsed metadata
+                                        --                                                    { body = parseContent extension presentBody document
+                                        --                                                    , staticData = ""
+                                        --                                                    }
+                                        --
+                                        --                                            Nothing ->
+                                        NeedContent extension metadata
                                     )
 
                         Nothing ->
@@ -330,6 +338,7 @@ lazyLoad document url cacheResult =
                     Task.succeed cacheResult
 
 
+httpTask : Url -> Task Http.Error (ContentJson String)
 httpTask url =
     Http.task
         { method = "GET"
@@ -337,7 +346,7 @@ httpTask url =
         , url =
             Url.Builder.absolute
                 ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
-                    ++ [ "content.txt"
+                    ++ [ "content.json"
                        ]
                 )
                 []
@@ -359,17 +368,32 @@ httpTask url =
                             Err (Http.BadStatus metadata.statusCode)
 
                         Http.GoodStatus_ metadata body ->
-                            Ok body
+                            body
+                                |> Decode.decodeString contentJsonDecoder
+                                |> Result.mapError (\err -> Http.BadBody (Decode.errorToString err))
                 )
         , timeout = Nothing
         }
+
+
+type alias ContentJson body =
+    { body : body
+    , staticData : Decode.Value
+    }
+
+
+contentJsonDecoder : Decode.Decoder (ContentJson String)
+contentJsonDecoder =
+    Decode.map2 ContentJson
+        (Decode.field "body" Decode.string)
+        (Decode.field "staticData" Decode.value)
 
 
 update :
     ContentCache metadata view
     -> (String -> Result ParseError view)
     -> Url
-    -> String
+    -> ContentJson String
     -> ContentCache metadata view
 update cacheResult renderer url rawContent =
     case cacheResult of
@@ -381,11 +405,17 @@ update cacheResult renderer url rawContent =
                             entry
 
                         Just (Unparsed extension metadata content) ->
-                            Parsed metadata (renderer content)
+                            Parsed metadata
+                                { body = renderer content.body
+                                , staticData = content.staticData
+                                }
                                 |> Just
 
                         Just (NeedContent extension metadata) ->
-                            Parsed metadata (renderer rawContent)
+                            Parsed metadata
+                                { body = renderer rawContent.body
+                                , staticData = rawContent.staticData
+                                }
                                 |> Just
 
                         Nothing ->
