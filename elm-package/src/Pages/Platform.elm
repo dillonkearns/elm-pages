@@ -595,30 +595,69 @@ cliApplication config =
         { init =
             \flags ->
                 let
-                    okCache =
-                        Debug.todo ""
-
-                    _ =
-                        Debug.log "@@@@@@@@@@@@@@@@@@ log from cli"
+                    siteMetadata =
+                        contentCache
+                            |> Result.map
+                                (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
+                            |> Result.mapError
+                                (\error ->
+                                    error
+                                        |> Dict.toList
+                                        |> List.map (\( path, errorString ) -> errorString)
+                                )
                 in
                 ( CliModel
                 , case contentCache of
                     Ok _ ->
                         case contentCache |> ContentCache.pagesWithErrors of
                             Just pageErrors ->
+                                let
+                                    requests =
+                                        siteMetadata
+                                            |> Result.andThen
+                                                (\metadata ->
+                                                    staticResponseForPage metadata config.view
+                                                )
+
+                                    staticResponses : StaticResponses
+                                    staticResponses =
+                                        case requests of
+                                            Ok okRequests ->
+                                                staticResponsesInit okRequests
+
+                                            Err errors ->
+                                                Dict.empty
+                                in
                                 config.toJsPort
                                     (Json.Encode.object
                                         [ ( "errors", encodeErrors pageErrors )
                                         , ( "manifest", Manifest.toJson config.manifest )
-                                        , ( "pages", Json.Encode.string "pages!" )
+                                        , ( "pages", encodeStaticResponses staticResponses )
                                         ]
                                     )
 
                             Nothing ->
+                                let
+                                    requests =
+                                        siteMetadata
+                                            |> Result.andThen
+                                                (\metadata ->
+                                                    staticResponseForPage metadata config.view
+                                                )
+
+                                    staticResponses : StaticResponses
+                                    staticResponses =
+                                        case requests of
+                                            Ok okRequests ->
+                                                staticResponsesInit okRequests
+
+                                            Err errors ->
+                                                Dict.empty
+                                in
                                 config.toJsPort
                                     (Json.Encode.object
                                         [ ( "manifest", Manifest.toJson config.manifest )
-                                        , ( "pages", Json.Encode.string "pages!" )
+                                        , ( "pages", encodeStaticResponses staticResponses )
                                         ]
                                     )
 
@@ -633,6 +672,56 @@ cliApplication config =
         , update = \msg model -> ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
+
+
+staticResponsesInit : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> StaticResponses
+staticResponsesInit list =
+    list
+        |> List.map (\( path, ( staticRequest, fn ) ) -> ( PagePath.toString path, NotFetched staticRequest ))
+        |> Dict.fromList
+
+
+encodeStaticResponses : StaticResponses -> Json.Encode.Value
+encodeStaticResponses staticResponses =
+    staticResponses
+        |> Dict.toList
+        |> List.map
+            (\( path, result ) ->
+                ( path
+                , case result of
+                    NotFetched (StaticHttpRequest.Request { url }) ->
+                        Json.Encode.object
+                            [ ( url
+                              , Json.Encode.string ""
+                              )
+                            ]
+
+                    SuccessfullyFetched (StaticHttpRequest.Request { url }) jsonResponseString ->
+                        Json.Encode.object
+                            [ ( url
+                              , Json.Encode.string jsonResponseString
+                              )
+                            ]
+
+                    ErrorFetching request ->
+                        Json.Encode.string "ErrorFetching"
+
+                    ErrorDecoding request ->
+                        Json.Encode.string "ErrorDecoding"
+                )
+            )
+        |> Json.Encode.object
+
+
+type alias StaticResponses =
+    Dict String StaticHttpResult
+
+
+type StaticHttpResult
+    = NotFetched StaticHttp.Request
+    | SuccessfullyFetched StaticHttp.Request String
+    | ErrorFetching StaticHttp.Request
+    | ErrorDecoding StaticHttp.Request
 
 
 staticResponseForPage :
@@ -659,9 +748,27 @@ staticResponseForPage :
                     }
             )
         )
-    -> pathKey
-    -> Result (List String) (List ( PagePath pathKey, String ))
-staticResponseForPage siteMetadata viewFn pathKey =
+    ->
+        Result (List String)
+            (List
+                ( PagePath pathKey
+                , ( StaticHttp.Request
+                  , Decode.Value
+                    ->
+                        Result String
+                            { view :
+                                userModel
+                                -> view
+                                ->
+                                    { title : String
+                                    , body : Html userMsg
+                                    }
+                            , head : List (Head.Tag pathKey)
+                            }
+                  )
+                )
+            )
+staticResponseForPage siteMetadata viewFn =
     siteMetadata
         |> List.map
             (\( pagePath, frontmatter ) ->
@@ -672,7 +779,7 @@ staticResponseForPage siteMetadata viewFn pathKey =
                             , frontmatter = frontmatter
                             }
                 in
-                Ok ( pagePath, "" )
+                Ok ( pagePath, thing )
             )
         |> combine
 

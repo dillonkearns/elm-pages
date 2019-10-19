@@ -129,7 +129,7 @@ view siteMetadata page =
         viewFn =
             case page.frontmatter of
                 Metadata.Page metadata ->
-                    StaticHttp.withData ""
+                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Decode.field "stargazers_count" Decode.int)
                         (\staticData ->
                             { view =
@@ -146,7 +146,7 @@ view siteMetadata page =
                         )
 
                 _ ->
-                    StaticHttp.withData ""
+                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         (Decode.succeed 987)
                         (\staticData ->
                             { view =
