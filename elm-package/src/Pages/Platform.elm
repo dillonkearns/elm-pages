@@ -216,7 +216,7 @@ view pathKey content viewFn model =
     { title = title
     , body =
         [ onViewChangeElement model.url
-        , body |> Html.map UserMsg
+        , body |> Html.map UserMsg |> Html.map AppMsg
         ]
     }
 
@@ -287,7 +287,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
+    -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
@@ -375,6 +375,11 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
 
 
 type Msg userMsg metadata view
+    = AppMsg (AppMsg userMsg metadata view)
+    | CliMsg CliMsgType
+
+
+type AppMsg userMsg metadata view
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | UserMsg userMsg
@@ -403,74 +408,79 @@ update :
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
-    -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
+    -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
 update pathKey onPageChangeMsg toJsPort document userUpdate msg model =
-    case msg |> Debug.log "msg" of
-        LinkClicked urlRequest ->
-            case urlRequest of
-                Browser.Internal url ->
-                    let
-                        navigatingToSamePage =
-                            url.path == model.url.path
-                    in
-                    if navigatingToSamePage then
-                        -- this is a workaround for an issue with anchor fragment navigation
-                        -- see https://github.com/elm/browser/issues/39
-                        ( model, Browser.Navigation.load (Url.toString url) )
+    case msg of
+        AppMsg appMsg ->
+            case appMsg of
+                LinkClicked urlRequest ->
+                    case urlRequest of
+                        Browser.Internal url ->
+                            let
+                                navigatingToSamePage =
+                                    url.path == model.url.path
+                            in
+                            if navigatingToSamePage then
+                                -- this is a workaround for an issue with anchor fragment navigation
+                                -- see https://github.com/elm/browser/issues/39
+                                ( model, Browser.Navigation.load (Url.toString url) )
 
-                    else
-                        ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
+                            else
+                                ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
 
-                Browser.External href ->
-                    ( model, Browser.Navigation.load href )
+                        Browser.External href ->
+                            ( model, Browser.Navigation.load href )
 
-        UrlChanged url ->
-            ( model
-            , model.contentCache
-                |> ContentCache.lazyLoad document url
-                |> Task.attempt (UpdateCacheAndUrl url)
-            )
-
-        UserMsg userMsg ->
-            let
-                ( userModel, userCmd ) =
-                    userUpdate userMsg model.userModel
-            in
-            ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
-
-        UpdateCache cacheUpdateResult ->
-            case cacheUpdateResult of
-                -- TODO can there be race conditions here? Might need to set something in the model
-                -- to keep track of the last url change
-                Ok updatedCache ->
-                    ( { model | contentCache = updatedCache }, Cmd.none )
-
-                Err _ ->
-                    -- TODO handle error
-                    ( model, Cmd.none )
-
-        UpdateCacheAndUrl url cacheUpdateResult ->
-            case cacheUpdateResult of
-                -- TODO can there be race conditions here? Might need to set something in the model
-                -- to keep track of the last url change
-                Ok updatedCache ->
-                    let
-                        ( userModel, userCmd ) =
-                            userUpdate
-                                (onPageChangeMsg (url |> urlToPagePath pathKey))
-                                model.userModel
-                    in
-                    ( { model
-                        | url = url
-                        , contentCache = updatedCache
-                        , userModel = userModel
-                      }
-                    , userCmd |> Cmd.map UserMsg
+                UrlChanged url ->
+                    ( model
+                    , model.contentCache
+                        |> ContentCache.lazyLoad document url
+                        |> Task.attempt (UpdateCacheAndUrl url)
                     )
 
-                Err _ ->
-                    -- TODO handle error
-                    ( { model | url = url }, Cmd.none )
+                UserMsg userMsg ->
+                    let
+                        ( userModel, userCmd ) =
+                            userUpdate userMsg model.userModel
+                    in
+                    ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
+
+                UpdateCache cacheUpdateResult ->
+                    case cacheUpdateResult of
+                        -- TODO can there be race conditions here? Might need to set something in the model
+                        -- to keep track of the last url change
+                        Ok updatedCache ->
+                            ( { model | contentCache = updatedCache }, Cmd.none )
+
+                        Err _ ->
+                            -- TODO handle error
+                            ( model, Cmd.none )
+
+                UpdateCacheAndUrl url cacheUpdateResult ->
+                    case cacheUpdateResult of
+                        -- TODO can there be race conditions here? Might need to set something in the model
+                        -- to keep track of the last url change
+                        Ok updatedCache ->
+                            let
+                                ( userModel, userCmd ) =
+                                    userUpdate
+                                        (onPageChangeMsg (url |> urlToPagePath pathKey))
+                                        model.userModel
+                            in
+                            ( { model
+                                | url = url
+                                , contentCache = updatedCache
+                                , userModel = userModel
+                              }
+                            , userCmd |> Cmd.map UserMsg
+                            )
+
+                        Err _ ->
+                            -- TODO handle error
+                            ( { model | url = url }, Cmd.none )
+
+        CliMsg _ ->
+            ( model, Cmd.none )
 
 
 type alias Parser metadata view =
@@ -513,13 +523,15 @@ application :
     , pathKey : pathKey
     , onPageChange : PagePath pathKey -> userMsg
     }
-    -> Program userModel userMsg metadata view
+    --    -> Program userModel userMsg metadata view
+    -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
 application config =
     Browser.application
         { init =
             \flags url key ->
                 init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
                     |> Tuple.mapFirst Model
+                    |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
             \outerModel ->
                 case outerModel of
@@ -534,7 +546,9 @@ application config =
             \msg outerModel ->
                 case outerModel of
                     Model model ->
-                        update config.pathKey config.onPageChange config.toJsPort config.document config.update msg model |> Tuple.mapFirst Model
+                        update config.pathKey config.onPageChange config.toJsPort config.document config.update msg model
+                            |> Tuple.mapFirst Model
+                            |> Tuple.mapSecond (Cmd.map AppMsg)
 
                     CliModel ->
                         ( outerModel, Cmd.none )
@@ -544,12 +558,17 @@ application config =
                     Model model ->
                         config.subscriptions model.userModel
                             |> Sub.map UserMsg
+                            |> Sub.map AppMsg
 
                     CliModel ->
                         Sub.none
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged >> AppMsg
+        , onUrlRequest = LinkClicked >> AppMsg
         }
+
+
+type CliMsgType
+    = GotStaticHttpResponse { url : String, response : Result Http.Error String }
 
 
 cliApplication :
@@ -590,22 +609,21 @@ cliApplication config =
     let
         contentCache =
             ContentCache.init config.document config.content
+
+        siteMetadata =
+            contentCache
+                |> Result.map
+                    (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
+                |> Result.mapError
+                    (\error ->
+                        error
+                            |> Dict.toList
+                            |> List.map (\( path, errorString ) -> errorString)
+                    )
     in
     Platform.worker
         { init =
             \flags ->
-                let
-                    siteMetadata =
-                        contentCache
-                            |> Result.map
-                                (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
-                            |> Result.mapError
-                                (\error ->
-                                    error
-                                        |> Dict.toList
-                                        |> List.map (\( path, errorString ) -> errorString)
-                                )
-                in
                 ( CliModel
                 , case contentCache of
                     Ok _ ->
@@ -654,12 +672,15 @@ cliApplication config =
                                             Err errors ->
                                                 Dict.empty
                                 in
-                                config.toJsPort
-                                    (Json.Encode.object
-                                        [ ( "manifest", Manifest.toJson config.manifest )
-                                        , ( "pages", encodeStaticResponses staticResponses )
-                                        ]
-                                    )
+                                Cmd.batch
+                                    [ case requests of
+                                        Ok okRequests ->
+                                            performStaticHttpRequests okRequests
+                                                |> Cmd.map CliMsg
+
+                                        Err errors ->
+                                            Cmd.none
+                                    ]
 
                     Err error ->
                         config.toJsPort
@@ -669,9 +690,85 @@ cliApplication config =
                                 ]
                             )
                 )
-        , update = \msg model -> ( model, Cmd.none )
+        , update =
+            \msg model ->
+                case msg of
+                    CliMsg (GotStaticHttpResponse { url, response }) ->
+                        let
+                            requests =
+                                siteMetadata
+                                    |> Result.andThen
+                                        (\metadata ->
+                                            staticResponseForPage metadata config.view
+                                        )
+
+                            staticResponses : StaticResponses
+                            staticResponses =
+                                case requests of
+                                    Ok okRequests ->
+                                        case response of
+                                            Ok okResponse ->
+                                                staticResponsesInit okRequests
+                                                    |> staticResponsesUpdate
+                                                        { url = url
+                                                        , response =
+                                                            okResponse
+                                                        }
+
+                                            Err error ->
+                                                Debug.todo "TODO handle error"
+
+                                    Err errors ->
+                                        Dict.empty
+                        in
+                        ( model
+                        , config.toJsPort
+                            (Json.Encode.object
+                                [ ( "manifest", Manifest.toJson config.manifest )
+                                , ( "pages", encodeStaticResponses staticResponses )
+                                ]
+                            )
+                        )
+
+                    _ ->
+                        ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
+
+
+performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Cmd CliMsgType
+performStaticHttpRequests staticRequests =
+    staticRequests
+        |> List.map
+            (\( pagePath, ( StaticHttpRequest.Request { url }, fn ) ) ->
+                Http.get
+                    { url = url
+                    , expect =
+                        Http.expectString
+                            (\response ->
+                                GotStaticHttpResponse
+                                    { url = url
+                                    , response = response
+                                    }
+                            )
+                    }
+            )
+        |> Cmd.batch
+
+
+
+--
+--    Http.get
+--        { url = ""
+--        , expect =
+--            Http.expectString
+--                (\response ->
+--                    GotStaticHttpResponse
+--                        { url = "TODO url"
+--                        , response = response
+--                        }
+--                )
+--        }
 
 
 staticResponsesInit : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> StaticResponses
@@ -679,6 +776,16 @@ staticResponsesInit list =
     list
         |> List.map (\( path, ( staticRequest, fn ) ) -> ( PagePath.toString path, NotFetched staticRequest ))
         |> Dict.fromList
+
+
+staticResponsesUpdate : { url : String, response : String } -> StaticResponses -> StaticResponses
+staticResponsesUpdate newEntry staticResponses =
+    staticResponses
+        |> Dict.update newEntry.url
+            (\maybeEntry ->
+                SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
+                    |> Just
+            )
 
 
 encodeStaticResponses : StaticResponses -> Json.Encode.Value
