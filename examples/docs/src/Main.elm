@@ -130,14 +130,14 @@ view siteMetadata page =
             case page.frontmatter of
                 Metadata.Page metadata ->
                     StaticHttp.withData ""
-                        (Decode.succeed "abcdefg")
+                        (Decode.field "stargazers_count" Decode.int)
                         (\staticData ->
                             { view =
                                 \model viewForPage ->
                                     { title = metadata.title
                                     , body =
-                                        "The value is: "
-                                            ++ staticData
+                                        "elm-pages ⭐️'s: "
+                                            ++ String.fromInt staticData
                                             |> Element.text
                                             |> wrapBody
                                     }

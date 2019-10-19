@@ -155,14 +155,17 @@ pageViewOrError pathKey viewFn model cache =
                                     }
 
                         Err error ->
-                            { title = "Parsing error"
-                            , body = Html.text error
-                            }
+                            Debug.todo "asdf"
 
-                ContentCache.NeedContent extension _ ->
+                --                            { title = "Parsing error"
+                --                            , body = Html.text error
+                --                            }
+                ContentCache.NeedContent extension a ->
                     { title = "", body = Html.text "" }
 
-                ContentCache.Unparsed extension _ _ ->
+                --                    Debug.todo (Debug.toString a)
+                ContentCache.Unparsed extension a b ->
+                    --                    Debug.todo (Debug.toString b)
                     { title = "", body = Html.text "" }
 
         Nothing ->
@@ -335,7 +338,8 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                         --                                    Debug.todo error
                         --                                    Cmd.none
                         _ ->
-                            Cmd.none
+                            --                            Cmd.none
+                            Debug.todo "Error"
 
                 ( maybePagePath, maybeMetadata ) =
                     case ContentCache.lookupMetadata pathKey (Ok okCache) url of
@@ -401,7 +405,7 @@ update :
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (Msg userMsg metadata view) )
 update pathKey onPageChangeMsg toJsPort document userUpdate msg model =
-    case msg of
+    case msg |> Debug.log "msg" of
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
@@ -590,6 +594,13 @@ cliApplication config =
     Platform.worker
         { init =
             \flags ->
+                let
+                    okCache =
+                        Debug.todo ""
+
+                    _ =
+                        Debug.log "@@@@@@@@@@@@@@@@@@ log from cli"
+                in
                 ( CliModel
                 , case contentCache of
                     Ok _ ->
@@ -599,6 +610,7 @@ cliApplication config =
                                     (Json.Encode.object
                                         [ ( "errors", encodeErrors pageErrors )
                                         , ( "manifest", Manifest.toJson config.manifest )
+                                        , ( "pages", Json.Encode.string "pages!" )
                                         ]
                                     )
 
@@ -606,6 +618,7 @@ cliApplication config =
                                 config.toJsPort
                                     (Json.Encode.object
                                         [ ( "manifest", Manifest.toJson config.manifest )
+                                        , ( "pages", Json.Encode.string "pages!" )
                                         ]
                                     )
 
@@ -620,6 +633,78 @@ cliApplication config =
         , update = \msg model -> ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
+
+
+staticResponseForPage :
+    List ( PagePath pathKey, metadata )
+    ->
+        (List ( PagePath pathKey, metadata )
+         ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+         ->
+            ( StaticHttp.Request
+            , Decode.Value
+              ->
+                Result String
+                    { view :
+                        userModel
+                        -> view
+                        ->
+                            { title : String
+                            , body : Html userMsg
+                            }
+                    , head : List (Head.Tag pathKey)
+                    }
+            )
+        )
+    -> pathKey
+    -> Result (List String) (List ( PagePath pathKey, String ))
+staticResponseForPage siteMetadata viewFn pathKey =
+    siteMetadata
+        |> List.map
+            (\( pagePath, frontmatter ) ->
+                let
+                    thing =
+                        viewFn siteMetadata
+                            { path = pagePath
+                            , frontmatter = frontmatter
+                            }
+                in
+                Ok ( pagePath, "" )
+            )
+        |> combine
+
+
+combine : List (Result error ( key, success )) -> Result (List error) (List ( key, success ))
+combine list =
+    list
+        |> List.foldr resultFolder (Ok [])
+
+
+resultFolder : Result error a -> Result (List error) (List a) -> Result (List error) (List a)
+resultFolder current soFarResult =
+    case soFarResult of
+        Ok soFarOk ->
+            case current of
+                Ok currentOk ->
+                    currentOk
+                        :: soFarOk
+                        |> Ok
+
+                Err error ->
+                    Err [ error ]
+
+        Err soFarErr ->
+            case current of
+                Ok currentOk ->
+                    Err soFarErr
+
+                Err error ->
+                    error
+                        :: soFarErr
+                        |> Err
 
 
 encodeErrors errors =
