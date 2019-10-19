@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.0.38] - 2019-10-18
+## [1.0.39] - 2019-10-18
 
 ### Fixed
 - Use hidden `<div>` to listen for Elm view renders instead of wrapping entire
