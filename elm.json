@@ -11,6 +11,7 @@
         "Pages.ImagePath",
         "Pages.PagePath",
         "Pages.Directory",
+        "Pages.Platform",
         "Pages.Manifest",
         "Pages.Manifest.Category"
     ],
