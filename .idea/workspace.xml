@@ -1,19 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c325a920-5a8e-47c6-96fc-aa52e4ce7aea" name="Default Changelist" comment="">
+    <list default="true" id="c325a920-5a8e-47c6-96fc-aa52e4ce7aea" name="Default Changelist" comment="Add idea config files.">
+      <change beforePath="$PROJECT_DIR$/.idea/elm-pages.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/elm-pages.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elm-package/src/Pages/Platform.elm" beforeDir="false" afterPath="$PROJECT_DIR$/elm-package/src/Pages/Platform.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elm-package/src/Pages/ContentCache.elm" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elm-package/src/Pages/Platform.elm" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/elm-pages.iml" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/elm-pages.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/elm-package/src/Pages/Platform.elm" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/elm-package/src/Pages/Platform.elm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/examples/docs/src/Main.elm" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/examples/docs/src/Main.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/elm-package/src/Pages/ContentCache.elm" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/elm-package/src/Pages/Platform.elm" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/develop.js" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/develop.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/elm-pages.js" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/elm-pages.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/generate-raw-content.js" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/generate-raw-content.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/src/Main.elm" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/src/Main.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/generate-elm-stuff.js" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/generator/src/generate-elm-stuff.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/generator/src/develop.js" beforeDir="false" afterPath="$PROJECT_DIR$/generator/src/develop.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/generator/src/elm-pages.js" beforeDir="false" afterPath="$PROJECT_DIR$/generator/src/elm-pages.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generator/src/generate-raw-content.js" beforeDir="false" afterPath="$PROJECT_DIR$/generator/src/generate-raw-content.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/generator/src/generate-elm-stuff.js" beforeDir="false" afterPath="$PROJECT_DIR$/generator/src/generate-elm-stuff.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -59,10 +63,13 @@
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/examples/docs/elm.json" />
-    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.Elm" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/src/Pages" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/Pages/Internal" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/src/Pages" />
     </key>
