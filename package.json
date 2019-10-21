@@ -46,7 +46,8 @@
     "webpack-dev-middleware": "^3.7.0",
     "webpack-dev-server": "^3.8.0",
     "webpack-merge": "^4.2.1",
-    "workbox-webpack-plugin": "^4.3.1"
+    "workbox-webpack-plugin": "^4.3.1",
+    "xhr2": "^0.2.0"
   },
   "devDependencies": {
     "@types/chokidar": "^2.1.3",

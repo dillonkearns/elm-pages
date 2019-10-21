@@ -1,4 +1,5 @@
 const { compileToString } = require("node-elm-compiler");
+XMLHttpRequest = require("xhr2");
 
 module.exports = runElm;
 function runElm(callback) {
