@@ -1,11 +1,8 @@
-module Pages.Platform exposing
-    ( application, Program
-    , Page
-    )
+module Pages.Platform exposing (application, Program, Page)
 
 {-| TODO
 
-@docs application, Program
+@docs application, Program, Page
 
 -}
 
