@@ -84,15 +84,6 @@ function run() {
       "./gen/Pages.elm",
       elmPagesUiFile(staticRoutes, markdownContent, content)
     );
-    ensureDirSync("./gen/Pages");
-    fs.copyFileSync(
-      path.resolve(__dirname, "../../elm-package/src/Pages/ContentCache.elm"),
-      "./gen/Pages/ContentCache.elm"
-    );
-    fs.copyFileSync(
-      path.resolve(__dirname, "../../elm-package/src/Pages/Platform.elm"),
-      "./gen/Pages/Platform.elm"
-    );
     console.log("elm-pages DONE");
     doCliStuff(staticRoutes, markdownContent, content, function(payload) {
       if (contents.watch) {

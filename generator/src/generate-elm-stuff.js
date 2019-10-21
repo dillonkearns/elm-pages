@@ -19,16 +19,6 @@ module.exports = function run(
     elmPagesCliFile(staticRoutes, markdownContent, markupContent)
   );
 
-  ensureDirSync("./elm-stuff/elm-pages/Pages");
-  fs.copyFileSync(
-    path.resolve(__dirname, "../../elm-package/src/Pages/ContentCache.elm"),
-    "./elm-stuff/elm-pages/Pages/ContentCache.elm"
-  );
-  fs.copyFileSync(
-    path.resolve(__dirname, "../../elm-package/src/Pages/Platform.elm"),
-    "./elm-stuff/elm-pages/Pages/Platform.elm"
-  );
-
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();
 
