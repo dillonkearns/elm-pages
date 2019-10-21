@@ -1,14 +1,29 @@
-module Pages.Internal exposing (..)
+module Pages.Internal exposing
+    ( Internal
+    , ApplicationType(..)
+    )
+
+{-| TODO
+
+@docs Internal
+
+@docs ApplicationType
+
+-}
 
 import Json.Encode
 import Pages.Internal.Platform
 
 
+{-| TODO
+-}
 type ApplicationType
     = Browser
     | Cli
 
 
+{-| TODO
+-}
 type alias Internal pathKey =
     { applicationType : ApplicationType
     , content : Pages.Internal.Platform.Content

@@ -12,6 +12,7 @@
         "Pages.PagePath",
         "Pages.Directory",
         "Pages.Platform",
+        "Pages.Internal",
         "Pages.Manifest",
         "Pages.Manifest.Category"
     ],
