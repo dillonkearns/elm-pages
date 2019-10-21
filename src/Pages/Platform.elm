@@ -52,36 +52,26 @@ application :
     }
     -> Program userModel userMsg metadata view
 application config =
-    case config.internals.applicationType of
+    (case config.internals.applicationType of
         Pages.Internal.Browser ->
             Pages.Internal.Platform.application
-                { init = config.init
-                , view = config.view
-                , update = config.update
-                , subscriptions = config.subscriptions
-                , document = Document.fromList config.documents
-                , content = config.internals.content
-                , toJsPort = config.internals.toJsPort
-                , manifest = config.manifest
-                , canonicalSiteUrl = config.canonicalSiteUrl
-                , onPageChange = config.onPageChange
-                , pathKey = config.internals.pathKey
-                }
 
         Pages.Internal.Cli ->
             Pages.Internal.Platform.cliApplication
-                { init = config.init
-                , view = config.view
-                , update = config.update
-                , subscriptions = config.subscriptions
-                , document = Document.fromList config.documents
-                , content = config.internals.content
-                , toJsPort = config.internals.toJsPort
-                , manifest = config.manifest
-                , canonicalSiteUrl = config.canonicalSiteUrl
-                , onPageChange = config.onPageChange
-                , pathKey = config.internals.pathKey
-                }
+    )
+    <|
+        { init = config.init
+        , view = config.view
+        , update = config.update
+        , subscriptions = config.subscriptions
+        , document = Document.fromList config.documents
+        , content = config.internals.content
+        , toJsPort = config.internals.toJsPort
+        , manifest = config.manifest
+        , canonicalSiteUrl = config.canonicalSiteUrl
+        , onPageChange = config.onPageChange
+        , pathKey = config.internals.pathKey
+        }
 
 
 {-| TODO
