@@ -1,4 +1,7 @@
-module Pages.Platform exposing (application, Program)
+module Pages.Platform exposing
+    ( application, Program
+    , Page
+    )
 
 {-| TODO
 
@@ -88,3 +91,12 @@ application config =
 -}
 type alias Program model msg metadata view =
     Pages.Internal.Platform.Program model msg metadata view
+
+
+{-| TODO
+-}
+type alias Page metadata view pathKey =
+    { metadata : metadata
+    , path : PagePath pathKey
+    , view : view
+    }

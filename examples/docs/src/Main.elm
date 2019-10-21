@@ -46,26 +46,22 @@ manifest =
     }
 
 
-
---main : Pages.Platform.Program Model Msg (Metadata ) (List (Element Msg))
--- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
-
-
 type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
 
-main : Platform.Program Pages.Platform.Flags (Pages.Platform.Model Model Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Platform.Msg Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
+main : Pages.Platform.Program Model Msg Metadata View
 main =
-    Pages.application
+    Pages.Platform.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
         , documents = [ markdownDocument ]
         , manifest = manifest
-        , onPageChange = OnPageChange
         , canonicalSiteUrl = canonicalSiteUrl
+        , onPageChange = OnPageChange
+        , internals = Pages.internals
         }
 
 

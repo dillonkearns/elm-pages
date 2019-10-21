@@ -1,6 +1,6 @@
 generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-  "(PathKey, allPages, allImages, application, images, isValidRoute, pages)";
+  "(PathKey, allPages, allImages, internals, images, isValidRoute, pages)";
 
 function staticRouteStuff(staticRoutes) {
   return `
@@ -44,6 +44,7 @@ function elmPagesUiFile(staticRoutes, markdownContent, markupContent) {
   return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
+import Pages.Internal
 import Head
 import Html exposing (Html)
 import Json.Decode
@@ -90,51 +91,14 @@ directoryWithoutIndex path =
 port toJsPort : Json.Encode.Value -> Cmd msg
 
 
-application :
-    { init : Maybe (PagePath PathKey) -> ( userModel, Cmd userMsg )
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
-    , view : 
-        List ( PagePath PathKey, metadata )
-            ->
-                { path : PagePath PathKey
-                , frontmatter : metadata
-                }
-            ->
-                ( StaticHttp.Request
-                , Json.Decode.Value
-                ->
-                    Result String
-                        { view :
-                            userModel
-                            -> view
-                            ->
-                                { title : String
-                                , body : Html userMsg
-                                }
-                        , head : List (Head.Tag PathKey)
-                        }
-                )
-    , documents : List ( String, Document.DocumentHandler metadata view )
-    , manifest : Pages.Manifest.Config PathKey
-    , onPageChange : PagePath PathKey -> userMsg
-    , canonicalSiteUrl : String
+internals : Pages.Internal.Internal PathKey
+internals =
+    { applicationType = Pages.Internal.Browser
+    , toJsPort = toJsPort
+    , content = content
+    , pathKey = PathKey
     }
-    -> Pages.Platform.Program userModel userMsg metadata view
-application config =
-    Pages.Platform.application
-        { init = config.init
-        , view = config.view
-        , update = config.update
-        , subscriptions = config.subscriptions
-        , document = Document.fromList config.documents
-        , content = content
-        , toJsPort = toJsPort
-        , manifest = config.manifest
-        , canonicalSiteUrl = config.canonicalSiteUrl
-        , onPageChange = config.onPageChange
-        , pathKey = PathKey
-        }
+        
 ${staticRouteStuff(staticRoutes)}
 
 ${generateRawContent(markdownContent, markupContent, false)}
@@ -145,6 +109,7 @@ function elmPagesCliFile(staticRoutes, markdownContent, markupContent) {
   return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
+import Pages.Internal
 import Head
 import Html exposing (Html)
 import Json.Decode
@@ -189,51 +154,13 @@ directoryWithoutIndex path =
 port toJsPort : Json.Encode.Value -> Cmd msg
 
 
-application :
-    { init : Maybe (PagePath PathKey) -> ( userModel, Cmd userMsg )
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
-    , view :
-        List ( PagePath PathKey, metadata )
-            ->
-                { path : PagePath PathKey
-                , frontmatter : metadata
-                }
-            ->
-                ( StaticHttp.Request
-                , Json.Decode.Value
-                ->
-                    Result String
-                        { view :
-                            userModel
-                            -> view
-                            ->
-                                { title : String
-                                , body : Html userMsg
-                                }
-                        , head : List (Head.Tag PathKey)
-                        }
-                )
-    , documents : List ( String, Document.DocumentHandler metadata view )
-    , manifest : Pages.Manifest.Config PathKey
-    , onPageChange : PagePath PathKey -> userMsg
-    , canonicalSiteUrl : String
+internals : Pages.Internal.Internal PathKey
+internals =
+    { applicationType = Pages.Internal.Cli
+    , toJsPort = toJsPort
+    , content = content
+    , pathKey = PathKey
     }
-    -> Pages.Platform.Program userModel userMsg metadata view
-application config =
-    Pages.Platform.cliApplication
-        { init = config.init
-        , view = config.view
-        , update = config.update
-        , subscriptions = config.subscriptions
-        , document = Document.fromList config.documents
-        , content = content
-        , toJsPort = toJsPort
-        , manifest = config.manifest
-        , canonicalSiteUrl = config.canonicalSiteUrl
-        , onPageChange = config.onPageChange
-        , pathKey = PathKey
-        }
 
 
 ${staticRouteStuff(staticRoutes)}
