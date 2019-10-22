@@ -23,6 +23,10 @@ all =
         [ test "checking grammar" <|
             \() ->
                 start
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        "null"
                     |> ProgramTest.done
 
         --                    |> ProgramTest.fillIn "main"
@@ -47,10 +51,22 @@ start : ProgramTest Main.Model Main.Msg Main.Effect
 start =
     let
         document =
-            Document.fromList []
+            Document.fromList
+                [ Document.parser
+                    { extension = "md"
+                    , metadata = Decode.succeed ()
+                    , body = \_ -> Ok ()
+                    }
+                ]
 
         content =
-            []
+            [ ( []
+              , { extension = "md"
+                , frontMatter = "null"
+                , body = Just ""
+                }
+              )
+            ]
 
         contentCache =
             ContentCache.init document content
