@@ -384,7 +384,7 @@ update siteMetadata config msg model =
                                             }
 
                                 Err error ->
-                                    Debug.todo "TODO handle error"
+                                    Debug.todo (Debug.toString error)
 
                         Err errors ->
                             Debug.todo "TODO handle error"
@@ -419,7 +419,7 @@ staticResponsesUpdate newEntry staticResponses =
                 case entry of
                     NotFetched (StaticHttpRequest.Request { url }) ->
                         if newEntry.url == url then
-                            SuccessfullyFetched (StaticHttpRequest.Request { url = url }) ""
+                            SuccessfullyFetched (StaticHttpRequest.Request { url = url }) newEntry.response
 
                         else
                             entry

@@ -20,7 +20,10 @@ function unpackFile(filePath) {
 }
 
 module.exports = class AddFilesPlugin {
-  constructor() {}
+  constructor(data) {
+    // console.log("@@@@@@@@@@ data", data);
+    this.pagesWithRequests = data;
+  }
   apply(compiler) {
     compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
       const files = glob.sync("content/**/*.*", {}).map(unpackFile);
@@ -30,11 +33,25 @@ module.exports = class AddFilesPlugin {
         // but I found the example code for it here:
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
+        console.log("@@@@@@ file.baseRoute", file.baseRoute);
+
+        // console.log(
+        //   "@@@@@@ lookup",
+        //   this.pagesWithRequests[`/${file.baseRoute}`]
+        // );
+        const staticRequests = this.pagesWithRequests[`/${file.baseRoute}`];
+
+        const jsonPayload = staticRequests
+          ? Object.entries(staticRequests)[0][1]
+          : "null";
+        console.log("@@@@@ payload", jsonPayload);
+
         const filename = path.join(file.baseRoute, "content.json");
         compilation.fileDependencies.add(filename);
         const rawContents = JSON.stringify({
           body: file.content,
-          staticData: { stargazers_count: 85 }
+          // staticData: { stargazers_count: 85 }
+          staticData: JSON.parse(jsonPayload)
         });
 
         compilation.assets[filename] = {

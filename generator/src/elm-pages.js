@@ -93,7 +93,8 @@ function run() {
           develop.start({
             routes,
             debug: contents.debug,
-            manifestConfig: payload.manifest
+            manifestConfig: payload.manifest,
+            routesWithRequests: payload.pages
           });
         }
       } else {
@@ -104,7 +105,8 @@ function run() {
         develop.run(
           {
             routes,
-            manifestConfig: payload.manifest
+            manifestConfig: payload.manifest,
+            routesWithRequests: payload.pages
           },
           () => {}
         );

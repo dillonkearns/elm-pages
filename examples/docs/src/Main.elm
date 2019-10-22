@@ -143,7 +143,7 @@ view siteMetadata page =
 
                 _ ->
                     StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                        (Decode.succeed 987)
+                        (Decode.field "stargazers_count" Decode.int)
                         (\staticData ->
                             { view =
                                 \model viewForPage ->
