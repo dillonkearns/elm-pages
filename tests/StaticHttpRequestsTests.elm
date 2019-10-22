@@ -29,7 +29,7 @@ all =
                     |> ProgramTest.simulateHttpOk
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
-                        "null"
+                        """{ "stargazer_count": 86 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
@@ -39,7 +39,9 @@ all =
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages", "" )
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                  , """{ "stargazer_count": 86 }"""
+                                                  )
                                                 ]
                                           )
                                         ]
@@ -56,11 +58,11 @@ all =
                     |> ProgramTest.simulateHttpOk
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
-                        "null"
+                        """{ "stargazer_count": 86 }"""
                     |> ProgramTest.simulateHttpOk
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                        "null"
+                        """{ "stargazer_count": 22 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
@@ -70,12 +72,16 @@ all =
                                     Dict.fromList
                                         [ ( "/elm-pages"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages", "" )
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                  , """{ "stargazer_count": 86 }"""
+                                                  )
                                                 ]
                                           )
                                         , ( "/elm-pages-starter"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages-starter", "" )
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                                                  , """{ "stargazer_count": 22 }"""
+                                                  )
                                                 ]
                                           )
                                         ]
