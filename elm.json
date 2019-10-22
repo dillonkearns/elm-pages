@@ -29,6 +29,7 @@
         "elm-community/result-extra": "2.2.1 <= v < 3.0.0",
         "lukewestby/elm-string-interpolate": "1.0.4 <= v < 2.0.0",
         "mdgriffith/elm-markup": "3.0.1 <= v < 4.0.0",
+        "miniBill/elm-codec": "1.2.0 <= v < 2.0.0",
         "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0"
     },
     "test-dependencies": {
