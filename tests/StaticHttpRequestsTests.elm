@@ -1,6 +1,7 @@
 module StaticHttpRequestsTests exposing (all)
 
 import Dict
+import Expect
 import Html
 import Json.Decode as Decode
 import Pages.ContentCache as ContentCache
@@ -14,6 +15,7 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import ProgramTest exposing (ProgramTest)
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http
+import SimulatedEffect.Ports
 import Test exposing (Test, describe, test)
 
 
@@ -27,23 +29,11 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         "null"
+                    |> ProgramTest.ensureOutgoingPortValues
+                        "toJsPort"
+                        (Decode.succeed "asdf")
+                        (Expect.equal [ "asdf" ])
                     |> ProgramTest.done
-
-        --                    |> ProgramTest.fillIn "main"
-        --                        "Enter text to check"
-        --                        "The youngest man the boat."
-        --                    |> ProgramTest.clickButton "Check"
-        --                    |> ProgramTest.ensureOutgoingPortValues
-        --                        "checkGrammar"
-        --                        Json.Decode.string
-        --                        (Expect.equal [ "The youngest man the boat." ])
-        --                    |> ProgramTest.simulateIncomingPort
-        --                        "grammarCheckResults"
-        --                        (Json.Encode.list Json.Encode.string
-        --                            [ "Garden-path sentences can confuse the reader." ]
-        --                        )
-        --                    |> ProgramTest.expectViewHas
-        --                        [ text "Garden-path sentences can confuse the reader." ]
         ]
 
 
@@ -119,7 +109,7 @@ simulateEffects effect =
             SimulatedEffect.Cmd.none
 
         SendJsData value ->
-            SimulatedEffect.Cmd.none
+            SimulatedEffect.Ports.send "toJsPort" value
 
         --            toJsPort value |> Cmd.map never
         Batch list ->
