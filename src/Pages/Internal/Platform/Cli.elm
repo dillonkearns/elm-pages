@@ -1,6 +1,5 @@
 module Pages.Internal.Platform.Cli exposing (Content, Flags, Model, Msg, Page, Parser, cliApplication)
 
-import Browser
 import Browser.Navigation
 import Dict exposing (Dict)
 import Head
