@@ -12,6 +12,7 @@ module Pages.Internal.Platform.Cli exposing
     )
 
 import Browser.Navigation
+import Codec exposing (Codec)
 import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
@@ -26,6 +27,43 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Url exposing (Url)
+
+
+type ToJsPayload
+    = Errors (List String)
+    | Success ToJsSuccessPayload
+
+
+type alias ToJsSuccessPayload =
+    { pages : Dict String (Dict String String)
+    }
+
+
+toJsCodec : Codec ToJsPayload
+toJsCodec =
+    Codec.custom
+        (\errors success value ->
+            case value of
+                Errors errorList ->
+                    errors errorList
+
+                Success { pages } ->
+                    success (ToJsSuccessPayload pages)
+        )
+        |> Codec.variant1 "Errors" Errors (Codec.list Codec.string)
+        |> Codec.variant1 "Success"
+            Success
+            successCodec
+        |> Codec.buildCustom
+
+
+successCodec : Codec ToJsSuccessPayload
+successCodec =
+    Codec.object ToJsSuccessPayload
+        |> Codec.field "pages"
+            (\{ pages } -> pages)
+            (Codec.dict (Codec.dict Codec.string))
+        |> Codec.buildObject
 
 
 type Effect
