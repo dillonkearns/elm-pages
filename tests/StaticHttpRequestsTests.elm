@@ -6,11 +6,14 @@ import Json.Decode as Decode
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.ImagePath as ImagePath
-import Pages.Internal.Platform.Cli as Main
+import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
+import Pages.StaticHttpRequest as StaticHttpRequest
 import ProgramTest exposing (ProgramTest)
+import SimulatedEffect.Cmd
+import SimulatedEffect.Http
 import Test exposing (Test, describe, test)
 
 
@@ -89,8 +92,37 @@ start =
         , update = Main.update siteMetadata config
         , view = \_ -> { title = "", body = [ Html.text "" ] }
         }
-        --        |> ProgramTest.withSimulatedEffects simulateEffects
+        |> ProgramTest.withSimulatedEffects simulateEffects
         |> ProgramTest.start ()
+
+
+simulateEffects : Main.Effect -> ProgramTest.SimulatedEffect Main.Msg
+simulateEffects effect =
+    case effect of
+        NoEffect ->
+            SimulatedEffect.Cmd.none
+
+        SendJsData value ->
+            SimulatedEffect.Cmd.none
+
+        --            toJsPort value |> Cmd.map never
+        Batch list ->
+            list
+                |> List.map simulateEffects
+                |> SimulatedEffect.Cmd.batch
+
+        FetchHttp (StaticHttpRequest.Request { url }) ->
+            SimulatedEffect.Http.get
+                { url = url
+                , expect =
+                    SimulatedEffect.Http.expectString
+                        (\response ->
+                            Main.GotStaticHttpResponse
+                                { url = url
+                                , response = response
+                                }
+                        )
+                }
 
 
 toJsPort foo =

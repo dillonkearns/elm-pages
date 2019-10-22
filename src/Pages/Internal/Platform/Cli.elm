@@ -1,9 +1,9 @@
 module Pages.Internal.Platform.Cli exposing
     ( Content
-    , Effect
+    , Effect(..)
     , Flags
     , Model
-    , Msg
+    , Msg(..)
     , Page
     , Parser
     , cliApplication
