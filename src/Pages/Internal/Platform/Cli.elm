@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.Cli exposing (Content, Flags, Model, Msg, Page, Parser, Program, cliApplication)
+module Pages.Internal.Platform.Cli exposing (Content, Flags, Model, Msg, Page, Parser, cliApplication)
 
 import Browser
 import Browser.Navigation
@@ -29,30 +29,12 @@ type alias Content =
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias Program userModel userMsg metadata view =
-    Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
-
-
 type alias Flags =
     ()
 
 
-type Msg userMsg metadata view
-    = AppMsg (AppMsg userMsg metadata view)
-    | CliMsg CliMsgType
-
-
-type AppMsg userMsg metadata view
-    = LinkClicked Browser.UrlRequest
-    | UrlChanged Url.Url
-    | UserMsg userMsg
-    | UpdateCache (Result Http.Error (ContentCache metadata view))
-    | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
-
-
-type Model userModel userMsg metadata view
-    = Model (ModelDetails userModel metadata view)
-    | CliModel
+type Model
+    = Model
 
 
 type alias ModelDetails userModel metadata view =
@@ -70,45 +52,51 @@ type alias Parser metadata view =
     -> Mark.Document view
 
 
-type CliMsgType
+type Msg
     = GotStaticHttpResponse { url : String, response : Result Http.Error String }
 
 
 cliApplication :
-    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
-    , view :
-        List ( PagePath pathKey, metadata )
-        ->
-            { path : PagePath pathKey
-            , frontmatter : metadata
-            }
-        ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
-    , document : Pages.Document.Document metadata view
-    , content : Content
-    , toJsPort : Json.Encode.Value -> Cmd Never
-    , manifest : Manifest.Config pathKey
-    , canonicalSiteUrl : String
-    , pathKey : pathKey
-    , onPageChange : PagePath pathKey -> userMsg
-    }
-    -> Program userModel userMsg metadata view
-cliApplication config =
+    (Msg -> msg)
+    -> (msg -> Maybe Msg)
+    -> (Model -> model)
+    -> (model -> Maybe Model)
+    ->
+        { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
+        , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+        , subscriptions : userModel -> Sub userMsg
+        , view :
+            List ( PagePath pathKey, metadata )
+            ->
+                { path : PagePath pathKey
+                , frontmatter : metadata
+                }
+            ->
+                ( StaticHttp.Request
+                , Decode.Value
+                  ->
+                    Result String
+                        { view :
+                            userModel
+                            -> view
+                            ->
+                                { title : String
+                                , body : Html userMsg
+                                }
+                        , head : List (Head.Tag pathKey)
+                        }
+                )
+        , document : Pages.Document.Document metadata view
+        , content : Content
+        , toJsPort : Json.Encode.Value -> Cmd Never
+        , manifest : Manifest.Config pathKey
+        , canonicalSiteUrl : String
+        , pathKey : pathKey
+        , onPageChange : PagePath pathKey -> userMsg
+        }
+    --    -> Program userModel userMsg metadata view
+    -> Platform.Program () model msg
+cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
         contentCache =
             ContentCache.init config.document config.content
@@ -127,7 +115,7 @@ cliApplication config =
     Platform.worker
         { init =
             \flags ->
-                ( CliModel
+                ( toModel Model
                 , case contentCache of
                     Ok _ ->
                         case contentCache |> ContentCache.pagesWithErrors of
@@ -181,7 +169,7 @@ cliApplication config =
                                     [ case requests of
                                         Ok okRequests ->
                                             performStaticHttpRequests okRequests
-                                                |> Cmd.map CliMsg
+                                                |> Cmd.map cliMsgConstructor
 
                                         Err errors ->
                                             Cmd.none
@@ -198,52 +186,58 @@ cliApplication config =
                 )
         , update =
             \msg model ->
-                case msg of
-                    CliMsg (GotStaticHttpResponse { url, response }) ->
-                        let
-                            requests =
-                                siteMetadata
-                                    |> Result.andThen
-                                        (\metadata ->
-                                            staticResponseForPage metadata config.view
-                                        )
+                case narrowMsg msg of
+                    Just cliMsg ->
+                        update siteMetadata config cliMsg model
 
-                            staticResponses : StaticResponses
-                            staticResponses =
-                                case requests of
-                                    Ok okRequests ->
-                                        case response of
-                                            Ok okResponse ->
-                                                staticResponsesInit okRequests
-                                                    |> staticResponsesUpdate
-                                                        { url = url
-                                                        , response =
-                                                            okResponse
-                                                        }
-
-                                            Err error ->
-                                                Debug.todo "TODO handle error"
-
-                                    Err errors ->
-                                        Dict.empty
-                        in
-                        ( model
-                        , config.toJsPort
-                            (Json.Encode.object
-                                [ ( "manifest", Manifest.toJson config.manifest )
-                                , ( "pages", encodeStaticResponses staticResponses )
-                                ]
-                            )
-                            |> Cmd.map never
-                        )
-
-                    _ ->
+                    Nothing ->
                         ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
 
 
-performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Cmd CliMsgType
+update siteMetadata config msg model =
+    case msg of
+        GotStaticHttpResponse { url, response } ->
+            let
+                requests =
+                    siteMetadata
+                        |> Result.andThen
+                            (\metadata ->
+                                staticResponseForPage metadata config.view
+                            )
+
+                staticResponses : StaticResponses
+                staticResponses =
+                    case requests of
+                        Ok okRequests ->
+                            case response of
+                                Ok okResponse ->
+                                    staticResponsesInit okRequests
+                                        |> staticResponsesUpdate
+                                            { url = url
+                                            , response =
+                                                okResponse
+                                            }
+
+                                Err error ->
+                                    Debug.todo "TODO handle error"
+
+                        Err errors ->
+                            Dict.empty
+            in
+            ( model
+            , config.toJsPort
+                (Json.Encode.object
+                    [ ( "manifest", Manifest.toJson config.manifest )
+                    , ( "pages", encodeStaticResponses staticResponses )
+                    ]
+                )
+                |> Cmd.map never
+            )
+
+
+performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Cmd Msg
 performStaticHttpRequests staticRequests =
     staticRequests
         |> List.map
