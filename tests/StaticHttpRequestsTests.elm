@@ -1,7 +1,7 @@
 module StaticHttpRequestsTests exposing (all)
 
 import Codec
-import Dict
+import Dict exposing (Dict)
 import Expect
 import Html
 import Json.Decode as Decode
@@ -22,10 +22,10 @@ import Test exposing (Test, describe, test)
 
 all : Test
 all =
-    describe "GrammarCheckingExample"
-        [ test "checking grammar" <|
+    describe "Static Http Requests"
+        [ test "initial requests are sent out" <|
             \() ->
-                start
+                start [ ( [], "https://api.github.com/repos/dillonkearns/elm-pages" ) ]
                     |> ProgramTest.simulateHttpOk
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -50,8 +50,8 @@ all =
         ]
 
 
-start : ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
-start =
+start : List ( List String, String ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+start pages =
     let
         document =
             Document.fromList
@@ -63,13 +63,11 @@ start =
                 ]
 
         content =
-            [ ( []
-              , { extension = "md"
-                , frontMatter = "null"
-                , body = Just ""
-                }
-              )
-            ]
+            pages
+                |> List.map
+                    (\( path, _ ) ->
+                        ( path, { extension = "md", frontMatter = "null", body = Just "" } )
+                    )
 
         contentCache =
             ContentCache.init document content
@@ -90,7 +88,23 @@ start =
             , manifest = manifest
             , view =
                 \allFrontmatter page ->
-                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
+                    let
+                        requestUrl =
+                            pages
+                                |> Dict.fromList
+                                --                                |> Debug.log "dict"
+                                |> Dict.get
+                                    (page.path
+                                        |> PagePath.toString
+                                        |> String.dropLeft 1
+                                        |> String.split "/"
+                                        |> List.filter (\pathPart -> pathPart /= "")
+                                     --                                        |> Debug.log "lookup"
+                                    )
+                                |> Maybe.withDefault "Couldn't find request..."
+                    in
+                    StaticHttp.withData requestUrl
+                        -- "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Decode.field "stargazers_count" Decode.int)
                         (\staticData ->
                             { view =
