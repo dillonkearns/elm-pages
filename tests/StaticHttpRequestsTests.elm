@@ -47,43 +47,42 @@ all =
                                 }
                             ]
                         )
-        , only <|
-            test "port is sent out once all requests are finished" <|
-                \() ->
-                    start
-                        [ ( [ "elm-pages" ], "https://api.github.com/repos/dillonkearns/elm-pages" )
-                        , ( [ "elm-pages-starter" ], "https://api.github.com/repos/dillonkearns/elm-pages-starter" )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
-                            "null"
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                            "null"
-                        |> ProgramTest.expectOutgoingPortValues
-                            "toJsPort"
-                            (Codec.decoder Main.toJsCodec)
-                            (Expect.equal
-                                [ Main.Success
-                                    { pages =
-                                        Dict.fromList
-                                            [ ( "/elm-pages"
-                                              , Dict.fromList
-                                                    [ ( "https://api.github.com/repos/dillonkearns/elm-pages", "" )
-                                                    ]
-                                              )
-                                            , ( "/elm-pages-starter"
-                                              , Dict.fromList
-                                                    [ ( "https://api.github.com/repos/dillonkearns/elm-pages-starter", "" )
-                                                    ]
-                                              )
-                                            ]
-                                    , manifest = manifest
-                                    }
-                                ]
-                            )
+        , test "port is sent out once all requests are finished" <|
+            \() ->
+                start
+                    [ ( [ "elm-pages" ], "https://api.github.com/repos/dillonkearns/elm-pages" )
+                    , ( [ "elm-pages-starter" ], "https://api.github.com/repos/dillonkearns/elm-pages-starter" )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        "null"
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                        "null"
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/elm-pages"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages", "" )
+                                                ]
+                                          )
+                                        , ( "/elm-pages-starter"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages-starter", "" )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         ]
 
 

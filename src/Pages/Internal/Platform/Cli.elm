@@ -360,7 +360,7 @@ update :
     -> Model
     -> ( Model, Effect pathKey )
 update siteMetadata config msg model =
-    case msg |> Debug.log "MSG" of
+    case msg of
         GotStaticHttpResponse { url, response } ->
             let
                 requests =
@@ -396,24 +396,9 @@ update siteMetadata config msg model =
 
 performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Effect pathKey
 performStaticHttpRequests staticRequests =
-    -- @@@@@@@@ TODO
-    --    NoEffect
     staticRequests
         |> List.map
-            --            (\( pagePath, ( StaticHttpRequest.Request { url }, fn ) ) ->
             (\( pagePath, ( request, fn ) ) ->
-                --                Http.get
-                --                    { url = url
-                --                    , expect =
-                --                        Http.expectString
-                --                            (\response ->
-                --                                GotStaticHttpResponse
-                --                                    { url = url
-                --                                    , response = response
-                --                                    }
-                --                            )
-                --                    }
-                --                NoEffect
                 FetchHttp request
             )
         |> Batch
@@ -429,28 +414,19 @@ staticResponsesInit list =
 staticResponsesUpdate : { url : String, response : String } -> StaticResponses -> StaticResponses
 staticResponsesUpdate newEntry staticResponses =
     staticResponses
-        |> Dict.toList
-        |> List.map
-            (\( pageUrl, dict ) ->
-                dict
-                    --                    |> Dict.update newEntry.url
-                    --                        (\maybeEntry ->
-                    --                            --                            SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
-                    --                            newEntry.response
-                    --                                |> Just
-                    --                        )
-                    |> (\updatedDict -> ( pageUrl, updatedDict ))
+        |> Dict.map
+            (\pageUrl entry ->
+                case entry of
+                    NotFetched (StaticHttpRequest.Request { url }) ->
+                        if newEntry.url == url then
+                            SuccessfullyFetched (StaticHttpRequest.Request { url = url }) ""
+
+                        else
+                            entry
+
+                    _ ->
+                        entry
             )
-        |> Dict.fromList
-
-
-
--- TODO should I change the data structure?
---        |> Dict.update newEntry.url
---            (\maybeEntry ->
---                SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
---                    |> Just
---            )
 
 
 sendStaticResponsesIfDone : StaticResponses -> Manifest.Config pathKey -> Effect pathKey
@@ -459,7 +435,6 @@ sendStaticResponsesIfDone staticResponses manifest =
         pendingRequests =
             staticResponses
                 |> Dict.toList
-                |> Debug.log "PENDING"
                 |> List.any
                     (\( path, result ) ->
                         case result of
