@@ -346,13 +346,7 @@ update siteMetadata config msg model =
                             Dict.empty
             in
             ( model
-            , SendJsData
-                (Success
-                    (ToJsSuccessPayload
-                        (encodeStaticResponses staticResponses)
-                        config.manifest
-                    )
-                )
+            , sendStaticResponsesIfDone staticResponses config.manifest
               --                (Json.Encode.object
               --                    [ ( "manifest", Manifest.toJson config.manifest )
               --                    , ( "pages", encodeStaticResponses staticResponses )
@@ -405,6 +399,17 @@ staticResponsesUpdate newEntry staticResponses =
 --                SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
 --                    |> Just
 --            )
+
+
+sendStaticResponsesIfDone : StaticResponses -> Manifest.Config pathKey -> Effect pathKey
+sendStaticResponsesIfDone staticResponses manifest =
+    SendJsData
+        (Success
+            (ToJsSuccessPayload
+                (encodeStaticResponses staticResponses)
+                manifest
+            )
+        )
 
 
 encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
