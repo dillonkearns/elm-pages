@@ -43,13 +43,14 @@ all =
                                                 ]
                                           )
                                         ]
+                                , manifest = manifest
                                 }
                             ]
                         )
         ]
 
 
-start : ProgramTest Main.Model Main.Msg Main.Effect
+start : ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
 start =
     let
         document =
@@ -114,7 +115,7 @@ start =
         |> ProgramTest.start ()
 
 
-simulateEffects : Main.Effect -> ProgramTest.SimulatedEffect Main.Msg
+simulateEffects : Main.Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
 simulateEffects effect =
     case effect of
         NoEffect ->
@@ -161,7 +162,7 @@ manifest =
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Nothing
-    , startUrl = PagePath.build PathKey []
+    , startUrl = PagePath.external ""
     , shortName = Just "elm-pages"
-    , sourceIcon = ImagePath.build PathKey []
+    , sourceIcon = ImagePath.external ""
     }

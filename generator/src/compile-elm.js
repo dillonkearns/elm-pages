@@ -16,7 +16,13 @@ function runElm(callback) {
 
       app.ports.toJsPort.subscribe(payload => {
         process.chdir(startingDir);
-        callback(payload);
+
+        if (payload.tag === "Success") {
+          callback(payload.args[0]);
+        } else {
+          console.log("ERROR bad payload", payload);
+          process.exit(1);
+        }
         delete Elm;
         console.warn = warnOriginal;
       });

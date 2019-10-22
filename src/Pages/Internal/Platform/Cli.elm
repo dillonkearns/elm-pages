@@ -25,6 +25,7 @@ import Json.Encode
 import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
+import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -32,17 +33,18 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import Url exposing (Url)
 
 
-type ToJsPayload
+type ToJsPayload pathKey
     = Errors (Dict String String)
-    | Success ToJsSuccessPayload
+    | Success (ToJsSuccessPayload pathKey)
 
 
-type alias ToJsSuccessPayload =
+type alias ToJsSuccessPayload pathKey =
     { pages : Dict String (Dict String String)
+    , manifest : Manifest.Config pathKey
     }
 
 
-toJsCodec : Codec ToJsPayload
+toJsCodec : Codec (ToJsPayload pathKey)
 toJsCodec =
     Codec.custom
         (\errors success value ->
@@ -50,8 +52,8 @@ toJsCodec =
                 Errors errorList ->
                     errors errorList
 
-                Success { pages } ->
-                    success (ToJsSuccessPayload pages)
+                Success { pages, manifest } ->
+                    success (ToJsSuccessPayload pages manifest)
         )
         |> Codec.variant1 "Errors" Errors (Codec.dict Codec.string)
         |> Codec.variant1 "Success"
@@ -60,20 +62,39 @@ toJsCodec =
         |> Codec.buildCustom
 
 
-successCodec : Codec ToJsSuccessPayload
+stubManifest : Manifest.Config pathKey
+stubManifest =
+    { backgroundColor = Nothing
+    , categories = []
+    , displayMode = Manifest.Standalone
+    , orientation = Manifest.Portrait
+    , description = "elm-pages - A statically typed site generator."
+    , iarcRatingId = Nothing
+    , name = "elm-pages docs"
+    , themeColor = Nothing
+    , startUrl = PagePath.external ""
+    , shortName = Just "elm-pages"
+    , sourceIcon = ImagePath.external ""
+    }
+
+
+successCodec : Codec (ToJsSuccessPayload pathKey)
 successCodec =
     Codec.object ToJsSuccessPayload
         |> Codec.field "pages"
-            (\{ pages } -> pages)
+            .pages
             (Codec.dict (Codec.dict Codec.string))
+        |> Codec.field "manifest"
+            .manifest
+            (Codec.build Manifest.toJson (Decode.succeed stubManifest))
         |> Codec.buildObject
 
 
-type Effect
+type Effect pathKey
     = NoEffect
-    | SendJsData ToJsPayload
+    | SendJsData (ToJsPayload pathKey)
     | FetchHttp StaticHttp.Request
-    | Batch (List Effect)
+    | Batch (List (Effect pathKey))
 
 
 type alias Page metadata view pathKey =
@@ -188,7 +209,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
         }
 
 
-perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
+perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform cliMsgConstructor toJsPort effect =
     case effect of
         NoEffect ->
@@ -326,7 +347,12 @@ update siteMetadata config msg model =
             in
             ( model
             , SendJsData
-                (Success (encodeStaticResponses staticResponses |> ToJsSuccessPayload))
+                (Success
+                    (ToJsSuccessPayload
+                        (encodeStaticResponses staticResponses)
+                        config.manifest
+                    )
+                )
               --                (Json.Encode.object
               --                    [ ( "manifest", Manifest.toJson config.manifest )
               --                    , ( "pages", encodeStaticResponses staticResponses )
@@ -335,7 +361,7 @@ update siteMetadata config msg model =
             )
 
 
-performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Effect
+performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Effect pathKey
 performStaticHttpRequests staticRequests =
     -- @@@@@@@@ TODO
     --    NoEffect
