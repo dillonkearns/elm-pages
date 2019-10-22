@@ -112,8 +112,8 @@ type alias Flags =
     ()
 
 
-type Model
-    = Model
+type alias Model =
+    { staticResponses : StaticResponses }
 
 
 type alias ModelDetails userModel metadata view =
@@ -198,12 +198,13 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
                     |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
-                case narrowMsg msg of
-                    Just cliMsg ->
-                        update siteMetadata config cliMsg model
+                case ( narrowMsg msg, fromModel model ) of
+                    ( Just cliMsg, Just cliModel ) ->
+                        update siteMetadata config cliMsg cliModel
                             |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
+                            |> Tuple.mapFirst toModel
 
-                    Nothing ->
+                    _ ->
                         ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
@@ -242,8 +243,7 @@ perform cliMsgConstructor toJsPort effect =
 
 
 init toModel contentCache siteMetadata config cliMsgConstructor () =
-    ( toModel Model
-    , case contentCache of
+    (case contentCache of
         Ok _ ->
             case contentCache |> ContentCache.pagesWithErrors of
                 Just pageErrors ->
@@ -264,13 +264,15 @@ init toModel contentCache siteMetadata config cliMsgConstructor () =
                                 Err errors ->
                                     Dict.empty
                     in
-                    SendJsData
+                    ( Model staticResponses |> toModel
+                    , SendJsData
                         (Errors
                             (mapKeys
                                 (\key -> "/" ++ String.join "/" key)
                                 pageErrors
                             )
                         )
+                    )
 
                 Nothing ->
                     let
@@ -292,31 +294,73 @@ init toModel contentCache siteMetadata config cliMsgConstructor () =
                     in
                     case requests of
                         Ok okRequests ->
-                            performStaticHttpRequests okRequests
+                            ( Model staticResponses |> toModel, performStaticHttpRequests okRequests )
 
                         --                                |> Cmd.map cliMsgConstructor
                         Err errors ->
-                            NoEffect
+                            ( Model staticResponses |> toModel, NoEffect )
 
         Err error ->
-            SendJsData
+            ( Model Dict.empty |> toModel
+            , SendJsData
                 (Errors
                     (mapKeys
                         (\key -> "/" ++ String.join "/" key)
                         error
                     )
                 )
-      --                (Errors error)
-      --                (Json.Encode.object
-      --                    [ ( "errors", encodeErrors error )
-      --                    , ( "manifest", Manifest.toJson config.manifest )
-      --                    ]
-      --                )
+            )
+     --                (Errors error)
+     --                (Json.Encode.object
+     --                    [ ( "errors", encodeErrors error )
+     --                    , ( "manifest", Manifest.toJson config.manifest )
+     --                    ]
+     --                )
     )
 
 
+update :
+    Result (List String) (List ( PagePath pathKey, metadata ))
+    ->
+        { config
+            | --            update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+              --            , subscriptions : userModel -> Sub userMsg
+              view :
+                List ( PagePath pathKey, metadata )
+                ->
+                    { path : PagePath pathKey
+                    , frontmatter : metadata
+                    }
+                ->
+                    ( StaticHttp.Request
+                    , Decode.Value
+                      ->
+                        Result String
+                            { view :
+                                userModel
+                                -> view
+                                ->
+                                    { title : String
+                                    , body : Html userMsg
+                                    }
+                            , head : List (Head.Tag pathKey)
+                            }
+                    )
+
+            --            , document : Pages.Document.Document metadata view
+            --            , content : Content
+            --            , toJsPort : Json.Encode.Value -> Cmd Never
+            , manifest : Manifest.Config pathKey
+
+            --            , canonicalSiteUrl : String
+            --            , pathKey : pathKey
+            --            , onPageChange : PagePath pathKey -> userMsg
+        }
+    -> Msg
+    -> Model
+    -> ( Model, Effect pathKey )
 update siteMetadata config msg model =
-    case msg of
+    case msg |> Debug.log "MSG" of
         GotStaticHttpResponse { url, response } ->
             let
                 requests =
@@ -332,7 +376,7 @@ update siteMetadata config msg model =
                         Ok okRequests ->
                             case response of
                                 Ok okResponse ->
-                                    staticResponsesInit okRequests
+                                    model.staticResponses
                                         |> staticResponsesUpdate
                                             { url = url
                                             , response =
@@ -343,15 +387,10 @@ update siteMetadata config msg model =
                                     Debug.todo "TODO handle error"
 
                         Err errors ->
-                            Dict.empty
+                            Debug.todo "TODO handle error"
             in
-            ( model
+            ( { model | staticResponses = staticResponses }
             , sendStaticResponsesIfDone staticResponses config.manifest
-              --                (Json.Encode.object
-              --                    [ ( "manifest", Manifest.toJson config.manifest )
-              --                    , ( "pages", encodeStaticResponses staticResponses )
-              --                    ]
-              --                )
             )
 
 
@@ -390,6 +429,19 @@ staticResponsesInit list =
 staticResponsesUpdate : { url : String, response : String } -> StaticResponses -> StaticResponses
 staticResponsesUpdate newEntry staticResponses =
     staticResponses
+        |> Dict.toList
+        |> List.map
+            (\( pageUrl, dict ) ->
+                dict
+                    --                    |> Dict.update newEntry.url
+                    --                        (\maybeEntry ->
+                    --                            --                            SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
+                    --                            newEntry.response
+                    --                                |> Just
+                    --                        )
+                    |> (\updatedDict -> ( pageUrl, updatedDict ))
+            )
+        |> Dict.fromList
 
 
 
@@ -403,13 +455,32 @@ staticResponsesUpdate newEntry staticResponses =
 
 sendStaticResponsesIfDone : StaticResponses -> Manifest.Config pathKey -> Effect pathKey
 sendStaticResponsesIfDone staticResponses manifest =
-    SendJsData
-        (Success
-            (ToJsSuccessPayload
-                (encodeStaticResponses staticResponses)
-                manifest
+    let
+        pendingRequests =
+            staticResponses
+                |> Dict.toList
+                |> Debug.log "PENDING"
+                |> List.any
+                    (\( path, result ) ->
+                        case result of
+                            NotFetched _ ->
+                                True
+
+                            _ ->
+                                False
+                    )
+    in
+    if pendingRequests then
+        NoEffect
+
+    else
+        SendJsData
+            (Success
+                (ToJsSuccessPayload
+                    (encodeStaticResponses staticResponses)
+                    manifest
+                )
             )
-        )
 
 
 encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
