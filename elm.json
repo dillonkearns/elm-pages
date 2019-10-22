@@ -32,6 +32,8 @@
         "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0"
     },
     "test-dependencies": {
-        "elm-explorations/test": "1.2.2 <= v < 2.0.0"
+        "avh4/elm-program-test": "3.1.0 <= v < 4.0.0",
+        "elm-explorations/test": "1.2.2 <= v < 2.0.0",
+        "jgrenat/elm-html-test-runner": "1.0.3 <= v < 2.0.0"
     }
 }

@@ -1,4 +1,15 @@
-module Pages.Internal.Platform.Cli exposing (Content, Flags, Model, Msg, Page, Parser, cliApplication)
+module Pages.Internal.Platform.Cli exposing
+    ( Content
+    , Effect
+    , Flags
+    , Model
+    , Msg
+    , Page
+    , Parser
+    , cliApplication
+    , init
+    , update
+    )
 
 import Browser.Navigation
 import Dict exposing (Dict)
@@ -15,6 +26,10 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Url exposing (Url)
+
+
+type Effect
+    = None
 
 
 type alias Page metadata view pathKey =
@@ -112,77 +127,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
                     )
     in
     Platform.worker
-        { init =
-            \flags ->
-                ( toModel Model
-                , case contentCache of
-                    Ok _ ->
-                        case contentCache |> ContentCache.pagesWithErrors of
-                            Just pageErrors ->
-                                let
-                                    requests =
-                                        siteMetadata
-                                            |> Result.andThen
-                                                (\metadata ->
-                                                    staticResponseForPage metadata config.view
-                                                )
-
-                                    staticResponses : StaticResponses
-                                    staticResponses =
-                                        case requests of
-                                            Ok okRequests ->
-                                                staticResponsesInit okRequests
-
-                                            Err errors ->
-                                                Dict.empty
-                                in
-                                config.toJsPort
-                                    (Json.Encode.object
-                                        [ ( "errors", encodeErrors pageErrors )
-                                        , ( "manifest", Manifest.toJson config.manifest )
-                                        , ( "pages", encodeStaticResponses staticResponses )
-                                        ]
-                                    )
-                                    |> Cmd.map never
-
-                            --(Msg userMsg metadata view)
-                            Nothing ->
-                                let
-                                    requests =
-                                        siteMetadata
-                                            |> Result.andThen
-                                                (\metadata ->
-                                                    staticResponseForPage metadata config.view
-                                                )
-
-                                    staticResponses : StaticResponses
-                                    staticResponses =
-                                        case requests of
-                                            Ok okRequests ->
-                                                staticResponsesInit okRequests
-
-                                            Err errors ->
-                                                Dict.empty
-                                in
-                                Cmd.batch
-                                    [ case requests of
-                                        Ok okRequests ->
-                                            performStaticHttpRequests okRequests
-                                                |> Cmd.map cliMsgConstructor
-
-                                        Err errors ->
-                                            Cmd.none
-                                    ]
-
-                    Err error ->
-                        config.toJsPort
-                            (Json.Encode.object
-                                [ ( "errors", encodeErrors error )
-                                , ( "manifest", Manifest.toJson config.manifest )
-                                ]
-                            )
-                            |> Cmd.map never
-                )
+        { init = init toModel contentCache siteMetadata config cliMsgConstructor
         , update =
             \msg model ->
                 case narrowMsg msg of
@@ -193,6 +138,78 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
                         ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
+
+
+init toModel contentCache siteMetadata config cliMsgConstructor () =
+    ( toModel Model
+    , case contentCache of
+        Ok _ ->
+            case contentCache |> ContentCache.pagesWithErrors of
+                Just pageErrors ->
+                    let
+                        requests =
+                            siteMetadata
+                                |> Result.andThen
+                                    (\metadata ->
+                                        staticResponseForPage metadata config.view
+                                    )
+
+                        staticResponses : StaticResponses
+                        staticResponses =
+                            case requests of
+                                Ok okRequests ->
+                                    staticResponsesInit okRequests
+
+                                Err errors ->
+                                    Dict.empty
+                    in
+                    config.toJsPort
+                        (Json.Encode.object
+                            [ ( "errors", encodeErrors pageErrors )
+                            , ( "manifest", Manifest.toJson config.manifest )
+                            , ( "pages", encodeStaticResponses staticResponses )
+                            ]
+                        )
+                        |> Cmd.map never
+
+                --(Msg userMsg metadata view)
+                Nothing ->
+                    let
+                        requests =
+                            siteMetadata
+                                |> Result.andThen
+                                    (\metadata ->
+                                        staticResponseForPage metadata config.view
+                                    )
+
+                        staticResponses : StaticResponses
+                        staticResponses =
+                            case requests of
+                                Ok okRequests ->
+                                    staticResponsesInit okRequests
+
+                                Err errors ->
+                                    Dict.empty
+                    in
+                    Cmd.batch
+                        [ case requests of
+                            Ok okRequests ->
+                                performStaticHttpRequests okRequests
+                                    |> Cmd.map cliMsgConstructor
+
+                            Err errors ->
+                                Cmd.none
+                        ]
+
+        Err error ->
+            config.toJsPort
+                (Json.Encode.object
+                    [ ( "errors", encodeErrors error )
+                    , ( "manifest", Manifest.toJson config.manifest )
+                    ]
+                )
+                |> Cmd.map never
+    )
 
 
 update siteMetadata config msg model =
