@@ -1,5 +1,6 @@
 module StaticHttpRequestsTests exposing (all)
 
+import Codec
 import Dict
 import Expect
 import Html
@@ -29,11 +30,22 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         "null"
-                    |> ProgramTest.ensureOutgoingPortValues
+                    |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Decode.succeed "asdf")
-                        (Expect.equal [ "asdf" ])
-                    |> ProgramTest.done
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages", "" )
+                                                ]
+                                          )
+                                        ]
+                                }
+                            ]
+                        )
         ]
 
 
@@ -109,7 +121,7 @@ simulateEffects effect =
             SimulatedEffect.Cmd.none
 
         SendJsData value ->
-            SimulatedEffect.Ports.send "toJsPort" value
+            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder Main.toJsCodec)
 
         --            toJsPort value |> Cmd.map never
         Batch list ->

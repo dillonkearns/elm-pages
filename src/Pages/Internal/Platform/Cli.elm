@@ -6,8 +6,11 @@ module Pages.Internal.Platform.Cli exposing
     , Msg(..)
     , Page
     , Parser
+    , ToJsPayload(..)
+    , ToJsSuccessPayload
     , cliApplication
     , init
+    , toJsCodec
     , update
     )
 
@@ -30,7 +33,7 @@ import Url exposing (Url)
 
 
 type ToJsPayload
-    = Errors (List String)
+    = Errors (Dict String String)
     | Success ToJsSuccessPayload
 
 
@@ -50,7 +53,7 @@ toJsCodec =
                 Success { pages } ->
                     success (ToJsSuccessPayload pages)
         )
-        |> Codec.variant1 "Errors" Errors (Codec.list Codec.string)
+        |> Codec.variant1 "Errors" Errors (Codec.dict Codec.string)
         |> Codec.variant1 "Success"
             Success
             successCodec
@@ -68,7 +71,7 @@ successCodec =
 
 type Effect
     = NoEffect
-    | SendJsData Json.Encode.Value
+    | SendJsData ToJsPayload
     | FetchHttp StaticHttp.Request
     | Batch (List Effect)
 
@@ -192,7 +195,10 @@ perform cliMsgConstructor toJsPort effect =
             Cmd.none
 
         SendJsData value ->
-            toJsPort value |> Cmd.map never
+            value
+                |> Codec.encoder toJsCodec
+                |> toJsPort
+                |> Cmd.map never
 
         Batch list ->
             list
@@ -238,14 +244,13 @@ init toModel contentCache siteMetadata config cliMsgConstructor () =
                                     Dict.empty
                     in
                     SendJsData
-                        (Json.Encode.object
-                            [ ( "errors", encodeErrors pageErrors )
-                            , ( "manifest", Manifest.toJson config.manifest )
-                            , ( "pages", encodeStaticResponses staticResponses )
-                            ]
+                        (Errors
+                            (mapKeys
+                                (\key -> "/" ++ String.join "/" key)
+                                pageErrors
+                            )
                         )
 
-                --(Msg userMsg metadata view)
                 Nothing ->
                     let
                         requests =
@@ -274,11 +279,18 @@ init toModel contentCache siteMetadata config cliMsgConstructor () =
 
         Err error ->
             SendJsData
-                (Json.Encode.object
-                    [ ( "errors", encodeErrors error )
-                    , ( "manifest", Manifest.toJson config.manifest )
-                    ]
+                (Errors
+                    (mapKeys
+                        (\key -> "/" ++ String.join "/" key)
+                        error
+                    )
                 )
+      --                (Errors error)
+      --                (Json.Encode.object
+      --                    [ ( "errors", encodeErrors error )
+      --                    , ( "manifest", Manifest.toJson config.manifest )
+      --                    ]
+      --                )
     )
 
 
@@ -314,11 +326,12 @@ update siteMetadata config msg model =
             in
             ( model
             , SendJsData
-                (Json.Encode.object
-                    [ ( "manifest", Manifest.toJson config.manifest )
-                    , ( "pages", encodeStaticResponses staticResponses )
-                    ]
-                )
+                (Success (encodeStaticResponses staticResponses |> ToJsSuccessPayload))
+              --                (Json.Encode.object
+              --                    [ ( "manifest", Manifest.toJson config.manifest )
+              --                    , ( "pages", encodeStaticResponses staticResponses )
+              --                    ]
+              --                )
             )
 
 
@@ -357,43 +370,48 @@ staticResponsesInit list =
 staticResponsesUpdate : { url : String, response : String } -> StaticResponses -> StaticResponses
 staticResponsesUpdate newEntry staticResponses =
     staticResponses
-        |> Dict.update newEntry.url
-            (\maybeEntry ->
-                SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
-                    |> Just
-            )
 
 
-encodeStaticResponses : StaticResponses -> Json.Encode.Value
+
+-- TODO should I change the data structure?
+--        |> Dict.update newEntry.url
+--            (\maybeEntry ->
+--                SuccessfullyFetched (StaticHttpRequest.Request { url = newEntry.url }) newEntry.response
+--                    |> Just
+--            )
+
+
+encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
 encodeStaticResponses staticResponses =
     staticResponses
-        |> Dict.toList
-        |> List.map
-            (\( path, result ) ->
-                ( path
-                , case result of
+        |> Dict.map
+            (\path result ->
+                (case result of
                     NotFetched (StaticHttpRequest.Request { url }) ->
-                        Json.Encode.object
+                        Dict.fromList
                             [ ( url
-                              , Json.Encode.string ""
+                              , ""
                               )
                             ]
 
                     SuccessfullyFetched (StaticHttpRequest.Request { url }) jsonResponseString ->
-                        Json.Encode.object
-                            [ ( url
-                              , Json.Encode.string jsonResponseString
-                              )
-                            ]
+                        Dict.fromList
+                            [ ( url, jsonResponseString ) ]
 
                     ErrorFetching request ->
-                        Json.Encode.string "ErrorFetching"
+                        --                        Json.Encode.string "ErrorFetching"
+                        Dict.empty
 
                     ErrorDecoding request ->
-                        Json.Encode.string "ErrorDecoding"
+                        Dict.empty
+                 --                        Json.Encode.string "ErrorDecoding"
+                 --                        ( "", "" )
                 )
             )
-        |> Json.Encode.object
+
+
+
+--        |> Dict.fromList
 
 
 type alias StaticResponses =
@@ -502,3 +520,13 @@ encodeErrors errors =
         |> Json.Encode.dict
             (\path -> "/" ++ String.join "/" path)
             (\errorsForPath -> Json.Encode.string errorsForPath)
+
+
+mapKeys : (comparable -> comparable1) -> Dict comparable v -> Dict comparable1 v
+mapKeys keyMapper dict =
+    Dict.foldl
+        (\k v acc ->
+            Dict.insert (keyMapper k) v acc
+        )
+        Dict.empty
+        dict
