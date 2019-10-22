@@ -1,4 +1,4 @@
-module StaticHttpRequestsTests exposing (..)
+module StaticHttpRequestsTests exposing (all)
 
 import Dict
 import Html
@@ -11,6 +11,33 @@ import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
 import ProgramTest exposing (ProgramTest)
+import Test exposing (Test, describe, test)
+
+
+all : Test
+all =
+    describe "GrammarCheckingExample"
+        [ test "checking grammar" <|
+            \() ->
+                start
+                    |> ProgramTest.done
+
+        --                    |> ProgramTest.fillIn "main"
+        --                        "Enter text to check"
+        --                        "The youngest man the boat."
+        --                    |> ProgramTest.clickButton "Check"
+        --                    |> ProgramTest.ensureOutgoingPortValues
+        --                        "checkGrammar"
+        --                        Json.Decode.string
+        --                        (Expect.equal [ "The youngest man the boat." ])
+        --                    |> ProgramTest.simulateIncomingPort
+        --                        "grammarCheckResults"
+        --                        (Json.Encode.list Json.Encode.string
+        --                            [ "Garden-path sentences can confuse the reader." ]
+        --                        )
+        --                    |> ProgramTest.expectViewHas
+        --                        [ text "Garden-path sentences can confuse the reader." ]
+        ]
 
 
 start : ProgramTest Main.Model Main.Msg Main.Effect

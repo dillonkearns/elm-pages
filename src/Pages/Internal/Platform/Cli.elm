@@ -29,7 +29,10 @@ import Url exposing (Url)
 
 
 type Effect
-    = None
+    = NoEffect
+    | SendJsData Json.Encode.Value
+    | FetchHttp StaticHttp.Request
+    | Batch (List Effect)
 
 
 type alias Page metadata view pathKey =
@@ -127,17 +130,50 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
                     )
     in
     Platform.worker
-        { init = init toModel contentCache siteMetadata config cliMsgConstructor
+        { init =
+            \flags ->
+                init toModel contentCache siteMetadata config cliMsgConstructor flags
+                    |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
                 case narrowMsg msg of
                     Just cliMsg ->
                         update siteMetadata config cliMsg model
+                            |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
 
                     Nothing ->
                         ( model, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
+
+
+perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
+perform cliMsgConstructor toJsPort effect =
+    case effect of
+        NoEffect ->
+            Cmd.none
+
+        SendJsData value ->
+            toJsPort value |> Cmd.map never
+
+        Batch list ->
+            list
+                |> List.map (perform cliMsgConstructor toJsPort)
+                |> Cmd.batch
+
+        FetchHttp (StaticHttpRequest.Request { url }) ->
+            Http.get
+                { url = url
+                , expect =
+                    Http.expectString
+                        (\response ->
+                            GotStaticHttpResponse
+                                { url = url
+                                , response = response
+                                }
+                                |> cliMsgConstructor
+                        )
+                }
 
 
 init toModel contentCache siteMetadata config cliMsgConstructor () =
@@ -163,14 +199,13 @@ init toModel contentCache siteMetadata config cliMsgConstructor () =
                                 Err errors ->
                                     Dict.empty
                     in
-                    config.toJsPort
+                    SendJsData
                         (Json.Encode.object
                             [ ( "errors", encodeErrors pageErrors )
                             , ( "manifest", Manifest.toJson config.manifest )
                             , ( "pages", encodeStaticResponses staticResponses )
                             ]
                         )
-                        |> Cmd.map never
 
                 --(Msg userMsg metadata view)
                 Nothing ->
@@ -191,24 +226,21 @@ init toModel contentCache siteMetadata config cliMsgConstructor () =
                                 Err errors ->
                                     Dict.empty
                     in
-                    Cmd.batch
-                        [ case requests of
-                            Ok okRequests ->
-                                performStaticHttpRequests okRequests
-                                    |> Cmd.map cliMsgConstructor
+                    case requests of
+                        Ok okRequests ->
+                            performStaticHttpRequests okRequests
 
-                            Err errors ->
-                                Cmd.none
-                        ]
+                        --                                |> Cmd.map cliMsgConstructor
+                        Err errors ->
+                            NoEffect
 
         Err error ->
-            config.toJsPort
+            SendJsData
                 (Json.Encode.object
                     [ ( "errors", encodeErrors error )
                     , ( "manifest", Manifest.toJson config.manifest )
                     ]
                 )
-                |> Cmd.map never
     )
 
 
@@ -243,34 +275,38 @@ update siteMetadata config msg model =
                             Dict.empty
             in
             ( model
-            , config.toJsPort
+            , SendJsData
                 (Json.Encode.object
                     [ ( "manifest", Manifest.toJson config.manifest )
                     , ( "pages", encodeStaticResponses staticResponses )
                     ]
                 )
-                |> Cmd.map never
             )
 
 
-performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Cmd Msg
+performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Effect
 performStaticHttpRequests staticRequests =
+    -- @@@@@@@@ TODO
+    --    NoEffect
     staticRequests
         |> List.map
-            (\( pagePath, ( StaticHttpRequest.Request { url }, fn ) ) ->
-                Http.get
-                    { url = url
-                    , expect =
-                        Http.expectString
-                            (\response ->
-                                GotStaticHttpResponse
-                                    { url = url
-                                    , response = response
-                                    }
-                            )
-                    }
+            --            (\( pagePath, ( StaticHttpRequest.Request { url }, fn ) ) ->
+            (\( pagePath, ( request, fn ) ) ->
+                --                Http.get
+                --                    { url = url
+                --                    , expect =
+                --                        Http.expectString
+                --                            (\response ->
+                --                                GotStaticHttpResponse
+                --                                    { url = url
+                --                                    , response = response
+                --                                    }
+                --                            )
+                --                    }
+                --                NoEffect
+                FetchHttp request
             )
-        |> Cmd.batch
+        |> Batch
 
 
 staticResponsesInit : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> StaticResponses
