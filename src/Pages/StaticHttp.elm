@@ -1,4 +1,15 @@
-module Pages.StaticHttp exposing (Request, withData, withoutData)
+module Pages.StaticHttp exposing
+    ( withData, withoutData
+    , Request
+    )
+
+{-| TODO
+
+@docs withData, withoutData
+
+@docs Request
+
+-}
 
 import Head
 import Html exposing (Html)
@@ -7,6 +18,8 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttpRequest exposing (Request(..))
 
 
+{-| TODO
+-}
 withoutData :
     { view :
         model
@@ -40,6 +53,8 @@ withoutData buildFns =
     )
 
 
+{-| TODO
+-}
 withData :
     String
     -> Decoder staticData
@@ -84,5 +99,7 @@ withData url decoder buildFns =
     )
 
 
+{-| TODO
+-}
 type alias Request =
     Pages.StaticHttpRequest.Request
