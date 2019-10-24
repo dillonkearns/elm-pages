@@ -30,6 +30,7 @@ import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Secrets
 import Set
 import StaticHttp
 import Url exposing (Url)
@@ -378,11 +379,24 @@ update siteMetadata config msg model =
 
 performStaticHttpRequests : List ( PagePath pathKey, StaticHttp.Request a ) -> Effect pathKey
 performStaticHttpRequests staticRequests =
+    let
+        secrets =
+            Secrets.empty
+    in
     staticRequests
         |> List.map
             (\( pagePath, StaticHttpRequest.Request ( urls, lookup ) ) ->
                 urls
-                    |> List.map (\url -> url)
+                    |> List.filterMap
+                        (\urlBuilder ->
+                            case urlBuilder secrets of
+                                Ok url ->
+                                    Just url
+
+                                Err _ ->
+                                    -- @@@@@@@@@ TODO handle error here
+                                    Nothing
+                        )
             )
         |> List.concat
         |> Set.fromList
@@ -410,7 +424,24 @@ staticResponsesUpdate newEntry staticResponses =
             (\pageUrl entry ->
                 case entry of
                     NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ->
-                        if List.member newEntry.url urls then
+                        let
+                            realUrls =
+                                urls
+                                    |> List.filterMap
+                                        (\urlBuilder ->
+                                            case urlBuilder Secrets.empty of
+                                                Ok url ->
+                                                    Just url
+
+                                                Err _ ->
+                                                    -- @@@@@@@@@ TODO handle error here
+                                                    Nothing
+                                        )
+
+                            includesUrl =
+                                List.member newEntry.url realUrls
+                        in
+                        if includesUrl then
                             let
                                 updatedRawResponses =
                                     rawResponses

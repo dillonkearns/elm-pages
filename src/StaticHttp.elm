@@ -54,7 +54,7 @@ succeed value =
 jsonRequest : String -> Decoder a -> Request a
 jsonRequest url decoder =
     Request
-        ( [ url ]
+        ( [ \secrets -> Ok url ]
         , \rawResponseDict ->
             rawResponseDict
                 |> Dict.get url
