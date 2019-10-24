@@ -24,7 +24,11 @@ all =
     describe "Static Http Requests"
         [ test "initial requests are sent out" <|
             \() ->
-                start [ ( [], "https://api.github.com/repos/dillonkearns/elm-pages" ) ]
+                start
+                    [ ( []
+                      , { url = "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
+                      )
+                    ]
                     |> ProgramTest.simulateHttpOk
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -51,8 +55,12 @@ all =
         , test "port is sent out once all requests are finished" <|
             \() ->
                 start
-                    [ ( [ "elm-pages" ], "https://api.github.com/repos/dillonkearns/elm-pages" )
-                    , ( [ "elm-pages-starter" ], "https://api.github.com/repos/dillonkearns/elm-pages-starter" )
+                    [ ( [ "elm-pages" ]
+                      , { url = "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
+                      )
+                    , ( [ "elm-pages-starter" ]
+                      , { url = "https://api.github.com/repos/dillonkearns/elm-pages-starter", decoder = Decode.succeed () }
+                      )
                     ]
                     |> ProgramTest.simulateHttpOk
                         "GET"
@@ -88,10 +96,26 @@ all =
                                 }
                             ]
                         )
+        , test "an error is sent out for decoder failures" <|
+            \() ->
+                start
+                    [ ( [ "elm-pages" ], { url = "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.fail "The user should get this message from the CLI." } )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86 }"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Errors Dict.empty
+                            ]
+                        )
         ]
 
 
-start : List ( List String, String ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+start : List ( List String, { url : String, decoder : Decode.Decoder () } ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
 start pages =
     let
         document =
@@ -130,37 +154,26 @@ start pages =
             , view =
                 \allFrontmatter page ->
                     let
-                        requestUrl =
+                        thing =
                             pages
                                 |> Dict.fromList
-                                --                                |> Debug.log "dict"
                                 |> Dict.get
                                     (page.path
                                         |> PagePath.toString
                                         |> String.dropLeft 1
                                         |> String.split "/"
                                         |> List.filter (\pathPart -> pathPart /= "")
-                                     --                                        |> Debug.log "lookup"
                                     )
-                                |> Maybe.withDefault "Couldn't find request..."
                     in
-                    StaticHttp.jsonRequest requestUrl
-                        -- "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Decode.field "stargazers_count" Decode.int
-                            |> Decode.map
-                                (\staticData ->
-                                    { view =
-                                        \model viewForPage ->
-                                            { title = "Title"
-                                            , body =
-                                                "elm-pages ⭐️'s: "
-                                                    ++ String.fromInt staticData
-                                                    |> Html.text
-                                            }
-                                    , head = []
-                                    }
-                                )
-                        )
+                    case thing of
+                        Just { url, decoder } ->
+                            StaticHttp.jsonRequest url
+                                decoder
+                                |> StaticHttp.map
+                                    (\staticData -> { view = \model viewForPage -> { title = "Title", body = Html.text "" }, head = [] })
+
+                        Nothing ->
+                            Debug.todo "Couldn't find page"
             }
     in
     ProgramTest.createDocument

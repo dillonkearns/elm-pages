@@ -414,8 +414,17 @@ staticResponsesUpdate newEntry staticResponses =
                                 updatedRawResponses =
                                     rawResponses
                                         |> Dict.insert newEntry.url newEntry.response
+
+                                decodeResult =
+                                    updatedRawResponses
+                                        |> lookup
                             in
-                            NotFetched (StaticHttpRequest.Request ( urls, lookup )) updatedRawResponses
+                            case decodeResult of
+                                Ok () ->
+                                    NotFetched (StaticHttpRequest.Request ( urls, lookup )) updatedRawResponses
+
+                                Err _ ->
+                                    ErrorDecoding (StaticHttpRequest.Request ( urls, lookup ))
 
                         else
                             entry
@@ -444,17 +453,34 @@ sendStaticResponsesIfDone staticResponses manifest =
                             _ ->
                                 False
                     )
+
+        failedRequests =
+            staticResponses
+                |> Dict.toList
+                |> List.any
+                    (\( path, result ) ->
+                        case result of
+                            ErrorDecoding (StaticHttpRequest.Request ( urls, _ )) ->
+                                True
+
+                            _ ->
+                                False
+                    )
     in
     if pendingRequests then
         NoEffect
 
     else
         SendJsData
-            (Success
-                (ToJsSuccessPayload
-                    (encodeStaticResponses staticResponses)
-                    manifest
-                )
+            (if failedRequests then
+                Errors Dict.empty
+
+             else
+                Success
+                    (ToJsSuccessPayload
+                        (encodeStaticResponses staticResponses)
+                        manifest
+                    )
             )
 
 
