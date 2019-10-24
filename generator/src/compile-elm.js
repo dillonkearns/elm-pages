@@ -12,7 +12,9 @@ function runElm(callback) {
       const warnOriginal = console.warn;
       console.warn = function() {};
       eval(data.toString());
-      const app = Elm.Main.init({ flags: { imageAssets: {} } });
+      const app = Elm.Main.init({
+        flags: { secrets: process.env }
+      });
 
       app.ports.toJsPort.subscribe(payload => {
         process.chdir(startingDir);

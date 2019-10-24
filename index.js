@@ -8,7 +8,9 @@ module.exports = function pagesInit(
 
   document.addEventListener("DOMContentLoaded", function() {
     let app = mainElmModule.init({
-      flags: {}
+      flags: {
+        secrets: null
+      }
     });
 
     app.ports.toJsPort.subscribe((
