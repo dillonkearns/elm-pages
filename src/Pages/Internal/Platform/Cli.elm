@@ -112,7 +112,7 @@ type alias Content =
 
 
 type alias Flags =
-    ()
+    Decode.Value
 
 
 type alias Model =
@@ -167,7 +167,7 @@ cliApplication :
         , onPageChange : PagePath pathKey -> userMsg
         }
     --    -> Program userModel userMsg metadata view
-    -> Platform.Program () model msg
+    -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
         contentCache =
@@ -240,7 +240,7 @@ perform cliMsgConstructor toJsPort effect =
                 }
 
 
-init toModel contentCache siteMetadata config cliMsgConstructor () =
+init toModel contentCache siteMetadata config cliMsgConstructor flags =
     (case contentCache of
         Ok _ ->
             case contentCache |> ContentCache.pagesWithErrors of

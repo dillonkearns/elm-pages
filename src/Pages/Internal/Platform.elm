@@ -211,7 +211,7 @@ onViewChangeElement currentUrl =
 
 
 type alias Flags =
-    ()
+    Decode.Value
 
 
 init :
