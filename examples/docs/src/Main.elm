@@ -115,8 +115,8 @@ view siteMetadata page =
         viewFn =
             case page.frontmatter of
                 Metadata.Page metadata ->
-                    StaticHttp.map2
-                        (\elmPagesStars elmPagesStarterStars ->
+                    StaticHttp.map3
+                        (\elmPagesStars elmPagesStarterStars netlifyStars ->
                             { view =
                                 \model viewForPage ->
                                     { title = metadata.title
@@ -125,6 +125,8 @@ view siteMetadata page =
                                             ++ String.fromInt elmPagesStars
                                             ++ "\n\nelm-pages-starter ⭐️'s: "
                                             ++ String.fromInt elmPagesStarterStars
+                                            ++ "\n\nelm-markdown ⭐️'s: "
+                                            ++ String.fromInt netlifyStars
                                             |> Element.text
                                             |> wrapBody
                                     }
@@ -135,6 +137,9 @@ view siteMetadata page =
                             (Decode.field "stargazers_count" Decode.int)
                         )
                         (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                            (Decode.field "stargazers_count" Decode.int)
+                        )
+                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-markdown"
                             (Decode.field "stargazers_count" Decode.int)
                         )
 

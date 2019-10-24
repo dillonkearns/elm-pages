@@ -96,3 +96,18 @@ view stargazersNpm stargazersStarter =
 
 repoApiUrl repoName =
     "https://api.github.com/repos/dillonkearns/" ++ repoName
+
+
+map3 :
+    (value1 -> value2 -> value3 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request valueCombined
+map3 combine (Request ( urls1, lookup1 )) (Request ( urls2, lookup2 )) (Request ( urls3, lookup3 )) =
+    Request
+        ( List.concat [ urls1, urls2, urls3 ]
+        , \dict ->
+            Result.map2 combine (lookup1 dict) (lookup2 dict)
+                |> Result.map2 (|>) (lookup3 dict)
+        )
