@@ -12,6 +12,7 @@ import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
+import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http
 import SimulatedEffect.Ports
@@ -206,14 +207,19 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp url ->
+        FetchHttp urlWithSecrets ->
+            let
+                realSecrets =
+                    -- TODO @@@@@
+                    Secrets.empty
+            in
             SimulatedEffect.Http.get
-                { url = url
+                { url = urlWithSecrets realSecrets |> Result.withDefault "TODO" -- TODO handle error
                 , expect =
                     SimulatedEffect.Http.expectString
                         (\response ->
-                            Main.GotStaticHttpResponse
-                                { url = url
+                            GotStaticHttpResponse
+                                { url = Secrets.useFakeSecrets urlWithSecrets
                                 , response = response
                                 }
                         )

@@ -96,7 +96,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp String
+    | FetchHttp Secrets.UrlWithSecrets
     | Batch (List (Effect pathKey))
 
 
@@ -220,14 +220,19 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp url ->
+        FetchHttp urlWithSecrets ->
+            let
+                realSecrets =
+                    -- TODO @@@@@
+                    Secrets.empty
+            in
             Http.get
-                { url = url
+                { url = urlWithSecrets realSecrets |> Result.withDefault "TODO" -- TODO handle error
                 , expect =
                     Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { url = url
+                                { url = Secrets.useFakeSecrets urlWithSecrets
                                 , response = response
                                 }
                                 |> cliMsgConstructor
@@ -387,20 +392,22 @@ performStaticHttpRequests staticRequests =
         |> List.map
             (\( pagePath, StaticHttpRequest.Request ( urls, lookup ) ) ->
                 urls
-                    |> List.filterMap
-                        (\urlBuilder ->
-                            case urlBuilder secrets of
-                                Ok url ->
-                                    Just url
-
-                                Err _ ->
-                                    -- @@@@@@@@@ TODO handle error here
-                                    Nothing
-                        )
+             --                    |> List.map
+             --                        (\url ->
+             --                            url
+             --                         --                            case urlBuilder secrets of
+             --                         --                                Ok url ->
+             --                         --                                    Just url
+             --                         --
+             --                         --                                Err _ ->
+             --                         --                                    -- @@@@@@@@@ TODO handle error here
+             --                         --                                    Nothing
+             --                        )
             )
         |> List.concat
-        |> Set.fromList
-        |> Set.toList
+        -- TODO prevent duplicates... can't because Set needs comparable
+        --        |> Set.fromList
+        --        |> Set.toList
         |> List.map FetchHttp
         |> Batch
 

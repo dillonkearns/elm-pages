@@ -3,6 +3,10 @@ module Secrets exposing (..)
 import Dict exposing (Dict)
 
 
+type alias UrlWithSecrets =
+    Secrets -> Result String String
+
+
 type Secrets
     = Secrets (Dict String String)
     | Protected
