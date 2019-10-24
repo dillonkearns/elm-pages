@@ -8,7 +8,6 @@ module Pages.Platform exposing (application, Program, Page)
 
 import Head
 import Html exposing (Html)
-import Json.Decode
 import Pages.Document as Document
 import Pages.Internal
 import Pages.Internal.Platform
@@ -30,20 +29,10 @@ application :
             , frontmatter : metadata
             }
         ->
-            ( StaticHttp.Request
-            , Json.Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config pathKey
     , onPageChange : PagePath pathKey -> userMsg

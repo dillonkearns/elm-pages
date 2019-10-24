@@ -35,15 +35,11 @@ module.exports = class AddFilesPlugin {
 
         const staticRequests = this.pagesWithRequests[`/${file.baseRoute}`];
 
-        const jsonPayload = staticRequests
-          ? Object.entries(staticRequests)[0][1]
-          : "null";
-
         const filename = path.join(file.baseRoute, "content.json");
         compilation.fileDependencies.add(filename);
         const rawContents = JSON.stringify({
           body: file.content,
-          staticData: JSON.parse(jsonPayload)
+          staticData: staticRequests
         });
 
         compilation.assets[filename] = {

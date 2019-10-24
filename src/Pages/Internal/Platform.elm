@@ -16,9 +16,9 @@ import Pages.Document
 import Pages.Internal.Platform.Cli
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Result.Extra
+import StaticHttp
 import Task exposing (Task)
 import Url exposing (Url)
 
@@ -55,20 +55,16 @@ mainView :
             , frontmatter : metadata
             }
          ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view :
+                    userModel
+                    -> view
+                    ->
+                        { title : String
+                        , body : Html userMsg
+                        }
+                , head : List (Head.Tag pathKey)
+                }
         )
     -> ModelDetails userModel metadata view
     -> { title : String, body : Html userMsg }
@@ -102,20 +98,10 @@ pageViewOrError :
             , frontmatter : metadata
             }
          ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
         )
     -> ModelDetails userModel metadata view
     -> ContentCache metadata view
@@ -130,16 +116,16 @@ pageViewOrError pathKey viewFn model cache =
                             """ 123456789 """
 
                         viewFnResult =
-                            (viewFn
+                            viewFn
                                 (cache
                                     |> Result.map (ContentCache.extractMetadata pathKey)
                                     |> Result.withDefault []
                                  -- TODO handle error better
                                 )
                                 { path = pagePath, frontmatter = metadata }
-                                |> Tuple.second
-                            )
-                                viewResult.staticData
+                                |> (\(StaticHttpRequest.Request ( requestUrls, lookup )) ->
+                                        lookup viewResult.staticData
+                                   )
                     in
                     case viewResult.body of
                         Ok viewList ->
@@ -192,20 +178,10 @@ view :
             , frontmatter : metadata
             }
          ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
         )
     -> ModelDetails userModel metadata view
     -> Browser.Document (Msg userMsg metadata view)
@@ -250,20 +226,16 @@ init :
             , frontmatter : metadata
             }
          ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view :
+                    userModel
+                    -> view
+                    ->
+                        { title : String
+                        , body : Html userMsg
+                        }
+                , head : List (Head.Tag pathKey)
+                }
         )
     -> Content
     -> (Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg ))
@@ -292,8 +264,8 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                                         { path = pagePath
                                         , frontmatter = frontmatter
                                         }
-                                        |> Tuple.second
 
+                                --                                        |> Tuple.second
                                 --                                        """ 123456789 """
                                 --                                        "asdfasdf"
                                 --                                        |> .head
@@ -484,20 +456,10 @@ application :
             , frontmatter : metadata
             }
         ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
@@ -561,20 +523,10 @@ cliApplication :
             , frontmatter : metadata
             }
         ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never

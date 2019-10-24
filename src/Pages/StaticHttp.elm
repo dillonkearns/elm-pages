@@ -16,6 +16,7 @@ import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttpRequest exposing (Request(..))
+import StaticHttp
 
 
 {-| TODO
@@ -31,26 +32,20 @@ withoutData :
     , head : List (Head.Tag pathKey)
     }
     ->
-        ( Request
-        , String
-          ->
-            Result String
-                { view :
-                    model
-                    -> rendered
-                    ->
-                        { title : String
-                        , body : Html msg
-                        }
-                , head : List (Head.Tag pathKey)
-                }
-        )
+        Request
+            { view : model -> rendered -> { title : String, body : Html msg }
+            , head : List (Head.Tag pathKey)
+            }
 withoutData buildFns =
-    ( Request { url = "" }
-    , \stringData ->
-        buildFns
-            |> Ok
-    )
+    StaticHttp.succeed buildFns
+
+
+
+--    ( Request { url = "" }
+--    , \stringData ->
+--        buildFns
+--            |> Ok
+--    )
 
 
 {-| TODO
@@ -61,45 +56,33 @@ withData :
     ->
         (staticData
          ->
-            { view :
-                model
-                -> rendered
-                ->
-                    { title : String
-                    , body : Html msg
-                    }
+            { view : model -> rendered -> { title : String, body : Html msg }
             , head : List (Head.Tag pathKey)
             }
         )
     ->
-        ( Request
-        , Decode.Value
-          ->
-            Result String
-                { view :
-                    model
-                    -> rendered
-                    ->
-                        { title : String
-                        , body : Html msg
-                        }
-                , head : List (Head.Tag pathKey)
-                }
-        )
+        Request
+            { view : model -> rendered -> { title : String, body : Html msg }
+            , head : List (Head.Tag pathKey)
+            }
 withData url decoder buildFns =
-    ( Request { url = url }
-    , \stringData ->
-        case stringData |> Decode.decodeValue decoder of
-            Ok staticData ->
-                buildFns staticData
-                    |> Ok
+    StaticHttp.jsonRequest url (decoder |> Decode.map buildFns)
 
-            Err error ->
-                Err (Decode.errorToString error)
-    )
+
+
+--    ( Request { url = url }
+--    , \stringData ->
+--        case stringData |> Decode.decodeValue decoder of
+--            Ok staticData ->
+--                buildFns staticData
+--                    |> Ok
+--
+--            Err error ->
+--                Err (Decode.errorToString error)
+--    )
 
 
 {-| TODO
 -}
-type alias Request =
-    Pages.StaticHttpRequest.Request
+type alias Request value =
+    Pages.StaticHttpRequest.Request value

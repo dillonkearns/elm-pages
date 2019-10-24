@@ -378,7 +378,7 @@ httpTask url =
 
 type alias ContentJson body =
     { body : body
-    , staticData : Decode.Value
+    , staticData : Dict String String
     }
 
 
@@ -386,7 +386,7 @@ contentJsonDecoder : Decode.Decoder (ContentJson String)
 contentJsonDecoder =
     Decode.map2 ContentJson
         (Decode.field "body" Decode.string)
-        (Decode.field "staticData" Decode.value)
+        (Decode.field "staticData" (Decode.dict Decode.string))
 
 
 update :

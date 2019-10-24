@@ -1,10 +1,7 @@
 module Pages.StaticHttpRequest exposing (Request(..))
 
-import Head
-import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder)
-import Pages.PagePath exposing (PagePath)
+import Dict exposing (Dict)
 
 
-type Request
-    = Request { url : String }
+type Request value
+    = Request ( List String, Dict String String -> Result String value )

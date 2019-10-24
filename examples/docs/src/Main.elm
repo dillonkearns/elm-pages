@@ -26,8 +26,8 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
-import Pages.StaticHttp as StaticHttp
 import Palette
+import StaticHttp
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -106,44 +106,42 @@ view :
         , frontmatter : Metadata
         }
     ->
-        ( StaticHttp.Request
-        , Decode.Value
-          ->
-            Result String
-                { view :
-                    Model
-                    -> View
-                    ->
-                        { title : String
-                        , body : Html Msg
-                        }
-                , head : List (Head.Tag Pages.PathKey)
-                }
-        )
+        StaticHttp.Request
+            { view : Model -> View -> { title : String, body : Html Msg }
+            , head : List (Head.Tag Pages.PathKey)
+            }
 view siteMetadata page =
     let
         viewFn =
             case page.frontmatter of
                 Metadata.Page metadata ->
-                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Decode.field "stargazers_count" Decode.int)
-                        (\staticData ->
+                    StaticHttp.map2
+                        (\elmPagesStars elmPagesStarterStars ->
                             { view =
                                 \model viewForPage ->
                                     { title = metadata.title
                                     , body =
                                         "elm-pages ⭐️'s: "
-                                            ++ String.fromInt staticData
+                                            ++ String.fromInt elmPagesStars
+                                            ++ "\n\nelm-pages-starter ⭐️'s: "
+                                            ++ String.fromInt elmPagesStarterStars
                                             |> Element.text
                                             |> wrapBody
                                     }
                             , head = head page.frontmatter
                             }
                         )
+                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
+                            (Decode.field "stargazers_count" Decode.int)
+                        )
+                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                            (Decode.field "stargazers_count" Decode.int)
+                        )
 
+                --                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
+                --                        (Decode.field "stargazers_count" Decode.int)
                 _ ->
-                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                        (Decode.field "stargazers_count" Decode.int)
+                    StaticHttp.map
                         (\staticData ->
                             { view =
                                 \model viewForPage ->
@@ -157,6 +155,7 @@ view siteMetadata page =
                             , head = head page.frontmatter
                             }
                         )
+                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Decode.field "stargazers_count" Decode.int))
 
         --                _ ->
         --                    ( StaticHttp.get "" (\_ -> 456)

@@ -11,12 +11,11 @@ import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
-import Pages.StaticHttp as StaticHttp
-import Pages.StaticHttpRequest as StaticHttpRequest
 import ProgramTest exposing (ProgramTest)
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http
 import SimulatedEffect.Ports
+import StaticHttp
 import Test exposing (Test, describe, only, test)
 
 
@@ -145,20 +144,22 @@ start pages =
                                     )
                                 |> Maybe.withDefault "Couldn't find request..."
                     in
-                    StaticHttp.withData requestUrl
+                    StaticHttp.jsonRequest requestUrl
                         -- "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Decode.field "stargazers_count" Decode.int)
-                        (\staticData ->
-                            { view =
-                                \model viewForPage ->
-                                    { title = "Title"
-                                    , body =
-                                        "elm-pages ⭐️'s: "
-                                            ++ String.fromInt staticData
-                                            |> Html.text
+                        (Decode.field "stargazers_count" Decode.int
+                            |> Decode.map
+                                (\staticData ->
+                                    { view =
+                                        \model viewForPage ->
+                                            { title = "Title"
+                                            , body =
+                                                "elm-pages ⭐️'s: "
+                                                    ++ String.fromInt staticData
+                                                    |> Html.text
+                                            }
+                                    , head = []
                                     }
-                            , head = []
-                            }
+                                )
                         )
             }
     in
@@ -186,7 +187,7 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp (StaticHttpRequest.Request { url }) ->
+        FetchHttp url ->
             SimulatedEffect.Http.get
                 { url = url
                 , expect =

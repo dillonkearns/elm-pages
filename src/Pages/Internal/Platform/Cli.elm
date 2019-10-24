@@ -28,8 +28,9 @@ import Pages.Document
 import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Set
+import StaticHttp
 import Url exposing (Url)
 
 
@@ -93,7 +94,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp StaticHttp.Request
+    | FetchHttp String
     | Batch (List (Effect pathKey))
 
 
@@ -151,20 +152,10 @@ cliApplication :
                 , frontmatter : metadata
                 }
             ->
-                ( StaticHttp.Request
-                , Decode.Value
-                  ->
-                    Result String
-                        { view :
-                            userModel
-                            -> view
-                            ->
-                                { title : String
-                                , body : Html userMsg
-                                }
-                        , head : List (Head.Tag pathKey)
-                        }
-                )
+                StaticHttp.Request
+                    { view : userModel -> view -> { title : String, body : Html userMsg }
+                    , head : List (Head.Tag pathKey)
+                    }
         , document : Pages.Document.Document metadata view
         , content : Content
         , toJsPort : Json.Encode.Value -> Cmd Never
@@ -227,7 +218,7 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp (StaticHttpRequest.Request { url }) ->
+        FetchHttp url ->
             Http.get
                 { url = url
                 , expect =
@@ -332,20 +323,10 @@ update :
                     , frontmatter : metadata
                     }
                 ->
-                    ( StaticHttp.Request
-                    , Decode.Value
-                      ->
-                        Result String
-                            { view :
-                                userModel
-                                -> view
-                                ->
-                                    { title : String
-                                    , body : Html userMsg
-                                    }
-                            , head : List (Head.Tag pathKey)
-                            }
-                    )
+                    StaticHttp.Request
+                        { view : userModel -> view -> { title : String, body : Html userMsg }
+                        , head : List (Head.Tag pathKey)
+                        }
 
             --            , document : Pages.Document.Document metadata view
             --            , content : Content
@@ -394,20 +375,30 @@ update siteMetadata config msg model =
             )
 
 
-performStaticHttpRequests : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> Effect pathKey
+performStaticHttpRequests : List ( PagePath pathKey, StaticHttp.Request a ) -> Effect pathKey
 performStaticHttpRequests staticRequests =
     staticRequests
         |> List.map
-            (\( pagePath, ( request, fn ) ) ->
-                FetchHttp request
+            (\( pagePath, StaticHttpRequest.Request ( urls, lookup ) ) ->
+                urls
+                    |> List.map (\url -> url)
             )
+        |> List.concat
+        |> Set.fromList
+        |> Set.toList
+        |> List.map FetchHttp
         |> Batch
 
 
-staticResponsesInit : List ( PagePath pathKey, ( StaticHttp.Request, Decode.Value -> Result error value ) ) -> StaticResponses
+staticResponsesInit : List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
 staticResponsesInit list =
     list
-        |> List.map (\( path, ( staticRequest, fn ) ) -> ( PagePath.toString path, NotFetched staticRequest ))
+        |> List.map
+            (\( path, staticRequest ) ->
+                ( PagePath.toString path
+                , NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
+                )
+            )
         |> Dict.fromList
 
 
@@ -417,9 +408,14 @@ staticResponsesUpdate newEntry staticResponses =
         |> Dict.map
             (\pageUrl entry ->
                 case entry of
-                    NotFetched (StaticHttpRequest.Request { url }) ->
-                        if newEntry.url == url then
-                            SuccessfullyFetched (StaticHttpRequest.Request { url = url }) newEntry.response
+                    NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ->
+                        if List.member newEntry.url urls then
+                            let
+                                updatedRawResponses =
+                                    rawResponses
+                                        |> Dict.insert newEntry.url newEntry.response
+                            in
+                            NotFetched (StaticHttpRequest.Request ( urls, lookup )) updatedRawResponses
 
                         else
                             entry
@@ -438,8 +434,12 @@ sendStaticResponsesIfDone staticResponses manifest =
                 |> List.any
                     (\( path, result ) ->
                         case result of
-                            NotFetched _ ->
-                                True
+                            NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ->
+                                if List.length urls == (rawResponses |> Dict.keys |> List.length) then
+                                    False
+
+                                else
+                                    True
 
                             _ ->
                                 False
@@ -464,16 +464,8 @@ encodeStaticResponses staticResponses =
         |> Dict.map
             (\path result ->
                 (case result of
-                    NotFetched (StaticHttpRequest.Request { url }) ->
-                        Dict.fromList
-                            [ ( url
-                              , ""
-                              )
-                            ]
-
-                    SuccessfullyFetched (StaticHttpRequest.Request { url }) jsonResponseString ->
-                        Dict.fromList
-                            [ ( url, jsonResponseString ) ]
+                    NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponsesDict ->
+                        rawResponsesDict
 
                     ErrorFetching request ->
                         --                        Json.Encode.string "ErrorFetching"
@@ -496,10 +488,9 @@ type alias StaticResponses =
 
 
 type StaticHttpResult
-    = NotFetched StaticHttp.Request
-    | SuccessfullyFetched StaticHttp.Request String
-    | ErrorFetching StaticHttp.Request
-    | ErrorDecoding StaticHttp.Request
+    = NotFetched (StaticHttpRequest.Request ()) (Dict String String)
+    | ErrorFetching (StaticHttpRequest.Request ())
+    | ErrorDecoding (StaticHttpRequest.Request ())
 
 
 staticResponseForPage :
@@ -511,39 +502,19 @@ staticResponseForPage :
             , frontmatter : metadata
             }
          ->
-            ( StaticHttp.Request
-            , Decode.Value
-              ->
-                Result String
-                    { view :
-                        userModel
-                        -> view
-                        ->
-                            { title : String
-                            , body : Html userMsg
-                            }
-                    , head : List (Head.Tag pathKey)
-                    }
-            )
+            StaticHttpRequest.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
         )
     ->
         Result (List String)
             (List
                 ( PagePath pathKey
-                , ( StaticHttp.Request
-                  , Decode.Value
-                    ->
-                        Result String
-                            { view :
-                                userModel
-                                -> view
-                                ->
-                                    { title : String
-                                    , body : Html userMsg
-                                    }
-                            , head : List (Head.Tag pathKey)
-                            }
-                  )
+                , StaticHttp.Request
+                    { view : userModel -> view -> { title : String, body : Html userMsg }
+                    , head : List (Head.Tag pathKey)
+                    }
                 )
             )
 staticResponseForPage siteMetadata viewFn =
