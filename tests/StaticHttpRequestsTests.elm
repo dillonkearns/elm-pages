@@ -109,7 +109,13 @@ all =
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
                         (Expect.equal
-                            [ Main.Errors Dict.empty
+                            [ Errors
+                                (Dict.fromList
+                                    [ ( "/elm-pages"
+                                      , "Problem with the given value:\n\n{\n        \"stargazer_count\": 86\n    }\n\nThe user should get this message from the CLI."
+                                      )
+                                    ]
+                                )
                             ]
                         )
         ]

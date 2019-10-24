@@ -19,6 +19,7 @@
             "elm/parser": "1.1.0",
             "elm/svg": "1.0.1",
             "elm/url": "1.0.0",
+            "elm-community/dict-extra": "2.4.0",
             "elm-community/list-extra": "8.2.2",
             "elm-community/result-extra": "2.2.1",
             "elm-community/string-extra": "4.0.1",

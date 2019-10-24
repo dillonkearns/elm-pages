@@ -17,6 +17,7 @@ module Pages.Internal.Platform.Cli exposing
 import Browser.Navigation
 import Codec exposing (Codec)
 import Dict exposing (Dict)
+import Dict.Extra
 import Head
 import Html exposing (Html)
 import Http
@@ -414,17 +415,8 @@ staticResponsesUpdate newEntry staticResponses =
                                 updatedRawResponses =
                                     rawResponses
                                         |> Dict.insert newEntry.url newEntry.response
-
-                                decodeResult =
-                                    updatedRawResponses
-                                        |> lookup
                             in
-                            case decodeResult of
-                                Ok () ->
-                                    NotFetched (StaticHttpRequest.Request ( urls, lookup )) updatedRawResponses
-
-                                Err _ ->
-                                    ErrorDecoding (StaticHttpRequest.Request ( urls, lookup ))
+                            NotFetched (StaticHttpRequest.Request ( urls, lookup )) updatedRawResponses
 
                         else
                             entry
@@ -456,15 +448,19 @@ sendStaticResponsesIfDone staticResponses manifest =
 
         failedRequests =
             staticResponses
-                |> Dict.toList
-                |> List.any
-                    (\( path, result ) ->
+                |> Dict.Extra.filterMap
+                    (\path result ->
                         case result of
-                            ErrorDecoding (StaticHttpRequest.Request ( urls, _ )) ->
-                                True
+                            NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ->
+                                case lookup rawResponses of
+                                    Ok _ ->
+                                        Nothing
+
+                                    Err error ->
+                                        Just error
 
                             _ ->
-                                False
+                                Nothing
                     )
     in
     if pendingRequests then
@@ -472,15 +468,15 @@ sendStaticResponsesIfDone staticResponses manifest =
 
     else
         SendJsData
-            (if failedRequests then
-                Errors Dict.empty
-
-             else
+            (if failedRequests |> Dict.isEmpty then
                 Success
                     (ToJsSuccessPayload
                         (encodeStaticResponses staticResponses)
                         manifest
                     )
+
+             else
+                Errors failedRequests
             )
 
 
