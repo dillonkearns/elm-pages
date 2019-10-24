@@ -1,6 +1,7 @@
 module Secrets exposing (..)
 
 import Dict exposing (Dict)
+import Json.Decode as Decode exposing (Decoder)
 
 
 type alias UrlWithSecrets =
@@ -40,3 +41,9 @@ get name secretsData =
 
                 Nothing ->
                     Err <| "Couldn't find secret `" ++ name ++ "`"
+
+
+decoder : Decoder Secrets
+decoder =
+    Decode.dict Decode.string
+        |> Decode.map Secrets

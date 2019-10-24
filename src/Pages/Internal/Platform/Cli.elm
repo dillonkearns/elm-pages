@@ -30,7 +30,7 @@ import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets
+import Secrets exposing (Secrets)
 import Set
 import StaticHttp
 import Url exposing (Url)
@@ -96,7 +96,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp Secrets.UrlWithSecrets
+    | FetchHttp Secrets Secrets.UrlWithSecrets
     | Batch (List (Effect pathKey))
 
 
@@ -116,7 +116,7 @@ type alias Flags =
 
 
 type alias Model =
-    { staticResponses : StaticResponses }
+    { staticResponses : StaticResponses, secrets : Secrets }
 
 
 type alias ModelDetails userModel metadata view =
@@ -220,12 +220,7 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp urlWithSecrets ->
-            let
-                realSecrets =
-                    -- TODO @@@@@
-                    Secrets.empty
-            in
+        FetchHttp realSecrets urlWithSecrets ->
             Http.get
                 { url = urlWithSecrets realSecrets |> Result.withDefault "TODO" -- TODO handle error
                 , expect =
@@ -241,80 +236,96 @@ perform cliMsgConstructor toJsPort effect =
 
 
 init toModel contentCache siteMetadata config cliMsgConstructor flags =
-    (case contentCache of
-        Ok _ ->
-            case contentCache |> ContentCache.pagesWithErrors of
-                Just pageErrors ->
-                    let
-                        requests =
-                            siteMetadata
-                                |> Result.andThen
-                                    (\metadata ->
-                                        staticResponseForPage metadata config.view
+    case Decode.decodeValue (Decode.field "secrets" Secrets.decoder) flags |> Debug.log "SECRETS" of
+        Ok secrets ->
+            (case contentCache of
+                Ok _ ->
+                    case contentCache |> ContentCache.pagesWithErrors of
+                        Just pageErrors ->
+                            let
+                                requests =
+                                    siteMetadata
+                                        |> Result.andThen
+                                            (\metadata ->
+                                                staticResponseForPage metadata config.view
+                                            )
+
+                                staticResponses : StaticResponses
+                                staticResponses =
+                                    case requests of
+                                        Ok okRequests ->
+                                            staticResponsesInit okRequests
+
+                                        Err errors ->
+                                            Dict.empty
+                            in
+                            case Decode.decodeValue (Decode.field "secrets" Decode.string) flags of
+                                Ok _ ->
+                                    ( Model staticResponses secrets |> toModel
+                                    , SendJsData
+                                        (Errors
+                                            (mapKeys
+                                                (\key -> "/" ++ String.join "/" key)
+                                                pageErrors
+                                            )
+                                        )
                                     )
 
-                        staticResponses : StaticResponses
-                        staticResponses =
+                                Err error ->
+                                    ( Model staticResponses Secrets.empty |> toModel
+                                    , SendJsData
+                                        (Errors (Dict.fromList [ ( "", "Failed to parse flags: " ++ Decode.errorToString error ) ]))
+                                    )
+
+                        Nothing ->
+                            let
+                                requests =
+                                    siteMetadata
+                                        |> Result.andThen
+                                            (\metadata ->
+                                                staticResponseForPage metadata config.view
+                                            )
+
+                                staticResponses : StaticResponses
+                                staticResponses =
+                                    case requests of
+                                        Ok okRequests ->
+                                            staticResponsesInit okRequests
+
+                                        Err errors ->
+                                            Dict.empty
+                            in
                             case requests of
                                 Ok okRequests ->
-                                    staticResponsesInit okRequests
+                                    ( Model staticResponses secrets |> toModel, performStaticHttpRequests secrets okRequests )
 
+                                --                                |> Cmd.map cliMsgConstructor
                                 Err errors ->
-                                    Dict.empty
-                    in
-                    ( Model staticResponses |> toModel
+                                    ( Model staticResponses secrets |> toModel, NoEffect )
+
+                Err error ->
+                    ( Model Dict.empty secrets |> toModel
                     , SendJsData
                         (Errors
                             (mapKeys
                                 (\key -> "/" ++ String.join "/" key)
-                                pageErrors
+                                error
                             )
                         )
                     )
-
-                Nothing ->
-                    let
-                        requests =
-                            siteMetadata
-                                |> Result.andThen
-                                    (\metadata ->
-                                        staticResponseForPage metadata config.view
-                                    )
-
-                        staticResponses : StaticResponses
-                        staticResponses =
-                            case requests of
-                                Ok okRequests ->
-                                    staticResponsesInit okRequests
-
-                                Err errors ->
-                                    Dict.empty
-                    in
-                    case requests of
-                        Ok okRequests ->
-                            ( Model staticResponses |> toModel, performStaticHttpRequests okRequests )
-
-                        --                                |> Cmd.map cliMsgConstructor
-                        Err errors ->
-                            ( Model staticResponses |> toModel, NoEffect )
+             --                (Errors error)
+             --                (Json.Encode.object
+             --                    [ ( "errors", encodeErrors error )
+             --                    , ( "manifest", Manifest.toJson config.manifest )
+             --                    ]
+             --                )
+            )
 
         Err error ->
-            ( Model Dict.empty |> toModel
+            ( Model Dict.empty Secrets.empty |> toModel
             , SendJsData
-                (Errors
-                    (mapKeys
-                        (\key -> "/" ++ String.join "/" key)
-                        error
-                    )
-                )
+                (Errors (Dict.fromList [ ( "", "Failed to parse flags: " ++ Decode.errorToString error ) ]))
             )
-     --                (Errors error)
-     --                (Json.Encode.object
-     --                    [ ( "errors", encodeErrors error )
-     --                    , ( "manifest", Manifest.toJson config.manifest )
-     --                    ]
-     --                )
-    )
 
 
 update :
@@ -382,12 +393,8 @@ update siteMetadata config msg model =
             )
 
 
-performStaticHttpRequests : List ( PagePath pathKey, StaticHttp.Request a ) -> Effect pathKey
-performStaticHttpRequests staticRequests =
-    let
-        secrets =
-            Secrets.empty
-    in
+performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Effect pathKey
+performStaticHttpRequests secrets staticRequests =
     staticRequests
         |> List.map
             (\( pagePath, StaticHttpRequest.Request ( urls, lookup ) ) ->
@@ -408,7 +415,7 @@ performStaticHttpRequests staticRequests =
         -- TODO prevent duplicates... can't because Set needs comparable
         --        |> Set.fromList
         --        |> Set.toList
-        |> List.map FetchHttp
+        |> List.map (FetchHttp secrets)
         |> Batch
 
 
@@ -434,15 +441,9 @@ staticResponsesUpdate newEntry staticResponses =
                         let
                             realUrls =
                                 urls
-                                    |> List.filterMap
+                                    |> List.map
                                         (\urlBuilder ->
-                                            case urlBuilder Secrets.empty of
-                                                Ok url ->
-                                                    Just url
-
-                                                Err _ ->
-                                                    -- @@@@@@@@@ TODO handle error here
-                                                    Nothing
+                                            Secrets.useFakeSecrets urlBuilder
                                         )
 
                             includesUrl =

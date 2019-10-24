@@ -12,7 +12,7 @@ import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
-import Secrets
+import Secrets exposing (Secrets)
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http
 import SimulatedEffect.Ports
@@ -27,7 +27,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , { url = "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
+                      , { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -57,10 +57,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , { url = "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
+                      , { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
                       )
                     , ( [ "elm-pages-starter" ]
-                      , { url = "https://api.github.com/repos/dillonkearns/elm-pages-starter", decoder = Decode.succeed () }
+                      , { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages-starter", decoder = Decode.succeed () }
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -100,7 +100,7 @@ all =
         , test "an error is sent out for decoder failures" <|
             \() ->
                 start
-                    [ ( [ "elm-pages" ], { url = "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.fail "The user should get this message from the CLI." } )
+                    [ ( [ "elm-pages" ], { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.fail "The user should get this message from the CLI." } )
                     ]
                     |> ProgramTest.simulateHttpOk
                         "GET"
@@ -119,10 +119,49 @@ all =
                                 )
                             ]
                         )
+        , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
+            \() ->
+                start
+                    [ ( []
+                      , { url =
+                            \secrets ->
+                                secrets
+                                    |> Secrets.get "API_KEY"
+                                    |> Result.map
+                                        (\apiKey ->
+                                            "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                        )
+                        , decoder = Decode.succeed ()
+                        }
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
+                        """{ "stargazer_count": 86 }"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
+                                                  , """{ "stargazer_count": 86 }"""
+                                                  )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         ]
 
 
-start : List ( List String, { url : String, decoder : Decode.Decoder () } ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+start : List ( List String, { url : Secrets -> Result String String, decoder : Decode.Decoder () } ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
 start pages =
     let
         document =
@@ -174,7 +213,7 @@ start pages =
                     in
                     case thing of
                         Just { url, decoder } ->
-                            StaticHttp.jsonRequest url
+                            StaticHttp.jsonRequestWithSecrets url
                                 decoder
                                 |> StaticHttp.map
                                     (\staticData -> { view = \model viewForPage -> { title = "Title", body = Html.text "" }, head = [] })
@@ -189,7 +228,19 @@ start pages =
         , view = \_ -> { title = "", body = [ Html.text "" ] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
-        |> ProgramTest.start ()
+        |> ProgramTest.start (flags """{"secrets":
+        {"API_KEY": "ABCD1234"}
+        }""")
+
+
+flags : String -> Decode.Value
+flags jsonString =
+    case Decode.decodeString Decode.value jsonString of
+        Ok value ->
+            value
+
+        Err _ ->
+            Debug.todo "Invalid JSON value."
 
 
 simulateEffects : Main.Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
@@ -207,12 +258,7 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp urlWithSecrets ->
-            let
-                realSecrets =
-                    -- TODO @@@@@
-                    Secrets.empty
-            in
+        FetchHttp realSecrets urlWithSecrets ->
             SimulatedEffect.Http.get
                 { url = urlWithSecrets realSecrets |> Result.withDefault "TODO" -- TODO handle error
                 , expect =
