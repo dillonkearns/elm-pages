@@ -5,6 +5,7 @@ import Head
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Pages.StaticHttpRequest exposing (Request(..))
+import Secrets exposing (Secrets)
 
 
 type alias Request value =
@@ -65,6 +66,30 @@ jsonRequest url decoder =
 
                             Nothing ->
                                 Err <| "Couldn't find response for url `" ++ url ++ "`"
+                   )
+                |> Result.andThen
+                    (\rawResponse ->
+                        rawResponse
+                            |> Decode.decodeString decoder
+                            |> Result.mapError Decode.errorToString
+                    )
+        )
+
+
+jsonRequestWithSecrets : (Secrets -> Result String String) -> Decoder a -> Request a
+jsonRequestWithSecrets urlWithSecrets decoder =
+    Request
+        ( [ urlWithSecrets ]
+        , \rawResponseDict ->
+            rawResponseDict
+                |> Dict.get (Secrets.useFakeSecrets urlWithSecrets)
+                |> (\maybeResponse ->
+                        case maybeResponse of
+                            Just rawResponse ->
+                                Ok rawResponse
+
+                            Nothing ->
+                                Err <| "Couldn't find response for url `" ++ Secrets.useFakeSecrets urlWithSecrets ++ "`"
                    )
                 |> Result.andThen
                     (\rawResponse ->
