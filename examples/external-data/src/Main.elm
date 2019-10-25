@@ -148,8 +148,8 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         () ->
-            StaticHttp.map3
-                (\elmCompanies starCount netlifyStars ->
+            StaticHttp.map2
+                (\elmCompanies starCount ->
                     { view =
                         \model viewForPage ->
                             { title = "Landing Page"
@@ -167,9 +167,6 @@ view siteMetadata page =
                 )
                 airtableRequest
                 (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Decode.field "stargazers_count" Decode.int)
-                )
-                (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-markdown"
                     (Decode.field "stargazers_count" Decode.int)
                 )
 
@@ -243,7 +240,7 @@ head : () -> List (Head.Tag Pages.PathKey)
 head () =
     Seo.summaryLarge
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "elm-pages external data example"
         , image =
             { url = images.iconPng
             , alt = "elm-pages logo"
