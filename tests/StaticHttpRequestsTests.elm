@@ -225,7 +225,7 @@ start pages =
     ProgramTest.createDocument
         { init = Main.init identity contentCache siteMetadata config identity
         , update = Main.update siteMetadata config
-        , view = \_ -> { title = "", body = [ Html.text "" ] }
+        , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
         |> ProgramTest.start (flags """{"secrets":
