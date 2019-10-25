@@ -146,39 +146,35 @@ view :
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
-    let
-        viewFn =
-            case page.frontmatter of
-                () ->
-                    StaticHttp.map3
-                        (\elmCompanies starCount netlifyStars ->
-                            { view =
-                                \model viewForPage ->
-                                    { title = "Landing Page"
-                                    , body =
-                                        (header starCount
-                                            :: (elmCompanies
-                                                    |> List.map companyView
-                                               )
-                                        )
-                                            |> Element.column [ Element.width Element.fill ]
-                                            |> Element.layout []
-                                    }
-                            , head = head page.frontmatter
+    case page.frontmatter of
+        () ->
+            StaticHttp.map3
+                (\elmCompanies starCount netlifyStars ->
+                    { view =
+                        \model viewForPage ->
+                            { title = "Landing Page"
+                            , body =
+                                (header starCount
+                                    :: (elmCompanies
+                                            |> List.map companyView
+                                       )
+                                )
+                                    |> Element.column [ Element.width Element.fill ]
+                                    |> layout
                             }
-                        )
-                        airtableRequest
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (Decode.field "stargazers_count" Decode.int)
-                        )
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-markdown"
-                            (Decode.field "stargazers_count" Decode.int)
-                        )
-    in
-    viewFn
+                    , head = head page.frontmatter
+                    }
+                )
+                airtableRequest
+                (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (Decode.field "stargazers_count" Decode.int)
+                )
+                (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-markdown"
+                    (Decode.field "stargazers_count" Decode.int)
+                )
 
 
-wrapBody body =
+layout body =
     body
         |> Element.layout
             [ Element.width Element.fill
