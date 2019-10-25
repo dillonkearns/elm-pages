@@ -43,7 +43,10 @@ manifest =
 type alias View =
     ()
 
-type alias Metadata = ()
+
+type alias Metadata =
+    ()
+
 
 main : Pages.Platform.Program Model Msg Metadata View
 main =
@@ -100,11 +103,14 @@ type alias Company =
     }
 
 
-companyView : Company -> Html msg
+companyView : Company -> Element msg
 companyView company =
-    Html.div []
-        [ Html.h2 [] [ Html.text company.name ]
-        , Html.img [ Attr.src company.logoUrl ] []
+    Element.column []
+        [ Element.el [] (Element.text company.name)
+        , Element.image []
+            { src = company.logoUrl
+            , description = company.name ++ " logo"
+            }
         ]
 
 
@@ -145,26 +151,29 @@ view siteMetadata page =
             case page.frontmatter of
                 () ->
                     StaticHttp.map3
-                        (\elmCompanies elmPagesStarterStars netlifyStars ->
+                        (\elmCompanies starCount netlifyStars ->
                             { view =
                                 \model viewForPage ->
                                     { title = "Landing Page"
                                     , body =
-                                        elmCompanies
-                                            |> List.map companyView
-                                            |> Html.div []
+                                        (header starCount
+                                            :: (elmCompanies
+                                                    |> List.map companyView
+                                               )
+                                        )
+                                            |> Element.column [ Element.width Element.fill ]
+                                            |> Element.layout []
                                     }
                             , head = head page.frontmatter
                             }
                         )
                         airtableRequest
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Decode.field "stargazers_count" Decode.int)
                         )
                         (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-markdown"
                             (Decode.field "stargazers_count" Decode.int)
                         )
-
     in
     viewFn
 
@@ -187,8 +196,8 @@ articleImageView articleImage =
         }
 
 
-header : PagePath Pages.PathKey -> Element msg
-header currentPath =
+header : Int -> Element msg
+header starCount =
     Element.column [ Element.width Element.fill ]
         [ Element.el
             [ Element.height (Element.px 4)
@@ -218,16 +227,15 @@ header currentPath =
                         , Element.spacing 16
                         , Element.htmlAttribute (Attr.id "navbar-title")
                         ]
-                        [ Element.text "elm-pages"
+                        [ Element.text "elm-pages static data"
                         ]
                 }
             , Element.row [ Element.spacing 15 ]
                 [ elmDocsLink
-                , githubRepoLink
+                , githubRepoLink starCount
                 ]
             ]
         ]
-
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
@@ -237,20 +245,20 @@ header currentPath =
 -}
 head : () -> List (Head.Tag Pages.PathKey)
 head () =
-            Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = siteTagline
-                , locale = Nothing
-                , title = "External Data Example"
-                }
-                |> Seo.website
+    Seo.summaryLarge
+        { canonicalUrlOverride = Nothing
+        , siteName = "elm-pages"
+        , image =
+            { url = images.iconPng
+            , alt = "elm-pages logo"
+            , dimensions = Nothing
+            , mimeType = Nothing
+            }
+        , description = siteTagline
+        , locale = Nothing
+        , title = "External Data Example"
+        }
+        |> Seo.website
 
 
 canonicalSiteUrl : String
@@ -263,20 +271,19 @@ siteTagline =
     "A statically typed site generator - elm-pages"
 
 
-
-
-
-
-githubRepoLink : Element msg
-githubRepoLink =
+githubRepoLink : Int -> Element msg
+githubRepoLink starCount =
     Element.newTabLink []
         { url = "https://github.com/dillonkearns/elm-pages"
         , label =
-            Element.image
-                [ Element.width (Element.px 22)
-                , Font.color Palette.color.primary
+            Element.row [ Element.spacing 5 ]
+                [ Element.image
+                    [ Element.width (Element.px 22)
+                    , Font.color Palette.color.primary
+                    ]
+                    { src = ImagePath.toString Pages.images.github, description = "Github repo" }
+                , Element.text <| String.fromInt starCount
                 ]
-                { src = ImagePath.toString Pages.images.github, description = "Github repo" }
         }
 
 
