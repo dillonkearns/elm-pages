@@ -1,0 +1,13 @@
+@import url("https://fonts.googleapis.com/css?family=Montserrat:400,700|Roboto&display=swap");
+
+.avatar img {
+  border-radius: 50%;
+}
+@media all and (max-width: 600px) {
+  #navbar-title {
+    font-size: 20px !important;
+  }
+  #navbar-title svg {
+    width: 20px;
+  }
+}
