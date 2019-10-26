@@ -96,7 +96,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp Secrets Secrets.UrlWithSecrets
+    | FetchHttp String String
     | Batch (List (Effect pathKey))
 
 
@@ -220,14 +220,14 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp realSecrets urlWithSecrets ->
+        FetchHttp unmaskedUrl maskedUrl ->
             Http.get
-                { url = urlWithSecrets realSecrets |> Result.withDefault "TODO" -- TODO handle error
+                { url = unmaskedUrl
                 , expect =
                     Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { url = Secrets.useFakeSecrets urlWithSecrets
+                                { url = maskedUrl
                                 , response = response
                                 }
                                 |> cliMsgConstructor
@@ -297,7 +297,15 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                             in
                             case requests of
                                 Ok okRequests ->
-                                    ( Model staticResponses secrets |> toModel, performStaticHttpRequests secrets okRequests )
+                                    case performStaticHttpRequests secrets okRequests of
+                                        Ok staticRequestsEffect ->
+                                            ( Model staticResponses secrets |> toModel, staticRequestsEffect )
+
+                                        Err error ->
+                                            ( Model staticResponses secrets |> toModel
+                                            , Errors Dict.empty |> SendJsData
+                                              -- TODO send real error message
+                                            )
 
                                 --                                |> Cmd.map cliMsgConstructor
                                 Err errors ->
@@ -393,30 +401,32 @@ update siteMetadata config msg model =
             )
 
 
-performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Effect pathKey
+performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Result String (Effect pathKey)
 performStaticHttpRequests secrets staticRequests =
     staticRequests
         |> List.map
             (\( pagePath, StaticHttpRequest.Request ( urls, lookup ) ) ->
                 urls
-             --                    |> List.map
-             --                        (\url ->
-             --                            url
-             --                         --                            case urlBuilder secrets of
-             --                         --                                Ok url ->
-             --                         --                                    Just url
-             --                         --
-             --                         --                                Err _ ->
-             --                         --                                    -- @@@@@@@@@ TODO handle error here
-             --                         --                                    Nothing
-             --                        )
             )
         |> List.concat
         -- TODO prevent duplicates... can't because Set needs comparable
         --        |> Set.fromList
         --        |> Set.toList
-        |> List.map (FetchHttp secrets)
-        |> Batch
+        |> List.map
+            (\urlBuilder ->
+                urlBuilder secrets
+                    |> Result.map
+                        (\unmasked ->
+                            FetchHttp unmasked (Secrets.useFakeSecrets urlBuilder)
+                        )
+            )
+        |> combineSimple
+        |> Result.map Batch
+
+
+combineSimple : List (Result x a) -> Result x (List a)
+combineSimple =
+    List.foldr (Result.map2 (::)) (Ok [])
 
 
 staticResponsesInit : List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
