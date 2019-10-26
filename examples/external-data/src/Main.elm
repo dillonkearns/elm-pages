@@ -100,6 +100,7 @@ subscriptions _ =
 type alias Company =
     { name : String
     , logoUrl : String
+    , loc : String
     }
 
 
@@ -107,6 +108,7 @@ companyView : Company -> Element msg
 companyView company =
     Element.column []
         [ Element.el [] (Element.text company.name)
+        , Element.el [] (Element.text <| "Lines of code: " ++ company.loc)
         , Element.image []
             { src = company.logoUrl
             , description = company.name ++ " logo"
@@ -120,14 +122,20 @@ airtableRequest =
         (\secrets ->
             secrets
                 |> Secrets.get "AIRTABLE_API_KEY"
-                |> Result.map (\airtableApiKey -> "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey)
+                |> Result.map
+                    (\airtableApiKey ->
+                        "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey
+                    )
         )
         (Decode.field "records"
             (Decode.list
                 (Decode.field "fields"
-                    (Decode.map2 Company
+                    (Decode.map3 Company
                         (Decode.field "Company Name" Decode.string)
                         (Decode.field "Company Logo" (Decode.index 0 (Decode.field "url" Decode.string)))
+                        (Decode.field "Significant lines of Elm code (in thousands)"
+                            (Decode.index 0 Decode.string)
+                        )
                     )
                 )
             )
