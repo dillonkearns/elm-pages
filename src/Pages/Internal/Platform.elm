@@ -112,9 +112,6 @@ pageViewOrError pathKey viewFn model cache =
             case entry of
                 ContentCache.Parsed metadata viewResult ->
                     let
-                        dummyInputString =
-                            """ 123456789 """
-
                         viewFnResult =
                             viewFn
                                 (cache
