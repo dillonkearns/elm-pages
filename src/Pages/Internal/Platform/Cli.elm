@@ -304,8 +304,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
                                         Err error ->
                                             ( Model staticResponses secrets |> toModel
-                                            , Errors "TODO real error here" |> SendJsData
-                                              -- TODO send real error message
+                                            , Errors error |> SendJsData
                                             )
 
                                 --                                |> Cmd.map cliMsgConstructor
