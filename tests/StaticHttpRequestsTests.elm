@@ -111,12 +111,15 @@ all =
                         (Codec.decoder Main.toJsCodec)
                         (Expect.equal
                             [ Errors
-                                (Dict.fromList
-                                    [ ( "/elm-pages"
-                                      , "Problem with the given value:\n\n{\n        \"stargazer_count\": 86\n    }\n\nThe user should get this message from the CLI."
-                                      )
-                                    ]
-                                )
+                                """/elm-pages
+
+Problem with the given value:
+
+{
+        "stargazer_count": 86
+    }
+
+The user should get this message from the CLI."""
                             ]
                         )
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
@@ -258,14 +261,14 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp realSecrets urlWithSecrets ->
+        FetchHttp unmaskedUrl maskedUrl ->
             SimulatedEffect.Http.get
-                { url = urlWithSecrets realSecrets |> Result.withDefault "TODO" -- TODO handle error
+                { url = unmaskedUrl
                 , expect =
                     SimulatedEffect.Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { url = Secrets.useFakeSecrets urlWithSecrets
+                                { url = maskedUrl
                                 , response = response
                                 }
                         )
