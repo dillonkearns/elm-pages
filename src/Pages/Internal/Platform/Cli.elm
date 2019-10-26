@@ -37,7 +37,7 @@ import Url exposing (Url)
 
 
 type ToJsPayload pathKey
-    = Errors (Dict String String)
+    = Errors String
     | Success (ToJsSuccessPayload pathKey)
 
 
@@ -58,7 +58,7 @@ toJsCodec =
                 Success { pages, manifest } ->
                     success (ToJsSuccessPayload pages manifest)
         )
-        |> Codec.variant1 "Errors" Errors (Codec.dict Codec.string)
+        |> Codec.variant1 "Errors" Errors Codec.string
         |> Codec.variant1 "Success"
             Success
             successCodec
@@ -263,18 +263,19 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                 Ok _ ->
                                     ( Model staticResponses secrets |> toModel
                                     , SendJsData
-                                        (Errors
-                                            (mapKeys
-                                                (\key -> "/" ++ String.join "/" key)
-                                                pageErrors
-                                            )
+                                        (Errors <|
+                                            pageErrorsToString
+                                                (mapKeys
+                                                    (\key -> "/" ++ String.join "/" key)
+                                                    pageErrors
+                                                )
                                         )
                                     )
 
                                 Err error ->
                                     ( Model staticResponses Secrets.empty |> toModel
                                     , SendJsData
-                                        (Errors (Dict.fromList [ ( "", "Failed to parse flags: " ++ Decode.errorToString error ) ]))
+                                        (Errors <| "Failed to parse flags: " ++ Decode.errorToString error)
                                     )
 
                         Nothing ->
@@ -303,7 +304,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
                                         Err error ->
                                             ( Model staticResponses secrets |> toModel
-                                            , Errors Dict.empty |> SendJsData
+                                            , Errors "TODO real error here" |> SendJsData
                                               -- TODO send real error message
                                             )
 
@@ -314,11 +315,12 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                 Err error ->
                     ( Model Dict.empty secrets |> toModel
                     , SendJsData
-                        (Errors
-                            (mapKeys
-                                (\key -> "/" ++ String.join "/" key)
-                                error
-                            )
+                        (Errors <|
+                            pageErrorsToString
+                                (mapKeys
+                                    (\key -> "/" ++ String.join "/" key)
+                                    error
+                                )
                         )
                     )
              --                (Errors error)
@@ -332,8 +334,17 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
         Err error ->
             ( Model Dict.empty Secrets.empty |> toModel
             , SendJsData
-                (Errors (Dict.fromList [ ( "", "Failed to parse flags: " ++ Decode.errorToString error ) ]))
+                (Errors <| "Failed to parse flags: " ++ Decode.errorToString error)
             )
+
+
+type alias PageErrors =
+    Dict String String
+
+
+pageErrorsToString : PageErrors -> String
+pageErrorsToString pageErrors =
+    "TODO"
 
 
 update :
@@ -525,7 +536,7 @@ sendStaticResponsesIfDone staticResponses manifest =
                     )
 
              else
-                Errors failedRequests
+                Errors <| pageErrorsToString failedRequests
             )
 
 
