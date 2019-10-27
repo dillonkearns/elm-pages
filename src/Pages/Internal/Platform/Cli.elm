@@ -343,7 +343,15 @@ type alias PageErrors =
 
 pageErrorsToString : PageErrors -> String
 pageErrorsToString pageErrors =
-    "TODO"
+    pageErrors
+        |> Dict.toList
+        |> List.map
+            (\( pagePath, error ) ->
+                pagePath
+                    ++ "\n\n"
+                    ++ error
+            )
+        |> String.join "\n\n"
 
 
 update :
