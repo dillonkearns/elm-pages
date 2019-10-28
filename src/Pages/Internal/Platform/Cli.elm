@@ -120,7 +120,7 @@ type alias Model =
 
 
 type Error
-    = MissingSecret ErrorContext String
+    = MissingSecret String
     | MetadataDecodeError ErrorContext String
     | InternalError String
 
@@ -344,10 +344,9 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                                 ]
                                             )
 
-                                        Err error ->
-                                            ( Model staticResponses secrets [ error ] |> toModel
+                                        Err errors ->
+                                            ( Model staticResponses secrets errors |> toModel
                                             , Errors "TODO" |> SendJsData
-                                              --                                            , Errors error |> SendJsData
                                             )
 
                                 --                                |> Cmd.map cliMsgConstructor
@@ -473,7 +472,7 @@ update siteMetadata config msg model =
             )
 
 
-performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Result Error (Effect pathKey)
+performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Result (List Error) (Effect pathKey)
 performStaticHttpRequests secrets staticRequests =
     staticRequests
         |> List.map
@@ -491,15 +490,40 @@ performStaticHttpRequests secrets staticRequests =
                         (\unmasked ->
                             FetchHttp unmasked (Secrets.useFakeSecrets urlBuilder)
                         )
-                    |> Result.mapError (\errorMessage -> MissingSecret { path = [] } errorMessage)
+                    |> Result.mapError (\errorMessage -> MissingSecret errorMessage)
             )
-        |> combineSimple
+        |> combineMultipleErrors
         |> Result.map Batch
 
 
 combineSimple : List (Result x a) -> Result x (List a)
 combineSimple =
     List.foldr (Result.map2 (::)) (Ok [])
+
+
+combineMultipleErrors : List (Result error a) -> Result (List error) (List a)
+combineMultipleErrors results =
+    List.foldr
+        (\result soFarResult ->
+            case soFarResult of
+                Ok soFarOk ->
+                    case result of
+                        Ok value ->
+                            value :: soFarOk |> Ok
+
+                        Err error ->
+                            Err [ error ]
+
+                Err errorsSoFar ->
+                    case result of
+                        Ok _ ->
+                            Err errorsSoFar
+
+                        Err error ->
+                            Err <| error :: errorsSoFar
+        )
+        (Ok [])
+        results
 
 
 staticResponsesInit : List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
