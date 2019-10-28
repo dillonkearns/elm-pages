@@ -27,7 +27,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -57,10 +57,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.succeed () }
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                       )
                     , ( [ "elm-pages-starter" ]
-                      , { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages-starter", decoder = Decode.succeed () }
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -100,7 +100,9 @@ all =
         , test "an error is sent out for decoder failures" <|
             \() ->
                 start
-                    [ ( [ "elm-pages" ], { url = \_ -> Ok "https://api.github.com/repos/dillonkearns/elm-pages", decoder = Decode.fail "The user should get this message from the CLI." } )
+                    [ ( [ "elm-pages" ]
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.fail "The user should get this message from the CLI.")
+                      )
                     ]
                     |> ProgramTest.simulateHttpOk
                         "GET"
@@ -126,16 +128,16 @@ The user should get this message from the CLI."""
             \() ->
                 start
                     [ ( []
-                      , { url =
-                            \secrets ->
+                      , StaticHttp.jsonRequestWithSecrets
+                            (\secrets ->
                                 secrets
                                     |> Secrets.get "API_KEY"
                                     |> Result.map
                                         (\apiKey ->
                                             "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                         )
-                        , decoder = Decode.succeed ()
-                        }
+                            )
+                            (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -164,7 +166,7 @@ The user should get this message from the CLI."""
         ]
 
 
-start : List ( List String, { url : Secrets -> Result String String, decoder : Decode.Decoder () } ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
 start pages =
     let
         document =
@@ -215,9 +217,8 @@ start pages =
                                     )
                     in
                     case thing of
-                        Just { url, decoder } ->
-                            StaticHttp.jsonRequestWithSecrets url
-                                decoder
+                        Just request ->
+                            request
                                 |> StaticHttp.map
                                     (\staticData -> { view = \model viewForPage -> { title = "Title", body = Html.text "" }, head = [] })
 
