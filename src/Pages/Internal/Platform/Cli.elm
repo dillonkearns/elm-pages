@@ -235,6 +235,28 @@ perform cliMsgConstructor toJsPort effect =
                 }
 
 
+init :
+    (Model -> model)
+    -> ContentCache.ContentCache metadata view
+    -> Result (List String) (List ( PagePath pathKey, metadata ))
+    ->
+        { config
+            | view :
+                List ( PagePath pathKey, metadata )
+                ->
+                    { path : PagePath pathKey
+                    , frontmatter : metadata
+                    }
+                ->
+                    StaticHttp.Request
+                        { view : userModel -> view -> { title : String, body : Html userMsg }
+                        , head : List (Head.Tag pathKey)
+                        }
+            , manifest : Manifest.Config pathKey
+        }
+    -> f
+    -> Decode.Value
+    -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config cliMsgConstructor flags =
     case Decode.decodeValue (Decode.field "secrets" Secrets.decoder) flags of
         Ok secrets ->
