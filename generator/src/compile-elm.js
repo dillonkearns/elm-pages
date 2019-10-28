@@ -22,7 +22,7 @@ function runElm(callback) {
         if (payload.tag === "Success") {
           callback(payload.args[0]);
         } else {
-          console.log("ERROR bad payload", payload);
+          console.log(payload.args[0]);
           process.exit(1);
         }
         delete Elm;
