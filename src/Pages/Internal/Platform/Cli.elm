@@ -116,7 +116,18 @@ type alias Flags =
 
 
 type alias Model =
-    { staticResponses : StaticResponses, secrets : Secrets }
+    { staticResponses : StaticResponses, secrets : Secrets, errors : List Error }
+
+
+type Error
+    = MissingSecret ErrorContext String
+    | MetadataDecodeError ErrorContext String
+    | InternalError String
+
+
+type alias ErrorContext =
+    { path : List String
+    }
 
 
 type alias ModelDetails userModel metadata view =
@@ -283,7 +294,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                             in
                             case Decode.decodeValue (Decode.field "secrets" Decode.string) flags of
                                 Ok _ ->
-                                    ( Model staticResponses secrets |> toModel
+                                    ( Model staticResponses secrets (pageErrorsToErrors pageErrors) |> toModel
                                     , SendJsData
                                         (Errors <|
                                             pageErrorsToString
@@ -295,7 +306,11 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                     )
 
                                 Err error ->
-                                    ( Model staticResponses Secrets.empty |> toModel
+                                    ( Model staticResponses
+                                        Secrets.empty
+                                        [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
+                                        ]
+                                        |> toModel
                                     , SendJsData
                                         (Errors <| "Failed to parse flags: " ++ Decode.errorToString error)
                                     )
@@ -322,7 +337,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                 Ok okRequests ->
                                     case performStaticHttpRequests secrets okRequests of
                                         Ok staticRequestsEffect ->
-                                            ( Model staticResponses secrets |> toModel
+                                            ( Model staticResponses secrets [] |> toModel
                                             , Batch
                                                 [ staticRequestsEffect
                                                 , sendStaticResponsesIfDone staticResponses config.manifest
@@ -330,16 +345,17 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             )
 
                                         Err error ->
-                                            ( Model staticResponses secrets |> toModel
-                                            , Errors error |> SendJsData
+                                            ( Model staticResponses secrets [ error ] |> toModel
+                                            , Errors "TODO" |> SendJsData
+                                              --                                            , Errors error |> SendJsData
                                             )
 
                                 --                                |> Cmd.map cliMsgConstructor
                                 Err errors ->
-                                    ( Model staticResponses secrets |> toModel, NoEffect )
+                                    ( Model staticResponses secrets [] |> toModel, NoEffect )
 
                 Err error ->
-                    ( Model Dict.empty secrets |> toModel
+                    ( Model Dict.empty secrets [] |> toModel
                     , SendJsData
                         (Errors <|
                             pageErrorsToString
@@ -358,7 +374,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
             )
 
         Err error ->
-            ( Model Dict.empty Secrets.empty |> toModel
+            ( Model Dict.empty Secrets.empty [] |> toModel
             , SendJsData
                 (Errors <| "Failed to parse flags: " ++ Decode.errorToString error)
             )
@@ -366,6 +382,17 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
 type alias PageErrors =
     Dict String String
+
+
+pageErrorsToErrors : Dict (List String) String -> List Error
+pageErrorsToErrors pageErrors =
+    --    []
+    pageErrors
+        |> Dict.toList
+        |> List.map
+            (\( pagePath, errorString ) ->
+                MetadataDecodeError { path = pagePath } errorString
+            )
 
 
 pageErrorsToString : PageErrors -> String
@@ -446,7 +473,7 @@ update siteMetadata config msg model =
             )
 
 
-performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Result String (Effect pathKey)
+performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Request a ) -> Result Error (Effect pathKey)
 performStaticHttpRequests secrets staticRequests =
     staticRequests
         |> List.map
@@ -464,6 +491,7 @@ performStaticHttpRequests secrets staticRequests =
                         (\unmasked ->
                             FetchHttp unmasked (Secrets.useFakeSecrets urlBuilder)
                         )
+                    |> Result.mapError (\errorMessage -> MissingSecret { path = [] } errorMessage)
             )
         |> combineSimple
         |> Result.map Batch
@@ -679,6 +707,7 @@ resultFolder current soFarResult =
                         |> Err
 
 
+encodeErrors : Dict (List String) String -> Json.Encode.Value
 encodeErrors errors =
     errors
         |> Json.Encode.dict
