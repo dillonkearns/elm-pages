@@ -97,6 +97,28 @@ all =
                                 }
                             ]
                         )
+        , test "the port sends out even if there are no http requests" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.succeed ()
+                      )
+                    ]
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList []
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         , test "an error is sent out for decoder failures" <|
             \() ->
                 start

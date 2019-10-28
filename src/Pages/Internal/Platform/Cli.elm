@@ -300,7 +300,12 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                 Ok okRequests ->
                                     case performStaticHttpRequests secrets okRequests of
                                         Ok staticRequestsEffect ->
-                                            ( Model staticResponses secrets |> toModel, staticRequestsEffect )
+                                            ( Model staticResponses secrets |> toModel
+                                            , Batch
+                                                [ staticRequestsEffect
+                                                , sendStaticResponsesIfDone staticResponses config.manifest
+                                                ]
+                                            )
 
                                         Err error ->
                                             ( Model staticResponses secrets |> toModel
