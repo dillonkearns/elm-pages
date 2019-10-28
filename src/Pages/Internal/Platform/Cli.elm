@@ -236,7 +236,7 @@ perform cliMsgConstructor toJsPort effect =
 
 
 init toModel contentCache siteMetadata config cliMsgConstructor flags =
-    case Decode.decodeValue (Decode.field "secrets" Secrets.decoder) flags |> Debug.log "SECRETS" of
+    case Decode.decodeValue (Decode.field "secrets" Secrets.decoder) flags of
         Ok secrets ->
             (case contentCache of
                 Ok _ ->
