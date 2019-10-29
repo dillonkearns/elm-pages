@@ -40,7 +40,7 @@ get name secretsData =
                     Ok secret
 
                 Nothing ->
-                    Err <| "Couldn't find secret `" ++ name ++ "`"
+                    Err <| name
 
 
 decoder : Decoder Secrets

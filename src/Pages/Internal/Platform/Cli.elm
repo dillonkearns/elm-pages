@@ -33,6 +33,7 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets exposing (Secrets)
 import Set
 import StaticHttp
+import TerminalText as Terminal
 import Url exposing (Url)
 
 
@@ -271,7 +272,7 @@ init :
 init toModel contentCache siteMetadata config cliMsgConstructor flags =
     case Decode.decodeValue (Decode.field "secrets" Secrets.decoder) flags of
         Ok secrets ->
-            (case contentCache of
+            case contentCache of
                 Ok _ ->
                     case contentCache |> ContentCache.pagesWithErrors of
                         Just pageErrors ->
@@ -295,14 +296,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                             case Decode.decodeValue (Decode.field "secrets" Decode.string) flags of
                                 Ok _ ->
                                     ( Model staticResponses secrets (pageErrorsToErrors pageErrors) |> toModel
-                                    , SendJsData
-                                        (Errors <|
-                                            pageErrorsToString
-                                                (mapKeys
-                                                    (\key -> "/" ++ String.join "/" key)
-                                                    pageErrors
-                                                )
-                                        )
+                                    , NoEffect
                                     )
 
                                 Err error ->
@@ -311,8 +305,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                         [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
                                         ]
                                         |> toModel
-                                    , SendJsData
-                                        (Errors <| "Failed to parse flags: " ++ Decode.errorToString error)
+                                    , NoEffect
                                     )
 
                         Nothing ->
@@ -340,42 +333,51 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             ( Model staticResponses secrets [] |> toModel
                                             , Batch
                                                 [ staticRequestsEffect
-                                                , sendStaticResponsesIfDone staticResponses config.manifest
+                                                , sendStaticResponsesIfDone [] staticResponses config.manifest
                                                 ]
                                             )
 
                                         Err errors ->
                                             ( Model staticResponses secrets errors |> toModel
-                                            , Errors "TODO" |> SendJsData
+                                              -- TODO write a test case for this
+                                              -- TODO should this be using Dict.empty, or some unrecoverable error flag in Model?
+                                            , sendStaticResponsesIfDone errors Dict.empty config.manifest
                                             )
 
-                                --                                |> Cmd.map cliMsgConstructor
                                 Err errors ->
-                                    ( Model staticResponses secrets [] |> toModel, NoEffect )
+                                    -- TODO print errors here?
+                                    ( Model staticResponses
+                                        secrets
+                                        (errors |> List.map InternalError)
+                                        |> toModel
+                                    , NoEffect
+                                    )
 
-                Err error ->
-                    ( Model Dict.empty secrets [] |> toModel
-                    , SendJsData
-                        (Errors <|
-                            pageErrorsToString
-                                (mapKeys
-                                    (\key -> "/" ++ String.join "/" key)
-                                    error
+                Err metadataParserErrors ->
+                    ( Model Dict.empty
+                        secrets
+                        (metadataParserErrors
+                            |> Dict.toList
+                            |> List.map
+                                (\( path, parserError ) ->
+                                    MetadataDecodeError { path = path } parserError
                                 )
                         )
+                        |> toModel
+                    , NoEffect
                     )
-             --                (Errors error)
-             --                (Json.Encode.object
-             --                    [ ( "errors", encodeErrors error )
-             --                    , ( "manifest", Manifest.toJson config.manifest )
-             --                    ]
-             --                )
-            )
 
         Err error ->
-            ( Model Dict.empty Secrets.empty [] |> toModel
-            , SendJsData
-                (Errors <| "Failed to parse flags: " ++ Decode.errorToString error)
+            ( Model Dict.empty
+                Secrets.empty
+                [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
+                ]
+                |> toModel
+            , sendStaticResponsesIfDone
+                [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
+                ]
+                Dict.empty
+                config.manifest
             )
 
 
@@ -385,7 +387,6 @@ type alias PageErrors =
 
 pageErrorsToErrors : Dict (List String) String -> List Error
 pageErrorsToErrors pageErrors =
-    --    []
     pageErrors
         |> Dict.toList
         |> List.map
@@ -468,7 +469,7 @@ update siteMetadata config msg model =
                             Debug.todo "TODO handle error"
             in
             ( { model | staticResponses = staticResponses }
-            , sendStaticResponsesIfDone staticResponses config.manifest
+            , sendStaticResponsesIfDone model.errors staticResponses config.manifest
             )
 
 
@@ -566,47 +567,34 @@ staticResponsesUpdate newEntry staticResponses =
 
                         else
                             entry
-
-                    _ ->
-                        entry
             )
 
 
-sendStaticResponsesIfDone : StaticResponses -> Manifest.Config pathKey -> Effect pathKey
-sendStaticResponsesIfDone staticResponses manifest =
+sendStaticResponsesIfDone : List Error -> StaticResponses -> Manifest.Config pathKey -> Effect pathKey
+sendStaticResponsesIfDone errors staticResponses manifest =
     let
         pendingRequests =
             staticResponses
                 |> Dict.toList
                 |> List.any
-                    (\( path, result ) ->
-                        case result of
-                            NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ->
-                                if List.length urls == (rawResponses |> Dict.keys |> List.length) then
-                                    False
+                    (\( path, NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ) ->
+                        if List.length urls == (rawResponses |> Dict.keys |> List.length) then
+                            False
 
-                                else
-                                    True
-
-                            _ ->
-                                False
+                        else
+                            True
                     )
 
         failedRequests =
             staticResponses
                 |> Dict.Extra.filterMap
-                    (\path result ->
-                        case result of
-                            NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ->
-                                case lookup rawResponses of
-                                    Ok _ ->
-                                        Nothing
-
-                                    Err error ->
-                                        Just error
-
-                            _ ->
+                    (\path (NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses) ->
+                        case lookup rawResponses of
+                            Ok _ ->
                                 Nothing
+
+                            Err error ->
+                                Just error
                     )
     in
     if pendingRequests then
@@ -614,7 +602,7 @@ sendStaticResponsesIfDone staticResponses manifest =
 
     else
         SendJsData
-            (if failedRequests |> Dict.isEmpty then
+            (if List.isEmpty errors && Dict.isEmpty failedRequests then
                 Success
                     (ToJsSuccessPayload
                         (encodeStaticResponses staticResponses)
@@ -622,8 +610,33 @@ sendStaticResponsesIfDone staticResponses manifest =
                     )
 
              else
-                Errors <| pageErrorsToString failedRequests
+                --                Debug.todo <| errorsToString errors
+                Errors <| errorsToString errors
             )
+
+
+errorsToString : List Error -> String
+errorsToString errors =
+    errors
+        |> List.map errorToString
+        |> String.join "\n\n"
+
+
+errorToString : Error -> String
+errorToString error =
+    case error of
+        MissingSecret secretName ->
+            [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\nSecrets.get \""
+            , Terminal.red (Terminal.text secretName)
+            , Terminal.text "\""
+            ]
+                |> Terminal.toString
+
+        MetadataDecodeError errorContext string ->
+            "Error decoding metadata"
+
+        InternalError errorMessage ->
+            errorMessage
 
 
 encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
@@ -631,24 +644,10 @@ encodeStaticResponses staticResponses =
     staticResponses
         |> Dict.map
             (\path result ->
-                (case result of
+                case result of
                     NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponsesDict ->
                         rawResponsesDict
-
-                    ErrorFetching request ->
-                        --                        Json.Encode.string "ErrorFetching"
-                        Dict.empty
-
-                    ErrorDecoding request ->
-                        Dict.empty
-                 --                        Json.Encode.string "ErrorDecoding"
-                 --                        ( "", "" )
-                )
             )
-
-
-
---        |> Dict.fromList
 
 
 type alias StaticResponses =
@@ -657,8 +656,6 @@ type alias StaticResponses =
 
 type StaticHttpResult
     = NotFetched (StaticHttpRequest.Request ()) (Dict String String)
-    | ErrorFetching (StaticHttpRequest.Request ())
-    | ErrorDecoding (StaticHttpRequest.Request ())
 
 
 staticResponseForPage :
