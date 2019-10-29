@@ -125,6 +125,7 @@ type Error
     = MissingSecret BuildError
     | MetadataDecodeError BuildError
     | InternalError BuildError
+    | FailedStaticHttpRequestError BuildError
 
 
 type alias ErrorContext =
@@ -334,22 +335,12 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                         Err errors ->
                                             Dict.empty
                             in
-                            case Decode.decodeValue (Decode.field "secrets" Decode.string) flags of
-                                Ok _ ->
-                                    ( Model staticResponses secrets (pageErrors |> List.map MetadataDecodeError) |> toModel
-                                    , sendStaticResponsesIfDone
-                                        (pageErrors |> List.map MetadataDecodeError)
-                                        Dict.empty
-                                        config.manifest
-                                    )
-
-                                Err error ->
-                                    ( Model staticResponses
-                                        Secrets.empty
-                                        [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] } ]
-                                        |> toModel
-                                    , NoEffect
-                                    )
+                            ( Model staticResponses secrets (pageErrors |> List.map MetadataDecodeError) |> toModel
+                            , sendStaticResponsesIfDone
+                                (pageErrors |> List.map MetadataDecodeError)
+                                staticResponses
+                                config.manifest
+                            )
 
                 Err metadataParserErrors ->
                     ( Model Dict.empty
@@ -578,14 +569,22 @@ sendStaticResponsesIfDone errors staticResponses manifest =
 
         failedRequests =
             staticResponses
-                |> Dict.Extra.filterMap
-                    (\path (NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses) ->
+                |> Dict.toList
+                |> List.filterMap
+                    (\( path, NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ) ->
                         case lookup rawResponses of
                             Ok _ ->
                                 Nothing
 
                             Err error ->
-                                Just error
+                                { message =
+                                    [ Terminal.text path
+                                    , Terminal.text "\n\n"
+                                    , Terminal.text error
+                                    ]
+                                }
+                                    |> FailedStaticHttpRequestError
+                                    |> Just
                     )
     in
     if pendingRequests then
@@ -593,7 +592,7 @@ sendStaticResponsesIfDone errors staticResponses manifest =
 
     else
         SendJsData
-            (if List.isEmpty errors && Dict.isEmpty failedRequests then
+            (if List.isEmpty errors && List.isEmpty failedRequests then
                 Success
                     (ToJsSuccessPayload
                         (encodeStaticResponses staticResponses)
@@ -601,8 +600,7 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                     )
 
              else
-                --                Debug.todo <| errorsToString errors
-                Errors <| errorsToString errors
+                Errors <| errorsToString (failedRequests ++ errors)
             )
 
 
@@ -623,6 +621,9 @@ errorToString error =
             buildError.message |> Terminal.toString
 
         InternalError buildError ->
+            buildError.message |> Terminal.toString
+
+        FailedStaticHttpRequestError buildError ->
             buildError.message |> Terminal.toString
 
 
