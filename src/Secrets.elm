@@ -5,7 +5,7 @@ import Json.Decode as Decode exposing (Decoder)
 
 
 type alias UrlWithSecrets =
-    Secrets -> Result String String
+    Secrets -> Result ( String, List String ) String
 
 
 type Secrets
@@ -18,7 +18,7 @@ protected =
     Protected
 
 
-useFakeSecrets : (Secrets -> Result String String) -> String
+useFakeSecrets : (Secrets -> Result ( String, List String ) String) -> String
 useFakeSecrets urlWithSecrets =
     urlWithSecrets protected
         |> Result.withDefault ""
@@ -28,7 +28,7 @@ empty =
     Secrets Dict.empty
 
 
-get : String -> Secrets -> Result String String
+get : String -> Secrets -> Result ( String, List String ) String
 get name secretsData =
     case secretsData of
         Protected ->
@@ -40,7 +40,7 @@ get name secretsData =
                     Ok secret
 
                 Nothing ->
-                    Err <| name
+                    Err <| ( name, Dict.keys secrets )
 
 
 decoder : Decoder Secrets

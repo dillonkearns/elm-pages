@@ -76,7 +76,7 @@ jsonRequest url decoder =
         )
 
 
-jsonRequestWithSecrets : (Secrets -> Result String String) -> Decoder a -> Request a
+jsonRequestWithSecrets : (Secrets -> Result ( String, List String ) String) -> Decoder a -> Request a
 jsonRequestWithSecrets urlWithSecrets decoder =
     Request
         ( [ urlWithSecrets ]
