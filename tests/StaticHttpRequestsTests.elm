@@ -214,12 +214,7 @@ start pages =
             contentCache
                 |> Result.map
                     (\cache -> cache |> ContentCache.extractMetadata PathKey)
-                |> Result.mapError
-                    (\error ->
-                        error
-                            |> Dict.toList
-                            |> List.map (\( path, errorString ) -> errorString)
-                    )
+                |> Result.mapError (List.map Tuple.second)
 
         config =
             { toJsPort = toJsPort

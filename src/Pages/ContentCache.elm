@@ -41,7 +41,7 @@ type alias ContentCache metadata view =
 
 
 type alias Errors =
-    List BuildError
+    List ( Html Never, BuildError )
 
 
 type alias ContentCacheInner metadata view =
@@ -122,7 +122,7 @@ init document content =
                             |> Result.mapError
                                 (\error ->
                                     --                            ( Tuple.first tuple, error )
-                                    createBuildError (Tuple.first tuple) error
+                                    createErrors (Tuple.first tuple) error
                                 )
                     )
                     tuple
@@ -130,6 +130,10 @@ init document content =
         |> combineTupleResults
         --        |> Result.mapError Dict.fromList
         |> Result.map Dict.fromList
+
+
+createErrors path decodeError =
+    ( createHtmlError path decodeError, createBuildError path decodeError )
 
 
 createBuildError : List String -> String -> BuildError
@@ -202,21 +206,15 @@ errorView : Errors -> Html msg
 errorView errors =
     errors
         --        |> Dict.toList
-        |> List.map errorEntryView
+        |> List.map Tuple.first
+        |> List.map (Html.map never)
         |> Html.div
             [ Attr.style "padding" "20px 100px"
             ]
 
 
-errorEntryView : BuildError -> Html msg
-errorEntryView buildError =
-    let
-        path =
-            [ "TODO" ]
-
-        error =
-            "TODO"
-    in
+createHtmlError : List String -> String -> Html msg
+createHtmlError path error =
     Html.div []
         [ Html.h2 []
             [ Html.text ("/" ++ (path |> String.join "/"))

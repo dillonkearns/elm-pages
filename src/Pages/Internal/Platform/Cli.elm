@@ -190,8 +190,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
             contentCache
                 |> Result.map
                     (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
-
-        --                |> Result.mapError MetadataDecodeError
+                |> Result.mapError (List.map Tuple.second)
     in
     Platform.worker
         { init =
@@ -355,10 +354,16 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                 Err metadataParserErrors ->
                     ( Model Dict.empty
                         secrets
-                        (metadataParserErrors |> List.map MetadataDecodeError)
+                        (metadataParserErrors
+                            |> List.map Tuple.second
+                            |> List.map MetadataDecodeError
+                        )
                         |> toModel
                     , sendStaticResponsesIfDone
-                        (metadataParserErrors |> List.map MetadataDecodeError)
+                        (metadataParserErrors
+                            |> List.map Tuple.second
+                            |> List.map MetadataDecodeError
+                        )
                         Dict.empty
                         config.manifest
                     )
