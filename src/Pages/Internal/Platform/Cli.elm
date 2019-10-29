@@ -123,8 +123,8 @@ type alias Model =
 
 type Error
     = MissingSecret BuildError
-    | MetadataDecodeError ErrorContext String
-    | InternalError String
+    | MetadataDecodeError BuildError
+    | InternalError BuildError
 
 
 type alias ErrorContext =
@@ -190,12 +190,8 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
             contentCache
                 |> Result.map
                     (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
-                |> Result.mapError
-                    (\error ->
-                        error
-                            |> Dict.toList
-                            |> List.map (\( path, errorString ) -> errorString)
-                    )
+
+        --                |> Result.mapError MetadataDecodeError
     in
     Platform.worker
         { init =
@@ -251,7 +247,7 @@ perform cliMsgConstructor toJsPort effect =
 init :
     (Model -> model)
     -> ContentCache.ContentCache metadata view
-    -> Result (List String) (List ( PagePath pathKey, metadata ))
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
     ->
         { config
             | view :
@@ -276,40 +272,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
             case contentCache of
                 Ok _ ->
                     case contentCache |> ContentCache.pagesWithErrors of
-                        Just pageErrors ->
-                            let
-                                requests =
-                                    siteMetadata
-                                        |> Result.andThen
-                                            (\metadata ->
-                                                staticResponseForPage metadata config.view
-                                            )
-
-                                staticResponses : StaticResponses
-                                staticResponses =
-                                    case requests of
-                                        Ok okRequests ->
-                                            staticResponsesInit okRequests
-
-                                        Err errors ->
-                                            Dict.empty
-                            in
-                            case Decode.decodeValue (Decode.field "secrets" Decode.string) flags of
-                                Ok _ ->
-                                    ( Model staticResponses secrets (pageErrorsToErrors pageErrors) |> toModel
-                                    , NoEffect
-                                    )
-
-                                Err error ->
-                                    ( Model staticResponses
-                                        Secrets.empty
-                                        [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
-                                        ]
-                                        |> toModel
-                                    , NoEffect
-                                    )
-
-                        Nothing ->
+                        [] ->
                             let
                                 requests =
                                     siteMetadata
@@ -354,28 +317,60 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                     , NoEffect
                                     )
 
+                        pageErrors ->
+                            let
+                                requests =
+                                    siteMetadata
+                                        |> Result.andThen
+                                            (\metadata ->
+                                                staticResponseForPage metadata config.view
+                                            )
+
+                                staticResponses : StaticResponses
+                                staticResponses =
+                                    case requests of
+                                        Ok okRequests ->
+                                            staticResponsesInit okRequests
+
+                                        Err errors ->
+                                            Dict.empty
+                            in
+                            case Decode.decodeValue (Decode.field "secrets" Decode.string) flags of
+                                Ok _ ->
+                                    ( Model staticResponses secrets (pageErrors |> List.map MetadataDecodeError) |> toModel
+                                    , sendStaticResponsesIfDone
+                                        (pageErrors |> List.map MetadataDecodeError)
+                                        Dict.empty
+                                        config.manifest
+                                    )
+
+                                Err error ->
+                                    ( Model staticResponses
+                                        Secrets.empty
+                                        [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] } ]
+                                        |> toModel
+                                    , NoEffect
+                                    )
+
                 Err metadataParserErrors ->
                     ( Model Dict.empty
                         secrets
-                        (metadataParserErrors
-                            |> Dict.toList
-                            |> List.map
-                                (\( path, parserError ) ->
-                                    MetadataDecodeError { path = path } parserError
-                                )
-                        )
+                        (metadataParserErrors |> List.map MetadataDecodeError)
                         |> toModel
-                    , NoEffect
+                    , sendStaticResponsesIfDone
+                        (metadataParserErrors |> List.map MetadataDecodeError)
+                        Dict.empty
+                        config.manifest
                     )
 
         Err error ->
             ( Model Dict.empty
                 Secrets.empty
-                [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
+                [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
                 ]
                 |> toModel
             , sendStaticResponsesIfDone
-                [ InternalError <| "Failed to parse flags: " ++ Decode.errorToString error
+                [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
                 ]
                 Dict.empty
                 config.manifest
@@ -384,16 +379,6 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
 type alias PageErrors =
     Dict String String
-
-
-pageErrorsToErrors : Dict (List String) String -> List Error
-pageErrorsToErrors pageErrors =
-    pageErrors
-        |> Dict.toList
-        |> List.map
-            (\( pagePath, errorString ) ->
-                MetadataDecodeError { path = pagePath } errorString
-            )
 
 
 pageErrorsToString : PageErrors -> String
@@ -410,7 +395,7 @@ pageErrorsToString pageErrors =
 
 
 update :
-    Result (List String) (List ( PagePath pathKey, metadata ))
+    Result (List BuildError) (List ( PagePath pathKey, metadata ))
     ->
         { config
             | --            update : userMsg -> userModel -> ( userModel, Cmd userMsg )
@@ -629,11 +614,11 @@ errorToString error =
         MissingSecret buildError ->
             buildError.message |> Terminal.toString
 
-        MetadataDecodeError errorContext string ->
-            "Error decoding metadata"
+        MetadataDecodeError buildError ->
+            buildError.message |> Terminal.toString
 
-        InternalError errorMessage ->
-            errorMessage
+        InternalError buildError ->
+            buildError.message |> Terminal.toString
 
 
 encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
@@ -670,7 +655,7 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List String)
+        Result (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

@@ -15,6 +15,7 @@ module Pages.ContentCache exposing
     , update
     )
 
+import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -26,6 +27,7 @@ import Pages.Document as Document exposing (Document)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Result.Extra
 import Task exposing (Task)
+import TerminalText as Terminal
 import Url exposing (Url)
 import Url.Builder
 
@@ -39,7 +41,7 @@ type alias ContentCache metadata view =
 
 
 type alias Errors =
-    Dict Path String
+    List BuildError
 
 
 type alias ContentCacheInner metadata view =
@@ -81,7 +83,7 @@ getMetadata entry =
             metadata
 
 
-pagesWithErrors : ContentCache metadata view -> Maybe (Dict (List String) String)
+pagesWithErrors : ContentCache metadata view -> List BuildError
 pagesWithErrors cache =
     cache
         |> Result.map
@@ -94,7 +96,7 @@ pagesWithErrors cache =
                                 Parsed metadata { body } ->
                                     case body of
                                         Err parseError ->
-                                            Just ( path, parseError )
+                                            createBuildError path parseError |> Just
 
                                         _ ->
                                             Nothing
@@ -103,18 +105,7 @@ pagesWithErrors cache =
                                     Nothing
                         )
             )
-        |> Result.map
-            (\errors ->
-                case errors of
-                    [] ->
-                        Nothing
-
-                    _ ->
-                        errors
-                            |> Dict.fromList
-                            |> Just
-            )
-        |> Result.withDefault Nothing
+        |> Result.withDefault []
 
 
 init :
@@ -128,13 +119,28 @@ init document content =
                 Tuple.mapSecond
                     (\result ->
                         result
-                            |> Result.mapError (\error -> ( Tuple.first tuple, error ))
+                            |> Result.mapError
+                                (\error ->
+                                    --                            ( Tuple.first tuple, error )
+                                    createBuildError (Tuple.first tuple) error
+                                )
                     )
                     tuple
             )
         |> combineTupleResults
-        |> Result.mapError Dict.fromList
+        --        |> Result.mapError Dict.fromList
         |> Result.map Dict.fromList
+
+
+createBuildError : List String -> String -> BuildError
+createBuildError path decodeError =
+    { message =
+        [ Terminal.text "I ran into a problem when parsing the metadata for the page with this path: "
+        , Terminal.text ("/" ++ (path |> String.join "/"))
+        , Terminal.text "\n\n"
+        , Terminal.text decodeError
+        ]
+    }
 
 
 parseMetadata :
@@ -195,15 +201,22 @@ parseContent extension body document =
 errorView : Errors -> Html msg
 errorView errors =
     errors
-        |> Dict.toList
+        --        |> Dict.toList
         |> List.map errorEntryView
         |> Html.div
             [ Attr.style "padding" "20px 100px"
             ]
 
 
-errorEntryView : ( Path, String ) -> Html msg
-errorEntryView ( path, error ) =
+errorEntryView : BuildError -> Html msg
+errorEntryView buildError =
+    let
+        path =
+            [ "TODO" ]
+
+        error =
+            "TODO"
+    in
     Html.div []
         [ Html.h2 []
             [ Html.text ("/" ++ (path |> String.join "/"))
