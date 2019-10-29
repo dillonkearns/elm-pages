@@ -1,5 +1,6 @@
 module StaticHttp exposing (..)
 
+import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
@@ -76,7 +77,7 @@ jsonRequest url decoder =
         )
 
 
-jsonRequestWithSecrets : (Secrets -> Result ( String, List String ) String) -> Decoder a -> Request a
+jsonRequestWithSecrets : (Secrets -> Result BuildError String) -> Decoder a -> Request a
 jsonRequestWithSecrets urlWithSecrets decoder =
     Request
         ( [ urlWithSecrets ]

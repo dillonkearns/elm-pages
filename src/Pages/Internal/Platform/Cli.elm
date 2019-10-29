@@ -15,6 +15,7 @@ module Pages.Internal.Platform.Cli exposing
     )
 
 import Browser.Navigation
+import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
 import Dict.Extra
@@ -121,7 +122,7 @@ type alias Model =
 
 
 type Error
-    = MissingSecret String (List String)
+    = MissingSecret BuildError
     | MetadataDecodeError ErrorContext String
     | InternalError String
 
@@ -491,7 +492,7 @@ performStaticHttpRequests secrets staticRequests =
                         (\unmasked ->
                             FetchHttp unmasked (Secrets.useFakeSecrets urlBuilder)
                         )
-                    |> Result.mapError (\( secretName, availableEnvironmentVariables ) -> MissingSecret secretName availableEnvironmentVariables)
+                    |> Result.mapError MissingSecret
             )
         |> combineMultipleErrors
         |> Result.map Batch
@@ -625,14 +626,8 @@ errorsToString errors =
 errorToString : Error -> String
 errorToString error =
     case error of
-        MissingSecret secretName availableEnvironmentVariables ->
-            [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\nSecrets.get \""
-            , Terminal.red (Terminal.text secretName)
-            , Terminal.text "\"\n\n"
-            , Terminal.text "Maybe you meant one of:\n"
-            , Terminal.text (String.join ", " availableEnvironmentVariables)
-            ]
-                |> Terminal.toString
+        MissingSecret buildError ->
+            buildError.message |> Terminal.toString
 
         MetadataDecodeError errorContext string ->
             "Error decoding metadata"
