@@ -24,6 +24,7 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import List.Extra
 import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
@@ -303,20 +304,22 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             )
 
                                         Err errors ->
-                                            ( Model staticResponses secrets errors |> toModel
-                                              -- TODO write a test case for this
-                                              -- TODO should this be using Dict.empty, or some unrecoverable error flag in Model?
-                                            , sendStaticResponsesIfDone errors Dict.empty config.manifest
+                                            (-- TODO write a test case for this
+                                             -- TODO should this be using Dict.empty, or some unrecoverable error flag in Model?
+                                             updateAndSendPortIfDone
+                                                (Model Dict.empty secrets errors)
+                                                toModel
+                                                config.manifest
                                             )
 
                                 Err errors ->
-                                    -- TODO print errors here?
-                                    ( Model staticResponses
-                                        secrets
-                                        (errors |> List.map InternalError)
-                                        |> toModel
-                                    , NoEffect
-                                    )
+                                    updateAndSendPortIfDone
+                                        (Model staticResponses
+                                            secrets
+                                            (errors |> List.map InternalError)
+                                        )
+                                        toModel
+                                        config.manifest
 
                         pageErrors ->
                             let
@@ -336,42 +339,46 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                         Err errors ->
                                             Dict.empty
                             in
-                            ( Model staticResponses secrets (pageErrors |> List.map MetadataDecodeError) |> toModel
-                            , sendStaticResponsesIfDone
-                                (pageErrors |> List.map MetadataDecodeError)
-                                staticResponses
+                            updateAndSendPortIfDone
+                                (Model
+                                    staticResponses
+                                    secrets
+                                    (pageErrors |> List.map MetadataDecodeError)
+                                )
+                                toModel
                                 config.manifest
-                            )
 
                 Err metadataParserErrors ->
-                    ( Model Dict.empty
-                        secrets
-                        (metadataParserErrors
-                            |> List.map Tuple.second
-                            |> List.map MetadataDecodeError
+                    updateAndSendPortIfDone
+                        (Model Dict.empty
+                            secrets
+                            (metadataParserErrors
+                                |> List.map Tuple.second
+                                |> List.map MetadataDecodeError
+                            )
                         )
-                        |> toModel
-                    , sendStaticResponsesIfDone
-                        (metadataParserErrors
-                            |> List.map Tuple.second
-                            |> List.map MetadataDecodeError
-                        )
-                        Dict.empty
+                        toModel
                         config.manifest
-                    )
 
         Err error ->
-            ( Model Dict.empty
-                Pages.Internal.Secrets.empty
-                [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
-                ]
-                |> toModel
-            , sendStaticResponsesIfDone
-                [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
-                ]
-                Dict.empty
+            updateAndSendPortIfDone
+                (Model Dict.empty
+                    Pages.Internal.Secrets.empty
+                    [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
+                    ]
+                )
+                toModel
                 config.manifest
-            )
+
+
+updateAndSendPortIfDone : Model -> (Model -> model) -> Manifest.Config pathKey -> ( model, Effect pathKey )
+updateAndSendPortIfDone model toModel manifest =
+    ( model |> toModel
+    , sendStaticResponsesIfDone
+        model.errors
+        model.staticResponses
+        manifest
+    )
 
 
 type alias PageErrors =
