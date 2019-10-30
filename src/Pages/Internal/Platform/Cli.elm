@@ -424,34 +424,63 @@ update siteMetadata config msg model =
     case msg of
         GotStaticHttpResponse { url, response } ->
             let
-                requests =
-                    siteMetadata
-                        |> Result.andThen
-                            (\metadata ->
-                                staticResponseForPage metadata config.view
-                            )
-
-                staticResponses : StaticResponses
-                staticResponses =
-                    case requests of
-                        Ok okRequests ->
-                            case response of
-                                Ok okResponse ->
+                updatedModel =
+                    case response of
+                        Ok okResponse ->
+                            { model
+                                | staticResponses =
                                     model.staticResponses
                                         |> staticResponsesUpdate
                                             { url = url
                                             , response =
-                                                okResponse
+                                                response |> Result.mapError (\_ -> ())
                                             }
+                            }
 
-                                Err error ->
-                                    Debug.todo (Debug.toString error)
+                        Err error ->
+                            { model
+                                | errors =
+                                    model.errors
+                                        ++ [ FailedStaticHttpRequestError
+                                                { message =
+                                                    [
+                                                    Terminal.text "I got an error making an HTTP request to this URL: "
+                                                    , Terminal.text url
+                                                    , Terminal.text "\n\n"
+                                                    ,
+                                                     case error of
+                                                        Http.BadStatus code ->
+                                                            Terminal.text <| "Bad status: " ++ String.fromInt code
 
-                        Err errors ->
-                            Debug.todo "TODO handle error"
+
+                                                        Http.BadUrl _ ->
+                                                            Terminal.text <| "Invalid url: " ++ url
+
+
+                                                        Http.Timeout ->
+                                                            Terminal.text "Timeout"
+
+
+                                                        Http.NetworkError ->
+                                                            Terminal.text "Network error"
+
+
+                                                        Http.BadBody string ->
+                                                            Terminal.text "Network error"
+                                                                                                                ]
+                                                }
+                                           ]
+                                , staticResponses =
+                                    model.staticResponses
+                                        |> staticResponsesUpdate
+                                            { url = url
+                                            , response =
+                                                response |> Result.mapError (\_ -> ())
+                                            }
+                            }
             in
-            ( { model | staticResponses = staticResponses }
-            , sendStaticResponsesIfDone model.errors staticResponses config.manifest
+            ( updatedModel
+            , sendStaticResponsesIfDone updatedModel.errors updatedModel.staticResponses config.manifest
             )
 
 
@@ -521,7 +550,7 @@ staticResponsesInit list =
         |> Dict.fromList
 
 
-staticResponsesUpdate : { url : String, response : String } -> StaticResponses -> StaticResponses
+staticResponsesUpdate : { url : String, response : Result () String } -> StaticResponses -> StaticResponses
 staticResponsesUpdate newEntry staticResponses =
     staticResponses
         |> Dict.map
@@ -559,32 +588,41 @@ sendStaticResponsesIfDone errors staticResponses manifest =
             staticResponses
                 |> Dict.toList
                 |> List.any
-                    (\( path, NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ) ->
-                        if List.length urls == (rawResponses |> Dict.keys |> List.length) then
-                            False
+                    (\( path, entry ) ->
+                        case entry of
+                            NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ->
+                                if List.length urls == (rawResponses |> Dict.keys |> List.length) then
+                                    False
 
-                        else
-                            True
+                                else
+                                    True
                     )
 
         failedRequests =
             staticResponses
                 |> Dict.toList
-                |> List.filterMap
+                |> List.concatMap
                     (\( path, NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ) ->
-                        case lookup rawResponses of
-                            Ok _ ->
-                                Nothing
+                        case rawResponsesResult rawResponses of
+                            Ok responses ->
+                                case lookup responses of
+                                    Ok _ ->
+                                        []
+
+                                    Err error ->
+                                        { message =
+                                            [ Terminal.text path
+                                            , Terminal.text "\n\n"
+                                            , Terminal.text error
+                                            ]
+                                        }
+                                            -- TODO should this be a decoding http error instead?
+                                            |> FailedStaticHttpRequestError
+                                            |> List.singleton
 
                             Err error ->
-                                { message =
-                                    [ Terminal.text path
-                                    , Terminal.text "\n\n"
-                                    , Terminal.text error
-                                    ]
-                                }
-                                    |> FailedStaticHttpRequestError
-                                    |> Just
+                                error
+                                    |> List.map FailedStaticHttpRequestError
                     )
     in
     if pendingRequests then
@@ -602,6 +640,28 @@ sendStaticResponsesIfDone errors staticResponses manifest =
              else
                 Errors <| errorsToString (failedRequests ++ errors)
             )
+
+
+rawResponsesResult : Dict String (Result () String) -> Result (List BuildError) (Dict String String)
+rawResponsesResult dict =
+    dict
+        |> Dict.toList
+        |> List.map
+            (\( key, result ) ->
+                --                Debug.todo ""
+                result
+                    |> Result.map
+                        (\okValue ->
+                            ( key, okValue )
+                        )
+                    |> Result.mapError
+                        (\_ ->
+                            { message = []
+                            }
+                        )
+            )
+        |> combineMultipleErrors
+        |> Result.map Dict.fromList
 
 
 errorsToString : List Error -> String
@@ -635,6 +695,12 @@ encodeStaticResponses staticResponses =
                 case result of
                     NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponsesDict ->
                         rawResponsesDict
+                            |> Dict.map
+                                (\key value ->
+                                    value
+                                        -- TODO avoid running this code at all if there are errors here
+                                        |> Result.withDefault ""
+                                )
             )
 
 
@@ -643,7 +709,7 @@ type alias StaticResponses =
 
 
 type StaticHttpResult
-    = NotFetched (StaticHttpRequest.Request ()) (Dict String String)
+    = NotFetched (StaticHttpRequest.Request ()) (Dict String (Result () String))
 
 
 staticResponseForPage :
