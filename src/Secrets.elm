@@ -51,8 +51,9 @@ buildError secretName availableEnvironmentVariables =
         [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\nSecrets.get \""
         , Terminal.red (Terminal.text secretName)
         , Terminal.text "\"\n\n"
-        , Terminal.text "Maybe you meant one of:\n"
-        , Terminal.text (String.join ", " availableEnvironmentVariables)
+
+        --        , Terminal.text "Maybe you meant one of:\n"
+        --        , Terminal.text (String.join ", " availableEnvironmentVariables)
         ]
     }
 
