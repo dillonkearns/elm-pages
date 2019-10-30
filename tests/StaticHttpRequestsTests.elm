@@ -163,7 +163,9 @@ all =
                         (Codec.decoder Main.toJsCodec)
                         (Expect.equal
                             [ Errors
-                                """/elm-pages
+                                """\u{001B}[36m-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages\u{001B}[0m
+
+/elm-pages
 
 Problem with the given value:
 

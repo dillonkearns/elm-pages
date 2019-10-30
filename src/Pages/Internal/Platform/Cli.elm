@@ -624,6 +624,7 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                                     Err error ->
                                         { message =
                                             [ Terminal.text path
+                                            , Terminal.text "\n\n"
                                             , Terminal.text error
                                             ]
                                         }
@@ -653,7 +654,7 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                     )
 
              else
-                Errors <| errorsToString errors
+                Errors <| errorsToString (failedRequests ++ errors)
             )
 
 
@@ -690,21 +691,23 @@ errorToString : Error -> String
 errorToString error =
     case error of
         MissingSecret buildError ->
-            banner "Missing Secret" :: buildError.message |> Terminal.toString
+            banner "Missing Secret" ++ buildError.message |> Terminal.toString
 
         MetadataDecodeError buildError ->
-            banner "Metadata Decode Error" :: buildError.message |> Terminal.toString
+            banner "Metadata Decode Error" ++ buildError.message |> Terminal.toString
 
         InternalError buildError ->
-            banner "Internal Error" :: buildError.message |> Terminal.toString
+            banner "Internal Error" ++ buildError.message |> Terminal.toString
 
         FailedStaticHttpRequestError buildError ->
-            banner "Failed Static Http Error" :: buildError.message |> Terminal.toString
+            banner "Failed Static Http Error" ++ buildError.message |> Terminal.toString
 
 
 banner title =
-    Terminal.cyan <|
-        Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages\n\n")
+    [ Terminal.cyan <|
+        Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages")
+    , Terminal.text "\n\n"
+    ]
 
 
 encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
