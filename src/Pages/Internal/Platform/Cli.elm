@@ -606,7 +606,6 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                                     Err error ->
                                         { message =
                                             [ Terminal.text path
-                                            , Terminal.text "\n\n"
                                             , Terminal.text error
                                             ]
                                         }
@@ -615,7 +614,11 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                                             |> List.singleton
 
                             Err error ->
-                                error
+                                [ { message =
+                                        [ Terminal.text path
+                                        ]
+                                  }
+                                ]
                                     |> List.map FailedStaticHttpRequestError
                     )
     in
@@ -632,7 +635,7 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                     )
 
              else
-                Errors <| errorsToString (failedRequests ++ errors)
+                Errors <| errorsToString errors
             )
 
 
