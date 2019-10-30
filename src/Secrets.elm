@@ -49,15 +49,25 @@ get name secretsData =
 buildError : String -> List String -> BuildError
 buildError secretName availableEnvironmentVariables =
     { message =
-        [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\nSecrets.get \""
-        , Terminal.red (Terminal.text secretName)
-        , Terminal.text "\"\n\n"
-        , Terminal.text "So maybe "
-        , Terminal.yellow <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
+        [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\n\nSecrets.get \""
+        , Terminal.text secretName
+        , Terminal.text "\"\n             "
+        , Terminal.red <| Terminal.text (underlineText (secretName |> String.length))
+        , Terminal.text "\n\nSo maybe "
+        , Terminal.yellow <| Terminal.text secretName
         , Terminal.text " should be "
-        , Terminal.green <| Terminal.text secretName
+        , Terminal.green <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
         ]
     }
+
+
+underlineText : Int -> String
+underlineText length =
+    if length == 0 then
+        ""
+
+    else
+        "^" ++ underlineText (length - 1)
 
 
 sortMatches missingSecret availableSecrets =
