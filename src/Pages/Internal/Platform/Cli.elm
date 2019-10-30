@@ -586,7 +586,17 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                     (\( path, entry ) ->
                         case entry of
                             NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ->
-                                if List.length urls == (rawResponses |> Dict.keys |> List.length) then
+                                if
+                                    (urls
+                                        |> List.map Pages.Internal.Secrets.useFakeSecrets
+                                        |> Set.fromList
+                                        |> Set.size
+                                    )
+                                        == (rawResponses
+                                                |> Dict.keys
+                                                |> List.length
+                                           )
+                                then
                                     False
 
                                 else

@@ -119,6 +119,34 @@ all =
                                 }
                             ]
                         )
+        , test "the port sends out when there are duplicate http requests for the same page" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.map2 (\_ _ -> ())
+                            (StaticHttp.jsonRequest "http://example.com" (Decode.succeed ()))
+                            (StaticHttp.jsonRequest "http://example.com" (Decode.succeed ()))
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "http://example.com"
+                        """null"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList [ ( "http://example.com", "null" ) ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         , test "an error is sent out for decoder failures" <|
             \() ->
                 start
