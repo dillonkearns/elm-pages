@@ -490,8 +490,13 @@ performStaticHttpRequests : Secrets -> List ( PagePath pathKey, StaticHttp.Reque
 performStaticHttpRequests secrets staticRequests =
     staticRequests
         |> List.map
-            (\( pagePath, StaticHttpRequest.Request ( urls, lookup ) ) ->
-                urls
+            (\( pagePath, request ) ->
+                case request of
+                    StaticHttpRequest.Request ( urls, lookup ) ->
+                        urls
+
+                    StaticHttpRequest.Done value ->
+                        []
             )
         |> List.concat
         -- TODO prevent duplicates... can't because Set needs comparable
@@ -558,10 +563,10 @@ staticResponsesUpdate newEntry staticResponses =
         |> Dict.map
             (\pageUrl entry ->
                 case entry of
-                    NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ->
+                    NotFetched request rawResponses ->
                         let
                             realUrls =
-                                urls
+                                StaticHttpRequest.urls request
                                     |> List.map
                                         (\urlBuilder ->
                                             Pages.Internal.Secrets.useFakeSecrets urlBuilder
@@ -576,7 +581,7 @@ staticResponsesUpdate newEntry staticResponses =
                                     rawResponses
                                         |> Dict.insert newEntry.url newEntry.response
                             in
-                            NotFetched (StaticHttpRequest.Request ( urls, lookup )) updatedRawResponses
+                            NotFetched request updatedRawResponses
 
                         else
                             entry
@@ -592,9 +597,10 @@ sendStaticResponsesIfDone errors staticResponses manifest =
                 |> List.any
                     (\( path, entry ) ->
                         case entry of
-                            NotFetched (StaticHttpRequest.Request ( urls, _ )) rawResponses ->
+                            NotFetched request rawResponses ->
                                 if
-                                    (urls
+                                    (request
+                                        |> StaticHttpRequest.urls
                                         |> List.map Pages.Internal.Secrets.useFakeSecrets
                                         |> Set.fromList
                                         |> Set.size
@@ -614,7 +620,16 @@ sendStaticResponsesIfDone errors staticResponses manifest =
             staticResponses
                 |> Dict.toList
                 |> List.concatMap
-                    (\( path, NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponses ) ->
+                    (\( path, NotFetched request rawResponses ) ->
+                        let
+                            lookup =
+                                case request of
+                                    StaticHttpRequest.Request ( urls, requestLookup ) ->
+                                        requestLookup
+
+                                    StaticHttpRequest.Done value ->
+                                        \_ -> Ok (StaticHttpRequest.Done value)
+                        in
                         case rawResponsesResult rawResponses of
                             Ok responses ->
                                 case lookup responses of
@@ -716,7 +731,7 @@ encodeStaticResponses staticResponses =
         |> Dict.map
             (\path result ->
                 case result of
-                    NotFetched (StaticHttpRequest.Request ( urls, lookup )) rawResponsesDict ->
+                    NotFetched request rawResponsesDict ->
                         rawResponsesDict
                             |> Dict.map
                                 (\key value ->

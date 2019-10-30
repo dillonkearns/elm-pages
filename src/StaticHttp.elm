@@ -28,30 +28,79 @@ type alias RequestExample model rendered msg pathKey =
 
 
 map : (a -> b) -> Request a -> Request b
-map fn (Request ( urls, lookup )) =
+map fn request =
     Request
-        ( urls
+        ( lookupUrls request
         , \rawResponsesDict ->
-            rawResponsesDict
-                |> lookup
+            lookup request rawResponsesDict
                 |> Result.map fn
+                |> Result.map Done
         )
 
 
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
-map2 fn (Request ( urlsA, lookupA )) (Request ( urlsB, lookupB )) =
+map2 fn request1 request2 =
     Request
-        ( urlsA ++ urlsB
-        , \dict -> Result.map2 fn (lookupA dict) (lookupB dict)
+        ( lookupUrls request1 ++ lookupUrls request2
+        , \dict ->
+            Result.map2 fn (lookup request1 dict) (lookup request2 dict)
+                |> Result.map Done
+        )
+
+
+
+--lookup : Request value ->
+
+
+lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result String value
+lookup request rawResponses =
+    case request of
+        Request ( urls, lookupFn ) ->
+            lookupFn rawResponses
+                |> Result.andThen (\nextRequest -> lookup nextRequest rawResponses)
+
+        Done value ->
+            Ok value
+
+
+lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets -> Result BuildError String)
+lookupUrls request =
+    case request of
+        Request ( urls, lookupFn ) ->
+            urls
+
+        Done value ->
+            []
+
+
+
+--type Request value
+--    = Request ( List (Secrets -> Result BuildError String), Dict String String -> Result String (Request value) )
+--    | Done value
+
+
+andThen : (a -> Request b) -> Request a -> Request b
+andThen fn request =
+    Request
+        ( lookupUrls request
+        , \rawResponses ->
+            lookup
+                request
+                rawResponses
+                |> (\result ->
+                        case result of
+                            Err error ->
+                                Err error
+
+                            Ok value ->
+                                fn value |> Ok
+                   )
         )
 
 
 succeed : a -> Request a
 succeed value =
-    Request
-        ( []
-        , \rawResponseDict -> Ok value
-        )
+    Done value
 
 
 jsonRequest : String -> Decoder a -> Request a
@@ -73,6 +122,7 @@ jsonRequest url decoder =
                     (\rawResponse ->
                         rawResponse
                             |> Decode.decodeString decoder
+                            |> Result.map Done
                             |> Result.mapError Decode.errorToString
                     )
         )
@@ -97,32 +147,10 @@ jsonRequestWithSecrets urlWithSecrets decoder =
                     (\rawResponse ->
                         rawResponse
                             |> Decode.decodeString decoder
+                            |> Result.map Done
                             |> Result.mapError Decode.errorToString
                     )
         )
-
-
-twoRequestsExample : Request String
-twoRequestsExample =
-    map2
-        view
-        (jsonRequest (repoApiUrl "elm-pages") (Decode.field "stargazer_count" Decode.int))
-        (jsonRequest (repoApiUrl "elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
-
-
-view stargazersNpm stargazersStarter =
-    "elm-pages: "
-        ++ String.fromInt stargazersNpm
-        ++ "elm-pages-starter: "
-        ++ String.fromInt stargazersStarter
-
-
-
---        (succeed 123)
-
-
-repoApiUrl repoName =
-    "https://api.github.com/repos/dillonkearns/" ++ repoName
 
 
 map3 :
@@ -131,10 +159,15 @@ map3 :
     -> Request value2
     -> Request value3
     -> Request valueCombined
-map3 combine (Request ( urls1, lookup1 )) (Request ( urls2, lookup2 )) (Request ( urls3, lookup3 )) =
-    Request
-        ( List.concat [ urls1, urls2, urls3 ]
+map3 combine request1 request2 request3 =
+    Pages.StaticHttpRequest.Request
+        ( List.concat
+            [ lookupUrls request1
+            , lookupUrls request2
+            , lookupUrls request3
+            ]
         , \dict ->
-            Result.map2 combine (lookup1 dict) (lookup2 dict)
-                |> Result.map2 (|>) (lookup3 dict)
+            Result.map2 combine (lookup request1 dict) (lookup request2 dict)
+                |> Result.map2 (|>) (lookup request3 dict)
+                |> Result.map Done
         )
