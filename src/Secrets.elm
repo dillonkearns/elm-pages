@@ -1,34 +1,14 @@
-module Secrets exposing (..)
+module Secrets exposing (Secrets, get)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Fuzzy
-import Json.Decode as Decode exposing (Decoder)
+import Pages.Internal.Secrets exposing (Secrets(..))
 import TerminalText as Terminal
 
 
-type alias UrlWithSecrets =
-    Secrets -> Result BuildError String
-
-
-type Secrets
-    = Secrets (Dict String String)
-    | Protected
-
-
-protected : Secrets
-protected =
-    Protected
-
-
-useFakeSecrets : (Secrets -> Result BuildError String) -> String
-useFakeSecrets urlWithSecrets =
-    urlWithSecrets protected
-        |> Result.withDefault ""
-
-
-empty =
-    Secrets Dict.empty
+type alias Secrets =
+    Pages.Internal.Secrets.Secrets
 
 
 get : String -> Secrets -> Result BuildError String
@@ -76,9 +56,3 @@ sortMatches missingSecret availableSecrets =
             Fuzzy.match config separators needle hay |> .score
     in
     List.sortBy (simpleMatch [] [] missingSecret) availableSecrets
-
-
-decoder : Decoder Secrets
-decoder =
-    Decode.dict Decode.string
-        |> Decode.map Secrets

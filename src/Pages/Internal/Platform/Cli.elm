@@ -28,6 +28,7 @@ import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.ImagePath as ImagePath
+import Pages.Internal.Secrets
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -267,7 +268,7 @@ init :
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config cliMsgConstructor flags =
-    case Decode.decodeValue (Decode.field "secrets" Secrets.decoder) flags of
+    case Decode.decodeValue (Decode.field "secrets" Pages.Internal.Secrets.decoder) flags of
         Ok secrets ->
             case contentCache of
                 Ok _ ->
@@ -361,7 +362,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
         Err error ->
             ( Model Dict.empty
-                Secrets.empty
+                Pages.Internal.Secrets.empty
                 [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
                 ]
                 |> toModel
@@ -494,7 +495,7 @@ performStaticHttpRequests secrets staticRequests =
                 urlBuilder secrets
                     |> Result.map
                         (\unmasked ->
-                            FetchHttp unmasked (Secrets.useFakeSecrets urlBuilder)
+                            FetchHttp unmasked (Pages.Internal.Secrets.useFakeSecrets urlBuilder)
                         )
                     |> Result.mapError MissingSecret
             )
@@ -556,7 +557,7 @@ staticResponsesUpdate newEntry staticResponses =
                                 urls
                                     |> List.map
                                         (\urlBuilder ->
-                                            Secrets.useFakeSecrets urlBuilder
+                                            Pages.Internal.Secrets.useFakeSecrets urlBuilder
                                         )
 
                             includesUrl =

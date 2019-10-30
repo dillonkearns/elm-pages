@@ -5,6 +5,7 @@ import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
+import Pages.Internal.Secrets
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets exposing (Secrets)
 
@@ -83,14 +84,14 @@ jsonRequestWithSecrets urlWithSecrets decoder =
         ( [ urlWithSecrets ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Secrets.useFakeSecrets urlWithSecrets)
+                |> Dict.get (Pages.Internal.Secrets.useFakeSecrets urlWithSecrets)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
                                 Ok rawResponse
 
                             Nothing ->
-                                Err <| "Couldn't find response for url `" ++ Secrets.useFakeSecrets urlWithSecrets ++ "`"
+                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
                    )
                 |> Result.andThen
                     (\rawResponse ->
