@@ -2,6 +2,7 @@ module Secrets exposing (..)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
+import Fuzzy
 import Json.Decode as Decode exposing (Decoder)
 import TerminalText as Terminal
 
@@ -51,11 +52,20 @@ buildError secretName availableEnvironmentVariables =
         [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\nSecrets.get \""
         , Terminal.red (Terminal.text secretName)
         , Terminal.text "\"\n\n"
-
-        --        , Terminal.text "Maybe you meant one of:\n"
-        --        , Terminal.text (String.join ", " availableEnvironmentVariables)
+        , Terminal.text "So maybe "
+        , Terminal.yellow <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
+        , Terminal.text " should be "
+        , Terminal.green <| Terminal.text secretName
         ]
     }
+
+
+sortMatches missingSecret availableSecrets =
+    let
+        simpleMatch config separators needle hay =
+            Fuzzy.match config separators needle hay |> .score
+    in
+    List.sortBy (simpleMatch [] [] missingSecret) availableSecrets
 
 
 decoder : Decoder Secrets
