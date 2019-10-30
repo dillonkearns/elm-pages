@@ -443,31 +443,25 @@ update siteMetadata config msg model =
                                     model.errors
                                         ++ [ FailedStaticHttpRequestError
                                                 { message =
-                                                    [
-                                                    Terminal.text "I got an error making an HTTP request to this URL: "
-                                                    , Terminal.text url
+                                                    [ Terminal.text "I got an error making an HTTP request to this URL: "
+                                                    , Terminal.yellow <| Terminal.text url
                                                     , Terminal.text "\n\n"
-                                                    ,
-                                                     case error of
+                                                    , case error of
                                                         Http.BadStatus code ->
                                                             Terminal.text <| "Bad status: " ++ String.fromInt code
-
 
                                                         Http.BadUrl _ ->
                                                             Terminal.text <| "Invalid url: " ++ url
 
-
                                                         Http.Timeout ->
                                                             Terminal.text "Timeout"
-
 
                                                         Http.NetworkError ->
                                                             Terminal.text "Network error"
 
-
                                                         Http.BadBody string ->
                                                             Terminal.text "Network error"
-                                                                                                                ]
+                                                    ]
                                                 }
                                            ]
                                 , staticResponses =
@@ -675,16 +669,21 @@ errorToString : Error -> String
 errorToString error =
     case error of
         MissingSecret buildError ->
-            buildError.message |> Terminal.toString
+            banner "Missing Secret" :: buildError.message |> Terminal.toString
 
         MetadataDecodeError buildError ->
-            buildError.message |> Terminal.toString
+            banner "Metadata Decode Error" :: buildError.message |> Terminal.toString
 
         InternalError buildError ->
-            buildError.message |> Terminal.toString
+            banner "Internal Error" :: buildError.message |> Terminal.toString
 
         FailedStaticHttpRequestError buildError ->
-            buildError.message |> Terminal.toString
+            banner "Failed Static Http Error" :: buildError.message |> Terminal.toString
+
+
+banner title =
+    Terminal.cyan <|
+        Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages\n\n")
 
 
 encodeStaticResponses : StaticResponses -> Dict String (Dict String String)

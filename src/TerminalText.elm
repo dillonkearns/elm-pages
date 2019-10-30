@@ -11,11 +11,17 @@ type Color
     | Blue
     | Green
     | Yellow
+    | Cyan
 
 
 text : String -> Text
 text value =
     RawText value
+
+
+cyan : Text -> Text
+cyan inner =
+    Style (colorToString Cyan) inner
 
 
 green : Text -> Text
@@ -66,6 +72,9 @@ colorToString color =
 
             Yellow ->
                 "[33;1m"
+
+            Cyan ->
+                "[36m"
 
 
 toString : List Text -> String
