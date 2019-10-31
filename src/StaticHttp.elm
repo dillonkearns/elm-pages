@@ -29,13 +29,17 @@ type alias RequestExample model rendered msg pathKey =
 
 map : (a -> b) -> Request a -> Request b
 map fn request =
-    Request
-        ( lookupUrls request
-        , \rawResponsesDict ->
-            lookup request rawResponsesDict
-                |> Result.map fn
-                |> Result.map Done
-        )
+    case request of
+        Request ( urls, lookupFn ) ->
+            Request
+                ( urls
+                , \rawResponses ->
+                    lookupFn rawResponses
+                        |> Result.map (map fn)
+                )
+
+        Done value ->
+            fn value |> Done
 
 
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
@@ -48,19 +52,34 @@ map2 fn request1 request2 =
         )
 
 
-
---lookup : Request value ->
-
-
 lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result String value
 lookup request rawResponses =
     case request of
         Request ( urls, lookupFn ) ->
             lookupFn rawResponses
-                |> Result.andThen (\nextRequest -> lookup nextRequest rawResponses)
+                |> Result.andThen
+                    (\nextRequest ->
+                        lookup
+                            (addUrls urls nextRequest)
+                            rawResponses
+                    )
 
         Done value ->
             Ok value
+
+
+addUrls : List (Secrets -> Result BuildError String) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls urlsToAdd request =
+    case request of
+        Request ( initialUrls, function ) ->
+            Request ( initialUrls ++ urlsToAdd, function )
+
+        Done value ->
+            Done value
+
+
+
+--            Request ( urlsToAdd, \_ -> value |> Done |> Ok )
 
 
 lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets -> Result BuildError String)
@@ -100,7 +119,7 @@ andThen fn request =
 
 succeed : a -> Request a
 succeed value =
-    Done value
+    Request ( [], \_ -> value |> Done |> Ok )
 
 
 jsonRequest : String -> Decoder a -> Request a
@@ -116,7 +135,8 @@ jsonRequest url decoder =
                                 Ok rawResponse
 
                             Nothing ->
-                                Err <| "Couldn't find response for url `" ++ url ++ "`"
+                                Ok "null"
+                    --                                Err <| "Couldn't find response for url `" ++ url ++ "`"
                    )
                 |> Result.andThen
                     (\rawResponse ->
