@@ -5,7 +5,8 @@
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
   "main": "index.js",
   "scripts": {
-    "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize"
+    "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize",
+    "test": "elm-test"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
   "keywords": [
