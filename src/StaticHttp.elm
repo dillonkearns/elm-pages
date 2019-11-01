@@ -176,7 +176,6 @@ jsonRequest url decoder =
                                 Ok rawResponse
 
                             Nothing ->
-                                --                                Ok "undefined"
                                 Err <| "Couldn't find response for url `" ++ url ++ "`... available: \n[ " ++ (Dict.keys rawResponseDict |> String.join ", ") ++ " ]"
                    )
                 |> Result.andThen

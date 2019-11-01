@@ -57,11 +57,9 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed "NEXT-REQUEST")
-                            --                            StaticHttp.succeed ()
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                             |> StaticHttp.andThen
                                 (\continueUrl ->
-                                    --                                        StaticHttp.jsonRequest continueUrl (Decode.succeed ())
                                     StaticHttp.jsonRequest "NEXT-REQUEST" (Decode.succeed ())
                                 )
                       )

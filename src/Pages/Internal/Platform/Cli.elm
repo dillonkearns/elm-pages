@@ -465,7 +465,7 @@ update siteMetadata config msg model =
         GotStaticHttpResponse { url, response } ->
             let
                 updatedModel =
-                    case response of
+                    (case response of
                         Ok okResponse ->
                             staticResponsesUpdate
                                 { url = url
@@ -502,14 +502,15 @@ update siteMetadata config msg model =
                                                 }
                                            ]
                             }
+                    )
+                        |> staticResponsesUpdate
+                            { url = url
+                            , response =
+                                response |> Result.mapError (\_ -> ())
+                            }
             in
             ( updatedModel
-                |> staticResponsesUpdate
-                    { url = url
-                    , response =
-                        response |> Result.mapError (\_ -> ())
-                    }
-            , sendStaticResponsesIfDone model.secrets model.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
+            , sendStaticResponsesIfDone updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
             )
 
 
