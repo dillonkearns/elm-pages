@@ -53,6 +53,49 @@ all =
                                 }
                             ]
                         )
+        , test "andThen" <|
+            \() ->
+                start
+                    [ ( [ "elm-pages" ]
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed "NEXT-REQUEST")
+                            --                            StaticHttp.succeed ()
+                            |> StaticHttp.andThen
+                                (\continueUrl ->
+                                    --                                        StaticHttp.jsonRequest continueUrl (Decode.succeed ())
+                                    StaticHttp.jsonRequest "NEXT-REQUEST" (Decode.succeed ())
+                                )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """null"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "NEXT-REQUEST"
+                        """null"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/elm-pages"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                  , """null"""
+                                                  )
+                                                , ( "NEXT-REQUEST"
+                                                  , """null"""
+                                                  )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         , test "port is sent out once all requests are finished" <|
             \() ->
                 start

@@ -120,8 +120,8 @@ pageViewOrError pathKey viewFn model cache =
                                  -- TODO handle error better
                                 )
                                 { path = pagePath, frontmatter = metadata }
-                                |> (\(StaticHttpRequest.Request ( requestUrls, lookup )) ->
-                                        lookup viewResult.staticData
+                                |> (\request ->
+                                        StaticHttpRequest.resolve request viewResult.staticData
                                    )
                     in
                     case viewResult.body of

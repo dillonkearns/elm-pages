@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Request(..), resolveUrls, urls)
+module Pages.StaticHttpRequest exposing (Request(..), resolve, resolveUrls, urls)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -21,39 +21,47 @@ urls request =
             []
 
 
-resolveUrls : Request value -> Dict String String -> List (Secrets -> Result BuildError String)
-resolveUrls request rawResponses =
+resolve : Request value -> Dict String String -> Result String value
+resolve request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
             case lookupFn rawResponses of
                 Ok nextRequest ->
-                    let
-                        return =
-                            urlList ++ resolveUrls nextRequest rawResponses
+                    resolve nextRequest rawResponses
 
-                        _ =
-                            --                            return
-                            case nextRequest of
-                                Done val ->
-                                    ()
-                                        |> Debug.log "Nested is Done"
+                Err error ->
+                    Err "TODO error message"
 
-                                _ ->
-                                    resolveUrls nextRequest rawResponses
-                                        |> List.map Pages.Internal.Secrets.useFakeSecrets
-                                        |> Debug.log "NESTED Urls @@@@@"
-                                        |> (\_ -> ())
-                    in
-                    return
+        Done value ->
+            Ok value
+
+
+resolveUrls : Request value -> Dict String String -> ( Bool, List (Secrets -> Result BuildError String) )
+resolveUrls request rawResponses =
+    case request of
+        Request ( urlList, lookupFn ) ->
+            let
+                _ =
+                    Debug.log "!!!!!! resolving" (urlList |> List.map Pages.Internal.Secrets.useFakeSecrets)
+            in
+            case lookupFn rawResponses of
+                Ok nextRequest ->
+                    resolveUrls nextRequest rawResponses
+                        |> Tuple.mapSecond ((++) urlList)
 
                 Err error ->
                     let
                         _ =
-                            Debug.log "resolveUrls ERROR" error
+                            --                            Debug.log "!!!!!! ERROR" (urlList |> List.map Pages.Internal.Secrets.useFakeSecrets)
+                            Debug.log "!!!!!! ERROR" error
                     in
-                    --                    urlList
-                    Debug.todo error
+                    ( False
+                    , urlList
+                    )
 
         Done value ->
-            []
-                |> Debug.log "DONE"
+            let
+                _ =
+                    Debug.log "!!!!!! Reached DONE!" value
+            in
+            ( True, [] )

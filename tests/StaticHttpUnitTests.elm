@@ -27,8 +27,8 @@ all =
                                     , ( "NEXT", "null" )
                                     ]
                                 )
-                                |> List.map Pages.Internal.Secrets.useFakeSecrets
-                                |> Expect.equal [ "first", "NEXT" ]
+                                |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
+                                |> Expect.equal ( True, [ "first", "NEXT" ] )
                        )
         , test "andThen staring with done" <|
             \() ->
@@ -43,8 +43,8 @@ all =
                                     [ ( "NEXT", "null" )
                                     ]
                                 )
-                                |> List.map Pages.Internal.Secrets.useFakeSecrets
-                                |> Expect.equal [ "NEXT" ]
+                                |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
+                                |> Expect.equal ( True, [ "NEXT" ] )
                        )
         , test "map" <|
             \() ->
@@ -62,7 +62,41 @@ all =
                                     , ( "NEXT", "null" )
                                     ]
                                 )
-                                |> List.map Pages.Internal.Secrets.useFakeSecrets
-                                |> Expect.equal [ "first", "NEXT" ]
+                                |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
+                                |> Expect.equal ( True, [ "first", "NEXT" ] )
+                       )
+        , test "andThen chain with 1 response available and 1 pending" <|
+            \() ->
+                StaticHttp.jsonRequest "first" (Decode.succeed "NEXT")
+                    |> StaticHttp.andThen
+                        (\continueUrl ->
+                            StaticHttp.jsonRequest "NEXT" (Decode.succeed ())
+                        )
+                    |> (\request ->
+                            StaticHttpRequest.resolveUrls request
+                                (Dict.fromList
+                                    [ ( "first", "null" )
+                                    ]
+                                )
+                                |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
+                                |> Expect.equal ( True, [ "first", "NEXT" ] )
+                       )
+        , test "andThen chain with 1 response available and 2 pending" <|
+            \() ->
+                StaticHttp.jsonRequest "first" Decode.int
+                    |> StaticHttp.andThen
+                        (\continueUrl ->
+                            StaticHttp.jsonRequest "NEXT" Decode.string
+                                |> StaticHttp.andThen
+                                    (\_ ->
+                                        StaticHttp.jsonRequest "LAST"
+                                            Decode.string
+                                    )
+                        )
+                    |> (\request ->
+                            StaticHttpRequest.resolveUrls request
+                                (Dict.fromList [ ( "first", "1" ) ])
+                                |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
+                                |> Expect.equal ( False, [ "first", "NEXT" ] )
                        )
         ]
