@@ -156,16 +156,20 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         () ->
-            StaticHttp.map2
-                (\elmCompanies starCount ->
+            StaticHttp.map3
+                (\elmCompanies forks starCount ->
                     { view =
                         \model viewForPage ->
                             { title = "Landing Page"
                             , body =
                                 (header starCount
-                                    :: (elmCompanies
-                                            |> List.map companyView
-                                       )
+                                    :: [ forks
+                                            |> List.map (\forkName -> Element.row [] [ Element.text forkName ])
+                                            |> Element.column [ Element.spacing 15, Element.centerX, Element.padding 20 ]
+                                       ]
+                                 --                                    (elmCompanies
+                                 --                                            |> List.map companyView
+                                 --                                       )
                                 )
                                     |> Element.column [ Element.width Element.fill ]
                                     |> layout
@@ -174,6 +178,13 @@ view siteMetadata page =
                     }
                 )
                 airtableRequest
+                (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (Decode.field "forks_url" Decode.string)
+                    |> StaticHttp.andThen
+                        (\forksUrl ->
+                            StaticHttp.jsonRequest forksUrl (Decode.list (Decode.field "full_name" Decode.string))
+                        )
+                )
                 (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
                 )
