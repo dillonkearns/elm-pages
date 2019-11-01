@@ -325,7 +325,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             ( Model staticResponses secrets [] Dict.empty |> toModel
                                             , Batch
                                                 [ staticRequestsEffect
-                                                , sendStaticResponsesIfDone Dict.empty [] staticResponses config.manifest
+                                                , sendStaticResponsesIfDone secrets Dict.empty [] staticResponses config.manifest
                                                 ]
                                             )
 
@@ -405,6 +405,7 @@ updateAndSendPortIfDone : Model -> (Model -> model) -> Manifest.Config pathKey -
 updateAndSendPortIfDone model toModel manifest =
     ( model |> toModel
     , sendStaticResponsesIfDone
+        model.secrets
         model.allRawResponses
         model.errors
         model.staticResponses
@@ -508,7 +509,7 @@ update siteMetadata config msg model =
                     , response =
                         response |> Result.mapError (\_ -> ())
                     }
-            , sendStaticResponsesIfDone model.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
+            , sendStaticResponsesIfDone model.secrets model.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
             )
 
 
@@ -692,8 +693,8 @@ staticResponsesUpdate newEntry model =
     return
 
 
-sendStaticResponsesIfDone : Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> Effect pathKey
-sendStaticResponsesIfDone allRawResponses errors staticResponses manifest =
+sendStaticResponsesIfDone : Secrets -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> Effect pathKey
+sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifest =
     let
         pendingRequests =
             staticResponses
@@ -775,7 +776,7 @@ sendStaticResponsesIfDone allRawResponses errors staticResponses manifest =
 
             newEffect =
                 case
-                    performStaticHttpRequests allRawResponses Pages.Internal.Secrets.empty requestContinuations
+                    performStaticHttpRequests allRawResponses secrets requestContinuations
                 of
                     Ok urlsToPerform ->
                         let

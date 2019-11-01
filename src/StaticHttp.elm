@@ -44,12 +44,53 @@ map fn request =
 
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
 map2 fn request1 request2 =
-    Request
-        ( lookupUrls request1 ++ lookupUrls request2
-        , \dict ->
-            Result.map2 fn (lookup request1 dict) (lookup request2 dict)
-                |> Result.map Done
-        )
+    case ( request1, request2 ) of
+        ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
+            let
+                value : Dict String String -> Result String (Request c)
+                value rawResponses =
+                    let
+                        value1 : Result String (Request a)
+                        value1 =
+                            lookupFn1 rawResponses
+
+                        value2 : Result String (Request b)
+                        value2 =
+                            lookupFn2 rawResponses
+                    in
+                    Result.map2 (map2 fn) value1 value2
+            in
+            Request
+                ( urls1 ++ urls2
+                , value
+                )
+
+        ( Request ( urls1, lookupFn1 ), Done value2 ) ->
+            Request
+                ( urls1
+                , \rawResponses ->
+                    let
+                        value1 : Result String (Request a)
+                        value1 =
+                            lookupFn1 rawResponses
+                    in
+                    Result.map2 (map2 fn) value1 (Ok (Done value2))
+                )
+
+        ( Done value2, Request ( urls1, lookupFn1 ) ) ->
+            Request
+                ( urls1
+                , \rawResponses ->
+                    let
+                        value1 : Result String (Request b)
+                        value1 =
+                            lookupFn1 rawResponses
+                    in
+                    Result.map2 (map2 fn) (Ok (Done value2)) value1
+                )
+
+        ( Done value1, Done value2 ) ->
+            fn value1 value2 |> Done
 
 
 lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result String value
@@ -180,14 +221,7 @@ map3 :
     -> Request value3
     -> Request valueCombined
 map3 combine request1 request2 request3 =
-    Pages.StaticHttpRequest.Request
-        ( List.concat
-            [ lookupUrls request1
-            , lookupUrls request2
-            , lookupUrls request3
-            ]
-        , \dict ->
-            Result.map2 combine (lookup request1 dict) (lookup request2 dict)
-                |> Result.map2 (|>) (lookup request3 dict)
-                |> Result.map Done
-        )
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
