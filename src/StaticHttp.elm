@@ -225,3 +225,123 @@ map3 combine request1 request2 request3 =
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
+
+
+map4 :
+    (value1 -> value2 -> value3 -> value4 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request value4
+    -> Request valueCombined
+map4 combine request1 request2 request3 request4 =
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+
+
+map5 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request value4
+    -> Request value5
+    -> Request valueCombined
+map5 combine request1 request2 request3 request4 request5 =
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+
+
+map6 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request value4
+    -> Request value5
+    -> Request value6
+    -> Request valueCombined
+map6 combine request1 request2 request3 request4 request5 request6 =
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+
+
+map7 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request value4
+    -> Request value5
+    -> Request value6
+    -> Request value7
+    -> Request valueCombined
+map7 combine request1 request2 request3 request4 request5 request6 request7 =
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+        |> map2 (|>) request7
+
+
+map8 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request value4
+    -> Request value5
+    -> Request value6
+    -> Request value7
+    -> Request value8
+    -> Request valueCombined
+map8 combine request1 request2 request3 request4 request5 request6 request7 request8 =
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+        |> map2 (|>) request7
+        |> map2 (|>) request8
+
+
+map9 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request value4
+    -> Request value5
+    -> Request value6
+    -> Request value7
+    -> Request value8
+    -> Request value9
+    -> Request valueCombined
+map9 combine request1 request2 request3 request4 request5 request6 request7 request8 request9 =
+    succeed combine
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+        |> map2 (|>) request7
+        |> map2 (|>) request8
+        |> map2 (|>) request9
