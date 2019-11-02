@@ -734,7 +734,8 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                         newThing
 
                     Err error ->
-                        Debug.todo (Debug.toString error)
+                        SendJsData <|
+                            (Errors <| errorsToString (failedRequests ++ errors))
         in
         newEffect
 
