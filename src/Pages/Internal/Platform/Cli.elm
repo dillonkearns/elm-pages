@@ -242,7 +242,7 @@ perform cliMsgConstructor toJsPort effect =
                     Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { url = maskedUrl |> Debug.log "@@@ FETCHING"
+                                { url = maskedUrl
                                 , response = response
                                 }
                                 |> cliMsgConstructor
@@ -524,7 +524,7 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         |> List.map
             (\( pagePath, request ) ->
-                StaticHttpRequest.resolveUrls (request |> Debug.log "REQ")
+                StaticHttpRequest.resolveUrls request
                     (allRawResponses
                         |> dictCompact
                     )
@@ -591,16 +591,13 @@ staticResponsesInit list =
 staticResponsesUpdate : { url : String, response : Result () String } -> Model -> Model
 staticResponsesUpdate newEntry model =
     let
-        _ =
-            Debug.log "newEntry" newEntry
-
         updatedAllResponses =
             model.allRawResponses
                 |> Dict.insert newEntry.url (Just (newEntry.response |> Result.withDefault "TODO"))
 
         return =
             { model
-                | allRawResponses = updatedAllResponses |> Debug.log "@@@ allRawResponses"
+                | allRawResponses = updatedAllResponses
                 , staticResponses =
                     model.staticResponses
                         |> Dict.map
@@ -608,29 +605,7 @@ staticResponsesUpdate newEntry model =
                                 case entry of
                                     NotFetched request rawResponses ->
                                         let
-                                            --                                            _ =
-                                            --                                                StaticHttpRequest.resolveUrls request
-                                            --                                                    (Dict.fromList
-                                            --                                                        [ ( "NEXT-REQUEST", "null" )
-                                            --                                                        , ( "https://api.github.com/repos/dillonkearns/elm-pages", "null" )
-                                            --                                                        ]
-                                            --                                                    )
-                                            --                                                    |> Tuple.second
-                                            --                                                    |> List.map
-                                            --                                                        (\urlBuilder ->
-                                            --                                                            Pages.Internal.Secrets.useFakeSecrets urlBuilder
-                                            --                                                        )
-                                            --                                                    |> Debug.log "ASDF"
-                                            --                                    _ =
-                                            --                                        Debug.log "NEW" newEntry
-                                            responseResult =
-                                                rawResponses
-                                                    |> Dict.insert newEntry.url newEntry.response
-                                                    |> rawResponsesResult
-
                                             realUrls =
-                                                --                                                case responseResult of
-                                                --                                                    Ok responses ->
                                                 StaticHttpRequest.resolveUrls request
                                                     (updatedAllResponses |> dictCompact)
                                                     |> Tuple.second
@@ -638,58 +613,22 @@ staticResponsesUpdate newEntry model =
                                                         (\urlBuilder ->
                                                             Pages.Internal.Secrets.useFakeSecrets urlBuilder
                                                         )
-                                                    |> Debug.log "@@@@ real urls"
 
-                                            --                                                    Err _ ->
-                                            --                                                        Debug.todo ""
                                             includesUrl =
                                                 List.member newEntry.url realUrls
-                                                    |> Debug.log "includesUrl"
                                         in
                                         if includesUrl then
                                             let
                                                 updatedRawResponses =
                                                     rawResponses
-                                                        |> Dict.insert (newEntry.url |> Debug.log "INSERTING") newEntry.response
+                                                        |> Dict.insert newEntry.url newEntry.response
                                             in
-                                            NotFetched request (updatedRawResponses |> Debug.log "updated dict")
-                                            --                                        |> Debug.log "THINGY"
+                                            NotFetched request updatedRawResponses
 
                                         else
                                             entry
                             )
             }
-
-        --        staticRequests : List ( String, StaticHttpRequest.Request () )
-        --        staticRequests =
-        --            return
-        --                |> Dict.toList
-        --                |> List.map
-        --                    (Tuple.mapSecond
-        --                        (\(NotFetched nextRequest rawResponsesNested) ->
-        --                            let
-        --                                _ =
-        --                                    Debug.log "thing"
-        --                                        (StaticHttpRequest.resolveUrls
-        --                                            nextRequest
-        --                                            (Dict.fromList
-        --                                                [ ( "NEXT-REQUEST", "null" )
-        --                                                , ( "https://api.github.com/repos/dillonkearns/elm-pages", "null" )
-        --                                                ]
-        --                                            )
-        --                                            |> Tuple.second
-        --                                            |> List.map Pages.Internal.Secrets.useFakeSecrets
-        --                                        )
-        --
-        --                                --                                                                Debug.log "rawResponsesNested" rawResponsesNested
-        --                            in
-        --                            nextRequest
-        --                         --                            StaticHttpRequest.resolveUrls nextRequest (rawResponsesNested |> Dict.insert "NEXT-REQUEST" "null")
-        --                        )
-        --                    )
-        --        _ =
-        --            performStaticHttpRequests allRawResponses Pages.Internal.Secrets.empty staticRequests
-        --                |> Debug.log "perform"
     in
     return
 
@@ -761,56 +700,14 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                     |> Maybe.map FailedStaticHttpRequestError
                                     |> Maybe.map List.singleton
                                     |> Maybe.withDefault []
-
-                            lookup =
-                                case request of
-                                    StaticHttpRequest.Request ( urls, requestLookup ) ->
-                                        requestLookup
-
-                                    -- @@@@@@@@ TODO change this
-                                    --                                        StaticHttpRequest.resolve <|
-                                    --                                            StaticHttpRequest.Request ( urls, requestLookup )
-                                    StaticHttpRequest.Done value ->
-                                        \_ -> Ok (StaticHttpRequest.Done value)
-
-                            httpErrors =
-                                case rawResponsesResult rawResponses of
-                                    Ok responses ->
-                                        case lookup responses of
-                                            Ok _ ->
-                                                []
-
-                                            Err error ->
-                                                { message =
-                                                    [ Terminal.text path
-                                                    , Terminal.text "\n\n"
-                                                    , Terminal.text (StaticHttpRequest.errorToString error)
-                                                    ]
-                                                }
-                                                    -- TODO should this be a decoding http error instead?
-                                                    |> FailedStaticHttpRequestError
-                                                    |> List.singleton
-
-                                    Err error ->
-                                        [ { message =
-                                                [ Terminal.text path
-                                                ]
-                                          }
-                                        ]
-                                            |> List.map FailedStaticHttpRequestError
                         in
                         decoderErrors
-                     -- ++ (httpErrors |> Debug.log "http errors")
                     )
     in
     if pendingRequests then
         let
             requestContinuations : List ( String, StaticHttp.Request () )
             requestContinuations =
-                --                (staticResponses
-                --                                        |> Dict.toList
-                --                                    )
-                --                []
                 staticResponses
                     |> Dict.toList
                     |> List.map
@@ -841,7 +738,6 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                         in
                         newThing
 
-                    --                        effect
                     Err error ->
                         Debug.todo (Debug.toString error)
         in
@@ -859,28 +755,6 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
              else
                 Errors <| errorsToString (failedRequests ++ errors)
             )
-
-
-rawResponsesResult : Dict String (Result () String) -> Result (List BuildError) (Dict String String)
-rawResponsesResult dict =
-    dict
-        |> Dict.toList
-        |> List.map
-            (\( key, result ) ->
-                --                Debug.todo ""
-                result
-                    |> Result.map
-                        (\okValue ->
-                            ( key, okValue )
-                        )
-                    |> Result.mapError
-                        (\_ ->
-                            { message = []
-                            }
-                        )
-            )
-        |> combineMultipleErrors
-        |> Result.map Dict.fromList
 
 
 errorsToString : List Error -> String

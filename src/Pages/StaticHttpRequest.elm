@@ -86,28 +86,15 @@ resolveUrls : Request value -> Dict String String -> ( Bool, List Pages.Internal
 resolveUrls request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
-            let
-                _ =
-                    Debug.log "!!!!!! resolving" (urlList |> List.map Pages.Internal.Secrets.useFakeSecrets)
-            in
             case lookupFn rawResponses of
                 Ok nextRequest ->
                     resolveUrls nextRequest rawResponses
                         |> Tuple.mapSecond ((++) urlList)
 
                 Err error ->
-                    let
-                        _ =
-                            --                            Debug.log "!!!!!! ERROR" (urlList |> List.map Pages.Internal.Secrets.useFakeSecrets)
-                            Debug.log "!!!!!! ERROR" error
-                    in
                     ( False
                     , urlList
                     )
 
         Done value ->
-            let
-                _ =
-                    Debug.log "!!!!!! Reached DONE!" value
-            in
             ( True, [] )
