@@ -220,6 +220,52 @@ Problem with the given value:
 The user should get this message from the CLI."""
                             ]
                         )
+        , test "an error is sent for missing secrets from continuation requests" <|
+            \() ->
+                start
+                    [ ( [ "elm-pages" ]
+                      , StaticHttp.jsonRequestWithSecrets
+                            (\secrets ->
+                                secrets
+                                    |> Secrets.get "API_KEY"
+                                    |> Result.map
+                                        (\apiKey ->
+                                            "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                        )
+                            )
+                            Decode.string
+                            |> StaticHttp.andThen
+                                (\url ->
+                                    StaticHttp.jsonRequestWithSecrets
+                                        (\secrets ->
+                                            secrets
+                                                |> Secrets.get "MISSING"
+                                                |> Result.map
+                                                    (\missingSecret ->
+                                                        url ++ "?apiKey=" ++ missingSecret
+                                                    )
+                                        )
+                                        (Decode.succeed ())
+                                )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
+                        """ "continuation-url" """
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Errors <|
+                                Terminal.toString
+                                    [ Terminal.cyan <| Terminal.text "-- MISSING SECRET ----------------------------------------------------- elm-pages"
+                                    , Terminal.text "\n\nI expected to find this Secret in your environment variables but didn't find a match:\n\nSecrets.get \"MISSING\"\n"
+                                    , Terminal.yellow <| Terminal.text "https://api.github.com/repos/dillonkearns/elm-pages"
+                                    , Terminal.text "\n\nBad status: 404"
+                                    ]
+                            ]
+                        )
         , test "an error is sent for HTTP errors" <|
             \() ->
                 start

@@ -285,8 +285,6 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
                                         Err errors ->
                                             Debug.todo (Debug.toString errors)
-
-                                --                                            Dict.empty
                             in
                             case requests of
                                 Ok okRequests ->
@@ -735,7 +733,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
 
                     Err error ->
                         SendJsData <|
-                            (Errors <| errorsToString (failedRequests ++ errors))
+                            (Errors <| errorsToString (error ++ failedRequests ++ errors))
         in
         newEffect
 
