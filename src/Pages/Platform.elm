@@ -13,7 +13,7 @@ import Pages.Internal
 import Pages.Internal.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
+import StaticHttp
 
 
 {-| TODO

@@ -1,4 +1,22 @@
-module StaticHttp exposing (..)
+module StaticHttp exposing
+    ( Request
+    , jsonRequest, jsonRequestWithSecrets
+    , map, succeed
+    , andThen
+    , map2, map3, map4, map5, map6, map7, map8, map9
+    )
+
+{-| TODO
+
+@docs Request
+@docs jsonRequest, jsonRequestWithSecrets
+@docs map, succeed
+
+@docs andThen
+
+@docs map2, map3, map4, map5, map6, map7, map8, map9
+
+-}
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -10,23 +28,14 @@ import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets exposing (Secrets)
 
 
+{-| TODO
+-}
 type alias Request value =
     Pages.StaticHttpRequest.Request value
 
 
-type alias RequestExample model rendered msg pathKey =
-    Request
-        { view :
-            model
-            -> rendered
-            ->
-                { title : String
-                , body : Html msg
-                }
-        , head : List (Head.Tag pathKey)
-        }
-
-
+{-| TODO
+-}
 map : (a -> b) -> Request a -> Request b
 map fn request =
     case request of
@@ -42,6 +51,8 @@ map fn request =
             fn value |> Done
 
 
+{-| TODO
+-}
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
 map2 fn request1 request2 =
     case ( request1, request2 ) of
@@ -128,12 +139,8 @@ lookupUrls request =
             []
 
 
-
---type Request value
---    = Request ( List (Secrets -> Result BuildError String), Dict String String -> Result String (Request value) )
---    | Done value
-
-
+{-| TODO
+-}
 andThen : (a -> Request b) -> Request a -> Request b
 andThen fn request =
     Request
@@ -153,11 +160,15 @@ andThen fn request =
         )
 
 
+{-| TODO
+-}
 succeed : a -> Request a
 succeed value =
     Request ( [], \_ -> value |> Done |> Ok )
 
 
+{-| TODO
+-}
 jsonRequest : String -> Decoder a -> Request a
 jsonRequest url decoder =
     Request
@@ -185,6 +196,8 @@ jsonRequest url decoder =
         )
 
 
+{-| TODO
+-}
 jsonRequestWithSecrets : (Secrets -> Result BuildError String) -> Decoder a -> Request a
 jsonRequestWithSecrets urlWithSecrets decoder =
     Request
@@ -213,6 +226,8 @@ jsonRequestWithSecrets urlWithSecrets decoder =
         )
 
 
+{-| TODO
+-}
 map3 :
     (value1 -> value2 -> value3 -> valueCombined)
     -> Request value1
@@ -226,6 +241,8 @@ map3 combine request1 request2 request3 =
         |> map2 (|>) request3
 
 
+{-| TODO
+-}
 map4 :
     (value1 -> value2 -> value3 -> value4 -> valueCombined)
     -> Request value1
@@ -241,6 +258,8 @@ map4 combine request1 request2 request3 request4 =
         |> map2 (|>) request4
 
 
+{-| TODO
+-}
 map5 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
     -> Request value1
@@ -258,6 +277,8 @@ map5 combine request1 request2 request3 request4 request5 =
         |> map2 (|>) request5
 
 
+{-| TODO
+-}
 map6 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
     -> Request value1
@@ -277,6 +298,8 @@ map6 combine request1 request2 request3 request4 request5 request6 =
         |> map2 (|>) request6
 
 
+{-| TODO
+-}
 map7 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
     -> Request value1
@@ -298,6 +321,8 @@ map7 combine request1 request2 request3 request4 request5 request6 request7 =
         |> map2 (|>) request7
 
 
+{-| TODO
+-}
 map8 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
     -> Request value1
@@ -321,6 +346,8 @@ map8 combine request1 request2 request3 request4 request5 request6 request7 requ
         |> map2 (|>) request8
 
 
+{-| TODO
+-}
 map9 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
     -> Request value1
