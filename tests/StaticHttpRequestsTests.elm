@@ -13,6 +13,7 @@ import Pages.Internal.Secrets
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
+import Regex
 import Secrets exposing (Secrets)
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http
@@ -256,15 +257,15 @@ The user should get this message from the CLI."""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Errors <|
-                                Terminal.toString
-                                    [ Terminal.cyan <| Terminal.text "-- MISSING SECRET ----------------------------------------------------- elm-pages"
-                                    , Terminal.text "\n\nI expected to find this Secret in your environment variables but didn't find a match:\n\nSecrets.get \"MISSING\"\n"
-                                    , Terminal.yellow <| Terminal.text "https://api.github.com/repos/dillonkearns/elm-pages"
-                                    , Terminal.text "\n\nBad status: 404"
-                                    ]
-                            ]
+                        (expectErrorsPort
+                            """-- MISSING SECRET ----------------------------------------------------- elm-pages
+
+I expected to find this Secret in your environment variables but didn't find a match:
+
+Secrets.get "MISSING"
+             ^^^^^^^
+
+So maybe MISSING should be API_KEY"""
                         )
         , test "an error is sent for HTTP errors" <|
             \() ->
@@ -444,6 +445,24 @@ simulateEffects effect =
                                 }
                         )
                 }
+
+
+expectErrorsPort expectedPlainString actualPorts =
+    case actualPorts of
+        [ Errors actualRichTerminalString ] ->
+            let
+                actualPlainString =
+                    actualRichTerminalString
+                        |> Regex.replace
+                            (Regex.fromString "\u{001B}\\[[0-9;]+m"
+                                |> Maybe.withDefault Regex.never
+                            )
+                            (\_ -> "")
+            in
+            actualPlainString |> Expect.equal expectedPlainString
+
+        _ ->
+            Expect.fail "Expected single error port"
 
 
 toJsPort foo =
