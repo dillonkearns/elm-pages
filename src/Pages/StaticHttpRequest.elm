@@ -1,14 +1,30 @@
-module Pages.StaticHttpRequest exposing (Request(..), resolve, resolveUrls, urls)
+module Pages.StaticHttpRequest exposing (Error(..), Request(..), errorToString, permanentError, resolve, resolveUrls, toBuildError, urls)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Pages.Internal.Secrets
 import Secrets exposing (Secrets)
+import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets -> Result BuildError String), Dict String String -> Result String (Request value) )
+    = Request ( List (Secrets -> Result BuildError String), Dict String String -> Result Error (Request value) )
     | Done value
+
+
+errorToString : Error -> String
+errorToString error =
+    case error of
+        MissingHttpResponse string ->
+            string
+
+        DecoderError string ->
+            string
+
+
+type Error
+    = MissingHttpResponse String
+    | DecoderError String
 
 
 urls : Request value -> List (Secrets -> Result BuildError String)
@@ -21,7 +37,37 @@ urls request =
             []
 
 
-resolve : Request value -> Dict String String -> Result String value
+toBuildError : String -> Error -> BuildError
+toBuildError path error =
+    { message =
+        [ Terminal.text path
+        , Terminal.text "\n\n"
+        , Terminal.text (errorToString error)
+        ]
+    }
+
+
+permanentError : Request value -> Dict String String -> Maybe Error
+permanentError request rawResponses =
+    case request of
+        Request ( urlList, lookupFn ) ->
+            case lookupFn rawResponses of
+                Ok nextRequest ->
+                    permanentError nextRequest rawResponses
+
+                Err error ->
+                    case error of
+                        MissingHttpResponse _ ->
+                            Nothing
+
+                        DecoderError _ ->
+                            Just error
+
+        Done value ->
+            Nothing
+
+
+resolve : Request value -> Dict String String -> Result Error value
 resolve request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -30,13 +76,13 @@ resolve request rawResponses =
                     resolve nextRequest rawResponses
 
                 Err error ->
-                    Err "TODO error message"
+                    Err error
 
         Done value ->
             Ok value
 
 
-resolveUrls : Request value -> Dict String String -> ( Bool, List (Secrets -> Result BuildError String) )
+resolveUrls : Request value -> Dict String String -> ( Bool, List Pages.Internal.Secrets.UrlWithSecrets )
 resolveUrls request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->

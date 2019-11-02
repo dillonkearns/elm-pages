@@ -133,9 +133,18 @@ pageViewOrError pathKey viewFn model cache =
                                 Err error ->
                                     { title = "Parsing error"
                                     , body =
-                                        Html.text <|
-                                            "Could not load static data - TODO better error here."
-                                                ++ error
+                                        case error of
+                                            StaticHttpRequest.DecoderError decoderError ->
+                                                Html.div []
+                                                    [ Html.text "Could not parse static data. I encountered this decoder problem."
+                                                    , Html.pre [] [ Html.text decoderError ]
+                                                    ]
+
+                                            StaticHttpRequest.MissingHttpResponse missingKey ->
+                                                Html.div []
+                                                    [ Html.text "I'm missing some StaticHttp data for this page:"
+                                                    , Html.pre [] [ Html.text missingKey ]
+                                                    ]
                                     }
 
                         Err error ->

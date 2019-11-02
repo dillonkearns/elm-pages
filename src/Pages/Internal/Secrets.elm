@@ -1,4 +1,4 @@
-module Pages.Internal.Secrets exposing (Secrets(..), decoder, empty, useFakeSecrets)
+module Pages.Internal.Secrets exposing (Secrets(..), UrlWithSecrets, decoder, empty, useFakeSecrets)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)

@@ -47,14 +47,11 @@ map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
-                value : Dict String String -> Result String (Request c)
                 value rawResponses =
                     let
-                        value1 : Result String (Request a)
                         value1 =
                             lookupFn1 rawResponses
 
-                        value2 : Result String (Request b)
                         value2 =
                             lookupFn2 rawResponses
                     in
@@ -70,7 +67,6 @@ map2 fn request1 request2 =
                 ( urls1
                 , \rawResponses ->
                     let
-                        value1 : Result String (Request a)
                         value1 =
                             lookupFn1 rawResponses
                     in
@@ -82,7 +78,6 @@ map2 fn request1 request2 =
                 ( urls1
                 , \rawResponses ->
                     let
-                        value1 : Result String (Request b)
                         value1 =
                             lookupFn1 rawResponses
                     in
@@ -93,7 +88,7 @@ map2 fn request1 request2 =
             fn value1 value2 |> Done
 
 
-lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result String value
+lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error value
 lookup request rawResponses =
     case request of
         Request ( urls, lookupFn ) ->
@@ -176,14 +171,16 @@ jsonRequest url decoder =
                                 Ok rawResponse
 
                             Nothing ->
-                                Err <| "Couldn't find response for url `" ++ url ++ "`... available: \n[ " ++ (Dict.keys rawResponseDict |> String.join ", ") ++ " ]"
+                                --                                Err <| "Couldn't find response for url `" ++ url ++ "`... available: \n[ " ++ (Dict.keys rawResponseDict |> String.join ", ") ++ " ]"
+                                Err <| Pages.StaticHttpRequest.MissingHttpResponse url
                    )
                 |> Result.andThen
                     (\rawResponse ->
                         rawResponse
                             |> Decode.decodeString decoder
-                            |> Result.map Done
                             |> Result.mapError Decode.errorToString
+                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                            |> Result.map Done
                     )
         )
 
@@ -201,14 +198,16 @@ jsonRequestWithSecrets urlWithSecrets decoder =
                                 Ok rawResponse
 
                             Nothing ->
-                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
+                                --                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
+                                Err <| Pages.StaticHttpRequest.MissingHttpResponse <| Pages.Internal.Secrets.useFakeSecrets urlWithSecrets
                    )
                 |> Result.andThen
                     (\rawResponse ->
                         rawResponse
                             |> Decode.decodeString decoder
-                            |> Result.map Done
                             |> Result.mapError Decode.errorToString
+                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                            |> Result.map Done
                     )
         )
 

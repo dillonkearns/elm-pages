@@ -705,6 +705,21 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                         case entry of
                             NotFetched request rawResponses ->
                                 let
+                                    usableRawResponses : Dict String String
+                                    usableRawResponses =
+                                        rawResponses
+                                            |> Dict.Extra.filterMap
+                                                (\key value ->
+                                                    value
+                                                        |> Result.map Just
+                                                        |> Result.withDefault Nothing
+                                                )
+
+                                    hasPermanentError =
+                                        StaticHttpRequest.permanentError request usableRawResponses
+                                            |> Maybe.map (\_ -> True)
+                                            |> Maybe.withDefault False
+
                                     ( allUrlsKnown, knownUrlsToFetch ) =
                                         StaticHttpRequest.resolveUrls request
                                             (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
@@ -713,7 +728,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                         (knownUrlsToFetch |> List.map Pages.Internal.Secrets.useFakeSecrets |> Set.fromList |> Set.size)
                                             == (rawResponses |> Dict.keys |> List.length)
                                 in
-                                if allUrlsKnown && fetchedAllKnownUrls then
+                                if hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
                                     False
 
                                 else
@@ -726,38 +741,66 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                 |> List.concatMap
                     (\( path, NotFetched request rawResponses ) ->
                         let
+                            usableRawResponses : Dict String String
+                            usableRawResponses =
+                                rawResponses
+                                    |> Dict.Extra.filterMap
+                                        (\key value ->
+                                            value
+                                                |> Result.map Just
+                                                |> Result.withDefault Nothing
+                                        )
+
+                            maybePermanentError =
+                                StaticHttpRequest.permanentError request
+                                    usableRawResponses
+
+                            decoderErrors =
+                                maybePermanentError
+                                    |> Maybe.map (StaticHttpRequest.toBuildError path)
+                                    |> Maybe.map FailedStaticHttpRequestError
+                                    |> Maybe.map List.singleton
+                                    |> Maybe.withDefault []
+
                             lookup =
                                 case request of
                                     StaticHttpRequest.Request ( urls, requestLookup ) ->
                                         requestLookup
 
+                                    -- @@@@@@@@ TODO change this
+                                    --                                        StaticHttpRequest.resolve <|
+                                    --                                            StaticHttpRequest.Request ( urls, requestLookup )
                                     StaticHttpRequest.Done value ->
                                         \_ -> Ok (StaticHttpRequest.Done value)
-                        in
-                        case rawResponsesResult rawResponses of
-                            Ok responses ->
-                                case lookup responses of
-                                    Ok _ ->
-                                        []
+
+                            httpErrors =
+                                case rawResponsesResult rawResponses of
+                                    Ok responses ->
+                                        case lookup responses of
+                                            Ok _ ->
+                                                []
+
+                                            Err error ->
+                                                { message =
+                                                    [ Terminal.text path
+                                                    , Terminal.text "\n\n"
+                                                    , Terminal.text (StaticHttpRequest.errorToString error)
+                                                    ]
+                                                }
+                                                    -- TODO should this be a decoding http error instead?
+                                                    |> FailedStaticHttpRequestError
+                                                    |> List.singleton
 
                                     Err error ->
-                                        { message =
-                                            [ Terminal.text path
-                                            , Terminal.text "\n\n"
-                                            , Terminal.text error
-                                            ]
-                                        }
-                                            -- TODO should this be a decoding http error instead?
-                                            |> FailedStaticHttpRequestError
-                                            |> List.singleton
-
-                            Err error ->
-                                [ { message =
-                                        [ Terminal.text path
+                                        [ { message =
+                                                [ Terminal.text path
+                                                ]
+                                          }
                                         ]
-                                  }
-                                ]
-                                    |> List.map FailedStaticHttpRequestError
+                                            |> List.map FailedStaticHttpRequestError
+                        in
+                        decoderErrors
+                     -- ++ (httpErrors |> Debug.log "http errors")
                     )
     in
     if pendingRequests then
