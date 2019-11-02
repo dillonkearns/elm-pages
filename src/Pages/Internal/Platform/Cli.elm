@@ -240,21 +240,6 @@ perform cliMsgConstructor toJsPort effect =
                 (GotStaticHttpResponse >> cliMsgConstructor)
 
 
-
---            Http.get
---                { url = unmaskedUrl
---                , expect =
---                    Http.expectString
---                        (\response ->
---                            GotStaticHttpResponse
---                                { url = maskedUrl
---                                , response = response
---                                }
---                                |> cliMsgConstructor
---                        )
---                }
-
-
 init :
     (Model -> model)
     -> ContentCache.ContentCache metadata view
@@ -719,11 +704,6 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                     |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
                                     |> Dict.fromList
 
-                            maskedUrls =
-                                urlsToPerform
-                                    |> List.map Pages.Internal.Secrets.masked
-                                    |> Set.fromList
-
                             alreadyPerformed =
                                 allRawResponses
                                     |> Dict.keys
@@ -883,21 +863,3 @@ resultFolder current soFarResult =
                     error
                         :: soFarErr
                         |> Err
-
-
-encodeErrors : Dict (List String) String -> Json.Encode.Value
-encodeErrors errors =
-    errors
-        |> Json.Encode.dict
-            (\path -> "/" ++ String.join "/" path)
-            (\errorsForPath -> Json.Encode.string errorsForPath)
-
-
-mapKeys : (comparable -> comparable1) -> Dict comparable v -> Dict comparable1 v
-mapKeys keyMapper dict =
-    Dict.foldl
-        (\k v acc ->
-            Dict.insert (keyMapper k) v acc
-        )
-        Dict.empty
-        dict
