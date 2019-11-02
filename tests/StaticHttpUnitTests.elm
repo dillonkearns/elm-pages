@@ -79,7 +79,7 @@ all =
                                     ]
                                 )
                                 |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
-                                |> Expect.equal ( True, [ "first", "NEXT" ] )
+                                |> Expect.equal ( False, [ "first", "NEXT" ] )
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
             \() ->
