@@ -100,7 +100,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp String String
+    | FetchHttp Pages.Internal.Secrets.Url
     | Batch (List (Effect pathKey))
 
 
@@ -235,19 +235,24 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp unmaskedUrl maskedUrl ->
-            Http.get
-                { url = unmaskedUrl
-                , expect =
-                    Http.expectString
-                        (\response ->
-                            GotStaticHttpResponse
-                                { url = maskedUrl
-                                , response = response
-                                }
-                                |> cliMsgConstructor
-                        )
-                }
+        FetchHttp secureUrl ->
+            Pages.Internal.Secrets.get secureUrl
+                (GotStaticHttpResponse >> cliMsgConstructor)
+
+
+
+--            Http.get
+--                { url = unmaskedUrl
+--                , expect =
+--                    Http.expectString
+--                        (\response ->
+--                            GotStaticHttpResponse
+--                                { url = maskedUrl
+--                                , response = response
+--                                }
+--                                |> cliMsgConstructor
+--                        )
+--                }
 
 
 init :
@@ -311,16 +316,8 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             let
                                                 staticRequestsEffect =
                                                     urlsToFetch
-                                                        |> List.map
-                                                            (\( unmasked, masked ) ->
-                                                                FetchHttp unmasked masked
-                                                            )
+                                                        |> List.map FetchHttp
                                                         |> Batch
-
-                                                unmaskedUrls =
-                                                    urlsToFetch
-                                                        |> List.map Tuple.first
-                                                        |> Set.fromList
                                             in
                                             ( Model staticResponses secrets [] Dict.empty |> toModel
                                             , Batch
@@ -519,7 +516,7 @@ dictCompact dict =
         |> Dict.Extra.filterMap (\key value -> value)
 
 
-performStaticHttpRequests : Dict String (Maybe String) -> Secrets -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List ( String, String ))
+performStaticHttpRequests : Dict String (Maybe String) -> Secrets -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List Pages.Internal.Secrets.Url)
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         |> List.map
@@ -537,10 +534,6 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         |> List.map
             (\urlBuilder ->
                 urlBuilder secrets
-                    |> Result.map
-                        (\unmasked ->
-                            ( unmasked, Pages.Internal.Secrets.useFakeSecrets urlBuilder )
-                        )
                     |> Result.mapError MissingSecret
             )
         |> combineMultipleErrors
@@ -721,19 +714,29 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                 of
                     Ok urlsToPerform ->
                         let
+                            maskedToUnmasked =
+                                urlsToPerform
+                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
+                                    |> Dict.fromList
+
                             maskedUrls =
                                 urlsToPerform
-                                    |> List.map Tuple.second
+                                    |> List.map Pages.Internal.Secrets.masked
                                     |> Set.fromList
 
-                            newThing =
+                            alreadyPerformed =
                                 allRawResponses
                                     |> Dict.keys
                                     |> Set.fromList
-                                    |> Set.diff maskedUrls
-                                    |> Set.toList
-                                    -- TODO this should pass the masked url as the first argument
-                                    |> List.map (\unmaskedUrl -> FetchHttp unmaskedUrl unmaskedUrl)
+
+                            newThing =
+                                maskedToUnmasked
+                                    |> Dict.Extra.removeMany alreadyPerformed
+                                    |> Dict.toList
+                                    |> List.map
+                                        (\( maskedUrl, secureUrl ) ->
+                                            FetchHttp secureUrl
+                                        )
                                     |> Batch
                         in
                         newThing

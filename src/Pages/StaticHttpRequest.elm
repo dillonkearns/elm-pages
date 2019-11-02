@@ -2,13 +2,13 @@ module Pages.StaticHttpRequest exposing (Error(..), Request(..), errorToString, 
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
-import Pages.Internal.Secrets
+import Pages.Internal.Secrets exposing (UrlWithSecrets)
 import Secrets exposing (Secrets)
 import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets -> Result BuildError String), Dict String String -> Result Error (Request value) )
+    = Request ( List UrlWithSecrets, Dict String String -> Result Error (Request value) )
     | Done value
 
 
@@ -27,7 +27,7 @@ type Error
     | DecoderError String
 
 
-urls : Request value -> List (Secrets -> Result BuildError String)
+urls : Request value -> List UrlWithSecrets
 urls request =
     case request of
         Request ( urlList, lookupFn ) ->

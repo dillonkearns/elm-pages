@@ -1,12 +1,66 @@
-module Pages.Internal.Secrets exposing (Secrets(..), UrlWithSecrets, decoder, empty, useFakeSecrets)
+module Pages.Internal.Secrets exposing (Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, masked, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
+import Http
 import Json.Decode as Decode exposing (Decoder)
 
 
+stringToUrl : (Secrets -> Result BuildError String) -> (Secrets -> Result BuildError Url)
+stringToUrl f1 =
+    let
+        maskedUrl =
+            useFakeSecrets2 f1
+    in
+    \secrets ->
+        case f1 secrets of
+            Ok unmaskedUrl ->
+                Ok (Url ( UnmaskedUrl unmaskedUrl, maskedUrl ))
+
+            Err error ->
+                Err error
+
+
+urlWithoutSecrets : String -> UrlWithSecrets
+urlWithoutSecrets rawUrlWithoutSecrets =
+    \secrets -> Ok (Url ( UnmaskedUrl rawUrlWithoutSecrets, rawUrlWithoutSecrets ))
+
+
+type Url
+    = Url ( UnmaskedUrl, String )
+
+
+masked : Url -> String
+masked (Url ( _, maskedUrl )) =
+    maskedUrl
+
+
+type UnmaskedUrl
+    = UnmaskedUrl String
+
+
+get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
+    Http.get
+        { url = unmaskedUrl
+        , expect =
+            Http.expectString
+                (\response ->
+                    gotResponse
+                        { url = maskedUrl
+                        , response = response
+                        }
+                )
+        }
+
+
+unwrap (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) =
+    { unmasked = unmaskedUrl
+    , masked = maskedUrl
+    }
+
+
 type alias UrlWithSecrets =
-    Secrets -> Result BuildError String
+    Secrets -> Result BuildError Url
 
 
 type Secrets
@@ -19,8 +73,15 @@ protected =
     Protected
 
 
-useFakeSecrets : (Secrets -> Result BuildError String) -> String
+useFakeSecrets : UrlWithSecrets -> String
 useFakeSecrets urlWithSecrets =
+    urlWithSecrets protected
+        |> Result.withDefault (Url ( UnmaskedUrl "", "" ))
+        |> masked
+
+
+useFakeSecrets2 : (Secrets -> Result BuildError String) -> String
+useFakeSecrets2 urlWithSecrets =
     urlWithSecrets protected
         |> Result.withDefault ""
 

@@ -104,7 +104,7 @@ lookup request rawResponses =
             Ok value
 
 
-addUrls : List (Secrets -> Result BuildError String) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls : List Pages.Internal.Secrets.UrlWithSecrets -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
 addUrls urlsToAdd request =
     case request of
         Request ( initialUrls, function ) ->
@@ -118,7 +118,7 @@ addUrls urlsToAdd request =
 --            Request ( urlsToAdd, \_ -> value |> Done |> Ok )
 
 
-lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets -> Result BuildError String)
+lookupUrls : Pages.StaticHttpRequest.Request value -> List Pages.Internal.Secrets.UrlWithSecrets
 lookupUrls request =
     case request of
         Request ( urls, lookupFn ) ->
@@ -161,7 +161,7 @@ succeed value =
 jsonRequest : String -> Decoder a -> Request a
 jsonRequest url decoder =
     Request
-        ( [ \secrets -> Ok url ]
+        ( [ Pages.Internal.Secrets.urlWithoutSecrets url ]
         , \rawResponseDict ->
             rawResponseDict
                 |> Dict.get url
@@ -188,10 +188,11 @@ jsonRequest url decoder =
 jsonRequestWithSecrets : (Secrets -> Result BuildError String) -> Decoder a -> Request a
 jsonRequestWithSecrets urlWithSecrets decoder =
     Request
-        ( [ urlWithSecrets ]
+        ( [ Pages.Internal.Secrets.stringToUrl urlWithSecrets
+          ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Pages.Internal.Secrets.useFakeSecrets urlWithSecrets)
+                |> Dict.get (Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -199,7 +200,7 @@ jsonRequestWithSecrets urlWithSecrets decoder =
 
                             Nothing ->
                                 --                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
-                                Err <| Pages.StaticHttpRequest.MissingHttpResponse <| Pages.Internal.Secrets.useFakeSecrets urlWithSecrets
+                                Err <| Pages.StaticHttpRequest.MissingHttpResponse <| Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets
                    )
                 |> Result.andThen
                     (\rawResponse ->

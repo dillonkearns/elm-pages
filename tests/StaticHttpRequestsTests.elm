@@ -9,6 +9,7 @@ import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
+import Pages.Internal.Secrets
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
@@ -18,6 +19,7 @@ import SimulatedEffect.Http
 import SimulatedEffect.Ports
 import StaticHttp
 import Test exposing (Test, describe, only, test)
+import Test.Http
 
 
 all : Test
@@ -217,6 +219,40 @@ Problem with the given value:
 The user should get this message from the CLI."""
                             ]
                         )
+        , test "an error is sent for HTTP errors" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpResponse
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        (Test.Http.httpResponse
+                            { statusCode = 404
+                            , headers = []
+                            , body = ""
+                            }
+                        )
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Errors
+                                """\u{001B}[36m-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages\u{001B}[0m
+
+/elm-pages
+
+Problem with the given value:
+
+{
+        "stargazer_count": 86
+    }
+
+The user should get this message from the CLI."""
+                            ]
+                        )
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
             \() ->
                 start
@@ -350,14 +386,18 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp unmaskedUrl maskedUrl ->
+        FetchHttp secureUrl ->
+            let
+                { masked, unmasked } =
+                    Pages.Internal.Secrets.unwrap secureUrl
+            in
             SimulatedEffect.Http.get
-                { url = unmaskedUrl
+                { url = unmasked
                 , expect =
                     SimulatedEffect.Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { url = maskedUrl
+                                { url = masked
                                 , response = response
                                 }
                         )
