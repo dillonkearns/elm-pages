@@ -637,6 +637,18 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                             |> Maybe.map (\_ -> True)
                                             |> Maybe.withDefault False
 
+                                    hasPermanentHttpError =
+                                        errors
+                                            |> List.any
+                                                (\error ->
+                                                    case error of
+                                                        FailedStaticHttpRequestError _ ->
+                                                            True
+
+                                                        _ ->
+                                                            False
+                                                )
+
                                     ( allUrlsKnown, knownUrlsToFetch ) =
                                         StaticHttpRequest.resolveUrls request
                                             (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
@@ -645,7 +657,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                         (knownUrlsToFetch |> List.map Pages.Internal.Secrets.useFakeSecrets |> Set.fromList |> Set.size)
                                             == (rawResponses |> Dict.keys |> List.length)
                                 in
-                                if hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
+                                if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
                                     False
 
                                 else

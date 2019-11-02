@@ -18,6 +18,7 @@ import SimulatedEffect.Cmd
 import SimulatedEffect.Http
 import SimulatedEffect.Ports
 import StaticHttp
+import TerminalText as Terminal
 import Test exposing (Test, describe, only, test)
 import Test.Http
 
@@ -239,18 +240,13 @@ The user should get this message from the CLI."""
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
                         (Expect.equal
-                            [ Errors
-                                """\u{001B}[36m-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages\u{001B}[0m
-
-/elm-pages
-
-Problem with the given value:
-
-{
-        "stargazer_count": 86
-    }
-
-The user should get this message from the CLI."""
+                            [ Errors <|
+                                Terminal.toString
+                                    [ Terminal.cyan <| Terminal.text "-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages"
+                                    , Terminal.text "\n\nI got an error making an HTTP request to this URL: "
+                                    , Terminal.yellow <| Terminal.text "https://api.github.com/repos/dillonkearns/elm-pages"
+                                    , Terminal.text "\n\nBad status: 404"
+                                    ]
                             ]
                         )
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
