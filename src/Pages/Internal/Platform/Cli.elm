@@ -824,16 +824,16 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                 of
                     Ok urlsToPerform ->
                         let
-                            unmaskedUrls =
+                            maskedUrls =
                                 urlsToPerform
-                                    |> List.map Tuple.first
+                                    |> List.map Tuple.second
                                     |> Set.fromList
 
                             newThing =
                                 allRawResponses
                                     |> Dict.keys
                                     |> Set.fromList
-                                    |> Set.diff unmaskedUrls
+                                    |> Set.diff maskedUrls
                                     |> Set.toList
                                     -- TODO this should pass the masked url as the first argument
                                     |> List.map (\unmaskedUrl -> FetchHttp unmaskedUrl unmaskedUrl)
