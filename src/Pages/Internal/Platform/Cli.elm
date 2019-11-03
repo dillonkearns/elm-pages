@@ -788,13 +788,22 @@ encodeStaticResponses staticResponses =
             (\path result ->
                 case result of
                     NotFetched request rawResponsesDict ->
-                        rawResponsesDict
-                            |> Dict.map
-                                (\key value ->
-                                    value
-                                        -- TODO avoid running this code at all if there are errors here
-                                        |> Result.withDefault ""
-                                )
+                        let
+                            relevantResponses =
+                                rawResponsesDict
+                                    |> Dict.map
+                                        (\key value ->
+                                            value
+                                                -- TODO avoid running this code at all if there are errors here
+                                                |> Result.withDefault ""
+                                        )
+
+                            strippedResponses : Dict String String
+                            strippedResponses =
+                                -- TODO should this return an Err and handle that here?
+                                StaticHttpRequest.strippedResponses request relevantResponses
+                        in
+                        strippedResponses
             )
 
 

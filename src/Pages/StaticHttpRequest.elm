@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), Request(..), errorToString, permanentError, resolve, resolveUrls, toBuildError, urls)
+module Pages.StaticHttpRequest exposing (Error(..), Request(..), errorToString, permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -8,8 +8,23 @@ import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List UrlWithSecrets, Dict String String -> Result Error (Request value) )
+    = Request ( List UrlWithSecrets, Dict String String -> Result Error ( Dict String String, Request value ) )
     | Done value
+
+
+strippedResponses : Request value -> Dict String String -> Dict String String
+strippedResponses request rawResponses =
+    case request of
+        Request ( list, lookupFn ) ->
+            case lookupFn rawResponses of
+                Err _ ->
+                    Debug.todo ""
+
+                Ok ( partiallyStrippedResponses, followupRequest ) ->
+                    strippedResponses followupRequest partiallyStrippedResponses
+
+        Done value ->
+            rawResponses
 
 
 errorToString : Error -> String
@@ -52,7 +67,7 @@ permanentError request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
             case lookupFn rawResponses of
-                Ok nextRequest ->
+                Ok ( partiallyStrippedResponses, nextRequest ) ->
                     permanentError nextRequest rawResponses
 
                 Err error ->
@@ -72,7 +87,7 @@ resolve request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
             case lookupFn rawResponses of
-                Ok nextRequest ->
+                Ok ( partiallyStrippedResponses, nextRequest ) ->
                     resolve nextRequest rawResponses
 
                 Err error ->
@@ -87,7 +102,7 @@ resolveUrls request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
             case lookupFn rawResponses of
-                Ok nextRequest ->
+                Ok ( partiallyStrippedResponses, nextRequest ) ->
                     resolveUrls nextRequest rawResponses
                         |> Tuple.mapSecond ((++) urlList)
 

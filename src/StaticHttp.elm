@@ -44,7 +44,7 @@ map fn request =
                 ( urls
                 , \rawResponses ->
                     lookupFn rawResponses
-                        |> Result.map (map fn)
+                        |> Result.map (\( partiallyStripped, nextRequest ) -> ( partiallyStripped, map fn nextRequest ))
                 )
 
         Done value ->
@@ -58,15 +58,32 @@ map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
+                value : Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, Request c )
                 value rawResponses =
                     let
                         value1 =
                             lookupFn1 rawResponses
+                                |> Result.map Tuple.second
 
                         value2 =
                             lookupFn2 rawResponses
+                                |> Result.map Tuple.second
+
+                        dict1 =
+                            lookupFn1 rawResponses
+                                |> Result.map Tuple.first
+
+                        dict2 =
+                            lookupFn2 rawResponses
+                                |> Result.map Tuple.first
                     in
-                    Result.map2 (map2 fn) value1 value2
+                    Result.map2
+                        (\thing1 thing2 ->
+                            -- @@@@@@@@@@ TODO combine the two dicts here
+                            ( rawResponses, map2 fn thing1 thing2 )
+                        )
+                        value1
+                        value2
             in
             Request
                 ( urls1 ++ urls2
@@ -80,8 +97,16 @@ map2 fn request1 request2 =
                     let
                         value1 =
                             lookupFn1 rawResponses
+                                |> Result.map Tuple.second
                     in
-                    Result.map2 (map2 fn) value1 (Ok (Done value2))
+                    --                    Result.map2 (map2 fn) value1 (Ok (Done value2))
+                    Result.map2
+                        (\thing1 thing2 ->
+                            -- @@@@@@@@@@ TODO combine the two dicts here
+                            ( rawResponses, map2 fn thing1 thing2 )
+                        )
+                        value1
+                        (Ok (Done value2))
                 )
 
         ( Done value2, Request ( urls1, lookupFn1 ) ) ->
@@ -91,8 +116,16 @@ map2 fn request1 request2 =
                     let
                         value1 =
                             lookupFn1 rawResponses
+                                |> Result.map Tuple.second
                     in
-                    Result.map2 (map2 fn) (Ok (Done value2)) value1
+                    --                    Result.map2 (map2 fn) (Ok (Done value2)) value1
+                    Result.map2
+                        (\thing1 thing2 ->
+                            -- @@@@@@@@@@ TODO combine the two dicts here
+                            ( rawResponses, map2 fn thing1 thing2 )
+                        )
+                        (Ok (Done value2))
+                        value1
                 )
 
         ( Done value1, Done value2 ) ->
@@ -105,7 +138,7 @@ lookup request rawResponses =
         Request ( urls, lookupFn ) ->
             lookupFn rawResponses
                 |> Result.andThen
-                    (\nextRequest ->
+                    (\( strippedResponses, nextRequest ) ->
                         lookup
                             (addUrls urls nextRequest)
                             rawResponses
@@ -155,7 +188,7 @@ andThen fn request =
                                 Err error
 
                             Ok value ->
-                                fn value |> Ok
+                                ( rawResponses, fn value ) |> Ok
                    )
         )
 
@@ -164,7 +197,11 @@ andThen fn request =
 -}
 succeed : a -> Request a
 succeed value =
-    Request ( [], \_ -> value |> Done |> Ok )
+    Request
+        ( []
+        , \rawResponses ->
+            Ok ( rawResponses, Done value )
+        )
 
 
 {-| TODO
@@ -179,19 +216,20 @@ jsonRequest url decoder =
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
-                                Ok rawResponse
+                                -- @@@@@ TODO reduce raw responses
+                                Ok ( rawResponseDict, rawResponse )
 
                             Nothing ->
-                                --                                Err <| "Couldn't find response for url `" ++ url ++ "`... available: \n[ " ++ (Dict.keys rawResponseDict |> String.join ", ") ++ " ]"
                                 Err <| Pages.StaticHttpRequest.MissingHttpResponse url
                    )
                 |> Result.andThen
-                    (\rawResponse ->
+                    (\( strippedResponses, rawResponse ) ->
                         rawResponse
                             |> Decode.decodeString decoder
                             |> Result.mapError Decode.errorToString
                             |> Result.mapError Pages.StaticHttpRequest.DecoderError
                             |> Result.map Done
+                            |> Result.map (\finalRequest -> ( strippedResponses, finalRequest ))
                     )
         )
 
@@ -209,19 +247,21 @@ jsonRequestWithSecrets urlWithSecrets decoder =
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
-                                Ok rawResponse
+                                -- @@@@@ TODO reduce raw responses
+                                Ok ( rawResponseDict, rawResponse )
 
                             Nothing ->
                                 --                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
                                 Err <| Pages.StaticHttpRequest.MissingHttpResponse <| Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets
                    )
                 |> Result.andThen
-                    (\rawResponse ->
+                    (\( strippedResponses, rawResponse ) ->
                         rawResponse
                             |> Decode.decodeString decoder
                             |> Result.mapError Decode.errorToString
                             |> Result.mapError Pages.StaticHttpRequest.DecoderError
                             |> Result.map Done
+                            |> Result.map (\finalRequest -> ( strippedResponses, finalRequest ))
                     )
         )
 
