@@ -1,6 +1,6 @@
 module StaticHttp exposing
     ( Request
-    , jsonRequest, jsonRequestWithSecrets
+    , jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
     , map, succeed
     , andThen
     , map2, map3, map4, map5, map6, map7, map8, map9
@@ -9,7 +9,7 @@ module StaticHttp exposing
 {-| TODO
 
 @docs Request
-@docs jsonRequest, jsonRequestWithSecrets
+@docs jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
 @docs map, succeed
 
 @docs andThen
@@ -23,6 +23,7 @@ import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Exploration
 import Pages.Internal.Secrets
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets exposing (Secrets)
@@ -217,7 +218,10 @@ jsonRequest url decoder =
                         case maybeResponse of
                             Just rawResponse ->
                                 -- @@@@@ TODO reduce raw responses
-                                Ok ( rawResponseDict, rawResponse )
+                                Ok
+                                    ( rawResponseDict
+                                    , rawResponse
+                                    )
 
                             Nothing ->
                                 Err <| Pages.StaticHttpRequest.MissingHttpResponse url
@@ -230,6 +234,60 @@ jsonRequest url decoder =
                             |> Result.mapError Pages.StaticHttpRequest.DecoderError
                             |> Result.map Done
                             |> Result.map (\finalRequest -> ( strippedResponses, finalRequest ))
+                    )
+        )
+
+
+{-| TODO
+-}
+reducedJsonRequest : String -> Json.Decode.Exploration.Decoder a -> Request a
+reducedJsonRequest url decoder =
+    Request
+        ( [ Pages.Internal.Secrets.urlWithoutSecrets url ]
+        , \rawResponseDict ->
+            rawResponseDict
+                |> Dict.get url
+                |> (\maybeResponse ->
+                        case maybeResponse of
+                            Just rawResponse ->
+                                -- @@@@@ TODO reduce raw responses
+                                Ok
+                                    ( rawResponseDict
+                                      --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                    , rawResponse
+                                    )
+
+                            Nothing ->
+                                Err <| Pages.StaticHttpRequest.MissingHttpResponse url
+                   )
+                |> Result.andThen
+                    (\( strippedResponses, rawResponse ) ->
+                        let
+                            reduced =
+                                Json.Decode.Exploration.stripString decoder rawResponse
+                                    |> Result.withDefault "TODO"
+                        in
+                        rawResponse
+                            |> Json.Decode.Exploration.decodeString decoder
+                            --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
+                            |> (\decodeResult ->
+                                    case decodeResult |> Debug.log "decodeResult" of
+                                        Json.Decode.Exploration.BadJson ->
+                                            Pages.StaticHttpRequest.DecoderError "" |> Err
+
+                                        Json.Decode.Exploration.Errors errors ->
+                                            Pages.StaticHttpRequest.DecoderError "" |> Err
+
+                                        Json.Decode.Exploration.WithWarnings warnings a ->
+                                            --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
+                                            Ok a
+
+                                        Json.Decode.Exploration.Success a ->
+                                            Ok a
+                               )
+                            --                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                            |> Result.map Done
+                            |> Result.map (\finalRequest -> ( strippedResponses |> Dict.insert url reduced, finalRequest ))
                     )
         )
 
