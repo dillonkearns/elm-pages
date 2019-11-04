@@ -14,3 +14,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Use hidden `<div>` to listen for Elm view renders instead of wrapping entire
    page in an extra div. Fixes [#5](https://github.com/dillonkearns/elm-pages/issues/5).
+- Generate files for extensions other than `.md` and `.emu` (fixes [#16](https://github.com/dillonkearns/elm-pages/issues/16)).
+   Be sure to also use the latest Elm package.
