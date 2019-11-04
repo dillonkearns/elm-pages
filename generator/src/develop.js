@@ -51,7 +51,7 @@ function start({ routes, debug, customPort, manifestConfig }) {
     });
   });
 
-  const port = customPort || process.env.PORT || 3000;
+  const port = customPort || 3000;
   app.listen(port, () =>
     console.log(`🚀 elm-pages develop on http://localhost:${port}`)
   );
