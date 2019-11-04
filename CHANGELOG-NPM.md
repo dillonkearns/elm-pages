@@ -9,10 +9,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Generate files for extensions other than `.md` and `.emu` (fixes [#16](https://github.com/dillonkearns/elm-pages/issues/16)).
+   As always, be sure to also use the latest Elm package.
+
+### Added
+- Ability to use a custom port for dev server ([#10](https://github.com/dillonkearns/elm-pages/pull/10); thank you [@leojpod](https://github.com/leojpod)! 🎉)
+
 ## [1.0.39] - 2019-10-18
 
 ### Fixed
 - Use hidden `<div>` to listen for Elm view renders instead of wrapping entire
    page in an extra div. Fixes [#5](https://github.com/dillonkearns/elm-pages/issues/5).
-- Generate files for extensions other than `.md` and `.emu` (fixes [#16](https://github.com/dillonkearns/elm-pages/issues/16)).
-   Be sure to also use the latest Elm package.
