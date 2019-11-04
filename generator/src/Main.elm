@@ -10,6 +10,7 @@ import String.Interpolate exposing (interpolate)
 port writeFile :
     { watch : Bool
     , debug : Bool
+    , customPort : Maybe Int
     }
     -> Cmd msg
 
@@ -156,19 +157,28 @@ generateMarkdownPage markdown =
 
 
 type CliOptions
-    = Develop { debugger : Bool }
+    = Develop DevelopOptions
     | Build
+
+
+type alias DevelopOptions =
+    { debugger : Bool
+    , customPort : Maybe Int
+    }
 
 
 application : Program.Config CliOptions
 application =
     Program.config
         |> Program.add
-            (OptionsParser.buildSubCommand "develop"
-                (\debugger ->
-                    Develop { debugger = debugger }
-                )
+            (OptionsParser.buildSubCommand "develop" DevelopOptions
+                |> OptionsParser.withDoc "you can set the port with --port=3200"
                 |> with (Option.flag "debug")
+                |> with
+                    (Option.optionalKeywordArg "port"
+                        |> Option.validateMapIfPresent (String.toInt >> Result.fromMaybe "port needs to be an integer")
+                    )
+                |> OptionsParser.map Develop
             )
         |> Program.add
             (OptionsParser.buildSubCommand "build" Build)
@@ -193,16 +203,17 @@ type alias MarkdownContent =
 init : Flags -> CliOptions -> Cmd Never
 init flags cliOptions =
     let
-        ( watch, debug ) =
+        ( watch, debug, customPort ) =
             case cliOptions of
                 Develop options ->
-                    ( True, options.debugger )
+                    ( True, options.debugger, options.customPort )
 
                 Build ->
-                    ( False, False )
+                    ( False, False, Nothing )
     in
     { watch = watch
     , debug = debug
+    , customPort = customPort
     }
         |> writeFile
 
