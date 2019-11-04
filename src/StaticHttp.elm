@@ -20,6 +20,7 @@ module StaticHttp exposing
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
+import Dict.Extra
 import Head
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
@@ -73,15 +74,16 @@ map2 fn request1 request2 =
                         dict1 =
                             lookupFn1 rawResponses
                                 |> Result.map Tuple.first
+                                |> Result.withDefault Dict.empty
 
                         dict2 =
                             lookupFn2 rawResponses
                                 |> Result.map Tuple.first
+                                |> Result.withDefault Dict.empty
                     in
                     Result.map2
                         (\thing1 thing2 ->
-                            -- @@@@@@@@@@ TODO combine the two dicts here
-                            ( rawResponses, map2 fn thing1 thing2 )
+                            ( combineReducedDicts dict1 dict2, map2 fn thing1 thing2 )
                         )
                         value1
                         value2
@@ -99,12 +101,15 @@ map2 fn request1 request2 =
                         value1 =
                             lookupFn1 rawResponses
                                 |> Result.map Tuple.second
+
+                        dict1 =
+                            lookupFn1 rawResponses
+                                |> Result.map Tuple.first
+                                |> Result.withDefault Dict.empty
                     in
-                    --                    Result.map2 (map2 fn) value1 (Ok (Done value2))
                     Result.map2
                         (\thing1 thing2 ->
-                            -- @@@@@@@@@@ TODO combine the two dicts here
-                            ( rawResponses, map2 fn thing1 thing2 )
+                            ( dict1, map2 fn thing1 thing2 )
                         )
                         value1
                         (Ok (Done value2))
@@ -118,12 +123,15 @@ map2 fn request1 request2 =
                         value1 =
                             lookupFn1 rawResponses
                                 |> Result.map Tuple.second
+
+                        dict1 =
+                            lookupFn1 rawResponses
+                                |> Result.map Tuple.first
+                                |> Result.withDefault Dict.empty
                     in
-                    --                    Result.map2 (map2 fn) (Ok (Done value2)) value1
                     Result.map2
                         (\thing1 thing2 ->
-                            -- @@@@@@@@@@ TODO combine the two dicts here
-                            ( rawResponses, map2 fn thing1 thing2 )
+                            ( dict1, map2 fn thing1 thing2 )
                         )
                         (Ok (Done value2))
                         value1
@@ -131,6 +139,23 @@ map2 fn request1 request2 =
 
         ( Done value1, Done value2 ) ->
             fn value1 value2 |> Done
+
+
+{-| Takes two dicts representing responses, some of which have been reduced, and picks the shorter of the two.
+This is assuming that there are no duplicate URLs, so it can safely choose between either a raw or a reduced response.
+It would not work correctly if it chose between two responses that were reduced with different `Json.Decode.Exploration.Decoder`s.
+-}
+combineReducedDicts : Dict String String -> Dict String String -> Dict String String
+combineReducedDicts dict1 dict2 =
+    (Dict.toList dict1 ++ Dict.toList dict2)
+        |> Dict.Extra.fromListDedupe
+            (\response1 response2 ->
+                if String.length response1 < String.length response2 then
+                    response1
+
+                else
+                    response2
+            )
 
 
 lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
