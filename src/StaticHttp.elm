@@ -133,7 +133,7 @@ map2 fn request1 request2 =
             fn value1 value2 |> Done
 
 
-lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error value
+lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
 lookup request rawResponses =
     case request of
         Request ( urls, lookupFn ) ->
@@ -142,11 +142,11 @@ lookup request rawResponses =
                     (\( strippedResponses, nextRequest ) ->
                         lookup
                             (addUrls urls nextRequest)
-                            rawResponses
+                            strippedResponses
                     )
 
         Done value ->
-            Ok value
+            Ok ( rawResponses, value )
 
 
 addUrls : List Pages.Internal.Secrets.UrlWithSecrets -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
@@ -188,8 +188,8 @@ andThen fn request =
                             Err error ->
                                 Err error
 
-                            Ok value ->
-                                ( rawResponses, fn value ) |> Ok
+                            Ok ( strippedResponses, value ) ->
+                                ( strippedResponses, fn value ) |> Ok
                    )
         )
 

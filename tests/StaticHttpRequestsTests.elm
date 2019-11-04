@@ -173,6 +173,47 @@ all =
                                 }
                             ]
                         )
+        , test "json is reduced from andThen chains" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                            |> StaticHttp.andThen
+                                (\continueUrl ->
+                                    StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int)
+                                )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 100, "unused_field": 123 }"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                        """{ "stargazer_count": 50, "unused_field": 456 }"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                  , """{"stargazer_count":100}"""
+                                                  )
+                                                , ( "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                                                  , """{"stargazer_count":50}"""
+                                                  )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         , test "the port sends out even if there are no http requests" <|
             \() ->
                 start
