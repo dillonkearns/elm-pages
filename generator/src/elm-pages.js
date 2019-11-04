@@ -47,7 +47,7 @@ function run() {
   const staticRoutes = generateRecords();
 
   const markdownContent = glob
-    .sync("content/**/*.md", {})
+    .sync("content/**/*.*", {})
     .map(unpackFile)
     .map(({ path, contents }) => {
       return parseMarkdown(path, contents);
@@ -137,7 +137,7 @@ function startWatchIfNeeded() {
   if (!watcher) {
     console.log("Watching...");
     watcher = chokidar
-      .watch([contentGlobPath, "content/**/*.md"], {
+      .watch(["content/**/*.*"], {
         awaitWriteFinish: {
           stabilityThreshold: 500
         },

@@ -1,3 +1,5 @@
+const path = require("path");
+
 module.exports = function(markdown, markup, includeBody) {
   return `content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
@@ -6,6 +8,8 @@ content =
 };
 
 function toEntry(entry, includeBody) {
+  const extension = path.extname(entry.path).replace(/^\./, "");
+
   let fullPath = entry.path
     .replace(/(index)?\.[^/.]+$/, "")
     .split("/")
@@ -17,7 +21,7 @@ function toEntry(entry, includeBody) {
   ( [${fullPath.join(", ")}]
     , { frontMatter = """${entry.metadata}
 """ , body = ${body(entry, includeBody)}
-    , extension = "${entry.extension}"
+    , extension = "${extension}"
     } )
   `;
 }
