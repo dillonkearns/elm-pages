@@ -271,7 +271,7 @@ reducedJsonRequest url decoder =
                             |> Json.Decode.Exploration.decodeString decoder
                             --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
                             |> (\decodeResult ->
-                                    case decodeResult |> Debug.log "decodeResult" of
+                                    case decodeResult of
                                         Json.Decode.Exploration.BadJson ->
                                             Pages.StaticHttpRequest.DecoderError "" |> Err
 

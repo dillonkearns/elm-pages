@@ -28,6 +28,7 @@
             "lukewestby/elm-string-interpolate": "1.0.4",
             "mdgriffith/elm-markup": "3.0.1",
             "mdgriffith/elm-ui": "1.1.5",
+            "mgold/elm-nonempty-list": "4.0.2",
             "miniBill/elm-codec": "1.2.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "rtfeldman/elm-hex": "1.0.0",
@@ -36,6 +37,7 @@
         "indirect": {
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
+            "elm/random": "1.0.0",
             "elm/regex": "1.0.0",
             "elm/time": "1.0.0",
             "elm/virtual-dom": "1.0.2",
@@ -46,8 +48,6 @@
         "direct": {
             "elm-explorations/test": "1.2.2"
         },
-        "indirect": {
-            "elm/random": "1.0.0"
-        }
+        "indirect": {}
     }
 }

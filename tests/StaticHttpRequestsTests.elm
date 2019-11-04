@@ -143,37 +143,36 @@ all =
                                 }
                             ]
                         )
-        , only <|
-            test "reduced JSON is sent out" <|
-                \() ->
-                    start
-                        [ ( []
-                          , StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
-                            """{ "stargazer_count": 86, "unused_field": 123 }"""
-                        |> ProgramTest.expectOutgoingPortValues
-                            "toJsPort"
-                            (Codec.decoder Main.toJsCodec)
-                            (Expect.equal
-                                [ Main.Success
-                                    { pages =
-                                        Dict.fromList
-                                            [ ( "/"
-                                              , Dict.fromList
-                                                    [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
-                                                      , """{"stargazer_count":86}"""
-                                                      )
-                                                    ]
-                                              )
-                                            ]
-                                    , manifest = manifest
-                                    }
-                                ]
-                            )
+        , test "reduced JSON is sent out" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList
+                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                  , """{"stargazer_count":86}"""
+                                                  )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         , test "the port sends out even if there are no http requests" <|
             \() ->
                 start
