@@ -1,4 +1,4 @@
-module Pages.Internal.Secrets exposing (Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, masked, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2)
+module Pages.Internal.Secrets exposing (RequestDetails, Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, masked, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -15,7 +15,7 @@ stringToUrl f1 =
     \secrets ->
         case f1 secrets of
             Ok unmaskedUrl ->
-                Ok (Url ( UnmaskedUrl unmaskedUrl, maskedUrl ))
+                Ok (Url ( UnmaskedUrl { url = unmaskedUrl }, maskedUrl ))
 
             Err error ->
                 Err error
@@ -23,7 +23,7 @@ stringToUrl f1 =
 
 urlWithoutSecrets : String -> UrlWithSecrets
 urlWithoutSecrets rawUrlWithoutSecrets =
-    \secrets -> Ok (Url ( UnmaskedUrl rawUrlWithoutSecrets, rawUrlWithoutSecrets ))
+    \secrets -> Ok (Url ( UnmaskedUrl { url = rawUrlWithoutSecrets }, rawUrlWithoutSecrets ))
 
 
 type Url
@@ -36,12 +36,16 @@ masked (Url ( _, maskedUrl )) =
 
 
 type UnmaskedUrl
-    = UnmaskedUrl String
+    = UnmaskedUrl { url : String }
+
+
+type alias RequestDetails =
+    { url : String }
 
 
 get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
     Http.get
-        { url = unmaskedUrl
+        { url = unmaskedUrl.url
         , expect =
             Http.expectString
                 (\response ->
@@ -76,7 +80,7 @@ protected =
 useFakeSecrets : UrlWithSecrets -> String
 useFakeSecrets urlWithSecrets =
     urlWithSecrets protected
-        |> Result.withDefault (Url ( UnmaskedUrl "", "" ))
+        |> Result.withDefault (Url ( UnmaskedUrl { url = "" }, "" ))
         |> masked
 
 

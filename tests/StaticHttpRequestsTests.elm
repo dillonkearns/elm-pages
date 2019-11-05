@@ -546,7 +546,7 @@ simulateEffects effect =
                     Pages.Internal.Secrets.unwrap secureUrl
             in
             SimulatedEffect.Http.get
-                { url = unmasked
+                { url = unmasked.url
                 , expect =
                     SimulatedEffect.Http.expectString
                         (\response ->
