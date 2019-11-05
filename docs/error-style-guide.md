@@ -84,6 +84,7 @@ Key concepts
 	* List out possible options to make it clear when there are alternatives
 
 Examples:
+* See "Suggestion" section in [Example Breakdown](#example-breakdown)
 
 
 
