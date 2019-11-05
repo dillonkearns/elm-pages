@@ -88,6 +88,14 @@ Examples:
 ## Educational Material
 How can we present information and resources that help them understand concepts that they might be missing that they need to solve their issue or accomplish their goal?
 
+Key ideas
+* Often the user is trying to accomplish something different than the error message context would imply. For 
+  example, if they are running into an error message about parsing frontmatter, they may
+  just need some help understanding the concept of what frontmatter is, what the valid syntax is,
+  or how it differs from tools with special frontmatter directives (like Jekyll). So the context is
+  that their decoder is failing... but that context may not point them in the direction they need at all.
+  This is often the purpose that educational material serves.
+
 Examples:
 * "I was trying to parse the frontmatter for page ..., but there was no frontmatter. Frontmatter is metadata about a page, for example a page might have a title or a published date or a list of tags. See link to learn more about frontmatter and best practices for using it with `elm-pages`"
 * Many static site frameworks have custom frontmatter directives. In `elm-pages`, you define a JSON decoder, and then decide what to do with that parsed data in your `view` function. Learn more at elm-pages.com/docs/elm-pages-architecture
