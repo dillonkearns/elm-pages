@@ -9,6 +9,8 @@ both in terms of the concepts, and the feel of the development cycle and feedbac
 
 * https://elm-lang.org/news/compiler-errors-for-humans
 * https://elm-lang.org/news/the-syntax-cliff
+* Gatsby is working on redesignging their CLI error messages, and has listed out a lot of references of
+  UX ideas for CLIs, and descriptions of CLI UX from common tools: https://www.gatsbyjs.org/blog/2019-05-22-cli-error-redesign
 
 ## Error Message Structure
 
