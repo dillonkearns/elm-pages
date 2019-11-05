@@ -92,6 +92,15 @@ Examples:
 * "I was trying to parse the frontmatter for page ..., but there was no frontmatter. Frontmatter is metadata about a page, for example a page might have a title or a published date or a list of tags. See link to learn more about frontmatter and best practices for using it with `elm-pages`"
 * Many static site frameworks have custom frontmatter directives. In `elm-pages`, you define a JSON decoder, and then decide what to do with that parsed data in your `view` function. Learn more at elm-pages.com/docs/elm-pages-architecture
 
+## Error message design process
+Error messages are part of the UX of `elm-pages`. People will be looking at these frequently when they work with `elm-pages`, so
+it's a very important part of it. Always consider the user's goal (from the user's perspective) when thinking about error messages.
+
+It's worth putting care into error messages, just as you would any other aspect of user experience.
+And as with user experience design, I think that making low-fi error message "mock ups" could be an
+extermely helpful exercise. I envision having Github issues with **current error message**, and
+**suggested error message mock-up** sections, and having community discussions where we can tweak mock-ups
+and propose changes, or explore them through the lens of this Error Style Guide.
 
 ## Where/when to present errors
 Let the user know as soon as possible. For example, if you can show them an error in their browser
