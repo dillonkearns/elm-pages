@@ -32,7 +32,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -62,10 +62,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                             |> StaticHttp.andThen
                                 (\continueUrl ->
-                                    StaticHttp.jsonRequest "NEXT-REQUEST" (Decode.succeed ())
+                                    StaticHttp.get "NEXT-REQUEST" (Decode.succeed ())
                                 )
                       )
                     ]
@@ -103,10 +103,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                       )
                     , ( [ "elm-pages-starter" ]
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Decode.succeed ())
+                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -147,7 +147,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      , StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -177,10 +177,10 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      , StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
                             |> StaticHttp.andThen
                                 (\continueUrl ->
-                                    StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int)
+                                    StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int)
                                 )
                       )
                     ]
@@ -219,8 +219,8 @@ all =
                 start
                     [ ( []
                       , StaticHttp.map2 (\_ _ -> ())
-                            (StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int))
-                            (StaticHttp.reducedJsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int))
+                            (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int))
+                            (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -280,8 +280,8 @@ all =
                 start
                     [ ( []
                       , StaticHttp.map2 (\_ _ -> ())
-                            (StaticHttp.jsonRequest "http://example.com" (Decode.succeed ()))
-                            (StaticHttp.jsonRequest "http://example.com" (Decode.succeed ()))
+                            (StaticHttp.get "http://example.com" (Decode.succeed ()))
+                            (StaticHttp.get "http://example.com" (Decode.succeed ()))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -307,7 +307,7 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.fail "The user should get this message from the CLI.")
+                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.fail "The user should get this message from the CLI.")
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -336,7 +336,7 @@ The user should get this message from the CLI."""
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.jsonRequestWithSecrets
+                      , StaticHttp.getWithSecrets
                             (\secrets ->
                                 secrets
                                     |> Secrets.get "API_KEY"
@@ -348,7 +348,7 @@ The user should get this message from the CLI."""
                             Decode.string
                             |> StaticHttp.andThen
                                 (\url ->
-                                    StaticHttp.jsonRequestWithSecrets
+                                    StaticHttp.getWithSecrets
                                         (\secrets ->
                                             secrets
                                                 |> Secrets.get "MISSING"
@@ -382,7 +382,7 @@ So maybe MISSING should be API_KEY"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpResponse
@@ -411,7 +411,7 @@ So maybe MISSING should be API_KEY"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.jsonRequestWithSecrets
+                      , StaticHttp.getWithSecrets
                             (\secrets ->
                                 secrets
                                     |> Secrets.get "API_KEY"

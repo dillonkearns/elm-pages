@@ -1,4 +1,4 @@
-module Pages.Internal.Secrets exposing (RequestDetails, Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, masked, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2)
+module Pages.Internal.Secrets exposing (RequestDetails, Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, hashRequest, masked, requestToString, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -6,24 +6,25 @@ import Http
 import Json.Decode as Decode exposing (Decoder)
 
 
-stringToUrl : (Secrets -> Result BuildError String) -> (Secrets -> Result BuildError Url)
+stringToUrl : (Secrets -> Result BuildError { url : String, method : String }) -> (Secrets -> Result BuildError Url)
 stringToUrl f1 =
     let
         maskedUrl =
+            -- TODO hash it and mask it here
             useFakeSecrets2 f1
     in
     \secrets ->
         case f1 secrets of
             Ok unmaskedUrl ->
-                Ok (Url ( UnmaskedUrl { url = unmaskedUrl }, maskedUrl ))
+                Ok (Url ( UnmaskedUrl unmaskedUrl, maskedUrl.url ))
 
             Err error ->
                 Err error
 
 
-urlWithoutSecrets : String -> UrlWithSecrets
+urlWithoutSecrets : { url : String, method : String } -> UrlWithSecrets
 urlWithoutSecrets rawUrlWithoutSecrets =
-    \secrets -> Ok (Url ( UnmaskedUrl { url = rawUrlWithoutSecrets }, rawUrlWithoutSecrets ))
+    stringToUrl (\secrets -> Ok rawUrlWithoutSecrets)
 
 
 type Url
@@ -36,11 +37,7 @@ masked (Url ( _, maskedUrl )) =
 
 
 type UnmaskedUrl
-    = UnmaskedUrl { url : String }
-
-
-type alias RequestDetails =
-    { url : String }
+    = UnmaskedUrl { url : String, method : String }
 
 
 get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
@@ -80,14 +77,33 @@ protected =
 useFakeSecrets : UrlWithSecrets -> String
 useFakeSecrets urlWithSecrets =
     urlWithSecrets protected
-        |> Result.withDefault (Url ( UnmaskedUrl { url = "" }, "" ))
+        |> Result.withDefault (Url ( UnmaskedUrl { url = "", method = "" }, "" ))
         |> masked
 
 
-useFakeSecrets2 : (Secrets -> Result BuildError String) -> String
+type alias RequestDetails =
+    { url : String, method : String }
+
+
+useFakeSecrets2 : (Secrets -> Result BuildError RequestDetails) -> RequestDetails
 useFakeSecrets2 urlWithSecrets =
     urlWithSecrets protected
-        |> Result.withDefault ""
+        |> Result.withDefault defaultRequest
+
+
+requestToString : RequestDetails -> String
+requestToString requestDetails =
+    requestDetails.url
+
+
+hashRequest : RequestDetails -> String
+hashRequest requestDetails =
+    requestDetails.url
+
+
+defaultRequest : RequestDetails
+defaultRequest =
+    { url = "", method = "" }
 
 
 empty =

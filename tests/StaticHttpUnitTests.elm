@@ -14,11 +14,11 @@ all =
     describe "Static Http Requests"
         [ test "andThen" <|
             \() ->
-                StaticHttp.jsonRequest "first" (Decode.succeed "NEXT")
+                StaticHttp.get "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            --                                        StaticHttp.jsonRequest continueUrl (Decode.succeed ())
-                            StaticHttp.jsonRequest "NEXT" (Decode.succeed ())
+                            --                                        StaticHttp.get continueUrl (Decode.succeed ())
+                            StaticHttp.get "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
@@ -35,7 +35,7 @@ all =
                 StaticHttp.succeed ()
                     |> StaticHttp.andThen
                         (\_ ->
-                            StaticHttp.jsonRequest "NEXT" (Decode.succeed ())
+                            StaticHttp.get "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
@@ -48,11 +48,11 @@ all =
                        )
         , test "map" <|
             \() ->
-                StaticHttp.jsonRequest "first" (Decode.succeed "NEXT")
+                StaticHttp.get "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            --                                        StaticHttp.jsonRequest continueUrl (Decode.succeed ())
-                            StaticHttp.jsonRequest "NEXT" (Decode.succeed ())
+                            --                                        StaticHttp.get continueUrl (Decode.succeed ())
+                            StaticHttp.get "NEXT" (Decode.succeed ())
                         )
                     |> StaticHttp.map (\_ -> ())
                     |> (\request ->
@@ -67,10 +67,10 @@ all =
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
             \() ->
-                StaticHttp.jsonRequest "first" (Decode.succeed "NEXT")
+                StaticHttp.get "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            StaticHttp.jsonRequest "NEXT" (Decode.succeed ())
+                            StaticHttp.get "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
@@ -83,13 +83,13 @@ all =
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
             \() ->
-                StaticHttp.jsonRequest "first" Decode.int
+                StaticHttp.get "first" Decode.int
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            StaticHttp.jsonRequest "NEXT" Decode.string
+                            StaticHttp.get "NEXT" Decode.string
                                 |> StaticHttp.andThen
                                     (\_ ->
-                                        StaticHttp.jsonRequest "LAST"
+                                        StaticHttp.get "LAST"
                                             Decode.string
                                     )
                         )
