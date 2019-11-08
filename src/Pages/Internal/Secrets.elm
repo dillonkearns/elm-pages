@@ -50,8 +50,11 @@ type UnmaskedUrl
 
 
 get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
-    Http.get
-        { url = unmaskedUrl.url
+    Http.request
+        { method = unmaskedUrl.method
+        , url = unmaskedUrl.url
+        , headers = []
+        , body = Http.emptyBody
         , expect =
             Http.expectString
                 (\response ->
@@ -60,6 +63,8 @@ get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
                         , response = response
                         }
                 )
+        , timeout = Nothing
+        , tracker = Nothing
         }
 
 

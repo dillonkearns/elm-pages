@@ -17,7 +17,7 @@ import ProgramTest exposing (ProgramTest)
 import Regex
 import Secrets exposing (Secrets)
 import SimulatedEffect.Cmd
-import SimulatedEffect.Http
+import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import StaticHttp
 import TerminalText as Terminal
@@ -164,6 +164,36 @@ all =
                                         [ ( "/"
                                           , Dict.fromList
                                                 [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
+                                                  , """{"stargazer_count":86}"""
+                                                  )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
+        , test "POST method works" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.reducedPost "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "POST"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/"
+                                          , Dict.fromList
+                                                [ ( "[POST]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """{"stargazer_count":86}"""
                                                   )
                                                 ]
@@ -545,19 +575,21 @@ simulateEffects effect =
                 { masked, unmasked } =
                     Pages.Internal.Secrets.unwrap secureUrl
             in
-            SimulatedEffect.Http.get
-                { url = unmasked.url
+            Http.request
+                { method = unmasked.method
+                , url = unmasked.url
+                , headers = []
+                , body = Http.emptyBody
                 , expect =
-                    SimulatedEffect.Http.expectString
+                    Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { request =
-                                    { url = masked
-                                    , method = "GET"
-                                    }
+                                { request = { url = masked, method = unmasked.method }
                                 , response = response
                                 }
                         )
+                , timeout = Nothing
+                , tracker = Nothing
                 }
 
 
