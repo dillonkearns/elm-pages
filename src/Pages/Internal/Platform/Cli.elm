@@ -602,12 +602,9 @@ staticResponsesUpdate newEntry model =
                                                     |> Tuple.second
                                                     |> List.map
                                                         (\urlBuilder ->
-                                                            Pages.Internal.Secrets.useFakeSecrets urlBuilder
-                                                        )
-                                                    |> List.map
-                                                        (\unhashedUrl ->
-                                                            "[GET]"
-                                                                ++ unhashedUrl
+                                                            Pages.Internal.Secrets.useFakeSecrets3
+                                                                urlBuilder
+                                                                |> hashUrl
                                                         )
 
                                             includesUrl =

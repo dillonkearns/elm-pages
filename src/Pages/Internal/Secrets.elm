@@ -1,4 +1,4 @@
-module Pages.Internal.Secrets exposing (RequestDetails, Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, hashRequest, masked, requestToString, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2)
+module Pages.Internal.Secrets exposing (RequestDetails, Secrets(..), UnmaskedUrl, Url, UrlWithSecrets, decoder, empty, get, hashRequest, masked, requestToString, stringToUrl, unwrap, urlWithoutSecrets, useFakeSecrets, useFakeSecrets2, useFakeSecrets3)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -93,6 +93,16 @@ useFakeSecrets urlWithSecrets =
 
 type alias RequestDetails =
     { url : String, method : String }
+
+
+useFakeSecrets3 : (Secrets -> Result BuildError Url) -> RequestDetails
+useFakeSecrets3 urlWithSecrets =
+    urlWithSecrets protected
+        |> Result.map
+            (\(Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) ->
+                unmaskedUrl
+            )
+        |> Result.withDefault defaultRequest
 
 
 useFakeSecrets2 : (Secrets -> Result BuildError RequestDetails) -> RequestDetails
