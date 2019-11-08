@@ -23,8 +23,8 @@ all =
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
                                 (Dict.fromList
-                                    [ ( "first", "null" )
-                                    , ( "NEXT", "null" )
+                                    [ ( "[GET]first", "null" )
+                                    , ( "[GET]NEXT", "null" )
                                     ]
                                 )
                                 |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
@@ -40,7 +40,7 @@ all =
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
                                 (Dict.fromList
-                                    [ ( "NEXT", "null" )
+                                    [ ( "[GET]NEXT", "null" )
                                     ]
                                 )
                                 |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
@@ -58,8 +58,8 @@ all =
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
                                 (Dict.fromList
-                                    [ ( "first", "null" )
-                                    , ( "NEXT", "null" )
+                                    [ ( "[GET]first", "null" )
+                                    , ( "[GET]NEXT", "null" )
                                     ]
                                 )
                                 |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
@@ -75,7 +75,7 @@ all =
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
                                 (Dict.fromList
-                                    [ ( "first", "null" )
+                                    [ ( "[GET]first", "null" )
                                     ]
                                 )
                                 |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
@@ -95,7 +95,7 @@ all =
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
-                                (Dict.fromList [ ( "first", "1" ) ])
+                                (Dict.fromList [ ( "[GET]first", "1" ) ])
                                 |> Tuple.mapSecond (List.map Pages.Internal.Secrets.useFakeSecrets)
                                 |> Expect.equal ( False, [ "first", "NEXT" ] )
                        )

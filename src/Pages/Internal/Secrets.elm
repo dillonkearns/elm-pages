@@ -12,14 +12,23 @@ stringToUrl f1 =
         maskedUrl =
             -- TODO hash it and mask it here
             useFakeSecrets2 f1
+                |> .url
     in
     \secrets ->
         case f1 secrets of
             Ok unmaskedUrl ->
-                Ok (Url ( UnmaskedUrl unmaskedUrl, maskedUrl.url ))
+                Ok (Url ( UnmaskedUrl unmaskedUrl, maskedUrl ))
 
             Err error ->
                 Err error
+
+
+hashUrl : RequestDetails -> String
+hashUrl requestDetails =
+    "["
+        ++ requestDetails.method
+        ++ "]"
+        ++ requestDetails.url
 
 
 urlWithoutSecrets : { url : String, method : String } -> UrlWithSecrets
@@ -47,7 +56,8 @@ get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
             Http.expectString
                 (\response ->
                     gotResponse
-                        { url = maskedUrl
+                        -- TODO hash remove hardcoded GET
+                        { request = { url = maskedUrl, method = "GET" }
                         , response = response
                         }
                 )
@@ -98,7 +108,7 @@ requestToString requestDetails =
 
 hashRequest : RequestDetails -> String
 hashRequest requestDetails =
-    requestDetails.url
+    hashUrl requestDetails
 
 
 defaultRequest : RequestDetails

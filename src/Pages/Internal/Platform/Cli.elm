@@ -29,7 +29,7 @@ import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.ImagePath as ImagePath
-import Pages.Internal.Secrets
+import Pages.Internal.Secrets exposing (RequestDetails)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -155,7 +155,7 @@ type alias Parser metadata view =
 
 
 type Msg
-    = GotStaticHttpResponse { url : String, response : Result Http.Error String }
+    = GotStaticHttpResponse { request : RequestDetails, response : Result Http.Error String }
 
 
 cliApplication :
@@ -237,6 +237,7 @@ perform cliMsgConstructor toJsPort effect =
 
         FetchHttp secureUrl ->
             Pages.Internal.Secrets.get secureUrl
+                -- TODO send info needed for hash here (RequestDetails)
                 (GotStaticHttpResponse >> cliMsgConstructor)
 
 
@@ -442,13 +443,13 @@ update :
     -> ( Model, Effect pathKey )
 update siteMetadata config msg model =
     case msg of
-        GotStaticHttpResponse { url, response } ->
+        GotStaticHttpResponse { request, response } ->
             let
                 updatedModel =
                     (case response of
                         Ok okResponse ->
                             staticResponsesUpdate
-                                { url = url
+                                { request = request
                                 , response =
                                     response |> Result.mapError (\_ -> ())
                                 }
@@ -461,14 +462,17 @@ update siteMetadata config msg model =
                                         ++ [ FailedStaticHttpRequestError
                                                 { message =
                                                     [ Terminal.text "I got an error making an HTTP request to this URL: "
-                                                    , Terminal.yellow <| Terminal.text url
+
+                                                    -- TODO include HTTP method, headers, and body
+                                                    , Terminal.yellow <| Terminal.text request.url
                                                     , Terminal.text "\n\n"
                                                     , case error of
                                                         Http.BadStatus code ->
                                                             Terminal.text <| "Bad status: " ++ String.fromInt code
 
                                                         Http.BadUrl _ ->
-                                                            Terminal.text <| "Invalid url: " ++ url
+                                                            -- TODO include HTTP method, headers, and body
+                                                            Terminal.text <| "Invalid url: " ++ request.url
 
                                                         Http.Timeout ->
                                                             Terminal.text "Timeout"
@@ -484,7 +488,8 @@ update siteMetadata config msg model =
                             }
                     )
                         |> staticResponsesUpdate
-                            { url = url
+                            -- TODO for hash pass in RequestDetails here
+                            { request = request
                             , response =
                                 response |> Result.mapError (\_ -> ())
                             }
@@ -564,12 +569,21 @@ staticResponsesInit list =
         |> Dict.fromList
 
 
-staticResponsesUpdate : { url : String, response : Result () String } -> Model -> Model
+hashUrl : RequestDetails -> String
+hashUrl requestDetails =
+    "["
+        ++ requestDetails.method
+        ++ "]"
+        ++ requestDetails.url
+
+
+staticResponsesUpdate : { request : RequestDetails, response : Result () String } -> Model -> Model
 staticResponsesUpdate newEntry model =
     let
         updatedAllResponses =
             model.allRawResponses
-                |> Dict.insert newEntry.url (Just (newEntry.response |> Result.withDefault "TODO"))
+                -- TODO hash correctly here
+                |> Dict.insert (hashUrl newEntry.request |> Debug.log "staticResponsesUpdate") (Just (newEntry.response |> Result.withDefault "TODO"))
 
         return =
             { model
@@ -582,6 +596,7 @@ staticResponsesUpdate newEntry model =
                                     NotFetched request rawResponses ->
                                         let
                                             realUrls =
+                                                -- TODO @@@@@@@ this needs to be hashed
                                                 StaticHttpRequest.resolveUrls request
                                                     (updatedAllResponses |> dictCompact)
                                                     |> Tuple.second
@@ -589,15 +604,29 @@ staticResponsesUpdate newEntry model =
                                                         (\urlBuilder ->
                                                             Pages.Internal.Secrets.useFakeSecrets urlBuilder
                                                         )
+                                                    |> List.map
+                                                        (\unhashedUrl ->
+                                                            "[GET]"
+                                                                ++ unhashedUrl
+                                                        )
 
                                             includesUrl =
-                                                List.member newEntry.url realUrls
+                                                -- TODO hash
+                                                List.member
+                                                    (hashUrl newEntry.request
+                                                        |> Debug.log "check member"
+                                                    )
+                                                    (realUrls |> Debug.log "real urls")
                                         in
                                         if includesUrl then
                                             let
+                                                _ =
+                                                    Debug.log "keys" (rawResponses |> Dict.keys |> String.join ", ")
+
                                                 updatedRawResponses =
                                                     rawResponses
-                                                        |> Dict.insert newEntry.url newEntry.response
+                                                        -- TODO hash
+                                                        |> Dict.insert (hashUrl newEntry.request) newEntry.response
                                             in
                                             NotFetched request updatedRawResponses
 

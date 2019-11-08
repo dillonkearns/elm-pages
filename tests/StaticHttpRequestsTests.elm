@@ -48,7 +48,7 @@ all =
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """{ "stargazer_count": 86 }"""
                                                   )
                                                 ]
@@ -86,10 +86,10 @@ all =
                                     Dict.fromList
                                         [ ( "/elm-pages"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """null"""
                                                   )
-                                                , ( "NEXT-REQUEST"
+                                                , ( "[GET]NEXT-REQUEST"
                                                   , """null"""
                                                   )
                                                 ]
@@ -126,14 +126,14 @@ all =
                                     Dict.fromList
                                         [ ( "/elm-pages"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """{ "stargazer_count": 86 }"""
                                                   )
                                                 ]
                                           )
                                         , ( "/elm-pages-starter"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
                                                   , """{ "stargazer_count": 22 }"""
                                                   )
                                                 ]
@@ -163,7 +163,7 @@ all =
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """{"stargazer_count":86}"""
                                                   )
                                                 ]
@@ -201,10 +201,10 @@ all =
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """{"stargazer_count":100}"""
                                                   )
-                                                , ( "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                                                , ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
                                                   , """{"stargazer_count":50}"""
                                                   )
                                                 ]
@@ -240,10 +240,10 @@ all =
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
                                                   , """{"stargazer_count":100}"""
                                                   )
-                                                , ( "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                                                , ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
                                                   , """{"stargazer_count":50}"""
                                                   )
                                                 ]
@@ -296,7 +296,7 @@ all =
                                 { pages =
                                     Dict.fromList
                                         [ ( "/"
-                                          , Dict.fromList [ ( "http://example.com", "null" ) ]
+                                          , Dict.fromList [ ( "[GET]http://example.com", "null" ) ]
                                           )
                                         ]
                                 , manifest = manifest
@@ -436,7 +436,7 @@ So maybe MISSING should be API_KEY"""
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
                                                   , """{ "stargazer_count": 86 }"""
                                                   )
                                                 ]
@@ -551,7 +551,10 @@ simulateEffects effect =
                     SimulatedEffect.Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { url = masked
+                                { request =
+                                    { url = masked
+                                    , method = "GET"
+                                    }
                                 , response = response
                                 }
                         )
