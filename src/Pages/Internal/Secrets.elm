@@ -56,8 +56,7 @@ get (Url ( UnmaskedUrl unmaskedUrl, maskedUrl )) gotResponse =
             Http.expectString
                 (\response ->
                     gotResponse
-                        -- TODO hash remove hardcoded GET
-                        { request = { url = maskedUrl, method = "GET" }
+                        { request = { url = maskedUrl, method = unmaskedUrl.method }
                         , response = response
                         }
                 )
