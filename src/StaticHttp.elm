@@ -1,6 +1,6 @@
 module StaticHttp exposing
     ( Request
-    , get, getWithSecrets, reducedGet, reducedPost
+    , get, getWithSecrets, reducedGet, reducedPost, request
     , jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
     , map, succeed
     , andThen
@@ -10,7 +10,7 @@ module StaticHttp exposing
 {-| TODO
 
 @docs Request
-@docs get, getWithSecrets, reducedGet, reducedPost
+@docs get, getWithSecrets, reducedGet, reducedPost, request
 @docs jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
 @docs map, succeed
 
@@ -41,8 +41,8 @@ type alias Request value =
 {-| TODO
 -}
 map : (a -> b) -> Request a -> Request b
-map fn request =
-    case request of
+map fn requestInfo =
+    case requestInfo of
         Request ( urls, lookupFn ) ->
             Request
                 ( urls
@@ -161,8 +161,8 @@ combineReducedDicts dict1 dict2 =
 
 
 lookup : Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
-lookup request rawResponses =
-    case request of
+lookup requestInfo rawResponses =
+    case requestInfo of
         Request ( urls, lookupFn ) ->
             lookupFn rawResponses
                 |> Result.andThen
@@ -177,8 +177,8 @@ lookup request rawResponses =
 
 
 addUrls : List Pages.Internal.Secrets.UrlWithSecrets -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
-addUrls urlsToAdd request =
-    case request of
+addUrls urlsToAdd requestInfo =
+    case requestInfo of
         Request ( initialUrls, function ) ->
             Request ( initialUrls ++ urlsToAdd, function )
 
@@ -191,8 +191,8 @@ addUrls urlsToAdd request =
 
 
 lookupUrls : Pages.StaticHttpRequest.Request value -> List Pages.Internal.Secrets.UrlWithSecrets
-lookupUrls request =
-    case request of
+lookupUrls requestInfo =
+    case requestInfo of
         Request ( urls, lookupFn ) ->
             urls
 
@@ -203,12 +203,12 @@ lookupUrls request =
 {-| TODO
 -}
 andThen : (a -> Request b) -> Request a -> Request b
-andThen fn request =
+andThen fn requestInfo =
     Request
-        ( lookupUrls request
+        ( lookupUrls requestInfo
         , \rawResponses ->
             lookup
-                request
+                requestInfo
                 rawResponses
                 |> (\result ->
                         case result of
@@ -307,13 +307,41 @@ reducedPost url decoder =
 {-| TODO
 -}
 reducedJsonRequest : { url : String, method : String } -> Json.Decode.Exploration.Decoder a -> Request a
-reducedJsonRequest url decoder =
-    -- TODO define in terms of the other similar helpers to reduce bugs
+reducedJsonRequest requestInfo decoder =
+    request (\secrets -> Ok requestInfo) decoder
+
+
+type Expect a
+    = ExpectJson (Json.Decode.Exploration.Decoder a)
+
+
+
+--    | ExpectString
+
+
+{-| TODO
+-}
+request :
+    (Secrets
+     ->
+        Result BuildError
+            { method : String
+
+            --            , headers : List Header
+            , url : String
+
+            --            , body : Body
+            }
+    )
+    -> Json.Decode.Exploration.Decoder a
+    -> Request a
+request urlWithSecrets decoder =
     Request
-        ( [ Pages.Internal.Secrets.urlWithoutSecrets url ]
+        ( [ Pages.Internal.Secrets.stringToUrl urlWithSecrets
+          ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (url |> Pages.Internal.Secrets.hashRequest)
+                |> Dict.get (Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -324,7 +352,7 @@ reducedJsonRequest url decoder =
                                     )
 
                             Nothing ->
-                                url
+                                Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets
                                     |> Pages.Internal.Secrets.requestToString
                                     |> Pages.StaticHttpRequest.MissingHttpResponse
                                     |> Err
@@ -359,7 +387,9 @@ reducedJsonRequest url decoder =
                             |> Result.map
                                 (\finalRequest ->
                                     ( strippedResponses
-                                        |> Dict.insert (url |> Pages.Internal.Secrets.hashRequest) reduced
+                                        |> Dict.insert
+                                            (Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                                            reduced
                                     , finalRequest
                                     )
                                 )

@@ -109,10 +109,14 @@ useFakeSecrets3 urlWithSecrets =
         |> Result.withDefault defaultRequest
 
 
-useFakeSecrets2 : (Secrets -> Result BuildError RequestDetails) -> RequestDetails
+useFakeSecrets2 : (Secrets -> Result BuildError a) -> a
 useFakeSecrets2 urlWithSecrets =
-    urlWithSecrets protected
-        |> Result.withDefault defaultRequest
+    case urlWithSecrets protected of
+        Ok value ->
+            value
+
+        Err _ ->
+            Debug.todo "ERROR"
 
 
 requestToString : RequestDetails -> String
