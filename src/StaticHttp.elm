@@ -23,13 +23,11 @@ module StaticHttp exposing
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
-import Head
-import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Exploration
 import Pages.Internal.Secrets
 import Pages.StaticHttpRequest exposing (Request(..))
-import Secrets exposing (Secrets)
+import Secrets2
 
 
 {-| TODO
@@ -176,7 +174,7 @@ lookup requestInfo rawResponses =
             Ok ( rawResponses, value )
 
 
-addUrls : List Pages.Internal.Secrets.UrlWithSecrets -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls : List (Secrets2.Value { url : String, method : String }) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         Request ( initialUrls, function ) ->
@@ -190,7 +188,7 @@ addUrls urlsToAdd requestInfo =
 --            Request ( urlsToAdd, \_ -> value |> Done |> Ok )
 
 
-lookupUrls : Pages.StaticHttpRequest.Request value -> List Pages.Internal.Secrets.UrlWithSecrets
+lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets2.Value { url : String, method : String })
 lookupUrls requestInfo =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -234,13 +232,15 @@ succeed value =
 
 {-| TODO
 -}
-getWithSecrets : (Secrets -> Result BuildError String) -> Decoder a -> Request a
+getWithSecrets :
+    Secrets2.Value String
+    -> Decoder a
+    -> Request a
 getWithSecrets url decoder =
     jsonRequestWithSecrets
-        (\secrets ->
-            url secrets
-                |> Result.map
-                    (\okUrl -> { url = okUrl, method = "GET" })
+        (url
+            |> Secrets2.map
+                (\okUrl -> { url = okUrl, method = "GET" })
         )
         decoder
 
@@ -259,7 +259,7 @@ get url decoder =
 jsonRequest : { url : String, method : String } -> Decoder a -> Request a
 jsonRequest url decoder =
     Request
-        ( [ Pages.Internal.Secrets.urlWithoutSecrets url ]
+        ( [ Secrets2.succeed url ]
         , \rawResponseDict ->
             rawResponseDict
                 |> Dict.get (url |> Pages.Internal.Secrets.hashRequest)
@@ -308,7 +308,7 @@ reducedPost url decoder =
 -}
 reducedJsonRequest : { url : String, method : String } -> Json.Decode.Exploration.Decoder a -> Request a
 reducedJsonRequest requestInfo decoder =
-    request (\secrets -> Ok requestInfo) decoder
+    request (Secrets2.succeed requestInfo) decoder
 
 
 type Expect a
@@ -322,26 +322,22 @@ type Expect a
 {-| TODO
 -}
 request :
-    (Secrets
-     ->
-        Result BuildError
-            { method : String
+    Secrets2.Value
+        { method : String
 
-            --            , headers : List Header
-            , url : String
+        --            , headers : List Header
+        , url : String
 
-            --            , body : Body
-            }
-    )
+        --            , body : Body
+        }
     -> Json.Decode.Exploration.Decoder a
     -> Request a
 request urlWithSecrets decoder =
     Request
-        ( [ Pages.Internal.Secrets.stringToUrl urlWithSecrets
-          ]
+        ( [ urlWithSecrets ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                |> Dict.get (Secrets2.maskedLookup urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -352,7 +348,7 @@ request urlWithSecrets decoder =
                                     )
 
                             Nothing ->
-                                Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets
+                                Secrets2.maskedLookup urlWithSecrets
                                     |> Pages.Internal.Secrets.requestToString
                                     |> Pages.StaticHttpRequest.MissingHttpResponse
                                     |> Err
@@ -388,7 +384,7 @@ request urlWithSecrets decoder =
                                 (\finalRequest ->
                                     ( strippedResponses
                                         |> Dict.insert
-                                            (Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                                            (Secrets2.maskedLookup urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
                                             reduced
                                     , finalRequest
                                     )
@@ -399,14 +395,23 @@ request urlWithSecrets decoder =
 
 {-| TODO
 -}
-jsonRequestWithSecrets : (Secrets -> Result BuildError { url : String, method : String }) -> Decoder a -> Request a
+jsonRequestWithSecrets :
+    Secrets2.Value
+        { method : String
+
+        --            , headers : List Header
+        , url : String
+
+        --            , body : Body
+        }
+    -> Decoder a
+    -> Request a
 jsonRequestWithSecrets urlWithSecrets decoder =
     Request
-        ( [ Pages.Internal.Secrets.stringToUrl urlWithSecrets
-          ]
+        ( [ urlWithSecrets ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                |> Dict.get (Secrets2.maskedLookup urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -415,7 +420,7 @@ jsonRequestWithSecrets urlWithSecrets decoder =
 
                             Nothing ->
                                 --                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
-                                Pages.Internal.Secrets.useFakeSecrets2 urlWithSecrets
+                                Secrets2.maskedLookup urlWithSecrets
                                     |> Pages.Internal.Secrets.requestToString
                                     |> Pages.StaticHttpRequest.MissingHttpResponse
                                     |> Err

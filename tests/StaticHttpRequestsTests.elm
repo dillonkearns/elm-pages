@@ -16,6 +16,7 @@ import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
 import Regex
 import Secrets exposing (Secrets)
+import Secrets2
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
@@ -367,25 +368,21 @@ The user should get this message from the CLI."""
                 start
                     [ ( [ "elm-pages" ]
                       , StaticHttp.getWithSecrets
-                            (\secrets ->
-                                secrets
-                                    |> Secrets.get "API_KEY"
-                                    |> Result.map
-                                        (\apiKey ->
-                                            "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
-                                        )
+                            (Secrets2.succeed
+                                (\apiKey ->
+                                    "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                )
+                                |> Secrets2.with "API_KEY"
                             )
                             Decode.string
                             |> StaticHttp.andThen
                                 (\url ->
                                     StaticHttp.getWithSecrets
-                                        (\secrets ->
-                                            secrets
-                                                |> Secrets.get "MISSING"
-                                                |> Result.map
-                                                    (\missingSecret ->
-                                                        url ++ "?apiKey=" ++ missingSecret
-                                                    )
+                                        (Secrets2.succeed
+                                            (\missingSecret ->
+                                                url ++ "?apiKey=" ++ missingSecret
+                                            )
+                                            |> Secrets2.with "MISSING"
                                         )
                                         (Decode.succeed ())
                                 )
@@ -442,13 +439,11 @@ So maybe MISSING should be API_KEY"""
                 start
                     [ ( []
                       , StaticHttp.getWithSecrets
-                            (\secrets ->
-                                secrets
-                                    |> Secrets.get "API_KEY"
-                                    |> Result.map
-                                        (\apiKey ->
-                                            "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
-                                        )
+                            (Secrets2.succeed
+                                (\apiKey ->
+                                    "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                )
+                                |> Secrets2.with "API_KEY"
                             )
                             (Decode.succeed ())
                       )
@@ -570,11 +565,7 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp secureUrl ->
-            let
-                { masked, unmasked } =
-                    Pages.Internal.Secrets.unwrap secureUrl
-            in
+        FetchHttp { unmasked, masked } ->
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -584,7 +575,7 @@ simulateEffects effect =
                     Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { request = { url = masked, method = unmasked.method }
+                                { request = masked
                                 , response = response
                                 }
                         )

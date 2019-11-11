@@ -1,16 +1,69 @@
-module Secrets2 exposing (Value, map, succeed, with)
+module Secrets2 exposing (Value, append, lookup, map, maskedLookup, succeed, with)
 
+import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Json.Decode.Exploration as Decode
+import SecretsDict exposing (SecretsDict)
 
 
 type Value value
-    = Value (Dict String String -> Result (List String) value)
+    = Value (SecretsDict -> Result (List String) value)
+
+
+lookup : SecretsDict -> Value a -> Result (List BuildError) a
+lookup secrets (Value lookupSecrets) =
+    lookupSecrets secrets
+        -- TODO
+        |> Result.mapError (\_ -> [])
+
+
+maskedLookup : Value value -> value
+maskedLookup (Value lookupSecrets) =
+    case lookupSecrets SecretsDict.masked of
+        Ok value ->
+            value
+
+        Err error ->
+            -- crash
+            maskedLookup (Value lookupSecrets)
+
+
+type SecretsLookup
+    = Masked
+    | Unmasked (Dict String String)
 
 
 succeed : value -> Value value
 succeed value =
     Value (\_ -> Ok value)
+
+
+append : Value (List value) -> Value (List value) -> Value (List value)
+append (Value lookupSecrets1) (Value lookupSecrets2) =
+    Value
+        (\secrets ->
+            let
+                secrets1 : Result (List String) (List value)
+                secrets1 =
+                    lookupSecrets1 secrets
+
+                secrets2 : Result (List String) (List value)
+                secrets2 =
+                    lookupSecrets2 secrets
+            in
+            case ( secrets1, secrets2 ) of
+                ( Ok value1, Ok value2 ) ->
+                    Ok (value1 ++ value2)
+
+                ( Ok value1, Err errors2 ) ->
+                    Err errors2
+
+                ( Err errors1, Ok value2 ) ->
+                    Err errors1
+
+                ( Err errors1, Err errors2 ) ->
+                    Err (errors1 ++ errors2)
+        )
 
 
 map : (valueA -> valueB) -> Value valueA -> Value valueB
@@ -28,7 +81,7 @@ with newSecret (Value lookupSecrets) =
         \secrets ->
             case lookupSecrets secrets of
                 Ok value ->
-                    case Dict.get newSecret secrets of
+                    case SecretsDict.get newSecret secrets of
                         Just newValue ->
                             value newValue |> Ok
 
@@ -36,7 +89,7 @@ with newSecret (Value lookupSecrets) =
                             Err [ newSecret ]
 
                 Err error ->
-                    case Dict.get newSecret secrets of
+                    case SecretsDict.get newSecret secrets of
                         Just newValue ->
                             Err error
 

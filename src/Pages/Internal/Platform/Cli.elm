@@ -29,11 +29,13 @@ import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.ImagePath as ImagePath
-import Pages.Internal.Secrets exposing (RequestDetails)
+import Pages.Internal.Secrets as StaticHttpRequest exposing (RequestDetails)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets exposing (Secrets)
+import Secrets2
+import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
 import StaticHttp
 import TerminalText as Terminal
@@ -100,7 +102,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp Pages.Internal.Secrets.Url
+    | FetchHttp { masked : StaticHttpRequest.RequestDetails, unmasked : StaticHttpRequest.RequestDetails }
     | Batch (List (Effect pathKey))
 
 
@@ -121,14 +123,14 @@ type alias Flags =
 
 type alias Model =
     { staticResponses : StaticResponses
-    , secrets : Secrets
+    , secrets : SecretsDict
     , errors : List Error
     , allRawResponses : Dict String (Maybe String)
     }
 
 
 type Error
-    = MissingSecret BuildError
+    = MissingSecrets (List BuildError)
     | MetadataDecodeError BuildError
     | InternalError BuildError
     | FailedStaticHttpRequestError BuildError
@@ -235,10 +237,23 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp secureUrl ->
-            Pages.Internal.Secrets.get secureUrl
-                -- TODO send info needed for hash here (RequestDetails)
-                (GotStaticHttpResponse >> cliMsgConstructor)
+        FetchHttp { unmasked, masked } ->
+            Http.request
+                { method = unmasked.method
+                , url = unmasked.url
+                , headers = []
+                , body = Http.emptyBody
+                , expect =
+                    Http.expectString
+                        (\response ->
+                            (GotStaticHttpResponse >> cliMsgConstructor)
+                                { request = masked
+                                , response = response
+                                }
+                        )
+                , timeout = Nothing
+                , tracker = Nothing
+                }
 
 
 init :
@@ -264,7 +279,7 @@ init :
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config cliMsgConstructor flags =
-    case Decode.decodeValue (Decode.field "secrets" Pages.Internal.Secrets.decoder) flags of
+    case Decode.decodeValue (Decode.field "secrets" SecretsDict.decoder) flags of
         Ok secrets ->
             case contentCache of
                 Ok _ ->
@@ -373,7 +388,7 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
         Err error ->
             updateAndSendPortIfDone
                 (Model Dict.empty
-                    Pages.Internal.Secrets.empty
+                    SecretsDict.masked
                     [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
                     ]
                     Dict.empty
@@ -504,7 +519,11 @@ dictCompact dict =
         |> Dict.Extra.filterMap (\key value -> value)
 
 
-performStaticHttpRequests : Dict String (Maybe String) -> Secrets -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List Pages.Internal.Secrets.Url)
+
+--performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List Pages.Internal.Secrets.Url)
+
+
+performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List { unmasked : StaticHttpRequest.RequestDetails, masked : StaticHttpRequest.RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         |> List.map
@@ -521,8 +540,12 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         --        |> Set.toList
         |> List.map
             (\urlBuilder ->
-                urlBuilder secrets
-                    |> Result.mapError MissingSecret
+                Secrets2.lookup secrets urlBuilder
+                    |> Result.mapError MissingSecrets
+                    |> Result.map
+                        (\unmasked ->
+                            { unmasked = unmasked, masked = unmasked }
+                        )
             )
         |> combineMultipleErrors
 
@@ -596,24 +619,15 @@ staticResponsesUpdate newEntry model =
                                     NotFetched request rawResponses ->
                                         let
                                             realUrls =
-                                                -- TODO @@@@@@@ this needs to be hashed
                                                 StaticHttpRequest.resolveUrls request
                                                     (updatedAllResponses |> dictCompact)
                                                     |> Tuple.second
-                                                    |> List.map
-                                                        (\urlBuilder ->
-                                                            Pages.Internal.Secrets.useFakeSecrets3
-                                                                urlBuilder
-                                                                |> hashUrl
-                                                        )
+                                                    |> List.map Secrets2.maskedLookup
+                                                    |> List.map hashUrl
 
                                             includesUrl =
-                                                -- TODO hash
-                                                List.member
-                                                    (hashUrl newEntry.request
-                                                        |> Debug.log "check member"
-                                                    )
-                                                    (realUrls |> Debug.log "real urls")
+                                                List.member (hashUrl newEntry.request)
+                                                    realUrls
                                         in
                                         if includesUrl then
                                             let
@@ -635,7 +649,7 @@ staticResponsesUpdate newEntry model =
     return
 
 
-sendStaticResponsesIfDone : Secrets -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> Effect pathKey
+sendStaticResponsesIfDone : SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> Effect pathKey
 sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifest =
     let
         pendingRequests =
@@ -678,7 +692,12 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                             (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
 
                                     fetchedAllKnownUrls =
-                                        (knownUrlsToFetch |> List.map Pages.Internal.Secrets.useFakeSecrets |> Set.fromList |> Set.size)
+                                        (knownUrlsToFetch
+                                            |> List.map Secrets2.maskedLookup
+                                            |> List.map hashUrl
+                                            |> Set.fromList
+                                            |> Set.size
+                                        )
                                             == (rawResponses |> Dict.keys |> List.length)
                                 in
                                 if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
@@ -735,9 +754,15 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                 of
                     Ok urlsToPerform ->
                         let
+                            maskedToUnmasked : Dict String { masked : RequestDetails, unmasked : RequestDetails }
                             maskedToUnmasked =
                                 urlsToPerform
-                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
+                                    --                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
+                                    |> List.map
+                                        (\secureUrl ->
+                                            --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
+                                            ( hashUrl secureUrl.masked, secureUrl )
+                                        )
                                     |> Dict.fromList
 
                             alreadyPerformed =
@@ -787,9 +812,10 @@ errorsToString errors =
 errorToString : Error -> String
 errorToString error =
     case error of
-        MissingSecret buildError ->
-            banner "Missing Secret" ++ buildError.message |> Terminal.toString
+        MissingSecrets buildErrors ->
+            ""
 
+        --            banner "Missing Secret" -- ++ buildError.message |> Terminal.toString
         MetadataDecodeError buildError ->
             banner "Metadata Decode Error" ++ buildError.message |> Terminal.toString
 

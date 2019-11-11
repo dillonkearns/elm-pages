@@ -10,7 +10,8 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode as JD exposing (Decoder)
+import Json.Decode.Exploration as Decode
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
@@ -67,7 +68,7 @@ markdownDocument : ( String, Pages.Document.DocumentHandler Metadata () )
 markdownDocument =
     Pages.Document.parser
         { extension = "md"
-        , metadata = Decode.succeed ()
+        , metadata = JD.succeed ()
         , body = \_ -> Ok ()
         }
 
@@ -116,30 +117,31 @@ companyView company =
         ]
 
 
-airtableRequest : StaticHttp.Request (List Company)
-airtableRequest =
-    StaticHttp.jsonRequestWithSecrets
-        (\secrets ->
-            secrets
-                |> Secrets.get "AIRTABLE_API_KEY"
-                |> Result.map
-                    (\airtableApiKey ->
-                        "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey
-                    )
-        )
-        (Decode.field "records"
-            (Decode.list
-                (Decode.field "fields"
-                    (Decode.map3 Company
-                        (Decode.field "Company Name" Decode.string)
-                        (Decode.field "Company Logo" (Decode.index 0 (Decode.field "url" Decode.string)))
-                        (Decode.field "Significant lines of Elm code (in thousands)"
-                            (Decode.index 0 Decode.string)
-                        )
-                    )
-                )
-            )
-        )
+
+--airtableRequest : StaticHttp.Request (List Company)
+--airtableRequest =
+--    StaticHttp.getWithSecrets
+--        (\secrets ->
+--            secrets
+--                |> Secrets.get "AIRTABLE_API_KEY"
+--                |> Result.map
+--                    (\airtableApiKey ->
+--                        "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey
+--                    )
+--        )
+--        (Decode.field "records"
+--            (Decode.list
+--                (Decode.field "fields"
+--                    (Decode.map3 Company
+--                        (Decode.field "Company Name" Decode.string)
+--                        (Decode.field "Company Logo" (Decode.index 0 (Decode.field "url" Decode.string)))
+--                        (Decode.field "Significant lines of Elm code (in thousands)"
+--                            (Decode.index 0 Decode.string)
+--                        )
+--                    )
+--                )
+--            )
+--        )
 
 
 view :
@@ -156,17 +158,19 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         () ->
-            StaticHttp.map3
-                (\elmCompanies forks starCount ->
+            --            StaticHttp.map3
+            --                (\elmCompanies forks starCount ->
+            StaticHttp.map
+                (\starCount ->
                     { view =
                         \model viewForPage ->
                             { title = "Landing Page"
                             , body =
-                                (header starCount
-                                    :: [ forks
-                                            |> List.map (\forkName -> Element.row [] [ Element.text forkName ])
-                                            |> Element.column [ Element.spacing 15, Element.centerX, Element.padding 20 ]
-                                       ]
+                                ([ header starCount ]
+                                 --                                    :: [ forks
+                                 --                                            |> List.map (\forkName -> Element.row [] [ Element.text forkName ])
+                                 --                                            |> Element.column [ Element.spacing 15, Element.centerX, Element.padding 20 ]
+                                 --                                       ]
                                  --                                    (elmCompanies
                                  --                                            |> List.map companyView
                                  --                                       )
@@ -177,17 +181,23 @@ view siteMetadata page =
                     , head = head page.frontmatter
                     }
                 )
-                airtableRequest
-                (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Decode.field "forks_url" Decode.string)
-                    |> StaticHttp.andThen
-                        (\forksUrl ->
-                            StaticHttp.jsonRequest forksUrl (Decode.list (Decode.field "full_name" Decode.string))
-                        )
-                )
-                (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
+                --                airtableRequest
+                --                (StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
+                --                    (Decode.field "forks_url" Decode.string)
+                --                    |> StaticHttp.andThen
+                --                        (\forksUrl ->
+                --                            StaticHttp.jsonRequest forksUrl (Decode.list (Decode.field "full_name" Decode.string))
+                --                        )
+                --                )
+                (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
                 )
+
+
+
+--                (StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
+--                    (JD.field "stargazers_count" JD.int)
+--                )
 
 
 layout body =

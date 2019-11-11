@@ -4,11 +4,12 @@ import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Pages.Internal.Secrets exposing (UrlWithSecrets)
 import Secrets exposing (Secrets)
+import Secrets2
 import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List UrlWithSecrets, Dict String String -> Result Error ( Dict String String, Request value ) )
+    = Request ( List (Secrets2.Value { url : String, method : String }), Dict String String -> Result Error ( Dict String String, Request value ) )
     | Done value
 
 
@@ -42,7 +43,11 @@ type Error
     | DecoderError String
 
 
-urls : Request value -> List UrlWithSecrets
+type alias RequestDetails =
+    { url : String, method : String }
+
+
+urls : Request value -> List (Secrets2.Value RequestDetails)
 urls request =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -97,7 +102,7 @@ resolve request rawResponses =
             Ok value
 
 
-resolveUrls : Request value -> Dict String String -> ( Bool, List Pages.Internal.Secrets.UrlWithSecrets )
+resolveUrls : Request value -> Dict String String -> ( Bool, List (Secrets2.Value RequestDetails) )
 resolveUrls request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
