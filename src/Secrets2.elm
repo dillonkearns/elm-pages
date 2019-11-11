@@ -79,9 +79,9 @@ with : String -> Value (String -> value) -> Value value
 with newSecret (Value lookupSecrets) =
     Value <|
         \secrets ->
-            case lookupSecrets secrets of
+            case lookupSecrets (secrets |> Debug.log "LOOKING UP") of
                 Ok value ->
-                    case SecretsDict.get newSecret secrets of
+                    case SecretsDict.get newSecret secrets |> Debug.log "GOT" of
                         Just newValue ->
                             value newValue |> Ok
 

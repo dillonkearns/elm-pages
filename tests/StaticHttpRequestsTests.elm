@@ -565,7 +565,11 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp { unmasked, masked } ->
+        FetchHttp ({ unmasked, masked } as pair) ->
+            let
+                _ =
+                    Debug.log "stuff" pair
+            in
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -575,7 +579,7 @@ simulateEffects effect =
                     Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { request = masked
+                                { request = pair
                                 , response = response
                                 }
                         )

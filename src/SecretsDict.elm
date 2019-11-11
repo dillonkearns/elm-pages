@@ -22,9 +22,9 @@ masked =
 
 get : String -> SecretsDict -> Maybe String
 get secretName secretsDict =
-    case Masked of
+    case secretsDict of
         Masked ->
-            Just secretName
+            Just <| "<" ++ secretName ++ ">"
 
         Unmasked dict ->
             dict |> Dict.get secretName

@@ -157,7 +157,7 @@ type alias Parser metadata view =
 
 
 type Msg
-    = GotStaticHttpResponse { request : RequestDetails, response : Result Http.Error String }
+    = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Http.Error String }
 
 
 cliApplication :
@@ -237,7 +237,7 @@ perform cliMsgConstructor toJsPort effect =
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp { unmasked, masked } ->
+        FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -247,7 +247,7 @@ perform cliMsgConstructor toJsPort effect =
                     Http.expectString
                         (\response ->
                             (GotStaticHttpResponse >> cliMsgConstructor)
-                                { request = masked
+                                { request = requests
                                 , response = response
                                 }
                         )
@@ -479,7 +479,7 @@ update siteMetadata config msg model =
                                                     [ Terminal.text "I got an error making an HTTP request to this URL: "
 
                                                     -- TODO include HTTP method, headers, and body
-                                                    , Terminal.yellow <| Terminal.text request.url
+                                                    , Terminal.yellow <| Terminal.text request.masked.url
                                                     , Terminal.text "\n\n"
                                                     , case error of
                                                         Http.BadStatus code ->
@@ -487,7 +487,7 @@ update siteMetadata config msg model =
 
                                                         Http.BadUrl _ ->
                                                             -- TODO include HTTP method, headers, and body
-                                                            Terminal.text <| "Invalid url: " ++ request.url
+                                                            Terminal.text <| "Invalid url: " ++ request.masked.url
 
                                                         Http.Timeout ->
                                                             Terminal.text "Timeout"
@@ -540,11 +540,11 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         --        |> Set.toList
         |> List.map
             (\urlBuilder ->
-                Secrets2.lookup secrets urlBuilder
+                Secrets2.lookup (secrets |> Debug.log "SECRETS") urlBuilder
                     |> Result.mapError MissingSecrets
                     |> Result.map
                         (\unmasked ->
-                            { unmasked = unmasked, masked = unmasked }
+                            { unmasked = unmasked, masked = Secrets2.maskedLookup urlBuilder }
                         )
             )
         |> combineMultipleErrors
@@ -600,13 +600,13 @@ hashUrl requestDetails =
         ++ requestDetails.url
 
 
-staticResponsesUpdate : { request : RequestDetails, response : Result () String } -> Model -> Model
+staticResponsesUpdate : { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String } -> Model -> Model
 staticResponsesUpdate newEntry model =
     let
         updatedAllResponses =
             model.allRawResponses
                 -- TODO hash correctly here
-                |> Dict.insert (hashUrl newEntry.request |> Debug.log "staticResponsesUpdate") (Just (newEntry.response |> Result.withDefault "TODO"))
+                |> Dict.insert (hashUrl newEntry.request.masked |> Debug.log "staticResponsesUpdate") (Just (newEntry.response |> Result.withDefault "TODO"))
 
         return =
             { model
@@ -624,9 +624,10 @@ staticResponsesUpdate newEntry model =
                                                     |> Tuple.second
                                                     |> List.map Secrets2.maskedLookup
                                                     |> List.map hashUrl
+                                                    |> Debug.log "@@@ realUrls"
 
                                             includesUrl =
-                                                List.member (hashUrl newEntry.request)
+                                                List.member (hashUrl newEntry.request.masked |> Debug.log "@@@ HASH")
                                                     realUrls
                                         in
                                         if includesUrl then
@@ -637,7 +638,7 @@ staticResponsesUpdate newEntry model =
                                                 updatedRawResponses =
                                                     rawResponses
                                                         -- TODO hash
-                                                        |> Dict.insert (hashUrl newEntry.request) newEntry.response
+                                                        |> Dict.insert (hashUrl newEntry.request.masked) newEntry.response
                                             in
                                             NotFetched request updatedRawResponses
 
@@ -697,8 +698,9 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                             |> List.map hashUrl
                                             |> Set.fromList
                                             |> Set.size
+                                            |> Debug.log "known size"
                                         )
-                                            == (rawResponses |> Dict.keys |> List.length)
+                                            == (rawResponses |> Dict.keys |> List.length |> Debug.log "raw responses size")
                                 in
                                 if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
                                     False
