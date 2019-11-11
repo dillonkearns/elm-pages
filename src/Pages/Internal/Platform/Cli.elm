@@ -815,9 +815,13 @@ errorToString : Error -> String
 errorToString error =
     case error of
         MissingSecrets buildErrors ->
-            ""
+            buildErrors
+                |> List.map
+                    (\buildError ->
+                        banner "Missing Secret" ++ buildError.message |> Terminal.toString
+                    )
+                |> String.join "\n\n"
 
-        --            banner "Missing Secret" -- ++ buildError.message |> Terminal.toString
         MetadataDecodeError buildError ->
             banner "Metadata Decode Error" ++ buildError.message |> Terminal.toString
 
