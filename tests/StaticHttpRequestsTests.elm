@@ -14,7 +14,7 @@ import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
 import Regex
-import Secrets2
+import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
@@ -366,21 +366,21 @@ The user should get this message from the CLI."""
                 start
                     [ ( [ "elm-pages" ]
                       , StaticHttp.getWithSecrets
-                            (Secrets2.succeed
+                            (Secrets.succeed
                                 (\apiKey ->
                                     "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                 )
-                                |> Secrets2.with "API_KEY"
+                                |> Secrets.with "API_KEY"
                             )
                             Decode.string
                             |> StaticHttp.andThen
                                 (\url ->
                                     StaticHttp.getWithSecrets
-                                        (Secrets2.succeed
+                                        (Secrets.succeed
                                             (\missingSecret ->
                                                 url ++ "?apiKey=" ++ missingSecret
                                             )
-                                            |> Secrets2.with "MISSING"
+                                            |> Secrets.with "MISSING"
                                         )
                                         (Decode.succeed ())
                                 )
@@ -437,15 +437,15 @@ So maybe MISSING should be API_KEY"""
                 start
                     [ ( []
                       , StaticHttp.request
-                            (Secrets2.succeed
+                            (Secrets.succeed
                                 (\apiKey bearer ->
                                     { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                     , method = "GET"
                                     , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
                                     }
                                 )
-                                |> Secrets2.with "API_KEY"
-                                |> Secrets2.with "BEARER"
+                                |> Secrets.with "API_KEY"
+                                |> Secrets.with "BEARER"
                             )
                             (Reduce.succeed ())
                       )

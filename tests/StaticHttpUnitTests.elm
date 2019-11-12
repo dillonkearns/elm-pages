@@ -4,7 +4,7 @@ import Dict exposing (Dict)
 import Expect
 import Json.Decode as Decode
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets2
+import Secrets
 import StaticHttp
 import Test exposing (Test, describe, only, test)
 
@@ -27,7 +27,7 @@ all =
                                     , ( "[GET]NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets2.maskedLookup)
+                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
                                 |> Expect.equal ( True, [ get "first", get "NEXT" ] )
                        )
         , test "andThen staring with done" <|
@@ -43,7 +43,7 @@ all =
                                     [ ( "[GET]NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets2.maskedLookup)
+                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
                                 |> Expect.equal ( True, [ get "NEXT" ] )
                        )
         , test "map" <|
@@ -62,7 +62,7 @@ all =
                                     , ( "[GET]NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets2.maskedLookup)
+                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
                                 |> Expect.equal ( True, [ get "first", get "NEXT" ] )
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
@@ -78,7 +78,7 @@ all =
                                     [ ( "[GET]first", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets2.maskedLookup)
+                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
                                 |> Expect.equal ( False, [ get "first", get "NEXT" ] )
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
@@ -96,7 +96,7 @@ all =
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
                                 (Dict.fromList [ ( "[GET]first", "1" ) ])
-                                |> Tuple.mapSecond (List.map Secrets2.maskedLookup)
+                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
                                 |> Expect.equal ( False, [ get "first", get "NEXT" ] )
                        )
         ]

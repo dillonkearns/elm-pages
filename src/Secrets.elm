@@ -1,4 +1,4 @@
-module Secrets2 exposing (Value, lookup, map, maskedLookup, succeed, with)
+module Secrets exposing (Value, lookup, map, maskedLookup, succeed, with)
 
 import BuildError exposing (BuildError)
 import Fuzzy

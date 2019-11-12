@@ -31,7 +31,7 @@ import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets2
+import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
 import StaticHttp exposing (RequestDetails)
@@ -539,11 +539,11 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         --        |> Set.toList
         |> List.map
             (\urlBuilder ->
-                Secrets2.lookup secrets urlBuilder
+                Secrets.lookup secrets urlBuilder
                     |> Result.mapError MissingSecrets
                     |> Result.map
                         (\unmasked ->
-                            { unmasked = unmasked, masked = Secrets2.maskedLookup urlBuilder }
+                            { unmasked = unmasked, masked = Secrets.maskedLookup urlBuilder }
                         )
             )
         |> combineMultipleErrors
@@ -631,7 +631,7 @@ staticResponsesUpdate newEntry model =
                                                 StaticHttpRequest.resolveUrls request
                                                     (updatedAllResponses |> dictCompact)
                                                     |> Tuple.second
-                                                    |> List.map Secrets2.maskedLookup
+                                                    |> List.map Secrets.maskedLookup
                                                     |> List.map hashUrl
 
                                             includesUrl =
@@ -698,7 +698,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
 
                                     fetchedAllKnownUrls =
                                         (knownUrlsToFetch
-                                            |> List.map Secrets2.maskedLookup
+                                            |> List.map Secrets.maskedLookup
                                             |> List.map hashUrl
                                             |> Set.fromList
                                             |> Set.size
