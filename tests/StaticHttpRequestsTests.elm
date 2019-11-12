@@ -31,7 +31,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -61,10 +61,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                             |> StaticHttp.andThen
                                 (\continueUrl ->
-                                    StaticHttp.get "NEXT-REQUEST" (Decode.succeed ())
+                                    StaticHttp.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
                                 )
                       )
                     ]
@@ -238,10 +238,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                       )
                     , ( [ "elm-pages-starter" ]
-                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -445,8 +445,8 @@ all =
                 start
                     [ ( []
                       , StaticHttp.map2 (\_ _ -> ())
-                            (StaticHttp.get "http://example.com" (Decode.succeed ()))
-                            (StaticHttp.get "http://example.com" (Decode.succeed ()))
+                            (StaticHttp.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                            (StaticHttp.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -472,7 +472,7 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.fail "The user should get this message from the CLI.")
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI.")
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -501,7 +501,7 @@ The user should get this message from the CLI."""
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.getWithSecrets
+                      , StaticHttp.get
                             (Secrets.succeed
                                 (\apiKey ->
                                     "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
@@ -511,7 +511,7 @@ The user should get this message from the CLI."""
                             Decode.string
                             |> StaticHttp.andThen
                                 (\url ->
-                                    StaticHttp.getWithSecrets
+                                    StaticHttp.get
                                         (Secrets.succeed
                                             (\missingSecret ->
                                                 url ++ "?apiKey=" ++ missingSecret
@@ -543,7 +543,7 @@ So maybe MISSING should be API_KEY"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpResponse
@@ -717,7 +717,7 @@ simulateEffects effect =
         FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
-                , url = unmasked.url
+                , url = unmasked.url |> Debug.log "FETCHING"
                 , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
                 , body = Http.emptyBody
                 , expect =

@@ -1,6 +1,6 @@
 module StaticHttp exposing
     ( Request, RequestDetails
-    , get, getWithSecrets, reducedGet, reducedPost, request
+    , get, reducedGet, reducedPost, request
     , jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
     , map, succeed
     , andThen, resolve, combine
@@ -10,7 +10,7 @@ module StaticHttp exposing
 {-| TODO
 
 @docs Request, RequestDetails
-@docs get, getWithSecrets, reducedGet, reducedPost, request
+@docs get, reducedGet, reducedPost, request
 @docs jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
 @docs map, succeed
 
@@ -250,11 +250,11 @@ succeed value =
 
 {-| TODO
 -}
-getWithSecrets :
+get :
     Secrets.Value String
     -> Decoder a
     -> Request a
-getWithSecrets url decoder =
+get url decoder =
     jsonRequestWithSecrets
         (url
             |> Secrets.map
@@ -265,13 +265,6 @@ getWithSecrets url decoder =
 
 {-| TODO
 -}
-get : String -> Decoder a -> Request a
-get url decoder =
-    jsonRequest
-        { url = url, method = "GET", headers = [] }
-        decoder
-
-
 type alias RequestDetails =
     { url : String, method : String, headers : List ( String, String ) }
 
