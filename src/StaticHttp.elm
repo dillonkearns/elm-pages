@@ -375,10 +375,13 @@ request urlWithSecrets decoder =
                             |> (\decodeResult ->
                                     case decodeResult of
                                         Json.Decode.Exploration.BadJson ->
-                                            Pages.StaticHttpRequest.DecoderError "" |> Err
+                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
 
                                         Json.Decode.Exploration.Errors errors ->
-                                            Pages.StaticHttpRequest.DecoderError "" |> Err
+                                            errors
+                                                |> Json.Decode.Exploration.errorsToString
+                                                |> Pages.StaticHttpRequest.DecoderError
+                                                |> Err
 
                                         Json.Decode.Exploration.WithWarnings warnings a ->
                                             --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
