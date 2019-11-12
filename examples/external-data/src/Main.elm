@@ -21,7 +21,18 @@ import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Palette
+import Secrets
 import StaticHttp
+
+
+
+--type alias CreatePage body =
+--    { path : List String
+--    , content : Result String body
+--    }
+--
+--
+--createPages : StaticHttp.Request (List (CreatePage body))
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -116,31 +127,55 @@ companyView company =
         ]
 
 
+airtableRequest : StaticHttp.Request (List Company)
+airtableRequest =
+    StaticHttp.request
+        (Secrets.succeed
+            (\airtableApiKey ->
+                { url = "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey
+                , method = "GET"
+                , headers = []
+                }
+            )
+            |> Secrets.with "AIRTABLE_API_KEY"
+        )
+        (Decode.field "records"
+            (Decode.list
+                (Decode.field "fields"
+                    (Decode.map3 Company
+                        (Decode.field "Company Name" Decode.string)
+                        (Decode.field "Company Logo" (Decode.index 0 (Decode.field "url" Decode.string)))
+                        (Decode.field "Significant lines of Elm code (in thousands)"
+                            (Decode.index 0 Decode.string)
+                        )
+                    )
+                )
+            )
+        )
 
---airtableRequest : StaticHttp.Request (List Company)
---airtableRequest =
---    StaticHttp.getWithSecrets
---        (\secrets ->
---            secrets
---                |> Secrets.get "AIRTABLE_API_KEY"
---                |> Result.map
---                    (\airtableApiKey ->
---                        "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey
---                    )
---        )
---        (Decode.field "records"
---            (Decode.list
---                (Decode.field "fields"
---                    (Decode.map3 Company
---                        (Decode.field "Company Name" Decode.string)
---                        (Decode.field "Company Logo" (Decode.index 0 (Decode.field "url" Decode.string)))
---                        (Decode.field "Significant lines of Elm code (in thousands)"
---                            (Decode.index 0 Decode.string)
---                        )
---                    )
---                )
---            )
---        )
+
+type alias Pokemon =
+    { name : String }
+
+
+pokemonDecoder : Decode.Decoder Pokemon
+pokemonDecoder =
+    Decode.field "name" Decode.string
+        |> Decode.map Pokemon
+
+
+pokemonRequest : StaticHttp.Request (List Pokemon)
+pokemonRequest =
+    StaticHttp.request
+        (Secrets.succeed
+            { url = "https://pokeapi.co/api/v2/pokemon/"
+            , method = "GET"
+            , headers = []
+            }
+        )
+        (Decode.field "results"
+            (Decode.list pokemonDecoder)
+        )
 
 
 view :
@@ -159,28 +194,32 @@ view siteMetadata page =
         () ->
             --            StaticHttp.map3
             --                (\elmCompanies forks starCount ->
-            StaticHttp.map
-                (\starCount ->
+            StaticHttp.map3
+                (\elmCompanies starCount pokemon ->
                     { view =
                         \model viewForPage ->
                             { title = "Landing Page"
                             , body =
-                                ([ header starCount ]
-                                 --                                    :: [ forks
-                                 --                                            |> List.map (\forkName -> Element.row [] [ Element.text forkName ])
-                                 --                                            |> Element.column [ Element.spacing 15, Element.centerX, Element.padding 20 ]
-                                 --                                       ]
-                                 --                                    (elmCompanies
-                                 --                                            |> List.map companyView
-                                 --                                       )
-                                )
+                                [ header starCount
+                                , pokemon
+                                    |> List.map pokemonView
+                                    |> Element.column
+                                        [ Element.spacing 10
+                                        , Element.padding 30
+                                        , Element.centerX
+                                        ]
+                                ]
+                                    --                                    :: [ forks
+                                    --                                            |> List.map (\forkName -> Element.row [] [ Element.text forkName ])
+                                    --                                            |> Element.column [ Element.spacing 15, Element.centerX, Element.padding 20 ]
+                                    --                                       ] ]
                                     |> Element.column [ Element.width Element.fill ]
                                     |> layout
                             }
                     , head = head page.frontmatter
                     }
                 )
-                --                airtableRequest
+                airtableRequest
                 --                (StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
                 --                    (Decode.field "forks_url" Decode.string)
                 --                    |> StaticHttp.andThen
@@ -191,6 +230,12 @@ view siteMetadata page =
                 (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
                 )
+                pokemonRequest
+
+
+pokemonView : Pokemon -> Element msg
+pokemonView pokemon =
+    Element.text pokemon.name
 
 
 
