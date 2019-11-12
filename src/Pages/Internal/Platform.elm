@@ -148,18 +148,15 @@ pageViewOrError pathKey viewFn model cache =
                                     }
 
                         Err error ->
-                            Debug.todo "asdf"
+                            { title = "Parsing error"
+                            , body = Html.text error
+                            }
 
-                --                            { title = "Parsing error"
-                --                            , body = Html.text error
-                --                            }
                 ContentCache.NeedContent extension a ->
-                    { title = "", body = Html.text "" }
+                    { title = "elm-pages error", body = Html.text "Missing content" }
 
-                --                    Debug.todo (Debug.toString a)
                 ContentCache.Unparsed extension a b ->
-                    --                    Debug.todo (Debug.toString b)
-                    { title = "", body = Html.text "" }
+                    { title = "elm-pages error", body = Html.text "Unparsed content" }
 
         Nothing ->
             { title = "Page not found"
@@ -263,19 +260,6 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                 cmd =
                     case ( maybePagePath, maybeMetadata ) of
                         ( Just pagePath, Just frontmatter ) ->
-                            let
-                                headFnResult =
-                                    viewFn
-                                        (ContentCache.extractMetadata pathKey okCache)
-                                        { path = pagePath
-                                        , frontmatter = frontmatter
-                                        }
-
-                                --                                        |> Tuple.second
-                                --                                        """ 123456789 """
-                                --                                        "asdfasdf"
-                                --                                        |> .head
-                            in
                             Cmd.batch
                                 [ userCmd |> Cmd.map UserMsg
                                 , contentCache
@@ -283,24 +267,8 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                                     |> Task.attempt UpdateCache
                                 ]
 
-                        --                            case headFnResult |> Result.map .head of
-                        --                                Ok head ->
-                        --                                    Cmd.batch
-                        --                                        [ head
-                        --                                            |> encodeHeads canonicalSiteUrl url.path
-                        --                                            |> toJsPort
-                        --                                        , userCmd |> Cmd.map UserMsg
-                        --                                        , contentCache
-                        --                                            |> ContentCache.lazyLoad document url
-                        --                                            |> Task.attempt UpdateCache
-                        --                                        ]
-                        --
-                        --                                Err error ->
-                        --                                    Debug.todo error
-                        --                                    Cmd.none
                         _ ->
-                            --                            Cmd.none
-                            Debug.todo "Error"
+                            Cmd.none
 
                 ( maybePagePath, maybeMetadata ) =
                     case ContentCache.lookupMetadata pathKey (Ok okCache) url of

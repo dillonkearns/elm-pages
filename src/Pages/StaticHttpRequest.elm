@@ -2,8 +2,6 @@ module Pages.StaticHttpRequest exposing (Error(..), Request(..), errorToString, 
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
-import Pages.Internal.Secrets exposing (UrlWithSecrets)
-import Secrets exposing (Secrets)
 import Secrets2
 import TerminalText as Terminal
 
@@ -18,8 +16,8 @@ strippedResponses request rawResponses =
     case request of
         Request ( list, lookupFn ) ->
             case lookupFn rawResponses of
-                Err _ ->
-                    Debug.todo ""
+                Err error ->
+                    rawResponses
 
                 Ok ( partiallyStrippedResponses, followupRequest ) ->
                     strippedResponses followupRequest partiallyStrippedResponses

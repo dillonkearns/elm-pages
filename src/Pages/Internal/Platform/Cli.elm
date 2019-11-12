@@ -300,7 +300,8 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             staticResponsesInit okRequests
 
                                         Err errors ->
-                                            Debug.todo (Debug.toString errors)
+                                            -- TODO need to handle errors better?
+                                            staticResponsesInit []
                             in
                             case requests of
                                 Ok okRequests ->
@@ -360,7 +361,8 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                             staticResponsesInit okRequests
 
                                         Err errors ->
-                                            Debug.todo (Debug.toString errors)
+                                            -- TODO need to handle errors better?
+                                            staticResponsesInit []
                             in
                             updateAndSendPortIfDone
                                 (Model
@@ -540,7 +542,7 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         --        |> Set.toList
         |> List.map
             (\urlBuilder ->
-                Secrets2.lookup (secrets |> Debug.log "SECRETS") urlBuilder
+                Secrets2.lookup secrets urlBuilder
                     |> Result.mapError MissingSecrets
                     |> Result.map
                         (\unmasked ->
@@ -592,6 +594,15 @@ staticResponsesInit list =
         |> Dict.fromList
 
 
+
+--hashUrl : RequestDetails -> String
+--hashUrl requestDetails =
+--    "["
+--        ++ requestDetails.method
+--        ++ "]"
+--        ++ requestDetails.url
+
+
 hashUrl : RequestDetails -> String
 hashUrl requestDetails =
     "["
@@ -607,7 +618,7 @@ staticResponsesUpdate newEntry model =
         updatedAllResponses =
             model.allRawResponses
                 -- TODO hash correctly here
-                |> Dict.insert (hashUrl newEntry.request.masked |> Debug.log "staticResponsesUpdate") (Just (newEntry.response |> Result.withDefault "TODO"))
+                |> Dict.insert (hashUrl newEntry.request.masked) (Just (newEntry.response |> Result.withDefault "TODO"))
 
         return =
             { model
@@ -625,20 +636,15 @@ staticResponsesUpdate newEntry model =
                                                     |> Tuple.second
                                                     |> List.map Secrets2.maskedLookup
                                                     |> List.map hashUrl
-                                                    |> Debug.log "@@@ realUrls"
 
                                             includesUrl =
-                                                List.member (hashUrl newEntry.request.masked |> Debug.log "@@@ HASH")
+                                                List.member (hashUrl newEntry.request.masked)
                                                     realUrls
                                         in
                                         if includesUrl then
                                             let
-                                                _ =
-                                                    Debug.log "keys" (rawResponses |> Dict.keys |> String.join ", ")
-
                                                 updatedRawResponses =
                                                     rawResponses
-                                                        -- TODO hash
                                                         |> Dict.insert (hashUrl newEntry.request.masked) newEntry.response
                                             in
                                             NotFetched request updatedRawResponses
@@ -699,9 +705,8 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                             |> List.map hashUrl
                                             |> Set.fromList
                                             |> Set.size
-                                            |> Debug.log "known size"
                                         )
-                                            == (rawResponses |> Dict.keys |> List.length |> Debug.log "raw responses size")
+                                            == (rawResponses |> Dict.keys |> List.length)
                                 in
                                 if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
                                     False
