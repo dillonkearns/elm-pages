@@ -241,7 +241,7 @@ perform cliMsgConstructor toJsPort effect =
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
-                , headers = []
+                , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
                 , body = Http.emptyBody
                 , expect =
                     Http.expectString
@@ -598,6 +598,7 @@ hashUrl requestDetails =
         ++ requestDetails.method
         ++ "]"
         ++ requestDetails.url
+        ++ String.join "," (requestDetails.headers |> List.map (\( key, value ) -> key ++ " : " ++ value))
 
 
 staticResponsesUpdate : { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String } -> Model -> Model

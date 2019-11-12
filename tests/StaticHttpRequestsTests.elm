@@ -438,20 +438,35 @@ So maybe MISSING should be API_KEY"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.getWithSecrets
+                      , StaticHttp.request
                             (Secrets2.succeed
-                                (\apiKey ->
-                                    "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                (\apiKey bearer ->
+                                    { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                    , method = "GET"
+                                    , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
+                                    }
                                 )
                                 |> Secrets2.with "API_KEY"
+                                |> Secrets2.with "BEARER"
                             )
-                            (Decode.succeed ())
+                            (Reduce.succeed ())
                       )
                     ]
-                    |> ProgramTest.simulateHttpOk
+                    |> ProgramTest.ensureHttpRequest "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
+                        (\request ->
+                            request.headers
+                                |> Expect.equal [ ( "Authorization", "Bearer XYZ789" ) ]
+                        )
+                    |> ProgramTest.simulateHttpResponse
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
-                        """{ "stargazer_count": 86 }"""
+                        (Test.Http.httpResponse
+                            { statusCode = 200
+                            , headers = []
+                            , body = """{ "stargazer_count": 86 }"""
+                            }
+                        )
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
@@ -461,8 +476,8 @@ So maybe MISSING should be API_KEY"""
                                     Dict.fromList
                                         [ ( "/"
                                           , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
-                                                  , """{ "stargazer_count": 86 }"""
+                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>Authorization : Bearer <BEARER>"
+                                                  , """{}"""
                                                   )
                                                 ]
                                           )
@@ -536,7 +551,7 @@ start pages =
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
         |> ProgramTest.start (flags """{"secrets":
-        {"API_KEY": "ABCD1234"}
+        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}
         }""")
 
 
@@ -565,21 +580,17 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp ({ unmasked, masked } as pair) ->
-            let
-                _ =
-                    Debug.log "stuff" pair
-            in
+        FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
-                , headers = []
+                , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
                 , body = Http.emptyBody
                 , expect =
                     Http.expectString
                         (\response ->
                             GotStaticHttpResponse
-                                { request = pair
+                                { request = requests
                                 , response = response
                                 }
                         )
