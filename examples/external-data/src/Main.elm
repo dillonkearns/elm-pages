@@ -155,17 +155,11 @@ airtableRequest =
 
 
 type alias Pokemon =
-    { name : String }
+    { name : String, sprite : String }
 
 
-pokemonDecoder : Decode.Decoder Pokemon
-pokemonDecoder =
-    Decode.field "name" Decode.string
-        |> Decode.map Pokemon
-
-
-pokemonRequest : StaticHttp.Request (List Pokemon)
-pokemonRequest =
+pokemonDetailRequest : StaticHttp.Request (List Pokemon)
+pokemonDetailRequest =
     StaticHttp.request
         (Secrets.succeed
             { url = "https://pokeapi.co/api/v2/pokemon/"
@@ -174,8 +168,27 @@ pokemonRequest =
             }
         )
         (Decode.field "results"
-            (Decode.list pokemonDecoder)
+            (Decode.index 0
+                (Decode.map2 Tuple.pair
+                    (Decode.field "name" Decode.string)
+                    (Decode.field "url" Decode.string)
+                )
+            )
         )
+        |> StaticHttp.andThen
+            (\( name, url ) ->
+                StaticHttp.request
+                    (Secrets.succeed
+                        { url = url
+                        , method = "GET"
+                        , headers = []
+                        }
+                    )
+                    (Decode.at [ "sprites", "front_default" ] Decode.string
+                        |> Decode.map (Pokemon name)
+                        |> Decode.map List.singleton
+                    )
+            )
 
 
 view :
@@ -230,18 +243,15 @@ view siteMetadata page =
                 (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
                 )
-                pokemonRequest
+                pokemonDetailRequest
 
 
 pokemonView : Pokemon -> Element msg
 pokemonView pokemon =
-    Element.text pokemon.name
-
-
-
---                (StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
---                    (JD.field "stargazers_count" JD.int)
---                )
+    Element.row []
+        [ Element.image [] { src = pokemon.sprite, description = pokemon.name ++ " sprite" }
+        , Element.text pokemon.name
+        ]
 
 
 layout body =
