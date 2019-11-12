@@ -127,33 +127,6 @@ companyView company =
         ]
 
 
-airtableRequest : StaticHttp.Request (List Company)
-airtableRequest =
-    StaticHttp.request
-        (Secrets.succeed
-            (\airtableApiKey ->
-                { url = "https://api.airtable.com/v0/appNsAv2iE9mFm56N/Table%201?view=Approved&api_key=" ++ airtableApiKey
-                , method = "GET"
-                , headers = []
-                }
-            )
-            |> Secrets.with "AIRTABLE_API_KEY"
-        )
-        (Decode.field "records"
-            (Decode.list
-                (Decode.field "fields"
-                    (Decode.map3 Company
-                        (Decode.field "Company Name" Decode.string)
-                        (Decode.field "Company Logo" (Decode.index 0 (Decode.field "url" Decode.string)))
-                        (Decode.field "Significant lines of Elm code (in thousands)"
-                            (Decode.index 0 Decode.string)
-                        )
-                    )
-                )
-            )
-        )
-
-
 type alias Pokemon =
     { name : String, sprite : String }
 
@@ -188,7 +161,7 @@ pokemonDetailRequest =
                 )
             )
         )
-        |> StaticHttp.resolve
+        |> StaticHttp.andThen StaticHttp.combine
 
 
 view :
@@ -205,8 +178,6 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         () ->
-            --            StaticHttp.map3
-            --                (\elmCompanies forks starCount ->
             StaticHttp.map2
                 (\starCount pokemon ->
                     { view =
@@ -222,28 +193,15 @@ view siteMetadata page =
                                         , Element.centerX
                                         ]
                                 ]
-                                    --                                    :: [ forks
-                                    --                                            |> List.map (\forkName -> Element.row [] [ Element.text forkName ])
-                                    --                                            |> Element.column [ Element.spacing 15, Element.centerX, Element.padding 20 ]
-                                    --                                       ] ]
                                     |> Element.column [ Element.width Element.fill ]
                                     |> layout
                             }
                     , head = head page.frontmatter
                     }
                 )
-                --                airtableRequest
-                --                (StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
-                --                    (Decode.field "forks_url" Decode.string)
-                --                    |> StaticHttp.andThen
-                --                        (\forksUrl ->
-                --                            StaticHttp.jsonRequest forksUrl (Decode.list (Decode.field "full_name" Decode.string))
-                --                        )
-                --                )
-                --                (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages"
-                --                    (Decode.field "stargazers_count" Decode.int)
-                --                )
-                (StaticHttp.succeed 123)
+                (get "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (Decode.field "stargazers_count" Decode.int)
+                )
                 pokemonDetailRequest
 
 
