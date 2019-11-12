@@ -158,37 +158,37 @@ type alias Pokemon =
     { name : String, sprite : String }
 
 
-pokemonDetailRequest : StaticHttp.Request (List Pokemon)
-pokemonDetailRequest =
+get url decoder =
     StaticHttp.request
         (Secrets.succeed
-            { url = "https://pokeapi.co/api/v2/pokemon/"
+            { url = url
             , method = "GET"
             , headers = []
             }
         )
+        decoder
+
+
+pokemonDetailRequest : StaticHttp.Request (List Pokemon)
+pokemonDetailRequest =
+    get
+        "https://pokeapi.co/api/v2/pokemon/?limit=5"
         (Decode.field "results"
-            (Decode.index 0
+            (Decode.list
                 (Decode.map2 Tuple.pair
                     (Decode.field "name" Decode.string)
                     (Decode.field "url" Decode.string)
+                    |> Decode.map
+                        (\( name, url ) ->
+                            get url
+                                (Decode.at [ "sprites", "front_default" ] Decode.string
+                                    |> Decode.map (Pokemon name)
+                                )
+                        )
                 )
             )
         )
-        |> StaticHttp.andThen
-            (\( name, url ) ->
-                StaticHttp.request
-                    (Secrets.succeed
-                        { url = url
-                        , method = "GET"
-                        , headers = []
-                        }
-                    )
-                    (Decode.at [ "sprites", "front_default" ] Decode.string
-                        |> Decode.map (Pokemon name)
-                        |> Decode.map List.singleton
-                    )
-            )
+        |> StaticHttp.resolve
 
 
 view :
@@ -207,8 +207,8 @@ view siteMetadata page =
         () ->
             --            StaticHttp.map3
             --                (\elmCompanies forks starCount ->
-            StaticHttp.map3
-                (\elmCompanies starCount pokemon ->
+            StaticHttp.map2
+                (\starCount pokemon ->
                     { view =
                         \model viewForPage ->
                             { title = "Landing Page"
@@ -232,7 +232,7 @@ view siteMetadata page =
                     , head = head page.frontmatter
                     }
                 )
-                airtableRequest
+                --                airtableRequest
                 --                (StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
                 --                    (Decode.field "forks_url" Decode.string)
                 --                    |> StaticHttp.andThen
@@ -240,9 +240,10 @@ view siteMetadata page =
                 --                            StaticHttp.jsonRequest forksUrl (Decode.list (Decode.field "full_name" Decode.string))
                 --                        )
                 --                )
-                (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Decode.field "stargazers_count" Decode.int)
-                )
+                --                (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages"
+                --                    (Decode.field "stargazers_count" Decode.int)
+                --                )
+                (StaticHttp.succeed 123)
                 pokemonDetailRequest
 
 
