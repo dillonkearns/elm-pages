@@ -24,20 +24,17 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import List.Extra
 import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.ImagePath as ImagePath
-import Pages.Internal.Secrets as StaticHttpRequest exposing (RequestDetails)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets exposing (Secrets)
 import Secrets2
 import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
-import StaticHttp
+import StaticHttp exposing (RequestDetails)
 import TerminalText as Terminal
 import Url exposing (Url)
 
@@ -102,7 +99,7 @@ successCodec =
 type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
-    | FetchHttp { masked : StaticHttpRequest.RequestDetails, unmasked : StaticHttpRequest.RequestDetails }
+    | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
     | Batch (List (Effect pathKey))
 
 
@@ -525,7 +522,7 @@ dictCompact dict =
 --performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List Pages.Internal.Secrets.Url)
 
 
-performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List { unmasked : StaticHttpRequest.RequestDetails, masked : StaticHttpRequest.RequestDetails })
+performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         |> List.map

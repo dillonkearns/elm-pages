@@ -3,7 +3,6 @@ module StaticHttpUnitTests exposing (all)
 import Dict exposing (Dict)
 import Expect
 import Json.Decode as Decode
-import Pages.Internal.Secrets
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets2
 import StaticHttp

@@ -21,7 +21,6 @@ import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Palette
-import Secrets
 import StaticHttp
 
 

@@ -10,12 +10,10 @@ import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
-import Pages.Internal.Secrets
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import ProgramTest exposing (ProgramTest)
 import Regex
-import Secrets exposing (Secrets)
 import Secrets2
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http

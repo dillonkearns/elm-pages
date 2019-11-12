@@ -1,5 +1,5 @@
 module StaticHttp exposing
-    ( Request
+    ( Request, RequestDetails
     , get, getWithSecrets, reducedGet, reducedPost, request
     , jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
     , map, succeed
@@ -9,7 +9,7 @@ module StaticHttp exposing
 
 {-| TODO
 
-@docs Request
+@docs Request, RequestDetails
 @docs get, getWithSecrets, reducedGet, reducedPost, request
 @docs jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
 @docs map, succeed
@@ -20,12 +20,10 @@ module StaticHttp exposing
 
 -}
 
-import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Exploration
-import Pages.Internal.Secrets
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets2
 
