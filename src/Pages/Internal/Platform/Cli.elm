@@ -299,48 +299,13 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
                                         Err errors ->
                                             -- TODO need to handle errors better?
                                             staticResponsesInit []
+
+                                ( updatedRawResponses, effect ) =
+                                    sendStaticResponsesIfDone secrets Dict.empty [] staticResponses config.manifest
                             in
-                            case requests of
-                                Ok okRequests ->
-                                    case
-                                        performStaticHttpRequests Dict.empty
-                                            secrets
-                                            (okRequests
-                                                |> List.map (Tuple.mapFirst PagePath.toString)
-                                            )
-                                    of
-                                        Ok urlsToFetch ->
-                                            let
-                                                staticRequestsEffect =
-                                                    urlsToFetch
-                                                        |> List.map FetchHttp
-                                                        |> Batch
-                                            in
-                                            ( Model staticResponses secrets [] Dict.empty |> toModel
-                                            , Batch
-                                                [ staticRequestsEffect
-                                                , sendStaticResponsesIfDone secrets Dict.empty [] staticResponses config.manifest
-                                                ]
-                                            )
-
-                                        Err errors ->
-                                            (-- TODO write a test case for this
-                                             -- TODO should this be using Dict.empty, or some unrecoverable error flag in Model?
-                                             updateAndSendPortIfDone
-                                                (Model Dict.empty secrets errors Dict.empty)
-                                                toModel
-                                                config.manifest
-                                            )
-
-                                Err errors ->
-                                    updateAndSendPortIfDone
-                                        (Model staticResponses
-                                            secrets
-                                            (errors |> List.map InternalError)
-                                            Dict.empty
-                                        )
-                                        toModel
-                                        config.manifest
+                            ( Model staticResponses secrets [] updatedRawResponses |> toModel
+                            , effect
+                            )
 
                         pageErrors ->
                             let
@@ -398,13 +363,17 @@ init toModel contentCache siteMetadata config cliMsgConstructor flags =
 
 updateAndSendPortIfDone : Model -> (Model -> model) -> Manifest.Config pathKey -> ( model, Effect pathKey )
 updateAndSendPortIfDone model toModel manifest =
-    ( model |> toModel
-    , sendStaticResponsesIfDone
-        model.secrets
-        model.allRawResponses
-        model.errors
-        model.staticResponses
-        manifest
+    let
+        ( updatedAllRawResponses, effect ) =
+            sendStaticResponsesIfDone
+                model.secrets
+                model.allRawResponses
+                model.errors
+                model.staticResponses
+                manifest
+    in
+    ( { model | allRawResponses = updatedAllRawResponses } |> toModel
+    , effect
     )
 
 
@@ -507,19 +476,18 @@ update siteMetadata config msg model =
                             , response =
                                 response |> Result.mapError (\_ -> ())
                             }
+
+                ( updatedAllRawResponses, effect ) =
+                    sendStaticResponsesIfDone updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
             in
-            ( updatedModel
-            , sendStaticResponsesIfDone updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
+            ( { updatedModel | allRawResponses = updatedAllRawResponses }
+            , effect
             )
 
 
 dictCompact dict =
     dict
         |> Dict.Extra.filterMap (\key value -> value)
-
-
-
---performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List Pages.Internal.Secrets.Url)
 
 
 performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List { unmasked : RequestDetails, masked : RequestDetails })
@@ -614,7 +582,6 @@ staticResponsesUpdate newEntry model =
     let
         updatedAllResponses =
             model.allRawResponses
-                -- TODO hash correctly here
                 |> Dict.insert (hashUrl newEntry.request.masked) (Just (newEntry.response |> Result.withDefault "TODO"))
 
         return =
@@ -654,7 +621,7 @@ staticResponsesUpdate newEntry model =
     return
 
 
-sendStaticResponsesIfDone : SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> Effect pathKey
+sendStaticResponsesIfDone : SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
 sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifest =
     let
         pendingRequests =
@@ -753,12 +720,23 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                             ( path, request )
                         )
 
-            newEffect =
+            ( updatedAllRawResponses, newEffect ) =
                 case
                     performStaticHttpRequests allRawResponses secrets requestContinuations
                 of
                     Ok urlsToPerform ->
                         let
+                            newAllRawResponses =
+                                Dict.union allRawResponses (dictOfNewUrlsToPerform |> printKeys "dictOfNew")
+                                    |> printKeys "COMBINED"
+
+                            dictOfNewUrlsToPerform =
+                                urlsToPerform
+                                    |> List.map .masked
+                                    |> List.map hashUrl
+                                    |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
+                                    |> Dict.fromList
+
                             maskedToUnmasked : Dict String { masked : RequestDetails, unmasked : RequestDetails }
                             maskedToUnmasked =
                                 urlsToPerform
@@ -785,16 +763,23 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                         )
                                     |> Batch
                         in
-                        newThing
+                        ( newAllRawResponses, newThing )
 
                     Err error ->
-                        SendJsData <|
+                        ( allRawResponses
+                        , SendJsData <|
                             (Errors <| errorsToString (error ++ failedRequests ++ errors))
+                        )
         in
-        newEffect
+        ( updatedAllRawResponses, newEffect )
 
     else
-        SendJsData
+        let
+            updatedAllRawResponses =
+                Dict.empty
+        in
+        ( updatedAllRawResponses
+        , SendJsData
             (if List.isEmpty errors && List.isEmpty failedRequests then
                 Success
                     (ToJsSuccessPayload
@@ -805,6 +790,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
              else
                 Errors <| errorsToString (failedRequests ++ errors)
             )
+        )
 
 
 errorsToString : List Error -> String

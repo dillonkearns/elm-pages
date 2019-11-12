@@ -98,6 +98,142 @@ all =
                                 }
                             ]
                         )
+        , test "andThen chain avoids repeat requests" <|
+            \() ->
+                let
+                    get url decoder =
+                        StaticHttp.request
+                            (Secrets.succeed
+                                { url = url
+                                , method = "GET"
+                                , headers = []
+                                }
+                            )
+                            decoder
+
+                    pokemonDetailRequest : StaticHttp.Request ()
+                    pokemonDetailRequest =
+                        get
+                            "https://pokeapi.co/api/v2/pokemon/"
+                            (Reduce.list
+                                (Reduce.field "url" Reduce.string
+                                    |> Reduce.map
+                                        (\url ->
+                                            get url
+                                                (Reduce.field "image" Reduce.string)
+                                        )
+                                )
+                            )
+                            |> StaticHttp.resolve
+                            |> StaticHttp.map (\_ -> ())
+                in
+                start
+                    [ ( [ "elm-pages" ], pokemonDetailRequest )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://pokeapi.co/api/v2/pokemon/"
+                        """[
+                            {"url": "url1"},
+                            {"url": "url2"},
+                            {"url": "url3"},
+                            {"url": "url4"},
+                            {"url": "url5"},
+                            {"url": "url6"},
+                            {"url": "url7"},
+                            {"url": "url8"},
+                            {"url": "url9"},
+                            {"url": "url10"}
+                            ]"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url1"
+                        """{"image": "image1.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url2"
+                        """{"image": "image2.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url3"
+                        """{"image": "image3.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url4"
+                        """{"image": "image4.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url5"
+                        """{"image": "image5.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url6"
+                        """{"image": "image6.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url7"
+                        """{"image": "image7.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url8"
+                        """{"image": "image8.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url9"
+                        """{"image": "image9.jpg"}"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "url10"
+                        """{"image": "image10.jpg"}"""
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (Expect.equal
+                            [ Main.Success
+                                { pages =
+                                    Dict.fromList
+                                        [ ( "/elm-pages"
+                                          , Dict.fromList
+                                                [ ( "[GET]https://pokeapi.co/api/v2/pokemon/"
+                                                  , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
+                                                  )
+                                                , ( "[GET]url1"
+                                                  , """{"image":"image1.jpg"}"""
+                                                  )
+                                                , ( "[GET]url2"
+                                                  , """{"image":"image2.jpg"}"""
+                                                  )
+                                                , ( "[GET]url3"
+                                                  , """{"image":"image3.jpg"}"""
+                                                  )
+                                                , ( "[GET]url4"
+                                                  , """{"image":"image4.jpg"}"""
+                                                  )
+                                                , ( "[GET]url5"
+                                                  , """{"image":"image5.jpg"}"""
+                                                  )
+                                                , ( "[GET]url6"
+                                                  , """{"image":"image6.jpg"}"""
+                                                  )
+                                                , ( "[GET]url7"
+                                                  , """{"image":"image7.jpg"}"""
+                                                  )
+                                                , ( "[GET]url8"
+                                                  , """{"image":"image8.jpg"}"""
+                                                  )
+                                                , ( "[GET]url9"
+                                                  , """{"image":"image9.jpg"}"""
+                                                  )
+                                                , ( "[GET]url10"
+                                                  , """{"image":"image10.jpg"}"""
+                                                  )
+                                                ]
+                                          )
+                                        ]
+                                , manifest = manifest
+                                }
+                            ]
+                        )
         , test "port is sent out once all requests are finished" <|
             \() ->
                 start

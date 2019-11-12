@@ -3,7 +3,7 @@ module StaticHttp exposing
     , get, getWithSecrets, reducedGet, reducedPost, request
     , jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
     , map, succeed
-    , andThen
+    , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
     )
 
@@ -14,7 +14,10 @@ module StaticHttp exposing
 @docs jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
 @docs map, succeed
 
-@docs andThen
+
+## Chaining Requests
+
+@docs andThen, resolve, combine
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
@@ -49,6 +52,23 @@ map fn requestInfo =
 
         Done value ->
             fn value |> Done
+
+
+{-| TODO
+-}
+resolve : Request (List (Request value)) -> Request (List value)
+resolve topRequest =
+    topRequest
+        |> andThen
+            (\continuationRequests -> combine continuationRequests)
+
+
+{-| TODO
+-}
+combine : List (Request value) -> Request (List value)
+combine requests =
+    requests
+        |> List.foldl (map2 (::)) (succeed [])
 
 
 {-| TODO
@@ -450,8 +470,8 @@ map3 :
     -> Request value2
     -> Request value3
     -> Request valueCombined
-map3 combine request1 request2 request3 =
-    succeed combine
+map3 combineFn request1 request2 request3 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
@@ -466,8 +486,8 @@ map4 :
     -> Request value3
     -> Request value4
     -> Request valueCombined
-map4 combine request1 request2 request3 request4 =
-    succeed combine
+map4 combineFn request1 request2 request3 request4 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
@@ -484,8 +504,8 @@ map5 :
     -> Request value4
     -> Request value5
     -> Request valueCombined
-map5 combine request1 request2 request3 request4 request5 =
-    succeed combine
+map5 combineFn request1 request2 request3 request4 request5 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
@@ -504,8 +524,8 @@ map6 :
     -> Request value5
     -> Request value6
     -> Request valueCombined
-map6 combine request1 request2 request3 request4 request5 request6 =
-    succeed combine
+map6 combineFn request1 request2 request3 request4 request5 request6 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
@@ -526,8 +546,8 @@ map7 :
     -> Request value6
     -> Request value7
     -> Request valueCombined
-map7 combine request1 request2 request3 request4 request5 request6 request7 =
-    succeed combine
+map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
@@ -550,8 +570,8 @@ map8 :
     -> Request value7
     -> Request value8
     -> Request valueCombined
-map8 combine request1 request2 request3 request4 request5 request6 request7 request8 =
-    succeed combine
+map8 combineFn request1 request2 request3 request4 request5 request6 request7 request8 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
@@ -576,8 +596,8 @@ map9 :
     -> Request value8
     -> Request value9
     -> Request valueCombined
-map9 combine request1 request2 request3 request4 request5 request6 request7 request8 request9 =
-    succeed combine
+map9 combineFn request1 request2 request3 request4 request5 request6 request7 request8 request9 =
+    succeed combineFn
         |> map2 (|>) request1
         |> map2 (|>) request2
         |> map2 (|>) request3
