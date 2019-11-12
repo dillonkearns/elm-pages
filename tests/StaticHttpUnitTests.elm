@@ -104,4 +104,4 @@ all =
 
 
 get url =
-    { url = url, method = "GET" }
+    { url = url, method = "GET", headers = [] }

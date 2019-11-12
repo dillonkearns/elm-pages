@@ -174,7 +174,7 @@ lookup requestInfo rawResponses =
             Ok ( rawResponses, value )
 
 
-addUrls : List (Secrets2.Value { url : String, method : String }) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls : List (Secrets2.Value { url : String, method : String, headers : List ( String, String ) }) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         Request ( initialUrls, function ) ->
@@ -188,7 +188,7 @@ addUrls urlsToAdd requestInfo =
 --            Request ( urlsToAdd, \_ -> value |> Done |> Ok )
 
 
-lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets2.Value { url : String, method : String })
+lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets2.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -240,7 +240,7 @@ getWithSecrets url decoder =
     jsonRequestWithSecrets
         (url
             |> Secrets2.map
-                (\okUrl -> { url = okUrl, method = "GET" })
+                (\okUrl -> { url = okUrl, method = "GET", headers = [] })
         )
         decoder
 
@@ -250,19 +250,37 @@ getWithSecrets url decoder =
 get : String -> Decoder a -> Request a
 get url decoder =
     jsonRequest
-        { url = url, method = "GET" }
+        { url = url, method = "GET", headers = [] }
         decoder
+
+
+type alias RequestDetails =
+    { url : String, method : String, headers : List ( String, String ) }
+
+
+hashRequest : RequestDetails -> String
+hashRequest requestDetails =
+    "["
+        ++ requestDetails.method
+        ++ "]"
+        ++ requestDetails.url
+        ++ String.join "," (requestDetails.headers |> List.map (\( key, value ) -> key ++ " : " ++ value))
+
+
+requestToString : RequestDetails -> String
+requestToString requestDetails =
+    requestDetails.url
 
 
 {-| TODO
 -}
-jsonRequest : { url : String, method : String } -> Decoder a -> Request a
+jsonRequest : { url : String, method : String, headers : List ( String, String ) } -> Decoder a -> Request a
 jsonRequest url decoder =
     Request
         ( [ Secrets2.succeed url ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (url |> Pages.Internal.Secrets.hashRequest)
+                |> Dict.get (url |> hashRequest)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -274,7 +292,7 @@ jsonRequest url decoder =
 
                             Nothing ->
                                 url
-                                    |> Pages.Internal.Secrets.requestToString
+                                    |> requestToString
                                     |> Pages.StaticHttpRequest.MissingHttpResponse
                                     |> Err
                    )
@@ -294,19 +312,19 @@ jsonRequest url decoder =
 -}
 reducedGet : String -> Json.Decode.Exploration.Decoder a -> Request a
 reducedGet url decoder =
-    reducedJsonRequest { url = url, method = "GET" } decoder
+    reducedJsonRequest { url = url, method = "GET", headers = [] } decoder
 
 
 {-| TODO
 -}
 reducedPost : String -> Json.Decode.Exploration.Decoder a -> Request a
 reducedPost url decoder =
-    reducedJsonRequest { url = url, method = "POST" } decoder
+    reducedJsonRequest { url = url, method = "POST", headers = [] } decoder
 
 
 {-| TODO
 -}
-reducedJsonRequest : { url : String, method : String } -> Json.Decode.Exploration.Decoder a -> Request a
+reducedJsonRequest : RequestDetails -> Json.Decode.Exploration.Decoder a -> Request a
 reducedJsonRequest requestInfo decoder =
     request (Secrets2.succeed requestInfo) decoder
 
@@ -322,14 +340,7 @@ type Expect a
 {-| TODO
 -}
 request :
-    Secrets2.Value
-        { method : String
-
-        --            , headers : List Header
-        , url : String
-
-        --            , body : Body
-        }
+    Secrets2.Value RequestDetails
     -> Json.Decode.Exploration.Decoder a
     -> Request a
 request urlWithSecrets decoder =
@@ -337,7 +348,7 @@ request urlWithSecrets decoder =
         ( [ urlWithSecrets ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Secrets2.maskedLookup urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                |> Dict.get (Secrets2.maskedLookup urlWithSecrets |> hashRequest)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -349,7 +360,7 @@ request urlWithSecrets decoder =
 
                             Nothing ->
                                 Secrets2.maskedLookup urlWithSecrets
-                                    |> Pages.Internal.Secrets.requestToString
+                                    |> requestToString
                                     |> Pages.StaticHttpRequest.MissingHttpResponse
                                     |> Err
                    )
@@ -384,7 +395,7 @@ request urlWithSecrets decoder =
                                 (\finalRequest ->
                                     ( strippedResponses
                                         |> Dict.insert
-                                            (Secrets2.maskedLookup urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                                            (Secrets2.maskedLookup urlWithSecrets |> hashRequest)
                                             reduced
                                     , finalRequest
                                     )
@@ -396,14 +407,7 @@ request urlWithSecrets decoder =
 {-| TODO
 -}
 jsonRequestWithSecrets :
-    Secrets2.Value
-        { method : String
-
-        --            , headers : List Header
-        , url : String
-
-        --            , body : Body
-        }
+    Secrets2.Value RequestDetails
     -> Decoder a
     -> Request a
 jsonRequestWithSecrets urlWithSecrets decoder =
@@ -411,7 +415,7 @@ jsonRequestWithSecrets urlWithSecrets decoder =
         ( [ urlWithSecrets ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Secrets2.maskedLookup urlWithSecrets |> Pages.Internal.Secrets.hashRequest)
+                |> Dict.get (Secrets2.maskedLookup urlWithSecrets |> hashRequest)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -421,7 +425,7 @@ jsonRequestWithSecrets urlWithSecrets decoder =
                             Nothing ->
                                 --                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
                                 Secrets2.maskedLookup urlWithSecrets
-                                    |> Pages.Internal.Secrets.requestToString
+                                    |> requestToString
                                     |> Pages.StaticHttpRequest.MissingHttpResponse
                                     |> Err
                    )

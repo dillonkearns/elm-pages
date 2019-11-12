@@ -9,7 +9,7 @@ import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets2.Value { url : String, method : String }), Dict String String -> Result Error ( Dict String String, Request value ) )
+    = Request ( List (Secrets2.Value { url : String, method : String, headers : List ( String, String ) }), Dict String String -> Result Error ( Dict String String, Request value ) )
     | Done value
 
 
@@ -44,7 +44,7 @@ type Error
 
 
 type alias RequestDetails =
-    { url : String, method : String }
+    { url : String, method : String, headers : List ( String, String ) }
 
 
 urls : Request value -> List (Secrets2.Value RequestDetails)
