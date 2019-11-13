@@ -1,7 +1,6 @@
 module StaticHttp exposing
     ( Request, RequestDetails
-    , get, reducedGet, reducedPost, request
-    , jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
+    , get, request
     , map, succeed
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
@@ -10,8 +9,7 @@ module StaticHttp exposing
 {-| TODO
 
 @docs Request, RequestDetails
-@docs get, reducedGet, reducedPost, request
-@docs jsonRequest, jsonRequestWithSecrets, reducedJsonRequest
+@docs get, request
 @docs map, succeed
 
 
@@ -25,8 +23,7 @@ module StaticHttp exposing
 
 import Dict exposing (Dict)
 import Dict.Extra
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Exploration
+import Json.Decode.Exploration as Decode exposing (Decoder)
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
 
@@ -255,7 +252,7 @@ get :
     -> Decoder a
     -> Request a
 get url decoder =
-    jsonRequestWithSecrets
+    request
         (url
             |> Secrets.map
                 (\okUrl -> { url = okUrl, method = "GET", headers = [] })
@@ -285,74 +282,9 @@ requestToString requestDetails =
 
 {-| TODO
 -}
-jsonRequest : { url : String, method : String, headers : List ( String, String ) } -> Decoder a -> Request a
-jsonRequest url decoder =
-    Request
-        ( [ Secrets.succeed url ]
-        , \rawResponseDict ->
-            rawResponseDict
-                |> Dict.get (url |> hashRequest)
-                |> (\maybeResponse ->
-                        case maybeResponse of
-                            Just rawResponse ->
-                                -- @@@@@ TODO reduce raw responses
-                                Ok
-                                    ( rawResponseDict
-                                    , rawResponse
-                                    )
-
-                            Nothing ->
-                                url
-                                    |> requestToString
-                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                    |> Err
-                   )
-                |> Result.andThen
-                    (\( strippedResponses, rawResponse ) ->
-                        rawResponse
-                            |> Decode.decodeString decoder
-                            |> Result.mapError Decode.errorToString
-                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                            |> Result.map Done
-                            |> Result.map (\finalRequest -> ( strippedResponses, finalRequest ))
-                    )
-        )
-
-
-{-| TODO
--}
-reducedGet : String -> Json.Decode.Exploration.Decoder a -> Request a
-reducedGet url decoder =
-    reducedJsonRequest { url = url, method = "GET", headers = [] } decoder
-
-
-{-| TODO
--}
-reducedPost : String -> Json.Decode.Exploration.Decoder a -> Request a
-reducedPost url decoder =
-    reducedJsonRequest { url = url, method = "POST", headers = [] } decoder
-
-
-{-| TODO
--}
-reducedJsonRequest : RequestDetails -> Json.Decode.Exploration.Decoder a -> Request a
-reducedJsonRequest requestInfo decoder =
-    request (Secrets.succeed requestInfo) decoder
-
-
-type Expect a
-    = ExpectJson (Json.Decode.Exploration.Decoder a)
-
-
-
---    | ExpectString
-
-
-{-| TODO
--}
 request :
     Secrets.Value RequestDetails
-    -> Json.Decode.Exploration.Decoder a
+    -> Decoder a
     -> Request a
 request urlWithSecrets decoder =
     Request
@@ -379,28 +311,28 @@ request urlWithSecrets decoder =
                     (\( strippedResponses, rawResponse ) ->
                         let
                             reduced =
-                                Json.Decode.Exploration.stripString decoder rawResponse
+                                Decode.stripString decoder rawResponse
                                     |> Result.withDefault "TODO"
                         in
                         rawResponse
-                            |> Json.Decode.Exploration.decodeString decoder
+                            |> Decode.decodeString decoder
                             --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
                             |> (\decodeResult ->
                                     case decodeResult of
-                                        Json.Decode.Exploration.BadJson ->
+                                        Decode.BadJson ->
                                             Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
 
-                                        Json.Decode.Exploration.Errors errors ->
+                                        Decode.Errors errors ->
                                             errors
-                                                |> Json.Decode.Exploration.errorsToString
+                                                |> Decode.errorsToString
                                                 |> Pages.StaticHttpRequest.DecoderError
                                                 |> Err
 
-                                        Json.Decode.Exploration.WithWarnings warnings a ->
+                                        Decode.WithWarnings warnings a ->
                                             --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
                                             Ok a
 
-                                        Json.Decode.Exploration.Success a ->
+                                        Decode.Success a ->
                                             Ok a
                                )
                             --                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
@@ -414,43 +346,6 @@ request urlWithSecrets decoder =
                                     , finalRequest
                                     )
                                 )
-                    )
-        )
-
-
-{-| TODO
--}
-jsonRequestWithSecrets :
-    Secrets.Value RequestDetails
-    -> Decoder a
-    -> Request a
-jsonRequestWithSecrets urlWithSecrets decoder =
-    Request
-        ( [ urlWithSecrets ]
-        , \rawResponseDict ->
-            rawResponseDict
-                |> Dict.get (Secrets.maskedLookup urlWithSecrets |> hashRequest)
-                |> (\maybeResponse ->
-                        case maybeResponse of
-                            Just rawResponse ->
-                                -- @@@@@ TODO reduce raw responses
-                                Ok ( rawResponseDict, rawResponse )
-
-                            Nothing ->
-                                --                                Err <| "Couldn't find response for url `" ++ Pages.Internal.Secrets.useFakeSecrets urlWithSecrets ++ "`"
-                                Secrets.maskedLookup urlWithSecrets
-                                    |> requestToString
-                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                    |> Err
-                   )
-                |> Result.andThen
-                    (\( strippedResponses, rawResponse ) ->
-                        rawResponse
-                            |> Decode.decodeString decoder
-                            |> Result.mapError Decode.errorToString
-                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                            |> Result.map Done
-                            |> Result.map (\finalRequest -> ( strippedResponses, finalRequest ))
                     )
         )
 

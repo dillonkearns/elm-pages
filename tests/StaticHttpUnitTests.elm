@@ -2,11 +2,15 @@ module StaticHttpUnitTests exposing (all)
 
 import Dict exposing (Dict)
 import Expect
-import Json.Decode as Decode
+import Json.Decode.Exploration as Decode
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
 import StaticHttp
 import Test exposing (Test, describe, only, test)
+
+
+getWithoutSecrets url =
+    StaticHttp.get (Secrets.succeed url)
 
 
 all : Test
@@ -14,11 +18,11 @@ all =
     describe "Static Http Requests"
         [ test "andThen" <|
             \() ->
-                StaticHttp.get "first" (Decode.succeed "NEXT")
+                StaticHttp.get (Secrets.succeed "first") (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
                             --                                        StaticHttp.get continueUrl (Decode.succeed ())
-                            StaticHttp.get "NEXT" (Decode.succeed ())
+                            getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
@@ -35,7 +39,7 @@ all =
                 StaticHttp.succeed ()
                     |> StaticHttp.andThen
                         (\_ ->
-                            StaticHttp.get "NEXT" (Decode.succeed ())
+                            getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
@@ -48,11 +52,11 @@ all =
                        )
         , test "map" <|
             \() ->
-                StaticHttp.get "first" (Decode.succeed "NEXT")
+                getWithoutSecrets "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
                             --                                        StaticHttp.get continueUrl (Decode.succeed ())
-                            StaticHttp.get "NEXT" (Decode.succeed ())
+                            getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> StaticHttp.map (\_ -> ())
                     |> (\request ->
@@ -67,10 +71,10 @@ all =
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
             \() ->
-                StaticHttp.get "first" (Decode.succeed "NEXT")
+                getWithoutSecrets "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            StaticHttp.get "NEXT" (Decode.succeed ())
+                            getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
                             StaticHttpRequest.resolveUrls request
@@ -83,13 +87,13 @@ all =
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
             \() ->
-                StaticHttp.get "first" Decode.int
+                getWithoutSecrets "first" Decode.int
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            StaticHttp.get "NEXT" Decode.string
+                            getWithoutSecrets "NEXT" Decode.string
                                 |> StaticHttp.andThen
                                     (\_ ->
-                                        StaticHttp.get "LAST"
+                                        getWithoutSecrets "LAST"
                                             Decode.string
                                     )
                         )

@@ -4,8 +4,8 @@ import Codec
 import Dict exposing (Dict)
 import Expect
 import Html
-import Json.Decode as Decode
-import Json.Decode.Exploration as Reduce
+import Json.Decode as JD
+import Json.Decode.Exploration as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.ImagePath as ImagePath
@@ -31,7 +31,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -48,7 +48,7 @@ all =
                                         [ ( "/"
                                           , Dict.fromList
                                                 [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{ "stargazer_count": 86 }"""
+                                                  , """{"stargazer_count":86}"""
                                                   )
                                                 ]
                                           )
@@ -115,12 +115,12 @@ all =
                     pokemonDetailRequest =
                         get
                             "https://pokeapi.co/api/v2/pokemon/"
-                            (Reduce.list
-                                (Reduce.field "url" Reduce.string
-                                    |> Reduce.map
+                            (Decode.list
+                                (Decode.field "url" Decode.string
+                                    |> Decode.map
                                         (\url ->
                                             get url
-                                                (Reduce.field "image" Reduce.string)
+                                                (Decode.field "image" Decode.string)
                                         )
                                 )
                             )
@@ -238,10 +238,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                       )
                     , ( [ "elm-pages-starter" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.succeed ())
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -262,14 +262,14 @@ all =
                                         [ ( "/elm-pages"
                                           , Dict.fromList
                                                 [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{ "stargazer_count": 86 }"""
+                                                  , """{"stargazer_count":86}"""
                                                   )
                                                 ]
                                           )
                                         , ( "/elm-pages-starter"
                                           , Dict.fromList
                                                 [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                                                  , """{ "stargazer_count": 22 }"""
+                                                  , """{"stargazer_count":22}"""
                                                   )
                                                 ]
                                           )
@@ -282,7 +282,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -312,7 +312,14 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.reducedPost "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      , StaticHttp.request
+                            (Secrets.succeed
+                                { method = "POST"
+                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                                , headers = []
+                                }
+                            )
+                            (Decode.field "stargazer_count" Decode.int)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -342,10 +349,10 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int)
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
                             |> StaticHttp.andThen
                                 (\continueUrl ->
-                                    StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int)
+                                    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
                                 )
                       )
                     ]
@@ -384,8 +391,8 @@ all =
                 start
                     [ ( []
                       , StaticHttp.map2 (\_ _ -> ())
-                            (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages" (Reduce.field "stargazer_count" Reduce.int))
-                            (StaticHttp.reducedGet "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Reduce.field "stargazer_count" Reduce.int))
+                            (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
+                            (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -482,20 +489,18 @@ all =
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Errors
-                                """\u{001B}[36m-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages\u{001B}[0m
+                        (expectErrorsPort
+                            """-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages
 
 /elm-pages
 
-Problem with the given value:
+I encountered some errors while decoding this JSON:
 
-{
-        "stargazer_count": 86
-    }
+  The user should get this message from the CLI.
 
-The user should get this message from the CLI."""
-                            ]
+    {
+      "stargazer_count": 86
+    }"""
                         )
         , test "an error is sent for missing secrets from continuation requests" <|
             \() ->
@@ -583,7 +588,7 @@ So maybe MISSING should be API_KEY"""
                                 |> Secrets.with "API_KEY"
                                 |> Secrets.with "BEARER"
                             )
-                            (Reduce.succeed ())
+                            (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.ensureHttpRequest "GET"
@@ -630,7 +635,7 @@ start pages =
             Document.fromList
                 [ Document.parser
                     { extension = "md"
-                    , metadata = Decode.succeed ()
+                    , metadata = JD.succeed ()
                     , body = \_ -> Ok ()
                     }
                 ]
@@ -689,9 +694,9 @@ start pages =
         }""")
 
 
-flags : String -> Decode.Value
+flags : String -> JD.Value
 flags jsonString =
-    case Decode.decodeString Decode.value jsonString of
+    case JD.decodeString JD.value jsonString of
         Ok value ->
             value
 
@@ -773,3 +778,7 @@ manifest =
     , shortName = Just "elm-pages"
     , sourceIcon = ImagePath.external ""
     }
+
+
+starDecoder =
+    Decode.field "stargazer_count" Decode.int
