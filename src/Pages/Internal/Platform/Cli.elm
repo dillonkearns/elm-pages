@@ -384,19 +384,6 @@ type alias PageErrors =
     Dict String String
 
 
-pageErrorsToString : PageErrors -> String
-pageErrorsToString pageErrors =
-    pageErrors
-        |> Dict.toList
-        |> List.map
-            (\( pagePath, error ) ->
-                pagePath
-                    ++ "\n\n"
-                    ++ error
-            )
-        |> String.join "\n\n"
-
-
 update :
     Result (List BuildError) (List ( PagePath pathKey, metadata ))
     ->
@@ -521,11 +508,6 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
                         )
             )
         |> combineMultipleErrors
-
-
-combineSimple : List (Result x a) -> Result x (List a)
-combineSimple =
-    List.foldr (Result.map2 (::)) (Ok [])
 
 
 combineMultipleErrors : List (Result error a) -> Result (List error) (List a)
