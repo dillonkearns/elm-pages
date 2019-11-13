@@ -201,7 +201,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     Platform.worker
         { init =
             \flags ->
-                init toModel contentCache siteMetadata config cliMsgConstructor flags
+                init toModel contentCache siteMetadata config flags
                     |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
@@ -235,6 +235,10 @@ perform cliMsgConstructor toJsPort effect =
                 |> Cmd.batch
 
         FetchHttp ({ unmasked, masked } as requests) ->
+            let
+                _ =
+                    Debug.log "Fetching" masked.url
+            in
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -272,10 +276,9 @@ init :
                         }
             , manifest : Manifest.Config pathKey
         }
-    -> f
     -> Decode.Value
     -> ( model, Effect pathKey )
-init toModel contentCache siteMetadata config cliMsgConstructor flags =
+init toModel contentCache siteMetadata config flags =
     case Decode.decodeValue (Decode.field "secrets" SecretsDict.decoder) flags of
         Ok secrets ->
             case contentCache of
@@ -428,6 +431,9 @@ update siteMetadata config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
+                _ =
+                    Debug.log "Got response" request.masked.url
+
                 updatedModel =
                     (case response of
                         Ok okResponse ->
@@ -559,15 +565,6 @@ staticResponsesInit list =
         |> Dict.fromList
 
 
-
---hashUrl : RequestDetails -> String
---hashUrl requestDetails =
---    "["
---        ++ requestDetails.method
---        ++ "]"
---        ++ requestDetails.url
-
-
 hashUrl : RequestDetails -> String
 hashUrl requestDetails =
     "["
@@ -605,7 +602,7 @@ staticResponsesUpdate newEntry model =
                                                 List.member (hashUrl newEntry.request.masked)
                                                     realUrls
                                         in
-                                        if includesUrl then
+                                        if includesUrl |> Debug.log "includesUrl" then
                                             let
                                                 updatedRawResponses =
                                                     rawResponses
@@ -619,6 +616,15 @@ staticResponsesUpdate newEntry model =
             }
     in
     return
+
+
+printKeys : String -> Dict String a -> Dict String a
+printKeys message dict =
+    let
+        _ =
+            Debug.log message (dict |> Dict.keys)
+    in
+    dict
 
 
 sendStaticResponsesIfDone : SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
@@ -752,6 +758,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                 allRawResponses
                                     |> Dict.keys
                                     |> Set.fromList
+                                    |> Debug.log "already perf"
 
                             newThing =
                                 maskedToUnmasked

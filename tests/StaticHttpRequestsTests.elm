@@ -684,7 +684,7 @@ start pages =
             }
     in
     ProgramTest.createDocument
-        { init = Main.init identity contentCache siteMetadata config identity
+        { init = Main.init identity contentCache siteMetadata config
         , update = Main.update siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }
