@@ -595,42 +595,39 @@ staticResponsesUpdate newEntry model =
         updatedAllResponses =
             model.allRawResponses
                 |> Dict.insert (hashUrl newEntry.request.masked) (Just (newEntry.response |> Result.withDefault "TODO"))
-
-        return =
-            { model
-                | allRawResponses = updatedAllResponses
-                , staticResponses =
-                    model.staticResponses
-                        |> Dict.map
-                            (\pageUrl entry ->
-                                case entry of
-                                    NotFetched request rawResponses ->
-                                        let
-                                            realUrls =
-                                                StaticHttpRequest.resolveUrls request
-                                                    (updatedAllResponses |> dictCompact)
-                                                    |> Tuple.second
-                                                    |> List.map Secrets.maskedLookup
-                                                    |> List.map hashUrl
-
-                                            includesUrl =
-                                                List.member (hashUrl newEntry.request.masked)
-                                                    realUrls
-                                        in
-                                        if includesUrl |> log "includesUrl" then
-                                            let
-                                                updatedRawResponses =
-                                                    rawResponses
-                                                        |> Dict.insert (hashUrl newEntry.request.masked) newEntry.response
-                                            in
-                                            NotFetched request updatedRawResponses
-
-                                        else
-                                            entry
-                            )
-            }
     in
-    return
+    { model
+        | allRawResponses = updatedAllResponses
+        , staticResponses =
+            model.staticResponses
+                |> Dict.map
+                    (\pageUrl entry ->
+                        case entry of
+                            NotFetched request rawResponses ->
+                                let
+                                    realUrls =
+                                        StaticHttpRequest.resolveUrls request
+                                            (updatedAllResponses |> dictCompact)
+                                            |> Tuple.second
+                                            |> List.map Secrets.maskedLookup
+                                            |> List.map hashUrl
+
+                                    includesUrl =
+                                        List.member (hashUrl newEntry.request.masked)
+                                            realUrls
+                                in
+                                if includesUrl |> log "includesUrl" then
+                                    let
+                                        updatedRawResponses =
+                                            rawResponses
+                                                |> Dict.insert (hashUrl newEntry.request.masked) newEntry.response
+                                    in
+                                    NotFetched request updatedRawResponses
+
+                                else
+                                    entry
+                    )
+    }
 
 
 printKeys : String -> Dict String a -> Dict String a
