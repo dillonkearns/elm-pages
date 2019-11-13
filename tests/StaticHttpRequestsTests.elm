@@ -690,7 +690,7 @@ start pages =
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
         |> ProgramTest.start (flags """{"secrets":
-        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}
+        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}, "mode": "prod"
         }""")
 
 

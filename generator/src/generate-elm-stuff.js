@@ -5,6 +5,7 @@ const { elmPagesCliFile } = require("./elm-file-constants.js");
 const path = require("path");
 
 module.exports = function run(
+  mode,
   staticRoutes,
   markdownContent,
   markupContent,
@@ -23,7 +24,7 @@ module.exports = function run(
   copyModifiedElmJson();
 
   // run Main.elm from elm-stuff/elm-pages with `runElm`
-  runElm(callback);
+  runElm(mode, callback);
 };
 
 function ensureDirSync(dirpath) {

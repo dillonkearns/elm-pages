@@ -2,7 +2,7 @@ const { compileToString } = require("node-elm-compiler");
 XMLHttpRequest = require("xhr2");
 
 module.exports = runElm;
-function runElm(callback) {
+function runElm(/** @type string */ mode, /** @type any */ callback) {
   const elmBaseDirectory = "./elm-stuff/elm-pages";
   const mainElmFile = "../../src/Main.elm";
   const startingDir = process.cwd();
@@ -13,7 +13,7 @@ function runElm(callback) {
       console.warn = function() {};
       eval(data.toString());
       const app = Elm.Main.init({
-        flags: { secrets: process.env }
+        flags: { secrets: process.env, mode }
       });
 
       app.ports.toJsPort.subscribe(payload => {

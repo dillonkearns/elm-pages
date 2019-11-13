@@ -85,33 +85,39 @@ function run() {
       elmPagesUiFile(staticRoutes, markdownContent, content)
     );
     console.log("elm-pages DONE");
-    doCliStuff(staticRoutes, markdownContent, content, function(payload) {
-      if (contents.watch) {
-        startWatchIfNeeded();
-        if (!devServerRunning) {
-          devServerRunning = true;
-          develop.start({
-            routes,
-            debug: contents.debug,
-            manifestConfig: payload.manifest,
-            routesWithRequests: payload.pages
-          });
-        }
-      } else {
-        if (payload.errors) {
-          printErrorsAndExit(payload.errors);
-        }
+    doCliStuff(
+      contents.watch ? "dev" : "prod",
+      staticRoutes,
+      markdownContent,
+      content,
+      function(payload) {
+        if (contents.watch) {
+          startWatchIfNeeded();
+          if (!devServerRunning) {
+            devServerRunning = true;
+            develop.start({
+              routes,
+              debug: contents.debug,
+              manifestConfig: payload.manifest,
+              routesWithRequests: payload.pages
+            });
+          }
+        } else {
+          if (payload.errors) {
+            printErrorsAndExit(payload.errors);
+          }
 
-        develop.run(
-          {
-            routes,
-            manifestConfig: payload.manifest,
-            routesWithRequests: payload.pages
-          },
-          () => {}
-        );
+          develop.run(
+            {
+              routes,
+              manifestConfig: payload.manifest,
+              routesWithRequests: payload.pages
+            },
+            () => {}
+          );
+        }
       }
-    });
+    );
   });
 }
 

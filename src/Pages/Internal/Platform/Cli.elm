@@ -39,6 +39,10 @@ import TerminalText as Terminal
 import Url exposing (Url)
 
 
+log message value =
+    value
+
+
 type ToJsPayload pathKey
     = Errors String
     | Success (ToJsSuccessPayload pathKey)
@@ -123,6 +127,7 @@ type alias Model =
     , secrets : SecretsDict
     , errors : List Error
     , allRawResponses : Dict String (Maybe String)
+    , mode : Mode
     }
 
 
@@ -217,6 +222,23 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
         }
 
 
+type Mode
+    = Prod
+    | Dev
+
+
+modeDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\mode ->
+                if mode == "prod" then
+                    Decode.succeed Prod
+
+                else
+                    Decode.succeed Dev
+            )
+
+
 perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform cliMsgConstructor toJsPort effect =
     case effect of
@@ -237,7 +259,7 @@ perform cliMsgConstructor toJsPort effect =
         FetchHttp ({ unmasked, masked } as requests) ->
             let
                 _ =
-                    Debug.log "Fetching" masked.url
+                    log "Fetching" masked.url
             in
             Http.request
                 { method = unmasked.method
@@ -279,8 +301,15 @@ init :
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
-    case Decode.decodeValue (Decode.field "secrets" SecretsDict.decoder) flags of
-        Ok secrets ->
+    case
+        Decode.decodeValue
+            (Decode.map2 Tuple.pair
+                (Decode.field "secrets" SecretsDict.decoder)
+                (Decode.field "mode" modeDecoder)
+            )
+            flags
+    of
+        Ok ( secrets, mode ) ->
             case contentCache of
                 Ok _ ->
                     case contentCache |> ContentCache.pagesWithErrors of
@@ -304,9 +333,9 @@ init toModel contentCache siteMetadata config flags =
                                             staticResponsesInit []
 
                                 ( updatedRawResponses, effect ) =
-                                    sendStaticResponsesIfDone secrets Dict.empty [] staticResponses config.manifest
+                                    sendStaticResponsesIfDone mode secrets Dict.empty [] staticResponses config.manifest
                             in
-                            ( Model staticResponses secrets [] updatedRawResponses |> toModel
+                            ( Model staticResponses secrets [] updatedRawResponses mode |> toModel
                             , effect
                             )
 
@@ -335,6 +364,7 @@ init toModel contentCache siteMetadata config flags =
                                     secrets
                                     (pageErrors |> List.map MetadataDecodeError)
                                     Dict.empty
+                                    mode
                                 )
                                 toModel
                                 config.manifest
@@ -348,6 +378,7 @@ init toModel contentCache siteMetadata config flags =
                                 |> List.map MetadataDecodeError
                             )
                             Dict.empty
+                            mode
                         )
                         toModel
                         config.manifest
@@ -359,6 +390,7 @@ init toModel contentCache siteMetadata config flags =
                     [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
                     ]
                     Dict.empty
+                    Dev
                 )
                 toModel
                 config.manifest
@@ -369,6 +401,7 @@ updateAndSendPortIfDone model toModel manifest =
     let
         ( updatedAllRawResponses, effect ) =
             sendStaticResponsesIfDone
+                model.mode
                 model.secrets
                 model.allRawResponses
                 model.errors
@@ -419,7 +452,7 @@ update siteMetadata config msg model =
         GotStaticHttpResponse { request, response } ->
             let
                 _ =
-                    Debug.log "Got response" request.masked.url
+                    log "Got response" request.masked.url
 
                 updatedModel =
                     (case response of
@@ -471,7 +504,7 @@ update siteMetadata config msg model =
                             }
 
                 ( updatedAllRawResponses, effect ) =
-                    sendStaticResponsesIfDone updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
+                    sendStaticResponsesIfDone updatedModel.mode updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
             in
             ( { updatedModel | allRawResponses = updatedAllRawResponses }
             , effect
@@ -584,7 +617,7 @@ staticResponsesUpdate newEntry model =
                                                 List.member (hashUrl newEntry.request.masked)
                                                     realUrls
                                         in
-                                        if includesUrl |> Debug.log "includesUrl" then
+                                        if includesUrl |> log "includesUrl" then
                                             let
                                                 updatedRawResponses =
                                                     rawResponses
@@ -604,13 +637,13 @@ printKeys : String -> Dict String a -> Dict String a
 printKeys message dict =
     let
         _ =
-            Debug.log message (dict |> Dict.keys)
+            log message (dict |> Dict.keys)
     in
     dict
 
 
-sendStaticResponsesIfDone : SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
-sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifest =
+sendStaticResponsesIfDone : Mode -> SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
+sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses manifest =
     let
         pendingRequests =
             staticResponses
@@ -740,7 +773,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
                                 allRawResponses
                                     |> Dict.keys
                                     |> Set.fromList
-                                    |> Debug.log "already perf"
+                                    |> log "already perf"
 
                             newThing =
                                 maskedToUnmasked
@@ -772,7 +805,7 @@ sendStaticResponsesIfDone secrets allRawResponses errors staticResponses manifes
             (if List.isEmpty errors && List.isEmpty failedRequests then
                 Success
                     (ToJsSuccessPayload
-                        (encodeStaticResponses staticResponses)
+                        (encodeStaticResponses mode staticResponses)
                         manifest
                     )
 
@@ -817,8 +850,8 @@ banner title =
     ]
 
 
-encodeStaticResponses : StaticResponses -> Dict String (Dict String String)
-encodeStaticResponses staticResponses =
+encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)
+encodeStaticResponses mode staticResponses =
     staticResponses
         |> Dict.map
             (\path result ->
@@ -839,7 +872,12 @@ encodeStaticResponses staticResponses =
                                 -- TODO should this return an Err and handle that here?
                                 StaticHttpRequest.strippedResponses request relevantResponses
                         in
-                        strippedResponses
+                        case mode of
+                            Dev ->
+                                relevantResponses
+
+                            Prod ->
+                                strippedResponses
             )
 
 
