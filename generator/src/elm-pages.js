@@ -79,21 +79,6 @@ function run() {
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent.concat(content));
 
-    ensureDirSync("./gen");
-    fs.writeFileSync(
-      "./gen/Pages.elm",
-      elmPagesUiFile(staticRoutes, markdownContent, content)
-    );
-    ensureDirSync("./gen/Pages");
-    fs.copyFileSync(
-      path.resolve(__dirname, "../../elm-package/src/Pages/ContentCache.elm"),
-      "./gen/Pages/ContentCache.elm"
-    );
-    fs.copyFileSync(
-      path.resolve(__dirname, "../../elm-package/src/Pages/Platform.elm"),
-      "./gen/Pages/Platform.elm"
-    );
-    console.log("elm-pages DONE");
     doCliStuff(staticRoutes, markdownContent, content, function(payload) {
       if (contents.watch) {
         startWatchIfNeeded();
@@ -119,6 +104,22 @@ function run() {
           () => {}
         );
       }
+
+      ensureDirSync("./gen");
+      fs.writeFileSync(
+          "./gen/Pages.elm",
+          elmPagesUiFile(staticRoutes, markdownContent, content)
+      );
+      ensureDirSync("./gen/Pages");
+      fs.copyFileSync(
+          path.resolve(__dirname, "../../elm-package/src/Pages/ContentCache.elm"),
+          "./gen/Pages/ContentCache.elm"
+      );
+      fs.copyFileSync(
+          path.resolve(__dirname, "../../elm-package/src/Pages/Platform.elm"),
+          "./gen/Pages/Platform.elm"
+      );
+      console.log("elm-pages DONE");
     });
   });
 }
