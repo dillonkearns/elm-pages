@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.41] - 2019-11-14
+
+### Fixed
+- Fixed a regression where elm-markup frontmatter was being incorrectly parsed as JSON
+    (fixes [#20](https://github.com/dillonkearns/elm-pages/issues/20)).
+
 ## [1.0.40] - 2019-11-04
 
 ### Fixed
