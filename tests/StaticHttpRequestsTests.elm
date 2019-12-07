@@ -563,16 +563,11 @@ So maybe MISSING should be API_KEY"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Errors <|
-                                Terminal.toString
-                                    [ Terminal.cyan <| Terminal.text "-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages"
-                                    , Terminal.text "\n\nI got an error making an HTTP request to this URL: "
-                                    , Terminal.yellow <| Terminal.text "https://api.github.com/repos/dillonkearns/elm-pages"
-                                    , Terminal.text "\n\nBad status: 404"
-                                    ]
-                            ]
-                        )
+                        (expectErrorsPort """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
+
+I got an error making an HTTP request to this URL: https://api.github.com/repos/dillonkearns/elm-pages
+
+Bad status: 404""")
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
             \() ->
                 start
