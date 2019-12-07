@@ -421,9 +421,7 @@ update :
     Result (List BuildError) (List ( PagePath pathKey, metadata ))
     ->
         { config
-            | --            update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-              --            , subscriptions : userModel -> Sub userMsg
-              view :
+            | view :
                 List ( PagePath pathKey, metadata )
                 ->
                     { path : PagePath pathKey
@@ -434,15 +432,7 @@ update :
                         { view : userModel -> view -> { title : String, body : Html userMsg }
                         , head : List (Head.Tag pathKey)
                         }
-
-            --            , document : Pages.Document.Document metadata view
-            --            , content : Content
-            --            , toJsPort : Json.Encode.Value -> Cmd Never
             , manifest : Manifest.Config pathKey
-
-            --            , canonicalSiteUrl : String
-            --            , pathKey : pathKey
-            --            , onPageChange : PagePath pathKey -> userMsg
         }
     -> Msg
     -> Model
@@ -511,6 +501,7 @@ update siteMetadata config msg model =
             )
 
 
+dictCompact : Dict String (Maybe a) -> Dict String a
 dictCompact dict =
     dict
         |> Dict.Extra.filterMap (\key value -> value)
@@ -840,6 +831,7 @@ errorToString error =
             banner "Failed Static Http Error" ++ buildError.message |> Terminal.toString
 
 
+banner : String -> List Terminal.Text
 banner title =
     [ Terminal.cyan <|
         Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages")
