@@ -65,7 +65,8 @@ buildError secretName secretsDict =
         availableEnvironmentVariables =
             SecretsDict.available secretsDict
     in
-    { message =
+    { title = "Missing Secret"
+    , message =
         [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\n\nSecrets.get \""
         , Terminal.text secretName
         , Terminal.text "\"\n             "

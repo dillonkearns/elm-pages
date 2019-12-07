@@ -4,5 +4,6 @@ import TerminalText
 
 
 type alias BuildError =
-    { message : List TerminalText.Text
+    { title : String
+    , message : List TerminalText.Text
     }

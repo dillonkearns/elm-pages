@@ -387,7 +387,10 @@ init toModel contentCache siteMetadata config flags =
             updateAndSendPortIfDone
                 (Model Dict.empty
                     SecretsDict.masked
-                    [ InternalError <| { message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ] }
+                    [ InternalError <|
+                        { title = "Internal Error"
+                        , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
+                        }
                     ]
                     Dict.empty
                     Dev
@@ -459,7 +462,8 @@ update siteMetadata config msg model =
                                 | errors =
                                     model.errors
                                         ++ [ FailedStaticHttpRequestError
-                                                { message =
+                                                { title = "Static HTTP Error"
+                                                , message =
                                                     [ Terminal.text "I got an error making an HTTP request to this URL: "
 
                                                     -- TODO include HTTP method, headers, and body
@@ -480,7 +484,7 @@ update siteMetadata config msg model =
                                                             Terminal.text "Network error"
 
                                                         Http.BadBody string ->
-                                                            Terminal.text "Network error"
+                                                            Terminal.text "Unable to parse HTTP response body"
                                                     ]
                                                 }
                                            ]

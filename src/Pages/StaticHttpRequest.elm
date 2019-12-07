@@ -57,7 +57,8 @@ urls request =
 
 toBuildError : String -> Error -> BuildError
 toBuildError path error =
-    { message =
+    { title = "Static HTTP Error"
+    , message =
         [ Terminal.text path
         , Terminal.text "\n\n"
         , Terminal.text (errorToString error)

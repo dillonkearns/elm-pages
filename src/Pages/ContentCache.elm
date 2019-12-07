@@ -138,7 +138,8 @@ createErrors path decodeError =
 
 createBuildError : List String -> String -> BuildError
 createBuildError path decodeError =
-    { message =
+    { title = "Metadata Decode Error"
+    , message =
         [ Terminal.text "I ran into a problem when parsing the metadata for the page with this path: "
         , Terminal.text ("/" ++ (path |> String.join "/"))
         , Terminal.text "\n\n"
