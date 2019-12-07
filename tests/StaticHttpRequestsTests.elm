@@ -490,7 +490,7 @@ all =
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
                         (expectErrorsPort
-                            """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
+                            """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
 /elm-pages
 

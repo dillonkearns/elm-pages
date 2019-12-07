@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), Request(..), errorToString, permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
+module Pages.StaticHttpRequest exposing (Error(..), Request(..), permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -26,16 +26,6 @@ strippedResponses request rawResponses =
             rawResponses
 
 
-errorToString : Error -> String
-errorToString error =
-    case error of
-        MissingHttpResponse string ->
-            string
-
-        DecoderError string ->
-            string
-
-
 type Error
     = MissingHttpResponse String
     | DecoderError String
@@ -57,13 +47,24 @@ urls request =
 
 toBuildError : String -> Error -> BuildError
 toBuildError path error =
-    { title = "Static HTTP Error"
-    , message =
-        [ Terminal.text path
-        , Terminal.text "\n\n"
-        , Terminal.text (errorToString error)
-        ]
-    }
+    case error of
+        MissingHttpResponse missingKey ->
+            { title = "Missing Http Response"
+            , message =
+                [ Terminal.text path
+                , Terminal.text "\n\n"
+                , Terminal.text missingKey
+                ]
+            }
+
+        DecoderError decodeErrorMessage ->
+            { title = "Static Http Decoding Error"
+            , message =
+                [ Terminal.text path
+                , Terminal.text "\n\n"
+                , Terminal.text decodeErrorMessage
+                ]
+            }
 
 
 permanentError : Request value -> Dict String String -> Maybe Error

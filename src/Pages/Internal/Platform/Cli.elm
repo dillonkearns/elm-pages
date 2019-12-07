@@ -623,6 +623,16 @@ printKeys message dict =
     dict
 
 
+isJust : Maybe a -> Bool
+isJust maybeValue =
+    case maybeValue of
+        Just _ ->
+            True
+
+        Nothing ->
+            False
+
+
 sendStaticResponsesIfDone : Mode -> SecretsDict -> Dict String (Maybe String) -> List BuildError -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
 sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses manifest =
     let
@@ -646,8 +656,7 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
 
                                     hasPermanentError =
                                         StaticHttpRequest.permanentError request usableRawResponses
-                                            |> Maybe.map (\_ -> True)
-                                            |> Maybe.withDefault False
+                                            |> isJust
 
                                     hasPermanentHttpError =
                                         not <| List.isEmpty errors
