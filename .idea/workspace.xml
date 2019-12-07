@@ -6,12 +6,12 @@
   <component name="ChangeListManager">
     <list default="true" id="c325a920-5a8e-47c6-96fc-aa52e4ce7aea" name="Default Changelist" comment="Add idea config files.S">
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/examples/docs/node_modules/elm-pages/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/external-data/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/examples/external-data/package-lock.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Pages/Internal/Platform/Cli.elm" beforeDir="false" afterPath="$PROJECT_DIR$/src/Pages/Internal/Platform/Cli.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/StaticHttpRequestsTests.elm" beforeDir="false" afterPath="$PROJECT_DIR$/tests/StaticHttpRequestsTests.elm" afterDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -62,14 +62,20 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
     <ConfirmationsSetting value="1" id="Add" />
   </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/examples/external-data/elm.json" />
     <property name="project.structure.last.edited" value="Project" />
-    <property name="project.structure.proportion" value="0.0" />
+    <property name="project.structure.proportion" value="0.15" />
     <property name="project.structure.side.proportion" value="0.0" />
-    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+    <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
+    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -80,18 +86,6 @@
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/src/Pages/Internal" />
     </key>
-  </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
   </component>
   <component name="RunManager">
     <configuration default="true" type="Applet">
@@ -107,7 +101,7 @@
       </method>
     </configuration>
     <configuration default="true" type="ELM_TEST_RUN_CONFIGURATION" factoryName="Elm Test configuration factory">
-      <ElmTestRunConfiguration elm-folder="$PROJECT_DIR$/examples/docs" />
+      <ElmTestRunConfiguration elm-folder="$PROJECT_DIR$" />
       <method v="2" />
     </configuration>
     <configuration name="elm-test" type="ELM_TEST_RUN_CONFIGURATION" factoryName="Elm Test configuration factory">
@@ -139,6 +133,18 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+  </component>
+  <component name="ServiceViewManager">
+    <option name="viewStates">
+      <list>
+        <serviceView>
+          <treeState>
+            <expand />
+            <select />
+          </treeState>
+        </serviceView>
+      </list>
+    </option>
   </component>
   <component name="SvnConfiguration">
     <configuration />
@@ -214,7 +220,21 @@
       <option name="project" value="LOCAL" />
       <updated>1571922716661</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Add some annotations and remove some comments.">
+      <created>1575691344460</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1575691344461</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Include title in BuildError type.">
+      <created>1575692385920</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1575692385920</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -231,6 +251,9 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$/examples/docs/node_modules/elm-pages" />
+    </ignored-roots>
     <MESSAGE value="Rename module." />
     <MESSAGE value="Get basic types wired up for static data." />
     <MESSAGE value="Add cli application module starting point." />
@@ -242,7 +265,69 @@
     <MESSAGE value="Add docs boilerplate for StaticHttp module." />
     <MESSAGE value="Add idea config files." />
     <MESSAGE value="Show decoder errors for each page." />
-    <option name="LAST_COMMIT_MESSAGE" value="Show decoder errors for each page." />
+    <MESSAGE value="Add some annotations and remove some comments." />
+    <MESSAGE value="Include title in BuildError type." />
+    <option name="LAST_COMMIT_MESSAGE" value="Include title in BuildError type." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="496" y="227" key="#Project_Structure" timestamp="1575693399774">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="496" y="227" key="#Project_Structure/0.0.1792.1120@0.0.1792.1120" timestamp="1575693399774" />
+    <state x="360" y="223" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1575690768814">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="360" y="223" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1792.1120@0.0.1792.1120" timestamp="1575690768814" />
+    <state x="640" y="413" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1" timestamp="1575691090436">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="640" y="413" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1/0.0.1792.1120@0.0.1792.1120" timestamp="1575691090436" />
+    <state x="509" y="162" key="CommitChangelistDialog2" timestamp="1575692385814">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="509" y="162" key="CommitChangelistDialog2/0.0.1792.1120@0.0.1792.1120" timestamp="1575692385814" />
+    <state width="1750" height="317" key="GridCell.Tab.0.bottom" timestamp="1575722959611">
+      <screen x="0" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1750" height="317" key="GridCell.Tab.0.bottom/0.0.1792.1120@0.0.1792.1120" timestamp="1575693679589" />
+    <state width="1750" height="317" key="GridCell.Tab.0.bottom/0.0.1920.1080/-1050.-138.1050.1680@0.0.1920.1080" timestamp="1575722959611" />
+    <state width="1750" height="317" key="GridCell.Tab.0.center" timestamp="1575722959611">
+      <screen x="0" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1750" height="317" key="GridCell.Tab.0.center/0.0.1792.1120@0.0.1792.1120" timestamp="1575693679588" />
+    <state width="1750" height="317" key="GridCell.Tab.0.center/0.0.1920.1080/-1050.-138.1050.1680@0.0.1920.1080" timestamp="1575722959611" />
+    <state width="1750" height="317" key="GridCell.Tab.0.left" timestamp="1575722959611">
+      <screen x="0" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1750" height="317" key="GridCell.Tab.0.left/0.0.1792.1120@0.0.1792.1120" timestamp="1575693679588" />
+    <state width="1750" height="317" key="GridCell.Tab.0.left/0.0.1920.1080/-1050.-138.1050.1680@0.0.1920.1080" timestamp="1575722959611" />
+    <state width="1750" height="317" key="GridCell.Tab.0.right" timestamp="1575722959611">
+      <screen x="0" y="0" width="1920" height="1080" />
+    </state>
+    <state width="1750" height="317" key="GridCell.Tab.0.right/0.0.1792.1120@0.0.1792.1120" timestamp="1575693679589" />
+    <state width="1750" height="317" key="GridCell.Tab.0.right/0.0.1920.1080/-1050.-138.1050.1680@0.0.1920.1080" timestamp="1575722959611" />
+    <state x="484" y="303" key="IDE.errors.dialog" timestamp="1575684710391">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="484" y="303" key="IDE.errors.dialog/0.0.1792.1120@0.0.1792.1120" timestamp="1575684710391" />
+    <state x="435" y="199" key="SettingsEditor" timestamp="1575684760520">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="435" y="199" key="SettingsEditor/0.0.1792.1120@0.0.1792.1120" timestamp="1575684760520" />
+    <state x="576" y="380" key="com.intellij.ide.util.TipDialog" timestamp="1575728343645">
+      <screen x="0" y="0" width="1920" height="1080" />
+    </state>
+    <state x="538" y="394" key="com.intellij.ide.util.TipDialog/0.0.1792.1120@0.0.1792.1120" timestamp="1575690741983" />
+    <state x="576" y="380" key="com.intellij.ide.util.TipDialog/0.0.1920.1080/-1050.-138.1050.1680@0.0.1920.1080" timestamp="1575728343645" />
+    <state x="561" y="260" width="670" height="675" key="run.anything.popup" timestamp="1575692087157">
+      <screen x="0" y="0" width="1792" height="1120" />
+    </state>
+    <state x="561" y="260" width="670" height="675" key="run.anything.popup/0.0.1792.1120@0.0.1792.1120" timestamp="1575692087157" />
+    <state x="601" y="242" width="718" height="652" key="search.everywhere.popup" timestamp="1575722378214">
+      <screen x="0" y="0" width="1920" height="1080" />
+    </state>
+    <state x="561" y="251" width="670" height="676" key="search.everywhere.popup/0.0.1792.1120@0.0.1792.1120" timestamp="1575691087694" />
+    <state x="601" y="242" width="718" height="652" key="search.everywhere.popup/0.0.1920.1080/-1050.-138.1050.1680@0.0.1920.1080" timestamp="1575722378214" />
   </component>
 </project>
