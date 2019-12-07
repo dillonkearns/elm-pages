@@ -490,7 +490,7 @@ all =
                         "toJsPort"
                         (Codec.decoder Main.toJsCodec)
                         (expectErrorsPort
-                            """-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages
+                            """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
 
 /elm-pages
 
@@ -566,7 +566,7 @@ So maybe MISSING should be API_KEY"""
                         (Expect.equal
                             [ Errors <|
                                 Terminal.toString
-                                    [ Terminal.cyan <| Terminal.text "-- FAILED STATIC HTTP ERROR ----------------------------------------------------- elm-pages"
+                                    [ Terminal.cyan <| Terminal.text "-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages"
                                     , Terminal.text "\n\nI got an error making an HTTP request to this URL: "
                                     , Terminal.yellow <| Terminal.text "https://api.github.com/repos/dillonkearns/elm-pages"
                                     , Terminal.text "\n\nBad status: 404"

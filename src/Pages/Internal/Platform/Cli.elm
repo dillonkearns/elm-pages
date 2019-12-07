@@ -125,17 +125,10 @@ type alias Flags =
 type alias Model =
     { staticResponses : StaticResponses
     , secrets : SecretsDict
-    , errors : List Error
+    , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
     }
-
-
-type Error
-    = MissingSecrets (List BuildError)
-    | MetadataDecodeError BuildError
-    | InternalError BuildError
-    | FailedStaticHttpRequestError BuildError
 
 
 type alias ErrorContext =
@@ -362,7 +355,7 @@ init toModel contentCache siteMetadata config flags =
                                 (Model
                                     staticResponses
                                     secrets
-                                    (pageErrors |> List.map MetadataDecodeError)
+                                    pageErrors
                                     Dict.empty
                                     mode
                                 )
@@ -373,10 +366,7 @@ init toModel contentCache siteMetadata config flags =
                     updateAndSendPortIfDone
                         (Model Dict.empty
                             secrets
-                            (metadataParserErrors
-                                |> List.map Tuple.second
-                                |> List.map MetadataDecodeError
-                            )
+                            (metadataParserErrors |> List.map Tuple.second)
                             Dict.empty
                             mode
                         )
@@ -387,10 +377,9 @@ init toModel contentCache siteMetadata config flags =
             updateAndSendPortIfDone
                 (Model Dict.empty
                     SecretsDict.masked
-                    [ InternalError <|
-                        { title = "Internal Error"
-                        , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
-                        }
+                    [ { title = "Internal Error"
+                      , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
+                      }
                     ]
                     Dict.empty
                     Dev
@@ -461,32 +450,31 @@ update siteMetadata config msg model =
                             { model
                                 | errors =
                                     model.errors
-                                        ++ [ FailedStaticHttpRequestError
-                                                { title = "Static HTTP Error"
-                                                , message =
-                                                    [ Terminal.text "I got an error making an HTTP request to this URL: "
+                                        ++ [ { title = "Static HTTP Error"
+                                             , message =
+                                                [ Terminal.text "I got an error making an HTTP request to this URL: "
 
-                                                    -- TODO include HTTP method, headers, and body
-                                                    , Terminal.yellow <| Terminal.text request.masked.url
-                                                    , Terminal.text "\n\n"
-                                                    , case error of
-                                                        Http.BadStatus code ->
-                                                            Terminal.text <| "Bad status: " ++ String.fromInt code
+                                                -- TODO include HTTP method, headers, and body
+                                                , Terminal.yellow <| Terminal.text request.masked.url
+                                                , Terminal.text "\n\n"
+                                                , case error of
+                                                    Http.BadStatus code ->
+                                                        Terminal.text <| "Bad status: " ++ String.fromInt code
 
-                                                        Http.BadUrl _ ->
-                                                            -- TODO include HTTP method, headers, and body
-                                                            Terminal.text <| "Invalid url: " ++ request.masked.url
+                                                    Http.BadUrl _ ->
+                                                        -- TODO include HTTP method, headers, and body
+                                                        Terminal.text <| "Invalid url: " ++ request.masked.url
 
-                                                        Http.Timeout ->
-                                                            Terminal.text "Timeout"
+                                                    Http.Timeout ->
+                                                        Terminal.text "Timeout"
 
-                                                        Http.NetworkError ->
-                                                            Terminal.text "Network error"
+                                                    Http.NetworkError ->
+                                                        Terminal.text "Network error"
 
-                                                        Http.BadBody string ->
-                                                            Terminal.text "Unable to parse HTTP response body"
-                                                    ]
-                                                }
+                                                    Http.BadBody string ->
+                                                        Terminal.text "Unable to parse HTTP response body"
+                                                ]
+                                             }
                                            ]
                             }
                     )
@@ -511,7 +499,7 @@ dictCompact dict =
         |> Dict.Extra.filterMap (\key value -> value)
 
 
-performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List Error) (List { unmasked : RequestDetails, masked : RequestDetails })
+performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         |> List.map
@@ -529,13 +517,13 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         |> List.map
             (\urlBuilder ->
                 Secrets.lookup secrets urlBuilder
-                    |> Result.mapError MissingSecrets
                     |> Result.map
                         (\unmasked ->
                             { unmasked = unmasked, masked = Secrets.maskedLookup urlBuilder }
                         )
             )
         |> combineMultipleErrors
+        |> Result.mapError List.concat
 
 
 combineMultipleErrors : List (Result error a) -> Result (List error) (List a)
@@ -589,6 +577,7 @@ staticResponsesUpdate newEntry model =
     let
         updatedAllResponses =
             model.allRawResponses
+                -- @@@@@@@@@ TODO handle errors here, change Dict to have `Result` instead of `Maybe`
                 |> Dict.insert (hashUrl newEntry.request.masked) (Just (newEntry.response |> Result.withDefault "TODO"))
     in
     { model
@@ -634,7 +623,7 @@ printKeys message dict =
     dict
 
 
-sendStaticResponsesIfDone : Mode -> SecretsDict -> Dict String (Maybe String) -> List Error -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
+sendStaticResponsesIfDone : Mode -> SecretsDict -> Dict String (Maybe String) -> List BuildError -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
 sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses manifest =
     let
         pendingRequests =
@@ -661,17 +650,17 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                                             |> Maybe.withDefault False
 
                                     hasPermanentHttpError =
-                                        errors
-                                            |> List.any
-                                                (\error ->
-                                                    case error of
-                                                        FailedStaticHttpRequestError _ ->
-                                                            True
+                                        not <| List.isEmpty errors
 
-                                                        _ ->
-                                                            False
-                                                )
-
+                                    --|> List.any
+                                    --    (\error ->
+                                    --        case error of
+                                    --            FailedStaticHttpRequestError _ ->
+                                    --                True
+                                    --
+                                    --            _ ->
+                                    --                False
+                                    --    )
                                     ( allUrlsKnown, knownUrlsToFetch ) =
                                         StaticHttpRequest.resolveUrls request
                                             (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
@@ -715,7 +704,6 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                             decoderErrors =
                                 maybePermanentError
                                     |> Maybe.map (StaticHttpRequest.toBuildError path)
-                                    |> Maybe.map FailedStaticHttpRequestError
                                     |> Maybe.map List.singleton
                                     |> Maybe.withDefault []
                         in
@@ -807,32 +795,18 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
         )
 
 
-errorsToString : List Error -> String
+errorsToString : List BuildError -> String
 errorsToString errors =
     errors
         |> List.map errorToString
         |> String.join "\n\n"
 
 
-errorToString : Error -> String
+errorToString : BuildError -> String
 errorToString error =
-    case error of
-        MissingSecrets buildErrors ->
-            buildErrors
-                |> List.map
-                    (\buildError ->
-                        banner "Missing Secret" ++ buildError.message |> Terminal.toString
-                    )
-                |> String.join "\n\n"
-
-        MetadataDecodeError buildError ->
-            banner "Metadata Decode Error" ++ buildError.message |> Terminal.toString
-
-        InternalError buildError ->
-            banner "Internal Error" ++ buildError.message |> Terminal.toString
-
-        FailedStaticHttpRequestError buildError ->
-            banner "Failed Static Http Error" ++ buildError.message |> Terminal.toString
+    banner error.title
+        ++ error.message
+        |> Terminal.toString
 
 
 banner : String -> List Terminal.Text
