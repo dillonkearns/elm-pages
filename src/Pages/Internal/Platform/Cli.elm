@@ -5,7 +5,6 @@ module Pages.Internal.Platform.Cli exposing
     , Model
     , Msg(..)
     , Page
-    , Parser
     , ToJsPayload(..)
     , ToJsSuccessPayload
     , cliApplication
@@ -14,7 +13,6 @@ module Pages.Internal.Platform.Cli exposing
     , update
     )
 
-import Browser.Navigation
 import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
@@ -24,7 +22,6 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.ImagePath as ImagePath
@@ -36,7 +33,6 @@ import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
 import StaticHttp exposing (RequestDetails)
 import TerminalText as Terminal
-import Url exposing (Url)
 
 
 type ToJsPayload pathKey
@@ -127,26 +123,6 @@ type alias Model =
     }
 
 
-type alias ErrorContext =
-    { path : List String
-    }
-
-
-type alias ModelDetails userModel metadata view =
-    { key : Browser.Navigation.Key
-    , url : Url.Url
-    , contentCache : ContentCache metadata view
-    , userModel : userModel
-    }
-
-
-type alias Parser metadata view =
-    Dict String String
-    -> List String
-    -> List ( List String, metadata )
-    -> Mark.Document view
-
-
 type Msg
     = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Http.Error String }
 
@@ -179,7 +155,6 @@ cliApplication :
         , pathKey : pathKey
         , onPageChange : PagePath pathKey -> userMsg
         }
-    --    -> Program userModel userMsg metadata view
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
