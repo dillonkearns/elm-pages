@@ -736,7 +736,7 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                     Err error ->
                         ( allRawResponses
                         , SendJsData <|
-                            (Errors <| errorsToString (error ++ failedRequests ++ errors))
+                            (Errors <| BuildError.errorsToString (error ++ failedRequests ++ errors))
                         )
         in
         ( updatedAllRawResponses, newEffect )
@@ -756,31 +756,9 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                     )
 
              else
-                Errors <| errorsToString (failedRequests ++ errors)
+                Errors <| BuildError.errorsToString (failedRequests ++ errors)
             )
         )
-
-
-errorsToString : List BuildError -> String
-errorsToString errors =
-    errors
-        |> List.map errorToString
-        |> String.join "\n\n"
-
-
-errorToString : BuildError -> String
-errorToString error =
-    banner error.title
-        ++ error.message
-        |> Terminal.toString
-
-
-banner : String -> List Terminal.Text
-banner title =
-    [ Terminal.cyan <|
-        Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages")
-    , Terminal.text "\n\n"
-    ]
 
 
 encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)
