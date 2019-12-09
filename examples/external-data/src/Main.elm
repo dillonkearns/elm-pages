@@ -145,7 +145,7 @@ get url decoder =
 pokemonDetailRequest : StaticHttp.Request (List Pokemon)
 pokemonDetailRequest =
     get
-        "https://pokeapi.co/api/v2/pokemon/?limit=5"
+        "https://pokeapi.co/api/v2/pokemon/?limit=10"
         (Decode.field "results"
             (Decode.list
                 (Decode.map2 Tuple.pair
