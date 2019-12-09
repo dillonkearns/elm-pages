@@ -1,6 +1,6 @@
 generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-  "(PathKey, allPages, allImages, internals, images, isValidRoute, pages)";
+  "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, buildTime)";
 
 function staticRouteStuff(staticRoutes) {
   return `
@@ -59,8 +59,12 @@ import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
+import Time
 
 
+buildTime : Time.Posix
+buildTime = 
+    Time.millisToPosix ${Math.round((new Date()).getTime() / 1000)}
 
 type PathKey
     = PathKey
@@ -123,7 +127,12 @@ import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
+import Time
 
+
+buildTime : Time.Posix
+buildTime = 
+    Time.millisToPosix ${Math.round((new Date()).getTime() / 1000)}
 
 type PathKey
     = PathKey
