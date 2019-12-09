@@ -39,10 +39,6 @@ import TerminalText as Terminal
 import Url exposing (Url)
 
 
-log message value =
-    value
-
-
 type ToJsPayload pathKey
     = Errors String
     | Success (ToJsSuccessPayload pathKey)
@@ -205,7 +201,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
                     ( Just cliMsg, Just cliModel ) ->
-                        update siteMetadata config cliMsg cliModel
+                        update config cliMsg cliModel
                             |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
                             |> Tuple.mapFirst toModel
 
@@ -252,7 +248,7 @@ perform cliMsgConstructor toJsPort effect =
         FetchHttp ({ unmasked, masked } as requests) ->
             let
                 _ =
-                    log "Fetching" masked.url
+                    Debug.log "Fetching" masked.url
             in
             Http.request
                 { method = unmasked.method
@@ -410,31 +406,29 @@ type alias PageErrors =
 
 
 update :
-    Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    ->
-        { config
-            | view :
-                List ( PagePath pathKey, metadata )
-                ->
-                    { path : PagePath pathKey
-                    , frontmatter : metadata
+    { config
+        | view :
+            List ( PagePath pathKey, metadata )
+            ->
+                { path : PagePath pathKey
+                , frontmatter : metadata
+                }
+            ->
+                StaticHttp.Request
+                    { view : userModel -> view -> { title : String, body : Html userMsg }
+                    , head : List (Head.Tag pathKey)
                     }
-                ->
-                    StaticHttp.Request
-                        { view : userModel -> view -> { title : String, body : Html userMsg }
-                        , head : List (Head.Tag pathKey)
-                        }
-            , manifest : Manifest.Config pathKey
-        }
+        , manifest : Manifest.Config pathKey
+    }
     -> Msg
     -> Model
     -> ( Model, Effect pathKey )
-update siteMetadata config msg model =
+update config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
                 _ =
-                    log "Got response" request.masked.url
+                    Debug.log "Got response" request.masked.url
 
                 updatedModel =
                     (case response of
@@ -600,7 +594,7 @@ staticResponsesUpdate newEntry model =
                                         List.member (hashUrl newEntry.request.masked)
                                             realUrls
                                 in
-                                if includesUrl |> log "includesUrl" then
+                                if includesUrl then
                                     let
                                         updatedRawResponses =
                                             rawResponses
@@ -612,15 +606,6 @@ staticResponsesUpdate newEntry model =
                                     entry
                     )
     }
-
-
-printKeys : String -> Dict String a -> Dict String a
-printKeys message dict =
-    let
-        _ =
-            log message (dict |> Dict.keys)
-    in
-    dict
 
 
 isJust : Maybe a -> Bool
@@ -638,9 +623,8 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
     let
         pendingRequests =
             staticResponses
-                |> Dict.toList
-                |> List.any
-                    (\( path, entry ) ->
+                |> Dict.Extra.any
+                    (\path entry ->
                         case entry of
                             NotFetched request rawResponses ->
                                 let
@@ -737,8 +721,7 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                     Ok urlsToPerform ->
                         let
                             newAllRawResponses =
-                                Dict.union allRawResponses (dictOfNewUrlsToPerform |> printKeys "dictOfNew")
-                                    |> printKeys "COMBINED"
+                                Dict.union allRawResponses dictOfNewUrlsToPerform
 
                             dictOfNewUrlsToPerform =
                                 urlsToPerform
@@ -762,7 +745,6 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                                 allRawResponses
                                     |> Dict.keys
                                     |> Set.fromList
-                                    |> log "already perf"
 
                             newThing =
                                 maskedToUnmasked
