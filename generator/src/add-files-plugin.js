@@ -21,7 +21,6 @@ function unpackFile(filePath) {
 
 module.exports = class AddFilesPlugin {
   constructor(data) {
-    // console.log("@@@@@@@@@@ data", data);
     this.pagesWithRequests = data;
   }
   apply(compiler) {
@@ -33,8 +32,11 @@ module.exports = class AddFilesPlugin {
         // but I found the example code for it here:
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-        const staticRequests = this.pagesWithRequests[`/${file.baseRoute}`];
-        console.log('staticData', staticRequests);
+        let route = `/${file.baseRoute}`.replace(/\/$/, '');
+        if (route === '') {
+          route = '/';
+        }
+        const staticRequests = this.pagesWithRequests[route];
 
         const filename = path.join(file.baseRoute, "content.json");
         compilation.fileDependencies.add(filename);
