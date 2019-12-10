@@ -113,13 +113,17 @@ view :
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
-    StaticHttp.succeed
-        { view =
-            \model viewForPage ->
-                pageView model siteMetadata page viewForPage
-                    |> wrapBody
-        , head = head page.frontmatter
-        }
+    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        (D.field "stargazers_count" D.int)
+        |> StaticHttp.map
+            (\stars ->
+                { view =
+                    \model viewForPage ->
+                        pageView stars model siteMetadata page viewForPage
+                            |> wrapBody
+                , head = head page.frontmatter
+                }
+            )
 
 
 
@@ -161,17 +165,18 @@ view siteMetadata page =
 
 
 pageView :
-    Model
+    Int
+    -> Model
     -> List ( PagePath Pages.PathKey, Metadata )
     -> { path : PagePath Pages.PathKey, frontmatter : Metadata }
     -> ( MarkdownRenderer.TableOfContents, List (Element Msg) )
     -> { title : String, body : Element Msg }
-pageView model siteMetadata page viewForPage =
+pageView stars model siteMetadata page viewForPage =
     case page.frontmatter of
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
-                [ header page.path
+                [ header stars page.path
                 , Element.column
                     [ Element.padding 50
                     , Element.spacing 60
@@ -188,7 +193,7 @@ pageView model siteMetadata page viewForPage =
             { title = metadata.title
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header page.path
+                    [ header stars page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 40
@@ -219,7 +224,7 @@ pageView model siteMetadata page viewForPage =
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
-                [ header page.path
+                [ header stars page.path
                 , Element.row []
                     [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
@@ -249,7 +254,7 @@ pageView model siteMetadata page viewForPage =
                 Element.column
                     [ Element.width Element.fill
                     ]
-                    [ header page.path
+                    [ header stars page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 20
@@ -268,7 +273,7 @@ pageView model siteMetadata page viewForPage =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header page.path
+                    [ header stars page.path
                     , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
@@ -295,8 +300,8 @@ articleImageView articleImage =
         }
 
 
-header : PagePath Pages.PathKey -> Element msg
-header currentPath =
+header : Int -> PagePath Pages.PathKey -> Element msg
+header stars currentPath =
     Element.column [ Element.width Element.fill ]
         [ Element.el
             [ Element.height (Element.px 4)
@@ -332,7 +337,7 @@ header currentPath =
                 }
             , Element.row [ Element.spacing 15 ]
                 [ elmDocsLink
-                , githubRepoLink
+                , githubRepoLink stars
                 , highlightableLink currentPath pages.docs.directory "Docs"
                 , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
@@ -512,16 +517,19 @@ publishedDateView metadata =
         )
 
 
-githubRepoLink : Element msg
-githubRepoLink =
+githubRepoLink : Int -> Element msg
+githubRepoLink starCount =
     Element.newTabLink []
         { url = "https://github.com/dillonkearns/elm-pages"
         , label =
-            Element.image
-                [ Element.width (Element.px 22)
-                , Font.color Palette.color.primary
+            Element.row [ Element.spacing 5 ]
+                [ Element.image
+                    [ Element.width (Element.px 22)
+                    , Font.color Palette.color.primary
+                    ]
+                    { src = ImagePath.toString Pages.images.github, description = "Github repo" }
+                , Element.text <| String.fromInt starCount
                 ]
-                { src = ImagePath.toString Pages.images.github, description = "Github repo" }
         }
 
 
