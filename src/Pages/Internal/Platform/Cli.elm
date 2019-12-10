@@ -221,10 +221,10 @@ perform cliMsgConstructor toJsPort effect =
                 |> Cmd.batch
 
         FetchHttp ({ unmasked, masked } as requests) ->
-            let
-                _ =
-                    Debug.log "Fetching" masked.url
-            in
+            --let
+            --    _ =
+            --        Debug.log "Fetching" masked.url
+            --in
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -402,9 +402,9 @@ update config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
-                _ =
-                    Debug.log "Got response" request.masked.url
-
+                --_ =
+                --    Debug.log "Got response" request.masked.url
+                --
                 updatedModel =
                     (case response of
                         Ok okResponse ->
