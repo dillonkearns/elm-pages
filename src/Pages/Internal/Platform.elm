@@ -221,7 +221,7 @@ init :
     pathKey
     -> String
     -> Pages.Document.Document metadata view
-    -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
+    -> (Json.Encode.Value -> Cmd Never)
     ->
         (List ( PagePath pathKey, metadata )
          ->
@@ -260,12 +260,14 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                 cmd =
                     case ( maybePagePath, maybeMetadata ) of
                         ( Just pagePath, Just frontmatter ) ->
-                            Cmd.batch
-                                [ userCmd |> Cmd.map UserMsg
-                                , contentCache
-                                    |> ContentCache.lazyLoad document url
-                                    |> Task.attempt UpdateCache
-                                ]
+                            [ userCmd |> Cmd.map UserMsg |> Just
+                            , contentCache
+                                |> ContentCache.lazyLoad document url
+                                |> Task.attempt UpdateCache
+                                |> Just
+                            ]
+                                |> List.filterMap identity
+                                |> Cmd.batch
 
                         _ ->
                             Cmd.none
@@ -303,6 +305,11 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             )
 
 
+encodeHeads : String -> String -> List (Head.Tag pathKey) -> Json.Encode.Value
+encodeHeads canonicalSiteUrl currentPagePath head =
+    Json.Encode.list (Head.toJson canonicalSiteUrl currentPagePath) head
+
+
 type Msg userMsg metadata view
     = AppMsg (AppMsg userMsg metadata view)
     | CliMsg Pages.Internal.Platform.Cli.Msg
@@ -330,15 +337,28 @@ type alias ModelDetails userModel metadata view =
 
 
 update :
-    pathKey
+    String
+    ->
+        (List ( PagePath pathKey, metadata )
+         ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+         ->
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
+        )
+    -> pathKey
     -> (PagePath pathKey -> userMsg)
-    -> (Json.Encode.Value -> Cmd (Msg userMsg metadata view))
+    -> (Json.Encode.Value -> Cmd Never)
     -> Pages.Document.Document metadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
-update pathKey onPageChangeMsg toJsPort document userUpdate msg model =
+update canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -379,7 +399,43 @@ update pathKey onPageChangeMsg toJsPort document userUpdate msg model =
                         -- TODO can there be race conditions here? Might need to set something in the model
                         -- to keep track of the last url change
                         Ok updatedCache ->
-                            ( { model | contentCache = updatedCache }, Cmd.none )
+                            let
+                                maybeCmd =
+                                    case ContentCache.lookup pathKey updatedCache model.url of
+                                        Just ( pagePath, entry ) ->
+                                            case entry of
+                                                ContentCache.Parsed frontmatter viewResult ->
+                                                    headFn pagePath frontmatter viewResult.staticData
+                                                        |> Result.map .head
+                                                        |> Result.toMaybe
+                                                        |> Maybe.map (encodeHeads canonicalSiteUrl model.url.path)
+                                                        |> Maybe.map toJsPort
+
+                                                ContentCache.NeedContent string metadata ->
+                                                    Nothing
+
+                                                ContentCache.Unparsed string metadata contentJson ->
+                                                    Nothing
+
+                                        Nothing ->
+                                            Nothing
+
+                                headFn pagePath frontmatter staticDataThing =
+                                    viewFunction
+                                        (updatedCache
+                                            |> Result.map (ContentCache.extractMetadata pathKey)
+                                            |> Result.withDefault []
+                                        )
+                                        { path = pagePath, frontmatter = frontmatter }
+                                        |> (\request ->
+                                                StaticHttpRequest.resolve request staticDataThing
+                                           )
+                            in
+                            ( { model | contentCache = updatedCache }
+                            , maybeCmd
+                                |> Maybe.map (Cmd.map never)
+                                |> Maybe.withDefault Cmd.none
+                            )
 
                         Err _ ->
                             -- TODO handle error
@@ -448,7 +504,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.pathKey config.canonicalSiteUrl config.document (config.toJsPort >> Cmd.map never) config.view config.content config.init flags url key
+                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
@@ -465,7 +521,7 @@ application config =
             \msg outerModel ->
                 case outerModel of
                     Model model ->
-                        update config.pathKey config.onPageChange (config.toJsPort >> Cmd.map never) config.document config.update msg model
+                        update config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document config.update msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
