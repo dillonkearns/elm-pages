@@ -16,6 +16,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
 import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Exploration as D
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import Pages exposing (images, pages)
@@ -27,6 +28,7 @@ import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Palette
+import Secrets
 import StaticHttp
 
 
@@ -111,183 +113,178 @@ view :
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
-    let
-        viewFn =
-            case page.frontmatter of
-                Metadata.Page metadata ->
-                    StaticHttp.map3
-                        (\elmPagesStars elmPagesStarterStars netlifyStars ->
-                            { view =
-                                \model viewForPage ->
-                                    { title = metadata.title
-                                    , body =
-                                        "elm-pages ⭐️'s: "
-                                            ++ String.fromInt elmPagesStars
-                                            ++ "\n\nelm-pages-starter ⭐️'s: "
-                                            ++ String.fromInt elmPagesStarterStars
-                                            ++ "\n\nelm-markdown ⭐️'s: "
-                                            ++ String.fromInt netlifyStars
-                                            |> Element.text
-                                            |> wrapBody
-                                    }
-                            , head = head page.frontmatter
-                            }
-                        )
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (Decode.field "stargazers_count" Decode.int)
-                        )
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                            (Decode.field "stargazers_count" Decode.int)
-                        )
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-markdown"
-                            (Decode.field "stargazers_count" Decode.int)
-                        )
-
-                --                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
-                --                        (Decode.field "stargazers_count" Decode.int)
-                _ ->
-                    StaticHttp.map
-                        (\staticData ->
-                            { view =
-                                \model viewForPage ->
-                                    { title = "Other"
-                                    , body =
-                                        "The value is: "
-                                            ++ String.fromInt staticData
-                                            |> Element.text
-                                            |> wrapBody
-                                    }
-                            , head = head page.frontmatter
-                            }
-                        )
-                        (StaticHttp.jsonRequest "https://api.github.com/repos/dillonkearns/elm-pages-starter" (Decode.field "stargazers_count" Decode.int))
-
-        --                _ ->
-        --                    ( StaticHttp.get "" (\_ -> 456)
-        --                    , \staticData model viewForPage ->
-        --                        { title = "Test"
-        --                        , body =
-        --                            "The value is: "
-        --                                ++ String.fromInt staticData
-        --                                |> Element.text
-        --                                |> wrapBody
-        --                        }
-        --                    )
-        --                                        [
-        --                                        header page.path
-        --                                        , Element.column
-        --                                            [ Element.padding 50
-        --                                            , Element.spacing 60
-        --                                            , Element.Region.mainContent
-        --                                            ]
-        --                                            (Tuple.second viewForPage)
-        --                                        ]
-        --                                            |> Element.textColumn
-        --                                                [ Element.width Element.fill
-        --                                                ]
-        --                    }
-        --                Metadata.Article metadata ->
-        --                    { title = metadata.title
-        --                    , body =
-        --                        Element.column [ Element.width Element.fill ]
-        --                            [ header page.path
-        --                            , Element.column
-        --                                [ Element.padding 30
-        --                                , Element.spacing 40
-        --                                , Element.Region.mainContent
-        --                                , Element.width (Element.fill |> Element.maximum 800)
-        --                                , Element.centerX
-        --                                ]
-        --                                (Element.column [ Element.spacing 10 ]
-        --                                    [ Element.row [ Element.spacing 10 ]
-        --                                        [ Author.view [] metadata.author
-        --                                        , Element.column [ Element.spacing 10, Element.width Element.fill ]
-        --                                            [ Element.paragraph [ Font.bold, Font.size 24 ]
-        --                                                [ Element.text metadata.author.name
-        --                                                ]
-        --                                            , Element.paragraph [ Font.size 16 ]
-        --                                                [ Element.text metadata.author.bio ]
-        --                                            ]
-        --                                        ]
-        --                                    ]
-        --                                    :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-        --                                    :: Palette.blogHeading metadata.title
-        --                                    :: articleImageView metadata.image
-        --                                    :: Tuple.second viewForPage
-        --                                )
-        --                            ]
-        --                    }
-        --
-        --                Metadata.Doc metadata ->
-        --                    { title = metadata.title
-        --                    , body =
-        --                        [ header page.path
-        --                        , Element.row []
-        --                            [ DocSidebar.view page.path siteMetadata
-        --                                |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
-        --                            , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
-        --                                [ Palette.heading 1 [ Element.text metadata.title ]
-        --                                , Element.column [ Element.spacing 20 ]
-        --                                    [ tocView (Tuple.first viewForPage)
-        --                                    , Element.column
-        --                                        [ Element.padding 50
-        --                                        , Element.spacing 30
-        --                                        , Element.Region.mainContent
-        --                                        ]
-        --                                        (Tuple.second viewForPage)
-        --                                    ]
-        --                                ]
-        --                            ]
-        --                        ]
-        --                            |> Element.textColumn
-        --                                [ Element.width Element.fill
-        --                                , Element.height Element.fill
-        --                                ]
-        --                    }
-        --
-        --                Metadata.Author author ->
-        --                    { title = author.name
-        --                    , body =
-        --                        Element.column
-        --                            [ Element.width Element.fill
-        --                            ]
-        --                            [ header page.path
-        --                            , Element.column
-        --                                [ Element.padding 30
-        --                                , Element.spacing 20
-        --                                , Element.Region.mainContent
-        --                                , Element.width (Element.fill |> Element.maximum 800)
-        --                                , Element.centerX
-        --                                ]
-        --                                [ Palette.blogHeading author.name
-        --                                , Author.view [] author
-        --                                , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second viewForPage)
-        --                                ]
-        --                            ]
-        --                    }
-        --
-        --                Metadata.BlogIndex ->
-        --                    { title = "elm-pages blog"
-        --                    , body =
-        --                        Element.column [ Element.width Element.fill ]
-        --                            [ header page.path
-        --                            , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
-        --                            ]
-        --                    }
-        --            )
-        --                |> wrapBody
-    in
-    viewFn
+    StaticHttp.succeed
+        { view =
+            \model viewForPage ->
+                pageView model siteMetadata page viewForPage
+                    |> wrapBody
+        , head = head page.frontmatter
+        }
 
 
-wrapBody body =
-    body
-        |> Element.layout
-            [ Element.width Element.fill
-            , Font.size 20
-            , Font.family [ Font.typeface "Roboto" ]
-            , Font.color (Element.rgba255 0 0 0 0.8)
-            ]
+
+--let
+--    viewFn =
+--        case page.frontmatter of
+--            Metadata.Page metadata ->
+--                StaticHttp.map3
+--                    (\elmPagesStars elmPagesStarterStars netlifyStars ->
+--                        { view =
+--                            \model viewForPage ->
+--                                { title = metadata.title
+--                                , body =
+--                                    "elm-pages ⭐️'s: "
+--                                        ++ String.fromInt elmPagesStars
+--                                        ++ "\n\nelm-pages-starter ⭐️'s: "
+--                                        ++ String.fromInt elmPagesStarterStars
+--                                        ++ "\n\nelm-markdown ⭐️'s: "
+--                                        ++ String.fromInt netlifyStars
+--                                        |> Element.text
+--                                        |> wrapBody
+--                                }
+--                        , head = head page.frontmatter
+--                        }
+--                    )
+--                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+--                        (D.field "stargazers_count" D.int)
+--                    )
+--                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+--                        (D.field "stargazers_count" D.int)
+--                    )
+--                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown")
+--                        (D.field "stargazers_count" D.int)
+--                    )
+--
+--            _ ->
+--                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
+--                        (Decode.field "stargazers_count" Decode.int)
+
+
+pageView :
+    Model
+    -> List ( PagePath Pages.PathKey, Metadata )
+    -> { path : PagePath Pages.PathKey, frontmatter : Metadata }
+    -> ( MarkdownRenderer.TableOfContents, List (Element Msg) )
+    -> { title : String, body : Element Msg }
+pageView model siteMetadata page viewForPage =
+    case page.frontmatter of
+        Metadata.Page metadata ->
+            { title = metadata.title
+            , body =
+                [ header page.path
+                , Element.column
+                    [ Element.padding 50
+                    , Element.spacing 60
+                    , Element.Region.mainContent
+                    ]
+                    (Tuple.second viewForPage)
+                ]
+                    |> Element.textColumn
+                        [ Element.width Element.fill
+                        ]
+            }
+
+        Metadata.Article metadata ->
+            { title = metadata.title
+            , body =
+                Element.column [ Element.width Element.fill ]
+                    [ header page.path
+                    , Element.column
+                        [ Element.padding 30
+                        , Element.spacing 40
+                        , Element.Region.mainContent
+                        , Element.width (Element.fill |> Element.maximum 800)
+                        , Element.centerX
+                        ]
+                        (Element.column [ Element.spacing 10 ]
+                            [ Element.row [ Element.spacing 10 ]
+                                [ Author.view [] metadata.author
+                                , Element.column [ Element.spacing 10, Element.width Element.fill ]
+                                    [ Element.paragraph [ Font.bold, Font.size 24 ]
+                                        [ Element.text metadata.author.name
+                                        ]
+                                    , Element.paragraph [ Font.size 16 ]
+                                        [ Element.text metadata.author.bio ]
+                                    ]
+                                ]
+                            ]
+                            :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+                            :: Palette.blogHeading metadata.title
+                            :: articleImageView metadata.image
+                            :: Tuple.second viewForPage
+                        )
+                    ]
+            }
+
+        Metadata.Doc metadata ->
+            { title = metadata.title
+            , body =
+                [ header page.path
+                , Element.row []
+                    [ DocSidebar.view page.path siteMetadata
+                        |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
+                    , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
+                        [ Palette.heading 1 [ Element.text metadata.title ]
+                        , Element.column [ Element.spacing 20 ]
+                            [ tocView (Tuple.first viewForPage)
+                            , Element.column
+                                [ Element.padding 50
+                                , Element.spacing 30
+                                , Element.Region.mainContent
+                                ]
+                                (Tuple.second viewForPage)
+                            ]
+                        ]
+                    ]
+                ]
+                    |> Element.textColumn
+                        [ Element.width Element.fill
+                        , Element.height Element.fill
+                        ]
+            }
+
+        Metadata.Author author ->
+            { title = author.name
+            , body =
+                Element.column
+                    [ Element.width Element.fill
+                    ]
+                    [ header page.path
+                    , Element.column
+                        [ Element.padding 30
+                        , Element.spacing 20
+                        , Element.Region.mainContent
+                        , Element.width (Element.fill |> Element.maximum 800)
+                        , Element.centerX
+                        ]
+                        [ Palette.blogHeading author.name
+                        , Author.view [] author
+                        , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second viewForPage)
+                        ]
+                    ]
+            }
+
+        Metadata.BlogIndex ->
+            { title = "elm-pages blog"
+            , body =
+                Element.column [ Element.width Element.fill ]
+                    [ header page.path
+                    , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
+                    ]
+            }
+
+
+wrapBody record =
+    { body =
+        record.body
+            |> Element.layout
+                [ Element.width Element.fill
+                , Font.size 20
+                , Font.family [ Font.typeface "Roboto" ]
+                , Font.color (Element.rgba255 0 0 0 0.8)
+                ]
+    , title = record.title
+    }
 
 
 articleImageView : ImagePath Pages.PathKey -> Element msg

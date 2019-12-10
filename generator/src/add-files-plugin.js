@@ -34,12 +34,13 @@ module.exports = class AddFilesPlugin {
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
         const staticRequests = this.pagesWithRequests[`/${file.baseRoute}`];
+        console.log('staticData', staticRequests);
 
         const filename = path.join(file.baseRoute, "content.json");
         compilation.fileDependencies.add(filename);
         const rawContents = JSON.stringify({
           body: file.content,
-          staticData: staticRequests
+          staticData: staticRequests || {}
         });
 
         compilation.assets[filename] = {

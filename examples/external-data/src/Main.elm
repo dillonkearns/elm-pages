@@ -23,6 +23,7 @@ import Pages.Platform exposing (Page)
 import Palette
 import Secrets
 import StaticHttp
+import Time
 
 
 
@@ -145,7 +146,7 @@ get url decoder =
 pokemonDetailRequest : StaticHttp.Request (List Pokemon)
 pokemonDetailRequest =
     get
-        "https://pokeapi.co/api/v2/pokemon/?limit=10"
+        "https://pokeapi.co/api/v2/pokemon/?limit=3"
         (Decode.field "results"
             (Decode.list
                 (Decode.map2 Tuple.pair
@@ -185,6 +186,8 @@ view siteMetadata page =
                             { title = "Landing Page"
                             , body =
                                 [ header starCount
+                                , Element.text "Built at: "
+                                , Element.text <| String.fromInt <| Time.posixToMillis Pages.buildTime
                                 , pokemon
                                     |> List.map pokemonView
                                     |> Element.column
