@@ -199,10 +199,6 @@ addUrls urlsToAdd requestInfo =
             Done value
 
 
-
---            Request ( urlsToAdd, \_ -> value |> Done |> Ok )
-
-
 lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
