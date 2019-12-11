@@ -1,4 +1,18 @@
-module Secrets exposing (Value, lookup, map, maskedLookup, succeed, with)
+module Secrets exposing
+    ( Value, lookup, map, succeed, with
+    , maskedLookup
+    )
+
+{-| TODO
+
+@docs Value, lookup, map, succeed, with
+
+
+## TODO should be hidden
+
+@docs maskedLookup
+
+-}
 
 import BuildError exposing (BuildError)
 import Fuzzy
@@ -6,15 +20,21 @@ import SecretsDict exposing (SecretsDict)
 import TerminalText as Terminal
 
 
+{-| TODO
+-}
 type Value value
     = Value (SecretsDict -> Result (List BuildError) value)
 
 
+{-| TODO
+-}
 lookup : SecretsDict -> Value a -> Result (List BuildError) a
 lookup secrets (Value lookupSecrets) =
     lookupSecrets secrets
 
 
+{-| TODO
+-}
 maskedLookup : Value value -> value
 maskedLookup (Value lookupSecrets) =
     case lookupSecrets SecretsDict.masked of
@@ -26,6 +46,8 @@ maskedLookup (Value lookupSecrets) =
             maskedLookup (Value lookupSecrets)
 
 
+{-| TODO
+-}
 succeed : value -> Value value
 succeed value =
     Value (\_ -> Ok value)
@@ -96,6 +118,8 @@ sortMatches missingSecret availableSecrets =
     List.sortBy (simpleMatch [] [] missingSecret) availableSecrets
 
 
+{-| TODO
+-}
 map : (valueA -> valueB) -> Value valueA -> Value valueB
 map mapFunction (Value lookupSecrets) =
     Value
@@ -105,6 +129,8 @@ map mapFunction (Value lookupSecrets) =
         )
 
 
+{-| TODO
+-}
 with : String -> Value (String -> value) -> Value value
 with newSecret (Value lookupSecrets) =
     Value <|
