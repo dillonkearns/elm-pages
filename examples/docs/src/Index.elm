@@ -39,6 +39,12 @@ view posts =
                         Metadata.BlogIndex ->
                             Nothing
                 )
+            |> List.sortBy
+                (\( path, metadata ) ->
+                    metadata.published
+                        |> Date.toRataDie
+                )
+            |> List.reverse
             |> List.map postSummary
         )
 
