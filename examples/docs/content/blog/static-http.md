@@ -43,7 +43,7 @@ There is a lifecycle, because things can still fail. But the entire Static HTTP 
 Here's a code snippet for making a StaticHttp request. This code makes an HTTP request to the Github API to grab the current number of stars for the `elm-pages` repo.
 
 ```elm
-import StaticHttp
+import Pages.StaticHttp as StaticHttp
 import Pages
 import Head
 import Json.Decode.Exploration as Decode

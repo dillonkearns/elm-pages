@@ -10,7 +10,7 @@
         "Pages.Document",
         "Pages.ImagePath",
         "Pages.PagePath",
-        "StaticHttp",
+        "Pages.StaticHttp",
         "Pages.Secrets",
         "Pages.Directory",
         "Pages.Platform",

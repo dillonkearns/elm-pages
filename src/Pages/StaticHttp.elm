@@ -1,4 +1,4 @@
-module StaticHttp exposing
+module Pages.StaticHttp exposing
     ( Request, RequestDetails
     , get, request
     , map, succeed

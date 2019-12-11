@@ -22,7 +22,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Palette
 import Secrets
-import StaticHttp
+import Pages.StaticHttp as StaticHttp
 import Time
 
 

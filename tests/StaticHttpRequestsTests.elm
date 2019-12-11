@@ -12,13 +12,13 @@ import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
+import Pages.StaticHttp as StaticHttp
 import ProgramTest exposing (ProgramTest)
 import Regex
 import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
-import StaticHttp
 import TerminalText as Terminal
 import Test exposing (Test, describe, only, test)
 import Test.Http

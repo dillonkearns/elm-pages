@@ -27,11 +27,11 @@ import Pages.Document
 import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
-import StaticHttp exposing (RequestDetails)
 import TerminalText as Terminal
 
 

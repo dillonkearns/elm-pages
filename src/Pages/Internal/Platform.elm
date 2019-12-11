@@ -16,9 +16,9 @@ import Pages.Document
 import Pages.Internal.Platform.Cli
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Result.Extra
-import StaticHttp
 import Task exposing (Task)
 import Url exposing (Url)
 

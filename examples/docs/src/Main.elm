@@ -27,9 +27,9 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
+import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
-import StaticHttp
 
 
 manifest : Manifest.Config Pages.PathKey

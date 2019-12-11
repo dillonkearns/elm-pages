@@ -3,9 +3,9 @@ module StaticHttpUnitTests exposing (all)
 import Dict exposing (Dict)
 import Expect
 import Json.Decode.Exploration as Decode
+import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
-import StaticHttp
 import Test exposing (Test, describe, only, test)
 
 
