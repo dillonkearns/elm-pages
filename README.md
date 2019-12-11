@@ -139,3 +139,9 @@ for your application's compiled Elm code and
 HTML container. The page content is currently cached
 as it is loaded, but in the future there will
 be an API to choose some pages to "warm up" in the cache.
+
+## What's next?
+
+Take a look at the current projects to see the current priorities!
+
+https://github.com/dillonkearns/elm-pages/projects

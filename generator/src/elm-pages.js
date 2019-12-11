@@ -3,7 +3,7 @@
 const { Elm } = require("./Main.js");
 const { version } = require("../../package.json");
 const fs = require("fs");
-const glob = require("glob");
+const globby = require("globby");
 const develop = require("./develop.js");
 const chokidar = require("chokidar");
 const doCliStuff = require("./generate-elm-stuff.js");
@@ -43,16 +43,16 @@ function parseMarkdown(path, fileContents) {
 
 function run() {
   console.log("Running elm-pages...");
-  const content = glob.sync(contentGlobPath, {}).map(unpackMarkup);
+  const content = globby.sync([contentGlobPath], {}).map(unpackMarkup);
   const staticRoutes = generateRecords();
 
-  const markdownContent = glob
-    .sync("content/**/*.md", {})
+  const markdownContent = globby
+    .sync(["content/**/*.*", "!content/**/*.emu"], {})
     .map(unpackFile)
     .map(({ path, contents }) => {
       return parseMarkdown(path, contents);
     });
-  const images = glob
+  const images = globby
     .sync("images/**/*", {})
     .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
 
@@ -135,7 +135,7 @@ function startWatchIfNeeded() {
   if (!watcher) {
     console.log("Watching...");
     watcher = chokidar
-      .watch([contentGlobPath, "content/**/*.md"], {
+      .watch(["content/**/*.*"], {
         awaitWriteFinish: {
           stabilityThreshold: 500
         },

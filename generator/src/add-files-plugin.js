@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const glob = require("glob");
+const globby = require("globby");
 const parseFrontmatter = require("./frontmatter.js");
 
 function unpackFile(filePath) {
@@ -25,7 +25,9 @@ module.exports = class AddFilesPlugin {
   }
   apply(compiler) {
     compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
-      const files = glob.sync("content/**/*.*", {}).map(unpackFile);
+      const files = globby
+        .sync(["content/**/*.*", "!content/**/*.emu"], {})
+        .map(unpackFile);
 
       files.forEach(file => {
         // Couldn't find this documented in the webpack docs,

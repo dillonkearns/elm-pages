@@ -20,3 +20,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     using `Pages.Platform.application` which is part of the published Elm package. So now it's easier to browse the docs.
     You pass in some internal data from the generated `Pages.elm` module now by including
     this in the application config record:  `Pages.Platform.application { internals = Pages.internals, ... <other fields> }`.
+
+
+## [1.0.1] - 2019-11-04
+
+### Fixed
+- Generate files for extensions other than `.md` and `.emu` (fixes [#16](https://github.com/dillonkearns/elm-pages/issues/16)).
+   As always, be sure to also use the latest NPM package.
