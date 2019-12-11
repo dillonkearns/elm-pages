@@ -6,7 +6,34 @@ module Pages.StaticHttp exposing
     , map2, map3, map4, map5, map6, map7, map8, map9
     )
 
-{-| TODO
+{-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
+
+The key differences are:
+
+  - `StaticHttp.Request`s are performed once at build time (`Http.Request`s are performed at runtime, at whenever point you perform them)
+  - `StaticHttp.Request`s strip out unused JSON data from the data your decoder doesn't touch to minimize the JSON payload
+  - `StaticHttp.Request`s can use [`Pages.Secrets`](Pages.Secrets) to securely use credentials from your environemnt variables which are completely masked in the production assets.
+  - `StaticHttp.Request`s have a built-in `StaticHttp.andThen` that allows you to perform follow-up requests without using tasks
+
+
+## Scenarios where StaticHttp is a good fit
+
+If you need data that is refreshed often you may want to do a traditional HTTP request with the `elm/http` package.
+The kinds of situations that are served well by static HTTP are with data that updates moderately frequently or infrequently (or never).
+A common pattern is to trigger a new build when data changes. Many JAMstack services
+allow you to send a WebHook to your host (for example, Netlify is a good static file host that supports triggering builds with webhooks). So
+you may want to have your site rebuild everytime your calendar feed has an event added, or whenever a page or article is added
+or updated on a CMS service like Contentful.
+
+In scenarios like this, you can serve data that is just as up-to-date as it would be using `elm/http`, but you get the performance
+gains of using `StaticHttp.Request`s as well as the simplicity and robustness that comes with it. Read more about these benefits
+in [this article introducing StaticHttp requests and some concepts around it](https://elm-pages.com/blog/static-http).
+
+
+## Scenarios where StaticHttp is not a good fit
+
+  - Data that is specific to the logged-in user
+  - Data that needs to be the very latest and changes often (for example, sports scores)
 
 @docs Request, RequestDetails
 @docs get, request
@@ -29,13 +56,35 @@ import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
 
 
-{-| TODO
+{-| A Request that will be made a build time. Multiple `StaticHttp.Request`s can be combined together using the `mapN` functions,
+very similar to how you can manipulate values with Json Decoders in Elm.
 -}
 type alias Request value =
     Pages.StaticHttpRequest.Request value
 
 
-{-| TODO
+{-| Transform a request into an arbitrary value. The same underlying HTTP requests will be performed during the build
+step, but mapping allows you to change the resulting values by applying functions to the results.
+
+A common use for this is to map your data into your elm-pages view:
+
+    import Json.Decode as Decode exposing (Decoder)
+    import Pages.StaticHttp as StaticHttp
+
+    view =
+        get "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Decode.field "stargazers_count" Decode.int)
+            |> StaticHttp.map
+                (\stars ->
+                    { view =
+                        \model viewForPage ->
+                            { title = "Current stars: " ++ String.fromInt stars
+                            , body = Html.text <| "⭐️ " ++ String.fromInt stars
+                            , head = []
+                            }
+                    }
+                )
+
 -}
 map : (a -> b) -> Request a -> Request b
 map fn requestInfo =
@@ -69,7 +118,7 @@ combine requests =
         |> List.foldl (map2 (::)) (succeed [])
 
 
-{-| TODO
+{-| Like map, but it takes in two `Request`s.
 -}
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
 map2 fn request1 request2 =
@@ -231,7 +280,29 @@ andThen fn requestInfo =
         )
 
 
-{-| TODO
+{-| This is useful for prototyping with some hardcoded data, or for having a view that doesn't have any StaticHttp data.
+
+    import Pages.StaticHttp as StaticHttp
+
+    view :
+        List ( PagePath Pages.PathKey, Metadata )
+        ->
+            { path : PagePath Pages.PathKey
+            , frontmatter : Metadata
+            }
+        ->
+            StaticHttp.Request
+                { view : Model -> View -> { title : String, body : Html Msg }
+                , head : List (Head.Tag Pages.PathKey)
+                }
+    view siteMetadata page =
+        StaticHttp.succeed
+            { view =
+                \model viewForPage ->
+                    mainView model viewForPage
+            , head = head page.frontmatter
+            }
+
 -}
 succeed : a -> Request a
 succeed value =
