@@ -24,6 +24,7 @@ module StaticHttp exposing
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode.Exploration as Decode exposing (Decoder)
+import Pages.Secrets
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
 
@@ -189,7 +190,7 @@ lookup requestInfo rawResponses =
             Ok ( rawResponses, value )
 
 
-addUrls : List (Secrets.Value { url : String, method : String, headers : List ( String, String ) }) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls : List (Pages.Secrets.Value { url : String, method : String, headers : List ( String, String ) }) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         Request ( initialUrls, function ) ->
@@ -199,7 +200,7 @@ addUrls urlsToAdd requestInfo =
             Done value
 
 
-lookupUrls : Pages.StaticHttpRequest.Request value -> List (Secrets.Value RequestDetails)
+lookupUrls : Pages.StaticHttpRequest.Request value -> List (Pages.Secrets.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -244,7 +245,7 @@ succeed value =
 {-| TODO
 -}
 get :
-    Secrets.Value String
+    Pages.Secrets.Value String
     -> Decoder a
     -> Request a
 get url decoder =
@@ -279,7 +280,7 @@ requestToString requestDetails =
 {-| TODO
 -}
 request :
-    Secrets.Value RequestDetails
+    Pages.Secrets.Value RequestDetails
     -> Decoder a
     -> Request a
 request urlWithSecrets decoder =

@@ -11,7 +11,7 @@
         "Pages.ImagePath",
         "Pages.PagePath",
         "StaticHttp",
-        "Secrets",
+        "Pages.Secrets",
         "Pages.Directory",
         "Pages.Platform",
         "Pages.Internal",
