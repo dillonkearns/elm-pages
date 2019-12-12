@@ -16,7 +16,7 @@ If you’ve tried `elm-pages`, you may be thinking, "elm-pages hydrates into a f
 So what's new? It all comes down to these key points:
 
 * Less boilerplate
-* Earlier feedback
+* Improved reliability
 * Better performance
 
 Let's dive into these points in more detail.
@@ -112,7 +112,7 @@ These error messages are inspired by Elm's famously helpful errors. They're desi
 
 Which brings us to our next key point...
 
-## Earlier feedback
+## Improved reliability
 Static HTTP requests are performed at build-time. Which means that if you have a problem with one of your Static HTTP requests, *your users will never see it*. Even if a JSON decoder fails, `elm-pages` will report back the decode failure and wait until its fixed before it allows you to create your production build.
 
 Your API might go down, but your Static HTTP requests will always be up (assuming your site is up). The responses from your Static requests are baked into the static files for your `elm-pages` build. If there is an API outage, you of course won't be able to rebuild your site with fresh data from that API. But you can be confident that, though your build may break, your site will always have a working set of Static HTTP data.
