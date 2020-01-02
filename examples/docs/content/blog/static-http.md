@@ -151,7 +151,7 @@ The StaticHttp API also comes with some significant performance boosts. StaticHt
 * Your site, including API responses, is just static files so it can be served through a blazing-fast CDN (which serves files from the nearest server in the user's region)
 * Scaling is cheap and doesn't require an Ops team
 * `elm-pages` intelligently prefetches the Static HTTP data for a page when you're likely to navigate to that page, so page loads are instant and there's no spinner waiting to load that initial data
-* `elm-pages` optimizes your StaticHTTP JSON data, stripping out everything but what you use in your JSON decoder
+* `elm-pages` optimizes your `StaticHttp` JSON data, stripping out everything but what you use in your JSON decoder
 
 ### JSON Optimization
 The JSON optimization is made possible by a JSON parsing library created by Ilias Van Peer. Here's the pull request where he introduced the JSON optimization functionality: [github.com/zwilias/json-decode-exploration/pull/9](https://github.com/zwilias/json-decode-exploration/pull/9).
@@ -160,13 +160,13 @@ Let's take our Github API request as an example. Our Github API request from our
 
 You can inspect the network tab on this page and you'll see something like this:
 
-![StaticHTTP content request](/images/static-http-content-requests.png)
+![StaticHttp content request](/images/static-http-content-requests.png)
 
 If you click on Github API link above and compare it, you'll see that it's quite a bit smaller! It just has the one field that we grabbed in our JSON decoder.
 
 This is quite nice for privacy and security purposes as well because any personally identifying information that might be included in an API response you consume won't show up in your production bundle (unless you were to explicitly include it in a JSON decoder).
 
-### Comparing StaticHTTP to other JAMstack data source strategies
+### Comparing StaticHttp to other JAMstack data source strategies
 You may be familiar with frameworks like Gatsby or Gridsome which also allow you to build data from external sources into your static site. Those frameworks, however, use a completely different approach, [using a GraphQL layer to store data from those data sources](https://www.gatsbyjs.org/docs/page-query/), and then looking that data up in GraphQL queries from within your static pages.
 
 
