@@ -55,7 +55,8 @@ view :
   }
   ->
   StaticHttp.Request
-    { view : Model -> View -> { title : String, body : Html Msg }
+    { view : Model ->
+         View -> { title : String, body : Html Msg }
     , head : List (Head.Tag Pages.PathKey)
     }
 view page =
@@ -102,6 +103,30 @@ The data is baked into our built code, which means that the star count will only
 
 Notice that this app's `Msg`, `Model`, and `update` function are not involved in the process at all! It's also worth noting that we are passing that data into our `head` function, which allows us to use it in our `<meta>` tags for the page.
 
+The `StaticHttp` functions are very similar to Elm libraries
+you've likely used already, such as `elm/json` or `elm/random`.
+If you don't depend on any StaticHttp data, you use `StaticHttp.succeed`,
+similar to how you might use `Json.Decode.succeed`, `Random.constant`,
+etc.
+
+
+    import Pages.StaticHttp as StaticHttp
+
+
+    StaticHttp.succeed
+      { view =
+        \model renderedMarkdown ->
+          { title = "Landing Page"
+          , body =
+            [ header
+            , pageView model renderedMarkdown
+            ]
+          }
+      , head = head
+      }
+
+This is actually the same as our previous example that had a `StaticHttp.request`, except that it doesn't make a request or have the
+stargazer count data.
 
 ### The Static HTTP Lifecycle
 If you have a bad auth token in your URL, or your JSON decoder fails, then that code will never run for your `elm-pages` site. Instead, you'll get a friendly `elm-pages` build-time error telling you exactly what the problem was and where it occurred (as you're familiar with in Elm).

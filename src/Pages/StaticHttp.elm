@@ -418,8 +418,7 @@ request urlWithSecrets decoder =
         )
 
 
-{-| TODO
--}
+{-| -}
 map3 :
     (value1 -> value2 -> value3 -> valueCombined)
     -> Request value1
@@ -433,8 +432,7 @@ map3 combineFn request1 request2 request3 =
         |> map2 (|>) request3
 
 
-{-| TODO
--}
+{-| -}
 map4 :
     (value1 -> value2 -> value3 -> value4 -> valueCombined)
     -> Request value1
@@ -450,8 +448,7 @@ map4 combineFn request1 request2 request3 request4 =
         |> map2 (|>) request4
 
 
-{-| TODO
--}
+{-| -}
 map5 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
     -> Request value1
@@ -469,8 +466,7 @@ map5 combineFn request1 request2 request3 request4 request5 =
         |> map2 (|>) request5
 
 
-{-| TODO
--}
+{-| -}
 map6 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
     -> Request value1
@@ -490,8 +486,7 @@ map6 combineFn request1 request2 request3 request4 request5 request6 =
         |> map2 (|>) request6
 
 
-{-| TODO
--}
+{-| -}
 map7 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
     -> Request value1
@@ -513,8 +508,7 @@ map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
         |> map2 (|>) request7
 
 
-{-| TODO
--}
+{-| -}
 map8 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
     -> Request value1
@@ -538,8 +532,7 @@ map8 combineFn request1 request2 request3 request4 request5 request6 request7 re
         |> map2 (|>) request8
 
 
-{-| TODO
--}
+{-| -}
 map9 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
     -> Request value1
