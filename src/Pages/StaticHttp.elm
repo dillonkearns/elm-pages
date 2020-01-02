@@ -72,7 +72,7 @@ A common use for this is to map your data into your elm-pages view:
     import Pages.StaticHttp as StaticHttp
 
     view =
-        get "https://api.github.com/repos/dillonkearns/elm-pages"
+        StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
             |> StaticHttp.map
                 (\stars ->
@@ -313,7 +313,16 @@ succeed value =
         )
 
 
-{-| TODO
+{-| A simplified helper around [`StaticHttp.request`](#request), which builds up a StaticHttp GET request.
+
+    import Json.Decode as Decode exposing (Decoder)
+    import Pages.StaticHttp as StaticHttp
+
+    getRequest : StaticHttp.Request Int
+    getRequest =
+        StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Decode.field "stargazers_count" Decode.int)
+
 -}
 get :
     Pages.Secrets.Value String
@@ -328,7 +337,7 @@ get url decoder =
         decoder
 
 
-{-| TODO
+{-| The full details to perform a StaticHttp request.
 -}
 type alias RequestDetails =
     { url : String, method : String, headers : List ( String, String ) }
@@ -348,7 +357,9 @@ requestToString requestDetails =
     requestDetails.url
 
 
-{-| TODO
+{-| Build a `StaticHttp` request (analagous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
+This function takes in all the details to build a `StaticHttp` request, but you can build your own simplified helper functions
+with this as a low-level detail, or you can use functions like [StaticHttp.get](#get).
 -}
 request :
     Pages.Secrets.Value RequestDetails
