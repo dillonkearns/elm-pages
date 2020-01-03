@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     using `Pages.Platform.application` which is part of the published Elm package. So now it's easier to browse the docs.
     You pass in some internal data from the generated `Pages.elm` module now by including
     this in the application config record:  `Pages.Platform.application { internals = Pages.internals, ... <other fields> }`.
+- Add init argument and user Msg for initial PagePath and page changes (see [#4](https://github.com/dillonkearns/elm-pages/issues/4)).
 
 
 ## [1.0.1] - 2019-11-04
