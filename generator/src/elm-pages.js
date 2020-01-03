@@ -11,6 +11,7 @@ const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
 const parseFrontmatter = require("./frontmatter.js");
 const path = require("path");
+const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -80,6 +81,11 @@ function run() {
     const routes = toRoutes(markdownContent.concat(content));
 
     ensureDirSync("./gen");
+    
+    // prevent compilation errors if migrating from previous elm-pages version
+    deleteIfExists("./gen/Pages/ContentCache.elm");
+    deleteIfExists("./gen/Pages/Platform.elm");
+
     fs.writeFileSync(
       "./gen/Pages.elm",
       elmPagesUiFile(staticRoutes, markdownContent, content)
@@ -160,12 +166,4 @@ function toRoute(entry) {
     .filter(item => item !== "");
   fullPath.splice(0, 1);
   return `/${fullPath.join("/")}`;
-}
-
-function ensureDirSync(dirpath) {
-  try {
-    fs.mkdirSync(dirpath, { recursive: true });
-  } catch (err) {
-    if (err.code !== "EEXIST") throw err;
-  }
 }
