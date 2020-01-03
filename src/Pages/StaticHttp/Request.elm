@@ -1,6 +1,7 @@
 module Pages.StaticHttp.Request exposing (Request, hash)
 
 import Json.Encode as Encode
+import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Body as Body exposing (Body)
 
 
@@ -18,7 +19,7 @@ hash requestDetails =
         [ ( "method", Encode.string requestDetails.method )
         , ( "url", Encode.string requestDetails.url )
         , ( "headers", Encode.list hashHeader requestDetails.headers )
-        , ( "body", Body.encode requestDetails.body )
+        , ( "body", StaticHttpBody.encode requestDetails.body )
         ]
         |> Encode.encode 0
 
