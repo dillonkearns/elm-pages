@@ -1,8 +1,7 @@
 module Pages.StaticHttp.Request exposing (Request, hash)
 
 import Json.Encode as Encode
-import Pages.Internal.StaticHttpBody as StaticHttpBody
-import Pages.StaticHttp.Body as Body exposing (Body)
+import Pages.Internal.StaticHttpBody as StaticHttpBody exposing (Body)
 
 
 type alias Request =

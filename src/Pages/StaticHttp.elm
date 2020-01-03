@@ -68,11 +68,15 @@ import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
 
 
+{-| Build an empty body for a StaticHttp request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
+-}
 emptyBody : Body
 emptyBody =
     Body.EmptyBody
 
 
+{-| Builds a string body for a StaticHttp request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
+-}
 stringBody : String -> Body
 stringBody content =
     Body.StringBody content
@@ -428,7 +432,7 @@ get url decoder =
                     { url = okUrl
                     , method = "GET"
                     , headers = []
-                    , body = StaticHttp.emptyBody
+                    , body = emptyBody
                     }
                 )
         )
