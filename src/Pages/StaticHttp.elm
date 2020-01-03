@@ -110,7 +110,39 @@ resolve topRequest =
             (\continuationRequests -> combine continuationRequests)
 
 
-{-| TODO
+{-| Turn a list of `StaticHttp.Request`s into a single one.
+
+    import Json.Decode as Decode exposing (Decoder)
+    import Pages.StaticHttp as StaticHttp
+
+    type alias Pokemon =
+        { name : String
+        , sprite : String
+        }
+
+    pokemonDetailRequest : StaticHttp.Request (List Pokemon)
+    pokemonDetailRequest =
+        StaticHttp.get
+            (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=3")
+            (Decode.field "results"
+                (Decode.list
+                    (Decode.map2 Tuple.pair
+                        (Decode.field "name" Decode.string)
+                        (Decode.field "url" Decode.string)
+                        |> Decode.map
+                            (\( name, url ) ->
+                                StaticHttp.get (Secrets.succeed url)
+                                    (Decode.at
+                                        [ "sprites", "front_default" ]
+                                        Decode.string
+                                        |> Decode.map (Pokemon name)
+                                    )
+                            )
+                    )
+                )
+            )
+            |> StaticHttp.andThen StaticHttp.combine
+
 -}
 combine : List (Request value) -> Request (List value)
 combine requests =
