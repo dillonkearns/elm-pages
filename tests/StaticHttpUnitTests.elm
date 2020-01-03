@@ -30,6 +30,7 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
+    , body = Nothing
     }
 
 
@@ -130,4 +131,8 @@ all =
 
 
 getReq url =
-    { url = url, method = "GET", headers = [] }
+    { url = url
+    , method = "GET"
+    , headers = []
+    , body = Nothing
+    }

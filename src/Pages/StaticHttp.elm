@@ -292,7 +292,7 @@ lookup requestInfo rawResponses =
             Ok ( rawResponses, value )
 
 
-addUrls : List (Pages.Secrets.Value { url : String, method : String, headers : List ( String, String ) }) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls : List (Pages.Secrets.Value HashRequest.Request) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         Request ( initialUrls, function ) ->
@@ -400,7 +400,13 @@ get url decoder =
     request
         (url
             |> Secrets.map
-                (\okUrl -> { url = okUrl, method = "GET", headers = [] })
+                (\okUrl ->
+                    { url = okUrl
+                    , method = "GET"
+                    , headers = []
+                    , body = Nothing
+                    }
+                )
         )
         decoder
 

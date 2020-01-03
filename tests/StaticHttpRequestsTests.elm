@@ -41,10 +41,7 @@ all =
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
                         [ ( "/"
-                          , [ ( { method = "GET"
-                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                                , headers = []
-                                }
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
                             ]
@@ -71,16 +68,10 @@ all =
                         """null"""
                     |> expectSuccess
                         [ ( "/elm-pages"
-                          , [ ( { method = "GET"
-                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                                , headers = []
-                                }
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """null"""
                               )
-                            , ( { method = "GET"
-                                , url = "NEXT-REQUEST"
-                                , headers = []
-                                }
+                            , ( get "NEXT-REQUEST"
                               , """null"""
                               )
                             ]
@@ -91,12 +82,7 @@ all =
                 let
                     getReq url decoder =
                         StaticHttp.request
-                            (Secrets.succeed
-                                { url = url
-                                , method = "GET"
-                                , headers = []
-                                }
-                            )
+                            (Secrets.succeed (get url))
                             decoder
 
                     pokemonDetailRequest : StaticHttp.Request ()
@@ -271,6 +257,7 @@ all =
                                 { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
+                                , body = Nothing
                                 }
                             )
                             (Decode.field "stargazer_count" Decode.int)
@@ -285,6 +272,7 @@ all =
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
+                                , body = Nothing
                                 }
                               , """{"stargazer_count":86}"""
                               )
@@ -481,6 +469,7 @@ Bad status: 404""")
                                     { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                     , method = "GET"
                                     , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
+                                    , body = Nothing
                                     }
                                 )
                                 |> Secrets.with "API_KEY"
@@ -511,6 +500,7 @@ Bad status: 404""")
                                 , headers =
                                     [ ( "Authorization", "Bearer <BEARER>" )
                                     ]
+                                , body = Nothing
                                 }
                               , """{}"""
                               )
@@ -730,4 +720,5 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
+    , body = Nothing
     }

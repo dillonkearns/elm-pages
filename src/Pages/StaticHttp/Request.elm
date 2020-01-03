@@ -7,6 +7,7 @@ type alias Request =
     { url : String
     , method : String
     , headers : List ( String, String )
+    , body : Maybe String
     }
 
 
