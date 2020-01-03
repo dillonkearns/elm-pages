@@ -51,8 +51,8 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode.Exploration as Decode exposing (Decoder)
-import Json.Encode as Encode
 import Pages.Secrets
+import Pages.StaticHttp.Body as Body exposing (Body)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
@@ -404,7 +404,7 @@ get url decoder =
                     { url = okUrl
                     , method = "GET"
                     , headers = []
-                    , body = Nothing
+                    , body = Body.empty
                     }
                 )
         )
@@ -417,7 +417,7 @@ type alias RequestDetails =
     { url : String
     , method : String
     , headers : List ( String, String )
-    , body : Maybe String
+    , body : Body
     }
 
 

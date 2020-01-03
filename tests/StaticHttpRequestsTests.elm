@@ -13,6 +13,7 @@ import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
+import Pages.StaticHttp.Body as Body exposing (Body)
 import Pages.StaticHttp.Request as Request
 import ProgramTest exposing (ProgramTest)
 import Regex
@@ -20,7 +21,6 @@ import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
-import TerminalText as Terminal
 import Test exposing (Test, describe, only, test)
 import Test.Http
 
@@ -257,7 +257,7 @@ all =
                                 { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
-                                , body = Nothing
+                                , body = Body.empty
                                 }
                             )
                             (Decode.field "stargazer_count" Decode.int)
@@ -272,7 +272,7 @@ all =
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
-                                , body = Nothing
+                                , body = Body.empty
                                 }
                               , """{"stargazer_count":86}"""
                               )
@@ -469,7 +469,7 @@ Bad status: 404""")
                                     { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                     , method = "GET"
                                     , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
-                                    , body = Nothing
+                                    , body = Body.empty
                                     }
                                 )
                                 |> Secrets.with "API_KEY"
@@ -500,7 +500,7 @@ Bad status: 404""")
                                 , headers =
                                     [ ( "Authorization", "Bearer <BEARER>" )
                                     ]
-                                , body = Nothing
+                                , body = Body.empty
                                 }
                               , """{}"""
                               )
@@ -720,5 +720,5 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = Nothing
+    , body = Body.empty
     }
