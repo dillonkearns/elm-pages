@@ -133,13 +133,7 @@ type alias Pokemon =
 
 
 get url decoder =
-    StaticHttp.request
-        (Secrets.succeed
-            { url = url
-            , method = "GET"
-            , headers = []
-            }
-        )
+    StaticHttp.get (Secrets.succeed url)
         decoder
 
 
