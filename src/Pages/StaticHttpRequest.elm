@@ -2,12 +2,13 @@ module Pages.StaticHttpRequest exposing (Error(..), Request(..), permanentError,
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
+import Pages.StaticHttp.Request
 import Secrets
 import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets.Value { url : String, method : String, headers : List ( String, String ) }), Dict String String -> Result Error ( Dict String String, Request value ) )
+    = Request ( List (Secrets.Value Pages.StaticHttp.Request.Request), Dict String String -> Result Error ( Dict String String, Request value ) )
     | Done value
 
 
@@ -31,11 +32,7 @@ type Error
     | DecoderError String
 
 
-type alias RequestDetails =
-    { url : String, method : String, headers : List ( String, String ) }
-
-
-urls : Request value -> List (Secrets.Value RequestDetails)
+urls : Request value -> List (Secrets.Value Pages.StaticHttp.Request.Request)
 urls request =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -102,7 +99,7 @@ resolve request rawResponses =
             Ok value
 
 
-resolveUrls : Request value -> Dict String String -> ( Bool, List (Secrets.Value RequestDetails) )
+resolveUrls : Request value -> Dict String String -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
 resolveUrls request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
