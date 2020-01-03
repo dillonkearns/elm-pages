@@ -61,6 +61,7 @@ and describe your use case!
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode.Exploration as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
@@ -80,6 +81,13 @@ emptyBody =
 stringBody : String -> Body
 stringBody content =
     Body.StringBody content
+
+
+{-| Builds a JSON body for a StaticHttp request. See [elm/http's `Http.jsonBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#jsonBody).
+-}
+jsonBody : Encode.Value -> Body
+jsonBody content =
+    Body.JsonBody content
 
 
 type alias Body =
@@ -447,14 +455,6 @@ type alias RequestDetails =
     , headers : List ( String, String )
     , body : Body
     }
-
-
-
---"["
---    ++ requestDetails.method
---    ++ "]"
---    ++ requestDetails.url
---    ++ String.join "," (requestDetails.headers |> List.map (\( key, value ) -> key ++ " : " ++ value))
 
 
 requestToString : RequestDetails -> String

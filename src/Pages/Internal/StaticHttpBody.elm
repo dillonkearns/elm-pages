@@ -6,6 +6,7 @@ import Json.Encode as Encode
 type Body
     = EmptyBody
     | StringBody String
+    | JsonBody Encode.Value
 
 
 encode : Body -> Encode.Value
@@ -17,6 +18,11 @@ encode body =
         StringBody content ->
             encodeWithType "string"
                 [ ( "content", Encode.string content )
+                ]
+
+        JsonBody content ->
+            encodeWithType "json"
+                [ ( "content", content )
                 ]
 
 
