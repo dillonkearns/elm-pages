@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.0] - 2020-01-03
+
 ### Added
+- There's a new StaticHttp API. Read more about it in [this `StaticHttp` announcement blog post](http://elm-pages.com/blog/static-http)!
 - The generated `Pages.elm` module now includes `builtAt : Time.Posix`. Make sure you have `elm/time` as a dependency in your project!
    You can use this when you make API requests to filter based on a date range starting with the current date.
    If you want a random seed that changes on each build (or every week, or every month, etc.), then you can use this time stamp
