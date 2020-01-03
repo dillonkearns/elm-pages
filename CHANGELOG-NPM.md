@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.0] - 2020-01-03
+
+### Changed
+- Added `StaticHttp` requests in the CLI process (see the Elm package changelog).
+
 ## [1.0.41] - 2019-11-14
 
 ### Fixed
