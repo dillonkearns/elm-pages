@@ -15,7 +15,8 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
-import Json.Decode
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Exploration as D
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import Pages exposing (images, pages)
@@ -26,7 +27,9 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
+import Pages.StaticHttp as StaticHttp
 import Palette
+import Secrets
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -45,22 +48,22 @@ manifest =
     }
 
 
+type alias View =
+    ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
---main : Pages.Platform.Program Model Msg (Metadata ) (List (Element Msg))
--- the intellij-elm plugin doesn't support type aliases for Programs so we need to use this line
 
-
-main : Platform.Program Pages.Platform.Flags (Pages.Platform.Model Model Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) )) (Pages.Platform.Msg Msg Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ))
+main : Pages.Platform.Program Model Msg Metadata View
 main =
-    Pages.application
+    Pages.Platform.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
         , documents = [ markdownDocument ]
-        , head = head
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
+        , onPageChange = OnPageChange
+        , internals = Pages.internals
         }
 
 
@@ -77,19 +80,19 @@ type alias Model =
     {}
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Maybe (PagePath Pages.PathKey) -> ( Model, Cmd Msg )
+init maybePagePath =
     ( Model, Cmd.none )
 
 
-type alias Msg =
-    ()
+type Msg
+    = OnPageChange (PagePath Pages.PathKey)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        () ->
+        OnPageChange page ->
             ( model, Cmd.none )
 
 
@@ -98,37 +101,88 @@ subscriptions _ =
     Sub.none
 
 
-view : Model -> List ( PagePath Pages.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) Pages.PathKey -> { title : String, body : Html Msg }
-view model siteMetadata page =
-    let
-        { title, body } =
-            pageView model siteMetadata page
-    in
-    { title = title
-    , body =
-        body
-            |> Element.layout
-                [ Element.width Element.fill
-                , Font.size 20
-                , Font.family [ Font.typeface "Roboto" ]
-                , Font.color (Element.rgba255 0 0 0 0.8)
-                ]
-    }
+view :
+    List ( PagePath Pages.PathKey, Metadata )
+    ->
+        { path : PagePath Pages.PathKey
+        , frontmatter : Metadata
+        }
+    ->
+        StaticHttp.Request
+            { view : Model -> View -> { title : String, body : Html Msg }
+            , head : List (Head.Tag Pages.PathKey)
+            }
+view siteMetadata page =
+    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        (D.field "stargazers_count" D.int)
+        |> StaticHttp.map
+            (\stars ->
+                { view =
+                    \model viewForPage ->
+                        pageView stars model siteMetadata page viewForPage
+                            |> wrapBody
+                , head = head page.frontmatter
+                }
+            )
 
 
-pageView : Model -> List ( PagePath Pages.PathKey, Metadata ) -> Page Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) Pages.PathKey -> { title : String, body : Element Msg }
-pageView model siteMetadata page =
-    case page.metadata of
+
+--let
+--    viewFn =
+--        case page.frontmatter of
+--            Metadata.Page metadata ->
+--                StaticHttp.map3
+--                    (\elmPagesStars elmPagesStarterStars netlifyStars ->
+--                        { view =
+--                            \model viewForPage ->
+--                                { title = metadata.title
+--                                , body =
+--                                    "elm-pages ⭐️'s: "
+--                                        ++ String.fromInt elmPagesStars
+--                                        ++ "\n\nelm-pages-starter ⭐️'s: "
+--                                        ++ String.fromInt elmPagesStarterStars
+--                                        ++ "\n\nelm-markdown ⭐️'s: "
+--                                        ++ String.fromInt netlifyStars
+--                                        |> Element.text
+--                                        |> wrapBody
+--                                }
+--                        , head = head page.frontmatter
+--                        }
+--                    )
+--                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+--                        (D.field "stargazers_count" D.int)
+--                    )
+--                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+--                        (D.field "stargazers_count" D.int)
+--                    )
+--                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown")
+--                        (D.field "stargazers_count" D.int)
+--                    )
+--
+--            _ ->
+--                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
+--                        (Decode.field "stargazers_count" Decode.int)
+
+
+pageView :
+    Int
+    -> Model
+    -> List ( PagePath Pages.PathKey, Metadata )
+    -> { path : PagePath Pages.PathKey, frontmatter : Metadata }
+    -> ( MarkdownRenderer.TableOfContents, List (Element Msg) )
+    -> { title : String, body : Element Msg }
+pageView stars model siteMetadata page viewForPage =
+    case page.frontmatter of
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
-                [ header page.path
+                [ header stars page.path
                 , Element.column
                     [ Element.padding 50
                     , Element.spacing 60
                     , Element.Region.mainContent
                     ]
-                    (Tuple.second page.view)
+                    (Tuple.second viewForPage)
                 ]
                     |> Element.textColumn
                         [ Element.width Element.fill
@@ -139,7 +193,7 @@ pageView model siteMetadata page =
             { title = metadata.title
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header page.path
+                    [ header stars page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 40
@@ -162,7 +216,7 @@ pageView model siteMetadata page =
                             :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
                             :: Palette.blogHeading metadata.title
                             :: articleImageView metadata.image
-                            :: Tuple.second page.view
+                            :: Tuple.second viewForPage
                         )
                     ]
             }
@@ -170,20 +224,20 @@ pageView model siteMetadata page =
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
-                [ header page.path
+                [ header stars page.path
                 , Element.row []
                     [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                     , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
                         [ Palette.heading 1 [ Element.text metadata.title ]
                         , Element.column [ Element.spacing 20 ]
-                            [ tocView (Tuple.first page.view)
+                            [ tocView (Tuple.first viewForPage)
                             , Element.column
                                 [ Element.padding 50
                                 , Element.spacing 30
                                 , Element.Region.mainContent
                                 ]
-                                (Tuple.second page.view)
+                                (Tuple.second viewForPage)
                             ]
                         ]
                     ]
@@ -200,7 +254,7 @@ pageView model siteMetadata page =
                 Element.column
                     [ Element.width Element.fill
                     ]
-                    [ header page.path
+                    [ header stars page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 20
@@ -210,7 +264,7 @@ pageView model siteMetadata page =
                         ]
                         [ Palette.blogHeading author.name
                         , Author.view [] author
-                        , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second page.view)
+                        , Element.paragraph [ Element.centerX, Font.center ] (Tuple.second viewForPage)
                         ]
                     ]
             }
@@ -219,10 +273,23 @@ pageView model siteMetadata page =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header page.path
+                    [ header stars page.path
                     , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
+
+
+wrapBody record =
+    { body =
+        record.body
+            |> Element.layout
+                [ Element.width Element.fill
+                , Font.size 20
+                , Font.family [ Font.typeface "Roboto" ]
+                , Font.color (Element.rgba255 0 0 0 0.8)
+                ]
+    , title = record.title
+    }
 
 
 articleImageView : ImagePath Pages.PathKey -> Element msg
@@ -233,8 +300,8 @@ articleImageView articleImage =
         }
 
 
-header : PagePath Pages.PathKey -> Element msg
-header currentPath =
+header : Int -> PagePath Pages.PathKey -> Element msg
+header stars currentPath =
     Element.column [ Element.width Element.fill ]
         [ Element.el
             [ Element.height (Element.px 4)
@@ -270,7 +337,7 @@ header currentPath =
                 }
             , Element.row [ Element.spacing 15 ]
                 [ elmDocsLink
-                , githubRepoLink
+                , githubRepoLink stars
                 , highlightableLink currentPath pages.docs.directory "Docs"
                 , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
@@ -450,16 +517,19 @@ publishedDateView metadata =
         )
 
 
-githubRepoLink : Element msg
-githubRepoLink =
+githubRepoLink : Int -> Element msg
+githubRepoLink starCount =
     Element.newTabLink []
         { url = "https://github.com/dillonkearns/elm-pages"
         , label =
-            Element.image
-                [ Element.width (Element.px 22)
-                , Font.color Palette.color.primary
+            Element.row [ Element.spacing 5 ]
+                [ Element.image
+                    [ Element.width (Element.px 22)
+                    , Font.color Palette.color.primary
+                    ]
+                    { src = ImagePath.toString Pages.images.github, description = "Github repo" }
+                , Element.text <| String.fromInt starCount
                 ]
-                { src = ImagePath.toString Pages.images.github, description = "Github repo" }
         }
 
 

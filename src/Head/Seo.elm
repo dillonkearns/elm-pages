@@ -9,10 +9,12 @@ This module encapsulates some of the best practices for SEO for your site.
 web crawlers can efficiently and accurately process it. The functions in this module are for use
 with the `head` function that you pass to your Pages config (`Pages.application`).
 
+    import Date
     import Head
     import Head.Seo as Seo
-    import Date -- justinmimbs/date package
 
+
+    -- justinmimbs/date package
     type alias ArticleMetadata =
         { title : String
         , description : String
@@ -78,10 +80,10 @@ summaryLarge config =
 {-| Will be displayed as a large card in twitter
 See: <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>
 
-    The options will also be used to build up the appropriate OpenGraph `<meta>` tags.
+The options will also be used to build up the appropriate OpenGraph `<meta>` tags.
 
-    Note: You cannot include audio or video tags with summaries.
-    If you want one of those, use `audioPlayer` or `videoPlayer`
+Note: You cannot include audio or video tags with summaries.
+If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summary :

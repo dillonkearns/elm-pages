@@ -2,7 +2,8 @@ workbox.core.skipWaiting();
 workbox.core.clientsClaim();
 workbox.precaching.precacheAndRoute(self.__precacheManifest);
 workbox.routing.registerNavigationRoute(
-  workbox.precaching.getCacheKeyForURL("/index.html"), {
+  workbox.precaching.getCacheKeyForURL("/index.html"),
+  {
     blacklist: [/admin/]
   }
 );
@@ -54,8 +55,8 @@ self.addEventListener("install", event => {
   // TODO store content in a cache that is hashed based on the webpack bundle hash,
   // then delete the old cache on activate
   const contentUrls = [
-    // "/blog/content.txt",
-    // "/blog/types-over-conventions/content.txt"
+    // "/blog/content.json",
+    // "/blog/types-over-conventions/content.json"
   ];
   const coreUrls = ["/main.js"];
   const preloadContent = caches

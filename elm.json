@@ -10,7 +10,11 @@
         "Pages.Document",
         "Pages.ImagePath",
         "Pages.PagePath",
+        "Pages.StaticHttp",
+        "Pages.Secrets",
         "Pages.Directory",
+        "Pages.Platform",
+        "Pages.Internal",
         "Pages.Manifest",
         "Pages.Manifest.Category"
     ],
@@ -22,14 +26,22 @@
         "elm/html": "1.0.0 <= v < 2.0.0",
         "elm/http": "2.0.0 <= v < 3.0.0",
         "elm/json": "1.1.3 <= v < 2.0.0",
+        "elm/regex": "1.0.0 <= v < 2.0.0",
         "elm/url": "1.0.0 <= v < 2.0.0",
+        "elm-community/dict-extra": "2.4.0 <= v < 3.0.0",
         "elm-community/list-extra": "8.2.2 <= v < 9.0.0",
         "elm-community/result-extra": "2.2.1 <= v < 3.0.0",
         "lukewestby/elm-string-interpolate": "1.0.4 <= v < 2.0.0",
         "mdgriffith/elm-markup": "3.0.1 <= v < 4.0.0",
-        "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0"
+        "mgold/elm-nonempty-list": "4.0.2 <= v < 5.0.0",
+        "miniBill/elm-codec": "1.2.0 <= v < 2.0.0",
+        "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0",
+        "tripokey/elm-fuzzy": "5.2.1 <= v < 6.0.0",
+        "zwilias/json-decode-exploration": "6.0.0 <= v < 7.0.0"
     },
     "test-dependencies": {
-        "elm-explorations/test": "1.2.2 <= v < 2.0.0"
+        "avh4/elm-program-test": "3.1.0 <= v < 4.0.0",
+        "elm-explorations/test": "1.2.2 <= v < 2.0.0",
+        "jgrenat/elm-html-test-runner": "1.0.3 <= v < 2.0.0"
     }
 }
