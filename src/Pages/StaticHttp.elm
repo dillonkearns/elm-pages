@@ -101,7 +101,7 @@ map fn requestInfo =
             fn value |> Done
 
 
-{-| TODO
+{-| Helper to remove an inner layer of Request wrapping.
 -}
 resolve : Request (List (Request value)) -> Request (List value)
 resolve topRequest =
