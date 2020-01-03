@@ -603,7 +603,7 @@ simulateEffects effect =
         FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
-                , url = unmasked.url |> Debug.log "FETCHING"
+                , url = unmasked.url -- |> Debug.log "FETCHING"
                 , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
                 , body = Http.emptyBody
                 , expect =
