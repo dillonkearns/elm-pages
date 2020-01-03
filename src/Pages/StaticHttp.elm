@@ -414,7 +414,11 @@ get url decoder =
 {-| The full details to perform a StaticHttp request.
 -}
 type alias RequestDetails =
-    HashRequest.Request
+    { url : String
+    , method : String
+    , headers : List ( String, String )
+    , body : Maybe String
+    }
 
 
 
