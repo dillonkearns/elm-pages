@@ -13,7 +13,6 @@ import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
-import Pages.StaticHttp.Body as Body exposing (Body)
 import Pages.StaticHttp.Request as Request
 import ProgramTest exposing (ProgramTest)
 import Regex
@@ -257,7 +256,7 @@ all =
                                 { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
-                                , body = Body.empty
+                                , body = StaticHttp.emptyBody
                                 }
                             )
                             (Decode.field "stargazer_count" Decode.int)
@@ -272,7 +271,7 @@ all =
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
-                                , body = Body.empty
+                                , body = StaticHttp.emptyBody
                                 }
                               , """{"stargazer_count":86}"""
                               )
@@ -469,7 +468,7 @@ Bad status: 404""")
                                     { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                     , method = "GET"
                                     , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
-                                    , body = Body.empty
+                                    , body = StaticHttp.emptyBody
                                     }
                                 )
                                 |> Secrets.with "API_KEY"
@@ -500,7 +499,7 @@ Bad status: 404""")
                                 , headers =
                                     [ ( "Authorization", "Bearer <BEARER>" )
                                     ]
-                                , body = Body.empty
+                                , body = StaticHttp.emptyBody
                                 }
                               , """{}"""
                               )
@@ -720,5 +719,5 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = Body.empty
+    , body = StaticHttp.emptyBody
     }

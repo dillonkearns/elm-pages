@@ -2,6 +2,7 @@ module Pages.StaticHttp exposing
     ( Request, RequestDetails
     , get, request
     , map, succeed
+    , Body, emptyBody, stringBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
     )
@@ -40,6 +41,15 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 @docs map, succeed
 
 
+## Building a StaticHttp Request Body
+
+The way you build a body is analagous to the `elm/http` package. Currently, only `emptyBody` and
+`stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
+and describe your use case!
+
+@docs Body, emptyBody, stringBody
+
+
 ## Chaining Requests
 
 @docs andThen, resolve, combine
@@ -51,11 +61,25 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode.Exploration as Decode exposing (Decoder)
+import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
-import Pages.StaticHttp.Body as Body exposing (Body)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
+
+
+emptyBody : Body
+emptyBody =
+    Body.EmptyBody
+
+
+stringBody : String -> Body
+stringBody content =
+    Body.StringBody content
+
+
+type alias Body =
+    Body.Body
 
 
 {-| A Request that will be made a build time. Multiple `StaticHttp.Request`s can be combined together using the `mapN` functions,
@@ -404,7 +428,7 @@ get url decoder =
                     { url = okUrl
                     , method = "GET"
                     , headers = []
-                    , body = Body.empty
+                    , body = StaticHttp.emptyBody
                     }
                 )
         )

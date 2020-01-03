@@ -4,7 +4,6 @@ import Dict exposing (Dict)
 import Expect
 import Json.Decode.Exploration as Decode
 import Pages.StaticHttp as StaticHttp
-import Pages.StaticHttp.Body as Body
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
@@ -31,7 +30,7 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = Body.empty
+    , body = StaticHttp.emptyBody
     }
 
 
@@ -136,5 +135,5 @@ getReq url =
     { url = url
     , method = "GET"
     , headers = []
-    , body = Body.empty
+    , body = StaticHttp.emptyBody
     }
