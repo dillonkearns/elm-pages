@@ -119,6 +119,25 @@ combine requests =
 
 
 {-| Like map, but it takes in two `Request`s.
+
+    view siteMetadata page =
+        StaticHttp.map2
+            (\elmPagesStars elmMarkdownStars ->
+                { view =
+                    \model viewForPage ->
+                        { title = "Repo Stargazers"
+                        , body = starsView elmPagesStars elmMarkdownStars
+                        }
+                , head = head elmPagesStars elmMarkdownStars
+                }
+            )
+            (get "https://api.github.com/repos/dillonkearns/elm-pages"
+                (Decode.field "stargazers_count" Decode.int)
+            )
+            (get "https://api.github.com/repos/dillonkearns/elm-markdown"
+                (Decode.field "stargazers_count" Decode.int)
+            )
+
 -}
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
 map2 fn request1 request2 =
