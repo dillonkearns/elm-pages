@@ -13,6 +13,7 @@ import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
+import Pages.StaticHttp.Request as Request
 import ProgramTest exposing (ProgramTest)
 import Regex
 import Secrets
@@ -38,25 +39,17 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86 }"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{"stargazer_count":86}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( { method = "GET"
+                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                                , headers = []
                                 }
+                              , """{"stargazer_count":86}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "andThen" <|
             \() ->
                 start
@@ -76,32 +69,27 @@ all =
                         "GET"
                         "NEXT-REQUEST"
                         """null"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/elm-pages"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """null"""
-                                                  )
-                                                , ( "[GET]NEXT-REQUEST"
-                                                  , """null"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
+                    |> expectSuccess
+                        [ ( "/elm-pages"
+                          , [ ( { method = "GET"
+                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                                , headers = []
                                 }
+                              , """null"""
+                              )
+                            , ( { method = "GET"
+                                , url = "NEXT-REQUEST"
+                                , headers = []
+                                }
+                              , """null"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "andThen chain avoids repeat requests" <|
             \() ->
                 let
-                    get url decoder =
+                    getReq url decoder =
                         StaticHttp.request
                             (Secrets.succeed
                                 { url = url
@@ -113,13 +101,13 @@ all =
 
                     pokemonDetailRequest : StaticHttp.Request ()
                     pokemonDetailRequest =
-                        get
+                        getReq
                             "https://pokeapi.co/api/v2/pokemon/"
                             (Decode.list
                                 (Decode.field "url" Decode.string
                                     |> Decode.map
                                         (\url ->
-                                            get url
+                                            getReq url
                                                 (Decode.field "image" Decode.string)
                                         )
                                 )
@@ -185,55 +173,44 @@ all =
                         "GET"
                         "url10"
                         """{"image": "image10.jpg"}"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/elm-pages"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://pokeapi.co/api/v2/pokemon/"
-                                                  , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
-                                                  )
-                                                , ( "[GET]url1"
-                                                  , """{"image":"image1.jpg"}"""
-                                                  )
-                                                , ( "[GET]url2"
-                                                  , """{"image":"image2.jpg"}"""
-                                                  )
-                                                , ( "[GET]url3"
-                                                  , """{"image":"image3.jpg"}"""
-                                                  )
-                                                , ( "[GET]url4"
-                                                  , """{"image":"image4.jpg"}"""
-                                                  )
-                                                , ( "[GET]url5"
-                                                  , """{"image":"image5.jpg"}"""
-                                                  )
-                                                , ( "[GET]url6"
-                                                  , """{"image":"image6.jpg"}"""
-                                                  )
-                                                , ( "[GET]url7"
-                                                  , """{"image":"image7.jpg"}"""
-                                                  )
-                                                , ( "[GET]url8"
-                                                  , """{"image":"image8.jpg"}"""
-                                                  )
-                                                , ( "[GET]url9"
-                                                  , """{"image":"image9.jpg"}"""
-                                                  )
-                                                , ( "[GET]url10"
-                                                  , """{"image":"image10.jpg"}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
+                    |> expectSuccess
+                        [ ( "/elm-pages"
+                          , [ ( get "https://pokeapi.co/api/v2/pokemon/"
+                              , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
+                              )
+                            , ( get "url1"
+                              , """{"image":"image1.jpg"}"""
+                              )
+                            , ( get "url2"
+                              , """{"image":"image2.jpg"}"""
+                              )
+                            , ( get "url3"
+                              , """{"image":"image3.jpg"}"""
+                              )
+                            , ( get "url4"
+                              , """{"image":"image4.jpg"}"""
+                              )
+                            , ( get "url5"
+                              , """{"image":"image5.jpg"}"""
+                              )
+                            , ( get "url6"
+                              , """{"image":"image6.jpg"}"""
+                              )
+                            , ( get "url7"
+                              , """{"image":"image7.jpg"}"""
+                              )
+                            , ( get "url8"
+                              , """{"image":"image8.jpg"}"""
+                              )
+                            , ( get "url9"
+                              , """{"image":"image9.jpg"}"""
+                              )
+                            , ( get "url10"
+                              , """{"image":"image10.jpg"}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "port is sent out once all requests are finished" <|
             \() ->
                 start
@@ -252,32 +229,20 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 22 }"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/elm-pages"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{"stargazer_count":86}"""
-                                                  )
-                                                ]
-                                          )
-                                        , ( "/elm-pages-starter"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                                                  , """{"stargazer_count":22}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
+                    |> expectSuccess
+                        [ ( "/elm-pages"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":86}"""
+                              )
                             ]
-                        )
+                          )
+                        , ( "/elm-pages-starter"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                              , """{"stargazer_count":22}"""
+                              )
+                            ]
+                          )
+                        ]
         , test "reduced JSON is sent out" <|
             \() ->
                 start
@@ -289,25 +254,14 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{"stargazer_count":86}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":86}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "POST method works" <|
             \() ->
                 start
@@ -326,25 +280,17 @@ all =
                         "POST"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList
-                                                [ ( "[POST]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{"stargazer_count":86}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( { method = "POST"
+                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                                , headers = []
                                 }
+                              , """{"stargazer_count":86}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "json is reduced from andThen chains" <|
             \() ->
                 start
@@ -364,28 +310,17 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{"stargazer_count":100}"""
-                                                  )
-                                                , ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                                                  , """{"stargazer_count":50}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":100}"""
+                              )
+                            , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                              , """{"stargazer_count":50}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "reduced json is preserved by StaticHttp.map2" <|
             \() ->
                 start
@@ -403,28 +338,17 @@ all =
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages"
-                                                  , """{"stargazer_count":100}"""
-                                                  )
-                                                , ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                                                  , """{"stargazer_count":50}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":100}"""
+                              )
+                            , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                              , """{"stargazer_count":50}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "the port sends out even if there are no http requests" <|
             \() ->
                 start
@@ -432,21 +356,7 @@ all =
                       , StaticHttp.succeed ()
                       )
                     ]
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList []
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
-                            ]
-                        )
+                    |> expectSuccess [ ( "/", [] ) ]
         , test "the port sends out when there are duplicate http requests for the same page" <|
             \() ->
                 start
@@ -460,21 +370,14 @@ all =
                         "GET"
                         "http://example.com"
                         """null"""
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList [ ( "[GET]http://example.com", "null" ) ]
-                                          )
-                                        ]
-                                , manifest = manifest
-                                }
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( get "http://example.com"
+                              , """null"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         , test "an error is sent out for decoder failures" <|
             \() ->
                 start
@@ -601,25 +504,19 @@ Bad status: 404""")
                             , body = """{ "stargazer_count": 86 }"""
                             }
                         )
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
-                        (Expect.equal
-                            [ Main.Success
-                                { pages =
-                                    Dict.fromList
-                                        [ ( "/"
-                                          , Dict.fromList
-                                                [ ( "[GET]https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>Authorization : Bearer <BEARER>"
-                                                  , """{}"""
-                                                  )
-                                                ]
-                                          )
-                                        ]
-                                , manifest = manifest
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( { method = "GET"
+                                , url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
+                                , headers =
+                                    [ ( "Authorization", "Bearer <BEARER>" )
+                                    ]
                                 }
+                              , """{}"""
+                              )
                             ]
-                        )
+                          )
+                        ]
         ]
 
 
@@ -777,3 +674,60 @@ manifest =
 
 starDecoder =
     Decode.field "stargazer_count" Decode.int
+
+
+thingy =
+    [ ( "/"
+      , [ ( { method = "GET"
+            , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+            , headers = []
+            }
+          , """{"stargazer_count":86}"""
+          )
+        ]
+      )
+    ]
+
+
+
+--type alias Request =
+--    { method : String
+--    , url : String
+--    , headers : List String
+--    }
+
+
+expectSuccess : List ( String, List ( Request.Request, String ) ) -> ProgramTest model msg effect -> Expect.Expectation
+expectSuccess expectedRequests previous =
+    previous
+        |> ProgramTest.expectOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder Main.toJsCodec)
+            (Expect.equal
+                [ Main.Success
+                    { pages =
+                        expectedRequests
+                            |> List.map
+                                (\( url, requests ) ->
+                                    ( url
+                                    , requests
+                                        |> List.map
+                                            (\( request, response ) ->
+                                                ( Request.hash request, response )
+                                            )
+                                        |> Dict.fromList
+                                    )
+                                )
+                            |> Dict.fromList
+                    , manifest = manifest
+                    }
+                ]
+            )
+
+
+get : String -> Request.Request
+get url =
+    { method = "GET"
+    , url = url
+    , headers = []
+    }

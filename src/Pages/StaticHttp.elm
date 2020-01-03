@@ -51,7 +51,9 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode.Exploration as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Pages.Secrets
+import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (Request(..))
 import Secrets
 
@@ -406,16 +408,15 @@ get url decoder =
 {-| The full details to perform a StaticHttp request.
 -}
 type alias RequestDetails =
-    { url : String, method : String, headers : List ( String, String ) }
+    HashRequest.Request
 
 
-hashRequest : RequestDetails -> String
-hashRequest requestDetails =
-    "["
-        ++ requestDetails.method
-        ++ "]"
-        ++ requestDetails.url
-        ++ String.join "," (requestDetails.headers |> List.map (\( key, value ) -> key ++ " : " ++ value))
+
+--"["
+--    ++ requestDetails.method
+--    ++ "]"
+--    ++ requestDetails.url
+--    ++ String.join "," (requestDetails.headers |> List.map (\( key, value ) -> key ++ " : " ++ value))
 
 
 requestToString : RequestDetails -> String
@@ -436,7 +437,7 @@ request urlWithSecrets decoder =
         ( [ urlWithSecrets ]
         , \rawResponseDict ->
             rawResponseDict
-                |> Dict.get (Secrets.maskedLookup urlWithSecrets |> hashRequest)
+                |> Dict.get (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
@@ -486,7 +487,7 @@ request urlWithSecrets decoder =
                                 (\finalRequest ->
                                     ( strippedResponses
                                         |> Dict.insert
-                                            (Secrets.maskedLookup urlWithSecrets |> hashRequest)
+                                            (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
                                             reduced
                                     , finalRequest
                                     )

@@ -28,6 +28,7 @@ import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
+import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
 import SecretsDict exposing (SecretsDict)
@@ -532,22 +533,13 @@ staticResponsesInit list =
         |> Dict.fromList
 
 
-hashUrl : RequestDetails -> String
-hashUrl requestDetails =
-    "["
-        ++ requestDetails.method
-        ++ "]"
-        ++ requestDetails.url
-        ++ String.join "," (requestDetails.headers |> List.map (\( key, value ) -> key ++ " : " ++ value))
-
-
 staticResponsesUpdate : { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String } -> Model -> Model
 staticResponsesUpdate newEntry model =
     let
         updatedAllResponses =
             model.allRawResponses
                 -- @@@@@@@@@ TODO handle errors here, change Dict to have `Result` instead of `Maybe`
-                |> Dict.insert (hashUrl newEntry.request.masked) (Just (newEntry.response |> Result.withDefault "TODO"))
+                |> Dict.insert (HashRequest.hash newEntry.request.masked) (Just (newEntry.response |> Result.withDefault "TODO"))
     in
     { model
         | allRawResponses = updatedAllResponses
@@ -563,17 +555,17 @@ staticResponsesUpdate newEntry model =
                                             (updatedAllResponses |> dictCompact)
                                             |> Tuple.second
                                             |> List.map Secrets.maskedLookup
-                                            |> List.map hashUrl
+                                            |> List.map HashRequest.hash
 
                                     includesUrl =
-                                        List.member (hashUrl newEntry.request.masked)
+                                        List.member (HashRequest.hash newEntry.request.masked)
                                             realUrls
                                 in
                                 if includesUrl then
                                     let
                                         updatedRawResponses =
                                             rawResponses
-                                                |> Dict.insert (hashUrl newEntry.request.masked) newEntry.response
+                                                |> Dict.insert (HashRequest.hash newEntry.request.masked) newEntry.response
                                     in
                                     NotFetched request updatedRawResponses
 
@@ -636,7 +628,7 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                                     fetchedAllKnownUrls =
                                         (knownUrlsToFetch
                                             |> List.map Secrets.maskedLookup
-                                            |> List.map hashUrl
+                                            |> List.map HashRequest.hash
                                             |> Set.fromList
                                             |> Set.size
                                         )
@@ -701,7 +693,7 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                             dictOfNewUrlsToPerform =
                                 urlsToPerform
                                     |> List.map .masked
-                                    |> List.map hashUrl
+                                    |> List.map HashRequest.hash
                                     |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
                                     |> Dict.fromList
 
@@ -712,7 +704,7 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                                     |> List.map
                                         (\secureUrl ->
                                             --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
-                                            ( hashUrl secureUrl.masked, secureUrl )
+                                            ( HashRequest.hash secureUrl.masked, secureUrl )
                                         )
                                     |> Dict.fromList
 
