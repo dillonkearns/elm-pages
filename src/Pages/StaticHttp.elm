@@ -90,6 +90,8 @@ jsonBody content =
     Body.JsonBody content
 
 
+{-| A body for a StaticHttp request.
+-}
 type alias Body =
     Body.Body
 
