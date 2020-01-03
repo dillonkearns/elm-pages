@@ -46,6 +46,7 @@ Here's a code snippet for making a StaticHttp request. This code makes an HTTP r
 import Pages.StaticHttp as StaticHttp
 import Pages
 import Head
+import Secrets
 import Json.Decode.Exploration as Decode
 
 
@@ -61,7 +62,8 @@ view :
     }
 view page =
   (StaticHttp.get
-    "https://api.github.com/repos/dillonkearns/elm-pages"
+    (Secrets.succeed
+    "https://api.github.com/repos/dillonkearns/elm-pages")
     (Decode.field "stargazers_count" Decode.int)
   )
   |> StaticHttp.map
@@ -110,23 +112,32 @@ similar to how you might use `Json.Decode.succeed`, `Random.constant`,
 etc.
 
 
-    import Pages.StaticHttp as StaticHttp
+```elm
+import Pages.StaticHttp as StaticHttp
 
 
-    StaticHttp.succeed
-      { view =
-        \model renderedMarkdown ->
-          { title = "Landing Page"
-          , body =
-            [ header
-            , pageView model renderedMarkdown
-            ]
-          }
-      , head = head
+StaticHttp.succeed
+  { view =
+    \model renderedMarkdown ->
+      { title = "Landing Page"
+      , body =
+        [ header
+        , pageView model renderedMarkdown
+        ]
       }
+  , head = head
+  }
+```
 
 This is actually the same as our previous example that had a `StaticHttp.request`, except that it doesn't make a request or have the
 stargazer count data.
+
+### Secure Secrets
+A common pattern is to use environment variables in your local environment or your CI environment in order to securely manage
+auth tokens and other secure data. `elm-pages` provides an API for accessing this data directly from your environment variables.
+You don't need to wire through any flags or ports, simply use the [`Pages.Secrets` module (see the docs for more info)](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-Secrets). It will take care of masking the secret data for you
+so that it won't be accessible in the bundled assets (it's just used to perform the requests during the build step, and then
+it's masked in the production assets).
 
 ### The Static HTTP Lifecycle
 If you have a bad auth token in your URL, or your JSON decoder fails, then that code will never run for your `elm-pages` site. Instead, you'll get a friendly `elm-pages` build-time error telling you exactly what the problem was and where it occurred (as you're familiar with in Elm).
