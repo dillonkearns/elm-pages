@@ -80,17 +80,6 @@ function run() {
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent.concat(content));
 
-    ensureDirSync("./gen");
-    
-    // prevent compilation errors if migrating from previous elm-pages version
-    deleteIfExists("./gen/Pages/ContentCache.elm");
-    deleteIfExists("./gen/Pages/Platform.elm");
-
-    fs.writeFileSync(
-      "./gen/Pages.elm",
-      elmPagesUiFile(staticRoutes, markdownContent, content)
-    );
-    console.log("elm-pages DONE");
     doCliStuff(
       contents.watch ? "dev" : "prod",
       staticRoutes,
@@ -122,6 +111,19 @@ function run() {
             () => {}
           );
         }
+
+        ensureDirSync("./gen");
+        
+        // prevent compilation errors if migrating from previous elm-pages version
+        deleteIfExists("./gen/Pages/ContentCache.elm");
+        deleteIfExists("./gen/Pages/Platform.elm");
+
+        fs.writeFileSync(
+          "./gen/Pages.elm",
+          elmPagesUiFile(staticRoutes, markdownContent, content)
+        );
+        console.log("elm-pages DONE");
+
       }
     );
   });
