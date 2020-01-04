@@ -11,6 +11,7 @@ const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
 const parseFrontmatter = require("./frontmatter.js");
 const path = require("path");
+const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -79,48 +80,52 @@ function run() {
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent.concat(content));
 
-    doCliStuff(staticRoutes, markdownContent, content, function(payload) {
-      if (contents.watch) {
-        startWatchIfNeeded();
-        if (!devServerRunning) {
-          devServerRunning = true;
-          develop.start({
-            routes,
-            debug: contents.debug,
-            customPort: contents.customPort,
-            manifestConfig: payload.manifest
-          });
-        }
-      } else {
-        if (payload.errors) {
-          printErrorsAndExit(payload.errors);
+    doCliStuff(
+      contents.watch ? "dev" : "prod",
+      staticRoutes,
+      markdownContent,
+      content,
+      function(payload) {
+        if (contents.watch) {
+          startWatchIfNeeded();
+          if (!devServerRunning) {
+            devServerRunning = true;
+            develop.start({
+              routes,
+              debug: contents.debug,
+              manifestConfig: payload.manifest,
+              routesWithRequests: payload.pages
+            });
+          }
+        } else {
+          if (payload.errors) {
+            printErrorsAndExit(payload.errors);
+          }
+
+          develop.run(
+            {
+              routes,
+              manifestConfig: payload.manifest,
+              routesWithRequests: payload.pages
+            },
+            () => {}
+          );
         }
 
-        develop.run(
-          {
-            routes,
-            manifestConfig: payload.manifest
-          },
-          () => {}
-        );
-      }
+        ensureDirSync("./gen");
+        
+        // prevent compilation errors if migrating from previous elm-pages version
+        deleteIfExists("./gen/Pages/ContentCache.elm");
+        deleteIfExists("./gen/Pages/Platform.elm");
 
-      ensureDirSync("./gen");
-      fs.writeFileSync(
+        fs.writeFileSync(
           "./gen/Pages.elm",
           elmPagesUiFile(staticRoutes, markdownContent, content)
-      );
-      ensureDirSync("./gen/Pages");
-      fs.copyFileSync(
-          path.resolve(__dirname, "../../elm-package/src/Pages/ContentCache.elm"),
-          "./gen/Pages/ContentCache.elm"
-      );
-      fs.copyFileSync(
-          path.resolve(__dirname, "../../elm-package/src/Pages/Platform.elm"),
-          "./gen/Pages/Platform.elm"
-      );
-      console.log("elm-pages DONE");
-    });
+        );
+        console.log("elm-pages DONE");
+
+      }
+    );
   });
 }
 
@@ -163,12 +168,4 @@ function toRoute(entry) {
     .filter(item => item !== "");
   fullPath.splice(0, 1);
   return `/${fullPath.join("/")}`;
-}
-
-function ensureDirSync(dirpath) {
-  try {
-    fs.mkdirSync(dirpath, { recursive: true });
-  } catch (err) {
-    if (err.code !== "EEXIST") throw err;
-  }
 }

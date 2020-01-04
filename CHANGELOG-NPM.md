@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.4] - 2020-01-03
+
+### Changed
+- Updated `favicons-webpack-plugin` to latest version. Had to upgrade to `html-webpack-plugin@4.0.0-beta.11`
+  for this. See [#32](https://github.com/dillonkearns/elm-pages/issues/32).
+
+## [1.1.3] - 2020-01-03
+
+*Check out [this upgrade checklist](https://github.com/dillonkearns/elm-pages/blob/master/docs/upgrade-guide.md#upgrading-to-elm-package-110-and-npm-package-113) for more details and steps for upgrading your project.
+
+### Changed
+- Added `StaticHttp` requests in the CLI process (see the Elm package changelog).
+
 ## [1.0.41] - 2019-11-14
 
 ### Fixed
@@ -29,3 +42,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Use hidden `<div>` to listen for Elm view renders instead of wrapping entire
    page in an extra div. Fixes [#5](https://github.com/dillonkearns/elm-pages/issues/5).
+
+### Changed
+- Add `onPageChange : PagePath Pages.PathKey -> userMsg` field to `Pages.application` config record.
+    This is analagous to `onUrlChange` in `Browser.application`, except that you get a
+    type-safe `PagePath Pages.PathKey` because it is guaranteed that you will only
+    go to one of your static routes when this `Msg` is fired. Fixes [#4](https://github.com/dillonkearns/elm-pages/issues/4).

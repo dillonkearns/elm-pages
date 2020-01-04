@@ -16,10 +16,11 @@ const ClosurePlugin = require("closure-webpack-plugin");
 const readline = require("readline");
 
 module.exports = { start, run };
-function start({ routes, debug, customPort, manifestConfig }) {
+function start({ routes, debug, customPort, manifestConfig, routesWithRequests }) {
   const config = webpackOptions(false, routes, {
     debug,
-    manifestConfig
+    manifestConfig,
+    routesWithRequests
   });
 
   const compiler = webpack(config);
@@ -59,41 +60,45 @@ function start({ routes, debug, customPort, manifestConfig }) {
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes, manifestConfig }, callback) {
-  webpack(webpackOptions(true, routes, { debug: false, manifestConfig })).run(
-    (err, stats) => {
-      if (err) {
-        console.error(err);
-        process.exit(1);
-      } else {
-        callback();
-      }
-
-      console.log(
-        stats.toString({
-          chunks: false, // Makes the build much quieter
-          colors: true, // Shows colors in the console
-          // copied from `'minimal'`
-          all: false,
-          modules: false,
-          performance: true,
-          timings: false,
-          outputPath: true,
-          maxModules: 0,
-          errors: true,
-          warnings: true,
-          // our additional options
-          moduleTrace: false,
-          errorDetails: false
-        })
-      );
-
-      const duration = roundToOneDecimal(
-        (stats.endTime - stats.startTime) / 1000
-      );
-      console.log(`Duration: ${duration}s`);
+function run({ routes, manifestConfig, routesWithRequests }, callback) {
+  webpack(
+    webpackOptions(true, routes, {
+      debug: false,
+      manifestConfig,
+      routesWithRequests
+    })
+  ).run((err, stats) => {
+    if (err) {
+      console.error(err);
+      process.exit(1);
+    } else {
+      callback();
     }
-  );
+
+    console.log(
+      stats.toString({
+        chunks: false, // Makes the build much quieter
+        colors: true, // Shows colors in the console
+        // copied from `'minimal'`
+        all: false,
+        modules: false,
+        performance: true,
+        timings: false,
+        outputPath: true,
+        maxModules: 0,
+        errors: true,
+        warnings: true,
+        // our additional options
+        moduleTrace: false,
+        errorDetails: false
+      })
+    );
+
+    const duration = roundToOneDecimal(
+      (stats.endTime - stats.startTime) / 1000
+    );
+    console.log(`Duration: ${duration}s`);
+  });
 }
 
 function roundToOneDecimal(n) {
@@ -105,12 +110,16 @@ function printProgress(progress, message) {
   readline.cursorTo(process.stdout, 0);
   process.stdout.write(`${progress} ${message}`);
 }
-function webpackOptions(production, routes, { debug, manifestConfig }) {
+function webpackOptions(
+  production,
+  routes,
+  { debug, manifestConfig, routesWithRequests }
+) {
   const common = {
     entry: "./index.js",
     mode: production ? "production" : "development",
     plugins: [
-      new AddFilesPlugin(),
+      new AddFilesPlugin(routesWithRequests),
       new CopyPlugin([
         {
           from: "static/**/*",

@@ -35,3 +35,13 @@ function body(entry, includeBody) {
     return `Nothing`;
   }
 }
+
+// function staticData(entry, includeBody) {
+//   if (includeBody) {
+//     return `Just """${entry.staticData.replace(/\\/g, "\\\\")}
+// """
+// `;
+//   } else {
+//     return `Nothing`;
+//   }
+// }

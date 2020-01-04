@@ -8,7 +8,9 @@ module.exports = function pagesInit(
 
   document.addEventListener("DOMContentLoaded", function() {
     let app = mainElmModule.init({
-      flags: {}
+      flags: {
+        secrets: null
+      }
     });
 
     app.ports.toJsPort.subscribe((
@@ -113,7 +115,7 @@ module.exports = function pagesInit(
         link.setAttribute("as", "fetch");
 
         link.setAttribute("rel", "prefetch");
-        link.setAttribute("href", origin + target.pathname + "/content.txt");
+        link.setAttribute("href", origin + target.pathname + "/content.json");
         document.head.appendChild(link);
       }
     }

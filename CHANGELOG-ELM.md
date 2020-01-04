@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.0] - 2020-01-03
+
+*Check out [this upgrade checklist](https://github.com/dillonkearns/elm-pages/blob/master/docs/upgrade-guide.md#upgrading-to-elm-package-110-and-npm-package-113) for more details and steps for upgrading your project.
+
+### Added
+- There's a new StaticHttp API. Read more about it in [this `StaticHttp` announcement blog post](http://elm-pages.com/blog/static-http)!
+- The generated `Pages.elm` module now includes `builtAt : Time.Posix`. Make sure you have `elm/time` as a dependency in your project!
+   You can use this when you make API requests to filter based on a date range starting with the current date.
+   If you want a random seed that changes on each build (or every week, or every month, etc.), then you can use this time stamp
+   (and perform modulo arithemtic based on the date for each week, month, etc.) and use that number as a random seed.
+
+### Changed
+- Instead of initializing an application using `Pages.application` from the generated `Pages` module, you now initialize the app
+    using `Pages.Platform.application` which is part of the published Elm package. So now it's easier to browse the docs.
+    You pass in some internal data from the generated `Pages.elm` module now by including
+    this in the application config record:  `Pages.Platform.application { internals = Pages.internals, ... <other fields> }`.
+- Add init argument and user Msg for initial PagePath and page changes (see [#4](https://github.com/dillonkearns/elm-pages/issues/4)).
+
+
 ## [1.0.1] - 2019-11-04
 
 ### Fixed

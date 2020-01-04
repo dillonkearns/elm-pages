@@ -15,17 +15,19 @@ module Pages.ContentCache exposing
     , update
     )
 
+import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
-import Json.Decode
+import Json.Decode as Decode
 import Mark
 import Mark.Error
 import Pages.Document as Document exposing (Document)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Result.Extra
 import Task exposing (Task)
+import TerminalText as Terminal
 import Url exposing (Url)
 import Url.Builder
 
@@ -39,7 +41,7 @@ type alias ContentCache metadata view =
 
 
 type alias Errors =
-    Dict Path String
+    List ( Html Never, BuildError )
 
 
 type alias ContentCacheInner metadata view =
@@ -48,9 +50,9 @@ type alias ContentCacheInner metadata view =
 
 type Entry metadata view
     = NeedContent String metadata
-    | Unparsed String metadata String
+    | Unparsed String metadata (ContentJson String)
       -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed metadata (Result ParseError view)
+    | Parsed metadata (ContentJson (Result ParseError view))
 
 
 type alias ParseError =
@@ -81,7 +83,7 @@ getMetadata entry =
             metadata
 
 
-pagesWithErrors : ContentCache metadata view -> Maybe (Dict (List String) String)
+pagesWithErrors : ContentCache metadata view -> List BuildError
 pagesWithErrors cache =
     cache
         |> Result.map
@@ -91,25 +93,19 @@ pagesWithErrors cache =
                     |> List.filterMap
                         (\( path, value ) ->
                             case value of
-                                Parsed metadata (Err parseError) ->
-                                    Just ( path, parseError )
+                                Parsed metadata { body } ->
+                                    case body of
+                                        Err parseError ->
+                                            createBuildError path parseError |> Just
+
+                                        _ ->
+                                            Nothing
 
                                 _ ->
                                     Nothing
                         )
             )
-        |> Result.map
-            (\errors ->
-                case errors of
-                    [] ->
-                        Nothing
-
-                    _ ->
-                        errors
-                            |> Dict.fromList
-                            |> Just
-            )
-        |> Result.withDefault Nothing
+        |> Result.withDefault []
 
 
 init :
@@ -123,13 +119,33 @@ init document content =
                 Tuple.mapSecond
                     (\result ->
                         result
-                            |> Result.mapError (\error -> ( Tuple.first tuple, error ))
+                            |> Result.mapError
+                                (\error ->
+                                    --                            ( Tuple.first tuple, error )
+                                    createErrors (Tuple.first tuple) error
+                                )
                     )
                     tuple
             )
         |> combineTupleResults
-        |> Result.mapError Dict.fromList
+        --        |> Result.mapError Dict.fromList
         |> Result.map Dict.fromList
+
+
+createErrors path decodeError =
+    ( createHtmlError path decodeError, createBuildError path decodeError )
+
+
+createBuildError : List String -> String -> BuildError
+createBuildError path decodeError =
+    { title = "Metadata Decode Error"
+    , message =
+        [ Terminal.text "I ran into a problem when parsing the metadata for the page with this path: "
+        , Terminal.text ("/" ++ (path |> String.join "/"))
+        , Terminal.text "\n\n"
+        , Terminal.text decodeError
+        ]
+    }
 
 
 parseMetadata :
@@ -151,13 +167,16 @@ parseMetadata document content =
                                 |> documentEntry.frontmatterParser
                                 |> Result.map
                                     (\metadata ->
-                                        case body of
-                                            Just presentBody ->
-                                                Parsed metadata
-                                                    (parseContent extension presentBody document)
-
-                                            Nothing ->
-                                                NeedContent extension metadata
+                                        -- TODO do I need to handle this case?
+                                        --                                        case body of
+                                        --                                            Just presentBody ->
+                                        --                                                Parsed metadata
+                                        --                                                    { body = parseContent extension presentBody document
+                                        --                                                    , staticData = ""
+                                        --                                                    }
+                                        --
+                                        --                                            Nothing ->
+                                        NeedContent extension metadata
                                     )
 
                         Nothing ->
@@ -187,15 +206,16 @@ parseContent extension body document =
 errorView : Errors -> Html msg
 errorView errors =
     errors
-        |> Dict.toList
-        |> List.map errorEntryView
+        --        |> Dict.toList
+        |> List.map Tuple.first
+        |> List.map (Html.map never)
         |> Html.div
             [ Attr.style "padding" "20px 100px"
             ]
 
 
-errorEntryView : ( Path, String ) -> Html msg
-errorEntryView ( path, error ) =
+createHtmlError : List String -> String -> Html msg
+createHtmlError path error =
     Html.div []
         [ Html.h2 []
             [ Html.text ("/" ++ (path |> String.join "/"))
@@ -330,6 +350,7 @@ lazyLoad document url cacheResult =
                     Task.succeed cacheResult
 
 
+httpTask : Url -> Task Http.Error (ContentJson String)
 httpTask url =
     Http.task
         { method = "GET"
@@ -337,7 +358,7 @@ httpTask url =
         , url =
             Url.Builder.absolute
                 ((url.path |> String.split "/" |> List.filter (not << String.isEmpty))
-                    ++ [ "content.txt"
+                    ++ [ "content.json"
                        ]
                 )
                 []
@@ -359,17 +380,32 @@ httpTask url =
                             Err (Http.BadStatus metadata.statusCode)
 
                         Http.GoodStatus_ metadata body ->
-                            Ok body
+                            body
+                                |> Decode.decodeString contentJsonDecoder
+                                |> Result.mapError (\err -> Http.BadBody (Decode.errorToString err))
                 )
         , timeout = Nothing
         }
+
+
+type alias ContentJson body =
+    { body : body
+    , staticData : Dict String String
+    }
+
+
+contentJsonDecoder : Decode.Decoder (ContentJson String)
+contentJsonDecoder =
+    Decode.map2 ContentJson
+        (Decode.field "body" Decode.string)
+        (Decode.field "staticData" (Decode.dict Decode.string))
 
 
 update :
     ContentCache metadata view
     -> (String -> Result ParseError view)
     -> Url
-    -> String
+    -> ContentJson String
     -> ContentCache metadata view
 update cacheResult renderer url rawContent =
     case cacheResult of
@@ -381,11 +417,17 @@ update cacheResult renderer url rawContent =
                             entry
 
                         Just (Unparsed extension metadata content) ->
-                            Parsed metadata (renderer content)
+                            Parsed metadata
+                                { body = renderer content.body
+                                , staticData = content.staticData
+                                }
                                 |> Just
 
                         Just (NeedContent extension metadata) ->
-                            Parsed metadata (renderer rawContent)
+                            Parsed metadata
+                                { body = renderer rawContent.body
+                                , staticData = rawContent.staticData
+                                }
                                 |> Just
 
                         Nothing ->
@@ -432,22 +474,23 @@ lookup pathKey content url =
 
 
 lookupMetadata :
-    ContentCache metadata view
+    pathKey
+    -> ContentCache metadata view
     -> Url
-    -> Maybe metadata
-lookupMetadata content url =
-    lookup () content url
+    -> Maybe ( PagePath pathKey, metadata )
+lookupMetadata pathKey content url =
+    lookup pathKey content url
         |> Maybe.map
             (\( pagePath, entry ) ->
                 case entry of
                     NeedContent _ metadata ->
-                        metadata
+                        ( pagePath, metadata )
 
                     Unparsed _ metadata _ ->
-                        metadata
+                        ( pagePath, metadata )
 
                     Parsed metadata _ ->
-                        metadata
+                        ( pagePath, metadata )
             )
 
 
