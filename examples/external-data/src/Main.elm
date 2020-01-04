@@ -181,7 +181,7 @@ view siteMetadata page =
                             , body =
                                 [ header starCount
                                 , Element.text "Built at: "
-                                , Element.text <| String.fromInt <| Time.posixToMillis Pages.buildTime
+                                , Element.text <| String.fromInt <| Time.posixToMillis Pages.builtAt
                                 , pokemon
                                     |> List.map pokemonView
                                     |> Element.column
