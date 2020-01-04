@@ -1,6 +1,6 @@
 # `elm-pages` Upgrade Guide
 
-## Upgrading to Elm Package 1.1.0 and NPM Package 1.1.2
+## Upgrading to Elm Package 1.1.0 and NPM Package 1.1.3
 
 Here's a diff to help guide you through the change: https://github.com/dillonkearns/elm-pages-starter/commit/5de5102d706f4a360df94e5493ceff27ebd61587.
 
@@ -17,7 +17,7 @@ Here's a diff to help guide you through the change: https://github.com/dillonkea
 
 ### Step by step upgrade checklist
 
-- Be sure to install the latest NPM package *and* the latest elm package (NPM version 1.1.2 and Elm package version 1.1.0 at
+- Be sure to install the latest NPM package *and* the latest elm package (NPM version 1.1.3 and Elm package version 1.1.0 at
   the time of this writing).
 - `elm install elm/time` (the generated `Pages.elm` has a new `builtAt` value of 
     type `Time` so this needs to be installed for it to compile).
