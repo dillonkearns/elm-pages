@@ -51,7 +51,6 @@ import Json.Decode
 import Json.Encode
 import Mark
 import Pages.Platform
-import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
@@ -119,7 +118,6 @@ import Json.Decode
 import Json.Encode
 import Mark
 import Pages.Platform
-import Pages.ContentCache exposing (Page)
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
