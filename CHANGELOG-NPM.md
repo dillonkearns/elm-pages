@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.5] - 2020-01-03
+
+### Fixed
+- Fixed the bug that showed blank pages and failed page reloads when you change files in the `content` folder. Thank you so much [@danmarcab](https://github.com/danmarcab) for contributing the fix! See [#23](https://github.com/dillonkearns/elm-pages/pull/23).
+
 ## [1.1.4] - 2020-01-03
 
 ### Changed
