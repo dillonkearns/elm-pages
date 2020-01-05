@@ -7,7 +7,6 @@ const PrerenderSPAPlugin = require("prerender-spa-plugin");
 const merge = require("webpack-merge");
 const { InjectManifest } = require("workbox-webpack-plugin");
 const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
-const webpackDevServer = require("webpack-dev-server");
 const AddFilesPlugin = require("./add-files-plugin.js");
 const ImageminPlugin = require("imagemin-webpack-plugin").default;
 const imageminMozjpeg = require("imagemin-mozjpeg");
@@ -36,7 +35,13 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests }
 
   const app = express();
 
-  app.use(middleware(compiler, options));
+  app.use('/images', express.static(path.resolve(process.cwd(), "./images")));
+
+
+  app.use(require("webpack-dev-middleware")(compiler, options));
+  app.use(require("webpack-hot-middleware")(compiler, {
+    log: console.log, path: '/__webpack_hmr'
+  }))
 
   app.use("*", function(req, res, next) {
     // don't know why this works, but it does
@@ -116,7 +121,6 @@ function webpackOptions(
   { debug, manifestConfig, routesWithRequests }
 ) {
   const common = {
-    entry: "./index.js",
     mode: production ? "production" : "development",
     plugins: [
       new AddFilesPlugin(routesWithRequests),
@@ -217,7 +221,15 @@ function webpackOptions(
       publicPath: "/"
     },
     resolve: {
-      modules: [path.resolve(process.cwd(), `./node_modules`)],
+      modules: [
+        path.resolve(process.cwd(), `./node_modules`), 
+        // TODO: find a cleaner way to do this.
+        // This line just needs a way to point to the `node_modules` directory
+        // for the library bin (not the user's node_modules, which is the 
+        // process.cwd prefixed node_modules above).
+        path.resolve(path.dirname(require.resolve('webpack')), '../../'),
+
+    ],
       extensions: [".js", ".elm", ".scss", ".png", ".html"]
     },
     module: {
@@ -257,6 +269,7 @@ function webpackOptions(
   };
   if (production) {
     return merge(common, {
+      entry: "./index.js",
       optimization: {
         minimizer: [
           new ClosurePlugin(
@@ -306,19 +319,27 @@ function webpackOptions(
     });
   } else {
     return merge(common, {
+      entry: [
+        require.resolve("webpack-hot-middleware/client"),
+        "./index.js",
+        ],
+      plugins: [
+        new webpack.NamedModulesPlugin(),
+        // Prevents compilation errors causing the hot loader to lose state
+        new webpack.NoEmitOnErrorsPlugin(),
+        new webpack.HotModuleReplacementPlugin() 
+      ],
       module: {
         rules: [
           {
             test: /\.elm$/,
             exclude: [/elm-stuff/, /node_modules/],
             use: [
-              // { loader: require.resolve("elm-hot-webpack-loader") },
+              { loader: require.resolve("elm-hot-webpack-loader") },
               {
                 loader: require.resolve("elm-webpack-loader"),
                 options: {
-                  // add Elm's debug overlay to output?
                   debug: debug,
-                  //
                   forceWatch: true
                 }
               }
