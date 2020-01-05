@@ -367,7 +367,10 @@ update canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document u
                         Browser.Internal url ->
                             let
                                 navigatingToSamePage =
-                                    url.path == model.url.path
+                                    url.path
+                                        == model.url.path
+                                        && url
+                                        /= model.url
                             in
                             if navigatingToSamePage then
                                 -- this is a workaround for an issue with anchor fragment navigation
