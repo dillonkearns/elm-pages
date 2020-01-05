@@ -29,8 +29,8 @@ buildToc blocks =
         |> List.map Tuple.second
         |> List.map
             (\styledList ->
-                { anchorId = styledToString styledList
-                , name = styledToString styledList |> rawTextToId
+                { anchorId = styledToString styledList |> rawTextToId
+                , name = styledToString styledList
                 , level = 1
                 }
             )
