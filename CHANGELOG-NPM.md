@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.6] - 2020-01-04
+
+### Added
+- Added hot reloading for code changes! That means that in dev mode (`elm-pages develop`),
+    you can change your code and the changes will be reloaded in your browser for you instantly.
+    Note that changing files in your `content` folder won't yet be instantly reloaded, that will
+    be a future task. See [#35](https://github.com/dillonkearns/elm-pages/pull/35).
+
 ## [1.1.5] - 2020-01-03
 
 ### Fixed
