@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.1] - 2020-01-04
+
+### Fixed
+* Don't reload pages when clicking a link to the exact same URL as current URL. Fixes [#29](https://github.com/dillonkearns/elm-pages/issues/29).
+
 ## [1.1.0] - 2020-01-03
 
 *Check out [this upgrade checklist](https://github.com/dillonkearns/elm-pages/blob/master/docs/upgrade-guide.md#upgrading-to-elm-package-110-and-npm-package-113) for more details and steps for upgrading your project.
