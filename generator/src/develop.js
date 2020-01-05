@@ -15,11 +15,12 @@ const ClosurePlugin = require("closure-webpack-plugin");
 const readline = require("readline");
 
 module.exports = { start, run };
-function start({ routes, debug, customPort, manifestConfig, routesWithRequests }) {
+function start({ routes, debug, customPort, manifestConfig, routesWithRequests, filesToGenerate }) {
   const config = webpackOptions(false, routes, {
     debug,
     manifestConfig,
-    routesWithRequests
+    routesWithRequests,
+    filesToGenerate
   });
 
   const compiler = webpack(config);
@@ -65,12 +66,13 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests }
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes, manifestConfig, routesWithRequests }, callback) {
+function run({ routes, manifestConfig, routesWithRequests, filesToGenerate }, callback) {
   webpack(
     webpackOptions(true, routes, {
       debug: false,
       manifestConfig,
-      routesWithRequests
+      routesWithRequests,
+      filesToGenerate
     })
   ).run((err, stats) => {
     if (err) {
@@ -118,12 +120,12 @@ function printProgress(progress, message) {
 function webpackOptions(
   production,
   routes,
-  { debug, manifestConfig, routesWithRequests }
+  { debug, manifestConfig, routesWithRequests, filesToGenerate }
 ) {
   const common = {
     mode: production ? "production" : "development",
     plugins: [
-      new AddFilesPlugin(routesWithRequests),
+      new AddFilesPlugin(routesWithRequests, filesToGenerate),
       new CopyPlugin([
         {
           from: "static/**/*",

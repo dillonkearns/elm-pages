@@ -44,6 +44,13 @@ type ToJsPayload pathKey
 type alias ToJsSuccessPayload pathKey =
     { pages : Dict String (Dict String String)
     , manifest : Manifest.Config pathKey
+    , filesToGenerate : List FileToGenerate
+    }
+
+
+type alias FileToGenerate =
+    { path : List String
+    , content : String
     }
 
 
@@ -55,8 +62,8 @@ toJsCodec =
                 Errors errorList ->
                     errors errorList
 
-                Success { pages, manifest } ->
-                    success (ToJsSuccessPayload pages manifest)
+                Success { pages, manifest, filesToGenerate } ->
+                    success (ToJsSuccessPayload pages manifest filesToGenerate)
         )
         |> Codec.variant1 "Errors" Errors Codec.string
         |> Codec.variant1 "Success"
@@ -90,6 +97,21 @@ successCodec =
         |> Codec.field "manifest"
             .manifest
             (Codec.build Manifest.toJson (Decode.succeed stubManifest))
+        |> Codec.field "filesToGenerate"
+            .filesToGenerate
+            (Codec.build
+                (\list ->
+                    list
+                        |> Json.Encode.list
+                            (\item ->
+                                Json.Encode.object
+                                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
+                                    , ( "content", item.content |> Json.Encode.string )
+                                    ]
+                            )
+                )
+                (Decode.succeed [])
+            )
         |> Codec.buildObject
 
 
@@ -745,6 +767,10 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
                     (ToJsSuccessPayload
                         (encodeStaticResponses mode staticResponses)
                         manifest
+                        [ { path = [ "hello.txt" ]
+                          , content = "Hello generated files!"
+                          }
+                        ]
                     )
 
              else
