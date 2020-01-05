@@ -121,10 +121,6 @@ function webpackOptions(
   { debug, manifestConfig, routesWithRequests }
 ) {
   const common = {
-    entry: [
-      require.resolve("webpack-hot-middleware/client"),
-      path.resolve(process.cwd(), "./index.js"),
-      ],
     mode: production ? "production" : "development",
     plugins: [
       new AddFilesPlugin(routesWithRequests),
@@ -273,6 +269,7 @@ function webpackOptions(
   };
   if (production) {
     return merge(common, {
+      entry: "./index.js",
       optimization: {
         minimizer: [
           new ClosurePlugin(
@@ -322,6 +319,10 @@ function webpackOptions(
     });
   } else {
     return merge(common, {
+      entry: [
+        require.resolve("webpack-hot-middleware/client"),
+        "./index.js",
+        ],
       plugins: [
         new webpack.NamedModulesPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
