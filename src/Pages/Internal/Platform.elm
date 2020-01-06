@@ -497,6 +497,16 @@ application :
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , manifest : Manifest.Config pathKey
+    , generateFiles :
+        List
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            List
+                { path : List String
+                , content : String
+                }
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange : PagePath pathKey -> userMsg
@@ -564,6 +574,16 @@ cliApplication :
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , manifest : Manifest.Config pathKey
+    , generateFiles :
+        List
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            List
+                { path : List String
+                , content : String
+                }
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange : PagePath pathKey -> userMsg

@@ -10,6 +10,7 @@ import Element.Background
 import Element.Border
 import Element.Font as Font
 import Element.Region
+import Feed
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -62,9 +63,25 @@ main =
         , documents = [ markdownDocument ]
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
+        , generateFiles = generateFiles
         , onPageChange = OnPageChange
         , internals = Pages.internals
         }
+
+
+generateFiles :
+    List
+        { path : PagePath Pages.PathKey
+        , frontmatter : Metadata
+        }
+    ->
+        List
+            { path : List String
+            , content : String
+            }
+generateFiles siteMetadata =
+    [ Feed.fileToGenerate siteTagline siteMetadata
+    ]
 
 
 markdownDocument : ( String, Pages.Document.DocumentHandler Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) )
