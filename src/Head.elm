@@ -129,7 +129,7 @@ rssLink url =
 
 {-| Example:
 
-    Head.metaProperty "fb:app_id" ( Head.raw "123456789" )
+    Head.metaProperty "fb:app_id" (Head.raw "123456789")
 
 Results in `<meta property="fb:app_id" content="123456789" />`
 
