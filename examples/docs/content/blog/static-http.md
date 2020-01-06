@@ -190,3 +190,11 @@ I'm looking forward to exploring more possibilities for using static data in `el
 * Programatically creating pages using the Static HTTP API
 * Configurable image optimization (including producing multiple dimensions for `srcset`s) using a similar API
 * Optimizing the page metadata that is included for each page (i.e. code splitting) by explicitly specifying what metadata the page depends on using an API similar to StaticHttp
+
+## Getting started with StaticHttp
+
+You can [take a look at this an end-to-end example app that uses the new `StaticHttp` library](https://github.com/dillonkearns/elm-pages/blob/master/examples/external-data/src/Main.elm) to get started.
+
+Or just use the [`elm-pages-starter` repo](https://github.com/dillonkearns/elm-pages-starter) and start building something cool! Let me know your thoughts on Slack, I'd love to hear from you! Or continue the conversation on Twitter!
+
+<Oembed url="https://twitter.com/dillontkearns/status/1214238507163471872" />
