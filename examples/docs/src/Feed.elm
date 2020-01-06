@@ -11,7 +11,9 @@ import Xml.Encode exposing (..)
 
 
 fileToGenerate :
-    String
+    { siteTagline : String
+    , siteUrl : String
+    }
     ->
         List
             { path : PagePath Pages.PathKey
@@ -21,22 +23,24 @@ fileToGenerate :
         { path : List String
         , content : String
         }
-fileToGenerate siteTagline siteMetadata =
+fileToGenerate config siteMetadata =
     { path = [ "feed.xml" ]
     , content =
-        generate siteTagline siteMetadata |> Xml.Encode.encode 0
+        generate config siteMetadata |> Xml.Encode.encode 0
     }
 
 
 generate :
-    String
+    { siteTagline : String
+    , siteUrl : String
+    }
     ->
         List
             { path : PagePath Pages.PathKey
             , frontmatter : Metadata
             }
     -> Xml.Value
-generate siteTagline siteMetadata =
+generate { siteTagline, siteUrl } siteMetadata =
     RssFeed.generate
         { title = "elm-pages Blog"
         , description = siteTagline
@@ -49,6 +53,7 @@ generate siteTagline siteMetadata =
                 , version = Nothing
                 }
         , items = siteMetadata |> List.filterMap metadataToRssItem
+        , siteUrl = siteUrl
         }
 
 
@@ -64,7 +69,6 @@ metadataToRssItem page =
                 { title = article.title
                 , description = article.description
                 , url = PagePath.toString page.path
-                , guid = PagePath.toString page.path
                 , categories = []
                 , author = article.author.name
                 , pubDate = article.published

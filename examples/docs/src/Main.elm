@@ -80,7 +80,7 @@ generateFiles :
             , content : String
             }
 generateFiles siteMetadata =
-    [ Feed.fileToGenerate siteTagline siteMetadata
+    [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata
     ]
 
 

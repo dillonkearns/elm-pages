@@ -12,7 +12,6 @@ type alias Item =
     { title : String
     , description : String
     , url : String
-    , guid : String
     , categories : List String
     , author : String
     , pubDate : Date
@@ -39,6 +38,7 @@ generate :
             , version : Maybe String
             }
     , items : List Item
+    , siteUrl : String
     }
     -> Xml.Value
 generate feed =
@@ -59,7 +59,7 @@ generate feed =
                          , keyValue "link" feed.url
                          , keyValue "lastBuildDate" <| Imf.DateTime.fromPosix Time.utc feed.lastBuildTime
                          ]
-                            ++ List.map itemXml feed.items
+                            ++ List.map (itemXml feed.siteUrl) feed.items
                             ++ ([ feed.generator |> Maybe.map generatorXml
                                 ]
                                     |> List.filterMap identity
@@ -71,16 +71,16 @@ generate feed =
         ]
 
 
-itemXml : Item -> Xml.Value
-itemXml item =
+itemXml : String -> Item -> Xml.Value
+itemXml siteUrl item =
     object
         [ ( "item"
           , Dict.empty
           , list
                 ([ keyValue "title" item.title
                  , keyValue "description" item.description
-                 , keyValue "link" item.url
-                 , keyValue "guid" item.guid
+                 , keyValue "link" (siteUrl ++ item.url)
+                 , keyValue "guid" (siteUrl ++ item.url)
                  , keyValue "pubDate" (formatDate item.pubDate)
                  ]
                     ++ ([ item.content |> Maybe.map (\content -> keyValue "content" content)
