@@ -63,7 +63,7 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix ${Math.round((new Date()).getTime() / 1000)}
+    Time.millisToPosix ${Math.round((new Date()).getTime())}
 
 type PathKey
     = PathKey
@@ -130,7 +130,7 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix ${Math.round((new Date()).getTime() / 1000)}
+    Time.millisToPosix ${Math.round((new Date()).getTime())}
 
 type PathKey
     = PathKey
