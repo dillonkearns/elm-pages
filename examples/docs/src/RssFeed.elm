@@ -50,8 +50,7 @@ generate feed =
     object
         [ ( "rss"
           , Dict.fromList
-                [ ( "xmlns", string "http://www.w3.org/2005/Atom" )
-                , ( "xmlns:dc", string "http://purl.org/dc/elements/1.1/" )
+                [ ( "xmlns:dc", string "http://purl.org/dc/elements/1.1/" )
                 , ( "xmlns:content", string "http://purl.org/rss/1.0/modules/content/" )
                 , ( "xmlns:atom", string "http://www.w3.org/2005/Atom" )
                 , ( "version", string "2.0" )
@@ -100,11 +99,8 @@ itemXml item =
 
 formatDate : Date -> String
 formatDate date =
-    Date.toIsoString date
-
-
-
---Date.format "EE, dd MM yyyy" date
+    Date.format "EEE, dd MMM yyyy" date
+        ++ " UTC"
 
 
 generatorXml :
