@@ -80,13 +80,23 @@ type alias Model =
     {}
 
 
-init : Maybe (PagePath Pages.PathKey) -> ( Model, Cmd Msg )
+init :
+    Maybe
+        { path : PagePath Pages.PathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+    -> ( Model, Cmd Msg )
 init maybePagePath =
     ( Model, Cmd.none )
 
 
 type Msg
-    = OnPageChange (PagePath Pages.PathKey)
+    = OnPageChange
+        { path : PagePath Pages.PathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

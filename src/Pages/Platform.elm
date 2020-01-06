@@ -61,7 +61,13 @@ which case there is no pre-rendering).
 
 -}
 application :
-    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
+    { init :
+        Maybe
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view :
@@ -77,7 +83,12 @@ application :
                 }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config pathKey
-    , onPageChange : PagePath pathKey -> userMsg
+    , onPageChange :
+        { path : PagePath pathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+        -> userMsg
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }

@@ -241,7 +241,14 @@ init :
                 }
         )
     -> Content
-    -> (Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg ))
+    ->
+        (Maybe
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+         -> ( userModel, Cmd userMsg )
+        )
     -> Flags
     -> Url
     -> Browser.Navigation.Key
@@ -255,7 +262,16 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
         Ok okCache ->
             let
                 ( userModel, userCmd ) =
-                    initUserModel maybePagePath
+                    initUserModel
+                        (maybePagePath
+                            |> Maybe.map
+                                (\pagePath ->
+                                    { path = pagePath
+                                    , query = url.query
+                                    , fragment = url.fragment
+                                    }
+                                )
+                        )
 
                 cmd =
                     case ( maybePagePath, maybeMetadata ) of
@@ -351,7 +367,13 @@ update :
                 }
         )
     -> pathKey
-    -> (PagePath pathKey -> userMsg)
+    ->
+        ({ path : PagePath pathKey
+         , query : Maybe String
+         , fragment : Maybe String
+         }
+         -> userMsg
+        )
     -> (Json.Encode.Value -> Cmd Never)
     -> Pages.Document.Document metadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
@@ -452,7 +474,12 @@ update canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document u
                             let
                                 ( userModel, userCmd ) =
                                     userUpdate
-                                        (onPageChangeMsg (url |> urlToPagePath pathKey))
+                                        (onPageChangeMsg
+                                            { path = url |> urlToPagePath pathKey
+                                            , query = url.query
+                                            , fragment = url.fragment
+                                            }
+                                        )
                                         model.userModel
                             in
                             ( { model
@@ -479,7 +506,13 @@ type alias Parser metadata view =
 
 
 application :
-    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
+    { init :
+        Maybe
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view :
@@ -499,7 +532,12 @@ application :
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
     , pathKey : pathKey
-    , onPageChange : PagePath pathKey -> userMsg
+    , onPageChange :
+        { path : PagePath pathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+        -> userMsg
     }
     --    -> Program userModel userMsg metadata view
     -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
@@ -546,7 +584,13 @@ application config =
 
 
 cliApplication :
-    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
+    { init :
+        Maybe
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : userModel -> Sub userMsg
     , view :
@@ -566,7 +610,12 @@ cliApplication :
     , manifest : Manifest.Config pathKey
     , canonicalSiteUrl : String
     , pathKey : pathKey
-    , onPageChange : PagePath pathKey -> userMsg
+    , onPageChange :
+        { path : PagePath pathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+        -> userMsg
     }
     -> Program userModel userMsg metadata view
 cliApplication =

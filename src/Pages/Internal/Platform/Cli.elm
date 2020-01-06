@@ -134,7 +134,13 @@ cliApplication :
     -> (Model -> model)
     -> (model -> Maybe Model)
     ->
-        { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
+        { init :
+            Maybe
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            -> ( userModel, Cmd userMsg )
         , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
         , subscriptions : userModel -> Sub userMsg
         , view :
@@ -154,7 +160,12 @@ cliApplication :
         , manifest : Manifest.Config pathKey
         , canonicalSiteUrl : String
         , pathKey : pathKey
-        , onPageChange : PagePath pathKey -> userMsg
+        , onPageChange :
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+            -> userMsg
         }
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
