@@ -12,6 +12,7 @@
             "billstclair/elm-xml-eeue56": "1.0.1",
             "dillonkearns/elm-markdown": "1.1.3",
             "dillonkearns/elm-oembed": "1.0.0",
+            "dmy/elm-imf-date-time": "1.0.1",
             "elm/browser": "1.0.2",
             "elm/core": "1.0.2",
             "elm/html": "1.0.0",
@@ -43,7 +44,10 @@
             "elm/regex": "1.0.0",
             "elm/virtual-dom": "1.0.2",
             "fredcy/elm-parseint": "2.0.1",
-            "mgold/elm-nonempty-list": "4.0.2"
+            "justinmimbs/time-extra": "1.1.0",
+            "lazamar/dict-parser": "1.0.2",
+            "mgold/elm-nonempty-list": "4.0.2",
+            "ryannhg/date-format": "2.3.0"
         }
     },
     "test-dependencies": {

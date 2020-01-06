@@ -2,6 +2,7 @@ module RssFeed exposing (Item, generate)
 
 import Date exposing (Date)
 import Dict
+import Imf.DateTime
 import Time
 import Xml
 import Xml.Encode exposing (..)
@@ -41,12 +42,6 @@ generate :
     }
     -> Xml.Value
 generate feed =
-    let
-        lastBuildTimeString =
-            -- TODO
-            --feed.lastBuildTime
-            ""
-    in
     object
         [ ( "rss"
           , Dict.fromList
@@ -62,7 +57,7 @@ generate feed =
                         ([ keyValue "title" feed.title
                          , keyValue "description" feed.description
                          , keyValue "link" feed.url
-                         , keyValue "lastBuildDate" lastBuildTimeString
+                         , keyValue "lastBuildDate" <| Imf.DateTime.fromPosix Time.utc feed.lastBuildTime
                          ]
                             ++ List.map itemXml feed.items
                             ++ ([ feed.generator |> Maybe.map generatorXml
