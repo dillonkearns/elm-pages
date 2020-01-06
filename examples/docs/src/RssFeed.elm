@@ -31,12 +31,7 @@ generate :
     , description : String
     , url : String
     , lastBuildTime : Time.Posix
-    , generator :
-        Maybe
-            { name : String
-            , uri : Maybe String
-            , version : Maybe String
-            }
+    , generator : Maybe String
     , items : List Item
     , siteUrl : String
     }
@@ -60,7 +55,7 @@ generate feed =
                          , keyValue "lastBuildDate" <| Imf.DateTime.fromPosix Time.utc feed.lastBuildTime
                          ]
                             ++ List.map (itemXml feed.siteUrl) feed.items
-                            ++ ([ feed.generator |> Maybe.map generatorXml
+                            ++ ([ feed.generator |> Maybe.map (keyValue "generator")
                                 ]
                                     |> List.filterMap identity
                                )
@@ -95,26 +90,12 @@ itemXml siteUrl item =
 formatDate : Date -> String
 formatDate date =
     Date.format "EEE, dd MMM yyyy" date
-        ++ " 00:00:00 UTC"
+        ++ " 00:00:00 GMT"
 
 
-generatorXml :
-    { name : String
-    , uri : Maybe String
-    , version : Maybe String
-    }
-    -> Xml.Value
+generatorXml : String -> Xml.Value
 generatorXml generator =
-    Xml.Encode.object
-        [ ( "generator"
-          , [ generator.uri |> Maybe.map (\uri -> ( "uri", string uri ))
-            , generator.version |> Maybe.map (\version -> ( "version", string version ))
-            ]
-                |> List.filterMap identity
-                |> Dict.fromList
-          , Xml.Encode.string generator.name
-          )
-        ]
+    Xml.Encode.object [ ( "generator", Dict.empty, Xml.Encode.string generator ) ]
 
 
 keyValue : String -> String -> Xml.Value

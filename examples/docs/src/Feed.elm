@@ -46,12 +46,7 @@ generate { siteTagline, siteUrl } siteMetadata =
         , description = siteTagline
         , url = "https://elm-pages.com/blog"
         , lastBuildTime = Pages.builtAt
-        , generator =
-            Just
-                { name = "elm-pages"
-                , uri = Just "https://elm-pages.com"
-                , version = Nothing
-                }
+        , generator = Just "elm-pages"
         , items = siteMetadata |> List.filterMap metadataToRssItem
         , siteUrl = siteUrl
         }
