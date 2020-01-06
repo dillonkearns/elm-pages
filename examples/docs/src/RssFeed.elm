@@ -100,7 +100,7 @@ itemXml item =
 formatDate : Date -> String
 formatDate date =
     Date.format "EEE, dd MMM yyyy" date
-        ++ " UTC"
+        ++ " 00:00:00 UTC"
 
 
 generatorXml :
