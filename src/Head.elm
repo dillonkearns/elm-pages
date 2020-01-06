@@ -3,6 +3,7 @@ module Head exposing
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
     , toJson, canonicalLink
+    , rssLink
     )
 
 {-| This module contains low-level functions for building up
@@ -103,6 +104,26 @@ canonicalLink maybePath =
         , ( "href"
           , maybePath |> Maybe.map fullPageUrl |> Maybe.withDefault currentPageFullUrl
           )
+        ]
+
+
+{-| Add a link to the site's RSS feed.
+
+```html
+<link rel="alternate" type="application/rss+xml" href="/rss.xml">
+```
+
+Example:
+
+    rssLink "/feed.xml"
+
+-}
+rssLink : PagePath pathKey -> Tag pathKey
+rssLink url =
+    node "link"
+        [ ( "rel", raw "alternate" )
+        , ( "type", raw "application/rss+xml" )
+        , ( "href", fullPageUrl url )
         ]
 
 
