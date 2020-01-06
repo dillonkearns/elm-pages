@@ -48,18 +48,16 @@ generate feed =
           , object
                 [ ( "channel"
                   , Dict.empty
-                  , list
-                        ([ keyValue "title" feed.title
-                         , keyValue "description" feed.description
-                         , keyValue "link" feed.url
-                         , keyValue "lastBuildDate" <| Imf.DateTime.fromPosix Time.utc feed.lastBuildTime
-                         ]
-                            ++ List.map (itemXml feed.siteUrl) feed.items
-                            ++ ([ feed.generator |> Maybe.map (keyValue "generator")
-                                ]
-                                    |> List.filterMap identity
-                               )
-                        )
+                  , [ [ keyValue "title" feed.title
+                      , keyValue "description" feed.description
+                      , keyValue "link" feed.url
+                      , keyValue "lastBuildDate" <| Imf.DateTime.fromPosix Time.utc feed.lastBuildTime
+                      ]
+                    , [ feed.generator |> Maybe.map (keyValue "generator") ] |> List.filterMap identity
+                    , List.map (itemXml feed.siteUrl) feed.items
+                    ]
+                        |> List.concat
+                        |> list
                   )
                 ]
           )
