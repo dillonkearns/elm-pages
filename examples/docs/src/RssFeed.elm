@@ -1,5 +1,9 @@
 module RssFeed exposing (Item, generate)
 
+{-| Build a feed following the RSS 2.0 format <https://validator.w3.org/feed/docs/rss2.html>.
+<http://www.rssboard.org/rss-specification>
+-}
+
 import Date exposing (Date)
 import Dict
 import Imf.DateTime
@@ -51,6 +55,8 @@ generate feed =
                   , [ [ keyValue "title" feed.title
                       , keyValue "description" feed.description
                       , keyValue "link" feed.url
+
+                      --<atom:link href="http://dallas.example.com/rss.xml" rel="self" type="application/rss+xml" />
                       , keyValue "lastBuildDate" <| Imf.DateTime.fromPosix Time.utc feed.lastBuildTime
                       ]
                     , [ feed.generator |> Maybe.map (keyValue "generator") ] |> List.filterMap identity
