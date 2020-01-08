@@ -20,6 +20,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Exploration as D
 import MarkdownRenderer
 import Metadata exposing (Metadata)
+import MySitemap
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
@@ -81,6 +82,7 @@ generateFiles :
             }
 generateFiles siteMetadata =
     [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata
+    , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata
     ]
 
 
