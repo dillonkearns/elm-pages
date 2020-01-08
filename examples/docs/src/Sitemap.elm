@@ -1,5 +1,8 @@
 module Sitemap exposing (build)
 
+{-| <https://www.sitemaps.org/protocol.html>
+-}
+
 import Date exposing (Date)
 import Dict
 import Imf.DateTime
@@ -8,10 +11,16 @@ import Xml
 import Xml.Encode exposing (..)
 
 
+type alias Entry =
+    { path : String
+    , lastMod : Maybe String
+    }
+
+
 build :
     { siteUrl : String
     }
-    -> List String
+    -> List Entry
     -> String
 build { siteUrl } urls =
     object
@@ -27,13 +36,19 @@ build { siteUrl } urls =
         |> encode 0
 
 
-urlXml siteUrl url =
+urlXml siteUrl entry =
     object
         [ ( "url"
           , Dict.empty
-          , list
-                [ keyValue "loc" <| string (siteUrl ++ url)
-                ]
+          , [ string (siteUrl ++ entry.path)
+                |> keyValue "loc"
+                |> Just
+            , entry.lastMod
+                |> Maybe.map string
+                |> Maybe.map (keyValue "lastmod")
+            ]
+                |> List.filterMap identity
+                |> list
           )
         ]
 

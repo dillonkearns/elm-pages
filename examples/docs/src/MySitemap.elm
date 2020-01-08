@@ -30,8 +30,7 @@ build config siteMetadata =
             (siteMetadata
                 |> List.map
                     (\page ->
-                        page.path
-                            |> PagePath.toString
+                        { path = PagePath.toString page.path, lastMod = Nothing }
                     )
             )
     }
