@@ -94,7 +94,8 @@ function run() {
               routes,
               debug: contents.debug,
               manifestConfig: payload.manifest,
-              routesWithRequests: payload.pages
+              routesWithRequests: payload.pages,
+              customPort: contents.customPort
             });
           }
         } else {
