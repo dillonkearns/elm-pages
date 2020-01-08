@@ -96,7 +96,8 @@ function run() {
               debug: contents.debug,
               manifestConfig: payload.manifest,
               routesWithRequests: payload.pages,
-              filesToGenerate: payload.filesToGenerate
+              filesToGenerate: payload.filesToGenerate,
+              customPort: contents.customPort
             });
           }
         } else {
