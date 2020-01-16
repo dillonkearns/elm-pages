@@ -42,7 +42,7 @@ manifest =
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.white
-    , startUrl = pages.index
+    , startUrl = pages.blog.introducingElmPages
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
     }
@@ -338,8 +338,9 @@ header stars currentPath =
             , Element.row [ Element.spacing 15 ]
                 [ elmDocsLink
                 , githubRepoLink stars
-                , highlightableLink currentPath pages.docs.directory "Docs"
-                , highlightableLink currentPath pages.blog.directory "Blog"
+
+                --, highlightableLink currentPath pages.docs.directory "Docs"
+                --, highlightableLink currentPath pages.blog.directory "Blog"
                 ]
             ]
         ]
