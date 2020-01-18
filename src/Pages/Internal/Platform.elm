@@ -254,6 +254,17 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
     case contentCache of
         Ok okCache ->
             let
+                phase =
+                    case Decode.decodeValue (Decode.field "isPrerendering" Decode.bool) flags of
+                        Ok True ->
+                            Prerender
+
+                        Ok False ->
+                            Client
+
+                        Err _ ->
+                            Client
+
                 ( userModel, userCmd ) =
                     initUserModel maybePagePath
 
@@ -284,6 +295,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
               , url = url
               , userModel = userModel
               , contentCache = contentCache
+              , phase = phase
               }
             , cmd
             )
@@ -297,6 +309,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
               , url = url
               , userModel = userModel
               , contentCache = contentCache
+              , phase = Client
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -333,7 +346,13 @@ type alias ModelDetails userModel metadata view =
     , url : Url.Url
     , contentCache : ContentCache metadata view
     , userModel : userModel
+    , phase : Phase
     }
+
+
+type Phase
+    = Prerender
+    | Client
 
 
 update :
@@ -524,7 +543,20 @@ application config =
             \msg outerModel ->
                 case outerModel of
                     Model model ->
-                        update config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document config.update msg model
+                        let
+                            userUpdate =
+                                case model.phase of
+                                    Prerender ->
+                                        noOpUpdate
+
+                                    Client ->
+                                        config.update
+
+                            noOpUpdate =
+                                \userMsg userModel ->
+                                    ( userModel, Cmd.none )
+                        in
+                        update config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
