@@ -7,10 +7,14 @@ module.exports = function pagesInit(
   let prefetchedPages = [window.location.pathname];
 
   document.addEventListener("DOMContentLoaded", function() {
+
+
+  httpGet(`${window.location.pathname}content.json`, function (/** @type JSON */ contentJson) {
     let app = mainElmModule.init({
       flags: {
         secrets: null,
-        isPrerendering: navigator.userAgent.indexOf("Headless") >= 0
+        isPrerendering: navigator.userAgent.indexOf("Headless") >= 0,
+        contentJson
       }
     });
 
@@ -34,6 +38,9 @@ module.exports = function pagesInit(
 
       document.dispatchEvent(new Event("prerender-trigger"));
     });
+
+  })
+
   });
 
   function setupLinkPrefetching() {
@@ -131,3 +138,14 @@ module.exports = function pagesInit(
     document.getElementsByTagName("head")[0].appendChild(meta);
   }
 };
+
+function httpGet(/** @type string */ theUrl, /** @type Function */ callback)
+{
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() { 
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+            callback(JSON.parse(xmlHttp.responseText));
+    }
+    xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+    xmlHttp.send(null);
+}
