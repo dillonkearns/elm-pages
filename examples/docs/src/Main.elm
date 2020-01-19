@@ -103,7 +103,8 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every 10 Tick
+    --Time.every 10 Tick
+    Sub.none
 
 
 view :
@@ -341,8 +342,8 @@ header count stars currentPath =
                         ]
                 }
             , Element.row [ Element.spacing 15 ]
-                [ Element.text <| "Count: " ++ String.fromInt count
-                , elmDocsLink
+                [ --Element.text <| "Count: " ++ String.fromInt count,
+                  elmDocsLink
                 , githubRepoLink stars
 
                 --, highlightableLink currentPath pages.docs.directory "Docs"
