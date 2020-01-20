@@ -9,7 +9,8 @@ module.exports = function pagesInit(
   document.addEventListener("DOMContentLoaded", function() {
     let app = mainElmModule.init({
       flags: {
-        secrets: null
+        secrets: null,
+        isPrerendering: navigator.userAgent.indexOf("Headless") >= 0,
       }
     });
 
