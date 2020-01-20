@@ -2,6 +2,7 @@ const webpack = require("webpack");
 const middleware = require("webpack-dev-middleware");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
+const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
 const CopyPlugin = require("copy-webpack-plugin");
 const PrerenderSPAPlugin = require("prerender-spa-plugin");
 const merge = require("webpack-merge");
@@ -158,6 +159,10 @@ function webpackOptions(
       new HTMLWebpackPlugin({
         inject: "head",
         template: path.resolve(__dirname, "template.html")
+      }),
+      new ScriptExtHtmlWebpackPlugin({
+        preload: /\.js$/,
+        defaultAttribute: 'defer'
       }),
       new FaviconsWebpackPlugin({
         logo: path.resolve(process.cwd(), `./${manifestConfig.sourceIcon}`),
