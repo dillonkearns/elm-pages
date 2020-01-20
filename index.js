@@ -7,9 +7,8 @@ module.exports = function pagesInit(
   let prefetchedPages = [window.location.pathname];
 
   document.addEventListener("DOMContentLoaded", function() {
-
-
-  httpGet(`${window.location.pathname}content.json`, function (/** @type JSON */ contentJson) {
+  httpGet(`${window.location.origin}${window.location.pathname}/content.json`, function (/** @type JSON */ contentJson) {
+    
     let app = mainElmModule.init({
       flags: {
         secrets: null,
