@@ -217,6 +217,12 @@ type alias Flags =
     Decode.Value
 
 
+type alias ContentJson =
+    { body : String
+    , staticData : Dict String String
+    }
+
+
 init :
     pathKey
     -> String
@@ -249,7 +255,18 @@ init :
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
-            ContentCache.init document content
+            ContentCache.init document content contentJson
+
+        contentJson =
+            flags
+                |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
+                |> Result.toMaybe
+
+        contentJsonDecoder : Decode.Decoder ContentJson
+        contentJsonDecoder =
+            Decode.map2 ContentJson
+                (Decode.field "body" Decode.string)
+                (Decode.field "staticData" (Decode.dict Decode.string))
     in
     case contentCache of
         Ok okCache ->
