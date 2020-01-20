@@ -30,7 +30,6 @@ import Pages.Platform exposing (Page)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
-import Time
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -43,7 +42,7 @@ manifest =
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.white
-    , startUrl = pages.blog.introducingElmPages
+    , startUrl = pages.index
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
     }
@@ -78,17 +77,16 @@ markdownDocument =
 
 
 type alias Model =
-    { count : Int }
+    {}
 
 
 init : Maybe (PagePath Pages.PathKey) -> ( Model, Cmd Msg )
 init maybePagePath =
-    ( Model 0, Cmd.none )
+    ( Model, Cmd.none )
 
 
 type Msg
     = OnPageChange (PagePath Pages.PathKey)
-    | Tick Time.Posix
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -97,13 +95,9 @@ update msg model =
         OnPageChange page ->
             ( model, Cmd.none )
 
-        Tick posix ->
-            ( { model | count = model.count + 1 }, Cmd.none )
-
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    --Time.every 10 Tick
     Sub.none
 
 
@@ -182,7 +176,7 @@ pageView stars model siteMetadata page viewForPage =
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
-                [ header model.count stars page.path
+                [ header stars page.path
                 , Element.column
                     [ Element.padding 50
                     , Element.spacing 60
@@ -199,7 +193,7 @@ pageView stars model siteMetadata page viewForPage =
             { title = metadata.title
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header model.count stars page.path
+                    [ header stars page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 40
@@ -230,7 +224,7 @@ pageView stars model siteMetadata page viewForPage =
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
-                [ header model.count stars page.path
+                [ header stars page.path
                 , Element.row []
                     [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
@@ -260,7 +254,7 @@ pageView stars model siteMetadata page viewForPage =
                 Element.column
                     [ Element.width Element.fill
                     ]
-                    [ header model.count stars page.path
+                    [ header stars page.path
                     , Element.column
                         [ Element.padding 30
                         , Element.spacing 20
@@ -279,7 +273,7 @@ pageView stars model siteMetadata page viewForPage =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header model.count stars page.path
+                    [ header stars page.path
                     , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
@@ -306,8 +300,8 @@ articleImageView articleImage =
         }
 
 
-header : Int -> Int -> PagePath Pages.PathKey -> Element msg
-header count stars currentPath =
+header : Int -> PagePath Pages.PathKey -> Element msg
+header stars currentPath =
     Element.column [ Element.width Element.fill ]
         [ Element.el
             [ Element.height (Element.px 4)
@@ -342,12 +336,10 @@ header count stars currentPath =
                         ]
                 }
             , Element.row [ Element.spacing 15 ]
-                [ --Element.text <| "Count: " ++ String.fromInt count,
-                  elmDocsLink
+                [ elmDocsLink
                 , githubRepoLink stars
-
-                --, highlightableLink currentPath pages.docs.directory "Docs"
-                --, highlightableLink currentPath pages.blog.directory "Blog"
+                , highlightableLink currentPath pages.docs.directory "Docs"
+                , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
             ]
         ]
