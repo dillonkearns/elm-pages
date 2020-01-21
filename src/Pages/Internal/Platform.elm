@@ -255,7 +255,7 @@ init :
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
-            ContentCache.init document content contentJson
+            ContentCache.init document content (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
 
         contentJson =
             flags

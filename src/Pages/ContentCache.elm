@@ -111,7 +111,7 @@ pagesWithErrors cache =
 init :
     Document metadata view
     -> Content
-    -> Maybe (ContentJson String)
+    -> Maybe { contentJson : ContentJson String, initialUrl : Url }
     -> ContentCache metadata view
 init document content maybeInitialPageContent =
     parseMetadata maybeInitialPageContent document content
@@ -150,7 +150,7 @@ createBuildError path decodeError =
 
 
 parseMetadata :
-    Maybe (ContentJson String)
+    Maybe { contentJson : ContentJson String, initialUrl : Url }
     -> Document metadata view
     -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
     -> List ( List String, Result String (Entry metadata view) )
@@ -174,11 +174,15 @@ parseMetadata maybeInitialPageContent document content =
                                                 parseContent extension value document
                                     in
                                     case maybeInitialPageContent of
-                                        Just initialPageContent ->
-                                            Parsed metadata
-                                                { body = renderer initialPageContent.body
-                                                , staticData = initialPageContent.staticData
-                                                }
+                                        Just { contentJson, initialUrl } ->
+                                            if initialUrl.path == ("/" ++ String.join "/" path) then
+                                                Parsed metadata
+                                                    { body = renderer contentJson.body
+                                                    , staticData = contentJson.staticData
+                                                    }
+
+                                            else
+                                                NeedContent extension metadata
 
                                         Nothing ->
                                             NeedContent extension metadata
