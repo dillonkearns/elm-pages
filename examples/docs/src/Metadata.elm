@@ -17,6 +17,7 @@ type Metadata
     | Doc DocMetadata
     | Author Data.Author.Author
     | BlogIndex
+    | Showcase
 
 
 type alias ArticleMetadata =
@@ -53,6 +54,9 @@ decoder =
 
                     "blog-index" ->
                         Decode.succeed BlogIndex
+
+                    "showcase" ->
+                        Decode.succeed Showcase
 
                     "author" ->
                         Decode.map3 Data.Author.Author
