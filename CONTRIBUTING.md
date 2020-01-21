@@ -27,7 +27,7 @@ npm install /path/to/cloned/elm-pages
 # For example, on my machine I can run: npm install ~/src/github.com/dillonkearns/elm-pages
 ```
 
-This adds something like this to your `devDepdnencies`:
+This adds something like this to your `devDependencies`:
 ```json
     "elm-pages": "file:../..",
 ```
