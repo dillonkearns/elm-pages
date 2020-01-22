@@ -8,6 +8,7 @@ import Json.Decode.Exploration as Decode
 import Pages.Secrets as Secrets
 import Pages.StaticHttp as StaticHttp
 import Palette
+import Url.Builder
 
 
 view : List Entry -> Element.Element msg
@@ -24,11 +25,21 @@ entryView entry =
         [ Element.spacing 15
         , Element.Border.shadow { offset = ( 2, 2 ), size = 3, blur = 3, color = Element.rgba255 40 80 80 0.1 }
         , Element.padding 40
+        , Element.width (Element.maximum 700 Element.fill)
         ]
-        --<img src="//image.thum.io/get/http://www.google.com/" />
-        [ Element.image [] { src = "//image.thum.io/get/" ++ entry.liveUrl, description = "Screenshot" }
+        [ Element.image [ Element.width Element.fill ]
+            { src =
+                Url.Builder.crossOrigin "https://api.microlink.io"
+                    []
+                    [ Url.Builder.string "embed" "screenshot.url"
+                    , Url.Builder.string "meta" "false"
+                    , Url.Builder.string "url" entry.liveUrl
+                    , Url.Builder.string "screenshot" "true"
+                    ]
+            , description = "Site Screenshot"
+            }
         , Element.text entry.displayName |> Element.el [ Element.Font.extraBold ]
-        , Element.newTabLink [ Element.Font.size 12, Element.Font.color Palette.color.primary ]
+        , Element.newTabLink [ Element.Font.size 14, Element.Font.color Palette.color.primary ]
             { url = entry.liveUrl
             , label = Element.text entry.liveUrl
             }
@@ -41,7 +52,7 @@ entryView entry =
             ]
         , Element.row [ Element.width Element.fill ]
             [ categoriesView entry.categories
-            , Element.row [ Element.width (Element.fillPortion 2) ]
+            , Element.row [ Element.alignRight ]
                 [ Element.newTabLink []
                     { url = entry.authorUrl
                     , label = FontAwesome.icon "fas fa-code-branch"
@@ -60,7 +71,7 @@ categoriesView categories =
             )
         |> Element.wrappedRow
             [ Element.spacing 7
-            , Element.Font.size 13
+            , Element.Font.size 14
             , Element.Font.color (Element.rgba255 0 0 0 0.6)
             , Element.width (Element.fillPortion 8)
             ]
