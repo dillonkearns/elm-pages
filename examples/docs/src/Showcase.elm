@@ -62,10 +62,14 @@ entryView entry =
         , Element.row [ Element.width Element.fill ]
             [ categoriesView entry.categories
             , Element.row [ Element.alignRight ]
-                [ Element.newTabLink []
-                    { url = entry.authorUrl
-                    , label = FontAwesome.icon "fas fa-code-branch"
-                    }
+                [ if entry.repoUrl == "" then
+                    Element.none
+
+                  else
+                    Element.newTabLink []
+                        { url = entry.repoUrl
+                        , label = FontAwesome.icon "fas fa-code-branch"
+                        }
                 ]
             ]
         ]
@@ -93,6 +97,7 @@ type alias Entry =
     , authorName : String
     , authorUrl : String
     , categories : List String
+    , repoUrl : String
     }
 
 
@@ -105,13 +110,14 @@ decoder =
 entryDecoder : Decode.Decoder Entry
 entryDecoder =
     Decode.field "fields" <|
-        Decode.map6 Entry
+        Decode.map7 Entry
             (Decode.field "Screenshot URL" Decode.string)
             (Decode.field "Site Display Name" Decode.string)
             (Decode.field "Live URL" Decode.string)
             (Decode.field "Author" Decode.string)
             (Decode.field "Author URL" Decode.string)
             (Decode.field "Categories" (Decode.list Decode.string))
+            (Decode.field "Repository URL" Decode.string)
 
 
 staticRequest : StaticHttp.Request (List Entry)
