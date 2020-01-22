@@ -10,6 +10,7 @@ import Element.Background
 import Element.Border
 import Element.Font as Font
 import Element.Region
+import FontAwesome
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -123,11 +124,10 @@ view siteMetadata page =
                             { title = "elm-pages blog"
                             , body =
                                 Element.column [ Element.width Element.fill ]
-                                    [ header stars page.path
-                                    , Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseData ]
+                                    [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseData ]
                                     ]
                             }
-                                |> wrapBody
+                                |> wrapBody stars page
                     , head = head page.frontmatter
                     }
                 )
@@ -144,7 +144,7 @@ view siteMetadata page =
                         { view =
                             \model viewForPage ->
                                 pageView stars model siteMetadata page viewForPage
-                                    |> wrapBody
+                                    |> wrapBody stars page
                         , head = head page.frontmatter
                         }
                     )
@@ -200,8 +200,7 @@ pageView stars model siteMetadata page viewForPage =
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
-                [ header stars page.path
-                , Element.column
+                [ Element.column
                     [ Element.padding 50
                     , Element.spacing 60
                     , Element.Region.mainContent
@@ -217,8 +216,7 @@ pageView stars model siteMetadata page viewForPage =
             { title = metadata.title
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header stars page.path
-                    , Element.column
+                    [ Element.column
                         [ Element.padding 30
                         , Element.spacing 40
                         , Element.Region.mainContent
@@ -248,8 +246,7 @@ pageView stars model siteMetadata page viewForPage =
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
-                [ header stars page.path
-                , Element.row []
+                [ Element.row []
                     [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                     , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
@@ -278,8 +275,7 @@ pageView stars model siteMetadata page viewForPage =
                 Element.column
                     [ Element.width Element.fill
                     ]
-                    [ header stars page.path
-                    , Element.column
+                    [ Element.column
                         [ Element.padding 30
                         , Element.spacing 20
                         , Element.Region.mainContent
@@ -297,8 +293,7 @@ pageView stars model siteMetadata page viewForPage =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header stars page.path
-                    , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
+                    [ Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
                     ]
             }
 
@@ -306,16 +301,17 @@ pageView stars model siteMetadata page viewForPage =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header stars page.path
-
-                    --, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view siteMetadata ]
+                    [--, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view siteMetadata ]
                     ]
             }
 
 
-wrapBody record =
+wrapBody stars page record =
     { body =
-        record.body
+        Element.column [ Element.width Element.fill ]
+            [ header stars page.path
+            , record.body
+            ]
             |> Element.layout
                 [ Element.width Element.fill
                 , Font.size 20
@@ -337,46 +333,64 @@ articleImageView articleImage =
 header : Int -> PagePath Pages.PathKey -> Element msg
 header stars currentPath =
     Element.column [ Element.width Element.fill ]
-        [ Element.el
-            [ Element.height (Element.px 4)
-            , Element.width Element.fill
-            , Element.Background.gradient
-                { angle = 0.2
-                , steps =
-                    [ Element.rgb255 0 242 96
-                    , Element.rgb255 5 117 230
+        [ Element.column
+            [ Element.width Element.fill
+            , Element.htmlAttribute (Attr.class "responsive-desktop")
+            ]
+            [ Element.el
+                [ Element.height (Element.px 4)
+                , Element.width Element.fill
+                , Element.Background.gradient
+                    { angle = 0.2
+                    , steps =
+                        [ Element.rgb255 0 242 96
+                        , Element.rgb255 5 117 230
+                        ]
+                    }
+                ]
+                Element.none
+            , Element.row
+                [ Element.paddingXY 25 4
+                , Element.spaceEvenly
+                , Element.width Element.fill
+                , Element.Region.navigation
+                , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                , Element.Border.color (Element.rgba255 40 80 40 0.4)
+                ]
+                [ Element.link []
+                    { url = "/"
+                    , label =
+                        Element.row
+                            [ Font.size 30
+                            , Element.spacing 16
+                            , Element.htmlAttribute (Attr.id "navbar-title")
+                            ]
+                            [ DocumentSvg.view
+                            , Element.text "elm-pages"
+                            ]
+                    }
+                , Element.row [ Element.spacing 15 ]
+                    [ elmDocsLink
+                    , githubRepoLink stars
+                    , highlightableLink currentPath pages.docs.directory "Docs"
+                    , highlightableLink currentPath pages.showcase.directory "Showcase"
+                    , highlightableLink currentPath pages.blog.directory "Blog"
                     ]
-                }
-            ]
-            Element.none
-        , Element.row
-            [ Element.paddingXY 25 4
-            , Element.spaceEvenly
-            , Element.width Element.fill
-            , Element.Region.navigation
-            , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-            , Element.Border.color (Element.rgba255 40 80 40 0.4)
-            ]
-            [ Element.link []
-                { url = "/"
-                , label =
-                    Element.row
-                        [ Font.size 30
-                        , Element.spacing 16
-                        , Element.htmlAttribute (Attr.id "navbar-title")
-                        ]
-                        [ DocumentSvg.view
-                        , Element.text "elm-pages"
-                        ]
-                }
-            , Element.row [ Element.spacing 15 ]
-                [ elmDocsLink
-                , githubRepoLink stars
-                , highlightableLink currentPath pages.docs.directory "Docs"
-                , highlightableLink currentPath pages.showcase.directory "Showcase"
-                , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
             ]
+        , responsiveHeader True
+        ]
+
+
+responsiveHeader expanded =
+    Element.column [ Element.htmlAttribute (Attr.class "responsive-mobile"), Element.width Element.fill, Element.padding 20 ]
+        [ if expanded then
+            Element.row [ Element.width Element.fill ]
+                [ FontAwesome.icon "fas fa-bars" |> Element.el [ Element.alignRight ]
+                ]
+
+          else
+            Element.none
         ]
 
 
