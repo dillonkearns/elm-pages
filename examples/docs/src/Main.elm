@@ -8,6 +8,7 @@ import DocumentSvg
 import Element exposing (Element)
 import Element.Background
 import Element.Border
+import Element.Events
 import Element.Font as Font
 import Element.Region
 import FontAwesome
@@ -79,23 +80,28 @@ markdownDocument =
 
 
 type alias Model =
-    {}
+    { showMobileMenu : Bool
+    }
 
 
 init : Maybe (PagePath Pages.PathKey) -> ( Model, Cmd Msg )
 init maybePagePath =
-    ( Model, Cmd.none )
+    ( Model False, Cmd.none )
 
 
 type Msg
     = OnPageChange (PagePath Pages.PathKey)
+    | ToggleMobileMenu
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         OnPageChange page ->
-            ( model, Cmd.none )
+            ( { model | showMobileMenu = False }, Cmd.none )
+
+        ToggleMobileMenu ->
+            ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -127,7 +133,7 @@ view siteMetadata page =
                                     [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseData ]
                                     ]
                             }
-                                |> wrapBody stars page
+                                |> wrapBody stars page model
                     , head = head page.frontmatter
                     }
                 )
@@ -144,7 +150,7 @@ view siteMetadata page =
                         { view =
                             \model viewForPage ->
                                 pageView stars model siteMetadata page viewForPage
-                                    |> wrapBody stars page
+                                    |> wrapBody stars page model
                         , head = head page.frontmatter
                         }
                     )
@@ -306,12 +312,28 @@ pageView stars model siteMetadata page viewForPage =
             }
 
 
-wrapBody stars page record =
+wrapBody : Int -> { a | path : PagePath Pages.PathKey } -> Model -> { c | body : Element Msg, title : String } -> { body : Html Msg, title : String }
+wrapBody stars page model record =
     { body =
-        Element.column [ Element.width Element.fill ]
-            [ header stars page.path
-            , record.body
-            ]
+        (if model.showMobileMenu then
+            Element.column
+                [ Element.width Element.fill
+                , Element.padding 20
+                ]
+                [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
+                    [ logoLinkMobile
+                    , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
+                    ]
+                , Element.column [ Element.centerX, Element.spacing 20 ]
+                    (navbarLinks stars page.path)
+                ]
+
+         else
+            Element.column [ Element.width Element.fill ]
+                [ header stars page.path
+                , record.body
+                ]
+        )
             |> Element.layout
                 [ Element.width Element.fill
                 , Font.size 20
@@ -330,10 +352,11 @@ articleImageView articleImage =
         }
 
 
-header : Int -> PagePath Pages.PathKey -> Element msg
+header : Int -> PagePath Pages.PathKey -> Element Msg
 header stars currentPath =
     Element.column [ Element.width Element.fill ]
-        [ Element.column
+        [ responsiveHeader
+        , Element.column
             [ Element.width Element.fill
             , Element.htmlAttribute (Attr.class "responsive-desktop")
             ]
@@ -357,40 +380,61 @@ header stars currentPath =
                 , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
                 , Element.Border.color (Element.rgba255 40 80 40 0.4)
                 ]
-                [ Element.link []
-                    { url = "/"
-                    , label =
-                        Element.row
-                            [ Font.size 30
-                            , Element.spacing 16
-                            , Element.htmlAttribute (Attr.id "navbar-title")
-                            ]
-                            [ DocumentSvg.view
-                            , Element.text "elm-pages"
-                            ]
-                    }
-                , Element.row [ Element.spacing 15 ]
-                    [ elmDocsLink
-                    , githubRepoLink stars
-                    , highlightableLink currentPath pages.docs.directory "Docs"
-                    , highlightableLink currentPath pages.showcase.directory "Showcase"
-                    , highlightableLink currentPath pages.blog.directory "Blog"
-                    ]
+                [ logoLink
+                , Element.row [ Element.spacing 15 ] (navbarLinks stars currentPath)
                 ]
             ]
-        , responsiveHeader True
         ]
 
 
-responsiveHeader expanded =
-    Element.column [ Element.htmlAttribute (Attr.class "responsive-mobile"), Element.width Element.fill, Element.padding 20 ]
-        [ if expanded then
-            Element.row [ Element.width Element.fill ]
-                [ FontAwesome.icon "fas fa-bars" |> Element.el [ Element.alignRight ]
+logoLink =
+    Element.link []
+        { url = "/"
+        , label =
+            Element.row
+                [ Font.size 30
+                , Element.spacing 16
+                , Element.htmlAttribute (Attr.id "navbar-title")
                 ]
+                [ DocumentSvg.view
+                , Element.text "elm-pages"
+                ]
+        }
 
-          else
-            Element.none
+
+logoLinkMobile =
+    Element.link []
+        { url = "/"
+        , label =
+            Element.row
+                [ Font.size 30
+                , Element.spacing 16
+                , Element.htmlAttribute (Attr.id "navbar-title")
+                ]
+                [ Element.text "elm-pages"
+                ]
+        }
+
+
+navbarLinks stars currentPath =
+    [ elmDocsLink
+    , githubRepoLink stars
+    , highlightableLink currentPath pages.docs.directory "Docs"
+    , highlightableLink currentPath pages.showcase.directory "Showcase"
+    , highlightableLink currentPath pages.blog.directory "Blog"
+    ]
+
+
+responsiveHeader =
+    Element.row
+        [ Element.width Element.fill
+        , Element.spaceEvenly
+        , Element.htmlAttribute (Attr.class "responsive-mobile")
+        , Element.width Element.fill
+        , Element.padding 20
+        ]
+        [ logoLinkMobile
+        , FontAwesome.icon "fas fa-bars" |> Element.el [ Element.alignRight, Element.Events.onClick ToggleMobileMenu ]
         ]
 
 
