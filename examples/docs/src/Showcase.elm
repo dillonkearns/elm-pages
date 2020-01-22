@@ -119,7 +119,7 @@ staticRequest =
     StaticHttp.request
         (Secrets.succeed
             (\airtableToken ->
-                { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=3&view=Grid%202"
+                { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
                 , method = "GET"
                 , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
                 , body = StaticHttp.emptyBody
