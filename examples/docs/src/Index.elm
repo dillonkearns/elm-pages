@@ -20,15 +20,6 @@ view posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        Metadata.Page meta ->
-                            Nothing
-
-                        Metadata.Doc meta ->
-                            Nothing
-
-                        Metadata.Author _ ->
-                            Nothing
-
                         Metadata.Article meta ->
                             if meta.draft then
                                 Nothing
@@ -36,7 +27,7 @@ view posts =
                             else
                                 Just ( path, meta )
 
-                        Metadata.BlogIndex ->
+                        _ ->
                             Nothing
                 )
             |> List.sortBy

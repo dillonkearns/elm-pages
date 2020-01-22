@@ -30,6 +30,7 @@ import Pages.Platform exposing (Page)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
+import Showcase
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -113,17 +114,40 @@ view :
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
-    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (D.field "stargazers_count" D.int)
-        |> StaticHttp.map
-            (\stars ->
-                { view =
-                    \model viewForPage ->
-                        pageView stars model siteMetadata page viewForPage
-                            |> wrapBody
-                , head = head page.frontmatter
-                }
-            )
+    case page.frontmatter of
+        Metadata.Showcase ->
+            StaticHttp.map2
+                (\stars showcaseData ->
+                    { view =
+                        \model viewForPage ->
+                            { title = "elm-pages blog"
+                            , body =
+                                Element.column [ Element.width Element.fill ]
+                                    [ header stars page.path
+                                    , Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseData ]
+                                    ]
+                            }
+                                |> wrapBody
+                    , head = head page.frontmatter
+                    }
+                )
+                (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                    (D.field "stargazers_count" D.int)
+                )
+                Showcase.staticRequest
+
+        _ ->
+            StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                (D.field "stargazers_count" D.int)
+                |> StaticHttp.map
+                    (\stars ->
+                        { view =
+                            \model viewForPage ->
+                                pageView stars model siteMetadata page viewForPage
+                                    |> wrapBody
+                        , head = head page.frontmatter
+                        }
+                    )
 
 
 
@@ -278,6 +302,16 @@ pageView stars model siteMetadata page viewForPage =
                     ]
             }
 
+        Metadata.Showcase ->
+            { title = "elm-pages blog"
+            , body =
+                Element.column [ Element.width Element.fill ]
+                    [ header stars page.path
+
+                    --, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view siteMetadata ]
+                    ]
+            }
+
 
 wrapBody record =
     { body =
@@ -339,6 +373,7 @@ header stars currentPath =
                 [ elmDocsLink
                 , githubRepoLink stars
                 , highlightableLink currentPath pages.docs.directory "Docs"
+                , highlightableLink currentPath pages.showcase.directory "Showcase"
                 , highlightableLink currentPath pages.blog.directory "Blog"
                 ]
             ]
@@ -479,6 +514,22 @@ head metadata =
                 , description = siteTagline
                 , locale = Nothing
                 , title = "elm-pages blog"
+                }
+                |> Seo.website
+
+        Metadata.Showcase ->
+            Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = images.iconPng
+                    , alt = "elm-pages logo"
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = siteTagline
+                , locale = Nothing
+                , title = "elm-pages sites showcase"
                 }
                 |> Seo.website
 
