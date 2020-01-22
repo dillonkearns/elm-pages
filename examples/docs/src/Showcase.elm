@@ -16,7 +16,19 @@ view entries =
     Element.column
         [ Element.spacing 30
         ]
-        (List.map entryView entries)
+        (submitShowcaseItemButton
+            :: List.map entryView entries
+        )
+
+
+submitShowcaseItemButton =
+    Element.newTabLink
+        [ Element.Font.color Palette.color.primary
+        , Element.Font.underline
+        ]
+        { url = "https://airtable.com/shrPSenIW2EQqJ083"
+        , label = Element.text "Submit your site to the showcase"
+        }
 
 
 entryView : Entry -> Element.Element msg
