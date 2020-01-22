@@ -43,14 +43,7 @@ entryView entry =
             { url = entry.liveUrl
             , label =
                 Element.image [ Element.width Element.fill ]
-                    { src =
-                        Url.Builder.crossOrigin "https://api.microlink.io"
-                            []
-                            [ Url.Builder.string "embed" "screenshot.url"
-                            , Url.Builder.string "meta" "false"
-                            , Url.Builder.string "url" entry.screenshotUrl
-                            , Url.Builder.string "screenshot" "true"
-                            ]
+                    { src = "https://image.thum.io/get/width/800/crop/800/" ++ entry.screenshotUrl
                     , description = "Site Screenshot"
                     }
             }
