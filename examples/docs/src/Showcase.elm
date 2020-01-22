@@ -39,16 +39,20 @@ entryView entry =
         , Element.padding 40
         , Element.width (Element.maximum 700 Element.fill)
         ]
-        [ Element.image [ Element.width Element.fill ]
-            { src =
-                Url.Builder.crossOrigin "https://api.microlink.io"
-                    []
-                    [ Url.Builder.string "embed" "screenshot.url"
-                    , Url.Builder.string "meta" "false"
-                    , Url.Builder.string "url" entry.liveUrl
-                    , Url.Builder.string "screenshot" "true"
-                    ]
-            , description = "Site Screenshot"
+        [ Element.newTabLink [ Element.Font.size 14, Element.Font.color Palette.color.primary ]
+            { url = entry.liveUrl
+            , label =
+                Element.image [ Element.width Element.fill ]
+                    { src =
+                        Url.Builder.crossOrigin "https://api.microlink.io"
+                            []
+                            [ Url.Builder.string "embed" "screenshot.url"
+                            , Url.Builder.string "meta" "false"
+                            , Url.Builder.string "url" entry.screenshotUrl
+                            , Url.Builder.string "screenshot" "true"
+                            ]
+                    , description = "Site Screenshot"
+                    }
             }
         , Element.text entry.displayName |> Element.el [ Element.Font.extraBold ]
         , Element.newTabLink [ Element.Font.size 14, Element.Font.color Palette.color.primary ]
@@ -90,7 +94,8 @@ categoriesView categories =
 
 
 type alias Entry =
-    { displayName : String
+    { screenshotUrl : String
+    , displayName : String
     , liveUrl : String
     , authorName : String
     , authorUrl : String
@@ -107,7 +112,8 @@ decoder =
 entryDecoder : Decode.Decoder Entry
 entryDecoder =
     Decode.field "fields" <|
-        Decode.map5 Entry
+        Decode.map6 Entry
+            (Decode.field "Screenshot URL" Decode.string)
             (Decode.field "Site Display Name" Decode.string)
             (Decode.field "Live URL" Decode.string)
             (Decode.field "Author" Decode.string)
