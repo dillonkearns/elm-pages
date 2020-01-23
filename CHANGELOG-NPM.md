@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Render empty shell for service worker navigation route (not root page) to prevent flash of root page at start of page load. See [#52](https://github.com/dillonkearns/elm-pages/issues/52).
+
 ## [1.1.8] - 2020-01-20
 
 ### Fixed
