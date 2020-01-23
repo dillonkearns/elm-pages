@@ -175,7 +175,7 @@ parseMetadata maybeInitialPageContent document content =
                                     in
                                     case maybeInitialPageContent of
                                         Just { contentJson, initialUrl } ->
-                                            if initialUrl.path == ("/" ++ String.join "/" path) then
+                                            if normalizePath initialUrl.path == (String.join "/" path |> normalizePath) then
                                                 Parsed metadata
                                                     { body = renderer contentJson.body
                                                     , staticData = contentJson.staticData
@@ -193,6 +193,30 @@ parseMetadata maybeInitialPageContent document content =
                         Err ("Could not find extension '" ++ extension ++ "'")
                             |> Tuple.pair path
             )
+
+
+normalizePath : String -> String
+normalizePath pathString =
+    let
+        hasPrefix =
+            String.startsWith "/" pathString
+
+        hasSuffix =
+            String.endsWith "/" pathString
+    in
+    String.concat
+        [ if hasPrefix then
+            ""
+
+          else
+            "/"
+        , pathString
+        , if hasSuffix then
+            ""
+
+          else
+            "/"
+        ]
 
 
 parseContent :
