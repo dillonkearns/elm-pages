@@ -160,6 +160,10 @@ function webpackOptions(
         inject: "head",
         template: path.resolve(__dirname, "template.html")
       }),
+      new HTMLWebpackPlugin({
+        inject: "head",
+        filename: 'elm-pages-shell.html'
+      }),
       new ScriptExtHtmlWebpackPlugin({
         preload: /\.js$/,
         defaultAttribute: 'defer'
@@ -210,7 +214,7 @@ function webpackOptions(
       }),
       new InjectManifest({
         swSrc: path.resolve(__dirname, "./service-worker-template.js"),
-        include: [/^index\.html$/],
+        include: [/\.html/],
         exclude: [
           /android-chrome-.*\.png$/,
           /apple-touch-icon.*\.png/,
