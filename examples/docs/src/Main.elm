@@ -601,23 +601,23 @@ head metadata =
                         , title = "elm-pages blog"
                         }
                         |> Seo.website
-           )
 
-        Metadata.Showcase ->
-            Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = siteTagline
-                , locale = Nothing
-                , title = "elm-pages sites showcase"
-                }
-                |> Seo.website
+                Metadata.Showcase ->
+                    Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = images.iconPng
+                            , alt = "elm-pages logo"
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = siteTagline
+                        , locale = Nothing
+                        , title = "elm-pages sites showcase"
+                        }
+                        |> Seo.website
+           )
 
 
 canonicalSiteUrl : String

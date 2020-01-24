@@ -73,14 +73,5 @@ metadataToRssItem page =
                 , content = Nothing
                 }
 
-        Page pageMetadata ->
-            Nothing
-
-        Doc docMetadata ->
-            Nothing
-
-        Author author ->
-            Nothing
-
-        BlogIndex ->
+        _ ->
             Nothing
