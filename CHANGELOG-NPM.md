@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Fix missing content flash (that was partially fixed with [#48](https://github.com/dillonkearns/elm-pages/pull/48)) for 
+    some cases where paths weren't normalized correctly. 
+
+## [1.1.8] - 2020-01-20
+
+### Fixed
+- "Missing content" message no longer flashes between pre-rendered HTML and the Elm app hydrating and taking over the page. See [#48](https://github.com/dillonkearns/elm-pages/pull/48).
+
+## [1.1.7] - 2020-01-12
+
+### Fixed
+- Newlines and escaped double quotes (`"`s) are handled properly in content frontmatter now. See [#41](https://github.com/dillonkearns/elm-pages/pull/41). Thank you [Luke](https://github.com/lukewestby)! 🎉🙏
+
 ## [1.1.6] - 2020-01-04
 
 ### Added

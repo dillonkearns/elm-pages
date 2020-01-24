@@ -4,8 +4,8 @@ import Element exposing (Element)
 import Element.Border as Border
 import Element.Font
 import Metadata exposing (Metadata)
-import Pages.PagePath as PagePath exposing (PagePath)
 import Pages
+import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 
 
@@ -25,19 +25,10 @@ view currentPage posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        Metadata.Page meta ->
-                            Nothing
-
-                        Metadata.Article meta ->
-                            Nothing
-
-                        Metadata.Author _ ->
-                            Nothing
-
                         Metadata.Doc meta ->
                             Just ( currentPage == path, path, meta )
 
-                        Metadata.BlogIndex ->
+                        _ ->
                             Nothing
                 )
             |> List.map postSummary

@@ -73,7 +73,7 @@ Here are some links:
 
 And here's the output:
 
-<ellie-output id="6RCVwj43wQfa1" />
+<ellie-output id="7PLvgQ2kSzja1" />
 
 This is a nice way to abstract the presentation logic for team members' bios on an `about-us` page. We want richer presentation logic than plain markdown provides (for example, showing icons with the right dimensions, and displaying them in a row not column view, etc.) Also, since we're using Elm, we get pretty spoiled by explicit and precise error messages. So we'd like to get an error message if we don't provide a required attribute!
 
@@ -148,7 +148,7 @@ Exposing the AST allows for a number of powerful use cases as well. And it does 
 
 Here are some use cases that this feature enables:
 
-- Extract metadata before rendering, like building a table of contents data structure with proper links ([here's an Ellie demo of that!](https://ellie-app.com/6QtYW8pcCDna1))
+- Extract metadata before rendering, like building a table of contents data structure with proper links ([here's an Ellie demo of that!](https://ellie-app.com/7LDzS6r48n8a1))
 - Run a validation and turn it into an `Err`, for example, if there are multiple level 1 headings (having multiple `h1`s on a page causes accessibility problems)
 - Transform the blocks by applying formatting rules, for example use a title casing function on all headings
 - Transform the AST before rendering it, for example dropping each heading down one level (H1s become H2s, etc.)

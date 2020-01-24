@@ -196,7 +196,7 @@ cliApplication :
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
         contentCache =
-            ContentCache.init config.document config.content
+            ContentCache.init config.document config.content Nothing
 
         siteMetadata =
             contentCache
