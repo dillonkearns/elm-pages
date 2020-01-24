@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.3] - 2020-01-23
+
+### Fixed
+- Fix missing content flash (that was partially fixed with [#48](https://github.com/dillonkearns/elm-pages/pull/48)) for
+    some cases where paths weren't normalized correctly.
+
 ## [1.1.2] - 2020-01-20
 
 ### Fixed
