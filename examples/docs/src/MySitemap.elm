@@ -18,6 +18,7 @@ build :
         List
             { path : PagePath Pages.PathKey
             , frontmatter : Metadata
+            , body : String
             }
     ->
         { path : List String

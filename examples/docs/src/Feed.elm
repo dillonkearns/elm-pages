@@ -18,6 +18,7 @@ fileToGenerate :
         List
             { path : PagePath Pages.PathKey
             , frontmatter : Metadata
+            , body : String
             }
     ->
         { path : List String
@@ -38,6 +39,7 @@ generate :
         List
             { path : PagePath Pages.PathKey
             , frontmatter : Metadata
+            , body : String
             }
     -> Xml.Value
 generate { siteTagline, siteUrl } siteMetadata =
@@ -55,6 +57,7 @@ generate { siteTagline, siteUrl } siteMetadata =
 metadataToRssItem :
     { path : PagePath Pages.PathKey
     , frontmatter : Metadata
+    , body : String
     }
     -> Maybe RssFeed.Item
 metadataToRssItem page =

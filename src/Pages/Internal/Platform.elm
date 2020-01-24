@@ -501,6 +501,7 @@ application :
         List
             { path : PagePath pathKey
             , frontmatter : metadata
+            , body : String
             }
         ->
             List
@@ -578,6 +579,7 @@ cliApplication :
         List
             { path : PagePath pathKey
             , frontmatter : metadata
+            , body : String
             }
         ->
             List

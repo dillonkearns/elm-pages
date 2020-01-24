@@ -173,6 +173,7 @@ type alias Config pathKey userMsg userModel metadata view =
         List
             { path : PagePath pathKey
             , frontmatter : metadata
+            , body : String
             }
         ->
             List
@@ -769,8 +770,30 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                     |> Result.withDefault []
                     |> List.map
                         (\( pagePath, metadata ) ->
+                            let
+                                contentForPage =
+                                    config.content
+                                        |> List.filterMap
+                                            (\( path, { body } ) ->
+                                                let
+                                                    pagePathToGenerate =
+                                                        PagePath.toString pagePath
+
+                                                    currentContentPath =
+                                                        "/" ++ (path |> String.join "/")
+                                                in
+                                                if pagePathToGenerate == currentContentPath then
+                                                    Just body
+
+                                                else
+                                                    Nothing
+                                            )
+                                        |> List.head
+                                        |> Maybe.andThen identity
+                            in
                             { path = pagePath
                             , frontmatter = metadata
+                            , body = contentForPage |> Maybe.withDefault ""
                             }
                         )
                     |> config.generateFiles

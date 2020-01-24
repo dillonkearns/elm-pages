@@ -74,6 +74,7 @@ generateFiles :
     List
         { path : PagePath Pages.PathKey
         , frontmatter : Metadata
+        , body : String
         }
     ->
         List

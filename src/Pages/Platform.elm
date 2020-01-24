@@ -81,6 +81,7 @@ application :
         List
             { path : PagePath pathKey
             , frontmatter : metadata
+            , body : String
             }
         ->
             List
