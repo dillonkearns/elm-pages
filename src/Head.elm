@@ -118,12 +118,12 @@ Example:
     rssLink "/feed.xml"
 
 -}
-rssLink : PagePath pathKey -> Tag pathKey
+rssLink : String -> Tag pathKey
 rssLink url =
     node "link"
         [ ( "rel", raw "alternate" )
         , ( "type", raw "application/rss+xml" )
-        , ( "href", fullPageUrl url )
+        , ( "href", raw url )
         ]
 
 

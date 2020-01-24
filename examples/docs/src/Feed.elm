@@ -25,7 +25,7 @@ fileToGenerate :
         , content : String
         }
 fileToGenerate config siteMetadata =
-    { path = [ "feed.xml" ]
+    { path = [ "blog", "feed.xml" ]
     , content =
         generate config siteMetadata |> Xml.Encode.encode 0
     }
