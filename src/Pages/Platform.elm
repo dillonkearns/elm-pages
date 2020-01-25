@@ -85,9 +85,11 @@ application :
             }
         ->
             List
-                { path : List String
-                , content : String
-                }
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
     , onPageChange : PagePath pathKey -> userMsg
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey

@@ -541,9 +541,11 @@ application :
             }
         ->
             List
-                { path : List String
-                , content : String
-                }
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange : PagePath pathKey -> userMsg
@@ -632,9 +634,11 @@ cliApplication :
             }
         ->
             List
-                { path : List String
-                , content : String
-                }
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange : PagePath pathKey -> userMsg

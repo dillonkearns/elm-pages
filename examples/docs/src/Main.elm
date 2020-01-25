@@ -81,12 +81,14 @@ generateFiles :
         }
     ->
         List
-            { path : List String
-            , content : String
-            }
+            (Result String
+                { path : List String
+                , content : String
+                }
+            )
 generateFiles siteMetadata =
-    [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata
-    , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata
+    [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+    , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
     ]
 
 

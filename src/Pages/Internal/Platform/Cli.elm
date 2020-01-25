@@ -177,9 +177,11 @@ type alias Config pathKey userMsg userModel metadata view =
             }
         ->
             List
-                { path : List String
-                , content : String
-                }
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange : PagePath pathKey -> userMsg
@@ -797,19 +799,56 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                             }
                         )
                     |> config.generateFiles
+
+            generatedOkayFiles =
+                generatedFiles
+                    |> List.filterMap
+                        (\result ->
+                            case result of
+                                Ok ok ->
+                                    Just ok
+
+                                _ ->
+                                    Nothing
+                        )
+
+            generatedFileErrors =
+                generatedFiles
+                    |> List.filterMap
+                        (\result ->
+                            case result of
+                                Ok ok ->
+                                    Nothing
+
+                                Err error ->
+                                    Just
+                                        { title = "Generate Files Error"
+                                        , message =
+                                            [ Terminal.text "I encountered an Err in the generateFiles for the path TODO."
+                                            , Terminal.text <| "\nError: " ++ error
+                                            ]
+
+                                        -- List Terminal.Text
+                                        }
+                         --Just error
+                        )
+
+            allErrors : List BuildError
+            allErrors =
+                errors ++ failedRequests ++ generatedFileErrors
         in
         ( updatedAllRawResponses
         , SendJsData
-            (if List.isEmpty errors && List.isEmpty failedRequests then
+            (if List.isEmpty allErrors then
                 Success
                     (ToJsSuccessPayload
                         (encodeStaticResponses mode staticResponses)
                         config.manifest
-                        generatedFiles
+                        generatedOkayFiles
                     )
 
              else
-                Errors <| BuildError.errorsToString (failedRequests ++ errors)
+                Errors <| BuildError.errorsToString allErrors
             )
         )
 
