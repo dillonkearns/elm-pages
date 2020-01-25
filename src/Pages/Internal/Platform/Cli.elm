@@ -824,13 +824,10 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                     Just
                                         { title = "Generate Files Error"
                                         , message =
-                                            [ Terminal.text "I encountered an Err in the generateFiles for the path TODO."
-                                            , Terminal.text <| "\nError: " ++ error
+                                            [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
+                                            , Terminal.text <| "Error: " ++ error
                                             ]
-
-                                        -- List Terminal.Text
                                         }
-                         --Just error
                         )
 
             allErrors : List BuildError
