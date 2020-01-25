@@ -1,13 +1,9 @@
 module MySitemap exposing (..)
 
-import Dict
 import Metadata exposing (Metadata(..))
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Sitemap
-import Time
-import Xml
-import Xml.Encode exposing (..)
 
 
 build :
