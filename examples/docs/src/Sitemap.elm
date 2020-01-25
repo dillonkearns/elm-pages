@@ -1,6 +1,14 @@
 module Sitemap exposing (build)
 
 {-| <https://www.sitemaps.org/protocol.html>
+
+Including a sitemap can boost your SEO by making it easier for webcrawlers to efficiently crawl your site. It also helps
+web crawlers detect when a change has been made on your site faster, so changes to your site can be reflected sooner
+in search results.
+
+Be sure to exclude pages from your site map that you don't want to be indexed. This is a good resource
+that explains which pages should be included and which should be excluded: <https://blog.spotibo.com/sitemap-guide/#which-urls-should-be-put-in-a-sitemap>.
+
 -}
 
 import Date exposing (Date)
