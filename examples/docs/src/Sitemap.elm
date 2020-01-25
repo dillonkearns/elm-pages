@@ -9,6 +9,11 @@ in search results.
 Be sure to exclude pages from your site map that you don't want to be indexed. This is a good resource
 that explains which pages should be included and which should be excluded: <https://blog.spotibo.com/sitemap-guide/#which-urls-should-be-put-in-a-sitemap>.
 
+It's important that you not include duplicate pages in your sitemap as this can result in a serious SEO penalty or
+flag your site as spam.
+
+Here's another reference with more best practices: <https://support.google.com/webmasters/answer/183668?hl=en>
+
 -}
 
 import Date exposing (Date)

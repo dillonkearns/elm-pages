@@ -487,6 +487,7 @@ highlightableLink currentPath linkDirectory displayName =
 commonHeadTags : List (Head.Tag Pages.PathKey)
 commonHeadTags =
     [ Head.rssLink "/blog/feed.xml"
+    , Head.sitemapLink "/sitemap.xml"
     ]
 
 
