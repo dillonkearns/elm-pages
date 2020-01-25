@@ -4,7 +4,6 @@ import Dict
 import Metadata exposing (Metadata(..))
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
-import RssFeed
 import Sitemap
 import Time
 import Xml

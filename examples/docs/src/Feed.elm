@@ -1,13 +1,9 @@
 module Feed exposing (fileToGenerate)
 
-import Dict
 import Metadata exposing (Metadata(..))
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
-import RssFeed
-import Time
-import Xml
-import Xml.Encode exposing (..)
+import Rss
 
 
 fileToGenerate :
@@ -26,8 +22,7 @@ fileToGenerate :
         }
 fileToGenerate config siteMetadata =
     { path = [ "blog", "feed.xml" ]
-    , content =
-        generate config siteMetadata |> Xml.Encode.encode 0
+    , content = generate config siteMetadata
     }
 
 
@@ -41,9 +36,9 @@ generate :
             , frontmatter : Metadata
             , body : String
             }
-    -> Xml.Value
+    -> String
 generate { siteTagline, siteUrl } siteMetadata =
-    RssFeed.generate
+    Rss.generate
         { title = "elm-pages Blog"
         , description = siteTagline
         , url = "https://elm-pages.com/blog"
@@ -59,7 +54,7 @@ metadataToRssItem :
     , frontmatter : Metadata
     , body : String
     }
-    -> Maybe RssFeed.Item
+    -> Maybe Rss.Item
 metadataToRssItem page =
     case page.frontmatter of
         Article article ->
@@ -69,7 +64,7 @@ metadataToRssItem page =
                 , url = PagePath.toString page.path
                 , categories = []
                 , author = article.author.name
-                , pubDate = article.published
+                , pubDate = Rss.Date article.published
                 , content = Nothing
                 }
 
