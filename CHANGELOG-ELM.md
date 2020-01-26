@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.0.0] - 2020-01-25
+
+### Added
+- There's a new `generateFiles` endpoint. You pass in a function that takes a page's path,
+    page metadata, and page body, and that returns a list representing the files to generate.
+    You can see a working example for elm-pages.com, here's the [entry point](https://github.com/dillonkearns/elm-pages/blob/master/examples/docs/src/Main.elm#L76-L92), and here's where it
+    [generates the RSS feed](https://github.com/dillonkearns/elm-pages/blob/master/examples/docs/src/Feed.elm).
+    You can pass in a no-op function like `\pages -> []` to not generate any files.
+
+
+## [1.1.3] - 2020-01-23
+
+### Fixed
+- Fix missing content flash (that was partially fixed with [#48](https://github.com/dillonkearns/elm-pages/pull/48)) for
+    some cases where paths weren't normalized correctly.
+
+## [1.1.2] - 2020-01-20
+
+### Fixed
+- "Missing content" message no longer flashes between pre-rendered HTML and the Elm app hydrating and taking over the page. See [#48](https://github.com/dillonkearns/elm-pages/pull/48).
+
 ## [1.1.1] - 2020-01-04
 
 ### Fixed

@@ -8,8 +8,11 @@ import DocumentSvg
 import Element exposing (Element)
 import Element.Background
 import Element.Border
+import Element.Events
 import Element.Font as Font
 import Element.Region
+import Feed
+import FontAwesome
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -19,6 +22,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Exploration as D
 import MarkdownRenderer
 import Metadata exposing (Metadata)
+import MySitemap
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
@@ -30,6 +34,7 @@ import Pages.Platform exposing (Page)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
+import Showcase
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -62,9 +67,29 @@ main =
         , documents = [ markdownDocument ]
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
+        , generateFiles = generateFiles
         , onPageChange = OnPageChange
         , internals = Pages.internals
         }
+
+
+generateFiles :
+    List
+        { path : PagePath Pages.PathKey
+        , frontmatter : Metadata
+        , body : String
+        }
+    ->
+        List
+            (Result String
+                { path : List String
+                , content : String
+                }
+            )
+generateFiles siteMetadata =
+    [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+    , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+    ]
 
 
 markdownDocument : ( String, Pages.Document.DocumentHandler Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) )
@@ -77,7 +102,8 @@ markdownDocument =
 
 
 type alias Model =
-    {}
+    { showMobileMenu : Bool
+    }
 
 
 init :
@@ -88,7 +114,7 @@ init :
         }
     -> ( Model, Cmd Msg )
 init maybePagePath =
-    ( Model, Cmd.none )
+    ( Model False, Cmd.none )
 
 
 type Msg
@@ -97,13 +123,17 @@ type Msg
         , query : Maybe String
         , fragment : Maybe String
         }
+    | ToggleMobileMenu
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         OnPageChange page ->
-            ( model, Cmd.none )
+            ( { model | showMobileMenu = False }, Cmd.none )
+
+        ToggleMobileMenu ->
+            ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -123,17 +153,39 @@ view :
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
-    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (D.field "stargazers_count" D.int)
-        |> StaticHttp.map
-            (\stars ->
-                { view =
-                    \model viewForPage ->
-                        pageView stars model siteMetadata page viewForPage
-                            |> wrapBody
-                , head = head page.frontmatter
-                }
-            )
+    case page.frontmatter of
+        Metadata.Showcase ->
+            StaticHttp.map2
+                (\stars showcaseData ->
+                    { view =
+                        \model viewForPage ->
+                            { title = "elm-pages blog"
+                            , body =
+                                Element.column [ Element.width Element.fill ]
+                                    [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseData ]
+                                    ]
+                            }
+                                |> wrapBody stars page model
+                    , head = head page.frontmatter
+                    }
+                )
+                (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                    (D.field "stargazers_count" D.int)
+                )
+                Showcase.staticRequest
+
+        _ ->
+            StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                (D.field "stargazers_count" D.int)
+                |> StaticHttp.map
+                    (\stars ->
+                        { view =
+                            \model viewForPage ->
+                                pageView stars model siteMetadata page viewForPage
+                                    |> wrapBody stars page model
+                        , head = head page.frontmatter
+                        }
+                    )
 
 
 
@@ -186,8 +238,7 @@ pageView stars model siteMetadata page viewForPage =
         Metadata.Page metadata ->
             { title = metadata.title
             , body =
-                [ header stars page.path
-                , Element.column
+                [ Element.column
                     [ Element.padding 50
                     , Element.spacing 60
                     , Element.Region.mainContent
@@ -203,8 +254,7 @@ pageView stars model siteMetadata page viewForPage =
             { title = metadata.title
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header stars page.path
-                    , Element.column
+                    [ Element.column
                         [ Element.padding 30
                         , Element.spacing 40
                         , Element.Region.mainContent
@@ -234,8 +284,7 @@ pageView stars model siteMetadata page viewForPage =
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
-                [ header stars page.path
-                , Element.row []
+                [ Element.row []
                     [ DocSidebar.view page.path siteMetadata
                         |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                     , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
@@ -264,8 +313,7 @@ pageView stars model siteMetadata page viewForPage =
                 Element.column
                     [ Element.width Element.fill
                     ]
-                    [ header stars page.path
-                    , Element.column
+                    [ Element.column
                         [ Element.padding 30
                         , Element.spacing 20
                         , Element.Region.mainContent
@@ -283,15 +331,41 @@ pageView stars model siteMetadata page viewForPage =
             { title = "elm-pages blog"
             , body =
                 Element.column [ Element.width Element.fill ]
-                    [ header stars page.path
-                    , Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
+                    [ Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
+                    ]
+            }
+
+        Metadata.Showcase ->
+            { title = "elm-pages blog"
+            , body =
+                Element.column [ Element.width Element.fill ]
+                    [--, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view siteMetadata ]
                     ]
             }
 
 
-wrapBody record =
+wrapBody : Int -> { a | path : PagePath Pages.PathKey } -> Model -> { c | body : Element Msg, title : String } -> { body : Html Msg, title : String }
+wrapBody stars page model record =
     { body =
-        record.body
+        (if model.showMobileMenu then
+            Element.column
+                [ Element.width Element.fill
+                , Element.padding 20
+                ]
+                [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
+                    [ logoLinkMobile
+                    , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
+                    ]
+                , Element.column [ Element.centerX, Element.spacing 20 ]
+                    (navbarLinks stars page.path)
+                ]
+
+         else
+            Element.column [ Element.width Element.fill ]
+                [ header stars page.path
+                , record.body
+                ]
+        )
             |> Element.layout
                 [ Element.width Element.fill
                 , Font.size 20
@@ -310,48 +384,89 @@ articleImageView articleImage =
         }
 
 
-header : Int -> PagePath Pages.PathKey -> Element msg
+header : Int -> PagePath Pages.PathKey -> Element Msg
 header stars currentPath =
     Element.column [ Element.width Element.fill ]
-        [ Element.el
-            [ Element.height (Element.px 4)
-            , Element.width Element.fill
-            , Element.Background.gradient
-                { angle = 0.2
-                , steps =
-                    [ Element.rgb255 0 242 96
-                    , Element.rgb255 5 117 230
-                    ]
-                }
+        [ responsiveHeader
+        , Element.column
+            [ Element.width Element.fill
+            , Element.htmlAttribute (Attr.class "responsive-desktop")
             ]
-            Element.none
-        , Element.row
-            [ Element.paddingXY 25 4
-            , Element.spaceEvenly
-            , Element.width Element.fill
-            , Element.Region.navigation
-            , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-            , Element.Border.color (Element.rgba255 40 80 40 0.4)
-            ]
-            [ Element.link []
-                { url = "/"
-                , label =
-                    Element.row
-                        [ Font.size 30
-                        , Element.spacing 16
-                        , Element.htmlAttribute (Attr.id "navbar-title")
+            [ Element.el
+                [ Element.height (Element.px 4)
+                , Element.width Element.fill
+                , Element.Background.gradient
+                    { angle = 0.2
+                    , steps =
+                        [ Element.rgb255 0 242 96
+                        , Element.rgb255 5 117 230
                         ]
-                        [ DocumentSvg.view
-                        , Element.text "elm-pages"
-                        ]
-                }
-            , Element.row [ Element.spacing 15 ]
-                [ elmDocsLink
-                , githubRepoLink stars
-                , highlightableLink currentPath pages.docs.directory "Docs"
-                , highlightableLink currentPath pages.blog.directory "Blog"
+                    }
+                ]
+                Element.none
+            , Element.row
+                [ Element.paddingXY 25 4
+                , Element.spaceEvenly
+                , Element.width Element.fill
+                , Element.Region.navigation
+                , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                , Element.Border.color (Element.rgba255 40 80 40 0.4)
+                ]
+                [ logoLink
+                , Element.row [ Element.spacing 15 ] (navbarLinks stars currentPath)
                 ]
             ]
+        ]
+
+
+logoLink =
+    Element.link []
+        { url = "/"
+        , label =
+            Element.row
+                [ Font.size 30
+                , Element.spacing 16
+                , Element.htmlAttribute (Attr.id "navbar-title")
+                ]
+                [ DocumentSvg.view
+                , Element.text "elm-pages"
+                ]
+        }
+
+
+logoLinkMobile =
+    Element.link []
+        { url = "/"
+        , label =
+            Element.row
+                [ Font.size 30
+                , Element.spacing 16
+                , Element.htmlAttribute (Attr.id "navbar-title")
+                ]
+                [ Element.text "elm-pages"
+                ]
+        }
+
+
+navbarLinks stars currentPath =
+    [ elmDocsLink
+    , githubRepoLink stars
+    , highlightableLink currentPath pages.docs.directory "Docs"
+    , highlightableLink currentPath pages.showcase.directory "Showcase"
+    , highlightableLink currentPath pages.blog.directory "Blog"
+    ]
+
+
+responsiveHeader =
+    Element.row
+        [ Element.width Element.fill
+        , Element.spaceEvenly
+        , Element.htmlAttribute (Attr.class "responsive-mobile")
+        , Element.width Element.fill
+        , Element.padding 20
+        ]
+        [ logoLinkMobile
+        , FontAwesome.icon "fas fa-bars" |> Element.el [ Element.alignRight, Element.Events.onClick ToggleMobileMenu ]
         ]
 
 
@@ -379,6 +494,13 @@ highlightableLink currentPath linkDirectory displayName =
         }
 
 
+commonHeadTags : List (Head.Tag Pages.PathKey)
+commonHeadTags =
+    [ Head.rssLink "/blog/feed.xml"
+    , Head.sitemapLink "/sitemap.xml"
+    ]
+
+
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
 <https://htmlhead.dev>
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
@@ -386,111 +508,129 @@ highlightableLink currentPath linkDirectory displayName =
 -}
 head : Metadata -> List (Head.Tag Pages.PathKey)
 head metadata =
-    case metadata of
-        Metadata.Page meta ->
-            Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = siteTagline
-                , locale = Nothing
-                , title = meta.title
-                }
-                |> Seo.website
+    commonHeadTags
+        ++ (case metadata of
+                Metadata.Page meta ->
+                    Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = images.iconPng
+                            , alt = "elm-pages logo"
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = siteTagline
+                        , locale = Nothing
+                        , title = meta.title
+                        }
+                        |> Seo.website
 
-        Metadata.Doc meta ->
-            Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , locale = Nothing
-                , description = siteTagline
-                , title = meta.title
-                }
-                |> Seo.website
+                Metadata.Doc meta ->
+                    Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = images.iconPng
+                            , alt = "elm pages logo"
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , locale = Nothing
+                        , description = siteTagline
+                        , title = meta.title
+                        }
+                        |> Seo.website
 
-        Metadata.Article meta ->
-            Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = meta.image
-                    , alt = meta.description
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = meta.description
-                , locale = Nothing
-                , title = meta.title
-                }
-                |> Seo.article
-                    { tags = []
-                    , section = Nothing
-                    , publishedTime = Just (Date.toIsoString meta.published)
-                    , modifiedTime = Nothing
-                    , expirationTime = Nothing
-                    }
+                Metadata.Article meta ->
+                    Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = meta.image
+                            , alt = meta.description
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = meta.description
+                        , locale = Nothing
+                        , title = meta.title
+                        }
+                        |> Seo.article
+                            { tags = []
+                            , section = Nothing
+                            , publishedTime = Just (Date.toIsoString meta.published)
+                            , modifiedTime = Nothing
+                            , expirationTime = Nothing
+                            }
 
-        Metadata.Author meta ->
-            let
-                ( firstName, lastName ) =
-                    case meta.name |> String.split " " of
-                        [ first, last ] ->
-                            ( first, last )
+                Metadata.Author meta ->
+                    let
+                        ( firstName, lastName ) =
+                            case meta.name |> String.split " " of
+                                [ first, last ] ->
+                                    ( first, last )
 
-                        [ first, middle, last ] ->
-                            ( first ++ " " ++ middle, last )
+                                [ first, middle, last ] ->
+                                    ( first ++ " " ++ middle, last )
 
-                        [] ->
-                            ( "", "" )
+                                [] ->
+                                    ( "", "" )
 
-                        _ ->
-                            ( meta.name, "" )
-            in
-            Seo.summary
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = meta.avatar
-                    , alt = meta.name ++ "'s elm-pages articles."
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = meta.bio
-                , locale = Nothing
-                , title = meta.name ++ "'s elm-pages articles."
-                }
-                |> Seo.profile
-                    { firstName = firstName
-                    , lastName = lastName
-                    , username = Nothing
-                    }
+                                _ ->
+                                    ( meta.name, "" )
+                    in
+                    Seo.summary
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = meta.avatar
+                            , alt = meta.name ++ "'s elm-pages articles."
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = meta.bio
+                        , locale = Nothing
+                        , title = meta.name ++ "'s elm-pages articles."
+                        }
+                        |> Seo.profile
+                            { firstName = firstName
+                            , lastName = lastName
+                            , username = Nothing
+                            }
 
-        Metadata.BlogIndex ->
-            Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = siteTagline
-                , locale = Nothing
-                , title = "elm-pages blog"
-                }
-                |> Seo.website
+                Metadata.BlogIndex ->
+                    Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = images.iconPng
+                            , alt = "elm-pages logo"
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = siteTagline
+                        , locale = Nothing
+                        , title = "elm-pages blog"
+                        }
+                        |> Seo.website
+
+                Metadata.Showcase ->
+                    Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = images.iconPng
+                            , alt = "elm-pages logo"
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = siteTagline
+                        , locale = Nothing
+                        , title = "elm-pages sites showcase"
+                        }
+                        |> Seo.website
+           )
 
 
 canonicalSiteUrl : String

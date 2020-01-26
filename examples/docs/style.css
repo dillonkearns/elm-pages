@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css?family=Montserrat:400,700|Roboto&display=swap");
+@import url("https://use.fontawesome.com/releases/v5.9.0/css/all.css");
 
 .dotted-line {
   -webkit-animation: animation-yweh2o 400ms linear infinite;
@@ -24,5 +25,16 @@
   }
   #navbar-title svg {
     width: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .responsive-desktop {
+    display: none !important;
+  }
+}
+@media (min-width: 600px) {
+  .responsive-mobile {
+    display: none !important;
   }
 }

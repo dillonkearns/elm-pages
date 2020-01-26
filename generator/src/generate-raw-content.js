@@ -19,8 +19,8 @@ function toEntry(entry, includeBody) {
 
   return `
   ( [${fullPath.join(", ")}]
-    , { frontMatter = """${entry.metadata}
-""" , body = ${body(entry, includeBody)}
+    , { frontMatter = ${JSON.stringify(entry.metadata)}
+    , body = ${body(entry, includeBody)}
     , extension = "${extension}"
     } )
   `;

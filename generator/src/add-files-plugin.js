@@ -20,8 +20,11 @@ function unpackFile(filePath) {
 }
 
 module.exports = class AddFilesPlugin {
-  constructor(data) {
+  constructor(data, filesToGenerate) {
     this.pagesWithRequests = data;
+    this.filesToGenerate = filesToGenerate;
+    console.log('this.filesToGenerate', this.filesToGenerate);
+    
   }
   apply(compiler) {
     compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
@@ -52,6 +55,18 @@ module.exports = class AddFilesPlugin {
           size: () => rawContents.length
         };
       });
+
+      this.filesToGenerate.forEach(file => {
+        // Couldn't find this documented in the webpack docs,
+        // but I found the example code for it here:
+        // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+        compilation.assets[file.path] = {
+          source: () => file.content,
+          size: () => file.content.length
+        };
+      });
+
+
     });
   }
 };

@@ -86,6 +86,7 @@ function run() {
       markdownContent,
       content,
       function(payload) {
+        console.log('@@@@@@@@@ filesToGenerate', payload.filesToGenerate);
         if (contents.watch) {
           startWatchIfNeeded();
           if (!devServerRunning) {
@@ -94,7 +95,9 @@ function run() {
               routes,
               debug: contents.debug,
               manifestConfig: payload.manifest,
-              routesWithRequests: payload.pages
+              routesWithRequests: payload.pages,
+              filesToGenerate: payload.filesToGenerate,
+              customPort: contents.customPort
             });
           }
         } else {
@@ -106,7 +109,8 @@ function run() {
             {
               routes,
               manifestConfig: payload.manifest,
-              routesWithRequests: payload.pages
+              routesWithRequests: payload.pages,
+              filesToGenerate: payload.filesToGenerate
             },
             () => {}
           );

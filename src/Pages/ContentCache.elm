@@ -111,9 +111,10 @@ pagesWithErrors cache =
 init :
     Document metadata view
     -> Content
+    -> Maybe { contentJson : ContentJson String, initialUrl : Url }
     -> ContentCache metadata view
-init document content =
-    parseMetadata document content
+init document content maybeInitialPageContent =
+    parseMetadata maybeInitialPageContent document content
         |> List.map
             (\tuple ->
                 Tuple.mapSecond
@@ -149,40 +150,73 @@ createBuildError path decodeError =
 
 
 parseMetadata :
-    Document metadata view
+    Maybe { contentJson : ContentJson String, initialUrl : Url }
+    -> Document metadata view
     -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
     -> List ( List String, Result String (Entry metadata view) )
-parseMetadata document content =
+parseMetadata maybeInitialPageContent document content =
     content
         |> List.map
-            (Tuple.mapSecond
-                (\{ frontMatter, extension, body } ->
-                    let
-                        maybeDocumentEntry =
-                            Document.get extension document
-                    in
-                    case maybeDocumentEntry of
-                        Just documentEntry ->
-                            frontMatter
-                                |> documentEntry.frontmatterParser
-                                |> Result.map
-                                    (\metadata ->
-                                        -- TODO do I need to handle this case?
-                                        --                                        case body of
-                                        --                                            Just presentBody ->
-                                        --                                                Parsed metadata
-                                        --                                                    { body = parseContent extension presentBody document
-                                        --                                                    , staticData = ""
-                                        --                                                    }
-                                        --
-                                        --                                            Nothing ->
-                                        NeedContent extension metadata
-                                    )
+            (\( path, { frontMatter, extension, body } ) ->
+                let
+                    maybeDocumentEntry =
+                        Document.get extension document
+                in
+                case maybeDocumentEntry of
+                    Just documentEntry ->
+                        frontMatter
+                            |> documentEntry.frontmatterParser
+                            |> Result.map
+                                (\metadata ->
+                                    let
+                                        renderer =
+                                            \value ->
+                                                parseContent extension value document
+                                    in
+                                    case maybeInitialPageContent of
+                                        Just { contentJson, initialUrl } ->
+                                            if normalizePath initialUrl.path == (String.join "/" path |> normalizePath) then
+                                                Parsed metadata
+                                                    { body = renderer contentJson.body
+                                                    , staticData = contentJson.staticData
+                                                    }
 
-                        Nothing ->
-                            Err ("Could not find extension '" ++ extension ++ "'")
-                )
+                                            else
+                                                NeedContent extension metadata
+
+                                        Nothing ->
+                                            NeedContent extension metadata
+                                )
+                            |> Tuple.pair path
+
+                    Nothing ->
+                        Err ("Could not find extension '" ++ extension ++ "'")
+                            |> Tuple.pair path
             )
+
+
+normalizePath : String -> String
+normalizePath pathString =
+    let
+        hasPrefix =
+            String.startsWith "/" pathString
+
+        hasSuffix =
+            String.endsWith "/" pathString
+    in
+    String.concat
+        [ if hasPrefix then
+            ""
+
+          else
+            "/"
+        , pathString
+        , if hasSuffix then
+            ""
+
+          else
+            "/"
+        ]
 
 
 parseContent :
@@ -327,8 +361,8 @@ lazyLoad document url cacheResult =
                                 |> Task.map
                                     (\downloadedContent ->
                                         update cacheResult
-                                            (\thing ->
-                                                parseContent extension thing document
+                                            (\value ->
+                                                parseContent extension value document
                                             )
                                             url
                                             downloadedContent

@@ -83,6 +83,19 @@ application :
                 }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config pathKey
+    , generateFiles :
+        List
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            , body : String
+            }
+        ->
+            List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
     , onPageChange :
         { path : PagePath pathKey
         , query : Maybe String
@@ -108,6 +121,7 @@ application config =
         , subscriptions = config.subscriptions
         , document = Document.fromList config.documents
         , content = config.internals.content
+        , generateFiles = config.generateFiles
         , toJsPort = config.internals.toJsPort
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl

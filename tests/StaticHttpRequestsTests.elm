@@ -564,9 +564,17 @@ start pages =
                             Debug.todo "Couldn't find page"
             }
     in
+    {-
+       (Model -> model)
+       -> ContentCache.ContentCache metadata view
+       -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+       -> Config pathKey userMsg userModel metadata view
+       -> Decode.Value
+       -> ( model, Effect pathKey )
+    -}
     ProgramTest.createDocument
         { init = Main.init identity contentCache siteMetadata config
-        , update = Main.update config
+        , update = Main.update siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
