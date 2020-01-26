@@ -1,26 +1,13 @@
-sudo: false
-
-language: node_js
-node_js: "8.11.4"
-
-os:
-  - linux
-
-env:
-  matrix:
-    - ELM_VERSION=0.19.1
-
-before_install:
-  - npm i -g npm@lts
-  - npm i -g elm@latest-0.19.1
-  - npm i -g npm@6.4.1
+language: elm
+elm: latest-0.19.1
+elm-test: latest-0.19.1
+elm-format: 0.8.2
 
 install:
   - npm ci
 
 script:
-  - echo '$TRAVIS_TAG is ' $TRAVIS_TAG
-  - npm run build
+  - npm test
 
 deploy:
   - provider: npm
