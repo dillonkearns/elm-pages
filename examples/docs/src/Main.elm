@@ -106,13 +106,23 @@ type alias Model =
     }
 
 
-init : Maybe (PagePath Pages.PathKey) -> ( Model, Cmd Msg )
+init :
+    Maybe
+        { path : PagePath Pages.PathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+    -> ( Model, Cmd Msg )
 init maybePagePath =
     ( Model False, Cmd.none )
 
 
 type Msg
-    = OnPageChange (PagePath Pages.PathKey)
+    = OnPageChange
+        { path : PagePath Pages.PathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
     | ToggleMobileMenu
 
 
