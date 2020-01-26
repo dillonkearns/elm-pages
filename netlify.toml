@@ -1,4 +1,4 @@
 [build]
   base = "examples/docs/"
   publish = "examples/docs/dist/"
-  command = "cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
+  command = "export ELM_HOME=\"$NETLIFY_CACHE_DIR/elm\" && cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
