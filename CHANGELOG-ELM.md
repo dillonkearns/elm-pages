@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.0] - 2020-01-25
+
+### Changed
+- Added URL query and fragment in addition to the PagePath provided by `init` and `onPageChange`.
+    See [#39](https://github.com/dillonkearns/elm-pages/pull/39). The new data structure used looks like this:
+
+```elm
+    { path : PagePath Pages.PathKey
+    , query : Maybe String
+    , fragment : Maybe String
+    }
+```
+
 ## [2.0.0] - 2020-01-25
 
 ### Added
