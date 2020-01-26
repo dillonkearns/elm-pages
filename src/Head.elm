@@ -1,5 +1,6 @@
 module Head exposing
     ( Tag, metaName, metaProperty
+    , rssLink, sitemapLink
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
     , toJson, canonicalLink
@@ -15,6 +16,7 @@ But this module might be useful if you have a special use case, or if you are
 writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty
+@docs rssLink, sitemapLink
 
 
 ## `AttributeValue`s
@@ -106,9 +108,49 @@ canonicalLink maybePath =
         ]
 
 
+{-| Add a link to the site's RSS feed.
+
+Example:
+
+    rssLink "/feed.xml"
+
+```html
+<link rel="alternate" type="application/rss+xml" href="/rss.xml">
+```
+
+-}
+rssLink : String -> Tag pathKey
+rssLink url =
+    node "link"
+        [ ( "rel", raw "alternate" )
+        , ( "type", raw "application/rss+xml" )
+        , ( "href", raw url )
+        ]
+
+
+{-| Add a link to the site's RSS feed.
+
+Example:
+
+    sitemapLink "/feed.xml"
+
+```html
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+```
+
+-}
+sitemapLink : String -> Tag pathKey
+sitemapLink url =
+    node "link"
+        [ ( "rel", raw "sitemap" )
+        , ( "type", raw "application/xml" )
+        , ( "href", raw url )
+        ]
+
+
 {-| Example:
 
-    Head.metaProperty "fb:app_id" ( Head.raw "123456789" )
+    Head.metaProperty "fb:app_id" (Head.raw "123456789")
 
 Results in `<meta property="fb:app_id" content="123456789" />`
 

@@ -44,6 +44,13 @@ type ToJsPayload pathKey
 type alias ToJsSuccessPayload pathKey =
     { pages : Dict String (Dict String String)
     , manifest : Manifest.Config pathKey
+    , filesToGenerate : List FileToGenerate
+    }
+
+
+type alias FileToGenerate =
+    { path : List String
+    , content : String
     }
 
 
@@ -55,8 +62,8 @@ toJsCodec =
                 Errors errorList ->
                     errors errorList
 
-                Success { pages, manifest } ->
-                    success (ToJsSuccessPayload pages manifest)
+                Success { pages, manifest, filesToGenerate } ->
+                    success (ToJsSuccessPayload pages manifest filesToGenerate)
         )
         |> Codec.variant1 "Errors" Errors Codec.string
         |> Codec.variant1 "Success"
@@ -90,6 +97,21 @@ successCodec =
         |> Codec.field "manifest"
             .manifest
             (Codec.build Manifest.toJson (Decode.succeed stubManifest))
+        |> Codec.field "filesToGenerate"
+            .filesToGenerate
+            (Codec.build
+                (\list ->
+                    list
+                        |> Json.Encode.list
+                            (\item ->
+                                Json.Encode.object
+                                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
+                                    , ( "content", item.content |> Json.Encode.string )
+                                    ]
+                            )
+                )
+                (Decode.succeed [])
+            )
         |> Codec.buildObject
 
 
@@ -128,34 +150,50 @@ type Msg
     = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Http.Error String }
 
 
+type alias Config pathKey userMsg userModel metadata view =
+    { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
+    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , subscriptions : userModel -> Sub userMsg
+    , view :
+        List ( PagePath pathKey, metadata )
+        ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
+    , document : Pages.Document.Document metadata view
+    , content : Content
+    , toJsPort : Json.Encode.Value -> Cmd Never
+    , manifest : Manifest.Config pathKey
+    , generateFiles :
+        List
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            , body : String
+            }
+        ->
+            List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
+    , canonicalSiteUrl : String
+    , pathKey : pathKey
+    , onPageChange : PagePath pathKey -> userMsg
+    }
+
+
 cliApplication :
     (Msg -> msg)
     -> (msg -> Maybe Msg)
     -> (Model -> model)
     -> (model -> Maybe Model)
-    ->
-        { init : Maybe (PagePath pathKey) -> ( userModel, Cmd userMsg )
-        , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-        , subscriptions : userModel -> Sub userMsg
-        , view :
-            List ( PagePath pathKey, metadata )
-            ->
-                { path : PagePath pathKey
-                , frontmatter : metadata
-                }
-            ->
-                StaticHttp.Request
-                    { view : userModel -> view -> { title : String, body : Html userMsg }
-                    , head : List (Head.Tag pathKey)
-                    }
-        , document : Pages.Document.Document metadata view
-        , content : Content
-        , toJsPort : Json.Encode.Value -> Cmd Never
-        , manifest : Manifest.Config pathKey
-        , canonicalSiteUrl : String
-        , pathKey : pathKey
-        , onPageChange : PagePath pathKey -> userMsg
-        }
+    -> Config pathKey userMsg userModel metadata view
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -177,7 +215,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
                     ( Just cliMsg, Just cliModel ) ->
-                        update config cliMsg cliModel
+                        update siteMetadata config cliMsg cliModel
                             |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
                             |> Tuple.mapFirst toModel
 
@@ -248,21 +286,7 @@ init :
     (Model -> model)
     -> ContentCache.ContentCache metadata view
     -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    ->
-        { config
-            | view :
-                List ( PagePath pathKey, metadata )
-                ->
-                    { path : PagePath pathKey
-                    , frontmatter : metadata
-                    }
-                ->
-                    StaticHttp.Request
-                        { view : userModel -> view -> { title : String, body : Html userMsg }
-                        , head : List (Head.Tag pathKey)
-                        }
-            , manifest : Manifest.Config pathKey
-        }
+    -> Config pathKey userMsg userModel metadata view
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
@@ -298,7 +322,7 @@ init toModel contentCache siteMetadata config flags =
                                             staticResponsesInit []
 
                                 ( updatedRawResponses, effect ) =
-                                    sendStaticResponsesIfDone mode secrets Dict.empty [] staticResponses config.manifest
+                                    sendStaticResponsesIfDone config siteMetadata mode secrets Dict.empty [] staticResponses
                             in
                             ( Model staticResponses secrets [] updatedRawResponses mode |> toModel
                             , effect
@@ -324,6 +348,8 @@ init toModel contentCache siteMetadata config flags =
                                             staticResponsesInit []
                             in
                             updateAndSendPortIfDone
+                                config
+                                siteMetadata
                                 (Model
                                     staticResponses
                                     secrets
@@ -332,10 +358,11 @@ init toModel contentCache siteMetadata config flags =
                                     mode
                                 )
                                 toModel
-                                config.manifest
 
                 Err metadataParserErrors ->
                     updateAndSendPortIfDone
+                        config
+                        siteMetadata
                         (Model Dict.empty
                             secrets
                             (metadataParserErrors |> List.map Tuple.second)
@@ -343,10 +370,11 @@ init toModel contentCache siteMetadata config flags =
                             mode
                         )
                         toModel
-                        config.manifest
 
         Err error ->
             updateAndSendPortIfDone
+                config
+                siteMetadata
                 (Model Dict.empty
                     SecretsDict.masked
                     [ { title = "Internal Error"
@@ -357,20 +385,25 @@ init toModel contentCache siteMetadata config flags =
                     Dev
                 )
                 toModel
-                config.manifest
 
 
-updateAndSendPortIfDone : Model -> (Model -> model) -> Manifest.Config pathKey -> ( model, Effect pathKey )
-updateAndSendPortIfDone model toModel manifest =
+updateAndSendPortIfDone :
+    Config pathKey userMsg userModel metadata view
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Model
+    -> (Model -> model)
+    -> ( model, Effect pathKey )
+updateAndSendPortIfDone config siteMetadata model toModel =
     let
         ( updatedAllRawResponses, effect ) =
             sendStaticResponsesIfDone
+                config
+                siteMetadata
                 model.mode
                 model.secrets
                 model.allRawResponses
                 model.errors
                 model.staticResponses
-                manifest
     in
     ( { model | allRawResponses = updatedAllRawResponses } |> toModel
     , effect
@@ -382,24 +415,12 @@ type alias PageErrors =
 
 
 update :
-    { config
-        | view :
-            List ( PagePath pathKey, metadata )
-            ->
-                { path : PagePath pathKey
-                , frontmatter : metadata
-                }
-            ->
-                StaticHttp.Request
-                    { view : userModel -> view -> { title : String, body : Html userMsg }
-                    , head : List (Head.Tag pathKey)
-                    }
-        , manifest : Manifest.Config pathKey
-    }
+    Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Config pathKey userMsg userModel metadata view
     -> Msg
     -> Model
     -> ( Model, Effect pathKey )
-update config msg model =
+update siteMetadata config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
@@ -456,7 +477,7 @@ update config msg model =
                             }
 
                 ( updatedAllRawResponses, effect ) =
-                    sendStaticResponsesIfDone updatedModel.mode updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses config.manifest
+                    sendStaticResponsesIfDone config siteMetadata updatedModel.mode updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses
             in
             ( { updatedModel | allRawResponses = updatedAllRawResponses }
             , effect
@@ -585,8 +606,16 @@ isJust maybeValue =
             False
 
 
-sendStaticResponsesIfDone : Mode -> SecretsDict -> Dict String (Maybe String) -> List BuildError -> StaticResponses -> Manifest.Config pathKey -> ( Dict String (Maybe String), Effect pathKey )
-sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses manifest =
+sendStaticResponsesIfDone :
+    Config pathKey userMsg userModel metadata view
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Mode
+    -> SecretsDict
+    -> Dict String (Maybe String)
+    -> List BuildError
+    -> StaticResponses
+    -> ( Dict String (Maybe String), Effect pathKey )
+sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses errors staticResponses =
     let
         pendingRequests =
             staticResponses
@@ -737,18 +766,86 @@ sendStaticResponsesIfDone mode secrets allRawResponses errors staticResponses ma
         let
             updatedAllRawResponses =
                 Dict.empty
+
+            generatedFiles =
+                siteMetadata
+                    |> Result.withDefault []
+                    |> List.map
+                        (\( pagePath, metadata ) ->
+                            let
+                                contentForPage =
+                                    config.content
+                                        |> List.filterMap
+                                            (\( path, { body } ) ->
+                                                let
+                                                    pagePathToGenerate =
+                                                        PagePath.toString pagePath
+
+                                                    currentContentPath =
+                                                        "/" ++ (path |> String.join "/")
+                                                in
+                                                if pagePathToGenerate == currentContentPath then
+                                                    Just body
+
+                                                else
+                                                    Nothing
+                                            )
+                                        |> List.head
+                                        |> Maybe.andThen identity
+                            in
+                            { path = pagePath
+                            , frontmatter = metadata
+                            , body = contentForPage |> Maybe.withDefault ""
+                            }
+                        )
+                    |> config.generateFiles
+
+            generatedOkayFiles =
+                generatedFiles
+                    |> List.filterMap
+                        (\result ->
+                            case result of
+                                Ok ok ->
+                                    Just ok
+
+                                _ ->
+                                    Nothing
+                        )
+
+            generatedFileErrors =
+                generatedFiles
+                    |> List.filterMap
+                        (\result ->
+                            case result of
+                                Ok ok ->
+                                    Nothing
+
+                                Err error ->
+                                    Just
+                                        { title = "Generate Files Error"
+                                        , message =
+                                            [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
+                                            , Terminal.text <| "Error: " ++ error
+                                            ]
+                                        }
+                        )
+
+            allErrors : List BuildError
+            allErrors =
+                errors ++ failedRequests ++ generatedFileErrors
         in
         ( updatedAllRawResponses
         , SendJsData
-            (if List.isEmpty errors && List.isEmpty failedRequests then
+            (if List.isEmpty allErrors then
                 Success
                     (ToJsSuccessPayload
                         (encodeStaticResponses mode staticResponses)
-                        manifest
+                        config.manifest
+                        generatedOkayFiles
                     )
 
              else
-                Errors <| BuildError.errorsToString (failedRequests ++ errors)
+                Errors <| BuildError.errorsToString allErrors
             )
         )
 
