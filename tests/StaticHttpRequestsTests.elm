@@ -529,7 +529,7 @@ start pages =
                     )
 
         contentCache =
-            ContentCache.init document content
+            ContentCache.init document content Nothing
 
         siteMetadata =
             contentCache
@@ -540,6 +540,9 @@ start pages =
         config =
             { toJsPort = toJsPort
             , manifest = manifest
+            , generateFiles = \_ -> []
+            , init = \_ -> ( (), Cmd.none )
+            , update = \_ _ -> ( (), Cmd.none )
             , view =
                 \allFrontmatter page ->
                     let
@@ -562,6 +565,12 @@ start pages =
 
                         Nothing ->
                             Debug.todo "Couldn't find page"
+            , subscriptions = \_ -> Sub.none
+            , document = document
+            , content = []
+            , canonicalSiteUrl = ""
+            , pathKey = PathKey
+            , onPageChange = \_ -> ()
             }
     in
     {-
@@ -717,6 +726,7 @@ expectSuccess expectedRequests previous =
                                 )
                             |> Dict.fromList
                     , manifest = manifest
+                    , filesToGenerate = []
                     }
                 ]
             )
