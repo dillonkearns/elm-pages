@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.0] - 2020-01-20
+
+### Changed
+- Changed the CLI generator to expect code from the new Elm package from the new
+    `generateFiles` hook in `Pages.Platform.application`.
+
 ## [1.1.8] - 2020-01-20
 
 ### Fixed
