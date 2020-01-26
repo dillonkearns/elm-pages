@@ -86,7 +86,6 @@ function run() {
       markdownContent,
       content,
       function(payload) {
-        console.log('@@@@@@@@@ filesToGenerate', payload.filesToGenerate);
         if (contents.watch) {
           startWatchIfNeeded();
           if (!devServerRunning) {

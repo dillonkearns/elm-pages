@@ -23,8 +23,6 @@ module.exports = class AddFilesPlugin {
   constructor(data, filesToGenerate) {
     this.pagesWithRequests = data;
     this.filesToGenerate = filesToGenerate;
-    console.log('this.filesToGenerate', this.filesToGenerate);
-    
   }
   apply(compiler) {
     compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
