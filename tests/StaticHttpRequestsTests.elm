@@ -727,6 +727,7 @@ expectSuccess expectedRequests previous =
                             |> Dict.fromList
                     , manifest = manifest
                     , filesToGenerate = []
+                    , errors = []
                     }
                 ]
             )

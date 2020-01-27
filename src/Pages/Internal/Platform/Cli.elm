@@ -45,6 +45,7 @@ type alias ToJsSuccessPayload pathKey =
     { pages : Dict String (Dict String String)
     , manifest : Manifest.Config pathKey
     , filesToGenerate : List FileToGenerate
+    , errors : List String
     }
 
 
@@ -57,13 +58,13 @@ type alias FileToGenerate =
 toJsCodec : Codec (ToJsPayload pathKey)
 toJsCodec =
     Codec.custom
-        (\errors success value ->
+        (\errorsTag success value ->
             case value of
                 Errors errorList ->
-                    errors errorList
+                    errorsTag errorList
 
-                Success { pages, manifest, filesToGenerate } ->
-                    success (ToJsSuccessPayload pages manifest filesToGenerate)
+                Success { pages, manifest, filesToGenerate, errors } ->
+                    success (ToJsSuccessPayload pages manifest filesToGenerate errors)
         )
         |> Codec.variant1 "Errors" Errors Codec.string
         |> Codec.variant1 "Success"
@@ -112,6 +113,7 @@ successCodec =
                 )
                 (Decode.succeed [])
             )
+        |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.buildObject
 
 
@@ -847,16 +849,18 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
         in
         ( updatedAllRawResponses
         , SendJsData
-            (if List.isEmpty allErrors then
-                Success
-                    (ToJsSuccessPayload
-                        (encodeStaticResponses mode staticResponses)
-                        config.manifest
-                        generatedOkayFiles
-                    )
-
-             else
-                Errors <| BuildError.errorsToString allErrors
+            (let
+                buildErrors =
+                    allErrors
+                        |> List.map BuildError.errorToString
+             in
+             Success
+                (ToJsSuccessPayload
+                    (encodeStaticResponses mode staticResponses)
+                    config.manifest
+                    generatedOkayFiles
+                    buildErrors
+                )
             )
         )
 

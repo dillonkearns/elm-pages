@@ -100,7 +100,7 @@ function run() {
             });
           }
         } else {
-          if (payload.errors) {
+          if (payload.errors && payload.errors.length > 0) {
             printErrorsAndExit(payload.errors);
           }
 
@@ -138,7 +138,7 @@ function printErrorsAndExit(errors) {
   console.error(
     "Found errors. Exiting. Fix your content or parsers and re-run, or run in dev mode with `elm-pages develop`."
   );
-  console.error(errors);
+  console.error(errors.join("\n\n"));
   process.exit(1);
 }
 
