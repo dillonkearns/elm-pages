@@ -848,20 +848,18 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                 errors ++ failedRequests ++ generatedFileErrors
         in
         ( updatedAllRawResponses
-        , SendJsData
-            (let
-                buildErrors =
-                    allErrors
-                        |> List.map BuildError.errorToString
-             in
-             Success
-                (ToJsSuccessPayload
-                    (encodeStaticResponses mode staticResponses)
-                    config.manifest
-                    generatedOkayFiles
-                    buildErrors
-                )
-            )
+        , SendJsData <|
+            if List.isEmpty failedRequests then
+                Success
+                    (ToJsSuccessPayload
+                        (encodeStaticResponses mode staticResponses)
+                        config.manifest
+                        generatedOkayFiles
+                        (List.map BuildError.errorToString allErrors)
+                    )
+
+            else
+                Errors <| BuildError.errorsToString allErrors
         )
 
 
