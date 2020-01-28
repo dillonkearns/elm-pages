@@ -146,6 +146,7 @@ createBuildError path decodeError =
         , Terminal.text "\n\n"
         , Terminal.text decodeError
         ]
+    , fatal = False
     }
 
 

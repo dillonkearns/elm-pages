@@ -392,6 +392,7 @@ init toModel contentCache siteMetadata config flags =
                     SecretsDict.masked
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
+                      , fatal = True
                       }
                     ]
                     Dict.empty
@@ -478,6 +479,7 @@ update siteMetadata config msg model =
                                                     Http.BadBody string ->
                                                         Terminal.text "Unable to parse HTTP response body"
                                                 ]
+                                             , fatal = True
                                              }
                                            ]
                             }
@@ -840,6 +842,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                             [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
                                             , Terminal.text <| "Error: " ++ error
                                             ]
+                                        , fatal = True
                                         }
                         )
 
@@ -848,19 +851,27 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                 errors ++ failedRequests ++ generatedFileErrors
         in
         ( updatedAllRawResponses
-        , SendJsData <|
-            if List.isEmpty failedRequests then
-                Success
-                    (ToJsSuccessPayload
-                        (encodeStaticResponses mode staticResponses)
-                        config.manifest
-                        generatedOkayFiles
-                        (List.map BuildError.errorToString allErrors)
-                    )
-
-            else
-                Errors <| BuildError.errorsToString allErrors
+        , toJsPayload
+            (encodeStaticResponses mode staticResponses)
+            config.manifest
+            generatedOkayFiles
+            allErrors
         )
+
+
+toJsPayload encodedStatic manifest generated allErrors =
+    SendJsData <|
+        if allErrors |> List.filter .fatal |> List.isEmpty then
+            Success
+                (ToJsSuccessPayload
+                    encodedStatic
+                    manifest
+                    generated
+                    (List.map BuildError.errorToString allErrors)
+                )
+
+        else
+            Errors <| BuildError.errorsToString allErrors
 
 
 encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)

@@ -6,6 +6,7 @@ import TerminalText as Terminal
 type alias BuildError =
     { title : String
     , message : List Terminal.Text
+    , fatal : Bool
     }
 
 

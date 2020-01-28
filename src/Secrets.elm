@@ -98,6 +98,7 @@ buildError secretName secretsDict =
         , Terminal.text " should be "
         , Terminal.green <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
         ]
+    , fatal = True
     }
 
 
