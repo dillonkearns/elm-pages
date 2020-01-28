@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.2] - 2020-01-27
+
 ### Fixed
 - Dev server only terminates with unrecoverable build errors, and now will
      continue running with recoverable errors like metadata parsing errors.
