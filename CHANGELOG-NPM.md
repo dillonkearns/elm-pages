@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
      continue running with recoverable errors like metadata parsing errors.
      See [#58](https://github.com/dillonkearns/elm-pages/pull/58).
 
+### Added
+- The `pagesInit` function that wraps the way you initialize your app in `index.js` now returns a Promise
+    so you can wire up ports to it once it's initialized. See [#50](https://github.com/dillonkearns/elm-pages/pull/50).
+    Thank you [@icidasset](https://github.com/icidasset)! 🙏
+
 ## [1.2.1] - 2020-01-20
 
 ### Fixed
