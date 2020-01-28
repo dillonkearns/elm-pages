@@ -351,9 +351,12 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             )
 
 
-encodeHeads : String -> String -> List (Head.Tag pathKey) -> Json.Encode.Value
-encodeHeads canonicalSiteUrl currentPagePath head =
-    Json.Encode.list (Head.toJson canonicalSiteUrl currentPagePath) head
+encodeHeads : List String -> String -> String -> List (Head.Tag pathKey) -> Json.Encode.Value
+encodeHeads allRoutes canonicalSiteUrl currentPagePath head =
+    Json.Encode.object
+        [ ( "head", Json.Encode.list (Head.toJson canonicalSiteUrl currentPagePath) head )
+        , ( "allRoutes", Json.Encode.list Json.Encode.string allRoutes )
+        ]
 
 
 type Msg userMsg metadata view
@@ -389,7 +392,8 @@ type Phase
 
 
 update :
-    String
+    List String
+    -> String
     ->
         (List ( PagePath pathKey, metadata )
          ->
@@ -416,7 +420,7 @@ update :
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
-update canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
+update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -469,7 +473,7 @@ update canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document u
                                                     headFn pagePath frontmatter viewResult.staticData
                                                         |> Result.map .head
                                                         |> Result.toMaybe
-                                                        |> Maybe.map (encodeHeads canonicalSiteUrl model.url.path)
+                                                        |> Maybe.map (encodeHeads allRoutes canonicalSiteUrl model.url.path)
                                                         |> Maybe.map toJsPort
 
                                                 ContentCache.NeedContent string metadata ->
@@ -623,8 +627,14 @@ application config =
                             noOpUpdate =
                                 \userMsg userModel ->
                                     ( userModel, Cmd.none )
+
+                            allRoutes =
+                                config.content
+                                    |> List.map Tuple.first
+                                    |> List.map (String.join "/")
+                                    |> List.map (\route -> "/" ++ route)
                         in
-                        update config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
+                        update allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
