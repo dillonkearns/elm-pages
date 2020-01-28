@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Dev server only terminates with unrecoverable build errors, and now will
+     continue running with recoverable errors like metadata parsing errors.
+     See [#58](https://github.com/dillonkearns/elm-pages/pull/58).
+
 ## [1.2.1] - 2020-01-20
 
 ### Fixed

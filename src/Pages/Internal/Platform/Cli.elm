@@ -45,6 +45,7 @@ type alias ToJsSuccessPayload pathKey =
     { pages : Dict String (Dict String String)
     , manifest : Manifest.Config pathKey
     , filesToGenerate : List FileToGenerate
+    , errors : List String
     }
 
 
@@ -57,13 +58,13 @@ type alias FileToGenerate =
 toJsCodec : Codec (ToJsPayload pathKey)
 toJsCodec =
     Codec.custom
-        (\errors success value ->
+        (\errorsTag success value ->
             case value of
                 Errors errorList ->
-                    errors errorList
+                    errorsTag errorList
 
-                Success { pages, manifest, filesToGenerate } ->
-                    success (ToJsSuccessPayload pages manifest filesToGenerate)
+                Success { pages, manifest, filesToGenerate, errors } ->
+                    success (ToJsSuccessPayload pages manifest filesToGenerate errors)
         )
         |> Codec.variant1 "Errors" Errors Codec.string
         |> Codec.variant1 "Success"
@@ -112,6 +113,7 @@ successCodec =
                 )
                 (Decode.succeed [])
             )
+        |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.buildObject
 
 
@@ -390,6 +392,7 @@ init toModel contentCache siteMetadata config flags =
                     SecretsDict.masked
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
+                      , fatal = True
                       }
                     ]
                     Dict.empty
@@ -476,6 +479,7 @@ update siteMetadata config msg model =
                                                     Http.BadBody string ->
                                                         Terminal.text "Unable to parse HTTP response body"
                                                 ]
+                                             , fatal = True
                                              }
                                            ]
                             }
@@ -838,6 +842,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                             [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
                                             , Terminal.text <| "Error: " ++ error
                                             ]
+                                        , fatal = True
                                         }
                         )
 
@@ -846,19 +851,27 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                 errors ++ failedRequests ++ generatedFileErrors
         in
         ( updatedAllRawResponses
-        , SendJsData
-            (if List.isEmpty allErrors then
-                Success
-                    (ToJsSuccessPayload
-                        (encodeStaticResponses mode staticResponses)
-                        config.manifest
-                        generatedOkayFiles
-                    )
-
-             else
-                Errors <| BuildError.errorsToString allErrors
-            )
+        , toJsPayload
+            (encodeStaticResponses mode staticResponses)
+            config.manifest
+            generatedOkayFiles
+            allErrors
         )
+
+
+toJsPayload encodedStatic manifest generated allErrors =
+    SendJsData <|
+        if allErrors |> List.filter .fatal |> List.isEmpty then
+            Success
+                (ToJsSuccessPayload
+                    encodedStatic
+                    manifest
+                    generated
+                    (List.map BuildError.errorToString allErrors)
+                )
+
+        else
+            Errors <| BuildError.errorsToString allErrors
 
 
 encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)

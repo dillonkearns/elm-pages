@@ -52,6 +52,7 @@ toBuildError path error =
                 , Terminal.text "\n\n"
                 , Terminal.text missingKey
                 ]
+            , fatal = True
             }
 
         DecoderError decodeErrorMessage ->
@@ -61,6 +62,7 @@ toBuildError path error =
                 , Terminal.text "\n\n"
                 , Terminal.text decodeErrorMessage
                 ]
+            , fatal = True
             }
 
 

@@ -636,22 +636,38 @@ simulateEffects effect =
                 }
 
 
+expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
 expectErrorsPort expectedPlainString actualPorts =
     case actualPorts of
         [ Errors actualRichTerminalString ] ->
-            let
-                actualPlainString =
-                    actualRichTerminalString
-                        |> Regex.replace
-                            (Regex.fromString "\u{001B}\\[[0-9;]+m"
-                                |> Maybe.withDefault Regex.never
-                            )
-                            (\_ -> "")
-            in
-            actualPlainString |> Expect.equal expectedPlainString
+            actualRichTerminalString
+                |> normalizeErrorExpectEqual expectedPlainString
 
         _ ->
-            Expect.fail "Expected single error port"
+            Expect.fail <| "Expected single error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)
+
+
+expectNonfatalErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
+expectNonfatalErrorsPort expectedPlainString actualPorts =
+    case actualPorts of
+        [ Success successPayload ] ->
+            successPayload.errors
+                |> String.join "\n\n"
+                |> normalizeErrorExpectEqual expectedPlainString
+
+        _ ->
+            Expect.fail <| "Expected single non-fatal error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)
+
+
+normalizeErrorExpectEqual : String -> String -> Expect.Expectation
+normalizeErrorExpectEqual expectedPlainString actualRichTerminalString =
+    actualRichTerminalString
+        |> Regex.replace
+            (Regex.fromString "\u{001B}\\[[0-9;]+m"
+                |> Maybe.withDefault Regex.never
+            )
+            (\_ -> "")
+        |> Expect.equal expectedPlainString
 
 
 toJsPort foo =
@@ -727,6 +743,7 @@ expectSuccess expectedRequests previous =
                             |> Dict.fromList
                     , manifest = manifest
                     , filesToGenerate = []
+                    , errors = []
                     }
                 ]
             )
