@@ -511,7 +511,7 @@ head metadata =
     commonHeadTags
         ++ (case metadata of
                 Metadata.Page meta ->
-                    Seo.summaryLarge
+                    Seo.summary
                         { canonicalUrlOverride = Nothing
                         , siteName = "elm-pages"
                         , image =
@@ -527,7 +527,7 @@ head metadata =
                         |> Seo.website
 
                 Metadata.Doc meta ->
-                    Seo.summaryLarge
+                    Seo.summary
                         { canonicalUrlOverride = Nothing
                         , siteName = "elm-pages"
                         , image =
@@ -600,7 +600,7 @@ head metadata =
                             }
 
                 Metadata.BlogIndex ->
-                    Seo.summaryLarge
+                    Seo.summary
                         { canonicalUrlOverride = Nothing
                         , siteName = "elm-pages"
                         , image =
@@ -616,7 +616,7 @@ head metadata =
                         |> Seo.website
 
                 Metadata.Showcase ->
-                    Seo.summaryLarge
+                    Seo.summary
                         { canonicalUrlOverride = Nothing
                         , siteName = "elm-pages"
                         , image =
@@ -625,7 +625,7 @@ head metadata =
                             , dimensions = Nothing
                             , mimeType = Nothing
                             }
-                        , description = siteTagline
+                        , description = "See some neat sites built using elm-pages! (Or submit yours!)"
                         , locale = Nothing
                         , title = "elm-pages sites showcase"
                         }
