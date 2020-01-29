@@ -7,6 +7,7 @@ import Element.Border
 import Element.Font
 import Metadata exposing (Metadata)
 import Pages
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 
@@ -70,7 +71,7 @@ articleIndex : Metadata.ArticleMetadata -> Element msg
 articleIndex metadata =
     Element.el
         [ Element.centerX
-        , Element.width (Element.maximum 800 Element.fill)
+        , Element.width (Element.maximum 600 Element.fill)
         , Element.padding 40
         , Element.spacing 10
         , Element.Border.width 1
@@ -82,16 +83,8 @@ articleIndex metadata =
         (postPreview metadata)
 
 
-readMoreLink =
-    Element.text "Continue reading >>"
-        |> Element.el
-            [ Element.centerX
-            , Element.Font.size 18
-            , Element.alpha 0.6
-            , Element.mouseOver [ Element.alpha 1 ]
-            , Element.Font.underline
-            , Element.Font.center
-            ]
+grey =
+    Element.Font.color (Element.rgba255 0 0 0 0.5)
 
 
 postPreview : Metadata.ArticleMetadata -> Element msg
@@ -103,7 +96,12 @@ postPreview post =
         , Element.Font.size 18
         ]
         [ title post.title
-        , Element.row [ Element.spacing 10, Element.centerX ]
+        , Element.image [ Element.width Element.fill ] { src = post.image |> ImagePath.toString, description = "Blog post cover photo" }
+        , Element.row
+            [ Element.spacing 10
+            , Element.centerX
+            , grey
+            ]
             [ Data.Author.view [ Element.width (Element.px 40) ] post.author
             , Element.text post.author.name
             , Element.text "•"
@@ -116,5 +114,4 @@ postPreview post =
                 [ Element.Font.size 22
                 , Element.Font.center
                 ]
-        , readMoreLink
         ]
