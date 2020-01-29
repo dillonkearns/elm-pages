@@ -1,11 +1,12 @@
 ---
 {
   "type": "blog",
+  "draft": true,
   "author": "Dillon Kearns",
-  "title": "",
+  "title": "Generating Files with Pure Elm",
   "description": "Introducing a new parser that extends your palette with no additional syntax",
-  "image": "/images/article-covers/extensible-markdown-parsing.jpg",
-  "published": "2019-10-08",
+  "image": "/images/article-covers/generating-files.jpg",
+  "published": "2020-01-28",
 }
 ---
 
