@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.1] - 2020-01-30
+
+### Changed
+- Pass allRoutes into pre-rendering for https://github.com/dillonkearns/elm-pages/pull/60.
+
 ## [3.0.0] - 2020-01-25
 
 ### Changed
