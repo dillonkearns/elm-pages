@@ -45,11 +45,14 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
         fromElm.head.forEach(headTag => {
           appendTag(headTag);
         });
+
+        new MutationObserver(function() {
+          document.dispatchEvent(new Event("prerender-trigger"));
+        }).observe(document.body, { attributes: true, childList: true, subtree: true});
+
       } else {
         setupLinkPrefetching();
       }
-
-      document.dispatchEvent(new Event("prerender-trigger"));
     });
 
     return app
