@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.2.3] - 2020-01-30
+## [1.2.4] - 2020-01-30
 
 ### Fixed
 - Don't pre-fetch content.json files for unknown paths: https://github.com/dillonkearns/elm-pages/pull/60.
