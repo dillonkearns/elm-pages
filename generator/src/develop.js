@@ -229,10 +229,10 @@ function webpackOptions(
     },
     resolve: {
       modules: [
-        path.resolve(process.cwd(), `./node_modules`), 
+        path.resolve(process.cwd(), `./node_modules`),
         // TODO: find a cleaner way to do this.
         // This line just needs a way to point to the `node_modules` directory
-        // for the library bin (not the user's node_modules, which is the 
+        // for the library bin (not the user's node_modules, which is the
         // process.cwd prefixed node_modules above).
         path.resolve(path.dirname(require.resolve('webpack')), '../../'),
 
@@ -306,7 +306,9 @@ function webpackOptions(
         new PrerenderSPAPlugin({
           staticDir: path.join(process.cwd(), "dist"),
           routes: routes,
-          renderAfterDocumentEvent: "prerender-trigger"
+          renderer: new PrerenderSPAPlugin.PuppeteerRenderer({
+            renderAfterDocumentEvent: "prerender-trigger",
+          })
         })
       ],
       module: {
@@ -334,7 +336,7 @@ function webpackOptions(
         new webpack.NamedModulesPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
         new webpack.NoEmitOnErrorsPlugin(),
-        new webpack.HotModuleReplacementPlugin() 
+        new webpack.HotModuleReplacementPlugin()
       ],
       module: {
         rules: [
