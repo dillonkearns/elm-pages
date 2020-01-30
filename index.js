@@ -28,7 +28,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
     });
 
     app.ports.toJsPort.subscribe((
-      /** @type { HeadTag[] } headTags */ headTags
+      /** @type { { head: HeadTag[], allRoutes: string[] } }  */ fromElm
     ) => {
       appendTag({
         name: "meta",
@@ -37,9 +37,12 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
           ["content", `elm-pages v${elmPagesVersion}`]
         ]
       });
+      console.log('allRoutes', fromElm.allRoutes);
+      window.allRoutes = fromElm.allRoutes;
+      
 
       if (navigator.userAgent.indexOf("Headless") >= 0) {
-        headTags.forEach(headTag => {
+        fromElm.head.forEach(headTag => {
           appendTag(headTag);
         });
       } else {
@@ -54,7 +57,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
   });
 }
 
-function setupLinkPrefetching() {
+function setupLinkPrefetching(allRoutes) {
   new MutationObserver(observeFirstRender).observe(document.body, {
     attributes: true,
     childList: true,
@@ -109,7 +112,7 @@ function setupLinkPrefetchingHelp(
 ) {
   const links = document.querySelectorAll("a");
   links.forEach(link => {
-    // console.log(link.pathname);
+    console.log(link.pathname);
     link.addEventListener("mouseenter", function(event) {
       if (
         event &&
@@ -127,10 +130,13 @@ function setupLinkPrefetchingHelp(
 function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   if (target.host === window.location.host) {
     if (prefetchedPages.includes(target.pathname)) {
-      // console.log("Already preloaded", target.href);
-    } else {
+      console.log("Already preloaded", target.href);
+    } else if (!allRoutes.includes(target.pathname)) {
+      console.log("Not a known route, skipping preload", target.pathname);
+    }
+    else {
       prefetchedPages.push(target.pathname);
-      // console.log("Preloading...", target.pathname);
+      console.log("Preloading...", target.pathname);
       const link = document.createElement("link");
       link.setAttribute("as", "fetch");
 
