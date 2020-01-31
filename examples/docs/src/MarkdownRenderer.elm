@@ -17,6 +17,7 @@ import Markdown.Parser
 import Oembed
 import Pages
 import Palette
+import SyntaxHighlight
 
 
 buildToc : List Markdown.Block.Block -> TableOfContents
@@ -261,11 +262,10 @@ code snippet =
 
 codeBlock : { body : String, language : Maybe String } -> Element msg
 codeBlock details =
-    Html.node "code-editor"
-        [ editorValue details.body
-        , Html.Attributes.style "white-space" "normal"
-        ]
-        []
+    SyntaxHighlight.elm details.body
+        |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
+        |> Result.withDefault
+            (Html.pre [] [ Html.code [] [ Html.text details.body ] ])
         |> Element.html
         |> Element.el [ Element.width Element.fill ]
 

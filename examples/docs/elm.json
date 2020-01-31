@@ -35,6 +35,7 @@
             "mdgriffith/elm-ui": "1.1.5",
             "miniBill/elm-codec": "1.2.0",
             "noahzgordon/elm-color-extra": "1.0.2",
+            "pablohirafuji/elm-syntax-highlight": "3.2.0",
             "rtfeldman/elm-hex": "1.0.0",
             "tripokey/elm-fuzzy": "5.2.1",
             "zwilias/json-decode-exploration": "6.0.0"

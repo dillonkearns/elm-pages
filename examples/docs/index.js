@@ -1,6 +1,7 @@
 import "elm-oembed";
-import "./lib/code-editor.js";
 import "./style.css";
+import "./syntax.css";
+
 // @ts-ignore
 const { Elm } = require("./src/Main.elm");
 const pagesInit = require("../../index.js");
