@@ -2,6 +2,8 @@ const elmPagesVersion = require("./package.json").version;
 
 let prefetchedPages;
 let initialLocationHash;
+let elmViewRendered = false;
+let headTagsAdded = false;
 
 module.exports = function pagesInit(
   /** @type { mainElmModule: { init: any  } } */ { mainElmModule }
@@ -11,6 +13,13 @@ module.exports = function pagesInit(
 
   return new Promise(function(resolve, reject) {
     document.addEventListener("DOMContentLoaded", _ => {
+        new MutationObserver(function() {
+          elmViewRendered = true;
+          if (headTagsAdded) {
+            document.dispatchEvent(new Event("prerender-trigger"));
+          }
+        }).observe(document.body, { attributes: true, childList: true, subtree: true});
+
       loadContentAndInitializeApp(mainElmModule).then(resolve, reject);
     });
   })
@@ -45,11 +54,10 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
         fromElm.head.forEach(headTag => {
           appendTag(headTag);
         });
-
-        new MutationObserver(function() {
-          document.dispatchEvent(new Event("prerender-trigger"));
-        }).observe(document.body, { attributes: true, childList: true, subtree: true});
-
+          headTagsAdded = true;
+          if (elmViewRendered) {
+            document.dispatchEvent(new Event("prerender-trigger"));
+          }
       } else {
         setupLinkPrefetching();
       }
