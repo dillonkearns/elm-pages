@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.5] - 2020-01-31
+
+### Fixed
+- Make sure that pre-render trigger event fires to fix pre-rendering hanging.
+
 ## [1.2.4] - 2020-01-30
 
 ### Fixed
