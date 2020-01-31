@@ -45,8 +45,7 @@ postSummary :
     ( PagePath Pages.PathKey, Metadata.ArticleMetadata )
     -> Element msg
 postSummary ( postPath, post ) =
-    articleIndex post
-        |> linkToPost postPath
+    articleIndex post |> linkToPost postPath
 
 
 linkToPost : PagePath Pages.PathKey -> Element msg -> Element msg
