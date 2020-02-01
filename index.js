@@ -46,7 +46,6 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
           ["content", `elm-pages v${elmPagesVersion}`]
         ]
       });
-      console.log('allRoutes', fromElm.allRoutes);
       window.allRoutes = fromElm.allRoutes;
       
 
@@ -68,7 +67,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
   });
 }
 
-function setupLinkPrefetching(allRoutes) {
+function setupLinkPrefetching() {
   new MutationObserver(observeFirstRender).observe(document.body, {
     attributes: true,
     childList: true,
@@ -123,7 +122,7 @@ function setupLinkPrefetchingHelp(
 ) {
   const links = document.querySelectorAll("a");
   links.forEach(link => {
-    console.log(link.pathname);
+    // console.log(link.pathname);
     link.addEventListener("mouseenter", function(event) {
       if (
         event &&
@@ -132,7 +131,7 @@ function setupLinkPrefetchingHelp(
       ) {
         prefetchIfNeeded(event.target);
       } else {
-        console.log("Couldn't prefetch with event", event);
+        // console.log("Couldn't prefetch with event", event);
       }
     });
   });
@@ -141,13 +140,13 @@ function setupLinkPrefetchingHelp(
 function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   if (target.host === window.location.host) {
     if (prefetchedPages.includes(target.pathname)) {
-      console.log("Already preloaded", target.href);
+      // console.log("Already preloaded", target.href);
     } else if (!allRoutes.includes(target.pathname)) {
-      console.log("Not a known route, skipping preload", target.pathname);
+      // console.log("Not a known route, skipping preload", target.pathname);
     }
     else {
       prefetchedPages.push(target.pathname);
-      console.log("Preloading...", target.pathname);
+      // console.log("Preloading...", target.pathname);
       const link = document.createElement("link");
       link.setAttribute("as", "fetch");
 
