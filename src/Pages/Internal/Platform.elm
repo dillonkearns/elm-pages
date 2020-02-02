@@ -225,37 +225,26 @@ type alias ContentJson =
 
 type alias Preview =
     { body : String
-    , file :
-        { path : List String
-        , extension : String
-        }
+    , path : List String
+    , extension : String
     , frontmatter : Decode.Value
     }
 
 
 previewDecoder : Decode.Decoder ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 previewDecoder =
-    Decode.map3
-        (\body { path, extension } frontmatter ->
-            ( path, { extension = extension, frontMatter = frontmatter, body = body } )
-        )
-        (Decode.field "body" (Decode.string |> Decode.map Just))
-        (Decode.field "path"
-            (Decode.string
-                |> Decode.andThen
-                    (\filePath ->
-                        case filePath |> String.split "." of
-                            [ beforeExtension, extension ] ->
-                                Decode.succeed
-                                    { path = beforeExtension |> String.split "/"
-                                    , extension = extension
-                                    }
-
-                            _ ->
-                                Decode.fail "Unable to parse file path because it is either missing an extension or has multiple dots."
-                    )
+    Decode.map4
+        (\body path extension frontmatter ->
+            ( path
+            , { extension = extension
+              , frontMatter = frontmatter
+              , body = Just body
+              }
             )
         )
+        (Decode.field "body" Decode.string)
+        (Decode.field "path" (Decode.list Decode.string))
+        (Decode.field "extension" Decode.string)
         (Decode.field "frontmatter" Decode.string)
 
 
@@ -765,7 +754,14 @@ previewApplication config =
                         { protocol = Url.Https
                         , host = "localhost"
                         , port_ = Just 3000
-                        , path = "/blog/extensible-markdown-parsing-in-elm"
+                        , path =
+                            "/"
+                                ++ (maybePreview
+                                        |> Maybe.map Tuple.first
+                                        |> Maybe.map stripIndex
+                                        |> Maybe.withDefault []
+                                        |> String.join "/"
+                                   )
                         , query = Nothing
                         , fragment = Nothing
                         }
@@ -818,6 +814,12 @@ previewApplication config =
                     CliModel _ ->
                         Sub.none
         }
+
+
+stripIndex : List String -> List String
+stripIndex strings =
+    strings
+        |> List.filter (\pathPart -> pathPart /= "index")
 
 
 cliApplication :

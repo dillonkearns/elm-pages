@@ -406,7 +406,13 @@ const Preview = (props) => {
   const container = React.createRef()
   const elmApp = React.useRef(null)
   window.React.useEffect(() => {
-      httpGet(`/blog/static-http/content.json`).then(function(/** @type JSON */ contentJson) {
+        const pathWithExtension = props.entry.get('path').replace(/^content\//, '');
+        const [pathWithIndex, extension] = pathWithExtension.split('.');
+        const splitPath = pathWithIndex.split('/').filter(part => part !== 'index');
+//        const path = pathWithIndex.replace(/\/index\//g, '')
+        const contentJsonPath = [...splitPath, 'content.json'].join('/');
+        // debugger;
+      httpGet(contentJsonPath).then(function(/** @type JSON */ contentJson) {
         console.log('contentJson', contentJson); // TODO fetch real data here with http request
         
       console.log('container', container)
@@ -419,7 +425,8 @@ const Preview = (props) => {
             staticData: contentJson.staticData
           },
           preview: {
-            path: props.entry.get('path'),
+            path: splitPath,
+            extension: extension,
             body: props.entry.get('data').toJS().body,
             frontmatter: JSON.stringify(props.entry.get('data').toJS()),
           }
