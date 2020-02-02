@@ -205,19 +205,23 @@ normalizePath pathString =
         hasSuffix =
             String.endsWith "/" pathString
     in
-    String.concat
-        [ if hasPrefix then
-            ""
+    if pathString == "" then
+        "/"
 
-          else
-            "/"
-        , pathString
-        , if hasSuffix then
-            ""
+    else
+        String.concat
+            [ if hasPrefix then
+                ""
 
-          else
-            "/"
-        ]
+              else
+                "/"
+            , pathString
+            , if hasSuffix then
+                ""
+
+              else
+                "/"
+            ]
 
 
 parseContent :
