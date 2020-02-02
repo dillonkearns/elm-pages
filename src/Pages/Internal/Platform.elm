@@ -293,7 +293,7 @@ init :
         )
     -> Flags
     -> Url
-    -> Browser.Navigation.Key
+    -> Maybe Browser.Navigation.Key
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
@@ -414,7 +414,7 @@ type Model userModel userMsg metadata view
 
 
 type alias ModelDetails userModel metadata view =
-    { key : Browser.Navigation.Key
+    { key : Maybe Browser.Navigation.Key
     , url : Url.Url
     , contentCache : ContentCache metadata view
     , userModel : userModel
@@ -476,7 +476,14 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                                 ( model, Browser.Navigation.load (Url.toString url) )
 
                             else
-                                ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
+                                ( model
+                                , model.key
+                                    |> Maybe.map
+                                        (\key ->
+                                            Browser.Navigation.pushUrl key (Url.toString url)
+                                        )
+                                    |> Maybe.withDefault Cmd.none
+                                )
 
                         Browser.External href ->
                             ( model, Browser.Navigation.load href )
@@ -634,7 +641,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
+                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url (Just key)
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
@@ -741,9 +748,9 @@ previewApplication :
     --    -> Program userModel userMsg metadata view
     -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
 previewApplication config =
-    Browser.application
+    Browser.element
         { init =
-            \flags url key ->
+            \flags ->
                 let
                     contentWithPreview =
                         case maybePreview of
@@ -755,14 +762,20 @@ previewApplication config =
 
                     previewUrl =
                         -- TODO
-                        { url | path = "/blog/extensible-markdown-parsing-in-elm" }
+                        { protocol = Url.Https
+                        , host = "localhost"
+                        , port_ = Just 3000
+                        , path = "/blog/extensible-markdown-parsing-in-elm"
+                        , query = Nothing
+                        , fragment = Nothing
+                        }
 
                     maybePreview =
                         flags
                             |> Decode.decodeValue (Decode.field "preview" previewDecoder)
                             |> Result.toMaybe
                 in
-                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view contentWithPreview config.init flags previewUrl key
+                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view contentWithPreview config.init flags previewUrl Nothing
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
@@ -770,11 +783,13 @@ previewApplication config =
                 case outerModel of
                     Model model ->
                         view config.pathKey config.content config.view model
+                            |> (\{ body } ->
+                                    body
+                                        |> Html.div []
+                               )
 
                     CliModel _ ->
-                        { title = "Error"
-                        , body = [ Html.text "Unexpected state" ]
-                        }
+                        Html.text "Unexpected state"
         , update =
             \msg outerModel ->
                 case outerModel of
@@ -802,8 +817,6 @@ previewApplication config =
 
                     CliModel _ ->
                         Sub.none
-        , onUrlChange = UrlChanged >> AppMsg
-        , onUrlRequest = LinkClicked >> AppMsg
         }
 
 
