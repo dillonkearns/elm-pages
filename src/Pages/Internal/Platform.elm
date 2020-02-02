@@ -1,6 +1,7 @@
 module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Parser, Program, application, cliApplication)
 
 import Browser
+import Browser.Dom as Dom
 import Browser.Navigation
 import Dict exposing (Dict)
 import Head
@@ -370,6 +371,7 @@ type AppMsg userMsg metadata view
     | UserMsg userMsg
     | UpdateCache (Result Http.Error (ContentCache metadata view))
     | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
+    | PageScrollComplete
 
 
 type Model userModel userMsg metadata view
@@ -446,10 +448,26 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                             ( model, Browser.Navigation.load href )
 
                 UrlChanged url ->
+                    let
+                        navigatingToSamePage =
+                            url.path
+                                == model.url.path
+                                && url
+                                /= model.url
+                    in
                     ( model
-                    , model.contentCache
-                        |> ContentCache.lazyLoad document url
-                        |> Task.attempt (UpdateCacheAndUrl url)
+                    , if navigatingToSamePage then
+                        -- this saves a few CPU cycles, but also
+                        -- makes sure we don't send an UpdateCacheAndUrl
+                        -- which scrolls to the top after page changes.
+                        -- This is important because we may have just scrolled
+                        -- to a specific page location for an anchor link.
+                        Cmd.none
+
+                      else
+                        model.contentCache
+                            |> ContentCache.lazyLoad document url
+                            |> Task.attempt (UpdateCacheAndUrl url)
                     )
 
                 UserMsg userMsg ->
@@ -527,12 +545,18 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                                 , contentCache = updatedCache
                                 , userModel = userModel
                               }
-                            , userCmd |> Cmd.map UserMsg
+                            , Cmd.batch
+                                [ userCmd |> Cmd.map UserMsg
+                                , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+                                ]
                             )
 
                         Err _ ->
                             -- TODO handle error
                             ( { model | url = url }, Cmd.none )
+
+                PageScrollComplete ->
+                    ( model, Cmd.none )
 
         CliMsg _ ->
             ( model, Cmd.none )
