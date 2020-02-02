@@ -6,6 +6,18 @@ import "./syntax.css";
 const { Elm } = require("./src/Main.elm");
 const pagesInit = require("../../index.js");
 
-pagesInit({
-  mainElmModule: Elm.Main
-});
+if (window.CMS_MANUAL_INIT) {
+  import('./src/preview.js' /* webpackChunkName: "admin" */)
+} else {
+  Promise.all([
+    import('./src/Main.elm' /* webpackChunkName: "site" */),
+    import('elm-pages' /* webpackChunkName: "site" */),
+  ]).then(([{ Elm }, { default: pagesInit }]) => {
+    setTimeout(() => {
+      pagesInit({
+        mainElmModule: Elm.Main
+      })
+      document.dispatchEvent(new Event('DOMContentLoaded'))
+    }, 0)
+  })
+}

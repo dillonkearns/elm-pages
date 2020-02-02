@@ -245,7 +245,10 @@ function webpackOptions(
           test: /\.js$/,
           exclude: /node_modules/,
           use: {
-            loader: require.resolve("babel-loader")
+            loader: require.resolve("babel-loader"),
+            options: {
+                    plugins: ['@babel/plugin-syntax-dynamic-import']
+                  }
           }
         },
         {

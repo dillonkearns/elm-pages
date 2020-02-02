@@ -1,4 +1,4 @@
-module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Parser, Program, application, cliApplication)
+module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Parser, Program, application, cliApplication, previewApplication)
 
 import Browser
 import Browser.Navigation
@@ -221,6 +221,42 @@ type alias ContentJson =
     { body : String
     , staticData : Dict String String
     }
+
+
+type alias Preview =
+    { body : String
+    , file :
+        { path : List String
+        , extension : String
+        }
+    , frontmatter : Decode.Value
+    }
+
+
+previewDecoder : Decode.Decoder ( List String, { extension : String, frontMatter : String, body : Maybe String } )
+previewDecoder =
+    Decode.map3
+        (\body { path, extension } frontmatter ->
+            ( path, { extension = extension, frontMatter = frontmatter, body = body } )
+        )
+        (Decode.field "body" (Decode.string |> Decode.map Just))
+        (Decode.field "path"
+            (Decode.string
+                |> Decode.andThen
+                    (\filePath ->
+                        case filePath |> String.split "." of
+                            [ beforeExtension, extension ] ->
+                                Decode.succeed
+                                    { path = beforeExtension |> String.split "/"
+                                    , extension = extension
+                                    }
+
+                            _ ->
+                                Decode.fail "Unable to parse file path because it is either missing an extension or has multiple dots."
+                    )
+            )
+        )
+        (Decode.field "frontmatter" Decode.string)
 
 
 init :
@@ -635,6 +671,122 @@ application config =
                                     |> List.map (\route -> "/" ++ route)
                         in
                         update allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
+                            |> Tuple.mapFirst Model
+                            |> Tuple.mapSecond (Cmd.map AppMsg)
+
+                    CliModel _ ->
+                        ( outerModel, Cmd.none )
+        , subscriptions =
+            \outerModel ->
+                case outerModel of
+                    Model model ->
+                        config.subscriptions model.userModel
+                            |> Sub.map UserMsg
+                            |> Sub.map AppMsg
+
+                    CliModel _ ->
+                        Sub.none
+        , onUrlChange = UrlChanged >> AppMsg
+        , onUrlRequest = LinkClicked >> AppMsg
+        }
+
+
+previewApplication :
+    { init :
+        Maybe
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        -> ( userModel, Cmd userMsg )
+    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , subscriptions : userModel -> Sub userMsg
+    , view :
+        List ( PagePath pathKey, metadata )
+        ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
+    , document : Pages.Document.Document metadata view
+    , content : Content
+    , toJsPort : Json.Encode.Value -> Cmd Never
+    , manifest : Manifest.Config pathKey
+    , generateFiles :
+        List
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            , body : String
+            }
+        ->
+            List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
+    , canonicalSiteUrl : String
+    , pathKey : pathKey
+    , onPageChange :
+        { path : PagePath pathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+        -> userMsg
+    }
+    --    -> Program userModel userMsg metadata view
+    -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
+previewApplication config =
+    Browser.application
+        { init =
+            \flags url key ->
+                let
+                    contentWithPreview =
+                        case maybePreview of
+                            Just preview ->
+                                preview :: config.content
+
+                            Nothing ->
+                                config.content
+
+                    previewUrl =
+                        -- TODO
+                        { url | path = "/blog/extensible-markdown-parsing-in-elm" }
+
+                    maybePreview =
+                        flags
+                            |> Decode.decodeValue (Decode.field "preview" previewDecoder)
+                            |> Result.toMaybe
+                in
+                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view contentWithPreview config.init flags previewUrl key
+                    |> Tuple.mapFirst Model
+                    |> Tuple.mapSecond (Cmd.map AppMsg)
+        , view =
+            \outerModel ->
+                case outerModel of
+                    Model model ->
+                        view config.pathKey config.content config.view model
+
+                    CliModel _ ->
+                        { title = "Error"
+                        , body = [ Html.text "Unexpected state" ]
+                        }
+        , update =
+            \msg outerModel ->
+                case outerModel of
+                    Model model ->
+                        let
+                            allRoutes =
+                                config.content
+                                    |> List.map Tuple.first
+                                    |> List.map (String.join "/")
+                                    |> List.map (\route -> "/" ++ route)
+                        in
+                        update allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document config.update msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 

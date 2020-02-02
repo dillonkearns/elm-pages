@@ -1,8 +1,13 @@
-module Pages.Platform exposing (application, Program, Page)
+module Pages.Platform exposing
+    ( application, Program, Page
+    , previewApplication
+    )
 
 {-| Configure your `elm-pages` Program, similar to a `Browser.application`.
 
 @docs application, Program, Page
+
+@docs previewApplication
 
 -}
 
@@ -115,6 +120,69 @@ application config =
             Pages.Internal.Platform.cliApplication
     )
     <|
+        { init = config.init
+        , view = config.view
+        , update = config.update
+        , subscriptions = config.subscriptions
+        , document = Document.fromList config.documents
+        , content = config.internals.content
+        , generateFiles = config.generateFiles
+        , toJsPort = config.internals.toJsPort
+        , manifest = config.manifest
+        , canonicalSiteUrl = config.canonicalSiteUrl
+        , onPageChange = config.onPageChange
+        , pathKey = config.internals.pathKey
+        }
+
+
+previewApplication :
+    { init :
+        Maybe
+            { path : PagePath pathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        -> ( userModel, Cmd userMsg )
+    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , subscriptions : userModel -> Sub userMsg
+    , view :
+        List ( PagePath pathKey, metadata )
+        ->
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            }
+        ->
+            StaticHttp.Request
+                { view : userModel -> view -> { title : String, body : Html userMsg }
+                , head : List (Head.Tag pathKey)
+                }
+    , documents : List ( String, Document.DocumentHandler metadata view )
+    , manifest : Pages.Manifest.Config pathKey
+    , generateFiles :
+        List
+            { path : PagePath pathKey
+            , frontmatter : metadata
+            , body : String
+            }
+        ->
+            List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
+    , onPageChange :
+        { path : PagePath pathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        }
+        -> userMsg
+    , canonicalSiteUrl : String
+    , internals : Pages.Internal.Internal pathKey
+    }
+    -> Program userModel userMsg metadata view
+previewApplication config =
+    Pages.Internal.Platform.previewApplication
         { init = config.init
         , view = config.view
         , update = config.update
