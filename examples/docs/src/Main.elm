@@ -426,7 +426,7 @@ logoLink =
             Element.row
                 [ Font.size 30
                 , Element.spacing 16
-                , Element.htmlAttribute (Attr.id "navbar-title")
+                , Element.htmlAttribute (Attr.class "navbar-title")
                 ]
                 [ DocumentSvg.view
                 , Element.text "elm-pages"
@@ -441,7 +441,7 @@ logoLinkMobile =
             Element.row
                 [ Font.size 30
                 , Element.spacing 16
-                , Element.htmlAttribute (Attr.id "navbar-title")
+                , Element.htmlAttribute (Attr.class "navbar-title")
                 ]
                 [ Element.text "elm-pages"
                 ]

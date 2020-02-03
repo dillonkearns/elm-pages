@@ -20,10 +20,10 @@
   border-radius: 50%;
 }
 @media all and (max-width: 600px) {
-  #navbar-title {
+  .navbar-title {
     font-size: 20px !important;
   }
-  #navbar-title svg {
+  .navbar-title svg {
     width: 20px;
   }
 }
