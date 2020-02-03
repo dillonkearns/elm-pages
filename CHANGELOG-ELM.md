@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.2] - 2020-02-03
+
+### Fixed
+- Fixed an issue where "Missing content" message flashed for the root page.
+- Scroll up to the top of the page on page navigations (Elm's core Browser.application doesn't do this automatically). This change
+    preserves the behavior for navigating to anchor links, so you can still go to a fragment and it will take you to the appropriate part
+    of the page without scrolling to the top in those cases.
+
 ## [3.0.1] - 2020-01-30
 
 ### Changed

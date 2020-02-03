@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.6] - 2020-02-03
+
+### Fixed
+- Only serve up the root route's HTML as a fallback when you're offline. This fixes the flash of root page content
+    when you are online. When you're offline, you will currently still see the root page flash when you load a page,
+    but you will be able to navigate to any cached pages as long as their content.json is in the service worker cache.
+
 ## [1.2.5] - 2020-01-31
 
 ### Fixed
