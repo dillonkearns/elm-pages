@@ -252,10 +252,10 @@ code : String -> Element msg
 code snippet =
     Element.el
         [ Element.Background.color
-            (Element.rgba 0 0 0 0.04)
+            (Element.rgba255 50 50 50 0.07)
         , Element.Border.rounded 2
         , Element.paddingXY 5 3
-        , Font.family [ Font.monospace ]
+        , Font.family [ Font.typeface "Roboto Mono", Font.monospace ]
         ]
         (Element.text snippet)
 
