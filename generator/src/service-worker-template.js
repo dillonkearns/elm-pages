@@ -8,28 +8,26 @@ workbox.precaching.precacheAndRoute(self.__precacheManifest);
 const CACHE_NAME = 'shell';
 const FALLBACK_HTML_URL = '/index.html';
 
-self.addEventListener('fetch', function(event) {
-  event.respondWith(
-    // Check for cached responses first
-    caches.match(event.request).then(function(response) {
-      if (response) {
-        return response;
-      }
-      return fetch(event.request).then(function(response) {
-          // debugger
-        if (response.status === 404) {
-          // let 404 responses propogate through
-          return response
-        }
-        return response
-      });
-    }).catch(function() {
-      // If there's an exception, then the user is probably offline
+workbox.routing.setCatchHandler(({event}) => {
+  // The FALLBACK_URL entries must be added to the cache ahead of time, either
+  // via runtime or precaching. If they are precached, then call
+  // `matchPrecache(FALLBACK_URL)` (from the `workbox-precaching` package)
+  // to get the response from the correct cache.
+  //
+  // Use event, request, and url to figure out how to respond.
+  // One approach would be to use request.destination, see
+  // https://medium.com/dev-channel/service-worker-caching-strategies-based-on-request-types-57411dd7652c
+  switch (event.request.destination) {
+    case 'document':
       return caches.match(FALLBACK_HTML_URL, {
         cacheName: CACHE_NAME,
       });
-    })
-  );
+    break;
+
+    default:
+      // If we don't have a fallback, just return an error response.
+      return Response.error();
+  }
 });
 
 self.addEventListener('install', async (event) => {
