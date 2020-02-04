@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.7] - 2020-02-03
+
+### Fixed
+- Don't serve fallback HTML from service worker when a page 404s... only when it fails to load (i.e. when
+    you're offline). 404s will go through from the server if you're online now.
+
 ## [1.2.6] - 2020-02-03
 
 ### Fixed
