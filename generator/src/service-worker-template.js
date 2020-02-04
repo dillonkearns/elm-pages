@@ -8,6 +8,29 @@ workbox.precaching.precacheAndRoute(self.__precacheManifest);
 const CACHE_NAME = 'shell';
 const FALLBACK_HTML_URL = '/index.html';
 
+self.addEventListener('fetch', function(event) {
+  event.respondWith(
+    // Check for cached responses first
+    caches.match(event.request).then(function(response) {
+      if (response) {
+        return response;
+      }
+      return fetch(event.request).then(function(response) {
+          // debugger
+        if (response.status === 404) {
+          // let 404 responses propogate through
+          return response
+        }
+        return response
+      });
+    }).catch(function() {
+      // If there's an exception, then the user is probably offline
+      return caches.match(FALLBACK_HTML_URL, {
+        cacheName: CACHE_NAME,
+      });
+    })
+  );
+});
 
 self.addEventListener('install', async (event) => {
   event.waitUntil(
@@ -16,26 +39,6 @@ self.addEventListener('install', async (event) => {
   );
 });
 
-
-const networkOnly = new workbox.strategies.NetworkOnly();
-const navigationHandler = async (params) => {
-  try {
-    // Attempt a network request.
-    return await networkOnly.handle(params);
-  } catch (error) {
-    // If it fails, return the cached HTML.
-    // workbox.precaching.getCacheKeyForURL("/index.html")
-    // return caches.match(workbox.precaching.getCacheKeyForURL("/index.html"));
-    return caches.match('/index.html', {
-      cacheName: CACHE_NAME,
-    });
-  }
-};
-
-// Register this strategy to handle all navigations.
-workbox.routing.registerRoute(
-  new workbox.routing.NavigationRoute(navigationHandler)
-);
 
 workbox.routing.registerRoute(
   /^https:\/\/fonts\.gstatic\.com/,
@@ -70,3 +73,4 @@ workbox.routing.registerRoute(
   }),
   "GET"
 );
+
