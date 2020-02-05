@@ -70,6 +70,7 @@ main =
         , documents = [ markdownDocument ]
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
+        , generateFiles = \_ -> []
         , onPageChange = OnPageChange
         , internals = Pages.internals
         }
