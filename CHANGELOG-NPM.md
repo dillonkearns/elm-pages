@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.8] - 2020-02-08
+
+### Fixed
+- Colorize elm make output for initial elm-pages build step. See [#66](https://github.com/dillonkearns/elm-pages/issues/66).
+    Note, this patch still hasn't propogated through to `elm-webpack-loader` (see https://github.com/elm-community/elm-webpack-loader/issues/166).
+    So there may still be non-colorized output for errors as you make changes while the dev server is running.
+
 ## [1.2.7] - 2020-02-03
 
 ### Fixed
