@@ -117,20 +117,8 @@ renderer =
                 |> Ok
 
     -- )
-    , list =
-        \items ->
-            Element.column [ Element.spacing 15 ]
-                (items
-                    |> List.map
-                        (\itemBlocks ->
-                            Element.wrappedRow [ Element.spacing 5 ]
-                                [ Element.el
-                                    [ Element.alignTop ]
-                                    (Element.text "•")
-                                , itemBlocks
-                                ]
-                        )
-                )
+    , orderedList = orderedList
+    , unorderedList = unorderedList
     , codeBlock = codeBlock
     , html =
         Markdown.Html.oneOf
@@ -215,6 +203,35 @@ renderer =
                 |> Markdown.Html.withAttribute "id"
             ]
     }
+
+
+unorderedList : List (List (Element msg)) -> Element msg
+unorderedList items =
+    Element.column [ Element.spacing 15 ]
+        (items
+            |> List.map
+                (\itemBlocks ->
+                    Element.row [ Element.spacing 5 ]
+                        [ Element.row
+                            [ Element.alignTop ]
+                            (Element.text "• " :: itemBlocks)
+                        ]
+                )
+        )
+
+
+orderedList : Int -> List (List (Element msg)) -> Element msg
+orderedList startingIndex items =
+    Element.column [ Element.spacing 15 ]
+        (items
+            |> List.indexedMap
+                (\index itemBlocks ->
+                    Element.row [ Element.spacing 5 ]
+                        [ Element.row [ Element.alignTop ]
+                            (Element.text (String.fromInt index ++ " ") :: itemBlocks)
+                        ]
+                )
+        )
 
 
 rawTextToId rawText =
