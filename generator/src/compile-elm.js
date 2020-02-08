@@ -1,4 +1,4 @@
-const { compileToString } = require("node-elm-compiler");
+const { compileToString } = require("../node-elm-compiler/index.js");
 XMLHttpRequest = require("xhr2");
 
 module.exports = runElm;
