@@ -209,16 +209,7 @@ encodeProperty canonicalSiteUrl currentPagePath ( name, value ) =
             Json.Encode.list Json.Encode.string [ name, rawValue ]
 
         FullUrl urlPath ->
-            Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl urlPath ]
+            Json.Encode.list Json.Encode.string [ name, urlPath ]
 
         FullUrlToCurrentPage ->
-            Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl currentPagePath ]
-
-
-joinPaths : String -> String -> String
-joinPaths base path =
-    if (base |> String.endsWith "/") && (path |> String.startsWith "/") then
-        base ++ String.dropLeft 1 path
-
-    else
-        base ++ path
+            Json.Encode.list Json.Encode.string [ name, currentPagePath ]

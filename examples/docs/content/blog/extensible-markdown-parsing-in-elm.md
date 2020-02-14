@@ -4,7 +4,7 @@
   "author": "Dillon Kearns",
   "title": "Extensible Markdown Parsing in Pure Elm",
   "description": "Introducing a new parser that extends your palette with no additional syntax",
-  "image": "/images/article-covers/extensible-markdown-parsing.jpg",
+  "image": "images/article-covers/extensible-markdown-parsing.jpg",
   "published": "2019-10-08",
 }
 ---

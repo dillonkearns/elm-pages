@@ -13,12 +13,15 @@ module.exports = function pagesInit(
 
   return new Promise(function(resolve, reject) {
     document.addEventListener("DOMContentLoaded", _ => {
-        new MutationObserver(function() {
-          elmViewRendered = true;
-          if (headTagsAdded) {
-            document.dispatchEvent(new Event("prerender-trigger"));
-          }
-        }).observe(document.body, { attributes: true, childList: true, subtree: true});
+      new MutationObserver(function() {
+        elmViewRendered = true;
+        if (headTagsAdded) {
+          document.dispatchEvent(new Event("prerender-trigger"));
+        }
+      }).observe(
+        document.body,
+        { attributes: true, childList: true, subtree: true }
+      );
 
       loadContentAndInitializeApp(mainElmModule).then(resolve, reject);
     });
@@ -26,12 +29,18 @@ module.exports = function pagesInit(
 };
 
 function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) {
-  return httpGet(`${window.location.origin}${window.location.pathname}/content.json`).then(function(/** @type JSON */ contentJson) {
+  const isPrerendering = navigator.userAgent.indexOf("Headless") >= 0
+  const path = window.location.pathname.replace(/(\w)$/, "$1/")
+
+  return httpGet(`${window.location.origin}${path}content.json`).then(function(/** @type JSON */ contentJson) {
 
     const app = mainElmModule.init({
       flags: {
         secrets: null,
-        isPrerendering: navigator.userAgent.indexOf("Headless") >= 0,
+        baseUrl: isPrerendering
+          ? window.location.origin
+          : document.querySelector("base").href,
+        isPrerendering: isPrerendering,
         contentJson
       }
     });
@@ -46,8 +55,8 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
           ["content", `elm-pages v${elmPagesVersion}`]
         ]
       });
+
       window.allRoutes = fromElm.allRoutes;
-      
 
       if (navigator.userAgent.indexOf("Headless") >= 0) {
         fromElm.head.forEach(headTag => {

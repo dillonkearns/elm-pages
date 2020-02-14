@@ -4,7 +4,7 @@
   "author": "Dillon Kearns",
   "title": "A is for API - Introducing Static HTTP Requests",
   "description": "",
-  "image": "/images/article-covers/static-http.jpg",
+  "image": "images/article-covers/static-http.jpg",
   "published": "2019-12-10",
 }
 ---
@@ -85,7 +85,7 @@ head : Int -> List (Head.Tag Pages.PathKey)
 head starCount =
   Seo.summaryLarge
     { canonicalUrlOverride = Nothing
-    , siteName = "elm-pages - " 
+    , siteName = "elm-pages - "
        ++ String.fromInt starCount
        ++ " GitHub Stars"
     , image =

@@ -4,7 +4,7 @@
   "author": "Dillon Kearns",
   "title": "Types Over Conventions",
   "description": "How elm-pages approaches configuration, using type-safe Elm.",
-  "image": "/images/article-covers/introducing-elm-pages.jpg",
+  "image": "images/article-covers/introducing-elm-pages.jpg",
   "draft": true,
   "published": "2019-09-21",
 }
@@ -164,6 +164,6 @@ Now, in our `elm-pages` app, our `view` function will get the markdown that we r
 ## Takeaways
 So which is better, configuration through types or configuration by convention?
 
-They both have their benefits. If you're like me, then you enjoy being able to figure out what your Elm code is doing by just following the types. And I hope you'll agree that `elm-pages` gives you that experience for wiring up your content and your parsers. 
+They both have their benefits. If you're like me, then you enjoy being able to figure out what your Elm code is doing by just following the types. And I hope you'll agree that `elm-pages` gives you that experience for wiring up your content and your parsers.
 
 And when you need to do something more advanced, you've got all the typed data right there and you're empowered to solve the problem using Elm!

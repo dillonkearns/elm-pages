@@ -210,7 +210,8 @@ view siteMetadata page =
                 (get "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
                 )
-                pokemonDetailRequest
+                -- pokemonDetailRequest
+                (StaticHttp.succeed [])
 
 
 pokemonView : Pokemon -> Element msg
