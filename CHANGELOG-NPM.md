@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.9] - 2020-02-18
+
+- Fix an issue with the NPM bundle (see https://github.com/dillonkearns/elm-pages/issues/71).
+  Thank you for the fix [@icidasset](https://github.com/icidasset)! 🙏
+
 ## [1.2.8] - 2020-02-08
 
 ### Fixed
