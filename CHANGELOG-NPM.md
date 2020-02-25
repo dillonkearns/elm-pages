@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.10] - 2020-02-25
+
+- Turn off offline service worker fallbacks for now. This will likely be revisited
+  in the future when I can give it a full treatment. It seemed to cause an issue
+  for at least one user of elm-pages, though it may have been related to some
+  a Netlify cloudflare plugin that modifies the HTML assets.
+
 ## [1.2.9] - 2020-02-18
 
 - Fix an issue with the NPM bundle (see https://github.com/dillonkearns/elm-pages/issues/71).

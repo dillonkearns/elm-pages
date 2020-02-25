@@ -212,7 +212,9 @@ function webpackOptions(
       }),
       new InjectManifest({
         swSrc: path.resolve(__dirname, "./service-worker-template.js"),
-        include: [/^index\.html$/, /main\.js$/],
+        // don't include index.html and main.js in pre-cache because it was causing stale data for some users
+        // include: [/^index\.html$/, /main\.js$/],
+        include: [],
         exclude: [
           /android-chrome-.*\.png$/,
           /apple-touch-icon.*\.png/,
