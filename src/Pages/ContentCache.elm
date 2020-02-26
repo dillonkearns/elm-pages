@@ -393,6 +393,7 @@ httpTask url =
             url.path
                 |> String.chopForwardSlashes
                 |> String.split "/"
+                |> List.filter ((/=) "")
                 |> (\l -> l ++ [ "content.json" ])
                 |> String.join "/"
                 |> String.append "/"
