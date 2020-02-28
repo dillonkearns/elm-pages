@@ -372,6 +372,7 @@ type AppMsg userMsg metadata view
     | UpdateCache (Result Http.Error (ContentCache metadata view))
     | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
     | PageScrollComplete
+    | HotReloadComplete
 
 
 type Model userModel userMsg metadata view
@@ -394,7 +395,8 @@ type Phase
 
 
 update :
-    List String
+    Content
+    -> List String
     -> String
     ->
         (List ( PagePath pathKey, metadata )
@@ -422,7 +424,7 @@ update :
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
-update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
+update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -558,6 +560,13 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                 PageScrollComplete ->
                     ( model, Cmd.none )
 
+                HotReloadComplete ->
+                    ( model
+                    , ContentCache.init document content (Maybe.map (\cj -> { contentJson = cj, initialUrl = model.url }) Nothing)
+                        |> ContentCache.lazyLoad document model.url
+                        |> Task.attempt (UpdateCacheAndUrl model.url)
+                    )
+
         CliMsg _ ->
             ( model, Cmd.none )
 
@@ -593,6 +602,7 @@ application :
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
+    , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
         List
@@ -658,7 +668,7 @@ application config =
                                     |> List.map (String.join "/")
                                     |> List.map (\route -> "/" ++ route)
                         in
-                        update allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
+                        update config.content allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
@@ -668,9 +678,12 @@ application config =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        config.subscriptions model.userModel
-                            |> Sub.map UserMsg
-                            |> Sub.map AppMsg
+                        Sub.batch
+                            [ config.subscriptions model.userModel
+                                |> Sub.map UserMsg
+                                |> Sub.map AppMsg
+                            , config.fromJsPort |> Sub.map (\_ -> AppMsg HotReloadComplete)
+                            ]
 
                     CliModel _ ->
                         Sub.none
@@ -703,6 +716,7 @@ cliApplication :
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
+    , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
         List

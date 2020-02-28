@@ -176,6 +176,7 @@ type alias Config pathKey userMsg userModel metadata view =
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
+    , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
         List

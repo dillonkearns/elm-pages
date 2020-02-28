@@ -92,11 +92,14 @@ directoryWithoutIndex path =
 
 port toJsPort : Json.Encode.Value -> Cmd msg
 
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
 
 internals : Pages.Internal.Internal PathKey
 internals =
     { applicationType = Pages.Internal.Browser
     , toJsPort = toJsPort
+    , fromJsPort = fromJsPort identity
     , content = content
     , pathKey = PathKey
     }
@@ -159,10 +162,14 @@ directoryWithoutIndex path =
 port toJsPort : Json.Encode.Value -> Cmd msg
 
 
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
 internals : Pages.Internal.Internal PathKey
 internals =
     { applicationType = Pages.Internal.Cli
     , toJsPort = toJsPort
+    , fromJsPort = fromJsPort identity
     , content = content
     , pathKey = PathKey
     }

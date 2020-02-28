@@ -62,6 +62,16 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
       }
     });
 
+
+    if (module.hot) {
+      module.hot.addStatusHandler(function(status) {
+        if (status === 'idle') {
+          console.log('Reloaded!!!!!!!!!!', status)
+          app.ports.fromJsPort.send({});
+        }
+      });
+    }
+
     return app
 
   });

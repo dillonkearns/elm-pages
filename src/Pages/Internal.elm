@@ -13,6 +13,7 @@ that is in the generated `Pages` module (see <Pages.Platform>).
 
 -}
 
+import Json.Decode
 import Json.Encode
 import Pages.Internal.Platform
 
@@ -31,4 +32,5 @@ type alias Internal pathKey =
     , content : Pages.Internal.Platform.Content
     , pathKey : pathKey
     , toJsPort : Json.Encode.Value -> Cmd Never
+    , fromJsPort : Sub Json.Decode.Value
     }
