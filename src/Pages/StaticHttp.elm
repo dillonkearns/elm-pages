@@ -5,6 +5,7 @@ module Pages.StaticHttp exposing
     , Body, emptyBody, stringBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
+    , unoptimizedRequest
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -56,10 +57,20 @@ and describe your use case!
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
+
+## Unoptimized Requests
+
+Warning - use these at your own risk! It's highly recommended that you use the other request functions that make use of
+`zwilias/json-decode-exploration` in order to allow you to reduce down your JSON to only the values that are used by
+your decoders. This can significantly reduce download sizes for your StaticHttp requests.
+
+@docs unoptimizedRequest
+
 -}
 
 import Dict exposing (Dict)
 import Dict.Extra
+import Json.Decode
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
@@ -529,6 +540,62 @@ request urlWithSecrets decoder =
                                         |> Dict.insert
                                             (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
                                             reduced
+                                    , finalRequest
+                                    )
+                                )
+                    )
+        )
+
+
+{-| Build a `StaticHttp` request (analagous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
+This function takes in all the details to build a `StaticHttp` request, but you can build your own simplified helper functions
+with this as a low-level detail, or you can use functions like [StaticHttp.get](#get).
+-}
+unoptimizedRequest :
+    Pages.Secrets.Value RequestDetails
+    -> Json.Decode.Decoder a
+    -> Request a
+unoptimizedRequest urlWithSecrets decoder =
+    Request
+        ( [ urlWithSecrets ]
+        , \rawResponseDict ->
+            rawResponseDict
+                |> Dict.get (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
+                |> (\maybeResponse ->
+                        case maybeResponse of
+                            Just rawResponse ->
+                                Ok
+                                    ( rawResponseDict
+                                      --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                    , rawResponse
+                                    )
+
+                            Nothing ->
+                                Secrets.maskedLookup urlWithSecrets
+                                    |> requestToString
+                                    |> Pages.StaticHttpRequest.MissingHttpResponse
+                                    |> Err
+                   )
+                |> Result.andThen
+                    (\( strippedResponses, rawResponse ) ->
+                        rawResponse
+                            |> Json.Decode.decodeString decoder
+                            --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
+                            |> (\decodeResult ->
+                                    case decodeResult of
+                                        Err error ->
+                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
+
+                                        Ok a ->
+                                            Ok a
+                               )
+                            |> Result.map Done
+                            |> Result.map
+                                (\finalRequest ->
+                                    ( strippedResponses
+                                        |> Dict.insert
+                                            (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
+                                            rawResponse
                                     , finalRequest
                                     )
                                 )

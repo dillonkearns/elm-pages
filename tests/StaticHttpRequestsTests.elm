@@ -247,6 +247,33 @@ all =
                             ]
                           )
                         ]
+        , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.unoptimizedRequest
+                            (Secrets.succeed
+                                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                                , method = "GET"
+                                , headers = []
+                                , body = StaticHttp.emptyBody
+                                }
+                            )
+                            (JD.field "stargazer_count" JD.int)
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{ "stargazer_count": 86, "unused_field": 123 }"""
+                              )
+                            ]
+                          )
+                        ]
         , test "POST method works" <|
             \() ->
                 start
