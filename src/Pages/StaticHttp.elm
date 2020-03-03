@@ -6,7 +6,7 @@ module Pages.StaticHttp exposing
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
     , unoptimizedRequest
-    , Expect(..), expectRequest
+    , Expect, expectString, expectUnoptimizedJson
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -66,6 +66,11 @@ Warning - use these at your own risk! It's highly recommended that you use the o
 your decoders. This can significantly reduce download sizes for your StaticHttp requests.
 
 @docs unoptimizedRequest
+
+
+### Expect for unoptimized requests
+
+@docs Expect, expectString, expectUnoptimizedJson
 
 -}
 
@@ -548,17 +553,34 @@ request urlWithSecrets decoder =
         )
 
 
+{-| Analgous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
+back in your StaticHttp request.
+
+You can derive `ExpectUnoptimizedJson` from `ExpectString`. Or you could build your own helper to process the String
+as XML, for example, or give an `elm-pages` build error if the response can't be parsed as XML.
+
+-}
 type Expect value
     = ExpectUnoptimizedJson (Json.Decode.Decoder value)
     | ExpectJson (Decoder value)
-    | ExpectString (String -> value)
+    | ExpectString (String -> Result String value)
 
 
-expectRequest :
+expectString : (String -> Result String value) -> Expect value
+expectString =
+    ExpectString
+
+
+expectUnoptimizedJson : Json.Decode.Decoder value -> Expect value
+expectUnoptimizedJson =
+    ExpectUnoptimizedJson
+
+
+unoptimizedRequest :
     Pages.Secrets.Value RequestDetails
     -> Expect a
     -> Request a
-expectRequest requestWithSecrets expect =
+unoptimizedRequest requestWithSecrets expect =
     case expect of
         ExpectJson decoder ->
             Request
@@ -695,7 +717,7 @@ expectRequest requestWithSecrets expect =
                             (\( strippedResponses, rawResponse ) ->
                                 rawResponse
                                     |> mapStringFn
-                                    |> Ok
+                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
                                     |> Result.map Done
                                     |> Result.map
                                         (\finalRequest ->
@@ -708,62 +730,6 @@ expectRequest requestWithSecrets expect =
                                         )
                             )
                 )
-
-
-{-| Build a `StaticHttp` request (analagous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
-This function takes in all the details to build a `StaticHttp` request, but you can build your own simplified helper functions
-with this as a low-level detail, or you can use functions like [StaticHttp.get](#get).
--}
-unoptimizedRequest :
-    Pages.Secrets.Value RequestDetails
-    -> Json.Decode.Decoder a
-    -> Request a
-unoptimizedRequest urlWithSecrets decoder =
-    Request
-        ( [ urlWithSecrets ]
-        , \rawResponseDict ->
-            rawResponseDict
-                |> Dict.get (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
-                |> (\maybeResponse ->
-                        case maybeResponse of
-                            Just rawResponse ->
-                                Ok
-                                    ( rawResponseDict
-                                      --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
-                                    , rawResponse
-                                    )
-
-                            Nothing ->
-                                Secrets.maskedLookup urlWithSecrets
-                                    |> requestToString
-                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                    |> Err
-                   )
-                |> Result.andThen
-                    (\( strippedResponses, rawResponse ) ->
-                        rawResponse
-                            |> Json.Decode.decodeString decoder
-                            --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
-                            |> (\decodeResult ->
-                                    case decodeResult of
-                                        Err error ->
-                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
-
-                                        Ok a ->
-                                            Ok a
-                               )
-                            |> Result.map Done
-                            |> Result.map
-                                (\finalRequest ->
-                                    ( strippedResponses
-                                        |> Dict.insert
-                                            (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
-                                            rawResponse
-                                    , finalRequest
-                                    )
-                                )
-                    )
-        )
 
 
 {-| -}

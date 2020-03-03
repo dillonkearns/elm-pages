@@ -251,7 +251,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.expectRequest
+                      , StaticHttp.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , method = "GET"
@@ -259,7 +259,7 @@ all =
                                 , body = StaticHttp.emptyBody
                                 }
                             )
-                            (StaticHttp.ExpectUnoptimizedJson
+                            (StaticHttp.expectUnoptimizedJson
                                 (JD.field "stargazer_count" JD.int)
                             )
                       )
@@ -276,11 +276,11 @@ all =
                             ]
                           )
                         ]
-        , test "expectString" <|
+        , test "plain string" <|
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.expectRequest
+                      , StaticHttp.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://example.com/file.txt"
                                 , method = "GET"
@@ -288,7 +288,7 @@ all =
                                 , body = StaticHttp.emptyBody
                                 }
                             )
-                            (StaticHttp.ExpectString identity)
+                            (StaticHttp.expectString Ok)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -303,6 +303,43 @@ all =
                             ]
                           )
                         ]
+        , test "Err in String to Result function turns into decode error" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.unoptimizedRequest
+                            (Secrets.succeed
+                                { url = "https://example.com/file.txt"
+                                , method = "GET"
+                                , headers = []
+                                , body = StaticHttp.emptyBody
+                                }
+                            )
+                            (StaticHttp.expectString
+                                (\string ->
+                                    if String.toUpper string == string then
+                                        Ok string
+
+                                    else
+                                        Err "String was not uppercased"
+                                )
+                            )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://example.com/file.txt"
+                        "This is a raw text file."
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (expectErrorsPort
+                            """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+
+/
+
+String was not uppercased"""
+                        )
         , test "POST method works" <|
             \() ->
                 start
