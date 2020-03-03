@@ -490,67 +490,7 @@ request :
     -> Decoder a
     -> Request a
 request urlWithSecrets decoder =
-    Request
-        ( [ urlWithSecrets ]
-        , \rawResponseDict ->
-            rawResponseDict
-                |> Dict.get (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
-                |> (\maybeResponse ->
-                        case maybeResponse of
-                            Just rawResponse ->
-                                Ok
-                                    ( rawResponseDict
-                                      --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
-                                    , rawResponse
-                                    )
-
-                            Nothing ->
-                                Secrets.maskedLookup urlWithSecrets
-                                    |> requestToString
-                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                    |> Err
-                   )
-                |> Result.andThen
-                    (\( strippedResponses, rawResponse ) ->
-                        let
-                            reduced =
-                                Decode.stripString decoder rawResponse
-                                    |> Result.withDefault "TODO"
-                        in
-                        rawResponse
-                            |> Decode.decodeString decoder
-                            --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
-                            |> (\decodeResult ->
-                                    case decodeResult of
-                                        Decode.BadJson ->
-                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
-
-                                        Decode.Errors errors ->
-                                            errors
-                                                |> Decode.errorsToString
-                                                |> Pages.StaticHttpRequest.DecoderError
-                                                |> Err
-
-                                        Decode.WithWarnings warnings a ->
-                                            --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
-                                            Ok a
-
-                                        Decode.Success a ->
-                                            Ok a
-                               )
-                            --                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                            |> Result.map Done
-                            |> Result.map
-                                (\finalRequest ->
-                                    ( strippedResponses
-                                        |> Dict.insert
-                                            (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
-                                            reduced
-                                    , finalRequest
-                                    )
-                                )
-                    )
-        )
+    unoptimizedRequest urlWithSecrets (ExpectJson decoder)
 
 
 {-| Analgous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
@@ -566,16 +506,60 @@ type Expect value
     | ExpectString (String -> Result String value)
 
 
+{-| Request a raw String. You can validate the String if you need to check the formatting, or try to parse it
+in something besides JSON. Be sure to use the `StaticHttp.request` function if you want an optimized request that
+strips out unused JSON to optimize your asset size.
+
+If the function you pass to `expectString` yields an `Err`, then you will get at StaticHttpDecodingError that will
+fail your `elm-pages` build and print out the String from the `Err`.
+
+    request =
+        StaticHttp.unoptimizedRequest
+            (Secrets.succeed
+                { url = "https://example.com/file.txt"
+                , method = "GET"
+                , headers = []
+                , body = StaticHttp.emptyBody
+                }
+            )
+            (StaticHttp.expectString
+                (\string ->
+                    if String.toUpper string == string then
+                        Ok string
+
+                    else
+                        Err "String was not uppercased"
+                )
+            )
+
+-}
 expectString : (String -> Result String value) -> Expect value
 expectString =
     ExpectString
 
 
+{-| Handle the incoming response as JSON and don't optimize the asset and strip out unused values.
+Be sure to use the `StaticHttp.request` function if you want an optimized request that
+strips out unused JSON to optimize your asset size. This function makes sense to use for things like a GraphQL request
+where the JSON payload is already trimmed down to the data you explicitly requested.
+
+If the function you pass to `expectString` yields an `Err`, then you will get at StaticHttpDecodingError that will
+fail your `elm-pages` build and print out the String from the `Err`.
+
+-}
 expectUnoptimizedJson : Json.Decode.Decoder value -> Expect value
 expectUnoptimizedJson =
     ExpectUnoptimizedJson
 
 
+{-| This is an alternative to the other request functions in this module that doesn't perform any optimizations on the
+asset. Be sure to use the optimized versions, like `StaticHttp.request`, if you can. Using those can significantly reduce
+your asset sizes by removing all unused fields from your JSON.
+
+You may want to use this function instead if you need XML data or plaintext. Or maybe you're hitting a GraphQL API,
+so you don't need any additional optimization as the payload is already reduced down to exactly what you requested.
+
+-}
 unoptimizedRequest :
     Pages.Secrets.Value RequestDetails
     -> Expect a
