@@ -6,6 +6,7 @@ module Pages.StaticHttp exposing
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
     , unoptimizedRequest
+    , Expect(..), expectRequest
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -545,6 +546,168 @@ request urlWithSecrets decoder =
                                 )
                     )
         )
+
+
+type Expect value
+    = ExpectUnoptimizedJson (Json.Decode.Decoder value)
+    | ExpectJson (Decoder value)
+    | ExpectString (String -> value)
+
+
+expectRequest :
+    Pages.Secrets.Value RequestDetails
+    -> Expect a
+    -> Request a
+expectRequest requestWithSecrets expect =
+    case expect of
+        ExpectJson decoder ->
+            Request
+                ( [ requestWithSecrets ]
+                , \rawResponseDict ->
+                    rawResponseDict
+                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> (\maybeResponse ->
+                                case maybeResponse of
+                                    Just rawResponse ->
+                                        Ok
+                                            ( rawResponseDict
+                                              --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                            , rawResponse
+                                            )
+
+                                    Nothing ->
+                                        Secrets.maskedLookup requestWithSecrets
+                                            |> requestToString
+                                            |> Pages.StaticHttpRequest.MissingHttpResponse
+                                            |> Err
+                           )
+                        |> Result.andThen
+                            (\( strippedResponses, rawResponse ) ->
+                                let
+                                    reduced =
+                                        Decode.stripString decoder rawResponse
+                                            |> Result.withDefault "TODO"
+                                in
+                                rawResponse
+                                    |> Decode.decodeString decoder
+                                    --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
+                                    |> (\decodeResult ->
+                                            case decodeResult of
+                                                Decode.BadJson ->
+                                                    Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
+
+                                                Decode.Errors errors ->
+                                                    errors
+                                                        |> Decode.errorsToString
+                                                        |> Pages.StaticHttpRequest.DecoderError
+                                                        |> Err
+
+                                                Decode.WithWarnings warnings a ->
+                                                    --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
+                                                    Ok a
+
+                                                Decode.Success a ->
+                                                    Ok a
+                                       )
+                                    --                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                                    |> Result.map Done
+                                    |> Result.map
+                                        (\finalRequest ->
+                                            ( strippedResponses
+                                                |> Dict.insert
+                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                    reduced
+                                            , finalRequest
+                                            )
+                                        )
+                            )
+                )
+
+        ExpectUnoptimizedJson decoder ->
+            Request
+                ( [ requestWithSecrets ]
+                , \rawResponseDict ->
+                    rawResponseDict
+                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> (\maybeResponse ->
+                                case maybeResponse of
+                                    Just rawResponse ->
+                                        Ok
+                                            ( rawResponseDict
+                                              --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                            , rawResponse
+                                            )
+
+                                    Nothing ->
+                                        Secrets.maskedLookup requestWithSecrets
+                                            |> requestToString
+                                            |> Pages.StaticHttpRequest.MissingHttpResponse
+                                            |> Err
+                           )
+                        |> Result.andThen
+                            (\( strippedResponses, rawResponse ) ->
+                                rawResponse
+                                    |> Json.Decode.decodeString decoder
+                                    --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
+                                    |> (\decodeResult ->
+                                            case decodeResult of
+                                                Err error ->
+                                                    Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
+
+                                                Ok a ->
+                                                    Ok a
+                                       )
+                                    |> Result.map Done
+                                    |> Result.map
+                                        (\finalRequest ->
+                                            ( strippedResponses
+                                                |> Dict.insert
+                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                    rawResponse
+                                            , finalRequest
+                                            )
+                                        )
+                            )
+                )
+
+        ExpectString mapStringFn ->
+            Request
+                ( [ requestWithSecrets ]
+                , \rawResponseDict ->
+                    rawResponseDict
+                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> (\maybeResponse ->
+                                case maybeResponse of
+                                    Just rawResponse ->
+                                        Ok
+                                            ( rawResponseDict
+                                              --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                            , rawResponse
+                                            )
+
+                                    Nothing ->
+                                        Secrets.maskedLookup requestWithSecrets
+                                            |> requestToString
+                                            |> Pages.StaticHttpRequest.MissingHttpResponse
+                                            |> Err
+                           )
+                        |> Result.andThen
+                            (\( strippedResponses, rawResponse ) ->
+                                rawResponse
+                                    |> mapStringFn
+                                    |> Ok
+                                    |> Result.map Done
+                                    |> Result.map
+                                        (\finalRequest ->
+                                            ( strippedResponses
+                                                |> Dict.insert
+                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                    rawResponse
+                                            , finalRequest
+                                            )
+                                        )
+                            )
+                )
 
 
 {-| Build a `StaticHttp` request (analagous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).

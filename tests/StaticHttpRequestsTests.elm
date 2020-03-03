@@ -251,7 +251,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.unoptimizedRequest
+                      , StaticHttp.expectRequest
                             (Secrets.succeed
                                 { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , method = "GET"
@@ -259,7 +259,9 @@ all =
                                 , body = StaticHttp.emptyBody
                                 }
                             )
-                            (JD.field "stargazer_count" JD.int)
+                            (StaticHttp.ExpectUnoptimizedJson
+                                (JD.field "stargazer_count" JD.int)
+                            )
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -270,6 +272,33 @@ all =
                         [ ( "/"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{ "stargazer_count": 86, "unused_field": 123 }"""
+                              )
+                            ]
+                          )
+                        ]
+        , test "expectString" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.expectRequest
+                            (Secrets.succeed
+                                { url = "https://example.com/file.txt"
+                                , method = "GET"
+                                , headers = []
+                                , body = StaticHttp.emptyBody
+                                }
+                            )
+                            (StaticHttp.ExpectString identity)
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://example.com/file.txt"
+                        "This is a raw text file."
+                    |> expectSuccess
+                        [ ( "/"
+                          , [ ( get "https://example.com/file.txt"
+                              , "This is a raw text file."
                               )
                             ]
                           )
