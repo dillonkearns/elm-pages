@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [4.0.0] - 2020-03-04
+
 ### Changed
 - `StaticHttp.stringBody` now takes an argument for the MIME type.
 
