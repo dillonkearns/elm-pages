@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- `StaticHttp.stringBody` now takes an argument for the MIME type.
+
+### Added
+- `StaticHttp.unoptimizedRequest` allows you to decode responses of any type by passing in a `StaticHttp.Expect`.
+- `StaticHttp.expectString` can be used to parse any values, like XML or plaintext. Note that the payload won't be stripped
+  down so be sure to check the asset sizes that you're fetching carefully.
+
 ## [3.0.2] - 2020-02-03
 
 ### Fixed
