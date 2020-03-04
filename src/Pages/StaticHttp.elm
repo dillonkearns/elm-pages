@@ -94,6 +94,11 @@ emptyBody =
 
 
 {-| Builds a string body for a StaticHttp request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
+
+Note from the `elm/http` docs:
+
+> The first argument is a [MIME type](https://en.wikipedia.org/wiki/Media_type) of the body. Some servers are strict about this!
+
 -}
 stringBody : String -> String -> Body
 stringBody contentType content =
