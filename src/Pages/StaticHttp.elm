@@ -129,7 +129,8 @@ A common use for this is to map your data into your elm-pages view:
     import Pages.StaticHttp as StaticHttp
 
     view =
-        StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
+        StaticHttp.get
+            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
             (Decode.field "stargazers_count" Decode.int)
             |> StaticHttp.map
                 (\stars ->
@@ -220,10 +221,12 @@ combine requests =
                 , head = head elmPagesStars elmMarkdownStars
                 }
             )
-            (get "https://api.github.com/repos/dillonkearns/elm-pages"
+            (get
+                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
                 (Decode.field "stargazers_count" Decode.int)
             )
-            (get "https://api.github.com/repos/dillonkearns/elm-markdown"
+            (get
+                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown")
                 (Decode.field "stargazers_count" Decode.int)
             )
 
@@ -443,7 +446,8 @@ succeed value =
 
     getRequest : StaticHttp.Request Int
     getRequest =
-        StaticHttp.get "https://api.github.com/repos/dillonkearns/elm-pages"
+        StaticHttp.get
+            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
             (Decode.field "stargazers_count" Decode.int)
 
 -}
