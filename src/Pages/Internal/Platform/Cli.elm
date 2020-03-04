@@ -25,6 +25,7 @@ import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.ImagePath as ImagePath
+import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
@@ -281,7 +282,16 @@ perform cliMsgConstructor toJsPort effect =
                 { method = unmasked.method
                 , url = unmasked.url
                 , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                , body = Http.emptyBody
+                , body =
+                    case unmasked.body of
+                        StaticHttpBody.EmptyBody ->
+                            Http.emptyBody
+
+                        StaticHttpBody.StringBody string ->
+                            Http.stringBody string
+
+                        StaticHttpBody.JsonBody value ->
+                            Http.jsonBody value
                 , expect =
                     Http.expectString
                         (\response ->
