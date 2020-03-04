@@ -95,9 +95,9 @@ emptyBody =
 
 {-| Builds a string body for a StaticHttp request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
 -}
-stringBody : String -> Body
-stringBody content =
-    Body.StringBody content
+stringBody : String -> String -> Body
+stringBody contentType content =
+    Body.StringBody contentType content
 
 
 {-| Builds a JSON body for a StaticHttp request. See [elm/http's `Http.jsonBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#jsonBody).

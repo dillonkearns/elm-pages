@@ -24,6 +24,7 @@ import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
+import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
@@ -150,7 +151,7 @@ type alias Model =
 
 
 type Msg
-    = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Http.Error String }
+    = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Pages.Http.Error String }
 
 
 type alias Config pathKey userMsg userModel metadata view =
@@ -287,13 +288,13 @@ perform cliMsgConstructor toJsPort effect =
                         StaticHttpBody.EmptyBody ->
                             Http.emptyBody
 
-                        StaticHttpBody.StringBody string ->
-                            Http.stringBody string
+                        StaticHttpBody.StringBody contentType string ->
+                            Http.stringBody contentType string
 
                         StaticHttpBody.JsonBody value ->
                             Http.jsonBody value
                 , expect =
-                    Http.expectString
+                    Pages.Http.expectString
                         (\response ->
                             (GotStaticHttpResponse >> cliMsgConstructor)
                                 { request = requests
@@ -473,21 +474,23 @@ update siteMetadata config msg model =
                                                 , Terminal.yellow <| Terminal.text request.masked.url
                                                 , Terminal.text "\n\n"
                                                 , case error of
-                                                    Http.BadStatus code ->
-                                                        Terminal.text <| "Bad status: " ++ String.fromInt code
+                                                    Pages.Http.BadStatus metadata body ->
+                                                        Terminal.text <|
+                                                            String.join "\n"
+                                                                [ "Bad status: " ++ String.fromInt metadata.statusCode
+                                                                , "Status message: " ++ metadata.statusText
+                                                                , "Body: " ++ body
+                                                                ]
 
-                                                    Http.BadUrl _ ->
+                                                    Pages.Http.BadUrl _ ->
                                                         -- TODO include HTTP method, headers, and body
                                                         Terminal.text <| "Invalid url: " ++ request.masked.url
 
-                                                    Http.Timeout ->
+                                                    Pages.Http.Timeout ->
                                                         Terminal.text "Timeout"
 
-                                                    Http.NetworkError ->
+                                                    Pages.Http.NetworkError ->
                                                         Terminal.text "Network error"
-
-                                                    Http.BadBody string ->
-                                                        Terminal.text "Unable to parse HTTP response body"
                                                 ]
                                              , fatal = True
                                              }
