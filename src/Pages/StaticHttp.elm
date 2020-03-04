@@ -2,7 +2,7 @@ module Pages.StaticHttp exposing
     ( Request, RequestDetails
     , get, request
     , map, succeed
-    , Body, emptyBody, stringBody
+    , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
     , unoptimizedRequest
@@ -49,7 +49,7 @@ The way you build a body is analagous to the `elm/http` package. Currently, only
 `stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
 and describe your use case!
 
-@docs Body, emptyBody, stringBody
+@docs Body, emptyBody, stringBody, jsonBody
 
 
 ## Chaining Requests
