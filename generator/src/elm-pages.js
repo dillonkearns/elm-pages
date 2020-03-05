@@ -12,6 +12,7 @@ const generateRecords = require("./generate-records.js");
 const parseFrontmatter = require("./frontmatter.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
+global.builtAt = new Date();
 
 const contentGlobPath = "content/**/*.emu";
 
