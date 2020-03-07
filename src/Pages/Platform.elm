@@ -90,11 +90,13 @@ application :
             , body : String
             }
         ->
-            List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
+            StaticHttp.Request
+                (List
+                    (Result String
+                        { path : List String
+                        , content : String
+                        }
+                    )
                 )
     , onPageChange :
         { path : PagePath pathKey

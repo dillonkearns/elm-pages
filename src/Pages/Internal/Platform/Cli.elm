@@ -186,11 +186,13 @@ type alias Config pathKey userMsg userModel metadata view =
             , body : String
             }
         ->
-            List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
+            StaticHttp.Request
+                (List
+                    (Result String
+                        { path : List String
+                        , content : String
+                        }
+                    )
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey
@@ -795,6 +797,8 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
             updatedAllRawResponses =
                 Dict.empty
 
+            --generatedFiles : StaticHttp.Request (List (Result String { path : List String, content : String }))
+            --generatedFiles : List (Result String { path : List String, content : String })
             generatedFiles =
                 siteMetadata
                     |> Result.withDefault []
@@ -826,8 +830,28 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                             , body = contentForPage |> Maybe.withDefault ""
                             }
                         )
-                    |> config.generateFiles
+                    |> newThing
 
+            newThing :
+                List
+                    { path : PagePath pathKey
+                    , frontmatter : metadata
+                    , body : String
+                    }
+                ->
+                    List
+                        (Result String
+                            { path : List String
+                            , content : String
+                            }
+                        )
+            newThing =
+                -- @@@@@@@@@@@ TODO
+                --|> config.generateFiles
+                --config.generateFiles
+                \_ -> []
+
+            generatedOkayFiles : List { path : List String, content : String }
             generatedOkayFiles =
                 generatedFiles
                     |> List.filterMap
@@ -840,6 +864,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                     Nothing
                         )
 
+            generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
             generatedFileErrors =
                 generatedFiles
                     |> List.filterMap
