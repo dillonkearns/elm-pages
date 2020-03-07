@@ -572,6 +572,11 @@ combineMultipleErrors results =
         results
 
 
+cliDictKey : String
+cliDictKey =
+    "////elm-pages-CLI////"
+
+
 staticResponsesInit : Result (List BuildError) (List ( PagePath pathKey, metadata )) -> Config pathKey userMsg userModel metadata view -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
 staticResponsesInit siteMetadata config list =
     let
@@ -580,7 +585,7 @@ staticResponsesInit siteMetadata config list =
             config.generateFiles thing2
 
         generateFilesStaticRequest =
-            ( "////elm-pages-CLI////", NotFetched (foo |> StaticHttp.map (\_ -> ())) Dict.empty )
+            ( cliDictKey, NotFetched (foo |> StaticHttp.map (\_ -> ())) Dict.empty )
 
         thing2 =
             siteMetadata
@@ -945,6 +950,10 @@ toJsPayload encodedStatic manifest generated allErrors =
 encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)
 encodeStaticResponses mode staticResponses =
     staticResponses
+        |> Dict.filter
+            (\key value ->
+                key /= cliDictKey
+            )
         |> Dict.map
             (\path result ->
                 case result of
