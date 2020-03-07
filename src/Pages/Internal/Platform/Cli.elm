@@ -341,11 +341,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            staticResponsesInit okRequests
+                                            staticResponsesInit siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            staticResponsesInit []
+                                            staticResponsesInit siteMetadata config []
 
                                 ( updatedRawResponses, effect ) =
                                     sendStaticResponsesIfDone config siteMetadata mode secrets Dict.empty [] staticResponses
@@ -367,11 +367,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            staticResponsesInit okRequests
+                                            staticResponsesInit siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            staticResponsesInit []
+                                            staticResponsesInit siteMetadata config []
                             in
                             updateAndSendPortIfDone
                                 config
@@ -572,8 +572,48 @@ combineMultipleErrors results =
         results
 
 
-staticResponsesInit : List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
-staticResponsesInit list =
+staticResponsesInit : Result (List BuildError) (List ( PagePath pathKey, metadata )) -> Config pathKey userMsg userModel metadata view -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
+staticResponsesInit siteMetadata config list =
+    let
+        foo : StaticHttp.Request (List (Result String { path : List String, content : String }))
+        foo =
+            config.generateFiles thing2
+
+        generateFilesStaticRequest =
+            ( "////elm-pages-CLI////", NotFetched (foo |> StaticHttp.map (\_ -> ())) Dict.empty )
+
+        thing2 =
+            siteMetadata
+                |> Result.withDefault []
+                |> List.map
+                    (\( pagePath, metadata ) ->
+                        let
+                            contentForPage =
+                                config.content
+                                    |> List.filterMap
+                                        (\( path, { body } ) ->
+                                            let
+                                                pagePathToGenerate =
+                                                    PagePath.toString pagePath
+
+                                                currentContentPath =
+                                                    "/" ++ (path |> String.join "/")
+                                            in
+                                            if pagePathToGenerate == currentContentPath then
+                                                Just body
+
+                                            else
+                                                Nothing
+                                        )
+                                    |> List.head
+                                    |> Maybe.andThen identity
+                        in
+                        { path = pagePath
+                        , frontmatter = metadata
+                        , body = contentForPage |> Maybe.withDefault ""
+                        }
+                    )
+    in
     list
         |> List.map
             (\( path, staticRequest ) ->
@@ -581,6 +621,7 @@ staticResponsesInit list =
                 , NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
                 )
             )
+        |> List.append [ generateFilesStaticRequest ]
         |> Dict.fromList
 
 
@@ -797,9 +838,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
             updatedAllRawResponses =
                 Dict.empty
 
-            --generatedFiles : StaticHttp.Request (List (Result String { path : List String, content : String }))
-            --generatedFiles : List (Result String { path : List String, content : String })
-            generatedFiles =
+            metadataForGenerateFiles =
                 siteMetadata
                     |> Result.withDefault []
                     |> List.map
@@ -830,26 +869,17 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                             , body = contentForPage |> Maybe.withDefault ""
                             }
                         )
-                    |> newThing
 
-            newThing :
-                List
-                    { path : PagePath pathKey
-                    , frontmatter : metadata
-                    , body : String
-                    }
-                ->
-                    List
-                        (Result String
-                            { path : List String
-                            , content : String
-                            }
-                        )
-            newThing =
-                -- @@@@@@@@@@@ TODO
-                --|> config.generateFiles
-                --config.generateFiles
-                \_ -> []
+            --generatedFiles : StaticHttp.Request (List (Result String { path : List String, content : String }))
+            --generatedFiles : List (Result String { path : List String, content : String })
+            generatedFiles =
+                mythingy2
+                    |> Result.withDefault []
+
+            mythingy2 : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
+            mythingy2 =
+                StaticHttpRequest.resolve (config.generateFiles metadataForGenerateFiles)
+                    (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
 
             generatedOkayFiles : List { path : List String, content : String }
             generatedOkayFiles =
