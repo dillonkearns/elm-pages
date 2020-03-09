@@ -10,7 +10,7 @@ import Pages.Platform
 import Pages.StaticHttp as StaticHttp
 
 
-type Builder pathKey userModel userMsg metadata view
+type Builder pathKey userModel userMsg metadata view builderState
     = Builder
         { init :
             Maybe
@@ -92,7 +92,7 @@ init :
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Builder pathKey userModel userMsg metadata view
+    -> Builder pathKey userModel userMsg metadata view { canAddSubscriptions : () }
 init config =
     Builder
         { init = config.init
@@ -120,8 +120,8 @@ withFileGenerator :
                 )
             )
     )
-    -> Builder pathKey userModel userMsg metadata view
-    -> Builder pathKey userModel userMsg metadata view
+    -> Builder pathKey userModel userMsg metadata view builderState
+    -> Builder pathKey userModel userMsg metadata view builderState
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
@@ -131,6 +131,14 @@ withFileGenerator generateFiles (Builder config) =
                         (generateFiles data)
                         (config.generateFiles data)
         }
+
+
+withSubscriptions :
+    (userModel -> Sub userMsg)
+    -> Builder pathKey userModel userMsg metadata view { builderState | canAddSubscriptions : () }
+    -> Builder pathKey userModel userMsg metadata view builderState
+withSubscriptions subs (Builder config) =
+    Builder { config | subscriptions = subs }
 
 
 type Model
@@ -163,6 +171,9 @@ example =
         , onPageChange = Debug.todo ""
         }
         |> withFileGenerator (\_ -> StaticHttp.succeed [])
+        |> withSubscriptions (\_ -> Sub.batch [])
+        -- COMPILER ERROR!
+        --|> withSubscriptions (\_ -> Sub.batch [])
         |> toApplication
 
 
@@ -174,7 +185,7 @@ view =
     Debug.todo ""
 
 
-toApplication : Builder pathKey model msg metadata view -> Pages.Platform.Program model msg metadata view
+toApplication : Builder pathKey model msg metadata view builderState -> Pages.Platform.Program model msg metadata view
 toApplication (Builder config) =
     Pages.Platform.application
         { init = config.init
