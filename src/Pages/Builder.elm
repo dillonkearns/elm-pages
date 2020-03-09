@@ -71,7 +71,6 @@ init :
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -94,7 +93,7 @@ init config =
         { init = config.init
         , view = config.view
         , update = config.update
-        , subscriptions = config.subscriptions
+        , subscriptions = \_ -> Sub.none
         , documents = []
         , manifest = config.manifest
         , generateFiles = \_ -> StaticHttp.succeed []
@@ -174,7 +173,6 @@ example =
         , update = update
         , canonicalSiteUrl = "TODO"
         , manifest = Debug.todo ""
-        , subscriptions = Debug.todo ""
         , internals = Debug.todo ""
         , documents = Debug.todo ""
         }
