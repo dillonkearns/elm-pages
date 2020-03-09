@@ -102,7 +102,7 @@ init config =
         , documents = []
         , manifest = config.manifest
         , generateFiles = \_ -> StaticHttp.succeed []
-        , canonicalSiteUrl = "" --config.canonicalSiteUrl
+        , canonicalSiteUrl = config.canonicalSiteUrl
         , onPageChange = config.onPageChange -- OnPageChange
         , internals = config.internals
         }
@@ -172,8 +172,6 @@ example =
         }
         |> withFileGenerator (\_ -> StaticHttp.succeed [])
         |> withSubscriptions (\_ -> Sub.batch [])
-        -- COMPILER ERROR!
-        --|> withSubscriptions (\_ -> Sub.batch [])
         |> toApplication
 
 
