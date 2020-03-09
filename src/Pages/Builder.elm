@@ -83,21 +83,6 @@ init :
                 }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config pathKey
-    , generateFiles :
-        List
-            { path : PagePath pathKey
-            , frontmatter : metadata
-            , body : String
-            }
-        ->
-            StaticHttp.Request
-                (List
-                    (Result String
-                        { path : List String
-                        , content : String
-                        }
-                    )
-                )
     , onPageChange :
         { path : PagePath pathKey
         , query : Maybe String
@@ -116,8 +101,8 @@ init config =
         , subscriptions = config.subscriptions
         , documents = []
         , manifest = config.manifest
+        , generateFiles = \_ -> StaticHttp.succeed []
         , canonicalSiteUrl = "" --config.canonicalSiteUrl
-        , generateFiles = config.generateFiles
         , onPageChange = config.onPageChange -- OnPageChange
         , internals = config.internals
         }
