@@ -2,6 +2,7 @@ module Pages.Directory exposing
     ( Directory
     , includes
     , indexPath, WithIndex, WithoutIndex
+    , basePathToString, basePath
     , withIndex, withoutIndex
     )
 
@@ -17,6 +18,11 @@ to the directory (if it is a `Directory pathKey WithIndex`).
 ## Getting a `Directory`'s corresponding index page
 
 @docs indexPath, WithIndex, WithoutIndex
+
+
+## Getting a `Directory`'s base path
+
+@docs basePathToString, basePath
 
 
 ## Functions for use by generated code
@@ -118,6 +124,20 @@ See `Directory.includes` for an example of this in action.
 indexPath : Directory key WithIndex -> PagePath key
 indexPath (Directory key allPagePaths directoryPath) =
     PagePath.build key directoryPath
+
+
+{-| TODO
+-}
+basePathToString : Directory key hasIndex -> String
+basePathToString (Directory key allPagePaths directoryPath) =
+    toString directoryPath
+
+
+{-| TODO
+-}
+basePath : Directory key hasIndex -> List String
+basePath (Directory key allPagePaths directoryPath) =
+    directoryPath
 
 
 toString : List String -> String

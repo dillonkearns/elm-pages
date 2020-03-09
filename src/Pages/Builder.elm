@@ -116,6 +116,25 @@ withPageChangeMsg onPageChangeMsg (Builder builder) =
     Builder { builder | onPageChange = Just onPageChangeMsg }
 
 
+addGlobalHeadTags :
+    List (Head.Tag pathKey)
+    -> Builder pathKey userModel userMsg metadata view builderState
+    -> Builder pathKey userModel userMsg metadata view builderState
+addGlobalHeadTags globalHeadTags (Builder config) =
+    Builder
+        { config
+            | view =
+                \arg1 arg2 ->
+                    config.view arg1 arg2
+                        |> StaticHttp.map
+                            (\fns ->
+                                { view = fns.view
+                                , head = globalHeadTags ++ fns.head
+                                }
+                            )
+        }
+
+
 withFileGenerator :
     (List { path : PagePath pathKey, frontmatter : metadata, body : String }
      ->
