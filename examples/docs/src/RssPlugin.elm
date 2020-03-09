@@ -10,14 +10,12 @@ import Time
 
 
 generate :
-    Directory pathKey hasIndex
-    ->
-        { siteTagline : String
-        , siteUrl : String
-        , title : String
-        , builtAt : Time.Posix
-        , indexPage : PagePath pathKey
-        }
+    { siteTagline : String
+    , siteUrl : String
+    , title : String
+    , builtAt : Time.Posix
+    , indexPage : PagePath pathKey
+    }
     ->
         ({ path : PagePath pathKey
          , frontmatter : metadata
@@ -27,10 +25,13 @@ generate :
         )
     -> Builder pathKey userModel userMsg metadata view builderState
     -> Builder pathKey userModel userMsg metadata view builderState
-generate baseDirectory options metadataToRssItem builder =
+generate options metadataToRssItem builder =
     let
         feedFilePath =
-            Directory.basePath baseDirectory ++ [ "feed.xml" ]
+            --Directory.basePath baseDirectory ++ [ "feed.xml" ]
+            options.indexPage
+                |> PagePath.toString
+                |> String.split "/"
     in
     builder
         |> Pages.Builder.withFileGenerator

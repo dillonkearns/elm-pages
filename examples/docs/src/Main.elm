@@ -24,6 +24,7 @@ import MarkdownRenderer
 import Metadata exposing (Metadata)
 import MySitemap
 import Pages exposing (images, pages)
+import Pages.Builder
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
@@ -33,6 +34,8 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Pages.StaticHttp as StaticHttp
 import Palette
+import Rss
+import RssPlugin
 import Secrets
 import Showcase
 
@@ -59,18 +62,59 @@ type alias View =
 
 main : Pages.Platform.Program Model Msg Metadata View
 main =
-    Pages.Platform.application
+    Pages.Builder.init
         { init = init
         , view = view
         , update = update
-        , subscriptions = subscriptions
         , documents = [ markdownDocument ]
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
-        , generateFiles = generateFiles
-        , onPageChange = Just OnPageChange
         , internals = Pages.internals
         }
+        |> Pages.Builder.withFileGenerator generateFiles
+        |> Pages.Builder.withPageChangeMsg OnPageChange
+        |> RssPlugin.generate
+            { siteTagline = siteTagline
+
+    , siteUrl : String
+    , title = tit
+                  ,
+    , builtAt = Pages.builtAt
+    , indexPage : PagePath pathKey
+            }
+            metadataToRssItem
+        |> Pages.Builder.toApplication
+
+
+metadataToRssItem :
+    { path : PagePath Pages.PathKey
+    , frontmatter : Metadata
+    , body : String
+    }
+    -> Maybe Rss.Item
+metadataToRssItem page =
+    case page.frontmatter of
+        Metadata.Article article ->
+            if article.draft then
+                Nothing
+
+            else
+                Just
+                    { title = article.title
+                    , description = article.description
+                    , url = PagePath.toString page.path
+                    , categories = []
+                    , author = article.author.name
+                    , pubDate = Rss.Date article.published
+                    , content = Nothing
+                    }
+
+        _ ->
+            Nothing
+
+
+
+--|> Pages.Builder.withSubscriptions (\_ -> Sub.batch [])
 
 
 generateFiles :
