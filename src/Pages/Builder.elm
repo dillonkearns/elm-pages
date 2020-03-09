@@ -108,6 +108,31 @@ init config =
         }
 
 
+withFileGenerator :
+    (List { path : PagePath pathKey, frontmatter : metadata, body : String }
+     ->
+        StaticHttp.Request
+            (List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
+            )
+    )
+    -> Builder pathKey userModel userMsg metadata view
+    -> Builder pathKey userModel userMsg metadata view
+withFileGenerator generateFiles (Builder config) =
+    Builder
+        { config
+            | generateFiles =
+                \data ->
+                    StaticHttp.map2 (++)
+                        (generateFiles data)
+                        (config.generateFiles data)
+        }
+
+
 type Model
     = Model
 
@@ -131,13 +156,13 @@ example =
         , view = view
         , update = update
         , canonicalSiteUrl = "TODO"
-        , generateFiles = Debug.todo ""
         , manifest = Debug.todo ""
         , subscriptions = Debug.todo ""
         , internals = Debug.todo ""
         , documents = Debug.todo ""
         , onPageChange = Debug.todo ""
         }
+        |> withFileGenerator (\_ -> StaticHttp.succeed [])
         |> toApplication
 
 
