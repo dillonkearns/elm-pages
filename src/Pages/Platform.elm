@@ -99,11 +99,13 @@ application :
                     )
                 )
     , onPageChange :
-        { path : PagePath pathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-        -> userMsg
+        Maybe
+            ({ path : PagePath pathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> userMsg
+            )
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }

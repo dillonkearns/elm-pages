@@ -50,11 +50,13 @@ type Builder pathKey userModel userMsg metadata view builderState
                         )
                     )
         , onPageChange :
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
-            }
-            -> userMsg
+            Maybe
+                ({ path : PagePath pathKey
+                 , query : Maybe String
+                 , fragment : Maybe String
+                 }
+                 -> userMsg
+                )
         , canonicalSiteUrl : String
         , internals : Pages.Internal.Internal pathKey
         }
@@ -83,16 +85,10 @@ init :
                 }
     , documents : List ( String, Document.DocumentHandler metadata view )
     , manifest : Pages.Manifest.Config pathKey
-    , onPageChange :
-        { path : PagePath pathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-        -> userMsg
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Builder pathKey userModel userMsg metadata view { canAddSubscriptions : () }
+    -> Builder pathKey userModel userMsg metadata view { canAddSubscriptions : (), canAddPageChangeMsg : () }
 init config =
     Builder
         { init = config.init
@@ -103,9 +99,22 @@ init config =
         , manifest = config.manifest
         , generateFiles = \_ -> StaticHttp.succeed []
         , canonicalSiteUrl = config.canonicalSiteUrl
-        , onPageChange = config.onPageChange -- OnPageChange
+        , onPageChange = Nothing
         , internals = config.internals
         }
+
+
+withPageChangeMsg :
+    ({ path : PagePath pathKey
+     , query : Maybe String
+     , fragment : Maybe String
+     }
+     -> msg
+    )
+    -> Builder pathKey userModel msg metadata view { builderState | canAddPageChangeMsg : () }
+    -> Builder pathKey userModel msg metadata view builderState
+withPageChangeMsg onPageChangeMsg (Builder builder) =
+    Builder { builder | onPageChange = Just onPageChangeMsg }
 
 
 withFileGenerator :
@@ -168,10 +177,10 @@ example =
         , subscriptions = Debug.todo ""
         , internals = Debug.todo ""
         , documents = Debug.todo ""
-        , onPageChange = Debug.todo ""
         }
         |> withFileGenerator (\_ -> StaticHttp.succeed [])
         |> withSubscriptions (\_ -> Sub.batch [])
+        |> withPageChangeMsg (\_ -> Msg)
         |> toApplication
 
 

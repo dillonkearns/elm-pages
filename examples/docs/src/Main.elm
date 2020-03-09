@@ -68,7 +68,7 @@ main =
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
         , generateFiles = generateFiles
-        , onPageChange = OnPageChange
+        , onPageChange = Just OnPageChange
         , internals = Pages.internals
         }
 

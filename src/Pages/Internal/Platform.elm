@@ -410,19 +410,20 @@ update :
         )
     -> pathKey
     ->
-        ({ path : PagePath pathKey
-         , query : Maybe String
-         , fragment : Maybe String
-         }
-         -> userMsg
-        )
+        Maybe
+            ({ path : PagePath pathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> userMsg
+            )
     -> (Json.Encode.Value -> Cmd Never)
     -> Pages.Document.Document metadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
-update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
+update allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -531,14 +532,19 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                         Ok updatedCache ->
                             let
                                 ( userModel, userCmd ) =
-                                    userUpdate
-                                        (onPageChangeMsg
-                                            { path = url |> urlToPagePath pathKey
-                                            , query = url.query
-                                            , fragment = url.fragment
-                                            }
-                                        )
-                                        model.userModel
+                                    case maybeOnPageChangeMsg of
+                                        Just onPageChangeMsg ->
+                                            userUpdate
+                                                (onPageChangeMsg
+                                                    { path = url |> urlToPagePath pathKey
+                                                    , query = url.query
+                                                    , fragment = url.fragment
+                                                    }
+                                                )
+                                                model.userModel
+
+                                        _ ->
+                                            ( model.userModel, Cmd.none )
                             in
                             ( { model
                                 | url = url
@@ -612,11 +618,13 @@ application :
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange :
-        { path : PagePath pathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-        -> userMsg
+        Maybe
+            ({ path : PagePath pathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> userMsg
+            )
     }
     --    -> Program userModel userMsg metadata view
     -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
@@ -724,11 +732,13 @@ cliApplication :
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange :
-        { path : PagePath pathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-        -> userMsg
+        Maybe
+            ({ path : PagePath pathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> userMsg
+            )
     }
     -> Program userModel userMsg metadata view
 cliApplication =
