@@ -33,6 +33,7 @@ writing a plugin package to extend `elm-pages`.
 
 import Json.Encode
 import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
 
 
@@ -209,7 +210,12 @@ encodeProperty canonicalSiteUrl currentPagePath ( name, value ) =
             Json.Encode.list Json.Encode.string [ name, rawValue ]
 
         FullUrl urlPath ->
-            Json.Encode.list Json.Encode.string [ name, urlPath ]
+            Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl urlPath ]
 
         FullUrlToCurrentPage ->
-            Json.Encode.list Json.Encode.string [ name, currentPagePath ]
+            Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl currentPagePath ]
+
+
+joinPaths : String -> String -> String
+joinPaths base path =
+    String.chopEnd "/" base ++ "/" ++ String.chopStart "/" path
