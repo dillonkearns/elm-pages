@@ -1,6 +1,7 @@
 module Pages.PagePath exposing
     ( PagePath, toString, external
     , build
+    , toPath
     )
 
 {-| You can get data representing type-safe, guaranteed-available
@@ -119,6 +120,16 @@ toString path =
 
         External url ->
             url
+
+
+toPath : PagePath key -> List String
+toPath path =
+    case path of
+        Internal rawPath ->
+            rawPath
+
+        External url ->
+            []
 
 
 {-| This allows you to build a URL to an external resource. Avoid using

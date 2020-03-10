@@ -75,12 +75,10 @@ main =
         |> Pages.Builder.withPageChangeMsg OnPageChange
         |> RssPlugin.generate
             { siteTagline = siteTagline
-
-    , siteUrl : String
-    , title = tit
-                  ,
-    , builtAt = Pages.builtAt
-    , indexPage : PagePath pathKey
+            , siteUrl = canonicalSiteUrl
+            , title = "elm-pages Blog"
+            , builtAt = Pages.builtAt
+            , indexPage = Pages.pages.blog.index
             }
             metadataToRssItem
         |> Pages.Builder.toApplication
@@ -543,8 +541,7 @@ highlightableLink currentPath linkDirectory displayName =
 
 commonHeadTags : List (Head.Tag Pages.PathKey)
 commonHeadTags =
-    [ Head.rssLink "/blog/feed.xml"
-    , Head.sitemapLink "/sitemap.xml"
+    [ Head.sitemapLink "/sitemap.xml"
     ]
 
 

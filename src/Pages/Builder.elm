@@ -94,7 +94,7 @@ init config =
         , view = config.view
         , update = config.update
         , subscriptions = \_ -> Sub.none
-        , documents = []
+        , documents = config.documents
         , manifest = config.manifest
         , generateFiles = \_ -> StaticHttp.succeed []
         , canonicalSiteUrl = config.canonicalSiteUrl
@@ -168,47 +168,6 @@ withSubscriptions subs (Builder config) =
     Builder { config | subscriptions = subs }
 
 
-type Model
-    = Model
-
-
-type Msg
-    = Msg
-
-
-type View
-    = View
-
-
-type Metadata
-    = Metadata
-
-
-example : Pages.Platform.Program Model Msg Metadata View
-example =
-    init
-        { init = appInit
-        , view = view
-        , update = update
-        , canonicalSiteUrl = "TODO"
-        , manifest = Debug.todo ""
-        , internals = Debug.todo ""
-        , documents = Debug.todo ""
-        }
-        |> withFileGenerator (\_ -> StaticHttp.succeed [])
-        |> withSubscriptions (\_ -> Sub.batch [])
-        |> withPageChangeMsg (\_ -> Msg)
-        |> toApplication
-
-
-update =
-    Debug.todo ""
-
-
-view =
-    Debug.todo ""
-
-
 toApplication : Builder pathKey model msg metadata view builderState -> Pages.Platform.Program model msg metadata view
 toApplication (Builder config) =
     Pages.Platform.application
@@ -216,32 +175,10 @@ toApplication (Builder config) =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , documents = []
+        , documents = config.documents
         , manifest = config.manifest
-        , canonicalSiteUrl = "" --config.canonicalSiteUrl
+        , canonicalSiteUrl = config.canonicalSiteUrl
         , generateFiles = config.generateFiles
-        , onPageChange = config.onPageChange -- OnPageChange
+        , onPageChange = config.onPageChange
         , internals = config.internals
         }
-
-
-appInit : a
-appInit =
-    Debug.todo ""
-
-
-
---main : Pages.Platform.Program Model Msg Metadata View
---main =
---    Pages.Platform.application
---        { init = init
---        , view = view
---        , update = update
---        , subscriptions = subscriptions
---        , documents = [ markdownDocument ]
---        , manifest = manifest
---        , canonicalSiteUrl = canonicalSiteUrl
---        , generateFiles = generateFiles
---        , onPageChange = OnPageChange
---        , internals = Pages.internals
---        }

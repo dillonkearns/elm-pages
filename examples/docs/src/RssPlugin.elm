@@ -2,7 +2,6 @@ module RssPlugin exposing (..)
 
 import Head
 import Pages.Builder exposing (Builder)
-import Pages.Directory as Directory exposing (Directory)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Rss
@@ -28,10 +27,10 @@ generate :
 generate options metadataToRssItem builder =
     let
         feedFilePath =
-            --Directory.basePath baseDirectory ++ [ "feed.xml" ]
-            options.indexPage
-                |> PagePath.toString
-                |> String.split "/"
+            (options.indexPage
+                |> PagePath.toPath
+            )
+                ++ [ "feed.xml" ]
     in
     builder
         |> Pages.Builder.withFileGenerator
