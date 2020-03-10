@@ -11,14 +11,12 @@ import Element.Border
 import Element.Events
 import Element.Font as Font
 import Element.Region
-import Feed
 import FontAwesome
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
-import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Exploration as D
 import MarkdownRenderer
 import Metadata exposing (Metadata)
@@ -26,7 +24,6 @@ import MySitemap
 import Pages exposing (images, pages)
 import Pages.Builder
 import Pages.Directory as Directory exposing (Directory)
-import Pages.Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
@@ -76,7 +73,6 @@ main =
         , canonicalSiteUrl = canonicalSiteUrl
         , internals = Pages.internals
         }
-        |> Pages.Builder.withFileGenerator generateFiles
         |> Pages.Builder.withPageChangeMsg OnPageChange
         |> RssPlugin.generate
             { siteTagline = siteTagline
@@ -86,6 +82,7 @@ main =
             , indexPage = Pages.pages.blog.index
             }
             metadataToRssItem
+        |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
         |> Pages.Builder.toApplication
 
 
@@ -116,39 +113,28 @@ metadataToRssItem page =
             Nothing
 
 
-
---|> Pages.Builder.withSubscriptions (\_ -> Sub.batch [])
-
-
-generateFiles :
+metadataToSitemapEntry :
     List
         { path : PagePath Pages.PathKey
         , frontmatter : Metadata
         , body : String
         }
-    ->
-        StaticHttp.Request
-            (List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
-                )
+    -> List { path : String, lastMod : Maybe String }
+metadataToSitemapEntry siteMetadata =
+    siteMetadata
+        |> List.filter
+            (\page ->
+                case page.frontmatter of
+                    Metadata.Article articleData ->
+                        not articleData.draft
+
+                    _ ->
+                        True
             )
-generateFiles siteMetadata =
-    StaticHttp.succeed
-        [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
-        , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
-        ]
-
-
-markdownDocument : ( String, Pages.Document.DocumentHandler Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) )
-markdownDocument =
-    Pages.Document.parser
-        { extension = "md"
-        , metadata = Metadata.decoder
-        , body = MarkdownRenderer.view
-        }
+        |> List.map
+            (\page ->
+                { path = PagePath.toString page.path, lastMod = Nothing }
+            )
 
 
 type alias Model =
@@ -544,12 +530,6 @@ highlightableLink currentPath linkDirectory displayName =
         }
 
 
-commonHeadTags : List (Head.Tag Pages.PathKey)
-commonHeadTags =
-    [ Head.sitemapLink "/sitemap.xml"
-    ]
-
-
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
 <https://htmlhead.dev>
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
@@ -557,129 +537,127 @@ commonHeadTags =
 -}
 head : Metadata -> List (Head.Tag Pages.PathKey)
 head metadata =
-    commonHeadTags
-        ++ (case metadata of
-                Metadata.Page meta ->
-                    Seo.summary
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = images.iconPng
-                            , alt = "elm-pages logo"
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = siteTagline
-                        , locale = Nothing
-                        , title = meta.title
-                        }
-                        |> Seo.website
+    case metadata of
+        Metadata.Page meta ->
+            Seo.summary
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = images.iconPng
+                    , alt = "elm-pages logo"
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = siteTagline
+                , locale = Nothing
+                , title = meta.title
+                }
+                |> Seo.website
 
-                Metadata.Doc meta ->
-                    Seo.summary
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = images.iconPng
-                            , alt = "elm pages logo"
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , locale = Nothing
-                        , description = siteTagline
-                        , title = meta.title
-                        }
-                        |> Seo.website
+        Metadata.Doc meta ->
+            Seo.summary
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = images.iconPng
+                    , alt = "elm pages logo"
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , locale = Nothing
+                , description = siteTagline
+                , title = meta.title
+                }
+                |> Seo.website
 
-                Metadata.Article meta ->
-                    Seo.summaryLarge
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = meta.image
-                            , alt = meta.description
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = meta.description
-                        , locale = Nothing
-                        , title = meta.title
-                        }
-                        |> Seo.article
-                            { tags = []
-                            , section = Nothing
-                            , publishedTime = Just (Date.toIsoString meta.published)
-                            , modifiedTime = Nothing
-                            , expirationTime = Nothing
-                            }
+        Metadata.Article meta ->
+            Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = meta.image
+                    , alt = meta.description
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = meta.description
+                , locale = Nothing
+                , title = meta.title
+                }
+                |> Seo.article
+                    { tags = []
+                    , section = Nothing
+                    , publishedTime = Just (Date.toIsoString meta.published)
+                    , modifiedTime = Nothing
+                    , expirationTime = Nothing
+                    }
 
-                Metadata.Author meta ->
-                    let
-                        ( firstName, lastName ) =
-                            case meta.name |> String.split " " of
-                                [ first, last ] ->
-                                    ( first, last )
+        Metadata.Author meta ->
+            let
+                ( firstName, lastName ) =
+                    case meta.name |> String.split " " of
+                        [ first, last ] ->
+                            ( first, last )
 
-                                [ first, middle, last ] ->
-                                    ( first ++ " " ++ middle, last )
+                        [ first, middle, last ] ->
+                            ( first ++ " " ++ middle, last )
 
-                                [] ->
-                                    ( "", "" )
+                        [] ->
+                            ( "", "" )
 
-                                _ ->
-                                    ( meta.name, "" )
-                    in
-                    Seo.summary
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = meta.avatar
-                            , alt = meta.name ++ "'s elm-pages articles."
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = meta.bio
-                        , locale = Nothing
-                        , title = meta.name ++ "'s elm-pages articles."
-                        }
-                        |> Seo.profile
-                            { firstName = firstName
-                            , lastName = lastName
-                            , username = Nothing
-                            }
+                        _ ->
+                            ( meta.name, "" )
+            in
+            Seo.summary
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = meta.avatar
+                    , alt = meta.name ++ "'s elm-pages articles."
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = meta.bio
+                , locale = Nothing
+                , title = meta.name ++ "'s elm-pages articles."
+                }
+                |> Seo.profile
+                    { firstName = firstName
+                    , lastName = lastName
+                    , username = Nothing
+                    }
 
-                Metadata.BlogIndex ->
-                    Seo.summary
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = images.iconPng
-                            , alt = "elm-pages logo"
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = siteTagline
-                        , locale = Nothing
-                        , title = "elm-pages blog"
-                        }
-                        |> Seo.website
+        Metadata.BlogIndex ->
+            Seo.summary
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = images.iconPng
+                    , alt = "elm-pages logo"
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = siteTagline
+                , locale = Nothing
+                , title = "elm-pages blog"
+                }
+                |> Seo.website
 
-                Metadata.Showcase ->
-                    Seo.summary
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = images.iconPng
-                            , alt = "elm-pages logo"
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = "See some neat sites built using elm-pages! (Or submit yours!)"
-                        , locale = Nothing
-                        , title = "elm-pages sites showcase"
-                        }
-                        |> Seo.website
-           )
+        Metadata.Showcase ->
+            Seo.summary
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = images.iconPng
+                    , alt = "elm-pages logo"
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = "See some neat sites built using elm-pages! (Or submit yours!)"
+                , locale = Nothing
+                , title = "elm-pages sites showcase"
+                }
+                |> Seo.website
 
 
 canonicalSiteUrl : String

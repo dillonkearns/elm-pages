@@ -1,41 +1,36 @@
 module MySitemap exposing (..)
 
+import Head
 import Metadata exposing (Metadata(..))
 import Pages
+import Pages.Builder as Builder exposing (Builder)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
 import Sitemap
 
 
-build :
+install :
     { siteUrl : String
     }
     ->
-        List
+        (List
             { path : PagePath Pages.PathKey
             , frontmatter : Metadata
             , body : String
             }
-    ->
-        { path : List String
-        , content : String
-        }
-build config siteMetadata =
-    { path = [ "sitemap.xml" ]
-    , content =
-        Sitemap.build config
-            (siteMetadata
-                |> List.filter
-                    (\page ->
-                        case page.frontmatter of
-                            Article articleData ->
-                                not articleData.draft
-
-                            _ ->
-                                True
-                    )
-                |> List.map
-                    (\page ->
-                        { path = PagePath.toString page.path, lastMod = Nothing }
-                    )
+         -> List { path : String, lastMod : Maybe String }
+        )
+    -> Builder pathKey userModel userMsg metadata view builderState
+    -> Builder pathKey userModel userMsg metadata view builderState
+install config toSitemapEntry builder =
+    builder
+        |> Builder.addGlobalHeadTags [ Head.sitemapLink "/sitemap.xml" ]
+        |> Builder.withFileGenerator
+            (\siteMetadata ->
+                StaticHttp.succeed
+                    [ Ok
+                        { path = [ "sitemap.xml" ]
+                        , content = Sitemap.build config (toSitemapEntry siteMetadata)
+                        }
+                    ]
             )
-    }
