@@ -66,7 +66,12 @@ main =
         { init = init
         , view = view
         , update = update
-        , documents = [ markdownDocument ]
+        , documents =
+            [ { extension = "md"
+              , metadata = Metadata.decoder
+              , body = MarkdownRenderer.view
+              }
+            ]
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
         , internals = Pages.internals

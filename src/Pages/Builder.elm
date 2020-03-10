@@ -2,7 +2,8 @@ module Pages.Builder exposing (..)
 
 import Head
 import Html exposing (Html)
-import Pages.Document as Document
+import Json.Decode
+import Pages.Document as Document exposing (DocumentHandler)
 import Pages.Internal
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.PagePath exposing (PagePath)
@@ -82,7 +83,12 @@ init :
                 { view : userModel -> view -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , documents : List ( String, Document.DocumentHandler metadata view )
+    , documents :
+        List
+            { extension : String
+            , metadata : Json.Decode.Decoder metadata
+            , body : String -> Result String view
+            }
     , manifest : Pages.Manifest.Config pathKey
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
@@ -94,7 +100,7 @@ init config =
         , view = config.view
         , update = config.update
         , subscriptions = \_ -> Sub.none
-        , documents = config.documents
+        , documents = config.documents |> List.map Document.parser
         , manifest = config.manifest
         , generateFiles = \_ -> StaticHttp.succeed []
         , canonicalSiteUrl = config.canonicalSiteUrl
