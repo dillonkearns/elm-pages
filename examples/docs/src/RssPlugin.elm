@@ -1,8 +1,8 @@
-module RssPlugin exposing (..)
+module RssPlugin exposing (generate)
 
 import Head
-import Pages.Builder exposing (Builder)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Platform exposing (Builder)
 import Pages.StaticHttp as StaticHttp
 import Rss
 import Time
@@ -33,7 +33,7 @@ generate options metadataToRssItem builder =
                 ++ [ "feed.xml" ]
     in
     builder
-        |> Pages.Builder.withFileGenerator
+        |> Pages.Platform.withFileGenerator
             (\siteMetadata ->
                 { path = feedFilePath
                 , content =
@@ -53,4 +53,4 @@ generate options metadataToRssItem builder =
                     |> List.singleton
                     |> StaticHttp.succeed
             )
-        |> Pages.Builder.addGlobalHeadTags [ Head.rssLink (feedFilePath |> String.join "/") ]
+        |> Pages.Platform.addGlobalHeadTags [ Head.rssLink (feedFilePath |> String.join "/") ]

@@ -1,10 +1,8 @@
-module MySitemap exposing (..)
+module MySitemap exposing (install)
 
 import Head
-import Metadata exposing (Metadata(..))
-import Pages
-import Pages.Builder as Builder exposing (Builder)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Platform exposing (Builder)
 import Pages.StaticHttp as StaticHttp
 import Sitemap
 
@@ -14,8 +12,8 @@ install :
     }
     ->
         (List
-            { path : PagePath Pages.PathKey
-            , frontmatter : Metadata
+            { path : PagePath pathKey
+            , frontmatter : metadata
             , body : String
             }
          -> List { path : String, lastMod : Maybe String }
@@ -24,8 +22,8 @@ install :
     -> Builder pathKey userModel userMsg metadata view builderState
 install config toSitemapEntry builder =
     builder
-        |> Builder.addGlobalHeadTags [ Head.sitemapLink "/sitemap.xml" ]
-        |> Builder.withFileGenerator
+        |> Pages.Platform.addGlobalHeadTags [ Head.sitemapLink "/sitemap.xml" ]
+        |> Pages.Platform.withFileGenerator
             (\siteMetadata ->
                 StaticHttp.succeed
                     [ Ok

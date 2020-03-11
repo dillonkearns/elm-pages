@@ -22,7 +22,6 @@ import MarkdownRenderer
 import Metadata exposing (Metadata)
 import MySitemap
 import Pages exposing (images, pages)
-import Pages.Builder
 import Pages.Directory as Directory exposing (Directory)
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
@@ -59,7 +58,7 @@ type alias View =
 
 main : Pages.Platform.Program Model Msg Metadata View
 main =
-    Pages.Builder.init
+    Pages.Platform.init
         { init = init
         , view = view
         , update = update
@@ -73,7 +72,7 @@ main =
         , canonicalSiteUrl = canonicalSiteUrl
         , internals = Pages.internals
         }
-        |> Pages.Builder.withPageChangeMsg OnPageChange
+        |> Pages.Platform.withPageChangeMsg OnPageChange
         |> RssPlugin.generate
             { siteTagline = siteTagline
             , siteUrl = canonicalSiteUrl
@@ -83,7 +82,7 @@ main =
             }
             metadataToRssItem
         |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
-        |> Pages.Builder.toApplication
+        |> Pages.Platform.toProgram
 
 
 metadataToRssItem :
