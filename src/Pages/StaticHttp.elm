@@ -496,7 +496,6 @@ request :
     -> Decoder a
     -> Request a
 request urlWithSecrets decoder =
-<<<<<<< HEAD
     unoptimizedRequest urlWithSecrets (ExpectJson decoder)
 
 
@@ -721,74 +720,6 @@ unoptimizedRequest requestWithSecrets expect =
                                         )
                             )
                 )
-=======
-    Request
-        ( [ urlWithSecrets ]
-        , \rawResponseDict ->
-            rawResponseDict
-                |> Dict.get
-                    (urlWithSecrets
-                        |> Secrets.maskedLookup
-                        |> HashRequest.hash
-                    )
-                |> (\maybeResponse ->
-                        case maybeResponse of
-                            Just rawResponse ->
-                                Ok
-                                    ( rawResponseDict
-                                      -- |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
-                                    , rawResponse
-                                    )
-
-                            Nothing ->
-                                urlWithSecrets
-                                    |> Secrets.maskedLookup
-                                    |> requestToString
-                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                    |> Err
-                   )
-                |> Result.andThen
-                    (\( strippedResponses, rawResponse ) ->
-                        let
-                            reduced =
-                                Decode.stripString decoder rawResponse
-                                    |> Result.withDefault "TODO"
-                        in
-                        rawResponse
-                            |> Decode.decodeString decoder
-                            --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
-                            |> (\decodeResult ->
-                                    case decodeResult of
-                                        Decode.BadJson ->
-                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
-
-                                        Decode.Errors errors ->
-                                            errors
-                                                |> Decode.errorsToString
-                                                |> Pages.StaticHttpRequest.DecoderError
-                                                |> Err
-
-                                        Decode.WithWarnings warnings a ->
-                                            --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
-                                            Ok a
-
-                                        Decode.Success a ->
-                                            Ok a
-                               )
-                            -- |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                            |> Result.map Done
-                            |> Result.map
-                                (\finalRequest ->
-                                    ( strippedResponses
-                                        |> Dict.insert
-                                            (Secrets.maskedLookup urlWithSecrets |> HashRequest.hash)
-                                            reduced
-                                    , finalRequest
-                                    )
-                                )
-                    )
-        )
->>>>>>> Make urls relative using the base element
 
 
 {-| -}
