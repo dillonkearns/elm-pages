@@ -322,6 +322,8 @@ function webpackOptions(
 
           renderer: new PrerenderSPAPlugin.PuppeteerRenderer({
             renderAfterDocumentEvent: "prerender-trigger",
+            headless: true,
+            devtools: false
           }),
 
           postProcess: renderedRoute => {
@@ -404,5 +406,5 @@ function replaceBaseAndLinks(html, route) {
   const cleanedRoute = cleanRoute(route)
   const href = pathToRoot(cleanedRoute)
 
-  return (html || "").replace(`<base href=""`, `<base href="${href}"`)
+  return (html || "").replace(`<base href="/"`, `<base href="${href}"`)
 }

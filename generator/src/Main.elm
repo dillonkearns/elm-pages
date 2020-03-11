@@ -36,9 +36,9 @@ prerenderRcFormattedPath : String -> String
 prerenderRcFormattedPath path =
     path
         |> dropExtension
+        |> String.chop "/"
         |> String.split "/"
         |> dropIndexFromLast
-        |> List.drop 1
         |> String.join "/"
 
 
@@ -61,6 +61,7 @@ pathFor : { entry | path : String } -> String
 pathFor page =
     page.path
         |> dropExtension
+        |> String.chop "/"
         |> String.split "/"
         |> dropIndexFromLast
         |> List.map (\pathPart -> String.concat [ "\"", pathPart, "\"" ])
