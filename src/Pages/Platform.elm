@@ -23,10 +23,10 @@ module Pages.Platform exposing
 import Head
 import Html exposing (Html)
 import Json.Decode
-import Pages.Document as Document exposing (DocumentHandler)
+import Pages.Document as Document
 import Pages.Internal
 import Pages.Internal.Platform
-import Pages.Manifest exposing (DisplayMode, Orientation)
+import Pages.Manifest
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 
