@@ -1,5 +1,5 @@
 module Pages.Platform exposing
-    ( Builder, init, toApplication
+    ( Builder, init, toProgram
     , Program, Page
     , addGlobalHeadTags, withFileGenerator, withPageChangeMsg, withSubscriptions
     )
@@ -9,7 +9,7 @@ module Pages.Platform exposing
 
 ## Basic application config
 
-@docs Builder, init, toApplication
+@docs Builder, init, toProgram
 
 @docs Program, Page
 
@@ -31,7 +31,10 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 
 
-{-| TODO
+{-| You can [`init`](#init) a `Builder`, and then turn it to a [`Program`](#Program) with [`toProgram`](#toProgram).
+
+That gives you the basic options, then you can [include optional configuration](#additional-application-config).
+
 -}
 type Builder pathKey model msg metadata view builderState
     = Builder
@@ -208,8 +211,8 @@ withSubscriptions subs (Builder config) =
 
 {-| TODO
 -}
-toApplication : Builder pathKey model msg metadata view builderState -> Program model msg metadata view
-toApplication (Builder config) =
+toProgram : Builder pathKey model msg metadata view builderState -> Program model msg metadata view
+toProgram (Builder config) =
     application
         { init = config.init
         , view = config.view
