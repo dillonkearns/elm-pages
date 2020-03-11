@@ -14,7 +14,6 @@ import Json.Decode as JD exposing (Decoder)
 import Json.Decode.Exploration as Decode
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
-import Pages.Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
@@ -62,27 +61,23 @@ type alias Metadata =
 
 main : Pages.Platform.Program Model Msg Metadata View
 main =
-    Pages.Platform.application
+    Pages.Platform.init
         { init = init
         , view = view
         , update = update
-        , subscriptions = subscriptions
-        , documents = [ markdownDocument ]
+        , documents =
+            [ { extension = "md"
+              , metadata = JD.succeed ()
+              , body = \_ -> Ok ()
+              }
+            ]
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
-        , generateFiles = \_ -> []
-        , onPageChange = OnPageChange
         , internals = Pages.internals
         }
-
-
-markdownDocument : ( String, Pages.Document.DocumentHandler Metadata () )
-markdownDocument =
-    Pages.Document.parser
-        { extension = "md"
-        , metadata = JD.succeed ()
-        , body = \_ -> Ok ()
-        }
+        |> Pages.Platform.withPageChangeMsg OnPageChange
+        |> Pages.Platform.withSubscriptions subscriptions
+        |> Pages.Platform.toProgram
 
 
 type alias Model =
