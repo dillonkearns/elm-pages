@@ -11,7 +11,7 @@ import Pages.Platform
 import Pages.StaticHttp as StaticHttp
 
 
-type Builder pathKey userModel userMsg metadata view builderState
+type Builder pathKey model msg metadata view builderState
     = Builder
         { init :
             Maybe
@@ -19,9 +19,9 @@ type Builder pathKey userModel userMsg metadata view builderState
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            -> ( userModel, Cmd userMsg )
-        , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-        , subscriptions : userModel -> Sub userMsg
+            -> ( model, Cmd msg )
+        , update : msg -> model -> ( model, Cmd msg )
+        , subscriptions : model -> Sub msg
         , view :
             List ( PagePath pathKey, metadata )
             ->
@@ -30,7 +30,7 @@ type Builder pathKey userModel userMsg metadata view builderState
                 }
             ->
                 StaticHttp.Request
-                    { view : userModel -> view -> { title : String, body : Html userMsg }
+                    { view : model -> view -> { title : String, body : Html msg }
                     , head : List (Head.Tag pathKey)
                     }
         , documents : List ( String, Document.DocumentHandler metadata view )
@@ -56,7 +56,7 @@ type Builder pathKey userModel userMsg metadata view builderState
                  , query : Maybe String
                  , fragment : Maybe String
                  }
-                 -> userMsg
+                 -> msg
                 )
         , canonicalSiteUrl : String
         , internals : Pages.Internal.Internal pathKey
@@ -70,8 +70,8 @@ init :
             , query : Maybe String
             , fragment : Maybe String
             }
-        -> ( userModel, Cmd userMsg )
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+        -> ( model, Cmd msg )
+    , update : msg -> model -> ( model, Cmd msg )
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -80,7 +80,7 @@ init :
             }
         ->
             StaticHttp.Request
-                { view : userModel -> view -> { title : String, body : Html userMsg }
+                { view : model -> view -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
     , documents :
@@ -93,7 +93,7 @@ init :
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Builder pathKey userModel userMsg metadata view { canAddSubscriptions : (), canAddPageChangeMsg : () }
+    -> Builder pathKey model msg metadata view { canAddSubscriptions : (), canAddPageChangeMsg : () }
 init config =
     Builder
         { init = config.init
@@ -116,16 +116,16 @@ withPageChangeMsg :
      }
      -> msg
     )
-    -> Builder pathKey userModel msg metadata view { builderState | canAddPageChangeMsg : () }
-    -> Builder pathKey userModel msg metadata view builderState
+    -> Builder pathKey model msg metadata view { builderState | canAddPageChangeMsg : () }
+    -> Builder pathKey model msg metadata view builderState
 withPageChangeMsg onPageChangeMsg (Builder builder) =
     Builder { builder | onPageChange = Just onPageChangeMsg }
 
 
 addGlobalHeadTags :
     List (Head.Tag pathKey)
-    -> Builder pathKey userModel userMsg metadata view builderState
-    -> Builder pathKey userModel userMsg metadata view builderState
+    -> Builder pathKey model msg metadata view builderState
+    -> Builder pathKey model msg metadata view builderState
 addGlobalHeadTags globalHeadTags (Builder config) =
     Builder
         { config
@@ -153,8 +153,8 @@ withFileGenerator :
                 )
             )
     )
-    -> Builder pathKey userModel userMsg metadata view builderState
-    -> Builder pathKey userModel userMsg metadata view builderState
+    -> Builder pathKey model msg metadata view builderState
+    -> Builder pathKey model msg metadata view builderState
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
@@ -167,9 +167,9 @@ withFileGenerator generateFiles (Builder config) =
 
 
 withSubscriptions :
-    (userModel -> Sub userMsg)
-    -> Builder pathKey userModel userMsg metadata view { builderState | canAddSubscriptions : () }
-    -> Builder pathKey userModel userMsg metadata view builderState
+    (model -> Sub msg)
+    -> Builder pathKey model msg metadata view { builderState | canAddSubscriptions : () }
+    -> Builder pathKey model msg metadata view builderState
 withSubscriptions subs (Builder config) =
     Builder { config | subscriptions = subs }
 
