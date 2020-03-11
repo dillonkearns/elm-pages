@@ -68,11 +68,12 @@ main =
               , body = MarkdownRenderer.view
               }
             ]
+        , subscriptions = \_ -> Sub.none
+        , onPageChange = Just OnPageChange
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
         , internals = Pages.internals
         }
-        |> Pages.Platform.withPageChangeMsg OnPageChange
         |> RssPlugin.generate
             { siteTagline = siteTagline
             , siteUrl = canonicalSiteUrl

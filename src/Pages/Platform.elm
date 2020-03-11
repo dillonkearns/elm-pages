@@ -1,7 +1,7 @@
 module Pages.Platform exposing
     ( Builder, init, toProgram
     , Program, Page
-    , addGlobalHeadTags, withFileGenerator, withPageChangeMsg, withSubscriptions
+    , addGlobalHeadTags, withFileGenerator
     )
 
 {-| Configure your `elm-pages` Program, similar to a `Browser.application`.
@@ -16,7 +16,7 @@ module Pages.Platform exposing
 
 ## Additional application config
 
-@docs addGlobalHeadTags, withFileGenerator, withPageChangeMsg, withSubscriptions
+@docs addGlobalHeadTags, withFileGenerator
 
 -}
 
@@ -36,7 +36,7 @@ import Pages.StaticHttp as StaticHttp
 That gives you the basic options, then you can [include optional configuration](#additional-application-config).
 
 -}
-type Builder pathKey model msg metadata view builderState
+type Builder pathKey model msg metadata view
     = Builder
         { init :
             Maybe
@@ -110,53 +110,47 @@ init :
                 { view : model -> view -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
+    , subscriptions : model -> Sub msg
     , documents :
         List
             { extension : String
             , metadata : Json.Decode.Decoder metadata
             , body : String -> Result String view
             }
+    , onPageChange :
+        Maybe
+            ({ path : PagePath pathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> msg
+            )
     , manifest : Pages.Manifest.Config pathKey
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Builder pathKey model msg metadata view { canAddSubscriptions : (), canAddPageChangeMsg : () }
+    -> Builder pathKey model msg metadata view
 init config =
     Builder
         { init = config.init
         , view = config.view
         , update = config.update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = config.subscriptions
         , documents = config.documents |> List.map Document.parser
         , manifest = config.manifest
+        , onPageChange = config.onPageChange
         , generateFiles = \_ -> StaticHttp.succeed []
         , canonicalSiteUrl = config.canonicalSiteUrl
-        , onPageChange = Nothing
         , internals = config.internals
         }
 
 
 {-| TODO
 -}
-withPageChangeMsg :
-    ({ path : PagePath pathKey
-     , query : Maybe String
-     , fragment : Maybe String
-     }
-     -> msg
-    )
-    -> Builder pathKey model msg metadata view { builderState | canAddPageChangeMsg : () }
-    -> Builder pathKey model msg metadata view builderState
-withPageChangeMsg onPageChangeMsg (Builder builder) =
-    Builder { builder | onPageChange = Just onPageChangeMsg }
-
-
-{-| TODO
--}
 addGlobalHeadTags :
     List (Head.Tag pathKey)
-    -> Builder pathKey model msg metadata view builderState
-    -> Builder pathKey model msg metadata view builderState
+    -> Builder pathKey model msg metadata view
+    -> Builder pathKey model msg metadata view
 addGlobalHeadTags globalHeadTags (Builder config) =
     Builder
         { config
@@ -186,8 +180,8 @@ withFileGenerator :
                 )
             )
     )
-    -> Builder pathKey model msg metadata view builderState
-    -> Builder pathKey model msg metadata view builderState
+    -> Builder pathKey model msg metadata view
+    -> Builder pathKey model msg metadata view
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
@@ -201,17 +195,7 @@ withFileGenerator generateFiles (Builder config) =
 
 {-| TODO
 -}
-withSubscriptions :
-    (model -> Sub msg)
-    -> Builder pathKey model msg metadata view { builderState | canAddSubscriptions : () }
-    -> Builder pathKey model msg metadata view builderState
-withSubscriptions subs (Builder config) =
-    Builder { config | subscriptions = subs }
-
-
-{-| TODO
--}
-toProgram : Builder pathKey model msg metadata view builderState -> Program model msg metadata view
+toProgram : Builder pathKey model msg metadata view -> Program model msg metadata view
 toProgram (Builder config) =
     application
         { init = config.init

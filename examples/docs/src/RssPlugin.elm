@@ -22,8 +22,8 @@ generate :
          }
          -> Maybe Rss.Item
         )
-    -> Builder pathKey userModel userMsg metadata view builderState
-    -> Builder pathKey userModel userMsg metadata view builderState
+    -> Builder pathKey userModel userMsg metadata view 
+    -> Builder pathKey userModel userMsg metadata view 
 generate options metadataToRssItem builder =
     let
         feedFilePath =
