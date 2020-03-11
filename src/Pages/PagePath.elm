@@ -67,7 +67,7 @@ is valid).
 
 For example, you might have a navbar that links to specific routes.
 
-@docs PagePath, toString, external
+@docs PagePath, toString, external, toPath
 
 
 ## Functions for code generation only
@@ -122,6 +122,15 @@ toString path =
             url
 
 
+{-| Get a List of each part of the path.
+
+    indexPathParts =
+        PagePath.toPath Pages.pages.index == []
+
+    blogPostPathParts =
+        PagePath.toPath Pages.pages.blog.hello == [ "blog", "hello" ]
+
+-}
 toPath : PagePath key -> List String
 toPath path =
     case path of

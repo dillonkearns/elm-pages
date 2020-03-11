@@ -7,7 +7,7 @@
     "exposed-modules": [
         "Head",
         "Head.Seo",
-        "Pages.Document",
+        "Pages.Builder",
         "Pages.ImagePath",
         "Pages.PagePath",
         "Pages.StaticHttp",

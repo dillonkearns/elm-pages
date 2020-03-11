@@ -1,4 +1,10 @@
-module Pages.Builder exposing (..)
+module Pages.Builder exposing (Builder, addGlobalHeadTags, init, toApplication, withFileGenerator, withPageChangeMsg, withSubscriptions)
+
+{-|
+
+@docs Builder, addGlobalHeadTags, init, toApplication, withFileGenerator, withPageChangeMsg, withSubscriptions
+
+-}
 
 import Head
 import Html exposing (Html)
@@ -11,6 +17,8 @@ import Pages.Platform
 import Pages.StaticHttp as StaticHttp
 
 
+{-| TODO
+-}
 type Builder pathKey model msg metadata view builderState
     = Builder
         { init :
@@ -63,6 +71,8 @@ type Builder pathKey model msg metadata view builderState
         }
 
 
+{-| TODO
+-}
 init :
     { init :
         Maybe
@@ -109,6 +119,8 @@ init config =
         }
 
 
+{-| TODO
+-}
 withPageChangeMsg :
     ({ path : PagePath pathKey
      , query : Maybe String
@@ -122,6 +134,8 @@ withPageChangeMsg onPageChangeMsg (Builder builder) =
     Builder { builder | onPageChange = Just onPageChangeMsg }
 
 
+{-| TODO
+-}
 addGlobalHeadTags :
     List (Head.Tag pathKey)
     -> Builder pathKey model msg metadata view builderState
@@ -141,6 +155,8 @@ addGlobalHeadTags globalHeadTags (Builder config) =
         }
 
 
+{-| TODO
+-}
 withFileGenerator :
     (List { path : PagePath pathKey, frontmatter : metadata, body : String }
      ->
@@ -166,6 +182,8 @@ withFileGenerator generateFiles (Builder config) =
         }
 
 
+{-| TODO
+-}
 withSubscriptions :
     (model -> Sub msg)
     -> Builder pathKey model msg metadata view { builderState | canAddSubscriptions : () }
@@ -174,6 +192,8 @@ withSubscriptions subs (Builder config) =
     Builder { config | subscriptions = subs }
 
 
+{-| TODO
+-}
 toApplication : Builder pathKey model msg metadata view builderState -> Pages.Platform.Program model msg metadata view
 toApplication (Builder config) =
     Pages.Platform.application
