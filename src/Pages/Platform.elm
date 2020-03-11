@@ -67,9 +67,9 @@ application :
             , query : Maybe String
             , fragment : Maybe String
             }
-        -> ( userModel, Cmd userMsg )
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+        -> ( model, Cmd msg )
+    , update : msg -> model -> ( model, Cmd msg )
+    , subscriptions : model -> Sub msg
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -78,7 +78,7 @@ application :
             }
         ->
             StaticHttp.Request
-                { view : userModel -> view -> { title : String, body : Html userMsg }
+                { view : model -> view -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
     , documents : List ( String, Document.DocumentHandler metadata view )
@@ -104,12 +104,12 @@ application :
              , query : Maybe String
              , fragment : Maybe String
              }
-             -> userMsg
+             -> msg
             )
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Program userModel userMsg metadata view
+    -> Program model msg metadata view
 application config =
     (case config.internals.applicationType of
         Pages.Internal.Browser ->
