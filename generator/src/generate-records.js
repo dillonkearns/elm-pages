@@ -41,9 +41,9 @@ function unpackFile() {
 function relativeImagePath(imageFilepath) {
   var pathFragments = imageFilepath;
   //remove extesion and split into fragments
-  const fragmentsWithExtension = pathFragments.split(path.sep);
+  const fragmentsWithExtension = pathFragments.split('/');
   fragmentsWithExtension.splice(0, 1);
-  pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+  pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split('/');
   pathFragments.splice(0, 1);
   const fullPath = imageFilepath;
   var relative = imageFilepath.slice(dir.length - 1);
@@ -69,7 +69,7 @@ function generate(scanned) {
   for (var i = 0; i < scanned.length; i++) {
     var pathFragments = scanned[i].path;
     //remove extesion and split into fragments
-    pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+    pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split('/');
     const is404 = pathFragments.length == 1 && pathFragments[0] == "404";
     const ext = path.extname(scanned[i].path);
 
