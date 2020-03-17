@@ -161,6 +161,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/danmarcab"><img src="https://avatars2.githubusercontent.com/u/1517969?v=4" width="100px;" alt=""/><br /><sub><b>Daniel Marín</b></sub></a><br /><a href="https://github.com/dillonkearns/elm-pages/commits?author=danmarcab" title="Code">💻</a></td>
     <td align="center"><a href="https://citric.id"><img src="https://avatars1.githubusercontent.com/u/296665?v=4" width="100px;" alt=""/><br /><sub><b>Steven Vandevelde</b></sub></a><br /><a href="https://github.com/dillonkearns/elm-pages/commits?author=icidasset" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/Y0hy0h"><img src="https://avatars0.githubusercontent.com/u/11377826?v=4" width="100px;" alt=""/><br /><sub><b>Johannes Maas</b></sub></a><br /><a href="#userTesting-Y0hy0h" title="User Testing">📓</a></td>
+    <td align="center"><a href="https://github.com/vViktorPL"><img src="https://avatars1.githubusercontent.com/u/2961541?v=4" width="100px;" alt=""/><br /><sub><b>Wiktor Toporek</b></sub></a><br /><a href="https://github.com/dillonkearns/elm-pages/commits?author=vViktorPL" title="Code">💻</a></td>
   </tr>
 </table>
 
