@@ -83,7 +83,7 @@ jobs:
       - name: Build elm docs
         run: ./node_modules/.bin/elm make --docs docs.json
 
-  publish-elm-package:
+  publish:
     needs: [test, lint, validate-package]
     runs-on: ubuntu-latest
 
@@ -111,3 +111,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-elm: ./node_modules/.bin/elm
+      - id: npm-publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}
