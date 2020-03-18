@@ -20,7 +20,7 @@ And your StaticHttp request in your Elm code looks like this:
 
     StaticHttp.request
         (Secrets.succeed
-            (\apiKey bearer ->
+            (\apiKey githubToken ->
                 { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                 , method = "GET"
                 , headers = [ ( "Authorization", "Bearer " ++ githubToken ) ]
