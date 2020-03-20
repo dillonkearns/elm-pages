@@ -12,7 +12,7 @@ const AddFilesPlugin = require("./add-files-plugin.js");
 const ImageminPlugin = require("imagemin-webpack-plugin").default;
 const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
-const ClosurePlugin = require("closure-webpack-plugin");
+const TerserPlugin = require('terser-webpack-plugin');
 const readline = require("readline");
 
 module.exports = { start, run };
@@ -45,11 +45,11 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
     log: console.log, path: '/__webpack_hmr'
   }))
 
-  app.use("*", function(req, res, next) {
+  app.use("*", function (req, res, next) {
     // don't know why this works, but it does
     // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
     const filename = path.join(compiler.outputPath, "index.html");
-    compiler.outputFileSystem.readFile(filename, function(err, result) {
+    compiler.outputFileSystem.readFile(filename, function (err, result) {
       if (err) {
         return next(err);
       }
@@ -238,7 +238,7 @@ function webpackOptions(
         // process.cwd prefixed node_modules above).
         path.resolve(path.dirname(require.resolve('webpack')), '../../'),
 
-    ],
+      ],
       extensions: [".js", ".elm", ".scss", ".png", ".html"]
     },
     module: {
@@ -281,18 +281,20 @@ function webpackOptions(
       entry: "./index.js",
       optimization: {
         minimizer: [
-          new ClosurePlugin(
-            { mode: "STANDARD" },
-            {
-              // compiler flags here
-              //
-              // for debuging help, try these:
-              //
-              // formatting: 'PRETTY_PRINT'
-              // debug: true,
-              // renaming: false
+          new TerserPlugin({
+            // The following options are suggested by Evan.
+            // See https://github.com/elm/compiler/blob/master/hints/optimize.md#instructions
+            terserOptions: {
+              compress: {
+                "pure_funcs": "F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",
+                "pure_getters": true,
+                "keep_fargs": false,
+                "unsafe_comps": true,
+                "unsafe": true
+              },
+              mangle: true,
             }
-          )
+          })
         ]
       },
       plugins: [
@@ -333,7 +335,7 @@ function webpackOptions(
       entry: [
         require.resolve("webpack-hot-middleware/client"),
         "./index.js",
-        ],
+      ],
       plugins: [
         new webpack.NamedModulesPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
