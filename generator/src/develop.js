@@ -282,6 +282,7 @@ function webpackOptions(
       optimization: {
         minimizer: [
           new TerserPlugin({
+            parallel: true,
             // The following options are suggested by Evan.
             // See https://github.com/elm/compiler/blob/master/hints/optimize.md#instructions
             terserOptions: {
