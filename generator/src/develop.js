@@ -405,6 +405,6 @@ function pathToRoot(cleanedRoute) {
 function replaceBaseAndLinks(html, route) {
   const cleanedRoute = cleanRoute(route)
 
-  const href = cleanedRoute === '' ? '.' : pathToRoot(cleanedRoute)
+  const href = cleanedRoute === '' ? './' : pathToRoot(cleanedRoute)
   return (html || "").replace(`<base href="/"`, `<base href="${href}"`)
 }
