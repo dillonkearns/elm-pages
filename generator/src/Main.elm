@@ -36,7 +36,7 @@ prerenderRcFormattedPath : String -> String
 prerenderRcFormattedPath path =
     path
         |> dropExtension
-        |> String.chop "/"
+        |> chopForwardSlashes
         |> String.split "/"
         |> dropIndexFromLast
         |> String.join "/"
@@ -57,11 +57,16 @@ dropIndexFromLast path =
         |> List.reverse
 
 
+chopForwardSlashes : String -> String
+chopForwardSlashes =
+    String.split "/" >> List.filter ((/=) "") >> String.join "/"
+
+
 pathFor : { entry | path : String } -> String
 pathFor page =
     page.path
         |> dropExtension
-        |> String.chop "/"
+        |> chopForwardSlashes
         |> String.split "/"
         |> dropIndexFromLast
         |> List.map (\pathPart -> String.concat [ "\"", pathPart, "\"" ])
@@ -71,11 +76,11 @@ pathFor page =
 
 dropExtension : String -> String
 dropExtension path =
-    if path |> String.endsWith ".emu" then
-        path |> String.dropRight 4
+    if String.endsWith ".emu" path then
+        String.dropRight 4 path
 
-    else if path |> String.endsWith ".md" then
-        path |> String.dropRight 3
+    else if String.endsWith ".md" path then
+        String.dropRight 3 path
 
     else
         path
