@@ -56,7 +56,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
         ]
       });
 
-      window.allRoutes = fromElm.allRoutes;
+      window.allRoutes = fromElm.allRoutes.map(route => new URL(route, document.baseURI).href);
 
       if (navigator.userAgent.indexOf("Headless") >= 0) {
         fromElm.head.forEach(headTag => {
@@ -150,8 +150,8 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   if (target.host === window.location.host) {
     if (prefetchedPages.includes(target.pathname)) {
       // console.log("Already preloaded", target.href);
-    } else if (!allRoutes.includes(target.pathname)) {
       // console.log("Not a known route, skipping preload", target.pathname);
+    } else if (!allRoutes.includes(new URL(target.pathname, document.baseURI).href)) {
     }
     else {
       prefetchedPages.push(target.pathname);
