@@ -35,10 +35,7 @@ module.exports = class AddFilesPlugin {
         // but I found the example code for it here:
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-        let route = `/${file.baseRoute}`.replace(/\/$/, '');
-        if (route === '') {
-          route = '/';
-        }
+        let route = file.baseRoute.replace(/\/$/, '');
         const staticRequests = this.pagesWithRequests[route];
 
         const filename = path.join(file.baseRoute, "content.json");

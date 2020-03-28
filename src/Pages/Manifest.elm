@@ -259,7 +259,7 @@ toJson config =
       )
     , ( "serviceworker"
       , Encode.object
-            [ ( "src", Encode.string "/service-worker.js" )
+            [ ( "src", Encode.string "../service-worker.js" )
             , ( "scope", Encode.string "/" )
             , ( "type", Encode.string "" )
             , ( "update_via_cache", Encode.string "none" )
