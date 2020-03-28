@@ -39,7 +39,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
         secrets: null,
         baseUrl: isPrerendering
           ? window.location.origin
-          : document.querySelector("base").href,
+          : document.baseURI,
         isPrerendering: isPrerendering,
         contentJson
       }
