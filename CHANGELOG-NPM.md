@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.2.12] - 2020-03-28
+## [1.3.0] - 2020-03-28
 
 ### Added
 - You can now host your `elm-pages` site in a sub-directory. For example, you could host it at mysite.com/blog, where the top-level mysite.com/ is hosting a different app.
