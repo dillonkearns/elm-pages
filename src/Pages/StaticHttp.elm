@@ -15,7 +15,7 @@ The key differences are:
 
   - `StaticHttp.Request`s are performed once at build time (`Http.Request`s are performed at runtime, at whenever point you perform them)
   - `StaticHttp.Request`s strip out unused JSON data from the data your decoder doesn't touch to minimize the JSON payload
-  - `StaticHttp.Request`s can use [`Pages.Secrets`](Pages.Secrets) to securely use credentials from your environemnt variables which are completely masked in the production assets.
+  - `StaticHttp.Request`s can use [`Pages.Secrets`](Pages.Secrets) to securely use credentials from your environment variables which are completely masked in the production assets.
   - `StaticHttp.Request`s have a built-in `StaticHttp.andThen` that allows you to perform follow-up requests without using tasks
 
 
@@ -167,10 +167,8 @@ map fn requestInfo =
 {-| Helper to remove an inner layer of Request wrapping.
 -}
 resolve : Request (List (Request value)) -> Request (List value)
-resolve topRequest =
-    topRequest
-        |> andThen
-            (\continuationRequests -> combine continuationRequests)
+resolve =
+    andThen combine
 
 
 {-| Turn a list of `StaticHttp.Request`s into a single one.
@@ -208,9 +206,8 @@ resolve topRequest =
 
 -}
 combine : List (Request value) -> Request (List value)
-combine requests =
-    requests
-        |> List.foldl (map2 (::)) (succeed [])
+combine =
+    List.foldl (map2 (::)) (succeed [])
 
 
 {-| Like map, but it takes in two `Request`s.
@@ -462,15 +459,15 @@ get :
     -> Request a
 get url decoder =
     request
-        (url
-            |> Secrets.map
-                (\okUrl ->
-                    { url = okUrl
-                    , method = "GET"
-                    , headers = []
-                    , body = emptyBody
-                    }
-                )
+        (Secrets.map
+            (\okUrl ->
+                { url = okUrl
+                , method = "GET"
+                , headers = []
+                , body = emptyBody
+                }
+            )
+            url
         )
         decoder
 

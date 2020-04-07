@@ -185,7 +185,7 @@ view siteMetadata page =
                         \model viewForPage ->
                             { title = "Landing Page"
                             , body =
-                                [ header starCount
+                                [ header page starCount
                                 , Element.text "Built at: "
                                 , Element.text <| String.fromInt <| Time.posixToMillis Pages.builtAt
                                 , pokemon
@@ -234,8 +234,8 @@ articleImageView articleImage =
         }
 
 
-header : Int -> Element msg
-header starCount =
+header : { path : PagePath Pages.PathKey, frontmatter : Metadata } -> Int -> Element msg
+header currentPage starCount =
     Element.column [ Element.width Element.fill ]
         [ Element.el
             [ Element.height (Element.px 4)
@@ -258,7 +258,12 @@ header starCount =
             , Element.Border.color (Element.rgba255 40 80 40 0.4)
             ]
             [ Element.link []
-                { url = "/"
+                { url =
+                    if currentPage.path == pages.index then
+                        PagePath.toString pages.otherPage
+
+                    else
+                        PagePath.toString pages.index
                 , label =
                     Element.row
                         [ Font.size 30

@@ -36,11 +36,10 @@ prerenderRcFormattedPath : String -> String
 prerenderRcFormattedPath path =
     path
         |> dropExtension
+        |> chopForwardSlashes
         |> String.split "/"
         |> dropIndexFromLast
-        |> List.drop 1
         |> String.join "/"
-        |> (\pathSoFar -> "/" ++ pathSoFar)
 
 
 dropIndexFromLast : List String -> List String
@@ -50,7 +49,7 @@ dropIndexFromLast path =
         |> (\reversePath ->
                 case List.head reversePath of
                     Just "index" ->
-                        reversePath |> List.drop 1
+                        List.drop 1 reversePath
 
                     _ ->
                         reversePath
@@ -58,12 +57,17 @@ dropIndexFromLast path =
         |> List.reverse
 
 
+chopForwardSlashes : String -> String
+chopForwardSlashes =
+    String.split "/" >> List.filter ((/=) "") >> String.join "/"
+
+
 pathFor : { entry | path : String } -> String
 pathFor page =
     page.path
         |> dropExtension
+        |> chopForwardSlashes
         |> String.split "/"
-        |> List.drop 1
         |> dropIndexFromLast
         |> List.map (\pathPart -> String.concat [ "\"", pathPart, "\"" ])
         |> String.join ", "
@@ -72,11 +76,11 @@ pathFor page =
 
 dropExtension : String -> String
 dropExtension path =
-    if path |> String.endsWith ".emu" then
-        path |> String.dropRight 4
+    if String.endsWith ".emu" path then
+        String.dropRight 4 path
 
-    else if path |> String.endsWith ".md" then
-        path |> String.dropRight 3
+    else if String.endsWith ".md" path then
+        String.dropRight 3 path
 
     else
         path
@@ -219,14 +223,13 @@ init flags cliOptions =
 
 
 generateFileContents : List MarkdownContent -> List ( String, String )
-generateFileContents markdownFiles =
-    markdownFiles
-        |> List.map
-            (\file ->
-                ( prerenderRcFormattedPath file.path |> String.dropLeft 1
-                , file.body
-                )
+generateFileContents =
+    List.map
+        (\file ->
+            ( prerenderRcFormattedPath file.path
+            , file.body
             )
+        )
 
 
 main : Program.StatelessProgram Never Extras

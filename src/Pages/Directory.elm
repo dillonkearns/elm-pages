@@ -116,7 +116,7 @@ includes (Directory key allPagePaths directoryPath) pagePath =
         Pages.pages.blog.directory
 
     -- blogDirectory |> Directory.indexPath |> PagePath.toString
-    -- => "/blog"
+    -- => "blog"
 
 See `Directory.includes` for an example of this in action.
 
@@ -141,9 +141,8 @@ basePath (Directory key allPagePaths directoryPath) =
 
 
 toString : List String -> String
-toString rawPath =
-    "/"
-        ++ (rawPath |> String.join "/")
+toString =
+    String.join "/"
 
 
 {-| Used by the generated `Pages.elm` module. There's no need to use this

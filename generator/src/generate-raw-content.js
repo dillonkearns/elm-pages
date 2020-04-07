@@ -26,11 +26,16 @@ function toEntry(entry, includeBody) {
   `;
 }
 
+function multilineElmString(string) {
+  const escapedString = string
+    .replace(/\\/g, "\\\\")
+    .replace(/"""/g, '\\"\\"\\"');
+  return `"""${escapedString}"""`;
+}
+
 function body(entry, includeBody) {
   if (includeBody) {
-    return `Just """${entry.body.replace(/\\/g, "\\\\")}
-"""
-`;
+    return `Just ${multilineElmString(entry.body)}`;
   } else {
     return `Nothing`;
   }
