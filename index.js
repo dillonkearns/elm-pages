@@ -11,9 +11,9 @@ module.exports = function pagesInit(
   prefetchedPages = [window.location.pathname];
   initialLocationHash = document.location.hash.replace(/^#/, "");
 
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     document.addEventListener("DOMContentLoaded", _ => {
-      new MutationObserver(function() {
+      new MutationObserver(function () {
         elmViewRendered = true;
         if (headTagsAdded) {
           document.dispatchEvent(new Event("prerender-trigger"));
@@ -32,7 +32,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
   const isPrerendering = navigator.userAgent.indexOf("Headless") >= 0
   const path = window.location.pathname.replace(/(\w)$/, "$1/")
 
-  return httpGet(`${window.location.origin}${path}content.json`).then(function(/** @type JSON */ contentJson) {
+  return httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
 
     const app = mainElmModule.init({
       flags: {
@@ -46,13 +46,14 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
     });
 
     app.ports.toJsPort.subscribe((
-      /** @type { { head: HeadTag[], allRoutes: string[] } }  */ fromElm
+      /** @type { { head: SeoTag[], allRoutes: string[] } }  */ fromElm
     ) => {
       appendTag({
-        name: "meta",
+        type: 'head',
+        name: 'meta',
         attributes: [
-          ["name", "generator"],
-          ["content", `elm-pages v${elmPagesVersion}`]
+          ['name', 'generator'],
+          ['content', `elm-pages v${elmPagesVersion}`]
         ]
       });
 
@@ -60,12 +61,18 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
 
       if (navigator.userAgent.indexOf("Headless") >= 0) {
         fromElm.head.forEach(headTag => {
-          appendTag(headTag);
-        });
-          headTagsAdded = true;
-          if (elmViewRendered) {
-            document.dispatchEvent(new Event("prerender-trigger"));
+          if (headTag.type === 'head') {
+            appendTag(headTag);
+          } else if (headTag.type === 'json-ld') {
+            appendJsonLdTag(headTag);
+          } else {
+            throw new Error(`Unknown tag type #{headTag}`)
           }
+        });
+        headTagsAdded = true;
+        if (elmViewRendered) {
+          document.dispatchEvent(new Event("prerender-trigger"));
+        }
       } else {
         setupLinkPrefetching();
       }
@@ -132,7 +139,7 @@ function setupLinkPrefetchingHelp(
   const links = document.querySelectorAll("a");
   links.forEach(link => {
     // console.log(link.pathname);
-    link.addEventListener("mouseenter", function(event) {
+    link.addEventListener("mouseenter", function (event) {
       if (
         event &&
         event.target &&
@@ -166,7 +173,9 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   }
 }
 
-/** @typedef {{ name: string; attributes: string[][]; }} HeadTag */
+/** @typedef {HeadTag | JsonLdTag} SeoTag */
+
+/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 function appendTag(/** @type {HeadTag} */ tagDetails) {
   const meta = document.createElement(tagDetails.name);
   tagDetails.attributes.forEach(([name, value]) => {
@@ -175,12 +184,20 @@ function appendTag(/** @type {HeadTag} */ tagDetails) {
   document.getElementsByTagName("head")[0].appendChild(meta);
 }
 
+/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
+function appendJsonLdTag(/** @type {JsonLdTag} */ tagDetails) {
+  let jsonLdScript = document.createElement('script');
+  jsonLdScript.type = "application/ld+json";
+  jsonLdScript.innerHTML = JSON.stringify(tagDetails.contents);
+  document.getElementsByTagName("head")[0].appendChild(jsonLdScript);
+}
+
 function httpGet(/** @type string */ theUrl) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     const xmlHttp = new XMLHttpRequest();
-    xmlHttp.onreadystatechange = function() {
-        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-            resolve(JSON.parse(xmlHttp.responseText));
+    xmlHttp.onreadystatechange = function () {
+      if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+        resolve(JSON.parse(xmlHttp.responseText));
     }
     xmlHttp.onerror = reject;
     xmlHttp.open("GET", theUrl, true); // true for asynchronous

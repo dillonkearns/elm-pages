@@ -1,6 +1,7 @@
 module Head exposing
     ( Tag, metaName, metaProperty
     , rssLink, sitemapLink
+    , structuredData
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
     , toJson, canonicalLink
@@ -17,6 +18,11 @@ writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty
 @docs rssLink, sitemapLink
+
+
+## Structured Data
+
+@docs structuredData
 
 
 ## `AttributeValue`s
@@ -42,12 +48,20 @@ through the `head` function.
 -}
 type Tag pathKey
     = Tag (Details pathKey)
+    | StructuredData Json.Encode.Value
 
 
 type alias Details pathKey =
     { name : String
     , attributes : List ( String, AttributeValue pathKey )
     }
+
+
+{-| TODO
+-}
+structuredData : Json.Encode.Value -> Tag pathKey
+structuredData value =
+    StructuredData value
 
 
 {-| Create a raw `AttributeValue` (as opposed to some kind of absolute URL).
@@ -196,11 +210,20 @@ node name attributes =
 code will run this for you to generate your `manifest.json` file automatically!
 -}
 toJson : String -> String -> Tag pathKey -> Json.Encode.Value
-toJson canonicalSiteUrl currentPagePath (Tag tag) =
-    Json.Encode.object
-        [ ( "name", Json.Encode.string tag.name )
-        , ( "attributes", Json.Encode.list (encodeProperty canonicalSiteUrl currentPagePath) tag.attributes )
-        ]
+toJson canonicalSiteUrl currentPagePath tag =
+    case tag of
+        Tag headTag ->
+            Json.Encode.object
+                [ ( "name", Json.Encode.string headTag.name )
+                , ( "attributes", Json.Encode.list (encodeProperty canonicalSiteUrl currentPagePath) headTag.attributes )
+                , ( "type", Json.Encode.string "head" )
+                ]
+
+        StructuredData value ->
+            Json.Encode.object
+                [ ( "contents", value )
+                , ( "type", Json.Encode.string "json-ld" )
+                ]
 
 
 encodeProperty : String -> String -> ( String, AttributeValue pathKey ) -> Json.Encode.Value
