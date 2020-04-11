@@ -3,17 +3,73 @@ module StructuredData exposing (..)
 import Json.Encode as Encode
 
 
+{-| <https://schema.org/SoftwareSourceCode>
+-}
+softwareSourceCode :
+    { codeRepositoryUrl : String
+    , description : String
+    , author : String
+    , programmingLanguage : Encode.Value
+    }
+    -> Encode.Value
+softwareSourceCode info =
+    Encode.object
+        [ ( "@type", Encode.string "SoftwareSourceCode" )
+        , ( "codeRepository", Encode.string info.codeRepositoryUrl )
+        , ( "description", Encode.string info.description )
+        , ( "author", Encode.string info.author )
+        , ( "programmingLanguage", info.programmingLanguage )
+        ]
+
+
+{-| <https://schema.org/ComputerLanguage>
+-}
+computerLanguage : { url : String, name : String, imageUrl : String, identifier : String } -> Encode.Value
+computerLanguage info =
+    Encode.object
+        [ ( "@type", Encode.string "ComputerLanguage" )
+        , ( "url", Encode.string info.url )
+        , ( "name", Encode.string info.name )
+        , ( "image", Encode.string info.imageUrl )
+        , ( "identifier", Encode.string info.identifier )
+        ]
+
+
+elmLang : Encode.Value
+elmLang =
+    computerLanguage
+        { url = "http://elm-lang.org/"
+        , name = "Elm"
+        , imageUrl = "http://elm-lang.org/"
+        , identifier = "http://elm-lang.org/"
+        }
+
+
 {-| <https://schema.org/Article>
 -}
-article : { title : String, description : String, url : String, datePublished : String } -> Encode.Value
+article :
+    { title : String
+    , description : String
+    , author : String
+    , publisher : String
+    , url : String
+    , imageUrl : String
+    , datePublished : String
+    , mainEntityOfPage : Encode.Value
+    }
+    -> Encode.Value
 article info =
     Encode.object
         [ ( "@context", Encode.string "http://schema.org/" )
         , ( "@type", Encode.string "Article" )
-        , ( "name", Encode.string info.title )
+        , ( "headline", Encode.string info.title )
         , ( "description", Encode.string info.description )
+        , ( "image", Encode.string info.imageUrl )
+        , ( "author", Encode.string info.author )
+        , ( "publisher", Encode.string info.publisher )
         , ( "url", Encode.string info.url )
         , ( "datePublished", Encode.string info.datePublished )
+        , ( "mainEntityOfPage", info.mainEntityOfPage )
         ]
 
 

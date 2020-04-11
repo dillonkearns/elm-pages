@@ -549,8 +549,18 @@ head currentPath metadata =
                         (StructuredData.article
                             { title = meta.title
                             , description = meta.description
+                            , author = meta.author.name
+                            , publisher = "elm-pages blog"
                             , url = canonicalSiteUrl ++ "/" ++ PagePath.toString currentPath
+                            , imageUrl = canonicalSiteUrl ++ "/" ++ ImagePath.toString meta.image
                             , datePublished = Date.toIsoString meta.published
+                            , mainEntityOfPage =
+                                StructuredData.softwareSourceCode
+                                    { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
+                                    , description = "A statically typed site generator for Elm."
+                                    , author = "Dillon Kearns"
+                                    , programmingLanguage = StructuredData.elmLang
+                                    }
                             }
                         )
                         :: (Seo.summaryLarge
