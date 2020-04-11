@@ -22,6 +22,16 @@ softwareSourceCode info =
         ]
 
 
+{-| <https://schema.org/Person>
+-}
+person : { name : String } -> Encode.Value
+person info =
+    Encode.object
+        [ ( "@type", Encode.string "Person" )
+        , ( "name", Encode.string info.name )
+        ]
+
+
 {-| <https://schema.org/ComputerLanguage>
 -}
 computerLanguage : { url : String, name : String, imageUrl : String, identifier : String } -> Encode.Value
@@ -51,7 +61,7 @@ article :
     { title : String
     , description : String
     , author : String
-    , publisher : String
+    , publisher : Encode.Value
     , url : String
     , imageUrl : String
     , datePublished : String
@@ -66,7 +76,7 @@ article info =
         , ( "description", Encode.string info.description )
         , ( "image", Encode.string info.imageUrl )
         , ( "author", Encode.string info.author )
-        , ( "publisher", Encode.string info.publisher )
+        , ( "publisher", info.publisher )
         , ( "url", Encode.string info.url )
         , ( "datePublished", Encode.string info.datePublished )
         , ( "mainEntityOfPage", info.mainEntityOfPage )

@@ -550,7 +550,7 @@ head currentPath metadata =
                             { title = meta.title
                             , description = meta.description
                             , author = meta.author.name
-                            , publisher = "elm-pages blog"
+                            , publisher = StructuredData.person { name = "Dillon Kearns" }
                             , url = canonicalSiteUrl ++ "/" ++ PagePath.toString currentPath
                             , imageUrl = canonicalSiteUrl ++ "/" ++ ImagePath.toString meta.image
                             , datePublished = Date.toIsoString meta.published
