@@ -549,7 +549,7 @@ head currentPath metadata =
                         (StructuredData.article
                             { title = meta.title
                             , description = meta.description
-                            , author = meta.author.name
+                            , author = StructuredData.person { name = meta.author.name }
                             , publisher = StructuredData.person { name = "Dillon Kearns" }
                             , url = canonicalSiteUrl ++ "/" ++ PagePath.toString currentPath
                             , imageUrl = canonicalSiteUrl ++ "/" ++ ImagePath.toString meta.image

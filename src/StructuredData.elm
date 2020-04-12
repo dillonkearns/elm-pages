@@ -22,16 +22,6 @@ softwareSourceCode info =
         ]
 
 
-{-| <https://schema.org/Person>
--}
-person : { name : String } -> Encode.Value
-person info =
-    Encode.object
-        [ ( "@type", Encode.string "Person" )
-        , ( "name", Encode.string info.name )
-        ]
-
-
 {-| <https://schema.org/ComputerLanguage>
 -}
 computerLanguage : { url : String, name : String, imageUrl : String, identifier : String } -> Encode.Value
@@ -60,8 +50,8 @@ elmLang =
 article :
     { title : String
     , description : String
-    , author : String
-    , publisher : Encode.Value
+    , author : StructuredData { authorMemberOf | personOrOrganization : () } authorPossibleFields
+    , publisher : StructuredData { publisherMemberOf | personOrOrganization : () } publisherPossibleFields
     , url : String
     , imageUrl : String
     , datePublished : String
@@ -75,12 +65,90 @@ article info =
         , ( "headline", Encode.string info.title )
         , ( "description", Encode.string info.description )
         , ( "image", Encode.string info.imageUrl )
-        , ( "author", Encode.string info.author )
-        , ( "publisher", info.publisher )
+        , ( "author", encode info.author )
+        , ( "publisher", encode info.publisher )
         , ( "url", Encode.string info.url )
         , ( "datePublished", Encode.string info.datePublished )
         , ( "mainEntityOfPage", info.mainEntityOfPage )
         ]
+
+
+type StructuredData memberOf possibleFields
+    = StructuredData String (List ( String, Encode.Value ))
+
+
+{-| <https://schema.org/Person>
+-}
+person :
+    { name : String
+    }
+    ->
+        StructuredData { personOrOrganization : () }
+            { additionalName : ()
+            , address : ()
+            , affiliation : ()
+            }
+person info =
+    StructuredData "Person" [ ( "name", Encode.string info.name ) ]
+
+
+additionalName : String -> StructuredData memberOf { possibleFields | additionalName : () } -> StructuredData memberOf possibleFields
+additionalName value (StructuredData typeName fields) =
+    StructuredData typeName (( "additionalName", Encode.string value ) :: fields)
+
+
+{-| <https://schema.org/Article>
+-}
+article_ :
+    { title : String
+    , description : String
+    , author : String
+    , publisher : StructuredData { personOrOrganization : () } possibleFieldsPublisher
+    , url : String
+    , imageUrl : String
+    , datePublished : String
+    , mainEntityOfPage : Encode.Value
+    }
+    -> Encode.Value
+article_ info =
+    Encode.object
+        [ ( "@context", Encode.string "http://schema.org/" )
+        , ( "@type", Encode.string "Article" )
+        , ( "headline", Encode.string info.title )
+        , ( "description", Encode.string info.description )
+        , ( "image", Encode.string info.imageUrl )
+        , ( "author", Encode.string info.author )
+        , ( "publisher", encode info.publisher )
+        , ( "url", Encode.string info.url )
+        , ( "datePublished", Encode.string info.datePublished )
+        , ( "mainEntityOfPage", info.mainEntityOfPage )
+        ]
+
+
+encode : StructuredData memberOf possibleFieldsPublisher -> Encode.Value
+encode (StructuredData typeName fields) =
+    Encode.object
+        (( "@type", Encode.string typeName ) :: fields)
+
+
+
+--example : StructuredData { personOrOrganization : () } { address : (), affiliation : () }
+
+
+example =
+    person { name = "Dillon Kearns" }
+        |> additionalName "Cornelius"
+
+
+
+--organization :
+--    {}
+--    -> StructuredData { personOrOrganization : () }
+--organization info =
+--    StructuredData "Organization" []
+--needsPersonOrOrg : StructuredData {}
+--needsPersonOrOrg =
+--    StructuredData "" []
 
 
 {-|
