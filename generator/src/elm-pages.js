@@ -12,6 +12,7 @@ const generateRecords = require("./generate-records.js");
 const parseFrontmatter = require("./frontmatter.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
+global.builtAt = new Date();
 
 const contentGlobPath = "content/**/*.emu";
 
@@ -53,6 +54,7 @@ function run() {
     .map(({ path, contents }) => {
       return parseMarkdown(path, contents);
     });
+
   const images = globby
     .sync("images/**/*", {})
     .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
@@ -116,7 +118,7 @@ function run() {
         }
 
         ensureDirSync("./gen");
-        
+
         // prevent compilation errors if migrating from previous elm-pages version
         deleteIfExists("./gen/Pages/ContentCache.elm");
         deleteIfExists("./gen/Pages/Platform.elm");
@@ -168,7 +170,8 @@ function toRoute(entry) {
   let fullPath = entry.path
     .replace(/(index)?\.[^/.]+$/, "")
     .split("/")
-    .filter(item => item !== "");
-  fullPath.splice(0, 1);
-  return `/${fullPath.join("/")}`;
+    .filter(item => item !== "")
+    .slice(1);
+
+  return fullPath.join("/");
 }

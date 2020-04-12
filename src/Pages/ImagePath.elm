@@ -25,7 +25,7 @@ This gives you a record, based on all the files in your local
         Pages.pages.index
 
     -- ImagePath.toString homePath
-    -- => "/"
+    -- => ""
 
 or
 
@@ -37,7 +37,7 @@ or
         Pages.images.profilePhotos.dillon
 
     -- ImagePath.toString helloWorldPostPath
-    -- => "/images/profile-photos/dillon.jpg"
+    -- => "images/profile-photos/dillon.jpg"
 
 @docs ImagePath, toString, external
 
@@ -65,7 +65,7 @@ type ImagePath key
     | External String
 
 
-{-| Gives you the image's absolute URL as a String. This is useful for constructing `<img>` tags:
+{-| Gives you the image's relative URL as a String. This is useful for constructing `<img>` tags:
 
     import Html exposing (Html, img)
     import Html.Attributes exposing (src)
@@ -87,8 +87,7 @@ toString : ImagePath key -> String
 toString path =
     case path of
         Internal rawPath ->
-            "/"
-                ++ (rawPath |> String.join "/")
+            String.join "/" rawPath
 
         External url ->
             url

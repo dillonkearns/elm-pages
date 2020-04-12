@@ -31,8 +31,7 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
     hot: true,
     inline: true,
     host: "localhost",
-    stats: "errors-only",
-    publicPath: "/"
+    stats: "errors-only"
   };
 
   const app = express();
@@ -49,12 +48,20 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
     // don't know why this works, but it does
     // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
     const filename = path.join(compiler.outputPath, "index.html");
+    const route = req.originalUrl.replace(/(\w)\/$/, "$1").replace(/^\//, "");
+    const isPage = routes.includes(route);
+
     compiler.outputFileSystem.readFile(filename, function(err, result) {
+      const contents = isPage
+        ? replaceBaseAndLinks(result.toString(), route)
+        : result
+
       if (err) {
         return next(err);
       }
+
       res.set("content-type", "text/html");
-      res.send(result);
+      res.send(contents);
       res.end();
     });
   });
@@ -167,9 +174,15 @@ function webpackOptions(
         defaultAttribute: 'defer'
       }),
       new FaviconsWebpackPlugin({
-        logo: path.resolve(process.cwd(), `./${manifestConfig.sourceIcon}`),
+        logo: `./${manifestConfig.sourceIcon}`,
+        prefix: "assets/",
+
+        publicPath: "",
+        outputPath: "",
+
         favicons: {
-          path: "/", // Path for overriding default icons path. `string`
+          manifestRelativePaths: true,
+          path: "", // Path for overriding default icons path. `string`
           appName: manifestConfig.name, // Your application's name. `string`
           appShortName: manifestConfig.short_name, // Your application's short_name. `string`. Optional. If not set, appName will be used
           appDescription: manifestConfig.description, // Your application's description. `string`
@@ -226,9 +239,7 @@ function webpackOptions(
       // (drag-and-drop `events.json` file into Chrome performance tab)
       // , new webpack.debug.ProfilingPlugin()
     ],
-    output: {
-      publicPath: "/"
-    },
+    output: {},
     resolve: {
       modules: [
         path.resolve(process.cwd(), `./node_modules`),
@@ -307,10 +318,22 @@ function webpackOptions(
         }),
         new PrerenderSPAPlugin({
           staticDir: path.join(process.cwd(), "dist"),
-          routes: routes,
+          routes: routes.map(r => `/${r}`),
+
           renderer: new PrerenderSPAPlugin.PuppeteerRenderer({
             renderAfterDocumentEvent: "prerender-trigger",
-          })
+            headless: true,
+            devtools: false
+          }),
+
+          postProcess: renderedRoute => {
+            renderedRoute.html = replaceBaseAndLinks(
+              renderedRoute.html,
+              renderedRoute.route
+            )
+
+            return renderedRoute
+          }
         })
       ],
       module: {
@@ -360,4 +383,28 @@ function webpackOptions(
       }
     });
   }
+}
+
+
+function cleanRoute(route) {
+  return route.replace(/(^\/|\/$)/, "")
+}
+
+
+function pathToRoot(cleanedRoute) {
+  return cleanedRoute === ""
+    ? cleanedRoute
+    : cleanedRoute
+        .split("/")
+        .map(_ => "..")
+        .join("/")
+        .replace(/\.$/, "./")
+}
+
+
+function replaceBaseAndLinks(html, route) {
+  const cleanedRoute = cleanRoute(route)
+
+  const href = cleanedRoute === '' ? './' : pathToRoot(cleanedRoute)
+  return (html || "").replace(`<base href="/"`, `<base href="${href}"`)
 }

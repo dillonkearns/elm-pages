@@ -15,6 +15,7 @@ import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Internal.Platform.Cli
+import Pages.Internal.String as String
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -22,14 +23,6 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
-
-
-dropTrailingSlash path =
-    if path |> String.endsWith "/" then
-        String.dropRight 1 path
-
-    else
-        path
 
 
 type alias Page metadata view pathKey =
@@ -81,12 +74,13 @@ mainView pathKey pageView model =
             }
 
 
-urlToPagePath : pathKey -> Url -> PagePath pathKey
-urlToPagePath pathKey url =
+urlToPagePath : pathKey -> Url -> Url -> PagePath pathKey
+urlToPagePath pathKey url baseUrl =
     url.path
-        |> dropTrailingSlash
+        |> String.dropLeft (String.length baseUrl.path)
+        |> String.chopForwardSlashes
         |> String.split "/"
-        |> List.drop 1
+        |> List.filter ((/=) "")
         |> PagePath.build pathKey
 
 
@@ -108,19 +102,25 @@ pageViewOrError :
     -> ContentCache metadata view
     -> { title : String, body : Html userMsg }
 pageViewOrError pathKey viewFn model cache =
-    case ContentCache.lookup pathKey cache model.url of
+    let
+        urls =
+            { currentUrl = model.url
+            , baseUrl = model.baseUrl
+            }
+    in
+    case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
                 ContentCache.Parsed metadata viewResult ->
                     let
                         viewFnResult =
-                            viewFn
-                                (cache
-                                    |> Result.map (ContentCache.extractMetadata pathKey)
-                                    |> Result.withDefault []
-                                 -- TODO handle error better
-                                )
-                                { path = pagePath, frontmatter = metadata }
+                            { path = pagePath, frontmatter = metadata }
+                                |> viewFn
+                                    (cache
+                                        |> Result.map (ContentCache.extractMetadata pathKey)
+                                        |> Result.withDefault []
+                                     -- TODO handle error better
+                                    )
                                 |> (\request ->
                                         StaticHttpRequest.resolve request viewResult.staticData
                                    )
@@ -263,7 +263,10 @@ init :
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
-            ContentCache.init document content (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
+            ContentCache.init
+                document
+                content
+                (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
 
         contentJson =
             flags
@@ -275,6 +278,18 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             Decode.map2 ContentJson
                 (Decode.field "body" Decode.string)
                 (Decode.field "staticData" (Decode.dict Decode.string))
+
+        baseUrl =
+            flags
+                |> Decode.decodeValue (Decode.field "baseUrl" Decode.string)
+                |> Result.toMaybe
+                |> Maybe.andThen Url.fromString
+                |> Maybe.withDefault url
+
+        urls =
+            { currentUrl = url
+            , baseUrl = baseUrl
+            }
     in
     case contentCache of
         Ok okCache ->
@@ -291,23 +306,24 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                             Client
 
                 ( userModel, userCmd ) =
-                    initUserModel
-                        (maybePagePath
-                            |> Maybe.map
-                                (\pagePath ->
-                                    { path = pagePath
-                                    , query = url.query
-                                    , fragment = url.fragment
-                                    }
-                                )
-                        )
+                    maybePagePath
+                        |> Maybe.map
+                            (\pagePath ->
+                                { path = pagePath
+                                , query = url.query
+                                , fragment = url.fragment
+                                }
+                            )
+                        |> initUserModel
 
                 cmd =
                     case ( maybePagePath, maybeMetadata ) of
                         ( Just pagePath, Just frontmatter ) ->
-                            [ userCmd |> Cmd.map UserMsg |> Just
+                            [ userCmd
+                                |> Cmd.map UserMsg
+                                |> Just
                             , contentCache
-                                |> ContentCache.lazyLoad document url
+                                |> ContentCache.lazyLoad document urls
                                 |> Task.attempt UpdateCache
                                 |> Just
                             ]
@@ -318,7 +334,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                             Cmd.none
 
                 ( maybePagePath, maybeMetadata ) =
-                    case ContentCache.lookupMetadata pathKey (Ok okCache) url of
+                    case ContentCache.lookupMetadata pathKey (Ok okCache) urls of
                         Just ( pagePath, metadata ) ->
                             ( Just pagePath, Just metadata )
 
@@ -327,6 +343,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             in
             ( { key = key
               , url = url
+              , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
               , phase = phase
@@ -341,6 +358,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             in
             ( { key = key
               , url = url
+              , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
               , phase = Client
@@ -383,7 +401,8 @@ type Model userModel userMsg metadata view
 
 type alias ModelDetails userModel metadata view =
     { key : Browser.Navigation.Key
-    , url : Url.Url
+    , url : Url
+    , baseUrl : Url
     , contentCache : ContentCache metadata view
     , userModel : userModel
     , phase : Phase
@@ -434,10 +453,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                         Browser.Internal url ->
                             let
                                 navigatingToSamePage =
-                                    url.path
-                                        == model.url.path
-                                        && url
-                                        /= model.url
+                                    (url.path == model.url.path) && (url /= model.url)
                             in
                             if navigatingToSamePage then
                                 -- this is a workaround for an issue with anchor fragment navigation
@@ -453,10 +469,12 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                 UrlChanged url ->
                     let
                         navigatingToSamePage =
-                            url.path
-                                == model.url.path
-                                && url
-                                /= model.url
+                            (url.path == model.url.path) && (url /= model.url)
+
+                        urls =
+                            { currentUrl = url
+                            , baseUrl = model.baseUrl
+                            }
                     in
                     ( model
                     , if navigatingToSamePage then
@@ -469,7 +487,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
 
                       else
                         model.contentCache
-                            |> ContentCache.lazyLoad document url
+                            |> ContentCache.lazyLoad document urls
                             |> Task.attempt (UpdateCacheAndUrl url)
                     )
 
@@ -486,8 +504,13 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                         -- to keep track of the last url change
                         Ok updatedCache ->
                             let
+                                urls =
+                                    { currentUrl = model.url
+                                    , baseUrl = model.baseUrl
+                                    }
+
                                 maybeCmd =
-                                    case ContentCache.lookup pathKey updatedCache model.url of
+                                    case ContentCache.lookup pathKey updatedCache urls of
                                         Just ( pagePath, entry ) ->
                                             case entry of
                                                 ContentCache.Parsed frontmatter viewResult ->
@@ -536,7 +559,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                                 ( userModel, userCmd ) =
                                     userUpdate
                                         (onPageChangeMsg
-                                            { path = url |> urlToPagePath pathKey
+                                            { path = urlToPagePath pathKey url model.baseUrl
                                             , query = url.query
                                             , fragment = url.fragment
                                             }
@@ -676,7 +699,6 @@ application config =
                                 config.content
                                     |> List.map Tuple.first
                                     |> List.map (String.join "/")
-                                    |> List.map (\route -> "/" ++ route)
                         in
                         update config.content allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
                             |> Tuple.mapFirst Model

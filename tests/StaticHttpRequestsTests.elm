@@ -8,12 +8,15 @@ import Json.Decode as JD
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
+import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
+import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as Request
+import PagesHttp
 import ProgramTest exposing (ProgramTest)
 import Regex
 import Secrets
@@ -39,7 +42,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
@@ -66,7 +69,7 @@ all =
                         "NEXT-REQUEST"
                         """null"""
                     |> expectSuccess
-                        [ ( "/elm-pages"
+                        [ ( "elm-pages"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """null"""
                               )
@@ -159,7 +162,7 @@ all =
                         "url10"
                         """{"image": "image10.jpg"}"""
                     |> expectSuccess
-                        [ ( "/elm-pages"
+                        [ ( "elm-pages"
                           , [ ( get "https://pokeapi.co/api/v2/pokemon/"
                               , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
                               )
@@ -215,13 +218,13 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 22 }"""
                     |> expectSuccess
-                        [ ( "/elm-pages"
+                        [ ( "elm-pages"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
                             ]
                           )
-                        , ( "/elm-pages-starter"
+                        , ( "elm-pages-starter"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                               , """{"stargazer_count":22}"""
                               )
@@ -240,13 +243,106 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
                             ]
                           )
                         ]
+        , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.unoptimizedRequest
+                            (Secrets.succeed
+                                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                                , method = "GET"
+                                , headers = []
+                                , body = StaticHttp.emptyBody
+                                }
+                            )
+                            (StaticHttp.expectUnoptimizedJson
+                                (JD.field "stargazer_count" JD.int)
+                            )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                    |> expectSuccess
+                        [ ( ""
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{ "stargazer_count": 86, "unused_field": 123 }"""
+                              )
+                            ]
+                          )
+                        ]
+        , test "plain string" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.unoptimizedRequest
+                            (Secrets.succeed
+                                { url = "https://example.com/file.txt"
+                                , method = "GET"
+                                , headers = []
+                                , body = StaticHttp.emptyBody
+                                }
+                            )
+                            (StaticHttp.expectString Ok)
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://example.com/file.txt"
+                        "This is a raw text file."
+                    |> expectSuccess
+                        [ ( ""
+                          , [ ( get "https://example.com/file.txt"
+                              , "This is a raw text file."
+                              )
+                            ]
+                          )
+                        ]
+        , test "Err in String to Result function turns into decode error" <|
+            \() ->
+                start
+                    [ ( []
+                      , StaticHttp.unoptimizedRequest
+                            (Secrets.succeed
+                                { url = "https://example.com/file.txt"
+                                , method = "GET"
+                                , headers = []
+                                , body = StaticHttp.emptyBody
+                                }
+                            )
+                            (StaticHttp.expectString
+                                (\string ->
+                                    if String.toUpper string == string then
+                                        Ok string
+
+                                    else
+                                        Err "String was not uppercased"
+                                )
+                            )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://example.com/file.txt"
+                        "This is a raw text file."
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder Main.toJsCodec)
+                        (expectErrorsPort
+                            """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+
+
+
+String was not uppercased"""
+                        )
         , test "POST method works" <|
             \() ->
                 start
@@ -267,7 +363,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
@@ -298,7 +394,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":100}"""
                               )
@@ -326,7 +422,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":100}"""
                               )
@@ -343,7 +439,7 @@ all =
                       , StaticHttp.succeed ()
                       )
                     ]
-                    |> expectSuccess [ ( "/", [] ) ]
+                    |> expectSuccess [ ( "", [] ) ]
         , test "the port sends out when there are duplicate http requests for the same page" <|
             \() ->
                 start
@@ -358,7 +454,7 @@ all =
                         "http://example.com"
                         """null"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "http://example.com"
                               , """null"""
                               )
@@ -382,7 +478,7 @@ all =
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
-/elm-pages
+elm-pages
 
 I encountered some errors while decoding this JSON:
 
@@ -457,7 +553,9 @@ So maybe MISSING should be API_KEY"""
 
 I got an error making an HTTP request to this URL: https://api.github.com/repos/dillonkearns/elm-pages
 
-Bad status: 404""")
+Bad status: 404
+Status message: TODO: if you need this, please report to https://github.com/avh4/elm-program-test/issues
+Body: """)
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
             \() ->
                 start
@@ -493,7 +591,7 @@ Bad status: 404""")
                             }
                         )
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( { method = "GET"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
                                 , headers =
@@ -552,7 +650,6 @@ start pages =
                                 |> Dict.get
                                     (page.path
                                         |> PagePath.toString
-                                        |> String.dropLeft 1
                                         |> String.split "/"
                                         |> List.filter (\pathPart -> pathPart /= "")
                                     )
@@ -620,11 +717,20 @@ simulateEffects effect =
         FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
-                , url = unmasked.url -- |> Debug.log "FETCHING"
+                , url = unmasked.url
                 , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                , body = Http.emptyBody
+                , body =
+                    case unmasked.body of
+                        StaticHttpBody.EmptyBody ->
+                            Http.emptyBody
+
+                        StaticHttpBody.StringBody contentType string ->
+                            Http.stringBody contentType string
+
+                        StaticHttpBody.JsonBody value ->
+                            Http.jsonBody value
                 , expect =
-                    Http.expectString
+                    PagesHttp.expectString
                         (\response ->
                             GotStaticHttpResponse
                                 { request = requests
@@ -699,7 +805,7 @@ starDecoder =
 
 
 thingy =
-    [ ( "/"
+    [ ( ""
       , [ ( { method = "GET"
             , url = "https://api.github.com/repos/dillonkearns/elm-pages"
             , headers = []

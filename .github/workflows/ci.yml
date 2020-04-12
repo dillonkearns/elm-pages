@@ -1,0 +1,119 @@
+name: Elm CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 13
+        uses: actions/setup-node@v1
+        with:
+          node-version: 13
+      - uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - uses: actions/cache@v1
+        id: elm-cache
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm-home-${{ hashFiles('**/elm.json') }}
+      - run: npm ci
+      - run: ./node_modules/.bin/elm make --output /dev/null && cd generator && ../node_modules/.bin/elm make --output /dev/null src/Main.elm
+      - run: npm test
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 13
+        uses: actions/setup-node@v1
+        with:
+          node-version: 13
+      - uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - uses: actions/cache@v1
+        id: elm-cache
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm-home-${{ hashFiles('**/elm.json') }}
+      - run: npm ci
+      - run: ./node_modules/.bin/elm make --output /dev/null && cd generator && ../node_modules/.bin/elm make --output /dev/null src/Main.elm
+      - name: elm-format
+        run: npx --no-install elm-format --validate
+
+  validate-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 13
+        uses: actions/setup-node@v1
+        with:
+          node-version: 13
+      - uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - uses: actions/cache@v1
+        id: elm-cache
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm-home-${{ hashFiles('**/elm.json') }}
+      - run: npm ci
+      - run: ./node_modules/.bin/elm make --output /dev/null && cd generator && ../node_modules/.bin/elm make --output /dev/null src/Main.elm
+      - name: Build elm docs
+        run: ./node_modules/.bin/elm make --docs docs.json
+
+  publish:
+    needs: [test, lint, validate-package]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 13
+        uses: actions/setup-node@v1
+        with:
+          node-version: 13
+      - uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - uses: actions/cache@v1
+        id: elm-cache
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm-home-${{ hashFiles('**/elm.json') }}
+      - run: npm ci
+      - run: ./node_modules/.bin/elm make --output /dev/null && cd generator && ../node_modules/.bin/elm make --output /dev/null src/Main.elm
+      - name: Elm Publish
+        uses: dillonkearns/elm-publish-action@1.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-elm: ./node_modules/.bin/elm
+      - run: npm run build
+      - id: npm-publish
+        if: github.ref == 'refs/heads/master'
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}

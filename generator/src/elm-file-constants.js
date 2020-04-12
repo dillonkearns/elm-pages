@@ -12,6 +12,7 @@ ${staticRoutes.routeRecord}
 
 ${staticRoutes.imageAssetsRecord}
 
+
 allImages : List (ImagePath PathKey)
 allImages =
     [${staticRoutes.allImages.join("\n    , ")}
@@ -63,7 +64,8 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix ${Math.round((new Date()).getTime())}
+    Time.millisToPosix ${Math.round((global.builtAt).getTime())}
+
 
 type PathKey
     = PathKey
@@ -72,7 +74,6 @@ type PathKey
 buildImage : List String -> ImagePath PathKey
 buildImage path =
     ImagePath.build PathKey ("images" :: path)
-
 
 
 buildPage : List String -> PagePath PathKey
@@ -103,7 +104,7 @@ internals =
     , content = content
     , pathKey = PathKey
     }
-        
+
 ${staticRouteStuff(staticRoutes)}
 
 ${generateRawContent(markdownContent, markupContent, false)}
@@ -133,7 +134,8 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix ${Math.round((new Date()).getTime())}
+    Time.millisToPosix ${Math.round((global.builtAt).getTime())}
+
 
 type PathKey
     = PathKey
