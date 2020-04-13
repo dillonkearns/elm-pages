@@ -30,6 +30,7 @@ module.exports = class AddFilesPlugin {
         .sync(["content/**/*.*", "!content/**/*.emu"], {})
         .map(unpackFile);
 
+      compilation.contextDependencies.add(path.resolve('./content'));
       files.forEach(file => {
         // Couldn't find this documented in the webpack docs,
         // but I found the example code for it here:
