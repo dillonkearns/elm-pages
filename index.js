@@ -11,9 +11,9 @@ module.exports = function pagesInit(
   prefetchedPages = [window.location.pathname];
   initialLocationHash = document.location.hash.replace(/^#/, "");
 
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     document.addEventListener("DOMContentLoaded", _ => {
-      new MutationObserver(function() {
+      new MutationObserver(function () {
         elmViewRendered = true;
         if (headTagsAdded) {
           document.dispatchEvent(new Event("prerender-trigger"));
@@ -32,7 +32,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
   const isPrerendering = navigator.userAgent.indexOf("Headless") >= 0
   const path = window.location.pathname.replace(/(\w)$/, "$1/")
 
-  return httpGet(`${window.location.origin}${path}content.json`).then(function(/** @type JSON */ contentJson) {
+  return httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
 
     const app = mainElmModule.init({
       flags: {
@@ -62,10 +62,10 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
         fromElm.head.forEach(headTag => {
           appendTag(headTag);
         });
-          headTagsAdded = true;
-          if (elmViewRendered) {
-            document.dispatchEvent(new Event("prerender-trigger"));
-          }
+        headTagsAdded = true;
+        if (elmViewRendered) {
+          document.dispatchEvent(new Event("prerender-trigger"));
+        }
       } else {
         setupLinkPrefetching();
       }
@@ -73,7 +73,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
 
 
     if (module.hot) {
-      module.hot.addStatusHandler(function(status) {
+      module.hot.addStatusHandler(function (status) {
         if (status === 'idle') {
           console.log('Reloaded!!!!!!!!!!', status)
           app.ports.fromJsPort.send({});
@@ -142,7 +142,7 @@ function setupLinkPrefetchingHelp(
   const links = document.querySelectorAll("a");
   links.forEach(link => {
     // console.log(link.pathname);
-    link.addEventListener("mouseenter", function(event) {
+    link.addEventListener("mouseenter", function (event) {
       if (
         event &&
         event.target &&
@@ -186,11 +186,11 @@ function appendTag(/** @type {HeadTag} */ tagDetails) {
 }
 
 function httpGet(/** @type string */ theUrl) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     const xmlHttp = new XMLHttpRequest();
-    xmlHttp.onreadystatechange = function() {
-        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-            resolve(JSON.parse(xmlHttp.responseText));
+    xmlHttp.onreadystatechange = function () {
+      if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+        resolve(JSON.parse(xmlHttp.responseText));
     }
     xmlHttp.onerror = reject;
     xmlHttp.open("GET", theUrl, true); // true for asynchronous

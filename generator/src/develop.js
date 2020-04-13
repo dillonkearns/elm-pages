@@ -44,14 +44,14 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
     log: console.log, path: '/__webpack_hmr'
   }))
 
-  app.use("*", function(req, res, next) {
+  app.use("*", function (req, res, next) {
     // don't know why this works, but it does
     // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
     const filename = path.join(compiler.outputPath, "index.html");
     const route = req.originalUrl.replace(/(\w)\/$/, "$1").replace(/^\//, "");
     const isPage = routes.includes(route);
 
-    compiler.outputFileSystem.readFile(filename, function(err, result) {
+    compiler.outputFileSystem.readFile(filename, function (err, result) {
       const contents = isPage
         ? replaceBaseAndLinks(result.toString(), route)
         : result
@@ -249,7 +249,7 @@ function webpackOptions(
         // process.cwd prefixed node_modules above).
         path.resolve(path.dirname(require.resolve('webpack')), '../../'),
 
-    ],
+      ],
       extensions: [".js", ".elm", ".scss", ".png", ".html"]
     },
     module: {
@@ -356,7 +356,7 @@ function webpackOptions(
       entry: [
         require.resolve("webpack-hot-middleware/client"),
         "./index.js",
-        ],
+      ],
       plugins: [
         new webpack.NamedModulesPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
@@ -395,10 +395,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-        .split("/")
-        .map(_ => "..")
-        .join("/")
-        .replace(/\.$/, "./")
+      .split("/")
+      .map(_ => "..")
+      .join("/")
+      .replace(/\.$/, "./")
 }
 
 
