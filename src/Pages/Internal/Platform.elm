@@ -596,7 +596,10 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                 HotReloadComplete ->
                     ( model
                     , ContentCache.init document content (Maybe.map (\cj -> { contentJson = cj, initialUrl = model.url }) Nothing)
-                        |> ContentCache.lazyLoad document model.url
+                        |> ContentCache.lazyLoad document
+                            { currentUrl = model.url
+                            , baseUrl = model.baseUrl
+                            }
                         |> Task.attempt UpdateCacheForHotReload
                     )
 
