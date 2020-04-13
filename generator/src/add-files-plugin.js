@@ -25,7 +25,7 @@ module.exports = class AddFilesPlugin {
     this.filesToGenerate = filesToGenerate;
   }
   apply(compiler) {
-    compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
+    compiler.hooks.afterCompile.tap("AddFilesPlugin", compilation => {
       const files = globby
         .sync(["content/**/*.*", "!content/**/*.emu"], {})
         .map(unpackFile);
