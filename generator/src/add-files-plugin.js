@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const globby = require("globby");
 const parseFrontmatter = require("./frontmatter.js");
+const webpack = require('webpack')
 
 function unpackFile(filePath) {
   const { content, data } = parseFrontmatter(
@@ -15,7 +16,8 @@ function unpackFile(filePath) {
 
   return {
     baseRoute,
-    content
+    content,
+    filePath
   };
 }
 
@@ -24,13 +26,13 @@ module.exports = class AddFilesPlugin {
     this.pagesWithRequests = data;
     this.filesToGenerate = filesToGenerate;
   }
-  apply(compiler) {
-    compiler.hooks.afterCompile.tap("AddFilesPlugin", compilation => {
+  apply(/** @type {webpack.Compiler} */ compiler) {
+    compiler.hooks.afterCompile.tapAsync("AddFilesPlugin", (compilation, callback) => {
       const files = globby
         .sync(["content/**/*.*", "!content/**/*.emu"], {})
         .map(unpackFile);
 
-      compilation.contextDependencies.add(path.resolve('./content'));
+      compilation.contextDependencies.add(path.resolve(process.cwd(), './content'));
       files.forEach(file => {
         // Couldn't find this documented in the webpack docs,
         // but I found the example code for it here:
@@ -40,7 +42,8 @@ module.exports = class AddFilesPlugin {
         const staticRequests = this.pagesWithRequests[route];
 
         const filename = path.join(file.baseRoute, "content.json");
-        compilation.fileDependencies.add(filename);
+        // compilation.fileDependencies.add(filename);
+        compilation.fileDependencies.add(path.resolve(process.cwd(), file.filePath));
         const rawContents = JSON.stringify({
           body: file.content,
           staticData: staticRequests || {}
@@ -62,7 +65,7 @@ module.exports = class AddFilesPlugin {
         };
       });
 
-
+      callback()
     });
   }
 };

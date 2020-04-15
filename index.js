@@ -72,11 +72,23 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
     });
 
 
+
+
+    // found this trick from https://github.com/roots/sage/issues/1826
+    // module.hot.addStatusHandler(function (status) { /* handle status */}) works, but after several saves
+    // it stops working for some reason. So this is a workaround to work even when those updates stop coming through
+    const reporter = window.__webpack_hot_middleware_reporter__
+    const success = reporter.success
+    reporter.success = function () {
+      console.log('SUCCESS');
+      app.ports.fromJsPort.send({});
+      success()
+    }
+
     if (module.hot) {
       module.hot.addStatusHandler(function (status) {
         if (status === 'idle') {
           console.log('Reloaded!!!!!!!!!!', status)
-          app.ports.fromJsPort.send({});
         }
       });
     }
