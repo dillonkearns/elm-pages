@@ -5,7 +5,8 @@ import Dict exposing (Dict)
 import Expect
 import Html
 import Json.Decode as JD
-import Json.Decode.Exploration as Decode exposing (Decoder)
+import Json.Decode.Exploration
+import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.Http
@@ -637,6 +638,7 @@ start pages =
 
         config =
             { toJsPort = toJsPort
+            , fromJsPort = fromJsPort
             , manifest = manifest
             , generateFiles = \_ -> []
             , init = \_ -> ( (), Cmd.none )
@@ -778,6 +780,10 @@ normalizeErrorExpectEqual expectedPlainString actualRichTerminalString =
 
 toJsPort foo =
     Cmd.none
+
+
+fromJsPort =
+    Sub.none
 
 
 type PathKey

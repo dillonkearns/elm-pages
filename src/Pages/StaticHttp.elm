@@ -76,9 +76,11 @@ your decoders. This can significantly reduce download sizes for your StaticHttp 
 
 import Dict exposing (Dict)
 import Dict.Extra
+import Internal.OptimizedDecoder
 import Json.Decode
-import Json.Decode.Exploration as Decode exposing (Decoder)
+import Json.Decode.Exploration
 import Json.Encode as Encode
+import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
@@ -597,28 +599,28 @@ unoptimizedRequest requestWithSecrets expect =
                             (\( strippedResponses, rawResponse ) ->
                                 let
                                     reduced =
-                                        Decode.stripString decoder rawResponse
+                                        Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder) rawResponse
                                             |> Result.withDefault "TODO"
                                 in
                                 rawResponse
-                                    |> Decode.decodeString decoder
+                                    |> Json.Decode.Exploration.decodeString (decoder |> Internal.OptimizedDecoder.jde)
                                     --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
                                     |> (\decodeResult ->
                                             case decodeResult of
-                                                Decode.BadJson ->
+                                                Json.Decode.Exploration.BadJson ->
                                                     Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
 
-                                                Decode.Errors errors ->
+                                                Json.Decode.Exploration.Errors errors ->
                                                     errors
-                                                        |> Decode.errorsToString
+                                                        |> Json.Decode.Exploration.errorsToString
                                                         |> Pages.StaticHttpRequest.DecoderError
                                                         |> Err
 
-                                                Decode.WithWarnings warnings a ->
+                                                Json.Decode.Exploration.WithWarnings warnings a ->
                                                     --                                            Pages.StaticHttpRequest.DecoderError "" |> Err
                                                     Ok a
 
-                                                Decode.Success a ->
+                                                Json.Decode.Exploration.Success a ->
                                                     Ok a
                                        )
                                     --                            |> Result.mapError Pages.StaticHttpRequest.DecoderError

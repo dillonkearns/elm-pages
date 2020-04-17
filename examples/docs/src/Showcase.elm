@@ -4,7 +4,7 @@ import Element
 import Element.Border
 import Element.Font
 import FontAwesome
-import Json.Decode.Exploration as Decode
+import OptimizedDecoder as Decode
 import Pages.Secrets as Secrets
 import Pages.StaticHttp as StaticHttp
 import Palette
