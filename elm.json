@@ -8,6 +8,7 @@
         "Head",
         "Head.Seo",
         "OptimizedDecoder",
+        "OptimizedDecoder.Pipeline",
         "Pages.Document",
         "Pages.ImagePath",
         "Pages.PagePath",
