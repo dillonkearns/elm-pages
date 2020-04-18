@@ -81,15 +81,22 @@ function run() {
 
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent.concat(content));
+    let resolvePageRequests;
+    global.pagesWithRequests = new Promise(function (resolve, reject) {
+      resolvePageRequests = resolve;
+    });
+
 
     doCliStuff(
       contents.watch ? "dev" : "prod",
       staticRoutes,
       markdownContent,
       content,
-      function(payload) {
+      function (payload) {
         if (contents.watch) {
           startWatchIfNeeded();
+          resolvePageRequests(payload.pages);
+          global.filesToGenerate = payload.filesToGenerate;
           if (!devServerRunning) {
             devServerRunning = true;
             develop.start({
@@ -113,7 +120,7 @@ function run() {
               routesWithRequests: payload.pages,
               filesToGenerate: payload.filesToGenerate
             },
-            () => {}
+            () => { }
           );
         }
 
@@ -148,13 +155,13 @@ function startWatchIfNeeded() {
   if (!watcher) {
     console.log("Watching...");
     watcher = chokidar
-      .watch(["content/**/*.*"], {
+      .watch(["content/**/*.*", "src/**/*.elm"], {
         awaitWriteFinish: {
           stabilityThreshold: 500
         },
         ignoreInitial: true
       })
-      .on("all", function(event, filePath) {
+      .on("all", function (event, filePath) {
         console.log(`Rerunning for ${filePath}...`);
         run();
         console.log("Done!");

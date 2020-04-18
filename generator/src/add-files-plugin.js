@@ -32,18 +32,18 @@ module.exports = class AddFilesPlugin {
         .sync(["content/**/*.*", "!content/**/*.emu"], {})
         .map(unpackFile);
 
-      compilation.contextDependencies.add(path.resolve(process.cwd(), './content'));
+      global.pagesWithRequests.then(pageWithRequests => {
       files.forEach(file => {
         // Couldn't find this documented in the webpack docs,
         // but I found the example code for it here:
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
         let route = file.baseRoute.replace(/\/$/, '');
-        const staticRequests = this.pagesWithRequests[route];
+          const staticRequests = pageWithRequests[route];
 
         const filename = path.join(file.baseRoute, "content.json");
         // compilation.fileDependencies.add(filename);
-        compilation.fileDependencies.add(path.resolve(process.cwd(), file.filePath));
+          compilation.fileDependencies.add(path.resolve(file.filePath));
         const rawContents = JSON.stringify({
           body: file.content,
           staticData: staticRequests || {}
@@ -55,7 +55,7 @@ module.exports = class AddFilesPlugin {
         };
       });
 
-      (this.filesToGenerate || []).forEach(file => {
+        (global.filesToGenerate || []).forEach(file => {
         // Couldn't find this documented in the webpack docs,
         // but I found the example code for it here:
         // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
