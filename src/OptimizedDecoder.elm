@@ -1,5 +1,6 @@
 module OptimizedDecoder exposing
-    ( decodeString, decodeValue
+    ( decodeString, decodeValue, Value
+    , Error, errorToString
     , Decoder, string, bool, int, float
     , nullable, list, array, dict, keyValuePairs
     , field, at, index
