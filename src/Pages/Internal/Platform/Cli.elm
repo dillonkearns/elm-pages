@@ -26,6 +26,7 @@ import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
+import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -525,7 +526,7 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
             (\( pagePath, request ) ->
                 allRawResponses
                     |> dictCompact
-                    |> StaticHttpRequest.resolveUrls request
+                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
                     |> Tuple.second
             )
         |> List.concat
@@ -605,7 +606,7 @@ staticResponsesUpdate newEntry model =
                                 realUrls =
                                     updatedAllResponses
                                         |> dictCompact
-                                        |> StaticHttpRequest.resolveUrls request
+                                        |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
                                         |> Tuple.second
                                         |> List.map Secrets.maskedLookup
                                         |> List.map HashRequest.hash
@@ -672,7 +673,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
 
                                     hasPermanentError =
                                         usableRawResponses
-                                            |> StaticHttpRequest.permanentError request
+                                            |> StaticHttpRequest.permanentError ApplicationType.Cli request
                                             |> isJust
 
                                     hasPermanentHttpError =
@@ -688,7 +689,9 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                     --                False
                                     --    )
                                     ( allUrlsKnown, knownUrlsToFetch ) =
-                                        StaticHttpRequest.resolveUrls request
+                                        StaticHttpRequest.resolveUrls
+                                            ApplicationType.Cli
+                                            request
                                             (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
 
                                     fetchedAllKnownUrls =
@@ -724,7 +727,9 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                         )
 
                             maybePermanentError =
-                                StaticHttpRequest.permanentError request
+                                StaticHttpRequest.permanentError
+                                    ApplicationType.Cli
+                                    request
                                     usableRawResponses
 
                             decoderErrors =
@@ -914,7 +919,7 @@ encodeStaticResponses mode =
                         strippedResponses : Dict String String
                         strippedResponses =
                             -- TODO should this return an Err and handle that here?
-                            StaticHttpRequest.strippedResponses request relevantResponses
+                            StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
                     in
                     case mode of
                         Dev ->
