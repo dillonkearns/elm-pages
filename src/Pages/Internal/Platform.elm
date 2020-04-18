@@ -14,6 +14,7 @@ import List.Extra
 import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
+import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
 import Pages.Manifest as Manifest
@@ -122,7 +123,7 @@ pageViewOrError pathKey viewFn model cache =
                                      -- TODO handle error better
                                     )
                                 |> (\request ->
-                                        StaticHttpRequest.resolve request viewResult.staticData
+                                        StaticHttpRequest.resolve ApplicationType.Browser request viewResult.staticData
                                    )
                     in
                     case viewResult.body of
@@ -537,7 +538,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                                         )
                                         { path = pagePath, frontmatter = frontmatter }
                                         |> (\request ->
-                                                StaticHttpRequest.resolve request staticDataThing
+                                                StaticHttpRequest.resolve ApplicationType.Browser request staticDataThing
                                            )
                             in
                             ( { model | contentCache = updatedCache }
