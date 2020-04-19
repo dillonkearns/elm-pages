@@ -630,6 +630,33 @@ Body: """)
                                 ]
                               )
                             ]
+            , test "it ignores unused cache" <|
+                \() ->
+                    startWithHttpCache
+                        [ ( { url = "https://this-is-never-used.example.com/"
+                            , method = "GET"
+                            , headers = []
+                            , body = StaticHttpBody.EmptyBody
+                            }
+                          , """{"stargazer_count":86}"""
+                          )
+                        ]
+                        [ ( []
+                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          )
+                        ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> expectSuccess
+                            [ ( ""
+                              , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                                  , """{"stargazer_count":86}"""
+                                  )
+                                ]
+                              )
+                            ]
             ]
         ]
 
