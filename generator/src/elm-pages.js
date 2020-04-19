@@ -13,6 +13,7 @@ const parseFrontmatter = require("./frontmatter.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 global.builtAt = new Date();
+global.staticHttpCache = {};
 
 const contentGlobPath = "content/**/*.emu";
 
