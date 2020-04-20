@@ -24,7 +24,7 @@ function runElm(/** @type string */ mode, /** @type any */ callback) {
           callback(payload.args[0]);
         } else {
           console.log(payload.args[0]);
-          process.exit(1);
+          // process.exit(1);
         }
         delete Elm;
         console.warn = warnOriginal;
