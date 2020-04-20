@@ -52,13 +52,13 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
     const isPage = routes.includes(route);
 
     compiler.outputFileSystem.readFile(filename, function (err, result) {
-      const contents = isPage
-        ? replaceBaseAndLinks(result.toString(), route)
-        : result
-
       if (err) {
         return next(err);
       }
+
+      const contents = isPage
+        ? replaceBaseAndLinks(result.toString(), route)
+        : result
 
       res.set("content-type", "text/html");
       res.send(contents);
