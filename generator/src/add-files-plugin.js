@@ -66,6 +66,7 @@ module.exports = class AddFilesPlugin {
       });
 
       callback()
+      })
     });
   }
 };
