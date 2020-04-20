@@ -354,7 +354,7 @@ function webpackOptions(
   } else {
     return merge(common, {
       entry: [
-        require.resolve("webpack-hot-middleware/client"),
+        hmrClientPath(),
         "./index.js",
       ],
       plugins: [
@@ -383,6 +383,17 @@ function webpackOptions(
       }
     });
   }
+}
+
+function hmrClientPath() {
+  // return require.resolve("webpack-hot-middleware/client");
+  var ansiColors = {
+    // red: 'FF0000' // note the lack of "#"
+  };
+  var overlayStyles = {
+    // color: '#FF0000' // note the inclusion of "#" (these options would be the equivalent of div.style[option] = value)
+  };
+  return `${require.resolve("webpack-hot-middleware/client")}?ansiColors=${encodeURIComponent(JSON.stringify(ansiColors))}&overlayStyles=${encodeURIComponent(JSON.stringify(overlayStyles))}`;
 }
 
 
