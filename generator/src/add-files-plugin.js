@@ -29,7 +29,7 @@ module.exports = class AddFilesPlugin {
   apply(/** @type {webpack.Compiler} */ compiler) {
     compiler.hooks.afterCompile.tapAsync("AddFilesPlugin", (compilation, callback) => {
       const files = globby
-        .sync(["content/**/*.*", "!content/**/*.emu"], {})
+        .sync(["content/**/*.*"], {})
         .map(unpackFile);
 
       global.pagesWithRequests.then(pageWithRequests => {
