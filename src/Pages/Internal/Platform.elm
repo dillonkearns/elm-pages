@@ -1,4 +1,4 @@
-module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Parser, Program, application, cliApplication)
+module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Program, application, cliApplication)
 
 import Browser
 import Browser.Dom as Dom
@@ -10,8 +10,6 @@ import Html.Attributes
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import List.Extra
-import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Internal.ApplicationType as ApplicationType
@@ -606,13 +604,6 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
 
         CliMsg _ ->
             ( model, Cmd.none )
-
-
-type alias Parser metadata view =
-    Dict String String
-    -> List String
-    -> List ( List String, metadata )
-    -> Mark.Document view
 
 
 application :

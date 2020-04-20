@@ -10,7 +10,6 @@ module.exports = function run(
   mode,
   staticRoutes,
   markdownContent,
-  markupContent,
   callback
 ) {
   ensureDirSync("./elm-stuff");
@@ -19,12 +18,12 @@ module.exports = function run(
   // prevent compilation errors if migrating from previous elm-pages version
   deleteIfExists("./elm-stuff/elm-pages/Pages/ContentCache.elm");
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
-  
+
 
   // write `Pages.elm` with cli interface
   fs.writeFileSync(
     "./elm-stuff/elm-pages/Pages.elm",
-    elmPagesCliFile(staticRoutes, markdownContent, markupContent)
+    elmPagesCliFile(staticRoutes, markdownContent)
   );
 
   // write modified elm.json to elm-stuff/elm-pages/

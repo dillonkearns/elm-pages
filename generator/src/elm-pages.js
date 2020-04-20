@@ -15,8 +15,6 @@ const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 global.builtAt = new Date();
 global.staticHttpCache = {};
 
-const contentGlobPath = "content/**/*.emu";
-
 let watcher = null;
 let devServerRunning = false;
 
@@ -24,15 +22,6 @@ function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
-function unpackMarkup(path) {
-  const separated = parseFrontmatter(path, fs.readFileSync(path).toString());
-  return {
-    path,
-    metadata: separated.matter,
-    body: separated.content,
-    extension: "emu"
-  };
-}
 
 function parseMarkdown(path, fileContents) {
   const { content, data } = parseFrontmatter(path, fileContents);
@@ -46,11 +35,10 @@ function parseMarkdown(path, fileContents) {
 
 function run() {
   console.log("Running elm-pages...");
-  const content = globby.sync([contentGlobPath], {}).map(unpackMarkup);
   const staticRoutes = generateRecords();
 
   const markdownContent = globby
-    .sync(["content/**/*.*", "!content/**/*.emu"], {})
+    .sync(["content/**/*.*"], {})
     .map(unpackFile)
     .map(({ path, contents }) => {
       return parseMarkdown(path, contents);
@@ -64,7 +52,6 @@ function run() {
     flags: {
       argv: process.argv,
       versionMessage: version,
-      content,
       markdownContent,
       images
     }
@@ -81,7 +68,7 @@ function run() {
   });
 
   app.ports.writeFile.subscribe(contents => {
-    const routes = toRoutes(markdownContent.concat(content));
+    const routes = toRoutes(markdownContent);
     let resolvePageRequests;
     global.pagesWithRequests = new Promise(function (resolve, reject) {
       resolvePageRequests = resolve;
@@ -92,7 +79,6 @@ function run() {
       contents.watch ? "dev" : "prod",
       staticRoutes,
       markdownContent,
-      content,
       function (payload) {
         if (contents.watch) {
           startWatchIfNeeded();
@@ -133,7 +119,7 @@ function run() {
 
         fs.writeFileSync(
           "./gen/Pages.elm",
-          elmPagesUiFile(staticRoutes, markdownContent, content)
+          elmPagesUiFile(staticRoutes, markdownContent)
         );
         console.log("elm-pages DONE");
 
