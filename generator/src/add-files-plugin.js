@@ -33,39 +33,39 @@ module.exports = class AddFilesPlugin {
         .map(unpackFile);
 
       global.pagesWithRequests.then(pageWithRequests => {
-      files.forEach(file => {
-        // Couldn't find this documented in the webpack docs,
-        // but I found the example code for it here:
-        // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+        files.forEach(file => {
+          // Couldn't find this documented in the webpack docs,
+          // but I found the example code for it here:
+          // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-        let route = file.baseRoute.replace(/\/$/, '');
+          let route = file.baseRoute.replace(/\/$/, '');
           const staticRequests = pageWithRequests[route];
 
-        const filename = path.join(file.baseRoute, "content.json");
-        // compilation.fileDependencies.add(filename);
+          const filename = path.join(file.baseRoute, "content.json");
+          // compilation.fileDependencies.add(filename);
           compilation.fileDependencies.add(path.resolve(file.filePath));
-        const rawContents = JSON.stringify({
-          body: file.content,
-          staticData: staticRequests || {}
+          const rawContents = JSON.stringify({
+            body: file.content,
+            staticData: staticRequests || {}
+          });
+
+          compilation.assets[filename] = {
+            source: () => rawContents,
+            size: () => rawContents.length
+          };
         });
 
-        compilation.assets[filename] = {
-          source: () => rawContents,
-          size: () => rawContents.length
-        };
-      });
-
         (global.filesToGenerate || []).forEach(file => {
-        // Couldn't find this documented in the webpack docs,
-        // but I found the example code for it here:
-        // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
-        compilation.assets[file.path] = {
-          source: () => file.content,
-          size: () => file.content.length
-        };
-      });
+          // Couldn't find this documented in the webpack docs,
+          // but I found the example code for it here:
+          // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+          compilation.assets[file.path] = {
+            source: () => file.content,
+            size: () => file.content.length
+          };
+        });
 
-      callback()
+        callback()
       })
     });
   }
