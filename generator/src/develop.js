@@ -392,12 +392,12 @@ function hmrClientPath() {
     // reset: ['ffffff', '0000000'], // [FOREGROUD_COLOR, BACKGROUND_COLOR]
     reset: ['ffffff', 'transparent'], // [FOREGROUD_COLOR, BACKGROUND_COLOR]
     black: '000',
-    red: 'ff0000',
-    green: '209805',
-    yellow: 'e8bf03',
-    blue: '0000ff',
-    magenta: 'ff00ff',
-    cyan: '00ffee',
+    red: 'c91b00',
+    green: '00c200',
+    yellow: 'c7c400',
+    blue: '0225c7',
+    magenta: 'c930c7',
+    cyan: '00c5c7',
     lightgrey: 'f0f0f0',
     darkgrey: '888'
   };
