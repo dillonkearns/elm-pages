@@ -70,15 +70,18 @@ function run() {
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent);
     let resolvePageRequests;
+    let rejectPageRequests;
     global.pagesWithRequests = new Promise(function (resolve, reject) {
       resolvePageRequests = resolve;
+      rejectPageRequests = reject;
     });
 
 
     doCliStuff(
       contents.watch ? "dev" : "prod",
       staticRoutes,
-      markdownContent,
+      markdownContent
+    ).then(
       function (payload) {
         if (contents.watch) {
           startWatchIfNeeded();
@@ -124,7 +127,9 @@ function run() {
         console.log("elm-pages DONE");
 
       }
-    );
+    ).catch(function (errorPayload) {
+      rejectPageRequests(errorPayload);
+    });
   });
 }
 

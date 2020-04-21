@@ -66,6 +66,10 @@ module.exports = class AddFilesPlugin {
         });
 
         callback()
+      }).catch(errorPayload => {
+
+        compilation.errors.push(new Error(errorPayload))
+        callback()
       })
     });
   }

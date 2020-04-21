@@ -30,5 +30,5 @@ module.exports = function run(
   copyModifiedElmJson();
 
   // run Main.elm from elm-stuff/elm-pages with `runElm`
-  runElm(mode, callback);
+  return runElm(mode, callback);
 };
