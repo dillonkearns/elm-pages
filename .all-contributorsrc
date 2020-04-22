@@ -40,6 +40,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "lukewestby",
+      "name": "Luke Westby",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/1508245?v=4",
+      "profile": "https://sunrisemovement.com",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
@@ -47,5 +56,6 @@
   "projectOwner": "dillonkearns",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "skipCi": true
+  "skipCi": true,
+  "commitConvention": "none"
 }
