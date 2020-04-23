@@ -14,6 +14,7 @@ const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
 const ClosurePlugin = require("closure-webpack-plugin");
 const readline = require("readline");
+const webpackDevMiddleware = require("webpack-dev-middleware");
 
 module.exports = { start, run };
 function start({ routes, debug, customPort, manifestConfig, routesWithRequests, filesToGenerate }) {
@@ -39,7 +40,7 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
   app.use('/images', express.static(path.resolve(process.cwd(), "./images")));
 
 
-  app.use(require("webpack-dev-middleware")(compiler, options));
+  app.use(webpackDevMiddleware(compiler, options));
   app.use(require("webpack-hot-middleware")(compiler, {
     log: console.log, path: '/__webpack_hmr'
   }))
