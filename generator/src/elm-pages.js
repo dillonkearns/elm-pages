@@ -22,6 +22,26 @@ function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
+const stubManifest = {
+  sourceIcon: 'images/icon-png.png',
+  background_color: '#ffffff',
+  orientation: 'portrait',
+  display: 'standalone',
+  categories: ['education'],
+  description: 'elm-pages - A statically typed site generator.',
+  name: 'elm-pages docs',
+  prefer_related_applications: false,
+  related_applications: [],
+  theme_color: '#ffffff',
+  start_url: '',
+  short_name: 'elm-pages',
+  serviceworker: {
+    src: '../service-worker.js',
+    scope: '/',
+    type: '',
+    update_via_cache: 'none'
+  }
+}
 
 function parseMarkdown(path, fileContents) {
   const { content, data } = parseFrontmatter(path, fileContents);
@@ -128,7 +148,20 @@ function run() {
 
       }
     ).catch(function (errorPayload) {
-      rejectPageRequests(errorPayload);
+      startWatchIfNeeded()
+      resolvePageRequests({ type: 'error', message: errorPayload });
+      if (!devServerRunning) {
+        devServerRunning = true;
+        develop.start({
+          routes,
+          debug: contents.debug,
+          manifestConfig: stubManifest,
+          routesWithRequests: {},
+          filesToGenerate: [],
+          customPort: contents.customPort
+        });
+      }
+
     });
   });
 }

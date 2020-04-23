@@ -168,7 +168,32 @@ function webpackOptions(
 
       new HTMLWebpackPlugin({
         inject: "head",
-        template: path.resolve(__dirname, "template.html")
+        templateContent: `<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="preload" href="content.json" as="fetch" crossorigin />
+
+  <base href="/" />
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js");
+      });
+    } else {
+      console.log("No service worker registered.");
+    }
+  </script>
+</head>
+
+<body></body>
+
+
+</html>`
       }),
       new ScriptExtHtmlWebpackPlugin({
         preload: /\.js$/,
@@ -360,9 +385,9 @@ function webpackOptions(
       ],
       plugins: [
         new webpack.NamedModulesPlugin(),
+        new webpack.HotModuleReplacementPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
-        new webpack.NoEmitOnErrorsPlugin(),
-        new webpack.HotModuleReplacementPlugin()
+        // new webpack.NoEmitOnErrorsPlugin(),
       ],
       module: {
         rules: [

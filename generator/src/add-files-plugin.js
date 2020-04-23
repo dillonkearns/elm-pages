@@ -32,14 +32,25 @@ module.exports = class AddFilesPlugin {
         .sync(["content/**/*.*"], {})
         .map(unpackFile);
 
+
+      let staticRequestData = {}
       global.pagesWithRequests.then(pageWithRequests => {
+
+        if (pageWithRequests.type === 'error') {
+          compilation.errors.push(new Error(pageWithRequests.message))
+        } else {
+          staticRequestData = pageWithRequests
+        }
+      })
+        .finally(() => {
+
         files.forEach(file => {
           // Couldn't find this documented in the webpack docs,
           // but I found the example code for it here:
           // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
           let route = file.baseRoute.replace(/\/$/, '');
-          const staticRequests = pageWithRequests[route];
+            const staticRequests = staticRequestData[route];
 
           const filename = path.join(file.baseRoute, "content.json");
           // compilation.fileDependencies.add(filename);
@@ -66,11 +77,9 @@ module.exports = class AddFilesPlugin {
         });
 
         callback()
-      }).catch(errorPayload => {
 
-        compilation.errors.push(new Error(errorPayload))
-        callback()
       })
+
     });
   }
 };
