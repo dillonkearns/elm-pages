@@ -9,8 +9,7 @@ const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 module.exports = function run(
   mode,
   staticRoutes,
-  markdownContent,
-  callback
+  markdownContent
 ) {
   ensureDirSync("./elm-stuff");
   ensureDirSync("./elm-stuff/elm-pages");
@@ -30,5 +29,5 @@ module.exports = function run(
   copyModifiedElmJson();
 
   // run Main.elm from elm-stuff/elm-pages with `runElm`
-  return runElm(mode, callback);
+  return runElm(mode);
 };
