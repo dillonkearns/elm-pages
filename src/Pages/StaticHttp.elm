@@ -1,7 +1,7 @@
 module Pages.StaticHttp exposing
     ( Request, RequestDetails
     , get, request
-    , map, succeed
+    , map, succeed, fail
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
@@ -40,7 +40,7 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 
 @docs Request, RequestDetails
 @docs get, request
-@docs map, succeed
+@docs map, succeed, fail
 
 
 ## Building a StaticHttp Request Body
@@ -441,6 +441,18 @@ succeed value =
         ( []
         , \appType rawResponses ->
             Ok ( rawResponses, Done value )
+        )
+
+
+{-| TODO
+-}
+fail : String -> Request a
+fail errorMessage =
+    Request
+        ( []
+        , \appType rawResponses ->
+            -- TODO add a new variant for this
+            Err (Pages.StaticHttpRequest.DecoderError "")
         )
 
 
