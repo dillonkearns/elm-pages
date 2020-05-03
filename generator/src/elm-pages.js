@@ -5,17 +5,9 @@ const { version } = require("../../package.json");
 const fs = require("fs");
 const globby = require("globby");
 const develop = require("./develop.js");
-const chokidar = require("chokidar");
-const { elmPagesUiFile } = require("./elm-file-constants.js");
-const generateRecords = require("./generate-records.js");
 const parseFrontmatter = require("./frontmatter.js");
-const path = require("path");
-const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 global.builtAt = new Date();
 global.staticHttpCache = {};
-
-let watcher = null;
-let devServerRunning = false;
 
 function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
@@ -53,9 +45,6 @@ function parseMarkdown(path, fileContents) {
 }
 
 function run() {
-  console.log("Running elm-pages...");
-  const staticRoutes = generateRecords();
-
   const markdownContent = globby
     .sync(["content/**/*.*"], {})
     .map(unpackFile)
@@ -88,16 +77,8 @@ function run() {
 
   app.ports.writeFile.subscribe(contents => {
     const routes = toRoutes(markdownContent);
-    let resolvePageRequests;
-    let rejectPageRequests;
 
     global.mode = contents.watch ? "dev" : "prod"
-    // global.pagesWithRequests = new Promise(function (resolve, reject) {
-    //   resolvePageRequests = resolve;
-    //   rejectPageRequests = reject;
-    // });
-    // resolvePageRequests({}); // TODO temporary - do the real resolution
-
 
     develop.start({
       routes,
@@ -108,103 +89,10 @@ function run() {
       customPort: contents.customPort
     });
 
-
-    // doCliStuff(
-    //   contents.watch ? "dev" : "prod",
-    //   staticRoutes,
-    //   markdownContent
-    // ).then(
-    //   function (payload) {
-    //     if (contents.watch) {
-    //       startWatchIfNeeded();
-    //       resolvePageRequests(payload.pages);
-    //       global.filesToGenerate = payload.filesToGenerate;
-    //       if (!devServerRunning) {
-    //         devServerRunning = true;
-    //         develop.start({
-    //           routes,
-    //           debug: contents.debug,
-    //           manifestConfig: payload.manifest,
-    //           routesWithRequests: payload.pages,
-    //           filesToGenerate: payload.filesToGenerate,
-    //           customPort: contents.customPort
-    //         });
-    //       }
-    //     } else {
-    //       if (payload.errors && payload.errors.length > 0) {
-    //         printErrorsAndExit(payload.errors);
-    //       }
-
-    //       develop.run(
-    //         {
-    //           routes,
-    //           manifestConfig: payload.manifest,
-    //           routesWithRequests: payload.pages,
-    //           filesToGenerate: payload.filesToGenerate
-    //         },
-    //         () => { }
-    //       );
-    //     }
-
-    //     ensureDirSync("./gen");
-
-    //     // prevent compilation errors if migrating from previous elm-pages version
-    //     deleteIfExists("./gen/Pages/ContentCache.elm");
-    //     deleteIfExists("./gen/Pages/Platform.elm");
-
-    //     fs.writeFileSync(
-    //       "./gen/Pages.elm",
-    //       elmPagesUiFile(staticRoutes, markdownContent)
-    //     );
-    //     console.log("elm-pages DONE");
-
-    //   }
-    // ).catch(function (errorPayload) {
-    //   startWatchIfNeeded()
-    //   resolvePageRequests({ type: 'error', message: errorPayload });
-    //   if (!devServerRunning) {
-    //     devServerRunning = true;
-    //     develop.start({
-    //       routes,
-    //       debug: contents.debug,
-    //       manifestConfig: stubManifest,
-    //       routesWithRequests: {},
-    //       filesToGenerate: [],
-    //       customPort: contents.customPort
-    //     });
-    //   }
-
-    // });
   });
 }
 
 run();
-
-function printErrorsAndExit(errors) {
-  console.error(
-    "Found errors. Exiting. Fix your content or parsers and re-run, or run in dev mode with `elm-pages develop`."
-  );
-  console.error(errors.join("\n\n"));
-  process.exit(1);
-}
-
-function startWatchIfNeeded() {
-  if (!watcher) {
-    console.log("Watching...");
-    watcher = chokidar
-      .watch(["content/**/*.*", "src/**/*.elm"], {
-        awaitWriteFinish: {
-          stabilityThreshold: 500
-        },
-        ignoreInitial: true
-      })
-      .on("all", function (event, filePath) {
-        console.log(`Rerunning for ${filePath}...`);
-        run();
-        console.log("Done!");
-      });
-  }
-}
 
 function toRoutes(entries) {
   return entries.map(toRoute);
