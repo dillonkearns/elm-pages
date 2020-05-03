@@ -73,38 +73,80 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
 
 
     if (module.hot) {
-      module.hot.addStatusHandler(function (status) {
-        console.log('HMR', status)
-        if (status === 'idle') {
 
-          // httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
-          //   // console.log('hot contentJson', contentJson);
+      // found this trick in the next.js source code
+      // https://github.com/zeit/next.js/blob/886037b1bac4bdbfeb689b032c1612750fb593f7/packages/next/client/dev/error-overlay/eventsource.js
+      // https://github.com/zeit/next.js/blob/886037b1bac4bdbfeb689b032c1612750fb593f7/packages/next/client/dev/dev-build-watcher.js
+      // more details about this API at https://www.html5rocks.com/en/tutorials/eventsource/basics/
+      let source = new window.EventSource('/__webpack_hmr')
+      // source.addEventListener('open', () => { console.log('open!!!!!') })
+      source.addEventListener('message', (e) => {
+        // console.log('message!!!!!', e)
+        // console.log(e.data.action)
+        // console.log('ACTION', e.data.action);
+        // if (e.data && e.data.action)
 
-          //   app.ports.fromJsPort.send({ contentJson: contentJson });
-          // });
-          // console.log('Reloaded!!!!!!!!!!', status)
+        if (event.data === '\uD83D\uDC93') {
+          // heartbeat
+        } else {
+          const obj = JSON.parse(event.data)
+          console.log('obj.action', obj.action);
+
+          if (obj.action === 'building') {
+            app.ports.fromJsPort.send({ thingy: 'hmr-check' });
+          } else if (obj.action === 'built') {
+            // console.log('built -- fetching');
+
+            let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
+            httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
+              // console.log('httpGet response', contentJson);
+
+              app.ports.fromJsPort.send({ contentJson: contentJson });
+              // success()
+            });
+          }
+
         }
-      });
+      })
+
+      // module.hot.addStatusHandler(function (status) {
+      //   console.log('HMR', status)
+      //   if (status === 'idle') {
+
+      //     // httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
+      //     //   // console.log('hot contentJson', contentJson);
+
+      //     //   app.ports.fromJsPort.send({ contentJson: contentJson });
+      //     // });
+      //     // console.log('Reloaded!!!!!!!!!!', status)
+      //   } else if (status === 'check') {
+
+      //     console.log('sending', { thingy: 'hmr-check' });
+
+      //     app.ports.fromJsPort.send({ thingy: 'hmr-check' });
+      //   }
+      // });
     }
+
 
 
     // found this trick from https://github.com/roots/sage/issues/1826
     // module.hot.addStatusHandler(function (status) { /* handle status */}) works, but after several saves
     // it stops working for some reason. So this is a workaround to work even when those updates stop coming through
-    const reporter = window.__webpack_hot_middleware_reporter__
-    const success = reporter.success
-    reporter.success = function () {
-      console.log('SUCCESS');
-      let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
-      httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
-        //   console.log('hot contentJson', contentJson);
+    // const reporter = window.__webpack_hot_middleware_reporter__
+    // console.log('reporter keys', reporter);
 
-        setTimeout(() => {
-          app.ports.fromJsPort.send({ contentJson: contentJson });
-        }, 0)
-        success()
-      });
-    }
+    // const success = reporter.success
+    // reporter.success = function () {
+    //   console.log('SUCCESS');
+    //   let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
+    //   httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
+    //     //   console.log('hot contentJson', contentJson);
+
+    //     app.ports.fromJsPort.send({ contentJson: contentJson });
+    //     success()
+    //   });
+    // }
 
 
     return app

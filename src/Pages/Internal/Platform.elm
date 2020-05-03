@@ -197,8 +197,41 @@ view pathKey content viewFn model =
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg |> Html.map AppMsg
+        , loadingView model.hmrStatus
         ]
     }
+
+
+loadingView : HmrStatus -> Html msg
+loadingView hmrStatus =
+    Html.div
+        [ Html.Attributes.id "__elm-pages-loading"
+        , Html.Attributes.class "lds-default"
+        , Html.Attributes.style "position" "fixed"
+        , Html.Attributes.style "bottom" "10px"
+        , Html.Attributes.style "right" "10px"
+        , Html.Attributes.style "display"
+            (case hmrStatus of
+                HmrLoading ->
+                    "block"
+
+                HmrLoaded ->
+                    "none"
+            )
+        ]
+        [ Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        , Html.div [] []
+        ]
 
 
 onViewChangeElement currentUrl =
@@ -347,6 +380,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
               , userModel = userModel
               , contentCache = contentCache
               , phase = phase
+              , hmrStatus = HmrLoaded
               }
             , cmd
             )
@@ -362,6 +396,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
               , userModel = userModel
               , contentCache = contentCache
               , phase = Client
+              , hmrStatus = HmrLoaded
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -392,6 +427,7 @@ type AppMsg userMsg metadata view
     | UpdateCacheForHotReload (Result Http.Error (ContentCache metadata view))
     | PageScrollComplete
     | HotReloadComplete ContentJson
+    | StartingHotReload
 
 
 type Model userModel userMsg metadata view
@@ -406,6 +442,7 @@ type alias ModelDetails userModel metadata view =
     , contentCache : ContentCache metadata view
     , userModel : userModel
     , phase : Phase
+    , hmrStatus : HmrStatus
     }
 
 
@@ -594,11 +631,10 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                     ( model, Cmd.none )
 
                 HotReloadComplete contentJson ->
-                    let
-                        _ =
-                            Debug.log "HotReloadComplete" { keys = Dict.keys contentJson.staticData, url = model.url.path }
-                    in
-                    ( { model | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url }) }
+                    ( { model
+                        | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url })
+                        , hmrStatus = HmrLoaded
+                      }
                     , Cmd.none
                       -- ContentCache.init document content (Maybe.map (\cj -> { contentJson = contentJson, initialUrl = model.url }) Nothing)
                       --|> ContentCache.lazyLoad document
@@ -608,8 +644,20 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                       --|> Task.attempt UpdateCacheForHotReload
                     )
 
+                StartingHotReload ->
+                    let
+                        _ =
+                            Debug.log "starting..." ""
+                    in
+                    ( { model | hmrStatus = HmrLoading }, Cmd.none )
+
         CliMsg _ ->
             ( model, Cmd.none )
+
+
+type HmrStatus
+    = HmrLoading
+    | HmrLoaded
 
 
 application :
@@ -718,16 +766,17 @@ application config =
                             , config.fromJsPort
                                 |> Sub.map
                                     (\decodeValue ->
-                                        --let
-                                        --    _ =
-                                        --        Debug.log "fromJsPort" (decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder))
-                                        --in
-                                        case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
-                                            Ok contentJson ->
-                                                AppMsg (HotReloadComplete contentJson)
+                                        case decodeValue |> Decode.decodeValue (Decode.field "thingy" Decode.string) |> Debug.log "thingy" of
+                                            Ok "hmr-check" ->
+                                                AppMsg StartingHotReload
 
-                                            Err error ->
-                                                Debug.todo ""
+                                            _ ->
+                                                case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
+                                                    Ok contentJson ->
+                                                        AppMsg (HotReloadComplete contentJson)
+
+                                                    Err error ->
+                                                        Debug.todo ""
                                     )
                             ]
 
