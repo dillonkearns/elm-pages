@@ -6,7 +6,6 @@ const fs = require("fs");
 const globby = require("globby");
 const develop = require("./develop.js");
 const chokidar = require("chokidar");
-const doCliStuff = require("./generate-elm-stuff.js");
 const { elmPagesUiFile } = require("./elm-file-constants.js");
 const generateRecords = require("./generate-records.js");
 const parseFrontmatter = require("./frontmatter.js");
@@ -91,78 +90,91 @@ function run() {
     const routes = toRoutes(markdownContent);
     let resolvePageRequests;
     let rejectPageRequests;
-    global.pagesWithRequests = new Promise(function (resolve, reject) {
-      resolvePageRequests = resolve;
-      rejectPageRequests = reject;
+
+    global.mode = contents.watch ? "dev" : "prod"
+    // global.pagesWithRequests = new Promise(function (resolve, reject) {
+    //   resolvePageRequests = resolve;
+    //   rejectPageRequests = reject;
+    // });
+    // resolvePageRequests({}); // TODO temporary - do the real resolution
+
+
+    develop.start({
+      routes,
+      debug: contents.debug,
+      manifestConfig: stubManifest,
+      routesWithRequests: {},
+      filesToGenerate: [],
+      customPort: contents.customPort
     });
 
 
-    doCliStuff(
-      contents.watch ? "dev" : "prod",
-      staticRoutes,
-      markdownContent
-    ).then(
-      function (payload) {
-        if (contents.watch) {
-          startWatchIfNeeded();
-          resolvePageRequests(payload.pages);
-          global.filesToGenerate = payload.filesToGenerate;
-          if (!devServerRunning) {
-            devServerRunning = true;
-            develop.start({
-              routes,
-              debug: contents.debug,
-              manifestConfig: payload.manifest,
-              routesWithRequests: payload.pages,
-              filesToGenerate: payload.filesToGenerate,
-              customPort: contents.customPort
-            });
-          }
-        } else {
-          if (payload.errors && payload.errors.length > 0) {
-            printErrorsAndExit(payload.errors);
-          }
+    // doCliStuff(
+    //   contents.watch ? "dev" : "prod",
+    //   staticRoutes,
+    //   markdownContent
+    // ).then(
+    //   function (payload) {
+    //     if (contents.watch) {
+    //       startWatchIfNeeded();
+    //       resolvePageRequests(payload.pages);
+    //       global.filesToGenerate = payload.filesToGenerate;
+    //       if (!devServerRunning) {
+    //         devServerRunning = true;
+    //         develop.start({
+    //           routes,
+    //           debug: contents.debug,
+    //           manifestConfig: payload.manifest,
+    //           routesWithRequests: payload.pages,
+    //           filesToGenerate: payload.filesToGenerate,
+    //           customPort: contents.customPort
+    //         });
+    //       }
+    //     } else {
+    //       if (payload.errors && payload.errors.length > 0) {
+    //         printErrorsAndExit(payload.errors);
+    //       }
 
-          develop.run(
-            {
-              routes,
-              manifestConfig: payload.manifest,
-              routesWithRequests: payload.pages,
-              filesToGenerate: payload.filesToGenerate
-            },
-            () => { }
-          );
-        }
+    //       develop.run(
+    //         {
+    //           routes,
+    //           manifestConfig: payload.manifest,
+    //           routesWithRequests: payload.pages,
+    //           filesToGenerate: payload.filesToGenerate
+    //         },
+    //         () => { }
+    //       );
+    //     }
 
-        ensureDirSync("./gen");
+    //     ensureDirSync("./gen");
 
-        // prevent compilation errors if migrating from previous elm-pages version
-        deleteIfExists("./gen/Pages/ContentCache.elm");
-        deleteIfExists("./gen/Pages/Platform.elm");
+    //     // prevent compilation errors if migrating from previous elm-pages version
+    //     deleteIfExists("./gen/Pages/ContentCache.elm");
+    //     deleteIfExists("./gen/Pages/Platform.elm");
 
-        fs.writeFileSync(
-          "./gen/Pages.elm",
-          elmPagesUiFile(staticRoutes, markdownContent)
-        );
-        console.log("elm-pages DONE");
+    //     fs.writeFileSync(
+    //       "./gen/Pages.elm",
+    //       elmPagesUiFile(staticRoutes, markdownContent)
+    //     );
+    //     console.log("elm-pages DONE");
 
-      }
-    ).catch(function (errorPayload) {
-      startWatchIfNeeded()
-      resolvePageRequests({ type: 'error', message: errorPayload });
-      if (!devServerRunning) {
-        devServerRunning = true;
-        develop.start({
-          routes,
-          debug: contents.debug,
-          manifestConfig: stubManifest,
-          routesWithRequests: {},
-          filesToGenerate: [],
-          customPort: contents.customPort
-        });
-      }
+    //   }
+    // ).catch(function (errorPayload) {
+    //   startWatchIfNeeded()
+    //   resolvePageRequests({ type: 'error', message: errorPayload });
+    //   if (!devServerRunning) {
+    //     devServerRunning = true;
+    //     develop.start({
+    //       routes,
+    //       debug: contents.debug,
+    //       manifestConfig: stubManifest,
+    //       routesWithRequests: {},
+    //       filesToGenerate: [],
+    //       customPort: contents.customPort
+    //     });
+    //   }
 
-    });
+    // });
   });
 }
 

@@ -1,5 +1,4 @@
 const webpack = require("webpack");
-const middleware = require("webpack-dev-middleware");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
@@ -15,6 +14,7 @@ const express = require("express");
 const ClosurePlugin = require("closure-webpack-plugin");
 const readline = require("readline");
 const webpackDevMiddleware = require("webpack-dev-middleware");
+const PluginGenerateElmPagesBuild = require('./plugin-generate-elm-pages-build')
 
 module.exports = { start, run };
 function start({ routes, debug, customPort, manifestConfig, routesWithRequests, filesToGenerate }) {
@@ -384,10 +384,11 @@ function webpackOptions(
         "./index.js",
       ],
       plugins: [
+        new PluginGenerateElmPagesBuild(),
         new webpack.NamedModulesPlugin(),
         new webpack.HotModuleReplacementPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
-        // new webpack.NoEmitOnErrorsPlugin(),
+        new webpack.NoEmitOnErrorsPlugin(),
       ],
       module: {
         rules: [

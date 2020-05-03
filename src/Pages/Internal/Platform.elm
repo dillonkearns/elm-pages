@@ -223,6 +223,13 @@ type alias ContentJson =
     }
 
 
+contentJsonDecoder : Decode.Decoder ContentJson
+contentJsonDecoder =
+    Decode.map2 ContentJson
+        (Decode.field "body" Decode.string)
+        (Decode.field "staticData" (Decode.dict Decode.string))
+
+
 init :
     pathKey
     -> String
@@ -271,12 +278,6 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             flags
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
                 |> Result.toMaybe
-
-        contentJsonDecoder : Decode.Decoder ContentJson
-        contentJsonDecoder =
-            Decode.map2 ContentJson
-                (Decode.field "body" Decode.string)
-                (Decode.field "staticData" (Decode.dict Decode.string))
 
         baseUrl =
             flags
@@ -390,7 +391,7 @@ type AppMsg userMsg metadata view
     | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
     | UpdateCacheForHotReload (Result Http.Error (ContentCache metadata view))
     | PageScrollComplete
-    | HotReloadComplete
+    | HotReloadComplete ContentJson
 
 
 type Model userModel userMsg metadata view
@@ -592,14 +593,19 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                 PageScrollComplete ->
                     ( model, Cmd.none )
 
-                HotReloadComplete ->
-                    ( model
-                    , ContentCache.init document content (Maybe.map (\cj -> { contentJson = cj, initialUrl = model.url }) Nothing)
-                        |> ContentCache.lazyLoad document
-                            { currentUrl = model.url
-                            , baseUrl = model.baseUrl
-                            }
-                        |> Task.attempt UpdateCacheForHotReload
+                HotReloadComplete contentJson ->
+                    let
+                        _ =
+                            Debug.log "HotReloadComplete" { keys = Dict.keys contentJson.staticData, url = model.url.path }
+                    in
+                    ( { model | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url }) }
+                    , Cmd.none
+                      -- ContentCache.init document content (Maybe.map (\cj -> { contentJson = contentJson, initialUrl = model.url }) Nothing)
+                      --|> ContentCache.lazyLoad document
+                      --    { currentUrl = model.url
+                      --    , baseUrl = model.baseUrl
+                      --    }
+                      --|> Task.attempt UpdateCacheForHotReload
                     )
 
         CliMsg _ ->
@@ -709,7 +715,20 @@ application config =
                             [ config.subscriptions model.userModel
                                 |> Sub.map UserMsg
                                 |> Sub.map AppMsg
-                            , config.fromJsPort |> Sub.map (\_ -> AppMsg HotReloadComplete)
+                            , config.fromJsPort
+                                |> Sub.map
+                                    (\decodeValue ->
+                                        --let
+                                        --    _ =
+                                        --        Debug.log "fromJsPort" (decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder))
+                                        --in
+                                        case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
+                                            Ok contentJson ->
+                                                AppMsg (HotReloadComplete contentJson)
+
+                                            Err error ->
+                                                Debug.todo ""
+                                    )
                             ]
 
                     CliModel _ ->

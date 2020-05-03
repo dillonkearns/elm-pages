@@ -72,6 +72,20 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
     });
 
 
+    if (module.hot) {
+      module.hot.addStatusHandler(function (status) {
+        console.log('HMR', status)
+        if (status === 'idle') {
+
+          // httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
+          //   // console.log('hot contentJson', contentJson);
+
+          //   app.ports.fromJsPort.send({ contentJson: contentJson });
+          // });
+          // console.log('Reloaded!!!!!!!!!!', status)
+        }
+      });
+    }
 
 
     // found this trick from https://github.com/roots/sage/issues/1826
@@ -81,17 +95,16 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
     const success = reporter.success
     reporter.success = function () {
       console.log('SUCCESS');
-      app.ports.fromJsPort.send({});
-      success()
-    }
+      httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
+        //   console.log('hot contentJson', contentJson);
 
-    if (module.hot) {
-      module.hot.addStatusHandler(function (status) {
-        if (status === 'idle') {
-          console.log('Reloaded!!!!!!!!!!', status)
-        }
+        setTimeout(() => {
+          app.ports.fromJsPort.send({ contentJson: contentJson });
+        }, 0)
+        success()
       });
     }
+
 
     return app
 
