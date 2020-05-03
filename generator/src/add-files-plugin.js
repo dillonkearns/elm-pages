@@ -34,52 +34,55 @@ module.exports = class AddFilesPlugin {
 
 
       let staticRequestData = {}
-      global.pagesWithRequests.then(pageWithRequests => {
+      global.pagesWithRequests.then(payload => {
 
-        if (pageWithRequests.type === 'error') {
-          compilation.errors.push(new Error(pageWithRequests.message))
-        } else {
-          staticRequestData = pageWithRequests
+        if (payload.type === 'error') {
+          compilation.errors.push(new Error(payload.message))
+        } else if (payload.errors && payload.errors.length > 0) {
+          compilation.errors.push(new Error(payload.errors[0]))
+        }
+        else {
+          staticRequestData = payload.pages
         }
       })
         .finally(() => {
 
-        files.forEach(file => {
-          // Couldn't find this documented in the webpack docs,
-          // but I found the example code for it here:
-          // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+          files.forEach(file => {
+            // Couldn't find this documented in the webpack docs,
+            // but I found the example code for it here:
+            // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-          let route = file.baseRoute.replace(/\/$/, '');
+            let route = file.baseRoute.replace(/\/$/, '');
             const staticRequests = staticRequestData[route];
 
-          const filename = path.join(file.baseRoute, "content.json");
+            const filename = path.join(file.baseRoute, "content.json");
             compilation.contextDependencies.add('content')
-          // compilation.fileDependencies.add(filename);
-          compilation.fileDependencies.add(path.resolve(file.filePath));
-          const rawContents = JSON.stringify({
-            body: file.content,
-            staticData: staticRequests || {}
+            // compilation.fileDependencies.add(filename);
+            compilation.fileDependencies.add(path.resolve(file.filePath));
+            const rawContents = JSON.stringify({
+              body: file.content,
+              staticData: staticRequests || {}
+            });
+
+            compilation.assets[filename] = {
+              source: () => rawContents,
+              size: () => rawContents.length
+            };
           });
 
-          compilation.assets[filename] = {
-            source: () => rawContents,
-            size: () => rawContents.length
-          };
-        });
+          (global.filesToGenerate || []).forEach(file => {
+            // Couldn't find this documented in the webpack docs,
+            // but I found the example code for it here:
+            // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+            compilation.assets[file.path] = {
+              source: () => file.content,
+              size: () => file.content.length
+            };
+          });
 
-        (global.filesToGenerate || []).forEach(file => {
-          // Couldn't find this documented in the webpack docs,
-          // but I found the example code for it here:
-          // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
-          compilation.assets[file.path] = {
-            source: () => file.content,
-            size: () => file.content.length
-          };
-        });
+          callback()
 
-        callback()
-
-      })
+        })
 
     });
   }

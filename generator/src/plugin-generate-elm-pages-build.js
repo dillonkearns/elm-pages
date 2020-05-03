@@ -59,7 +59,7 @@ value = ${this.value++}
                 console.log('PROMISE RESOLVED doCliStuff');
 
 
-                resolvePageRequests(payload.pages);
+                resolvePageRequests(payload);
                 global.filesToGenerate = payload.filesToGenerate;
 
             }).catch(function (errorPayload) {
