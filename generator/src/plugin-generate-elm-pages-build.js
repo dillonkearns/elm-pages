@@ -8,29 +8,10 @@ const globby = require("globby");
 
 module.exports = class PluginGenerateElmPagesBuild {
     constructor() {
-        this.value = 1;
     }
 
     apply(/** @type {webpack.Compiler} */ compiler) {
-        compiler.hooks.afterEmit.tap('DoneMsg', () => {
-            console.log('---> DONE!');
-
-        })
-
         compiler.hooks.beforeCompile.tap('PluginGenerateElmPagesBuild', (compilation) => {
-            // compiler.hooks.thisCompilation.tap('PluginGenerateElmPagesBuild', (compilation) => {
-
-            // compilation.contextDependencies.add('content')
-            // compiler.hooks.thisCompilation.tap('ThisCompilation', (compilation) => {
-            console.log('----> PluginGenerateElmPagesBuild');
-            const src = `module Example exposing (..)
-
-value : Int
-value = ${this.value++}
-`
-            // console.log('@@@ Writing EXAMPLE module');
-            // fs.writeFileSync(path.join(process.cwd(), './src/Example.elm'), src);
-
             const staticRoutes = generateRecords();
 
             const markdownContent = globby
@@ -39,10 +20,6 @@ value = ${this.value++}
                 .map(({ path, contents }) => {
                     return parseMarkdown(path, contents);
                 });
-
-            const images = globby
-                .sync("images/**/*", {})
-                .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
 
             let resolvePageRequests;
             let rejectPageRequests;
@@ -56,8 +33,7 @@ value = ${this.value++}
                 staticRoutes,
                 markdownContent
             ).then((payload) => {
-                console.log('PROMISE RESOLVED doCliStuff');
-
+                // console.log('PROMISE RESOLVED doCliStuff');
 
                 resolvePageRequests(payload);
                 global.filesToGenerate = payload.filesToGenerate;
@@ -65,13 +41,6 @@ value = ${this.value++}
             }).catch(function (errorPayload) {
                 resolvePageRequests({ type: 'error', message: errorPayload });
             })
-
-
-            // compilation.assets['./src/Example.elm'] = {
-            //     source: () => src,
-            //     size: () => src.length
-            // };
-            // callback()
 
         });
     };

@@ -260,10 +260,10 @@ function webpackOptions(
           /assets\//
         ],
         swDest: "service-worker.js"
-      })
+      }),
       // comment this out to do performance profiling
       // (drag-and-drop `events.json` file into Chrome performance tab)
-      // , new webpack.debug.ProfilingPlugin()
+      // new webpack.debug.ProfilingPlugin()
     ],
     output: {},
     resolve: {
@@ -413,10 +413,7 @@ function webpackOptions(
 }
 
 function hmrClientPath() {
-  // return require.resolve("webpack-hot-middleware/client");
   var ansiColors = {
-    // red: 'FF0000' // note the lack of "#"
-    // reset: ['ffffff', '0000000'], // [FOREGROUD_COLOR, BACKGROUND_COLOR]
     reset: ['ffffff', 'transparent'], // [FOREGROUD_COLOR, BACKGROUND_COLOR]
     black: '000',
     red: 'c91b00',
@@ -431,7 +428,6 @@ function hmrClientPath() {
   var overlayStyles = {
     // options from https://github.com/webpack-contrib/webpack-hot-middleware/blob/master/client-overlay.js
 
-    // color: '#FF0000' // note the inclusion of "#" (these options would be the equivalent of div.style[option] = value)
     background: 'rgba(0,0,0,0.90)',
     color: '#e8e8e8',
     lineHeight: '1.6',

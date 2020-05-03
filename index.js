@@ -90,67 +90,27 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
           // heartbeat
         } else {
           const obj = JSON.parse(event.data)
-          console.log('obj.action', obj.action);
+          // console.log('obj.action', obj.action);
 
           if (obj.action === 'building') {
             app.ports.fromJsPort.send({ thingy: 'hmr-check' });
           } else if (obj.action === 'built') {
-            // console.log('built -- fetching');
+            // console.log('httpGet start');
 
             let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
             httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
-              // console.log('httpGet response', contentJson);
+              // console.log('httpGet received');
 
               app.ports.fromJsPort.send({ contentJson: contentJson });
-              // success()
             });
           }
 
         }
       })
 
-      // module.hot.addStatusHandler(function (status) {
-      //   console.log('HMR', status)
-      //   if (status === 'idle') {
-
-      //     // httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
-      //     //   // console.log('hot contentJson', contentJson);
-
-      //     //   app.ports.fromJsPort.send({ contentJson: contentJson });
-      //     // });
-      //     // console.log('Reloaded!!!!!!!!!!', status)
-      //   } else if (status === 'check') {
-
-      //     console.log('sending', { thingy: 'hmr-check' });
-
-      //     app.ports.fromJsPort.send({ thingy: 'hmr-check' });
-      //   }
-      // });
     }
 
-
-
-    // found this trick from https://github.com/roots/sage/issues/1826
-    // module.hot.addStatusHandler(function (status) { /* handle status */}) works, but after several saves
-    // it stops working for some reason. So this is a workaround to work even when those updates stop coming through
-    // const reporter = window.__webpack_hot_middleware_reporter__
-    // console.log('reporter keys', reporter);
-
-    // const success = reporter.success
-    // reporter.success = function () {
-    //   console.log('SUCCESS');
-    //   let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
-    //   httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
-    //     //   console.log('hot contentJson', contentJson);
-
-    //     app.ports.fromJsPort.send({ contentJson: contentJson });
-    //     success()
-    //   });
-    // }
-
-
     return app
-
   });
 }
 
