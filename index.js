@@ -95,7 +95,8 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
     const success = reporter.success
     reporter.success = function () {
       console.log('SUCCESS');
-      httpGet(`${window.location.origin}${path}content.json`).then(function (/** @type JSON */ contentJson) {
+      let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
+      httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
         //   console.log('hot contentJson', contentJson);
 
         setTimeout(() => {
