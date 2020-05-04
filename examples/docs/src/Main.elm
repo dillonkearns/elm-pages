@@ -89,6 +89,8 @@ generateFiles :
 generateFiles siteMetadata =
     [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
     , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+
+    --, Ok { content = "Hello1!", path = [ "test.txt" ] }
     ]
 
 
@@ -179,16 +181,27 @@ view siteMetadata page =
                 (D.field "stargazers_count" D.int)
                 |> StaticHttp.map
                     (\stars ->
-                    { view =
-                        \model viewForPage ->
-                            pageView stars model siteMetadata page viewForPage
-                                |> wrapBody stars page model
-                    , head = head page.frontmatter
-                    }
-                )
+                        { view =
+                            \model viewForPage ->
+                                pageView stars model siteMetadata page viewForPage
+                                    |> wrapBody stars page model
+                        , head = head page.frontmatter
+                        }
+                    )
 
 
 
+--StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+--    (D.field "stargazers_count" D.int)
+--    |> StaticHttp.map
+--        (\stars ->
+--            { view =
+--                \model viewForPage ->
+--                    pageView stars model siteMetadata page viewForPage
+--                        |> wrapBody stars page model
+--            , head = head page.frontmatter
+--            }
+--        )
 --let
 --    viewFn =
 --        case page.frontmatter of

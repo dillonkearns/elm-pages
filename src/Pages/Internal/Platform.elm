@@ -145,6 +145,12 @@ pageViewOrError pathKey viewFn model cache =
                                                     [ Html.text "I'm missing some StaticHttp data for this page:"
                                                     , Html.pre [] [ Html.text missingKey ]
                                                     ]
+
+                                            StaticHttpRequest.UserCalledStaticHttpFail message ->
+                                                Html.div []
+                                                    [ Html.text "I ran into a call to `Pages.StaticHttp.fail` with message:"
+                                                    , Html.pre [] [ Html.text message ]
+                                                    ]
                                     }
 
                         Err error ->

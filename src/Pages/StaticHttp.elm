@@ -451,8 +451,7 @@ fail errorMessage =
     Request
         ( []
         , \appType rawResponses ->
-            -- TODO add a new variant for this
-            Err (Pages.StaticHttpRequest.DecoderError "")
+            Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail errorMessage)
         )
 
 

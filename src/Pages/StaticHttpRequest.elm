@@ -31,6 +31,7 @@ strippedResponses appType request rawResponses =
 type Error
     = MissingHttpResponse String
     | DecoderError String
+    | UserCalledStaticHttpFail String
 
 
 urls : Request value -> List (Secrets.Value Pages.StaticHttp.Request.Request)
@@ -66,6 +67,16 @@ toBuildError path error =
             , fatal = True
             }
 
+        UserCalledStaticHttpFail decodeErrorMessage ->
+            { title = "Called Static Http Fail"
+            , message =
+                [ Terminal.text path
+                , Terminal.text "\n\n"
+                , Terminal.text <| "I ran into a call to `Pages.StaticHttp.fail` with message: " ++ decodeErrorMessage
+                ]
+            , fatal = True
+            }
+
 
 permanentError : ApplicationType -> Request value -> Dict String String -> Maybe Error
 permanentError appType request rawResponses =
@@ -81,6 +92,9 @@ permanentError appType request rawResponses =
                             Nothing
 
                         DecoderError _ ->
+                            Just error
+
+                        UserCalledStaticHttpFail string ->
                             Just error
 
         Done value ->
