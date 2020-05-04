@@ -712,7 +712,10 @@ unoptimizedRequest requestWithSecrets expect =
                                     |> (\decodeResult ->
                                             case decodeResult of
                                                 Err error ->
-                                                    Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
+                                                    error
+                                                        |> Decode.errorToString
+                                                        |> Pages.StaticHttpRequest.DecoderError
+                                                        |> Err
 
                                                 Ok a ->
                                                     Ok a
