@@ -52,16 +52,10 @@ function run() {
       return parseMarkdown(path, contents);
     });
 
-  const images = globby
-    .sync("images/**/*", {})
-    .filter(imagePath => !fs.lstatSync(imagePath).isDirectory());
-
   let app = Elm.Main.init({
     flags: {
       argv: process.argv,
       versionMessage: version,
-      markdownContent,
-      images
     }
   });
 
