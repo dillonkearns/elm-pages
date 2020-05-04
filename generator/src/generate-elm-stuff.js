@@ -13,6 +13,7 @@ module.exports = function run(
   markdownContent
 ) {
   ensureDirSync("./elm-stuff");
+  ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages");
 
   // prevent compilation errors if migrating from previous elm-pages version
