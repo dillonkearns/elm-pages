@@ -773,6 +773,10 @@ application config =
                                             _ ->
                                                 case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
                                                     Ok contentJson ->
+                                                        let
+                                                            _ =
+                                                                Debug.log "HotReloadComplete" ""
+                                                        in
                                                         AppMsg (HotReloadComplete contentJson)
 
                                                     Err error ->
