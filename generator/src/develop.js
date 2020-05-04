@@ -75,7 +75,7 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes, manifestConfig, routesWithRequests, filesToGenerate }, callback) {
+function run({ routes, manifestConfig, routesWithRequests, filesToGenerate }) {
   webpack(
     webpackOptions(true, routes, {
       debug: false,
@@ -88,7 +88,7 @@ function run({ routes, manifestConfig, routesWithRequests, filesToGenerate }, ca
       console.error(err);
       process.exit(1);
     } else {
-      callback();
+      // done
     }
 
     console.log(
@@ -134,6 +134,7 @@ function webpackOptions(
   const common = {
     mode: production ? "production" : "development",
     plugins: [
+      new PluginGenerateElmPagesBuild(),
       new AddFilesPlugin(routesWithRequests, filesToGenerate),
       new CopyPlugin([
         {
@@ -349,7 +350,7 @@ function webpackOptions(
           renderer: new PrerenderSPAPlugin.PuppeteerRenderer({
             renderAfterDocumentEvent: "prerender-trigger",
             headless: true,
-            devtools: false
+            devtools: false,
           }),
 
           postProcess: renderedRoute => {
@@ -384,7 +385,6 @@ function webpackOptions(
         "./index.js",
       ],
       plugins: [
-        new PluginGenerateElmPagesBuild(),
         new webpack.NamedModulesPlugin(),
         new webpack.HotModuleReplacementPlugin(),
         // Prevents compilation errors causing the hot loader to lose state

@@ -23,11 +23,11 @@ function unpackFile(filePath) {
 
 module.exports = class AddFilesPlugin {
   constructor(data, filesToGenerate) {
-    this.pagesWithRequests = data;
+    // this.pagesWithRequests = data;
     this.filesToGenerate = filesToGenerate;
   }
   apply(/** @type {webpack.Compiler} */ compiler) {
-    compiler.hooks.emit.tapAsync("AddFilesPlugin", (compilation, callback) => {
+    compiler.hooks.make.tapAsync("AddFilesPlugin", (compilation, callback) => {
 
 
       const files = globby.sync("content").map(unpackFile);
@@ -56,9 +56,13 @@ module.exports = class AddFilesPlugin {
             const staticRequests = staticRequestData[route];
 
             const filename = path.join(file.baseRoute, "content.json");
-            compilation.contextDependencies.add('content')
+            if (compilation.contextDependencies) {
+              compilation.contextDependencies.add('content')
+            }
             // compilation.fileDependencies.add(filename);
-            compilation.fileDependencies.add(path.resolve(file.filePath));
+            if (compilation.fileDependencies) {
+              compilation.fileDependencies.add(path.resolve(file.filePath));
+            }
             const rawContents = JSON.stringify({
               body: file.content,
               staticData: staticRequests || {}

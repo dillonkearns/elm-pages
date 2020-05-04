@@ -80,14 +80,25 @@ function run() {
 
     global.mode = contents.watch ? "dev" : "prod"
 
-    develop.start({
-      routes,
-      debug: contents.debug,
-      manifestConfig: stubManifest,
-      routesWithRequests: {},
-      filesToGenerate: [],
-      customPort: contents.customPort
-    });
+    if (contents.watch) {
+      develop.start({
+        routes,
+        debug: contents.debug,
+        manifestConfig: stubManifest,
+        routesWithRequests: {},
+        filesToGenerate: [],
+        customPort: contents.customPort
+      });
+    } else {
+      develop.run({
+        routes,
+        debug: contents.debug,
+        manifestConfig: stubManifest,
+        routesWithRequests: {},
+        filesToGenerate: [],
+        customPort: contents.customPort
+      });
+    }
 
   });
 }

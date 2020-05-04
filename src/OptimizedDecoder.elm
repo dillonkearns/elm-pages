@@ -576,10 +576,11 @@ nullable (OptimizedDecoder jd jde) =
 -}
 lazy : (() -> Decoder a) -> Decoder a
 lazy toDecoder =
-    Debug.todo ""
+    lazy toDecoder
 
 
 
+--Debug.todo ""
 --Decoder <|
 --    \json ->
 --        let

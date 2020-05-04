@@ -645,10 +645,10 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                     )
 
                 StartingHotReload ->
-                    let
-                        _ =
-                            Debug.log "starting..." ""
-                    in
+                    --let
+                    --    _ =
+                    --        Debug.log "starting..." ""
+                    --in
                     ( { model | hmrStatus = HmrLoading }, Cmd.none )
 
         CliMsg _ ->
@@ -766,7 +766,7 @@ application config =
                             , config.fromJsPort
                                 |> Sub.map
                                     (\decodeValue ->
-                                        case decodeValue |> Decode.decodeValue (Decode.field "thingy" Decode.string) |> Debug.log "thingy" of
+                                        case decodeValue |> Decode.decodeValue (Decode.field "thingy" Decode.string) of
                                             Ok "hmr-check" ->
                                                 AppMsg StartingHotReload
 
@@ -776,7 +776,9 @@ application config =
                                                         AppMsg (HotReloadComplete contentJson)
 
                                                     Err error ->
-                                                        Debug.todo ""
+                                                        --Debug.todo ""
+                                                        -- TODO should be no message here
+                                                        AppMsg StartingHotReload
                                     )
                             ]
 
