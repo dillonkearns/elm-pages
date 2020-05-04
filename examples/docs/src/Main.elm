@@ -179,13 +179,13 @@ view siteMetadata page =
                 (D.field "stargazers_count" D.int)
                 |> StaticHttp.map
                     (\stars ->
-                        { view =
-                            \model viewForPage ->
-                                pageView stars model siteMetadata page viewForPage
-                                    |> wrapBody stars page model
-                        , head = head page.frontmatter
-                        }
-                    )
+                    { view =
+                        \model viewForPage ->
+                            pageView stars model siteMetadata page viewForPage
+                                |> wrapBody stars page model
+                    , head = head page.frontmatter
+                    }
+                )
 
 
 
