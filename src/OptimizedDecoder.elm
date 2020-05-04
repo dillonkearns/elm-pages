@@ -1,13 +1,12 @@
 module OptimizedDecoder exposing
-    ( decodeString, decodeValue, Value
-    , Error, errorToString
-    , Decoder, string, bool, int, float
+    ( Error, errorToString
+    , Decoder, string, bool, int, float, Value
     , nullable, list, array, dict, keyValuePairs
     , field, at, index
     , maybe, oneOf
     , lazy, value, null, succeed, fail, andThen
     , map, map2, map3, map4, map5, map6, map7, map8, andMap
-    , decoder
+    , decodeString, decodeValue, decoder
     )
 
 {-| This package presents a somewhat experimental approach to JSON decoding. Its
@@ -36,23 +35,6 @@ module which is largely a copy of [`NoRedInk/elm-decode-pipeline`][edp].
 [edp]: http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest
 
 
-# Running a `Decoder`
-
-Runing a `Decoder` works largely the same way as it does in the familiar core
-library. There is one serious caveat, however:
-
-> This library does **not** allowing decoding non-serializable JS values.
-
-This means that trying to use this library to decode a `Value` which contains
-non-serializable information like `function`s will not work. It will, however,
-result in a `BadJson` result.
-
-Trying to use this library on cyclic values (like HTML events) is quite likely
-to blow up completely. Don't try this, except maybe at home.
-
-@docs decodeString, decodeValue, strict, DecodeResult, Value
-
-
 ## Dealing with warnings and errors
 
 @docs Error, errorToString
@@ -60,7 +42,7 @@ to blow up completely. Don't try this, except maybe at home.
 
 # Primitives
 
-@docs Decoder, string, bool, int, float
+@docs Decoder, string, bool, int, float, Value
 
 
 # Data Structures
@@ -108,6 +90,8 @@ import Json.Decode as JD
 import Json.Decode.Exploration as JDE
 
 
+{-| A decoder that will be optimized in your production bundle.
+-}
 type alias Decoder a =
     OptimizedDecoder a
 
