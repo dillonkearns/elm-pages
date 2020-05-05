@@ -27,7 +27,8 @@ module.exports = class AddFilesPlugin {
     this.filesToGenerate = filesToGenerate;
   }
   apply(/** @type {webpack.Compiler} */ compiler) {
-    compiler.hooks.emit.tapAsync("AddFilesPlugin", (compilation, callback) => {
+
+    (global.mode === "dev" ? compiler.hooks.emit : compiler.hooks.make).tapAsync("AddFilesPlugin", (compilation, callback) => {
 
 
       const files = globby.sync("content").map(unpackFile);
