@@ -68,24 +68,24 @@ function run() {
     process.exit(1);
   });
 
-  app.ports.writeFile.subscribe(contents => {
+  app.ports.writeFile.subscribe(cliOptions => {
     const routes = toRoutes(markdownContent);
 
-    global.mode = contents.watch ? "dev" : "prod"
+    global.mode = cliOptions.watch ? "dev" : "prod"
 
-    if (contents.watch) {
+    if (cliOptions.watch) {
       develop.start({
         routes,
-        debug: contents.debug,
+        debug: cliOptions.debug,
         manifestConfig: stubManifest,
-        customPort: contents.customPort
+        customPort: cliOptions.customPort
       });
     } else {
       develop.run({
         routes,
-        debug: contents.debug,
+        debug: cliOptions.debug,
         manifestConfig: stubManifest,
-        customPort: contents.customPort
+        customPort: cliOptions.customPort
       });
     }
 
