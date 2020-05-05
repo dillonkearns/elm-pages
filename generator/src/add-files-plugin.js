@@ -22,10 +22,6 @@ function unpackFile(filePath) {
 }
 
 module.exports = class AddFilesPlugin {
-  constructor(data, filesToGenerate) {
-    // this.pagesWithRequests = data;
-    this.filesToGenerate = filesToGenerate;
-  }
   apply(/** @type {webpack.Compiler} */ compiler) {
 
     (global.mode === "dev" ? compiler.hooks.emit : compiler.hooks.make).tapAsync("AddFilesPlugin", (compilation, callback) => {

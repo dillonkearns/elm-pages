@@ -135,7 +135,7 @@ function webpackOptions(
     mode: production ? "production" : "development",
     plugins: [
       new PluginGenerateElmPagesBuild(),
-      new AddFilesPlugin(routesWithRequests, filesToGenerate),
+      new AddFilesPlugin(),
       new CopyPlugin([
         {
           from: "static/**/*",
