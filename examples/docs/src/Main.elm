@@ -190,55 +190,6 @@ view siteMetadata page =
                     )
 
 
-
---StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
---    (D.field "stargazers_count" D.int)
---    |> StaticHttp.map
---        (\stars ->
---            { view =
---                \model viewForPage ->
---                    pageView stars model siteMetadata page viewForPage
---                        |> wrapBody stars page model
---            , head = head page.frontmatter
---            }
---        )
---let
---    viewFn =
---        case page.frontmatter of
---            Metadata.Page metadata ->
---                StaticHttp.map3
---                    (\elmPagesStars elmPagesStarterStars netlifyStars ->
---                        { view =
---                            \model viewForPage ->
---                                { title = metadata.title
---                                , body =
---                                    "elm-pages ⭐️'s: "
---                                        ++ String.fromInt elmPagesStars
---                                        ++ "\n\nelm-pages-starter ⭐️'s: "
---                                        ++ String.fromInt elmPagesStarterStars
---                                        ++ "\n\nelm-markdown ⭐️'s: "
---                                        ++ String.fromInt netlifyStars
---                                        |> Element.text
---                                        |> wrapBody
---                                }
---                        , head = head page.frontmatter
---                        }
---                    )
---                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
---                        (D.field "stargazers_count" D.int)
---                    )
---                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
---                        (D.field "stargazers_count" D.int)
---                    )
---                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown")
---                        (D.field "stargazers_count" D.int)
---                    )
---
---            _ ->
---                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
---                        (Decode.field "stargazers_count" Decode.int)
-
-
 pageView :
     Int
     -> Model
