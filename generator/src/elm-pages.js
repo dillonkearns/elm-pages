@@ -39,8 +39,7 @@ function parseMarkdown(path, fileContents) {
   return {
     path,
     metadata: JSON.stringify(data),
-    body: content,
-    extension: "md"
+    body: content
   };
 }
 

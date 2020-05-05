@@ -58,7 +58,5 @@ function parseMarkdown(path, fileContents) {
         path,
         metadata: JSON.stringify(data),
         body: content,
-        // TODO fix this
-        extension: "md"
     };
 }
