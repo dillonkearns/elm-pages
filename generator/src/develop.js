@@ -17,12 +17,10 @@ const webpackDevMiddleware = require("webpack-dev-middleware");
 const PluginGenerateElmPagesBuild = require('./plugin-generate-elm-pages-build')
 
 module.exports = { start, run };
-function start({ routes, debug, customPort, manifestConfig, routesWithRequests, filesToGenerate }) {
+function start({ routes, debug, customPort, manifestConfig }) {
   const config = webpackOptions(false, routes, {
     debug,
-    manifestConfig,
-    routesWithRequests,
-    filesToGenerate
+    manifestConfig
   });
 
   const compiler = webpack(config);
@@ -75,13 +73,11 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes, manifestConfig, routesWithRequests, filesToGenerate }) {
+function run({ routes, manifestConfig }) {
   webpack(
     webpackOptions(true, routes, {
       debug: false,
       manifestConfig,
-      routesWithRequests,
-      filesToGenerate
     })
   ).run((err, stats) => {
     if (err) {
@@ -129,7 +125,7 @@ function printProgress(progress, message) {
 function webpackOptions(
   production,
   routes,
-  { debug, manifestConfig, routesWithRequests, filesToGenerate }
+  { debug, manifestConfig }
 ) {
   const common = {
     mode: production ? "production" : "development",

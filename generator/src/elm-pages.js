@@ -78,8 +78,6 @@ function run() {
         routes,
         debug: contents.debug,
         manifestConfig: stubManifest,
-        routesWithRequests: {},
-        filesToGenerate: [],
         customPort: contents.customPort
       });
     } else {
@@ -87,8 +85,6 @@ function run() {
         routes,
         debug: contents.debug,
         manifestConfig: stubManifest,
-        routesWithRequests: {},
-        filesToGenerate: [],
         customPort: contents.customPort
       });
     }
