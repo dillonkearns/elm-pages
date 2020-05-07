@@ -6,6 +6,8 @@ const fs = require("fs");
 const globby = require("globby");
 const develop = require("./develop.js");
 const parseFrontmatter = require("./frontmatter.js");
+const generateRecords = require("./generate-records.js");
+const doCliStuff = require("./generate-elm-stuff.js");
 global.builtAt = new Date();
 global.staticHttpCache = {};
 
@@ -13,26 +15,6 @@ function unpackFile(path) {
   return { path, contents: fs.readFileSync(path).toString() };
 }
 
-const stubManifest = {
-  sourceIcon: 'images/icon-png.png',
-  background_color: '#ffffff',
-  orientation: 'portrait',
-  display: 'standalone',
-  categories: ['education'],
-  description: 'elm-pages - A statically typed site generator.',
-  name: 'elm-pages docs',
-  prefer_related_applications: false,
-  related_applications: [],
-  theme_color: '#ffffff',
-  start_url: '',
-  short_name: 'elm-pages',
-  serviceworker: {
-    src: '../service-worker.js',
-    scope: '/',
-    type: '',
-    update_via_cache: 'none'
-  }
-}
 
 function parseMarkdown(path, fileContents) {
   const { content, data } = parseFrontmatter(path, fileContents);
@@ -69,25 +51,44 @@ function run() {
   });
 
   app.ports.writeFile.subscribe(cliOptions => {
+
+
+    const markdownContent = globby
+      .sync(["content/**/*.*"], {})
+      .map(unpackFile)
+      .map(({ path, contents }) => {
+        return parseMarkdown(path, contents);
+      });
     const routes = toRoutes(markdownContent);
 
     global.mode = cliOptions.watch ? "dev" : "prod"
+    const staticRoutes = generateRecords();
 
+    doCliStuff(
+      global.mode,
+      staticRoutes,
+      markdownContent
+    ).then((payload) => {
     if (cliOptions.watch) {
       develop.start({
         routes,
         debug: cliOptions.debug,
-        manifestConfig: stubManifest,
-        customPort: cliOptions.customPort
+          customPort: cliOptions.customPort,
+          manifestConfig: payload.manifest,
+
       });
     } else {
       develop.run({
         routes,
         debug: cliOptions.debug,
-        manifestConfig: stubManifest,
-        customPort: cliOptions.customPort
+          customPort: cliOptions.customPort,
+          manifestConfig: payload.manifest,
       });
     }
+
+    })
+
+
 
   });
 }
