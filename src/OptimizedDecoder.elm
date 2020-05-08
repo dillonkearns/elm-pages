@@ -560,19 +560,28 @@ nullable (OptimizedDecoder jd jde) =
 -}
 lazy : (() -> Decoder a) -> Decoder a
 lazy toDecoder =
-    lazy toDecoder
+    let
+        jd : JD.Decoder a
+        jd =
+            (\() ->
+                case toDecoder () of
+                    OptimizedDecoder jd_ jde_ ->
+                        jd_
+            )
+                |> JD.lazy
 
-
-
---Debug.todo ""
---Decoder <|
---    \json ->
---        let
---            (Decoder decoderFn) =
---                toDecoder ()
---        in
---        decoderFn json
--- Extras
+        jde : JDE.Decoder a
+        jde =
+            (\() ->
+                case toDecoder () of
+                    OptimizedDecoder jd_ jde_ ->
+                        jde_
+            )
+                |> JDE.lazy
+    in
+    OptimizedDecoder
+        jd
+        jde
 
 
 {-| Useful for checking a value in the JSON matches the value you expect it to
