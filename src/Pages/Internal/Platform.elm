@@ -6,13 +6,14 @@ import Browser.Navigation
 import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
-import Html.Attributes
+import Html.Attributes exposing (style)
 import Http
 import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Internal.ApplicationType as ApplicationType
+import Pages.Internal.HotReloadLoadingIndicator as HotReloadLoadingIndicator
 import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
 import Pages.Manifest as Manifest
@@ -210,34 +211,14 @@ view pathKey content viewFn model =
 
 loadingView : HmrStatus -> Html msg
 loadingView hmrStatus =
-    Html.div
-        [ Html.Attributes.id "__elm-pages-loading"
-        , Html.Attributes.class "lds-default"
-        , Html.Attributes.style "position" "fixed"
-        , Html.Attributes.style "bottom" "10px"
-        , Html.Attributes.style "right" "10px"
-        , Html.Attributes.style "display"
-            (case hmrStatus of
-                HmrLoading ->
-                    "block"
+    HotReloadLoadingIndicator.view
+        (case hmrStatus of
+            HmrLoading ->
+                True
 
-                HmrLoaded ->
-                    "none"
-            )
-        ]
-        [ Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        , Html.div [] []
-        ]
+            HmrLoaded ->
+                False
+        )
 
 
 onViewChangeElement currentUrl =
