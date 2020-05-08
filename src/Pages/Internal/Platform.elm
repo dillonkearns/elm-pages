@@ -7,6 +7,7 @@ import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
 import Html.Attributes exposing (style)
+import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
@@ -211,14 +212,15 @@ view pathKey content viewFn model =
 
 loadingView : HmrStatus -> Html msg
 loadingView hmrStatus =
-    HotReloadLoadingIndicator.view
-        (case hmrStatus of
-            HmrLoading ->
-                True
+    (case hmrStatus of
+        HmrLoading ->
+            True
 
-            HmrLoaded ->
-                False
-        )
+        HmrLoaded ->
+            False
+    )
+        |> Html.Lazy.lazy
+            HotReloadLoadingIndicator.view
 
 
 onViewChangeElement currentUrl =

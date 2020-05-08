@@ -16,6 +16,19 @@ const readline = require("readline");
 const webpackDevMiddleware = require("webpack-dev-middleware");
 const PluginGenerateElmPagesBuild = require('./plugin-generate-elm-pages-build')
 
+const hotReloadIndicatorStyle = `
+<style>
+  @keyframes lds-default {
+    0%, 20%, 80%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.5);
+    }
+  }
+</style>
+    `
+
 module.exports = { start, run };
 function start({ routes, debug, customPort, manifestConfig }) {
   const config = webpackOptions(false, routes, {
@@ -185,6 +198,7 @@ function webpackOptions(
       console.log("No service worker registered.");
     }
   </script>
+  ${production ? '' : hotReloadIndicatorStyle}
 </head>
 
 <body></body>
