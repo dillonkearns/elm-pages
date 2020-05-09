@@ -205,22 +205,26 @@ view pathKey content viewFn model =
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg |> Html.map AppMsg
-        , loadingView model.hmrStatus
+        , Html.Lazy.lazy2 loadingView model.phase model.hmrStatus
         ]
     }
 
 
-loadingView : HmrStatus -> Html msg
-loadingView hmrStatus =
-    (case hmrStatus of
-        HmrLoading ->
-            True
+loadingView : Phase -> HmrStatus -> Html msg
+loadingView phase hmrStatus =
+    case phase of
+        DevClient ->
+            (case hmrStatus of
+                HmrLoading ->
+                    True
 
-        HmrLoaded ->
-            False
-    )
-        |> Html.Lazy.lazy
-            HotReloadLoadingIndicator.view
+                _ ->
+                    False
+            )
+                |> HotReloadLoadingIndicator.view
+
+        _ ->
+            Html.text ""
 
 
 onViewChangeElement currentUrl =
@@ -317,15 +321,25 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
         Ok okCache ->
             let
                 phase =
-                    case Decode.decodeValue (Decode.field "isPrerendering" Decode.bool) flags of
-                        Ok True ->
+                    case
+                        Decode.decodeValue
+                            (Decode.map2 Tuple.pair
+                                (Decode.field "isPrerendering" Decode.bool)
+                                (Decode.field "isDevServer" Decode.bool)
+                            )
+                            flags
+                    of
+                        Ok ( True, _ ) ->
                             Prerender
 
-                        Ok False ->
-                            Client
+                        Ok ( False, True ) ->
+                            DevClient
+
+                        Ok ( False, False ) ->
+                            ProdClient
 
                         Err _ ->
-                            Client
+                            DevClient
 
                 ( userModel, userCmd ) =
                     maybePagePath
@@ -384,7 +398,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
               , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
-              , phase = Client
+              , phase = DevClient
               , hmrStatus = HmrLoaded
               }
             , Cmd.batch
@@ -437,7 +451,8 @@ type alias ModelDetails userModel metadata view =
 
 type Phase
     = Prerender
-    | Client
+    | DevClient
+    | ProdClient
 
 
 update :
@@ -726,7 +741,7 @@ application config =
                                     Prerender ->
                                         noOpUpdate
 
-                                    Client ->
+                                    _ ->
                                         config.update
 
                             noOpUpdate =

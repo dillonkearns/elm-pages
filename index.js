@@ -41,6 +41,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
           ? window.location.origin
           : document.baseURI,
         isPrerendering: isPrerendering,
+        isDevServer: !!module.hot,
         contentJson
       }
     });
