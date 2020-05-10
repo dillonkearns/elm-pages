@@ -57,7 +57,23 @@ type alias Details pathKey =
     }
 
 
-{-| TODO
+{-| Take a look at this [Google Search Gallery](https://developers.google.com/search/docs/guides/search-gallery)
+to see some examples of how structured data can be used by search engines to give rich search results. It can help boost
+your rankings, get better engagement for your content, and also make your content more accessible. For example,
+voice assistant devices can make use of structured data. If you're hosting a conference and want to make the event
+date and location easy for attendees to find, this can make that information more accessible.
+
+For the current version of API, you'll need to make sure that the format is correct and contains the required and recommended
+structure.
+
+Check out <https://schema.org> for a comprehensive listing of possible data types and fields. And take a look at
+Google's [Structured Data Testing Tool](https://search.google.com/structured-data/testing-tool)
+too make sure that your structured data is valid and includes the recommended values.
+
+In the future, `elm-pages` will likely support a typed API, but schema.org is a massive spec, and changes frequently.
+And there are multiple sources of information on the possible and recommended structure. So it will take some time
+for the right API design to evolve. In the meantime, this allows you to make use of this for SEO purposes.
+
 -}
 structuredData : Json.Encode.Value -> Tag pathKey
 structuredData value =
