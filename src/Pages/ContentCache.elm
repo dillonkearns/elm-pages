@@ -21,16 +21,12 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
-import Mark
-import Mark.Error
 import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
-import Result.Extra
 import Task exposing (Task)
 import TerminalText as Terminal
 import Url exposing (Url)
-import Url.Builder
 
 
 type alias Content =
@@ -281,16 +277,6 @@ type alias Page metadata view pathKey =
     , path : PagePath pathKey
     , view : view
     }
-
-
-renderErrors : ( List String, List Mark.Error.Error ) -> Html msg
-renderErrors ( path, errors ) =
-    Html.div []
-        [ Html.text (String.join "/" path)
-        , errors
-            |> List.map (Mark.Error.toHtml Mark.Error.Light)
-            |> Html.div []
-        ]
 
 
 combineTupleResults :

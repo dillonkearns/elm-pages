@@ -1,6 +1,6 @@
 module Pages.Document exposing
     ( Document, DocumentHandler
-    , parser, markupParser
+    , parser
     , fromList, get
     )
 
@@ -80,7 +80,7 @@ Hello!!!
                 )
 
 @docs Document, DocumentHandler
-@docs parser, markupParser
+@docs parser
 
 
 ## Functions for use by generated code
@@ -92,8 +92,6 @@ Hello!!!
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Json.Decode
-import Mark
-import Mark.Error
 
 
 {-| Represents all of the `DocumentHandler`s. You register a handler for each
@@ -157,54 +155,3 @@ parser { extension, body, metadata } =
                     |> Result.mapError Json.Decode.errorToString
         }
     )
-
-
-{-| Register an [`elm-markup`](https://github.com/mdgriffith/elm-markup/)
-parser for your `.emu` files.
--}
-markupParser :
-    Mark.Document metadata
-    -> Mark.Document view
-    -> ( String, DocumentHandler metadata view )
-markupParser metadataParser markBodyParser =
-    ( "emu"
-    , DocumentHandler
-        { contentParser = renderMarkup markBodyParser
-        , frontmatterParser =
-            \frontMatter ->
-                Mark.compile metadataParser
-                    frontMatter
-                    |> (\outcome ->
-                            case outcome of
-                                Mark.Success parsedMetadata ->
-                                    Ok parsedMetadata
-
-                                Mark.Failure failure ->
-                                    Err "Failure"
-
-                                Mark.Almost failure ->
-                                    Err "Almost failure"
-                       )
-        }
-    )
-
-
-renderMarkup : Mark.Document view -> String -> Result String view
-renderMarkup markBodyParser markupBody =
-    Mark.compile
-        markBodyParser
-        (markupBody |> String.trimLeft)
-        |> (\outcome ->
-                case outcome of
-                    Mark.Success renderedView ->
-                        Ok renderedView
-
-                    Mark.Failure failures ->
-                        failures
-                            |> List.map Mark.Error.toString
-                            |> String.join "\n"
-                            |> Err
-
-                    Mark.Almost failure ->
-                        Err "TODO almost failure"
-           )

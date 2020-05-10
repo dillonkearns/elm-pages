@@ -91,7 +91,7 @@ decoder =
                             |> Decode.map Article
 
                     _ ->
-                        Decode.fail <| "Unexpected page type " ++ pageType
+                        Decode.fail <| "Unexpected page \"type\" " ++ pageType
             )
 
 

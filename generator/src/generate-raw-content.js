@@ -1,9 +1,9 @@
 const path = require("path");
 
-module.exports = function(markdown, markup, includeBody) {
+module.exports = function (markdown, includeBody) {
   return `content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
-    [ ${markdown.concat(markup).map(entry => toEntry(entry, includeBody))}
+    [ ${markdown.map(entry => toEntry(entry, includeBody))}
     ]`;
 };
 
