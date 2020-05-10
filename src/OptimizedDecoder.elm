@@ -9,25 +9,10 @@ module OptimizedDecoder exposing
     , decodeString, decodeValue, decoder
     )
 
-{-| This package presents a somewhat experimental approach to JSON decoding. Its
-API looks very much like the core `Json.Decode` API. The major differences are
-the final `decodeString` and `decodeValue` functions, which return a
-`DecodeResult a`.
-
-Decoding with this library can result in one of 4 possible outcomes:
-
-  - The input wasn't valid JSON
-  - One or more errors occurred
-  - Decoding succeeded but produced warnings
-  - Decoding succeeded without warnings
-
-Both the `Errors` and `Warnings` types are (mostly) machine readable: they are
-implemented as a recursive data structure that points to the location of the
-error in the input json, producing information about what went wrong (i.e. "what
-was the expected type, and what did the actual value look like").
-
-Further, this library also adds a few extra `Decoder`s that help with making
-assertions about the structure of the JSON while decoding.
+{-| This module allows you to build decoders that `elm-pages` can optimize for you in your `StaticHttp` requests.
+It does this by stripping of unused fields during the CLI build step. When it runs in production, it will
+just run a plain `elm/json` decoder, so you're fetching and decoding the stripped-down data, but without any
+performance penalty.
 
 For convenience, this library also includes a `Json.Decode.Exploration.Pipeline`
 module which is largely a copy of [`NoRedInk/elm-decode-pipeline`][edp].
