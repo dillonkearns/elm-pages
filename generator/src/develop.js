@@ -56,6 +56,10 @@ function start({ routes, debug, customPort, manifestConfig }) {
     log: console.log, path: '/__webpack_hmr'
   }))
 
+  app.get('/elm-pages-dev-server-options', function (req, res) {
+    res.json({ elmDebugger: debug });
+  });
+
   app.use("*", function (req, res, next) {
     // don't know why this works, but it does
     // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832

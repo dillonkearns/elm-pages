@@ -18,14 +18,20 @@ circle attrs =
         []
 
 
-view : Bool -> Html msg
-view display =
+view : Bool -> Bool -> Html msg
+view isDebugMode display =
     Html.div
         [ id "__elm-pages-loading"
         , class "lds-default"
         , style "position" "fixed"
         , style "bottom" "10px"
-        , style "right" "10px"
+        , style "right"
+            (if isDebugMode then
+                "110px"
+
+             else
+                "10px"
+            )
         , style "width" "80px"
         , style "height" "80px"
         , style "background-color" "white"

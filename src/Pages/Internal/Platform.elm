@@ -213,7 +213,7 @@ view pathKey content viewFn model =
 loadingView : Phase -> HmrStatus -> Html msg
 loadingView phase hmrStatus =
     case phase of
-        DevClient ->
+        DevClient isDebugMode ->
             (case hmrStatus of
                 HmrLoading ->
                     True
@@ -221,7 +221,7 @@ loadingView phase hmrStatus =
                 _ ->
                     False
             )
-                |> HotReloadLoadingIndicator.view
+                |> HotReloadLoadingIndicator.view isDebugMode
 
         _ ->
             Html.text ""
@@ -323,23 +323,24 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                 phase =
                     case
                         Decode.decodeValue
-                            (Decode.map2 Tuple.pair
+                            (Decode.map3 (\a b c -> ( a, b, c ))
                                 (Decode.field "isPrerendering" Decode.bool)
                                 (Decode.field "isDevServer" Decode.bool)
+                                (Decode.field "isElmDebugMode" Decode.bool)
                             )
                             flags
                     of
-                        Ok ( True, _ ) ->
+                        Ok ( True, _, _ ) ->
                             Prerender
 
-                        Ok ( False, True ) ->
-                            DevClient
+                        Ok ( False, True, isElmDebugMode ) ->
+                            DevClient isElmDebugMode
 
-                        Ok ( False, False ) ->
+                        Ok ( False, False, _ ) ->
                             ProdClient
 
                         Err _ ->
-                            DevClient
+                            DevClient False
 
                 ( userModel, userCmd ) =
                     maybePagePath
@@ -398,7 +399,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
               , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
-              , phase = DevClient
+              , phase = DevClient False
               , hmrStatus = HmrLoaded
               }
             , Cmd.batch
@@ -451,7 +452,7 @@ type alias ModelDetails userModel metadata view =
 
 type Phase
     = Prerender
-    | DevClient
+    | DevClient Bool
     | ProdClient
 
 
@@ -649,10 +650,6 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg t
                     )
 
                 StartingHotReload ->
-                    --let
-                    --    _ =
-                    --        Debug.log "starting..." ""
-                    --in
                     ( { model | hmrStatus = HmrLoading }, Cmd.none )
 
         CliMsg _ ->
@@ -780,7 +777,6 @@ application config =
                                                         AppMsg (HotReloadComplete contentJson)
 
                                                     Err error ->
-                                                        --Debug.todo ""
                                                         -- TODO should be no message here
                                                         AppMsg StartingHotReload
                                     )
