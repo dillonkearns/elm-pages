@@ -95,19 +95,12 @@ import Dict exposing (Dict)
 
 content : { markdown : List ( List String, { frontMatter : String, body : Maybe String } ), markup : List ( List String, String ) }
 content =
-    { markdown = markdown, markup = markup }
+    { markdown = markdown }
 
 
 markdown : List ( List String, { frontMatter : String, body : Maybe String } )
 markdown =
     [ {1}
-    ]
-
-
-markup : List ( List String, String )
-markup =
-    [
-    {0}
     ]
 """
         [ List.map generatePage content |> String.join "\n  ,"
