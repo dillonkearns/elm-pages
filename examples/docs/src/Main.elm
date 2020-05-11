@@ -65,13 +65,13 @@ main =
         { init = init
         , view = view
         , update = update
+        , subscriptions = subscriptions
         , documents =
             [ { extension = "md"
               , metadata = Metadata.decoder
               , body = MarkdownRenderer.view
               }
             ]
-        , subscriptions = \_ -> Sub.none
         , onPageChange = Just OnPageChange
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
