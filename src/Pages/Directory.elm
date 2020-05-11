@@ -126,14 +126,14 @@ indexPath (Directory key allPagePaths directoryPath) =
     PagePath.build key directoryPath
 
 
-{-| TODO
+{-| Get the path of the directory as a String. Same as `directory |> Directory.basePath |> String.join "/"`.
 -}
 basePathToString : Directory key hasIndex -> String
 basePathToString (Directory key allPagePaths directoryPath) =
     toString directoryPath
 
 
-{-| TODO
+{-| Gives you the parts of the path of the directory.
 -}
 basePath : Directory key hasIndex -> List String
 basePath (Directory key allPagePaths directoryPath) =
