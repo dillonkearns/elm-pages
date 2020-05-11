@@ -19,6 +19,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import MySitemap
@@ -35,6 +36,7 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
 import Showcase
+import StructuredData
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -168,7 +170,7 @@ view siteMetadata page =
                                     ]
                             }
                                 |> wrapBody stars page model
-                    , head = head page.frontmatter
+                    , head = head page.path page.frontmatter
                     }
                 )
                 (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -185,7 +187,7 @@ view siteMetadata page =
                             \model viewForPage ->
                                 pageView stars model siteMetadata page viewForPage
                                     |> wrapBody stars page model
-                        , head = head page.frontmatter
+                        , head = head page.path page.frontmatter
                         }
                     )
 
@@ -470,8 +472,8 @@ commonHeadTags =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : Metadata -> List (Head.Tag Pages.PathKey)
-head metadata =
+head : PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
+head currentPath metadata =
     commonHeadTags
         ++ (case metadata of
                 Metadata.Page meta ->
@@ -507,26 +509,45 @@ head metadata =
                         |> Seo.website
 
                 Metadata.Article meta ->
-                    Seo.summaryLarge
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = meta.image
-                            , alt = meta.description
-                            , dimensions = Nothing
-                            , mimeType = Nothing
+                    Head.structuredData
+                        (StructuredData.article
+                            { title = meta.title
+                            , description = meta.description
+                            , author = StructuredData.person { name = meta.author.name }
+                            , publisher = StructuredData.person { name = "Dillon Kearns" }
+                            , url = canonicalSiteUrl ++ "/" ++ PagePath.toString currentPath
+                            , imageUrl = canonicalSiteUrl ++ "/" ++ ImagePath.toString meta.image
+                            , datePublished = Date.toIsoString meta.published
+                            , mainEntityOfPage =
+                                StructuredData.softwareSourceCode
+                                    { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
+                                    , description = "A statically typed site generator for Elm."
+                                    , author = "Dillon Kearns"
+                                    , programmingLanguage = StructuredData.elmLang
+                                    }
                             }
-                        , description = meta.description
-                        , locale = Nothing
-                        , title = meta.title
-                        }
-                        |> Seo.article
-                            { tags = []
-                            , section = Nothing
-                            , publishedTime = Just (Date.toIsoString meta.published)
-                            , modifiedTime = Nothing
-                            , expirationTime = Nothing
-                            }
+                        )
+                        :: (Seo.summaryLarge
+                                { canonicalUrlOverride = Nothing
+                                , siteName = "elm-pages"
+                                , image =
+                                    { url = meta.image
+                                    , alt = meta.description
+                                    , dimensions = Nothing
+                                    , mimeType = Nothing
+                                    }
+                                , description = meta.description
+                                , locale = Nothing
+                                , title = meta.title
+                                }
+                                |> Seo.article
+                                    { tags = []
+                                    , section = Nothing
+                                    , publishedTime = Just (Date.toIsoString meta.published)
+                                    , modifiedTime = Nothing
+                                    , expirationTime = Nothing
+                                    }
+                           )
 
                 Metadata.Author meta ->
                     let

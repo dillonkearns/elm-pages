@@ -51,9 +51,10 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
       });
 
       app.ports.toJsPort.subscribe((
-      /** @type { { head: HeadTag[], allRoutes: string[] } }  */ fromElm
+      /** @type { { head: SeoTag[], allRoutes: string[] } }  */ fromElm
       ) => {
         appendTag({
+          type: 'head',
           name: "meta",
           attributes: [
             ["name", "generator"],
@@ -65,7 +66,13 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
 
         if (navigator.userAgent.indexOf("Headless") >= 0) {
           fromElm.head.forEach(headTag => {
-            appendTag(headTag);
+            if (headTag.type === 'head') {
+              appendTag(headTag);
+            } else if (headTag.type === 'json-ld') {
+              appendJsonLdTag(headTag);
+            } else {
+              throw new Error(`Unknown tag type #{headTag}`)
+            }
           });
           headTagsAdded = true;
           if (elmViewRendered) {
@@ -209,13 +216,23 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   }
 }
 
-/** @typedef {{ name: string; attributes: string[][]; }} HeadTag */
+/** @typedef {HeadTag | JsonLdTag} SeoTag */
+
+/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 function appendTag(/** @type {HeadTag} */ tagDetails) {
   const meta = document.createElement(tagDetails.name);
   tagDetails.attributes.forEach(([name, value]) => {
     meta.setAttribute(name, value);
   });
   document.getElementsByTagName("head")[0].appendChild(meta);
+}
+
+/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
+function appendJsonLdTag(/** @type {JsonLdTag} */ tagDetails) {
+  let jsonLdScript = document.createElement('script');
+  jsonLdScript.type = "application/ld+json";
+  jsonLdScript.innerHTML = JSON.stringify(tagDetails.contents);
+  document.getElementsByTagName("head")[0].appendChild(jsonLdScript);
 }
 
 function httpGet(/** @type string */ theUrl) {

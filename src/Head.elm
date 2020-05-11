@@ -1,6 +1,7 @@
 module Head exposing
     ( Tag, metaName, metaProperty
     , rssLink, sitemapLink
+    , structuredData
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
     , toJson, canonicalLink
@@ -17,6 +18,11 @@ writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty
 @docs rssLink, sitemapLink
+
+
+## Structured Data
+
+@docs structuredData
 
 
 ## `AttributeValue`s
@@ -42,12 +48,36 @@ through the `head` function.
 -}
 type Tag pathKey
     = Tag (Details pathKey)
+    | StructuredData Json.Encode.Value
 
 
 type alias Details pathKey =
     { name : String
     , attributes : List ( String, AttributeValue pathKey )
     }
+
+
+{-| Take a look at this [Google Search Gallery](https://developers.google.com/search/docs/guides/search-gallery)
+to see some examples of how structured data can be used by search engines to give rich search results. It can help boost
+your rankings, get better engagement for your content, and also make your content more accessible. For example,
+voice assistant devices can make use of structured data. If you're hosting a conference and want to make the event
+date and location easy for attendees to find, this can make that information more accessible.
+
+For the current version of API, you'll need to make sure that the format is correct and contains the required and recommended
+structure.
+
+Check out <https://schema.org> for a comprehensive listing of possible data types and fields. And take a look at
+Google's [Structured Data Testing Tool](https://search.google.com/structured-data/testing-tool)
+too make sure that your structured data is valid and includes the recommended values.
+
+In the future, `elm-pages` will likely support a typed API, but schema.org is a massive spec, and changes frequently.
+And there are multiple sources of information on the possible and recommended structure. So it will take some time
+for the right API design to evolve. In the meantime, this allows you to make use of this for SEO purposes.
+
+-}
+structuredData : Json.Encode.Value -> Tag pathKey
+structuredData value =
+    StructuredData value
 
 
 {-| Create a raw `AttributeValue` (as opposed to some kind of absolute URL).
@@ -196,11 +226,20 @@ node name attributes =
 code will run this for you to generate your `manifest.json` file automatically!
 -}
 toJson : String -> String -> Tag pathKey -> Json.Encode.Value
-toJson canonicalSiteUrl currentPagePath (Tag tag) =
-    Json.Encode.object
-        [ ( "name", Json.Encode.string tag.name )
-        , ( "attributes", Json.Encode.list (encodeProperty canonicalSiteUrl currentPagePath) tag.attributes )
-        ]
+toJson canonicalSiteUrl currentPagePath tag =
+    case tag of
+        Tag headTag ->
+            Json.Encode.object
+                [ ( "name", Json.Encode.string headTag.name )
+                , ( "attributes", Json.Encode.list (encodeProperty canonicalSiteUrl currentPagePath) headTag.attributes )
+                , ( "type", Json.Encode.string "head" )
+                ]
+
+        StructuredData value ->
+            Json.Encode.object
+                [ ( "contents", value )
+                , ( "type", Json.Encode.string "json-ld" )
+                ]
 
 
 encodeProperty : String -> String -> ( String, AttributeValue pathKey ) -> Json.Encode.Value
