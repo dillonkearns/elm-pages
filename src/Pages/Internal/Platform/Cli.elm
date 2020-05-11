@@ -955,14 +955,13 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                             }
                         )
 
-            --generatedFiles : StaticHttp.Request (List (Result String { path : List String, content : String }))
-            --generatedFiles : List (Result String { path : List String, content : String })
+            generatedFiles : List (Result String { path : List String, content : String })
             generatedFiles =
-                mythingy2
+                resolvedGenerateFilesResult
                     |> Result.withDefault []
 
-            mythingy2 : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
-            mythingy2 =
+            resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
+            resolvedGenerateFilesResult =
                 StaticHttpRequest.resolve ApplicationType.Cli
                     (config.generateFiles metadataForGenerateFiles)
                     (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
