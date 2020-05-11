@@ -54,7 +54,6 @@ import Pages.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
-import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)
@@ -123,7 +122,6 @@ import Pages.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
-import Pages.Document as Document
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Directory as Directory exposing (Directory)

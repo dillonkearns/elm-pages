@@ -203,11 +203,13 @@ type alias Config pathKey userMsg userModel metadata view =
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange :
-        { path : PagePath pathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-        -> userMsg
+        Maybe
+            ({ path : PagePath pathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> userMsg
+            )
     }
 
 

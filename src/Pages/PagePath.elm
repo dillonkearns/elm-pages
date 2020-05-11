@@ -1,6 +1,7 @@
 module Pages.PagePath exposing
     ( PagePath, toString, external
     , build
+    , toPath
     )
 
 {-| You can get data representing type-safe, guaranteed-available
@@ -66,7 +67,7 @@ is valid).
 
 For example, you might have a navbar that links to specific routes.
 
-@docs PagePath, toString, external
+@docs PagePath, toString, external, toPath
 
 
 ## Functions for code generation only
@@ -118,6 +119,25 @@ toString path =
 
         External url ->
             url
+
+
+{-| Get a List of each part of the path.
+
+    indexPathParts =
+        PagePath.toPath Pages.pages.index == []
+
+    blogPostPathParts =
+        PagePath.toPath Pages.pages.blog.hello == [ "blog", "hello" ]
+
+-}
+toPath : PagePath key -> List String
+toPath path =
+    case path of
+        Internal rawPath ->
+            rawPath
+
+        External url ->
+            []
 
 
 {-| This allows you to build a URL to an external resource. Avoid using
