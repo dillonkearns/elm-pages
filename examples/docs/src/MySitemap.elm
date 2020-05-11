@@ -22,7 +22,7 @@ install :
     -> Builder pathKey userModel userMsg metadata view
 install config toSitemapEntry builder =
     builder
-        |> Pages.Platform.addGlobalHeadTags [ Head.sitemapLink "/sitemap.xml" ]
+        |> Pages.Platform.withGlobalHeadTags [ Head.sitemapLink "/sitemap.xml" ]
         |> Pages.Platform.withFileGenerator
             (\siteMetadata ->
                 StaticHttp.succeed

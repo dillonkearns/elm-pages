@@ -1,7 +1,7 @@
 module Pages.Platform exposing
     ( Builder, init, toProgram
     , Program, Page
-    , addGlobalHeadTags, withFileGenerator
+    , withGlobalHeadTags, withFileGenerator
     )
 
 {-| Configure your `elm-pages` Program, similar to a `Browser.application`.
@@ -16,7 +16,7 @@ module Pages.Platform exposing
 
 ## Additional application config
 
-@docs addGlobalHeadTags, withFileGenerator
+@docs withGlobalHeadTags, withFileGenerator
 
 -}
 
@@ -147,11 +147,11 @@ init config =
 
 {-| TODO
 -}
-addGlobalHeadTags :
+withGlobalHeadTags :
     List (Head.Tag pathKey)
     -> Builder pathKey model msg metadata view
     -> Builder pathKey model msg metadata view
-addGlobalHeadTags globalHeadTags (Builder config) =
+withGlobalHeadTags globalHeadTags (Builder config) =
     Builder
         { config
             | view =

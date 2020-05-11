@@ -22,8 +22,8 @@ generate :
          }
          -> Maybe Rss.Item
         )
-    -> Builder pathKey userModel userMsg metadata view 
-    -> Builder pathKey userModel userMsg metadata view 
+    -> Builder pathKey userModel userMsg metadata view
+    -> Builder pathKey userModel userMsg metadata view
 generate options metadataToRssItem builder =
     let
         feedFilePath =
@@ -53,4 +53,4 @@ generate options metadataToRssItem builder =
                     |> List.singleton
                     |> StaticHttp.succeed
             )
-        |> Pages.Platform.addGlobalHeadTags [ Head.rssLink (feedFilePath |> String.join "/") ]
+        |> Pages.Platform.withGlobalHeadTags [ Head.rssLink (feedFilePath |> String.join "/") ]
