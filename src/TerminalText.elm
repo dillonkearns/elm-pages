@@ -68,10 +68,10 @@ colorToString color =
                 "[34m"
 
             Green ->
-                "[32;1m"
+                "[32m"
 
             Yellow ->
-                "[33;1m"
+                "[33m"
 
             Cyan ->
                 "[36m"

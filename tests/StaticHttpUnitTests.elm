@@ -2,7 +2,9 @@ module StaticHttpUnitTests exposing (all)
 
 import Dict exposing (Dict)
 import Expect
-import Json.Decode.Exploration as Decode
+import Json.Decode.Exploration
+import OptimizedDecoder as Decode
+import Pages.Internal.ApplicationType as ApplicationType
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -42,11 +44,11 @@ all =
                 StaticHttp.get (Secrets.succeed "first") (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
                         (\continueUrl ->
-                            --                                        StaticHttp.get continueUrl (Decode.succeed ())
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls request
+                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                                request
                                 (requestsDict
                                     [ ( get "first", "null" )
                                     , ( get "NEXT", "null" )
@@ -63,7 +65,8 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls request
+                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                                request
                                 (requestsDict
                                     [ ( get "NEXT", "null" )
                                     ]
@@ -81,7 +84,8 @@ all =
                         )
                     |> StaticHttp.map (\_ -> ())
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls request
+                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                                request
                                 (requestsDict
                                     [ ( get "first", "null" )
                                     , ( get "NEXT", "null" )
@@ -98,7 +102,8 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls request
+                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                                request
                                 (requestsDict
                                     [ ( get "first", "null" )
                                     ]
@@ -119,7 +124,8 @@ all =
                                     )
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls request
+                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                                request
                                 (requestsDict
                                     [ ( get "first", "1" )
                                     ]

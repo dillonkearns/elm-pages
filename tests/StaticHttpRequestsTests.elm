@@ -5,7 +5,9 @@ import Dict exposing (Dict)
 import Expect
 import Html
 import Json.Decode as JD
-import Json.Decode.Exploration as Decode exposing (Decoder)
+import Json.Decode.Exploration
+import Json.Encode as Encode
+import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.Http
@@ -42,7 +44,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
@@ -69,7 +71,7 @@ all =
                         "NEXT-REQUEST"
                         """null"""
                     |> expectSuccess
-                        [ ( "/elm-pages"
+                        [ ( "elm-pages"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """null"""
                               )
@@ -162,7 +164,7 @@ all =
                         "url10"
                         """{"image": "image10.jpg"}"""
                     |> expectSuccess
-                        [ ( "/elm-pages"
+                        [ ( "elm-pages"
                           , [ ( get "https://pokeapi.co/api/v2/pokemon/"
                               , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
                               )
@@ -218,13 +220,13 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 22 }"""
                     |> expectSuccess
-                        [ ( "/elm-pages"
+                        [ ( "elm-pages"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
                             ]
                           )
-                        , ( "/elm-pages-starter"
+                        , ( "elm-pages-starter"
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                               , """{"stargazer_count":22}"""
                               )
@@ -243,7 +245,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
@@ -272,7 +274,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{ "stargazer_count": 86, "unused_field": 123 }"""
                               )
@@ -299,7 +301,7 @@ all =
                         "https://example.com/file.txt"
                         "This is a raw text file."
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://example.com/file.txt"
                               , "This is a raw text file."
                               )
@@ -339,7 +341,7 @@ all =
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
-/
+
 
 String was not uppercased"""
                         )
@@ -363,7 +365,7 @@ String was not uppercased"""
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
@@ -394,7 +396,7 @@ String was not uppercased"""
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":100}"""
                               )
@@ -422,7 +424,7 @@ String was not uppercased"""
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":100}"""
                               )
@@ -439,7 +441,7 @@ String was not uppercased"""
                       , StaticHttp.succeed ()
                       )
                     ]
-                    |> expectSuccess [ ( "/", [] ) ]
+                    |> expectSuccess [ ( "", [] ) ]
         , test "the port sends out when there are duplicate http requests for the same page" <|
             \() ->
                 start
@@ -454,7 +456,7 @@ String was not uppercased"""
                         "http://example.com"
                         """null"""
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( get "http://example.com"
                               , """null"""
                               )
@@ -478,7 +480,7 @@ String was not uppercased"""
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
-/elm-pages
+elm-pages
 
 I encountered some errors while decoding this JSON:
 
@@ -591,7 +593,7 @@ Body: """)
                             }
                         )
                     |> expectSuccess
-                        [ ( "/"
+                        [ ( ""
                           , [ ( { method = "GET"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
                                 , headers =
@@ -604,11 +606,68 @@ Body: """)
                             ]
                           )
                         ]
+        , describe "staticHttpCache"
+            [ test "it doesn't perform http requests that are provided in the http cache flag" <|
+                \() ->
+                    startWithHttpCache
+                        [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                            , method = "GET"
+                            , headers = []
+                            , body = StaticHttpBody.EmptyBody
+                            }
+                          , """{"stargazer_count":86}"""
+                          )
+                        ]
+                        [ ( []
+                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          )
+                        ]
+                        |> expectSuccess
+                            [ ( ""
+                              , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                                  , """{"stargazer_count":86}"""
+                                  )
+                                ]
+                              )
+                            ]
+            , test "it ignores unused cache" <|
+                \() ->
+                    startWithHttpCache
+                        [ ( { url = "https://this-is-never-used.example.com/"
+                            , method = "GET"
+                            , headers = []
+                            , body = StaticHttpBody.EmptyBody
+                            }
+                          , """{"stargazer_count":86}"""
+                          )
+                        ]
+                        [ ( []
+                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          )
+                        ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> expectSuccess
+                            [ ( ""
+                              , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                                  , """{"stargazer_count":86}"""
+                                  )
+                                ]
+                              )
+                            ]
+            ]
         ]
 
 
 start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
 start pages =
+    startWithHttpCache [] pages
+
+
+startWithHttpCache : List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+startWithHttpCache staticHttpCache pages =
     let
         document =
             Document.fromList
@@ -637,8 +696,9 @@ start pages =
 
         config =
             { toJsPort = toJsPort
+            , fromJsPort = fromJsPort
             , manifest = manifest
-            , generateFiles = \_ -> []
+            , generateFiles = \_ -> StaticHttp.succeed []
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ -> ( (), Cmd.none )
             , view =
@@ -650,7 +710,6 @@ start pages =
                                 |> Dict.get
                                     (page.path
                                         |> PagePath.toString
-                                        |> String.dropLeft 1
                                         |> String.split "/"
                                         |> List.filter (\pathPart -> pathPart /= "")
                                     )
@@ -670,6 +729,30 @@ start pages =
             , pathKey = PathKey
             , onPageChange = \_ -> ()
             }
+
+        encodedFlags =
+            --{"secrets":
+            --        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}, "mode": "prod", "staticHttpCache": {}
+            --        }
+            Encode.object
+                [ ( "secrets"
+                  , [ ( "API_KEY", "ABCD1234" )
+                    , ( "BEARER", "XYZ789" )
+                    ]
+                        |> Dict.fromList
+                        |> Encode.dict identity Encode.string
+                  )
+                , ( "mode", Encode.string "prod" )
+                , ( "staticHttpCache", encodedStaticHttpCache )
+                ]
+
+        encodedStaticHttpCache =
+            staticHttpCache
+                |> List.map
+                    (\( request, httpResponseString ) ->
+                        ( Request.hash request, Encode.string httpResponseString )
+                    )
+                |> Encode.object
     in
     {-
        (Model -> model)
@@ -685,9 +768,7 @@ start pages =
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
-        |> ProgramTest.start (flags """{"secrets":
-        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}, "mode": "prod"
-        }""")
+        |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
 flags : String -> JD.Value
@@ -781,6 +862,10 @@ toJsPort foo =
     Cmd.none
 
 
+fromJsPort =
+    Sub.none
+
+
 type PathKey
     = PathKey
 
@@ -806,7 +891,7 @@ starDecoder =
 
 
 thingy =
-    [ ( "/"
+    [ ( ""
       , [ ( { method = "GET"
             , url = "https://api.github.com/repos/dillonkearns/elm-pages"
             , headers = []
@@ -832,27 +917,31 @@ expectSuccess expectedRequests previous =
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
             (Codec.decoder Main.toJsCodec)
-            (Expect.equal
-                [ Main.Success
-                    { pages =
-                        expectedRequests
-                            |> List.map
-                                (\( url, requests ) ->
-                                    ( url
-                                    , requests
-                                        |> List.map
-                                            (\( request, response ) ->
-                                                ( Request.hash request, response )
+            (\value ->
+                case value of
+                    [ Main.Success portPayload ] ->
+                        portPayload.pages
+                            |> Expect.equal
+                                (expectedRequests
+                                    |> List.map
+                                        (\( url, requests ) ->
+                                            ( url
+                                            , requests
+                                                |> List.map
+                                                    (\( request, response ) ->
+                                                        ( Request.hash request, response )
+                                                    )
+                                                |> Dict.fromList
                                             )
-                                        |> Dict.fromList
-                                    )
+                                        )
+                                    |> Dict.fromList
                                 )
-                            |> Dict.fromList
-                    , manifest = manifest
-                    , filesToGenerate = []
-                    , errors = []
-                    }
-                ]
+
+                    [ _ ] ->
+                        Expect.fail "Expected success port."
+
+                    _ ->
+                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
             )
 
 

@@ -90,11 +90,13 @@ application :
             , body : String
             }
         ->
-            List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
+            StaticHttp.Request
+                (List
+                    (Result String
+                        { path : List String
+                        , content : String
+                        }
+                    )
                 )
     , onPageChange :
         { path : PagePath pathKey
@@ -123,6 +125,7 @@ application config =
         , content = config.internals.content
         , generateFiles = config.generateFiles
         , toJsPort = config.internals.toJsPort
+        , fromJsPort = config.internals.fromJsPort
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , onPageChange = config.onPageChange

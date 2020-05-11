@@ -19,10 +19,11 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Index
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Exploration as D
+import Json.Encode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import MySitemap
+import OptimizedDecoder as D
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.Document
@@ -35,6 +36,7 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
 import Showcase
+import StructuredData
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -80,16 +82,19 @@ generateFiles :
         , body : String
         }
     ->
-        List
-            (Result String
-                { path : List String
-                , content : String
-                }
+        StaticHttp.Request
+            (List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
             )
 generateFiles siteMetadata =
-    [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
-    , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
-    ]
+    StaticHttp.succeed
+        [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+        , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+        ]
 
 
 markdownDocument : ( String, Pages.Document.DocumentHandler Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) )
@@ -166,7 +171,7 @@ view siteMetadata page =
                                     ]
                             }
                                 |> wrapBody stars page model
-                    , head = head page.frontmatter
+                    , head = head page.path page.frontmatter
                     }
                 )
                 (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -183,47 +188,9 @@ view siteMetadata page =
                             \model viewForPage ->
                                 pageView stars model siteMetadata page viewForPage
                                     |> wrapBody stars page model
-                        , head = head page.frontmatter
+                        , head = head page.path page.frontmatter
                         }
                     )
-
-
-
---let
---    viewFn =
---        case page.frontmatter of
---            Metadata.Page metadata ->
---                StaticHttp.map3
---                    (\elmPagesStars elmPagesStarterStars netlifyStars ->
---                        { view =
---                            \model viewForPage ->
---                                { title = metadata.title
---                                , body =
---                                    "elm-pages ⭐️'s: "
---                                        ++ String.fromInt elmPagesStars
---                                        ++ "\n\nelm-pages-starter ⭐️'s: "
---                                        ++ String.fromInt elmPagesStarterStars
---                                        ++ "\n\nelm-markdown ⭐️'s: "
---                                        ++ String.fromInt netlifyStars
---                                        |> Element.text
---                                        |> wrapBody
---                                }
---                        , head = head page.frontmatter
---                        }
---                    )
---                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
---                        (D.field "stargazers_count" D.int)
---                    )
---                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
---                        (D.field "stargazers_count" D.int)
---                    )
---                    (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown")
---                        (D.field "stargazers_count" D.int)
---                    )
---
---            _ ->
---                    StaticHttp.withData "https://api.github.com/repos/dillonkearns/elm-pages"
---                        (Decode.field "stargazers_count" Decode.int)
 
 
 pageView :
@@ -506,8 +473,8 @@ commonHeadTags =
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
 <https://ogp.me/>
 -}
-head : Metadata -> List (Head.Tag Pages.PathKey)
-head metadata =
+head : PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
+head currentPath metadata =
     commonHeadTags
         ++ (case metadata of
                 Metadata.Page meta ->
@@ -543,26 +510,45 @@ head metadata =
                         |> Seo.website
 
                 Metadata.Article meta ->
-                    Seo.summaryLarge
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = meta.image
-                            , alt = meta.description
-                            , dimensions = Nothing
-                            , mimeType = Nothing
+                    Head.structuredData
+                        (StructuredData.article
+                            { title = meta.title
+                            , description = meta.description
+                            , author = StructuredData.person { name = meta.author.name }
+                            , publisher = StructuredData.person { name = "Dillon Kearns" }
+                            , url = canonicalSiteUrl ++ "/" ++ PagePath.toString currentPath
+                            , imageUrl = canonicalSiteUrl ++ "/" ++ ImagePath.toString meta.image
+                            , datePublished = Date.toIsoString meta.published
+                            , mainEntityOfPage =
+                                StructuredData.softwareSourceCode
+                                    { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
+                                    , description = "A statically typed site generator for Elm."
+                                    , author = "Dillon Kearns"
+                                    , programmingLanguage = StructuredData.elmLang
+                                    }
                             }
-                        , description = meta.description
-                        , locale = Nothing
-                        , title = meta.title
-                        }
-                        |> Seo.article
-                            { tags = []
-                            , section = Nothing
-                            , publishedTime = Just (Date.toIsoString meta.published)
-                            , modifiedTime = Nothing
-                            , expirationTime = Nothing
-                            }
+                        )
+                        :: (Seo.summaryLarge
+                                { canonicalUrlOverride = Nothing
+                                , siteName = "elm-pages"
+                                , image =
+                                    { url = meta.image
+                                    , alt = meta.description
+                                    , dimensions = Nothing
+                                    , mimeType = Nothing
+                                    }
+                                , description = meta.description
+                                , locale = Nothing
+                                , title = meta.title
+                                }
+                                |> Seo.article
+                                    { tags = []
+                                    , section = Nothing
+                                    , publishedTime = Just (Date.toIsoString meta.published)
+                                    , modifiedTime = Nothing
+                                    , expirationTime = Nothing
+                                    }
+                           )
 
                 Metadata.Author meta ->
                     let

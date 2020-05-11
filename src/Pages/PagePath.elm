@@ -43,7 +43,7 @@ This gives you a record, based on your local `content` directory, that lets you 
         Pages.pages.index
 
     -- PagePath.toString homePath
-    -- => "/"
+    -- => ""
 
 or
 
@@ -55,7 +55,7 @@ or
         Pages.pages.blog.helloWorld
 
     -- PagePath.toString helloWorldPostPath
-    -- => "/blog/hello-world"
+    -- => "blog/hello-world"
 
 Note that in the `hello-world` example it changes from the kebab casing of the actual
 URL to camelCasing for the record key.
@@ -92,7 +92,7 @@ type PagePath key
     | External String
 
 
-{-| Gives you the page's absolute URL as a String. This is useful for constructing links:
+{-| Gives you the page's relative URL as a String. This is useful for constructing links:
 
     import Html exposing (Html, a)
     import Html.Attributes exposing (href)
@@ -114,8 +114,7 @@ toString : PagePath key -> String
 toString path =
     case path of
         Internal rawPath ->
-            "/"
-                ++ (rawPath |> String.join "/")
+            String.join "/" rawPath
 
         External url ->
             url

@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const globby = require("globby");
 const parseFrontmatter = require("./frontmatter.js");
+const webpack = require('webpack')
 
 function unpackFile(filePath) {
   const { content, data } = parseFrontmatter(
@@ -15,55 +16,74 @@ function unpackFile(filePath) {
 
   return {
     baseRoute,
-    content
+    content,
+    filePath
   };
 }
 
 module.exports = class AddFilesPlugin {
-  constructor(data, filesToGenerate) {
-    this.pagesWithRequests = data;
-    this.filesToGenerate = filesToGenerate;
-  }
-  apply(compiler) {
-    compiler.hooks.emit.tap("AddFilesPlugin", compilation => {
-      const files = globby
-        .sync(["content/**/*.*", "!content/**/*.emu"], {})
-        .map(unpackFile);
+  apply(/** @type {webpack.Compiler} */ compiler) {
 
-      files.forEach(file => {
-        // Couldn't find this documented in the webpack docs,
-        // but I found the example code for it here:
-        // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+    (global.mode === "dev" ? compiler.hooks.emit : compiler.hooks.make).tapAsync("AddFilesPlugin", (compilation, callback) => {
 
-        let route = `/${file.baseRoute}`.replace(/\/$/, '');
-        if (route === '') {
-          route = '/';
+
+      const files = globby.sync("content").map(unpackFile);
+
+
+      let staticRequestData = {}
+      global.pagesWithRequests.then(payload => {
+
+        if (payload.type === 'error') {
+          compilation.errors.push(new Error(payload.message))
+        } else if (payload.errors && payload.errors.length > 0) {
+          compilation.errors.push(new Error(payload.errors[0]))
         }
-        const staticRequests = this.pagesWithRequests[route];
+        else {
+          staticRequestData = payload.pages
+        }
+      })
+        .finally(() => {
 
-        const filename = path.join(file.baseRoute, "content.json");
-        compilation.fileDependencies.add(filename);
-        const rawContents = JSON.stringify({
-          body: file.content,
-          staticData: staticRequests || {}
-        });
+          files.forEach(file => {
+            // Couldn't find this documented in the webpack docs,
+            // but I found the example code for it here:
+            // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-        compilation.assets[filename] = {
-          source: () => rawContents,
-          size: () => rawContents.length
-        };
-      });
+            let route = file.baseRoute.replace(/\/$/, '');
+            const staticRequests = staticRequestData[route];
 
-      (this.filesToGenerate || []).forEach(file => {
-        // Couldn't find this documented in the webpack docs,
-        // but I found the example code for it here:
-        // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
-        compilation.assets[file.path] = {
-          source: () => file.content,
-          size: () => file.content.length
-        };
-      });
+            const filename = path.join(file.baseRoute, "content.json");
+            if (compilation.contextDependencies) {
+              compilation.contextDependencies.add('content')
+            }
+            // compilation.fileDependencies.add(filename);
+            if (compilation.fileDependencies) {
+              compilation.fileDependencies.add(path.resolve(file.filePath));
+            }
+            const rawContents = JSON.stringify({
+              body: file.content,
+              staticData: staticRequests || {}
+            });
 
+            compilation.assets[filename] = {
+              source: () => rawContents,
+              size: () => rawContents.length
+            };
+          });
+
+          (global.filesToGenerate || []).forEach(file => {
+            // Couldn't find this documented in the webpack docs,
+            // but I found the example code for it here:
+            // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
+            compilation.assets[file.path] = {
+              source: () => file.content,
+              size: () => file.content.length
+            };
+          });
+
+          callback()
+
+        })
 
     });
   }
