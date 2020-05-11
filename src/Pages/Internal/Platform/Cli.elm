@@ -592,17 +592,22 @@ cliDictKey =
 
 
 staticResponsesInit : Dict String (Maybe String) -> Result (List BuildError) (List ( PagePath pathKey, metadata )) -> Config pathKey userMsg userModel metadata view -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
-staticResponsesInit staticHttpCache siteMetadata config list =
+staticResponsesInit staticHttpCache siteMetadataResult config list =
     let
-        foo : StaticHttp.Request (List (Result String { path : List String, content : String }))
-        foo =
-            config.generateFiles thing2
+        generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
+        generateFilesRequest =
+            config.generateFiles siteMetadataWithContent
 
         generateFilesStaticRequest =
-            ( cliDictKey, NotFetched (foo |> StaticHttp.map (\_ -> ())) Dict.empty )
+            ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
+              -- since that data is only needed to run these functions during the build step
+              -- in the future, this could be refactored to have a type to represent this more clearly
+              cliDictKey
+            , NotFetched (generateFilesRequest |> StaticHttp.map (\_ -> ())) Dict.empty
+            )
 
-        thing2 =
-            siteMetadata
+        siteMetadataWithContent =
+            siteMetadataResult
                 |> Result.withDefault []
                 |> List.map
                     (\( pagePath, metadata ) ->
