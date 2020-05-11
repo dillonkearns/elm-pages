@@ -11,7 +11,7 @@ const AddFilesPlugin = require("./add-files-plugin.js");
 const ImageminPlugin = require("imagemin-webpack-plugin").default;
 const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
-const ClosurePlugin = require("closure-webpack-plugin");
+const TerserPlugin = require('terser-webpack-plugin');
 const readline = require("readline");
 const webpackDevMiddleware = require("webpack-dev-middleware");
 const PluginGenerateElmPagesBuild = require('./plugin-generate-elm-pages-build')
@@ -333,18 +333,32 @@ function webpackOptions(
       entry: "./index.js",
       optimization: {
         minimizer: [
-          new ClosurePlugin(
-            { mode: "STANDARD" },
-            {
-              // compiler flags here
-              //
-              // for debuging help, try these:
-              //
-              // formatting: 'PRETTY_PRINT'
-              // debug: true,
-              // renaming: false
+          new TerserPlugin({
+            parallel: true,
+            cache: true,
+            // The following options are suggested by Evan.
+            // See https://github.com/elm/compiler/blob/master/hints/optimize.md#instructions
+            terserOptions: {
+              compress: {
+                pure_funcs: ["F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9"],
+                comparisons: false,
+                pure_getters: true,
+                keep_fargs: false,
+                unsafe_comps: true,
+                unsafe: true
+              },
+              mangle: {
+                safari10: true,
+              },
+              output: {
+                ecma: 5,
+                comments: false,
+                // Turned on because emoji and regex is not minified properly using default
+                // https://github.com/facebook/create-react-app/issues/2488
+                ascii_only: true
+              },
             }
-          )
+          }),
         ]
       },
       plugins: [
