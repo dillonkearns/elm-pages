@@ -777,7 +777,7 @@ application config =
                             , config.fromJsPort
                                 |> Sub.map
                                     (\decodeValue ->
-                                        case decodeValue |> Decode.decodeValue (Decode.field "thingy" Decode.string) of
+                                        case decodeValue |> Decode.decodeValue (Decode.field "action" Decode.string) of
                                             Ok "hmr-check" ->
                                                 AppMsg StartingHotReload
 

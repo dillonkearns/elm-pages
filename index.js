@@ -101,7 +101,7 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
             // console.log('obj.action', obj.action);
 
             if (obj.action === 'building') {
-              app.ports.fromJsPort.send({ thingy: 'hmr-check' });
+              app.ports.fromJsPort.send({ action: 'hmr-check' });
             } else if (obj.action === 'built') {
 
               let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
