@@ -35,8 +35,6 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
   return Promise.all([
     getConfig(),
     httpGet(`${window.location.origin}${path}content.json`)]).then(function (/** @type {[DevServerConfig?, JSON]} */[devServerConfig, contentJson]) {
-      console.log('devServerConfig', devServerConfig);
-
       const app = mainElmModule.init({
         flags: {
           secrets: null,
@@ -85,13 +83,11 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
 
 
       if (module.hot) {
-
         // found this trick in the next.js source code
         // https://github.com/zeit/next.js/blob/886037b1bac4bdbfeb689b032c1612750fb593f7/packages/next/client/dev/error-overlay/eventsource.js
         // https://github.com/zeit/next.js/blob/886037b1bac4bdbfeb689b032c1612750fb593f7/packages/next/client/dev/dev-build-watcher.js
         // more details about this API at https://www.html5rocks.com/en/tutorials/eventsource/basics/
         let source = new window.EventSource('/__webpack_hmr')
-        // source.addEventListener('open', () => { console.log('open!!!!!') })
         source.addEventListener('message', (e) => {
           // console.log('message!!!!!', e)
           // console.log(e.data.action)
@@ -107,11 +103,9 @@ function loadContentAndInitializeApp(/** @type { init: any  } */ mainElmModule) 
             if (obj.action === 'building') {
               app.ports.fromJsPort.send({ thingy: 'hmr-check' });
             } else if (obj.action === 'built') {
-              // console.log('httpGet start');
 
               let currentPath = window.location.pathname.replace(/(\w)$/, "$1/")
               httpGet(`${window.location.origin}${currentPath}content.json`).then(function (/** @type JSON */ contentJson) {
-                // console.log('httpGet received');
 
                 app.ports.fromJsPort.send({ contentJson: contentJson });
               });
