@@ -1,4 +1,4 @@
-module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Parser, Program, application, cliApplication)
+module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Program, application, cliApplication)
 
 import Browser
 import Browser.Dom as Dom
@@ -6,15 +6,17 @@ import Browser.Navigation
 import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
-import Html.Attributes
+import Html.Attributes exposing (style)
+import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import List.Extra
-import Mark
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
+import Pages.Internal.ApplicationType as ApplicationType
+import Pages.Internal.HotReloadLoadingIndicator as HotReloadLoadingIndicator
 import Pages.Internal.Platform.Cli
+import Pages.Internal.String as String
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -22,14 +24,6 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
-
-
-dropTrailingSlash path =
-    if path |> String.endsWith "/" then
-        String.dropRight 1 path
-
-    else
-        path
 
 
 type alias Page metadata view pathKey =
@@ -81,12 +75,13 @@ mainView pathKey pageView model =
             }
 
 
-urlToPagePath : pathKey -> Url -> PagePath pathKey
-urlToPagePath pathKey url =
+urlToPagePath : pathKey -> Url -> Url -> PagePath pathKey
+urlToPagePath pathKey url baseUrl =
     url.path
-        |> dropTrailingSlash
+        |> String.dropLeft (String.length baseUrl.path)
+        |> String.chopForwardSlashes
         |> String.split "/"
-        |> List.drop 1
+        |> List.filter ((/=) "")
         |> PagePath.build pathKey
 
 
@@ -108,21 +103,27 @@ pageViewOrError :
     -> ContentCache metadata view
     -> { title : String, body : Html userMsg }
 pageViewOrError pathKey viewFn model cache =
-    case ContentCache.lookup pathKey cache model.url of
+    let
+        urls =
+            { currentUrl = model.url
+            , baseUrl = model.baseUrl
+            }
+    in
+    case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
                 ContentCache.Parsed metadata viewResult ->
                     let
                         viewFnResult =
-                            viewFn
-                                (cache
-                                    |> Result.map (ContentCache.extractMetadata pathKey)
-                                    |> Result.withDefault []
-                                 -- TODO handle error better
-                                )
-                                { path = pagePath, frontmatter = metadata }
+                            { path = pagePath, frontmatter = metadata }
+                                |> viewFn
+                                    (cache
+                                        |> Result.map (ContentCache.extractMetadata pathKey)
+                                        |> Result.withDefault []
+                                     -- TODO handle error better
+                                    )
                                 |> (\request ->
-                                        StaticHttpRequest.resolve request viewResult.staticData
+                                        StaticHttpRequest.resolve ApplicationType.Browser request viewResult.staticData
                                    )
                     in
                     case viewResult.body of
@@ -145,6 +146,12 @@ pageViewOrError pathKey viewFn model cache =
                                                 Html.div []
                                                     [ Html.text "I'm missing some StaticHttp data for this page:"
                                                     , Html.pre [] [ Html.text missingKey ]
+                                                    ]
+
+                                            StaticHttpRequest.UserCalledStaticHttpFail message ->
+                                                Html.div []
+                                                    [ Html.text "I ran into a call to `Pages.StaticHttp.fail` with message:"
+                                                    , Html.pre [] [ Html.text message ]
                                                     ]
                                     }
 
@@ -198,8 +205,26 @@ view pathKey content viewFn model =
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg |> Html.map AppMsg
+        , Html.Lazy.lazy2 loadingView model.phase model.hmrStatus
         ]
     }
+
+
+loadingView : Phase -> HmrStatus -> Html msg
+loadingView phase hmrStatus =
+    case phase of
+        DevClient isDebugMode ->
+            (case hmrStatus of
+                HmrLoading ->
+                    True
+
+                _ ->
+                    False
+            )
+                |> HotReloadLoadingIndicator.view isDebugMode
+
+        _ ->
+            Html.text ""
 
 
 onViewChangeElement currentUrl =
@@ -222,6 +247,13 @@ type alias ContentJson =
     { body : String
     , staticData : Dict String String
     }
+
+
+contentJsonDecoder : Decode.Decoder ContentJson
+contentJsonDecoder =
+    Decode.map2 ContentJson
+        (Decode.field "body" Decode.string)
+        (Decode.field "staticData" (Decode.dict Decode.string))
 
 
 init :
@@ -263,51 +295,72 @@ init :
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
-            ContentCache.init document content (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
+            ContentCache.init
+                document
+                content
+                (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
 
         contentJson =
             flags
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
                 |> Result.toMaybe
 
-        contentJsonDecoder : Decode.Decoder ContentJson
-        contentJsonDecoder =
-            Decode.map2 ContentJson
-                (Decode.field "body" Decode.string)
-                (Decode.field "staticData" (Decode.dict Decode.string))
+        baseUrl =
+            flags
+                |> Decode.decodeValue (Decode.field "baseUrl" Decode.string)
+                |> Result.toMaybe
+                |> Maybe.andThen Url.fromString
+                |> Maybe.withDefault url
+
+        urls =
+            { currentUrl = url
+            , baseUrl = baseUrl
+            }
     in
     case contentCache of
         Ok okCache ->
             let
                 phase =
-                    case Decode.decodeValue (Decode.field "isPrerendering" Decode.bool) flags of
-                        Ok True ->
+                    case
+                        Decode.decodeValue
+                            (Decode.map3 (\a b c -> ( a, b, c ))
+                                (Decode.field "isPrerendering" Decode.bool)
+                                (Decode.field "isDevServer" Decode.bool)
+                                (Decode.field "isElmDebugMode" Decode.bool)
+                            )
+                            flags
+                    of
+                        Ok ( True, _, _ ) ->
                             Prerender
 
-                        Ok False ->
-                            Client
+                        Ok ( False, True, isElmDebugMode ) ->
+                            DevClient isElmDebugMode
+
+                        Ok ( False, False, _ ) ->
+                            ProdClient
 
                         Err _ ->
-                            Client
+                            DevClient False
 
                 ( userModel, userCmd ) =
-                    initUserModel
-                        (maybePagePath
-                            |> Maybe.map
-                                (\pagePath ->
-                                    { path = pagePath
-                                    , query = url.query
-                                    , fragment = url.fragment
-                                    }
-                                )
-                        )
+                    maybePagePath
+                        |> Maybe.map
+                            (\pagePath ->
+                                { path = pagePath
+                                , query = url.query
+                                , fragment = url.fragment
+                                }
+                            )
+                        |> initUserModel
 
                 cmd =
                     case ( maybePagePath, maybeMetadata ) of
                         ( Just pagePath, Just frontmatter ) ->
-                            [ userCmd |> Cmd.map UserMsg |> Just
+                            [ userCmd
+                                |> Cmd.map UserMsg
+                                |> Just
                             , contentCache
-                                |> ContentCache.lazyLoad document url
+                                |> ContentCache.lazyLoad document urls
                                 |> Task.attempt UpdateCache
                                 |> Just
                             ]
@@ -318,7 +371,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                             Cmd.none
 
                 ( maybePagePath, maybeMetadata ) =
-                    case ContentCache.lookupMetadata pathKey (Ok okCache) url of
+                    case ContentCache.lookupMetadata pathKey (Ok okCache) urls of
                         Just ( pagePath, metadata ) ->
                             ( Just pagePath, Just metadata )
 
@@ -327,9 +380,11 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             in
             ( { key = key
               , url = url
+              , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
               , phase = phase
+              , hmrStatus = HmrLoaded
               }
             , cmd
             )
@@ -341,9 +396,11 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             in
             ( { key = key
               , url = url
+              , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
-              , phase = Client
+              , phase = DevClient False
+              , hmrStatus = HmrLoaded
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -371,7 +428,10 @@ type AppMsg userMsg metadata view
     | UserMsg userMsg
     | UpdateCache (Result Http.Error (ContentCache metadata view))
     | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
+    | UpdateCacheForHotReload (Result Http.Error (ContentCache metadata view))
     | PageScrollComplete
+    | HotReloadComplete ContentJson
+    | StartingHotReload
 
 
 type Model userModel userMsg metadata view
@@ -381,20 +441,24 @@ type Model userModel userMsg metadata view
 
 type alias ModelDetails userModel metadata view =
     { key : Browser.Navigation.Key
-    , url : Url.Url
+    , url : Url
+    , baseUrl : Url
     , contentCache : ContentCache metadata view
     , userModel : userModel
     , phase : Phase
+    , hmrStatus : HmrStatus
     }
 
 
 type Phase
     = Prerender
-    | Client
+    | DevClient Bool
+    | ProdClient
 
 
 update :
-    List String
+    Content
+    -> List String
     -> String
     ->
         (List ( PagePath pathKey, metadata )
@@ -422,7 +486,7 @@ update :
     -> Msg userMsg metadata view
     -> ModelDetails userModel metadata view
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
-update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
+update content allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -431,10 +495,7 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                         Browser.Internal url ->
                             let
                                 navigatingToSamePage =
-                                    url.path
-                                        == model.url.path
-                                        && url
-                                        /= model.url
+                                    (url.path == model.url.path) && (url /= model.url)
                             in
                             if navigatingToSamePage then
                                 -- this is a workaround for an issue with anchor fragment navigation
@@ -450,10 +511,12 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                 UrlChanged url ->
                     let
                         navigatingToSamePage =
-                            url.path
-                                == model.url.path
-                                && url
-                                /= model.url
+                            (url.path == model.url.path) && (url /= model.url)
+
+                        urls =
+                            { currentUrl = url
+                            , baseUrl = model.baseUrl
+                            }
                     in
                     ( model
                     , if navigatingToSamePage then
@@ -466,7 +529,7 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
 
                       else
                         model.contentCache
-                            |> ContentCache.lazyLoad document url
+                            |> ContentCache.lazyLoad document urls
                             |> Task.attempt (UpdateCacheAndUrl url)
                     )
 
@@ -483,8 +546,13 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                         -- to keep track of the last url change
                         Ok updatedCache ->
                             let
+                                urls =
+                                    { currentUrl = model.url
+                                    , baseUrl = model.baseUrl
+                                    }
+
                                 maybeCmd =
-                                    case ContentCache.lookup pathKey updatedCache model.url of
+                                    case ContentCache.lookup pathKey updatedCache urls of
                                         Just ( pagePath, entry ) ->
                                             case entry of
                                                 ContentCache.Parsed frontmatter viewResult ->
@@ -511,7 +579,7 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                                         )
                                         { path = pagePath, frontmatter = frontmatter }
                                         |> (\request ->
-                                                StaticHttpRequest.resolve request staticDataThing
+                                                StaticHttpRequest.resolve ApplicationType.Browser request staticDataThing
                                            )
                             in
                             ( { model | contentCache = updatedCache }
@@ -533,7 +601,7 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                                 ( userModel, userCmd ) =
                                     userUpdate
                                         (onPageChangeMsg
-                                            { path = url |> urlToPagePath pathKey
+                                            { path = urlToPagePath pathKey url model.baseUrl
                                             , query = url.query
                                             , fragment = url.fragment
                                             }
@@ -555,18 +623,42 @@ update allRoutes canonicalSiteUrl viewFunction pathKey onPageChangeMsg toJsPort 
                             -- TODO handle error
                             ( { model | url = url }, Cmd.none )
 
+                UpdateCacheForHotReload cacheUpdateResult ->
+                    case cacheUpdateResult of
+                        Ok updatedCache ->
+                            ( { model | contentCache = updatedCache }, Cmd.none )
+
+                        Err _ ->
+                            -- TODO handle error
+                            ( model, Cmd.none )
+
                 PageScrollComplete ->
                     ( model, Cmd.none )
+
+                HotReloadComplete contentJson ->
+                    ( { model
+                        | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url })
+                        , hmrStatus = HmrLoaded
+                      }
+                    , Cmd.none
+                      -- ContentCache.init document content (Maybe.map (\cj -> { contentJson = contentJson, initialUrl = model.url }) Nothing)
+                      --|> ContentCache.lazyLoad document
+                      --    { currentUrl = model.url
+                      --    , baseUrl = model.baseUrl
+                      --    }
+                      --|> Task.attempt UpdateCacheForHotReload
+                    )
+
+                StartingHotReload ->
+                    ( { model | hmrStatus = HmrLoading }, Cmd.none )
 
         CliMsg _ ->
             ( model, Cmd.none )
 
 
-type alias Parser metadata view =
-    Dict String String
-    -> List String
-    -> List ( List String, metadata )
-    -> Mark.Document view
+type HmrStatus
+    = HmrLoading
+    | HmrLoaded
 
 
 application :
@@ -593,6 +685,7 @@ application :
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
+    , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
         List
@@ -647,7 +740,7 @@ application config =
                                     Prerender ->
                                         noOpUpdate
 
-                                    Client ->
+                                    _ ->
                                         config.update
 
                             noOpUpdate =
@@ -658,9 +751,8 @@ application config =
                                 config.content
                                     |> List.map Tuple.first
                                     |> List.map (String.join "/")
-                                    |> List.map (\route -> "/" ++ route)
                         in
-                        update allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
+                        update config.content allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
@@ -670,9 +762,27 @@ application config =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        config.subscriptions model.userModel
-                            |> Sub.map UserMsg
-                            |> Sub.map AppMsg
+                        Sub.batch
+                            [ config.subscriptions model.userModel
+                                |> Sub.map UserMsg
+                                |> Sub.map AppMsg
+                            , config.fromJsPort
+                                |> Sub.map
+                                    (\decodeValue ->
+                                        case decodeValue |> Decode.decodeValue (Decode.field "thingy" Decode.string) of
+                                            Ok "hmr-check" ->
+                                                AppMsg StartingHotReload
+
+                                            _ ->
+                                                case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
+                                                    Ok contentJson ->
+                                                        AppMsg (HotReloadComplete contentJson)
+
+                                                    Err error ->
+                                                        -- TODO should be no message here
+                                                        AppMsg StartingHotReload
+                                    )
+                            ]
 
                     CliModel _ ->
                         Sub.none
@@ -705,6 +815,7 @@ cliApplication :
     , document : Pages.Document.Document metadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
+    , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
         List

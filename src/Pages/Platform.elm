@@ -125,6 +125,7 @@ application config =
         , content = config.internals.content
         , generateFiles = config.generateFiles
         , toJsPort = config.internals.toJsPort
+        , fromJsPort = config.internals.fromJsPort
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , onPageChange = config.onPageChange

@@ -1,9 +1,9 @@
 const path = require("path");
 
-module.exports = function(markdown, markup, includeBody) {
+module.exports = function (markdown, includeBody) {
   return `content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
-    [ ${markdown.concat(markup).map(entry => toEntry(entry, includeBody))}
+    [ ${markdown.map(entry => toEntry(entry, includeBody))}
     ]`;
 };
 
@@ -26,11 +26,16 @@ function toEntry(entry, includeBody) {
   `;
 }
 
+function multilineElmString(string) {
+  const escapedString = string
+    .replace(/\\/g, "\\\\")
+    .replace(/"""/g, '\\"\\"\\"');
+  return `"""${escapedString}"""`;
+}
+
 function body(entry, includeBody) {
   if (includeBody) {
-    return `Just """${entry.body.replace(/\\/g, "\\\\")}
-"""
-`;
+    return `Just ${multilineElmString(entry.body)}`;
   } else {
     return `Nothing`;
   }

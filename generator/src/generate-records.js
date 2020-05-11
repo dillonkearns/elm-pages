@@ -1,9 +1,11 @@
 const path = require("path");
-const matter = require("gray-matter");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
 const parseFrontmatter = require("./frontmatter.js");
+
+// Because we use node-glob, we must use `/` as a separator on all platforms. See https://github.com/isaacs/node-glob#windows
+const PATH_SEPARATOR = '/';
 
 module.exports = function wrapper() {
   return generate(scan());
@@ -41,9 +43,9 @@ function unpackFile() {
 function relativeImagePath(imageFilepath) {
   var pathFragments = imageFilepath;
   //remove extesion and split into fragments
-  const fragmentsWithExtension = pathFragments.split(path.sep);
+  const fragmentsWithExtension = pathFragments.split(PATH_SEPARATOR);
   fragmentsWithExtension.splice(0, 1);
-  pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+  pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(PATH_SEPARATOR);
   pathFragments.splice(0, 1);
   const fullPath = imageFilepath;
   var relative = imageFilepath.slice(dir.length - 1);
@@ -69,7 +71,7 @@ function generate(scanned) {
   for (var i = 0; i < scanned.length; i++) {
     var pathFragments = scanned[i].path;
     //remove extesion and split into fragments
-    pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(path.sep);
+    pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(PATH_SEPARATOR);
     const is404 = pathFragments.length == 1 && pathFragments[0] == "404";
     const ext = path.extname(scanned[i].path);
 
@@ -135,14 +137,14 @@ function allImageAssetNames() {
     });
 }
 function toPascalCase(str) {
-  var pascal = str.replace(/(\-\w)/g, function(m) {
+  var pascal = str.replace(/(\-\w)/g, function (m) {
     return m[1].toUpperCase();
   });
   return pascal.charAt(0).toUpperCase() + pascal.slice(1);
 }
 
 function toCamelCase(str) {
-  var pascal = str.replace(/(\-\w)/g, function(m) {
+  var pascal = str.replace(/(\-\w)/g, function (m) {
     return m[1].toUpperCase();
   });
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
@@ -177,14 +179,14 @@ function formatRecord(directoryPath, rec, asType, level) {
     } else {
       keyVals.push(
         key +
-          " =\n" +
-          formatRecord(directoryPath.concat(key), val, asType, level + 1)
+        " =\n" +
+        formatRecord(directoryPath.concat(key), val, asType, level + 1)
       );
     }
   }
   keyVals.push(
     `directory = ${
-      keys.includes("index") ? "directoryWithIndex" : "directoryWithoutIndex"
+    keys.includes("index") ? "directoryWithIndex" : "directoryWithoutIndex"
     } [${directoryPath.map(pathFragment => `"${pathFragment}"`).join(", ")}]`
   );
   const indentationDelimiter = `\n${indentation}, `;

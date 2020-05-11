@@ -1,5 +1,4 @@
 const webpack = require("webpack");
-const middleware = require("webpack-dev-middleware");
 const path = require("path");
 const HTMLWebpackPlugin = require("html-webpack-plugin");
 const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
@@ -14,14 +13,27 @@ const imageminMozjpeg = require("imagemin-mozjpeg");
 const express = require("express");
 const ClosurePlugin = require("closure-webpack-plugin");
 const readline = require("readline");
+const webpackDevMiddleware = require("webpack-dev-middleware");
+const PluginGenerateElmPagesBuild = require('./plugin-generate-elm-pages-build')
+
+const hotReloadIndicatorStyle = `
+<style>
+  @keyframes lds-default {
+    0%, 20%, 80%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.5);
+    }
+  }
+</style>
+    `
 
 module.exports = { start, run };
-function start({ routes, debug, customPort, manifestConfig, routesWithRequests, filesToGenerate }) {
+function start({ routes, debug, customPort, manifestConfig }) {
   const config = webpackOptions(false, routes, {
     debug,
-    manifestConfig,
-    routesWithRequests,
-    filesToGenerate
+    manifestConfig
   });
 
   const compiler = webpack(config);
@@ -31,8 +43,7 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
     hot: true,
     inline: true,
     host: "localhost",
-    stats: "errors-only",
-    publicPath: "/"
+    stats: "errors-only"
   };
 
   const app = express();
@@ -40,21 +51,33 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
   app.use('/images', express.static(path.resolve(process.cwd(), "./images")));
 
 
-  app.use(require("webpack-dev-middleware")(compiler, options));
+  app.use(webpackDevMiddleware(compiler, options));
   app.use(require("webpack-hot-middleware")(compiler, {
     log: console.log, path: '/__webpack_hmr'
   }))
 
-  app.use("*", function(req, res, next) {
+  app.get('/elm-pages-dev-server-options', function (req, res) {
+    res.json({ elmDebugger: debug });
+  });
+
+  app.use("*", function (req, res, next) {
     // don't know why this works, but it does
     // see: https://github.com/jantimon/html-webpack-plugin/issues/145#issuecomment-170554832
     const filename = path.join(compiler.outputPath, "index.html");
-    compiler.outputFileSystem.readFile(filename, function(err, result) {
+    const route = req.originalUrl.replace(/(\w)\/$/, "$1").replace(/^\//, "");
+    const isPage = routes.includes(route);
+
+    compiler.outputFileSystem.readFile(filename, function (err, result) {
       if (err) {
         return next(err);
       }
+
+      const contents = isPage
+        ? replaceBaseAndLinks(result.toString(), route)
+        : result
+
       res.set("content-type", "text/html");
-      res.send(result);
+      res.send(contents);
       res.end();
     });
   });
@@ -67,20 +90,18 @@ function start({ routes, debug, customPort, manifestConfig, routesWithRequests, 
   // app.use(express.static(__dirname + "/path-to-static-folder"));
 }
 
-function run({ routes, manifestConfig, routesWithRequests, filesToGenerate }, callback) {
+function run({ routes, manifestConfig }) {
   webpack(
     webpackOptions(true, routes, {
       debug: false,
       manifestConfig,
-      routesWithRequests,
-      filesToGenerate
     })
   ).run((err, stats) => {
     if (err) {
       console.error(err);
       process.exit(1);
     } else {
-      callback();
+      // done
     }
 
     console.log(
@@ -121,12 +142,13 @@ function printProgress(progress, message) {
 function webpackOptions(
   production,
   routes,
-  { debug, manifestConfig, routesWithRequests, filesToGenerate }
+  { debug, manifestConfig }
 ) {
   const common = {
     mode: production ? "production" : "development",
     plugins: [
-      new AddFilesPlugin(routesWithRequests, filesToGenerate),
+      new PluginGenerateElmPagesBuild(),
+      new AddFilesPlugin(),
       new CopyPlugin([
         {
           from: "static/**/*",
@@ -160,16 +182,48 @@ function webpackOptions(
 
       new HTMLWebpackPlugin({
         inject: "head",
-        template: path.resolve(__dirname, "template.html")
+        templateContent: `<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="preload" href="content.json" as="fetch" crossorigin />
+
+  <base href="/" />
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js");
+      });
+    } else {
+      console.log("No service worker registered.");
+    }
+  </script>
+  ${production ? '' : hotReloadIndicatorStyle}
+</head>
+
+<body></body>
+
+
+</html>`
       }),
       new ScriptExtHtmlWebpackPlugin({
         preload: /\.js$/,
         defaultAttribute: 'defer'
       }),
       new FaviconsWebpackPlugin({
-        logo: path.resolve(process.cwd(), `./${manifestConfig.sourceIcon}`),
+        logo: `./${manifestConfig.sourceIcon}`,
+        prefix: "assets/",
+
+        publicPath: "",
+        outputPath: "",
+
         favicons: {
-          path: "/", // Path for overriding default icons path. `string`
+          manifestRelativePaths: true,
+          path: "", // Path for overriding default icons path. `string`
           appName: manifestConfig.name, // Your application's name. `string`
           appShortName: manifestConfig.short_name, // Your application's short_name. `string`. Optional. If not set, appName will be used
           appDescription: manifestConfig.description, // Your application's description. `string`
@@ -221,14 +275,12 @@ function webpackOptions(
           /assets\//
         ],
         swDest: "service-worker.js"
-      })
+      }),
       // comment this out to do performance profiling
       // (drag-and-drop `events.json` file into Chrome performance tab)
-      // , new webpack.debug.ProfilingPlugin()
+      // new webpack.debug.ProfilingPlugin()
     ],
-    output: {
-      publicPath: "/"
-    },
+    output: {},
     resolve: {
       modules: [
         path.resolve(process.cwd(), `./node_modules`),
@@ -238,7 +290,7 @@ function webpackOptions(
         // process.cwd prefixed node_modules above).
         path.resolve(path.dirname(require.resolve('webpack')), '../../'),
 
-    ],
+      ],
       extensions: [".js", ".elm", ".scss", ".png", ".html"]
     },
     module: {
@@ -307,10 +359,22 @@ function webpackOptions(
         }),
         new PrerenderSPAPlugin({
           staticDir: path.join(process.cwd(), "dist"),
-          routes: routes,
+          routes: routes.map(r => `/${r}`),
+
           renderer: new PrerenderSPAPlugin.PuppeteerRenderer({
             renderAfterDocumentEvent: "prerender-trigger",
-          })
+            headless: true,
+            devtools: false,
+          }),
+
+          postProcess: renderedRoute => {
+            renderedRoute.html = replaceBaseAndLinks(
+              renderedRoute.html,
+              renderedRoute.route
+            )
+
+            return renderedRoute
+          }
         })
       ],
       module: {
@@ -331,14 +395,14 @@ function webpackOptions(
   } else {
     return merge(common, {
       entry: [
-        require.resolve("webpack-hot-middleware/client"),
+        hmrClientPath(),
         "./index.js",
-        ],
+      ],
       plugins: [
         new webpack.NamedModulesPlugin(),
+        new webpack.HotModuleReplacementPlugin(),
         // Prevents compilation errors causing the hot loader to lose state
         new webpack.NoEmitOnErrorsPlugin(),
-        new webpack.HotModuleReplacementPlugin()
       ],
       module: {
         rules: [
@@ -360,4 +424,64 @@ function webpackOptions(
       }
     });
   }
+}
+
+function hmrClientPath() {
+  var ansiColors = {
+    reset: ['ffffff', 'transparent'], // [FOREGROUD_COLOR, BACKGROUND_COLOR]
+    black: '000',
+    red: 'c91b00',
+    green: '00c200',
+    yellow: 'c7c400',
+    blue: '0225c7',
+    magenta: 'c930c7',
+    cyan: '00c5c7',
+    lightgrey: 'f0f0f0',
+    darkgrey: '888'
+  };
+  var overlayStyles = {
+    // options from https://github.com/webpack-contrib/webpack-hot-middleware/blob/master/client-overlay.js
+
+    background: 'rgba(0,0,0,0.90)',
+    color: '#e8e8e8',
+    lineHeight: '1.6',
+    whiteSpace: 'pre-wrap',
+    fontFamily: 'Menlo, Consolas, monospace',
+    fontSize: '16px',
+    // position: 'fixed',
+    // zIndex: 9999,
+    // padding: '10px',
+    // left: 0,
+    // right: 0,
+    // top: 0,
+    // bottom: 0,
+    // overflow: 'auto',
+    // dir: 'ltr',
+    // textAlign: 'left',
+  };
+  return `${require.resolve("webpack-hot-middleware/client")}?ansiColors=${encodeURIComponent(JSON.stringify(ansiColors))}&overlayStyles=${encodeURIComponent(JSON.stringify(overlayStyles))}`;
+}
+
+
+function cleanRoute(route) {
+  return route.replace(/(^\/|\/$)/, "")
+}
+
+
+function pathToRoot(cleanedRoute) {
+  return cleanedRoute === ""
+    ? cleanedRoute
+    : cleanedRoute
+      .split("/")
+      .map(_ => "..")
+      .join("/")
+      .replace(/\.$/, "./")
+}
+
+
+function replaceBaseAndLinks(html, route) {
+  const cleanedRoute = cleanRoute(route)
+
+  const href = cleanedRoute === '' ? './' : pathToRoot(cleanedRoute)
+  return (html || "").replace(`<base href="/"`, `<base href="${href}"`)
 }
