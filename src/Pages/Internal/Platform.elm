@@ -694,11 +694,13 @@ application :
             , body : String
             }
         ->
-            List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
+            StaticHttp.Request
+                (List
+                    (Result String
+                        { path : List String
+                        , content : String
+                        }
+                    )
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey
@@ -822,11 +824,13 @@ cliApplication :
             , body : String
             }
         ->
-            List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
+            StaticHttp.Request
+                (List
+                    (Result String
+                        { path : List String
+                        , content : String
+                        }
+                    )
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey

@@ -192,11 +192,13 @@ type alias Config pathKey userMsg userModel metadata view =
             , body : String
             }
         ->
-            List
-                (Result String
-                    { path : List String
-                    , content : String
-                    }
+            StaticHttp.Request
+                (List
+                    (Result String
+                        { path : List String
+                        , content : String
+                        }
+                    )
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey
@@ -352,11 +354,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            staticResponsesInit staticHttpCache okRequests
+                                            staticResponsesInit staticHttpCache siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            staticResponsesInit staticHttpCache []
+                                            staticResponsesInit staticHttpCache siteMetadata config []
 
                                 ( updatedRawResponses, effect ) =
                                     sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
@@ -378,11 +380,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            staticResponsesInit staticHttpCache okRequests
+                                            staticResponsesInit staticHttpCache siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            staticResponsesInit staticHttpCache []
+                                            staticResponsesInit staticHttpCache siteMetadata config []
                             in
                             updateAndSendPortIfDone
                                 config
@@ -584,8 +586,58 @@ combineMultipleErrors results =
         results
 
 
-staticResponsesInit : Dict String (Maybe String) -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
-staticResponsesInit staticHttpCache list =
+cliDictKey : String
+cliDictKey =
+    "////elm-pages-CLI////"
+
+
+staticResponsesInit : Dict String (Maybe String) -> Result (List BuildError) (List ( PagePath pathKey, metadata )) -> Config pathKey userMsg userModel metadata view -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
+staticResponsesInit staticHttpCache siteMetadataResult config list =
+    let
+        generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
+        generateFilesRequest =
+            config.generateFiles siteMetadataWithContent
+
+        generateFilesStaticRequest =
+            ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
+              -- since that data is only needed to run these functions during the build step
+              -- in the future, this could be refactored to have a type to represent this more clearly
+              cliDictKey
+            , NotFetched (generateFilesRequest |> StaticHttp.map (\_ -> ())) Dict.empty
+            )
+
+        siteMetadataWithContent =
+            siteMetadataResult
+                |> Result.withDefault []
+                |> List.map
+                    (\( pagePath, metadata ) ->
+                        let
+                            contentForPage =
+                                config.content
+                                    |> List.filterMap
+                                        (\( path, { body } ) ->
+                                            let
+                                                pagePathToGenerate =
+                                                    PagePath.toString pagePath
+
+                                                currentContentPath =
+                                                    "/" ++ (path |> String.join "/")
+                                            in
+                                            if pagePathToGenerate == currentContentPath then
+                                                Just body
+
+                                            else
+                                                Nothing
+                                        )
+                                    |> List.head
+                                    |> Maybe.andThen identity
+                        in
+                        { path = pagePath
+                        , frontmatter = metadata
+                        , body = contentForPage |> Maybe.withDefault ""
+                        }
+                    )
+    in
     list
         |> List.map
             (\( path, staticRequest ) ->
@@ -611,6 +663,7 @@ staticResponsesInit staticHttpCache list =
                 , updatedEntry
                 )
             )
+        |> List.append [ generateFilesStaticRequest ]
         |> Dict.fromList
 
 
@@ -868,7 +921,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
             updatedAllRawResponses =
                 Dict.empty
 
-            generatedFiles =
+            metadataForGenerateFiles =
                 siteMetadata
                     |> Result.withDefault []
                     |> List.map
@@ -899,8 +952,20 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                             , body = contentForPage |> Maybe.withDefault ""
                             }
                         )
-                    |> config.generateFiles
 
+            --generatedFiles : StaticHttp.Request (List (Result String { path : List String, content : String }))
+            --generatedFiles : List (Result String { path : List String, content : String })
+            generatedFiles =
+                mythingy2
+                    |> Result.withDefault []
+
+            mythingy2 : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
+            mythingy2 =
+                StaticHttpRequest.resolve ApplicationType.Cli
+                    (config.generateFiles metadataForGenerateFiles)
+                    (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
+
+            generatedOkayFiles : List { path : List String, content : String }
             generatedOkayFiles =
                 generatedFiles
                     |> List.filterMap
@@ -913,6 +978,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                     Nothing
                         )
 
+            generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
             generatedFileErrors =
                 generatedFiles
                     |> List.filterMap
@@ -978,32 +1044,37 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
 
 
 encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)
-encodeStaticResponses mode =
-    Dict.map
-        (\path result ->
-            case result of
-                NotFetched request rawResponsesDict ->
-                    let
-                        relevantResponses =
-                            Dict.map
-                                (\_ ->
-                                    -- TODO avoid running this code at all if there are errors here
-                                    Result.withDefault ""
-                                )
-                                rawResponsesDict
+encodeStaticResponses mode staticResponses =
+    staticResponses
+        |> Dict.filter
+            (\key value ->
+                key /= cliDictKey
+            )
+        |> Dict.map
+            (\path result ->
+                case result of
+                    NotFetched request rawResponsesDict ->
+                        let
+                            relevantResponses =
+                                Dict.map
+                                    (\_ ->
+                                        -- TODO avoid running this code at all if there are errors here
+                                        Result.withDefault ""
+                                    )
+                                    rawResponsesDict
 
-                        strippedResponses : Dict String String
-                        strippedResponses =
-                            -- TODO should this return an Err and handle that here?
-                            StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
-                    in
-                    case mode of
-                        Dev ->
-                            relevantResponses
+                            strippedResponses : Dict String String
+                            strippedResponses =
+                                -- TODO should this return an Err and handle that here?
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
+                        in
+                        case mode of
+                            Dev ->
+                                relevantResponses
 
-                        Prod ->
-                            strippedResponses
-        )
+                            Prod ->
+                                strippedResponses
+            )
 
 
 type alias StaticResponses =

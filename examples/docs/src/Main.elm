@@ -82,18 +82,19 @@ generateFiles :
         , body : String
         }
     ->
-        List
-            (Result String
-                { path : List String
-                , content : String
-                }
+        StaticHttp.Request
+            (List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
             )
 generateFiles siteMetadata =
-    [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
-    , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
-
-    --, Ok { content = "Hello1!", path = [ "test.txt" ] }
-    ]
+    StaticHttp.succeed
+        [ Feed.fileToGenerate { siteTagline = siteTagline, siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+        , MySitemap.build { siteUrl = canonicalSiteUrl } siteMetadata |> Ok
+        ]
 
 
 markdownDocument : ( String, Pages.Document.DocumentHandler Metadata ( MarkdownRenderer.TableOfContents, List (Element Msg) ) )
