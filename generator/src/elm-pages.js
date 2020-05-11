@@ -24,6 +24,26 @@ function parseMarkdown(path, fileContents) {
     body: content
   };
 }
+const stubManifest = {
+  sourceIcon: 'images/icon-png.png',
+  background_color: '#ffffff',
+  orientation: 'portrait',
+  display: 'standalone',
+  categories: ['education'],
+  description: 'elm-pages - A statically typed site generator.',
+  name: 'elm-pages docs',
+  prefer_related_applications: false,
+  related_applications: [],
+  theme_color: '#ffffff',
+  start_url: '',
+  short_name: 'elm-pages',
+  serviceworker: {
+    src: '../service-worker.js',
+    scope: '/',
+    type: '',
+    update_via_cache: 'none'
+  }
+}
 
 function run() {
   const markdownContent = globby
@@ -69,24 +89,38 @@ function run() {
       staticRoutes,
       markdownContent
     ).then((payload) => {
-    if (cliOptions.watch) {
-      develop.start({
-        routes,
-        debug: cliOptions.debug,
+      if (cliOptions.watch) {
+        develop.start({
+          routes,
+          debug: cliOptions.debug,
           customPort: cliOptions.customPort,
           manifestConfig: payload.manifest,
 
-      });
-    } else {
-      develop.run({
-        routes,
-        debug: cliOptions.debug,
+        });
+      } else {
+        develop.run({
+          routes,
+          debug: cliOptions.debug,
           customPort: cliOptions.customPort,
           manifestConfig: payload.manifest,
-      });
-    }
+        });
+      }
 
+    }).catch(function (errorPayload) {
+      if (cliOptions.watch) {
+        develop.start({
+          routes,
+          debug: cliOptions.debug,
+          customPort: cliOptions.customPort,
+          manifestConfig: stubManifest,
+
+        });
+      } else {
+        console.error(errorPayload)
+        process.exit(1)
+      }
     })
+
 
 
 
