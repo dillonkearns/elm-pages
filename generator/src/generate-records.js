@@ -1,5 +1,4 @@
 const path = require("path");
-const matter = require("gray-matter");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
@@ -138,14 +137,14 @@ function allImageAssetNames() {
     });
 }
 function toPascalCase(str) {
-  var pascal = str.replace(/(\-\w)/g, function(m) {
+  var pascal = str.replace(/(\-\w)/g, function (m) {
     return m[1].toUpperCase();
   });
   return pascal.charAt(0).toUpperCase() + pascal.slice(1);
 }
 
 function toCamelCase(str) {
-  var pascal = str.replace(/(\-\w)/g, function(m) {
+  var pascal = str.replace(/(\-\w)/g, function (m) {
     return m[1].toUpperCase();
   });
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
@@ -180,14 +179,14 @@ function formatRecord(directoryPath, rec, asType, level) {
     } else {
       keyVals.push(
         key +
-          " =\n" +
-          formatRecord(directoryPath.concat(key), val, asType, level + 1)
+        " =\n" +
+        formatRecord(directoryPath.concat(key), val, asType, level + 1)
       );
     }
   }
   keyVals.push(
     `directory = ${
-      keys.includes("index") ? "directoryWithIndex" : "directoryWithoutIndex"
+    keys.includes("index") ? "directoryWithIndex" : "directoryWithoutIndex"
     } [${directoryPath.map(pathFragment => `"${pathFragment}"`).join(", ")}]`
   );
   const indentationDelimiter = `\n${indentation}, `;

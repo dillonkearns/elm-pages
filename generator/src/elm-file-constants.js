@@ -1,9 +1,9 @@
 generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-  "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
+    "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
 
 function staticRouteStuff(staticRoutes) {
-  return `
+    return `
 
 
 ${staticRoutes.allRoutes}
@@ -41,8 +41,8 @@ isValidRoute route =
 `;
 }
 
-function elmPagesUiFile(staticRoutes, markdownContent, markupContent) {
-  return `port module Pages exposing ${exposingList}
+function elmPagesUiFile(staticRoutes, markdownContent) {
+    return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
 import Pages.Internal
@@ -50,7 +50,6 @@ import Head
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
-import Mark
 import Pages.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
@@ -91,24 +90,27 @@ directoryWithoutIndex path =
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
 
 internals : Pages.Internal.Internal PathKey
 internals =
     { applicationType = Pages.Internal.Browser
     , toJsPort = toJsPort
+    , fromJsPort = fromJsPort identity
     , content = content
     , pathKey = PathKey
     }
 
 ${staticRouteStuff(staticRoutes)}
 
-${generateRawContent(markdownContent, markupContent, false)}
+${generateRawContent(markdownContent, false)}
 `;
 }
 
-function elmPagesCliFile(staticRoutes, markdownContent, markupContent) {
-  return `port module Pages exposing ${exposingList}
+function elmPagesCliFile(staticRoutes, markdownContent) {
+    return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
 import Pages.Internal
@@ -116,7 +118,6 @@ import Head
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
-import Mark
 import Pages.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
@@ -159,10 +160,14 @@ directoryWithoutIndex path =
 port toJsPort : Json.Encode.Value -> Cmd msg
 
 
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
 internals : Pages.Internal.Internal PathKey
 internals =
     { applicationType = Pages.Internal.Cli
     , toJsPort = toJsPort
+    , fromJsPort = fromJsPort identity
     , content = content
     , pathKey = PathKey
     }
@@ -170,7 +175,7 @@ internals =
 
 ${staticRouteStuff(staticRoutes)}
 
-${generateRawContent(markdownContent, markupContent, true)}
+${generateRawContent(markdownContent, true)}
 `;
 }
 module.exports = { elmPagesUiFile, elmPagesCliFile };

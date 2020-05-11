@@ -1,6 +1,7 @@
 module Head exposing
     ( Tag, metaName, metaProperty
     , rssLink, sitemapLink
+    , structuredData
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
     , toJson, canonicalLink
@@ -17,6 +18,11 @@ writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty
 @docs rssLink, sitemapLink
+
+
+## Structured Data
+
+@docs structuredData
 
 
 ## `AttributeValue`s
@@ -42,12 +48,107 @@ through the `head` function.
 -}
 type Tag pathKey
     = Tag (Details pathKey)
+    | StructuredData Json.Encode.Value
 
 
 type alias Details pathKey =
     { name : String
     , attributes : List ( String, AttributeValue pathKey )
     }
+
+
+{-| You can learn more about structured data in [Google's intro to structured data](https://developers.google.com/search/docs/guides/intro-structured-data).
+
+When you add a `structuredData` item to one of your pages in `elm-pages`, it will add `json-ld` data to your document that looks like this:
+
+```html
+<script type="application/ld+json">
+{
+   "@context":"http://schema.org/",
+   "@type":"Article",
+   "headline":"Extensible Markdown Parsing in Pure Elm",
+   "description":"Introducing a new parser that extends your palette with no additional syntax",
+   "image":"https://elm-pages.com/images/article-covers/extensible-markdown-parsing.jpg",
+   "author":{
+      "@type":"Person",
+      "name":"Dillon Kearns"
+   },
+   "publisher":{
+      "@type":"Person",
+      "name":"Dillon Kearns"
+   },
+   "url":"https://elm-pages.com/blog/extensible-markdown-parsing-in-elm",
+   "datePublished":"2019-10-08",
+   "mainEntityOfPage":{
+      "@type":"SoftwareSourceCode",
+      "codeRepository":"https://github.com/dillonkearns/elm-pages",
+      "description":"A statically typed site generator for Elm.",
+      "author":"Dillon Kearns",
+      "programmingLanguage":{
+         "@type":"ComputerLanguage",
+         "url":"http://elm-lang.org/",
+         "name":"Elm",
+         "image":"http://elm-lang.org/",
+         "identifier":"http://elm-lang.org/"
+      }
+   }
+}
+</script>
+```
+
+To get that data, you would write this in your `elm-pages` head tags:
+
+    import Json.Encode as Encode
+
+    {-| <https://schema.org/Article>
+    -}
+    encodeArticle :
+        { title : String
+        , description : String
+        , author : StructuredData { authorMemberOf | personOrOrganization : () } authorPossibleFields
+        , publisher : StructuredData { publisherMemberOf | personOrOrganization : () } publisherPossibleFields
+        , url : String
+        , imageUrl : String
+        , datePublished : String
+        , mainEntityOfPage : Encode.Value
+        }
+        -> Head.Tag pathKey
+    encodeArticle info =
+        Encode.object
+            [ ( "@context", Encode.string "http://schema.org/" )
+            , ( "@type", Encode.string "Article" )
+            , ( "headline", Encode.string info.title )
+            , ( "description", Encode.string info.description )
+            , ( "image", Encode.string info.imageUrl )
+            , ( "author", encode info.author )
+            , ( "publisher", encode info.publisher )
+            , ( "url", Encode.string info.url )
+            , ( "datePublished", Encode.string info.datePublished )
+            , ( "mainEntityOfPage", info.mainEntityOfPage )
+            ]
+            |> Head.structuredData
+
+Take a look at this [Google Search Gallery](https://developers.google.com/search/docs/guides/search-gallery)
+to see some examples of how structured data can be used by search engines to give rich search results. It can help boost
+your rankings, get better engagement for your content, and also make your content more accessible. For example,
+voice assistant devices can make use of structured data. If you're hosting a conference and want to make the event
+date and location easy for attendees to find, this can make that information more accessible.
+
+For the current version of API, you'll need to make sure that the format is correct and contains the required and recommended
+structure.
+
+Check out <https://schema.org> for a comprehensive listing of possible data types and fields. And take a look at
+Google's [Structured Data Testing Tool](https://search.google.com/structured-data/testing-tool)
+too make sure that your structured data is valid and includes the recommended values.
+
+In the future, `elm-pages` will likely support a typed API, but schema.org is a massive spec, and changes frequently.
+And there are multiple sources of information on the possible and recommended structure. So it will take some time
+for the right API design to evolve. In the meantime, this allows you to make use of this for SEO purposes.
+
+-}
+structuredData : Json.Encode.Value -> Tag pathKey
+structuredData value =
+    StructuredData value
 
 
 {-| Create a raw `AttributeValue` (as opposed to some kind of absolute URL).
@@ -196,11 +297,20 @@ node name attributes =
 code will run this for you to generate your `manifest.json` file automatically!
 -}
 toJson : String -> String -> Tag pathKey -> Json.Encode.Value
-toJson canonicalSiteUrl currentPagePath (Tag tag) =
-    Json.Encode.object
-        [ ( "name", Json.Encode.string tag.name )
-        , ( "attributes", Json.Encode.list (encodeProperty canonicalSiteUrl currentPagePath) tag.attributes )
-        ]
+toJson canonicalSiteUrl currentPagePath tag =
+    case tag of
+        Tag headTag ->
+            Json.Encode.object
+                [ ( "name", Json.Encode.string headTag.name )
+                , ( "attributes", Json.Encode.list (encodeProperty canonicalSiteUrl currentPagePath) headTag.attributes )
+                , ( "type", Json.Encode.string "head" )
+                ]
+
+        StructuredData value ->
+            Json.Encode.object
+                [ ( "contents", value )
+                , ( "type", Json.Encode.string "json-ld" )
+                ]
 
 
 encodeProperty : String -> String -> ( String, AttributeValue pathKey ) -> Json.Encode.Value
