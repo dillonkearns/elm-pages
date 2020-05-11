@@ -727,7 +727,7 @@ startWithHttpCache staticHttpCache pages =
             , content = []
             , canonicalSiteUrl = ""
             , pathKey = PathKey
-            , onPageChange = \_ -> ()
+            , onPageChange = Just (\_ -> ())
             }
 
         encodedFlags =
