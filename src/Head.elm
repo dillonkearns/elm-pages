@@ -57,7 +57,78 @@ type alias Details pathKey =
     }
 
 
-{-| Take a look at this [Google Search Gallery](https://developers.google.com/search/docs/guides/search-gallery)
+{-| You can learn more about structured data in [Google's intro to structured data](https://developers.google.com/search/docs/guides/intro-structured-data).
+
+When you add a `structuredData` item to one of your pages in `elm-pages`, it will add `json-ld` data to your document that looks like this:
+
+```html
+<script type="application/ld+json">
+{
+   "@context":"http://schema.org/",
+   "@type":"Article",
+   "headline":"Extensible Markdown Parsing in Pure Elm",
+   "description":"Introducing a new parser that extends your palette with no additional syntax",
+   "image":"https://elm-pages.com/images/article-covers/extensible-markdown-parsing.jpg",
+   "author":{
+      "@type":"Person",
+      "name":"Dillon Kearns"
+   },
+   "publisher":{
+      "@type":"Person",
+      "name":"Dillon Kearns"
+   },
+   "url":"https://elm-pages.com/blog/extensible-markdown-parsing-in-elm",
+   "datePublished":"2019-10-08",
+   "mainEntityOfPage":{
+      "@type":"SoftwareSourceCode",
+      "codeRepository":"https://github.com/dillonkearns/elm-pages",
+      "description":"A statically typed site generator for Elm.",
+      "author":"Dillon Kearns",
+      "programmingLanguage":{
+         "@type":"ComputerLanguage",
+         "url":"http://elm-lang.org/",
+         "name":"Elm",
+         "image":"http://elm-lang.org/",
+         "identifier":"http://elm-lang.org/"
+      }
+   }
+}
+</script>
+```
+
+To get that data, you would write this in your `elm-pages` head tags:
+
+    import Json.Encode as Encode
+
+    {-| <https://schema.org/Article>
+    -}
+    encodeArticle :
+        { title : String
+        , description : String
+        , author : StructuredData { authorMemberOf | personOrOrganization : () } authorPossibleFields
+        , publisher : StructuredData { publisherMemberOf | personOrOrganization : () } publisherPossibleFields
+        , url : String
+        , imageUrl : String
+        , datePublished : String
+        , mainEntityOfPage : Encode.Value
+        }
+        -> Head.Tag pathKey
+    encodeArticle info =
+        Encode.object
+            [ ( "@context", Encode.string "http://schema.org/" )
+            , ( "@type", Encode.string "Article" )
+            , ( "headline", Encode.string info.title )
+            , ( "description", Encode.string info.description )
+            , ( "image", Encode.string info.imageUrl )
+            , ( "author", encode info.author )
+            , ( "publisher", encode info.publisher )
+            , ( "url", Encode.string info.url )
+            , ( "datePublished", Encode.string info.datePublished )
+            , ( "mainEntityOfPage", info.mainEntityOfPage )
+            ]
+            |> Head.structuredData
+
+Take a look at this [Google Search Gallery](https://developers.google.com/search/docs/guides/search-gallery)
 to see some examples of how structured data can be used by search engines to give rich search results. It can help boost
 your rankings, get better engagement for your content, and also make your content more accessible. For example,
 voice assistant devices can make use of structured data. If you're hosting a conference and want to make the event
