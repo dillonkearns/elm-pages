@@ -886,29 +886,9 @@ manifest =
     }
 
 
+starDecoder : Decoder Int
 starDecoder =
     Decode.field "stargazer_count" Decode.int
-
-
-thingy =
-    [ ( ""
-      , [ ( { method = "GET"
-            , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-            , headers = []
-            }
-          , """{"stargazer_count":86}"""
-          )
-        ]
-      )
-    ]
-
-
-
---type alias Request =
---    { method : String
---    , url : String
---    , headers : List String
---    }
 
 
 expectSuccess : List ( String, List ( Request.Request, String ) ) -> ProgramTest model msg effect -> Expect.Expectation
