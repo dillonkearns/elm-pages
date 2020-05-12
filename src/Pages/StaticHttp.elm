@@ -444,7 +444,9 @@ succeed value =
         )
 
 
-{-| TODO
+{-| Stop the StaticHttp chain with the given error message. If you reach a `fail` in your request,
+you will get a build error. Or in the dev server, you will see the error message in an overlay in your browser (and in
+the terminal).
 -}
 fail : String -> Request a
 fail errorMessage =
