@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.0] - 2020-05-11
+
+### Added
+- Added hot content reloading to the dev server! That means that you no longer have to restart your dev server if you add/change a StaticHttp request. You don't even
+  have to reload your browser! It will automatically load in the new data, while keeping your application state. Your markdown (or other format) data, and metadata,
+  from the `content` folder will also load for you without having to restart the dev server or refresh your browser! You'll see a loading indicator to show you when
+  the dev server is loading a new change.
+- `elm-pages` now uses an in-memory cache for `StaticHttp` requests. That means that the dev server won't redo requests that were already being performed as you change
+  code with the dev server running.
+  frontmatter in files in the `content/` folder and save with the dev server running.
+- Files are re-generated as you change your Elm code. Just refresh the generated file URL while running your dev server, and you'll always see the latest version! Note:
+  there's still an issue where if you no longer generate a file, you'll need to restart your dev server to get a 404 when hitting that URL.
+
+### Changed
+- Uses Terser instead of GoogleClosureCompiler to minify the JavaScript bundle in production. GoogleClosureCompiler was causing some issues for Windows users when
+  they ran `elm-pages build` because that dependency has known issues on Windows. See [#90](https://github.com/dillonkearns/elm-pages/pull/90). Thank you very much
+  to [Johannes Maas](https://github.com/Y0hy0h) for the PR!
+
+### Fixed
+- Fixed an issue with the dev server not noticing changes to `.emu` files. See [#78](https://github.com/dillonkearns/elm-pages/issues/78). `elm-markup` files, and files with
+  the `.emu` extension, are handled exactly like any other files in the `content/` folder now. This simplifies the API, and the internal logic is simpler and less error-prone.
+- Decode errors now show error messages correctly for `StaticHttp.unoptimizedRequest`s.
+- `elm-pages` will generate the `gen/Pages.elm` module whether or not there are any errors in the build. This was problematic before this fix because you often need
+  the generated file in order to get it compiling in the first place. So it can cause a chicken-and-egg problem.
+- `elm-pages` is now more reslient to errors so you don't have to restart the dev server as often. There is still a known issue where a dev server restart is needed
+  when you have unfinished `---` for your
+
 ## [1.3.0] - 2020-03-28
 
 ### Added

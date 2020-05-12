@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [5.0.0] - 2020-03-28
+
+### Changed
+- Use builder pattern to build application. In place of the old `Pages.Platform.application`, you now start building an application config with `Pages.Platform.init`, and complete it with `Pages.Platform.toProgram`. You can chain on some calls to your application builder. This is handy for creating plugins that generate some files and add some head tags using `withGlobalHeadTags`.
+- The `documents` key is now a List of records. The `Pages.Document` module has been removed entirely in place of a simplified API. `elm-markup` files no longer have any special handling
+  and the direct dependency was removed from `elm-pages`. Instead, to use `elm-markup` with `elm-pages`, you now wire it in as you would with a markdown parser or any other document handler.
+- Replaced `generateFiles` field in `Pages.Platform.application` with the `Pages.Platform.withFileGenerator` function.
+- Instead of using the `zwilias/json-decode-exploration` package directly to build up optimizable decoders, you now use the `OptimizedDecoder` API. It provides the same drop-in replacement,
+  with the same underlying package. But it now uses a major optimization where in your production build, it will run a plain `elm/json` decoder 
+  (on the optimized JSON asset that was produced in the build step) to improve performance.
+
+### Added
+- Added `Head.Seo.structuredData`. Check out Google's [structured data gallery](https://developers.google.com/search/docs/guides/search-gallery) to see some examples of what structured
+  data looks like in rich search results that it provides. Right now, the API takes a simple `Json.Encode.Value`. In the `elm-pages` repo, I have an example API that I use, 
+  but it's not public yet because I want to refine the API before releasing it (and it's a large undertaking!). But for now, you can add whatever structured data you need,
+  you'll just have to be careful to build up a valid format according to schema.org.
+- `Pages.Directory.basePath` and `Pages.Directory.basePathToString` helpers.
+- You can now use `StaticHttp` for your generated files! The HTTP data won't show up in your production bundle, it will only be used to produce the files for your production build.
+- Added `Pages.PagePath.toPath`, a small helper to give you the path as a `List String`.
+
 ## [4.0.1] - 2020-03-28
 
 ### Added
