@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [5.0.0] - 2020-03-28
+## [5.0.1] - 2020-05-13
+
+### Fixed
+- Make sure the build fails when there are `Err` results in any markdown content. Fixes [#102](https://github.com/dillonkearns/elm-pages/issues/102).
+  This fix also means that any markdown errors will cause the error overlay in the dev server to show.
+
+## [5.0.0] - 2020-05-11
 
 ### Changed
 - Use builder pattern to build application. In place of the old `Pages.Platform.application`, you now start building an application config with `Pages.Platform.init`, and complete it with `Pages.Platform.toProgram`. You can chain on some calls to your application builder. This is handy for creating plugins that generate some files and add some head tags using `withGlobalHeadTags`.
