@@ -107,7 +107,7 @@ pagesWithErrors cache =
 init :
     Document metadata view
     -> Content
-    -> Maybe { contentJson : ContentJson String, initialUrl : Url }
+    -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
     -> ContentCache metadata view
 init document content maybeInitialPageContent =
     content
@@ -142,7 +142,7 @@ createBuildError path decodeError =
 
 
 parseMetadata :
-    Maybe { contentJson : ContentJson String, initialUrl : Url }
+    Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
     -> Document metadata view
     -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
     -> List ( List String, Result String (Entry metadata view) )
@@ -175,7 +175,19 @@ parseMetadata maybeInitialPageContent document content =
                                             NeedContent extension metadata
 
                                     Nothing ->
-                                        NeedContent extension metadata
+                                        case body of
+                                            -- the CLI generated content includes the body
+                                            -- the generated content for the dev and production browser mode does not
+                                            -- so we can ignore the StaticData here
+                                            -- TODO use types to make this more semantic
+                                            Just bodyFromCli ->
+                                                Parsed metadata
+                                                    { body = renderer bodyFromCli
+                                                    , staticData = Dict.empty
+                                                    }
+
+                                            Nothing ->
+                                                NeedContent extension metadata
                             )
                         |> Tuple.pair path
 

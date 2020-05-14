@@ -609,7 +609,7 @@ Body: """)
         , describe "staticHttpCache"
             [ test "it doesn't perform http requests that are provided in the http cache flag" <|
                 \() ->
-                    startWithHttpCache
+                    startWithHttpCache (Ok ())
                         [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , method = "GET"
                             , headers = []
@@ -632,7 +632,7 @@ Body: """)
                             ]
             , test "it ignores unused cache" <|
                 \() ->
-                    startWithHttpCache
+                    startWithHttpCache (Ok ())
                         [ ( { url = "https://this-is-never-used.example.com/"
                             , method = "GET"
                             , headers = []
@@ -658,23 +658,40 @@ Body: """)
                               )
                             ]
             ]
+        , describe "document parsing errors"
+            [ test "fails the build when there is an error" <|
+                \() ->
+                    startWithHttpCache (Err "Found an unhandled HTML tag in markdown doc.")
+                        []
+                        [ ( []
+                          , StaticHttp.succeed ()
+                          )
+                        ]
+                        |> expectError
+                            [ """-- METADATA DECODE ERROR ----------------------------------------------------- elm-pages
+
+I ran into a problem when parsing the metadata for the page with this path: 
+
+Found an unhandled HTML tag in markdown doc."""
+                            ]
+            ]
         ]
 
 
 start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
 start pages =
-    startWithHttpCache [] pages
+    startWithHttpCache (Ok ()) [] pages
 
 
-startWithHttpCache : List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
-startWithHttpCache staticHttpCache pages =
+startWithHttpCache : Result String () -> List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+startWithHttpCache documentBodyResult staticHttpCache pages =
     let
         document =
             Document.fromList
                 [ Document.parser
                     { extension = "md"
                     , metadata = JD.succeed ()
-                    , body = \_ -> Ok ()
+                    , body = \_ -> documentBodyResult
                     }
                 ]
 
@@ -858,6 +875,19 @@ normalizeErrorExpectEqual expectedPlainString actualRichTerminalString =
         |> Expect.equal expectedPlainString
 
 
+normalizeErrorsExpectEqual : List String -> List String -> Expect.Expectation
+normalizeErrorsExpectEqual expectedPlainStrings actualRichTerminalStrings =
+    actualRichTerminalStrings
+        |> List.map
+            (Regex.replace
+                (Regex.fromString "\u{001B}\\[[0-9;]+m"
+                    |> Maybe.withDefault Regex.never
+                )
+                (\_ -> "")
+            )
+        |> Expect.equalLists expectedPlainStrings
+
+
 toJsPort foo =
     Cmd.none
 
@@ -916,6 +946,26 @@ expectSuccess expectedRequests previous =
                                         )
                                     |> Dict.fromList
                                 )
+
+                    [ _ ] ->
+                        Expect.fail "Expected success port."
+
+                    _ ->
+                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
+            )
+
+
+expectError : List String -> ProgramTest model msg effect -> Expect.Expectation
+expectError expectedErrors previous =
+    previous
+        |> ProgramTest.expectOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder Main.toJsCodec)
+            (\value ->
+                case value of
+                    [ Main.Success portPayload ] ->
+                        portPayload.errors
+                            |> normalizeErrorsExpectEqual expectedErrors
 
                     [ _ ] ->
                         Expect.fail "Expected success port."
