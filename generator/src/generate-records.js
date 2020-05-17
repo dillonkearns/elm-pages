@@ -121,11 +121,12 @@ function allImageAssetNames() {
     return elmType(info);
   });
 }
-function elmType(info) {
+async function elmType(info) {
   const pathFragments = info.fragmentsWithExtension
     .map(fragment => `"${fragment}"`)
     .join(", ");
-  return `(buildImage [ ${pathFragments} ])`
+  const metadata = await sharp(`images/${info.path}`).metadata();
+  return `(buildImage [ ${pathFragments} ] { width = ${metadata.width}, height = ${metadata.height} })`
 }
 function toPascalCase(str) {
   var pascal = str.replace(/(\-\w)/g, function (m) {
