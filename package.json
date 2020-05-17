@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize",
-    "test": "elm-test"
+    "test": "elm-test && jest"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
   "keywords": [
@@ -56,11 +56,13 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.0",
+    "@types/jest": "^25.2.2",
     "@types/node": "^12.7.7",
     "@types/webpack": "^4.32.1",
     "@types/webpack-dev-middleware": "^2.0.3",
     "elm-format": "^0.8.2",
     "elm-test": "^0.19.1-revision2",
+    "jest": "^26.0.1",
     "typescript": "^3.6.3"
   },
   "files": [
