@@ -1,4 +1,4 @@
-generateRawContent = require("./generate-raw-content.js");
+const generateRawContent = require("./generate-raw-content.js");
 const exposingList =
     "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
 
@@ -41,6 +41,19 @@ isValidRoute route =
 `;
 }
 
+/**
+ * @param {{
+    allRoutes: string;
+    routeRecord: string;
+    imageAssetsRecord: string;
+    allImages: string[];
+}} staticRoutes
+ * @param {{
+    path: any;
+    metadata: string;
+    body: string;
+}[]} markdownContent
+ */
 function elmPagesUiFile(staticRoutes, markdownContent) {
     return `port module Pages exposing ${exposingList}
 
@@ -109,6 +122,19 @@ ${generateRawContent(markdownContent, false)}
 `;
 }
 
+/**
+ * @param {{
+    allRoutes: string;
+    routeRecord: string;
+    imageAssetsRecord: string;
+    allImages: string[];
+}} staticRoutes
+ * @param {{
+    path: any;
+    metadata: string;
+    body: string;
+}[]} markdownContent
+ */
 function elmPagesCliFile(staticRoutes, markdownContent) {
     return `port module Pages exposing ${exposingList}
 
