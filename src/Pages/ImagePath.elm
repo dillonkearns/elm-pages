@@ -1,5 +1,5 @@
 module Pages.ImagePath exposing
-    ( ImagePath, toString, external
+    ( ImagePath, Dimensions, toString, external, dimensions
     , build
     )
 
@@ -39,7 +39,7 @@ or
     -- ImagePath.toString helloWorldPostPath
     -- => "images/profile-photos/dillon.jpg"
 
-@docs ImagePath, toString, external
+@docs ImagePath, Dimensions, toString, external, dimensions
 
 
 ## Functions for code generation only
@@ -61,8 +61,16 @@ external image path (which is not validated so use these carefully!).
 
 -}
 type ImagePath key
-    = Internal (List String)
+    = Internal (List String) Dimensions
     | External String
+
+
+{-| The intrinsic dimensions of the image in pixels.
+-}
+type alias Dimensions =
+    { width : Int
+    , height : Int
+    }
 
 
 {-| Gives you the image's relative URL as a String. This is useful for constructing `<img>` tags:
@@ -86,7 +94,7 @@ type ImagePath key
 toString : ImagePath key -> String
 toString path =
     case path of
-        Internal rawPath ->
+        Internal rawPath _ ->
             String.join "/" rawPath
 
         External url ->
@@ -95,9 +103,9 @@ toString path =
 
 {-| This is not useful except for the internal generated code to construct an `ImagePath`.
 -}
-build : key -> List String -> ImagePath key
-build key path =
-    Internal path
+build : key -> List String -> Dimensions -> ImagePath key
+build _ path dims =
+    Internal path dims
 
 
 {-| This allows you to build a URL to an external resource. Avoid using
@@ -124,3 +132,18 @@ this only to point to outside images.
 external : String -> ImagePath key
 external url =
     External url
+
+
+{-| The dimensions of the image at that path.
+
+Since we do not know the dimensions of external images, created with [`external`](#external), we might get `Nothing`!
+
+-}
+dimensions : ImagePath key -> Maybe Dimensions
+dimensions imagePath =
+    case imagePath of
+        Internal _ dims ->
+            Just dims
+
+        External _ ->
+            Nothing
