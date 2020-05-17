@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize",
-    "test": "elm-test"
+    "test": "elm-test && jest"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
   "keywords": [
