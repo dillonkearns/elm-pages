@@ -2,12 +2,13 @@ const path = require("path");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
+const sharp = require("sharp");
 const parseFrontmatter = require("./frontmatter.js");
 
 // Because we use node-glob, we must use `/` as a separator on all platforms. See https://github.com/isaacs/node-glob#windows
 const PATH_SEPARATOR = '/';
 
-module.exports = function wrapper() {
+module.exports = async function wrapper() {
   return generate(scan());
 };
 
@@ -52,7 +53,7 @@ function relativeImagePath(imageFilepath) {
   return { path: relative, pathFragments, fragmentsWithExtension };
 }
 
-function generate(scanned) {
+async function generate(scanned) {
   // Generate Pages/My/elm
   // Documents ->
   //     Routes
@@ -98,8 +99,8 @@ function generate(scanned) {
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
     // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
-    imageAssetsRecord: toElmRecord("images", getImageAssets(), true),
-    allImages: allImageAssetNames()
+    imageAssetsRecord: toElmRecord("images", await getImageAssets(), true),
+    allImages: await allImageAssetNames()
   };
 }
 function listImageAssets() {
@@ -108,18 +109,18 @@ function listImageAssets() {
     .filter(filePath => !fs.lstatSync(filePath).isDirectory())
     .map(relativeImagePath);
 }
-function getImageAssets() {
+async function getImageAssets() {
   var assetsRecord = {};
-  listImageAssets().forEach(info => {
-    captureRouteRecord(info.pathFragments, elmType(info), assetsRecord);
-  });
+  await Promise.all(listImageAssets().map(async info => {
+    captureRouteRecord(info.pathFragments, await elmType(info), assetsRecord);
+  }));
 
   return assetsRecord;
 }
 function allImageAssetNames() {
-  return listImageAssets().map(info => {
+  return Promise.all(listImageAssets().map(async info => {
     return elmType(info);
-  });
+  }));
 }
 async function elmType(info) {
   const pathFragments = info.fragmentsWithExtension
