@@ -28,9 +28,9 @@ type PathKey
     = PathKey
 
 
-buildImage : List String -> ImagePath PathKey
-buildImage path =
-    ImagePath.build PathKey (\\"images\\" :: path)
+buildImage : List String -> ImagePath.Dimensions -> ImagePath PathKey
+buildImage path dimensions =
+    ImagePath.build PathKey (\\"images\\" :: path) dimensions
 
 
 buildPage : List String -> PagePath PathKey
@@ -75,13 +75,14 @@ pages =
     }
 
 images =
-    { directory = directoryWithoutIndex []
+    { iconPng = (buildImage [ \\"icon-png.png\\" ] { width = 50, height = 75 })
+    , directory = directoryWithoutIndex []
     }
 
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [
+    [(buildImage [ \\"icon-png.png\\" ] { width = 50, height = 75 })
     ]
 
 
