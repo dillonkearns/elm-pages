@@ -50,6 +50,9 @@ module.exports = class PluginGenerateElmPagesBuild {
 }
 
 
+/**
+ * @param {string} path
+ */
 function unpackFile(path) {
     return { path, contents: fs.readFileSync(path).toString() };
 }

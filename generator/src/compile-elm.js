@@ -18,7 +18,7 @@ function runElm(/** @type string */ mode) {
         flags: { secrets: process.env, mode, staticHttpCache: global.staticHttpCache }
       });
 
-      app.ports.toJsPort.subscribe(payload => {
+      app.ports.toJsPort.subscribe((/** @type {{tag: string; args: ['Success' | 'Errors']}} */ payload) => {
 
         if (payload.tag === "Success") {
           global.staticHttpCache = payload.args[0].staticHttpCache;
