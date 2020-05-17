@@ -102,39 +102,32 @@ function generate(scanned) {
     allImages: allImageAssetNames()
   };
 }
+function listImageAssets() {
+  return glob
+    .sync("images/**/*", {})
+    .filter(filePath => !fs.lstatSync(filePath).isDirectory())
+    .map(relativeImagePath);
+}
 function getImageAssets() {
   var assetsRecord = {};
 
-  const content = glob
-    .sync("images/**/*", {})
-    .filter(filePath => !fs.lstatSync(filePath).isDirectory())
-    .map(relativeImagePath)
-    .forEach(info => {
-      const elmType =
-        "(buildImage [ " +
-        info.fragmentsWithExtension
-          .map(fragment => `"${fragment}"`)
-          .join(", ") +
-        " ])";
-
-      captureRouteRecord(info.pathFragments, elmType, assetsRecord);
+  const content =
+    listImageAssets().forEach(info => {
+      captureRouteRecord(info.pathFragments, elmType(info.fragmentsWithExtension), assetsRecord);
     });
   return assetsRecord;
 }
 function allImageAssetNames() {
-  return glob
-    .sync("images/**/*", {})
-    .filter(filePath => !fs.lstatSync(filePath).isDirectory())
-    .map(relativeImagePath)
-    .map(info => {
-      return (
-        "(buildImage [ " +
-        info.fragmentsWithExtension
-          .map(fragment => `"${fragment}"`)
-          .join(", ") +
-        " ])"
-      );
-    });
+  return listImageAssets().map(info => {
+    return elmType(info.fragmentsWithExtension);
+  });
+}
+function elmType(fragmentsWithExtension) {
+  return "(buildImage [ " +
+    fragmentsWithExtension
+      .map(fragment => `"${fragment}"`)
+      .join(", ") +
+    " ])"
 }
 function toPascalCase(str) {
   var pascal = str.replace(/(\-\w)/g, function (m) {
