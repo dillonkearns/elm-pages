@@ -110,24 +110,22 @@ function listImageAssets() {
 }
 function getImageAssets() {
   var assetsRecord = {};
+  listImageAssets().forEach(info => {
+    captureRouteRecord(info.pathFragments, elmType(info), assetsRecord);
+  });
 
-  const content =
-    listImageAssets().forEach(info => {
-      captureRouteRecord(info.pathFragments, elmType(info.fragmentsWithExtension), assetsRecord);
-    });
   return assetsRecord;
 }
 function allImageAssetNames() {
   return listImageAssets().map(info => {
-    return elmType(info.fragmentsWithExtension);
+    return elmType(info);
   });
 }
-function elmType(fragmentsWithExtension) {
-  return "(buildImage [ " +
-    fragmentsWithExtension
-      .map(fragment => `"${fragment}"`)
-      .join(", ") +
-    " ])"
+function elmType(info) {
+  const pathFragments = info.fragmentsWithExtension
+    .map(fragment => `"${fragment}"`)
+    .join(", ");
+  return `(buildImage [ ${pathFragments} ])`
 }
 function toPascalCase(str) {
   var pascal = str.replace(/(\-\w)/g, function (m) {
