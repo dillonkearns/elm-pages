@@ -66,18 +66,21 @@ renderer =
         Element.paragraph
             [ Element.spacing 15 ]
     , thematicBreak = Element.none
-    , text = Element.text
-    , strong = \content -> Element.row [ Font.bold ] content
-    , emphasis = \content -> Element.row [ Font.italic ] content
+    , text = \value -> Element.paragraph [] [ Element.text value ]
+    , strong = \content -> Element.paragraph [ Font.bold ] content
+    , emphasis = \content -> Element.paragraph [ Font.italic ] content
     , codeSpan = code
     , link =
         \{ title, destination } body ->
             Element.newTabLink
-                [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex") ]
+                [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
+                ]
                 { url = destination
                 , label =
                     Element.paragraph
                         [ Font.color (Element.rgb255 0 0 255)
+                        , Element.htmlAttribute (Html.Attributes.style "overflow-wrap" "break-word")
+                        , Element.htmlAttribute (Html.Attributes.style "word-break" "break-word")
                         ]
                         body
                 }
