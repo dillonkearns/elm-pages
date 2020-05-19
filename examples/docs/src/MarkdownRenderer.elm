@@ -5,22 +5,22 @@ import Element exposing (Element)
 import Element.Background
 import Element.Border
 import Element.Font as Font
+import Element.Input
 import Element.Region
 import Ellie
 import Html exposing (Attribute, Html)
 import Html.Attributes exposing (property)
-import Html.Events exposing (on)
 import Json.Encode as Encode exposing (Value)
-import Markdown.Block
+import Markdown.Block as Block exposing (Block, Inline, ListItem(..), Task(..))
 import Markdown.Html
 import Markdown.Parser
+import Markdown.Renderer
 import Oembed
-import Pages
 import Palette
 import SyntaxHighlight
 
 
-buildToc : List Markdown.Block.Block -> TableOfContents
+buildToc : List Block.Block -> TableOfContents
 buildToc blocks =
     let
         headings =
@@ -37,26 +37,6 @@ buildToc blocks =
             )
 
 
-styledToString : List Markdown.Block.Inline -> String
-styledToString list =
-    List.map .string list
-        |> String.join "-"
-
-
-gatherHeadings : List Markdown.Block.Block -> List ( Int, List Markdown.Block.Inline )
-gatherHeadings blocks =
-    List.filterMap
-        (\block ->
-            case block of
-                Markdown.Block.Heading level content ->
-                    Just ( level, content )
-
-                _ ->
-                    Nothing
-        )
-        blocks
-
-
 type alias TableOfContents =
     List { anchorId : String, name : String, level : Int }
 
@@ -68,7 +48,7 @@ view markdown =
             |> Markdown.Parser.parse
     of
         Ok okAst ->
-            case Markdown.Parser.render renderer okAst of
+            case Markdown.Renderer.render renderer okAst of
                 Ok rendered ->
                     Ok ( buildToc okAst, rendered )
 
@@ -79,50 +59,95 @@ view markdown =
             Err (error |> List.map Markdown.Parser.deadEndToString |> String.join "\n")
 
 
-renderer : Markdown.Parser.Renderer (Element msg)
+renderer : Markdown.Renderer.Renderer (Element msg)
 renderer =
     { heading = heading
-    , raw =
+    , paragraph =
         Element.paragraph
             [ Element.spacing 15 ]
     , thematicBreak = Element.none
-    , plain = Element.text
-    , bold = \content -> Element.el [ Font.bold ] (Element.text content)
-    , italic = \content -> Element.el [ Font.italic ] (Element.text content)
-    , code = code
+    , text = Element.text
+    , strong = \content -> Element.row [ Font.bold ] content
+    , emphasis = \content -> Element.row [ Font.italic ] content
+    , codeSpan = code
     , link =
-        \link body ->
-            -- Pages.isValidRoute link.destination
-            --     |> Result.map
-            --         (\() ->
+        \{ title, destination } body ->
             Element.newTabLink
-                [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
-                ]
-                { url = link.destination
+                [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex") ]
+                { url = destination
                 , label =
                     Element.paragraph
-                        [ Font.color Palette.color.primary
+                        [ Font.color (Element.rgb255 0 0 255)
                         ]
                         body
                 }
-                |> Ok
-
-    -- )
+    , hardLineBreak = Html.br [] [] |> Element.html
     , image =
-        \image body ->
-            -- Pages.isValidRoute image.src
-            --     |> Result.map
-            -- (\() ->
-            Element.image [ Element.width Element.fill ] { src = image.src, description = body }
-                |> Ok
+        \image ->
+            case image.title of
+                Just title ->
+                    Element.image [ Element.width Element.fill ] { src = image.src, description = image.alt }
 
-    -- )
-    , orderedList = orderedList
-    , unorderedList = unorderedList
+                Nothing ->
+                    Element.image [ Element.width Element.fill ] { src = image.src, description = image.alt }
+    , blockQuote =
+        \children ->
+            Element.column
+                [ Element.Border.widthEach { top = 0, right = 0, bottom = 0, left = 10 }
+                , Element.padding 10
+                , Element.Border.color (Element.rgb255 145 145 145)
+                , Element.Background.color (Element.rgb255 245 245 245)
+                ]
+                children
+    , unorderedList =
+        \items ->
+            Element.column [ Element.spacing 15 ]
+                (items
+                    |> List.map
+                        (\(ListItem task children) ->
+                            Element.row [ Element.spacing 5 ]
+                                [ Element.row
+                                    [ Element.alignTop ]
+                                    ((case task of
+                                        IncompleteTask ->
+                                            Element.Input.defaultCheckbox False
+
+                                        CompletedTask ->
+                                            Element.Input.defaultCheckbox True
+
+                                        NoTask ->
+                                            Element.text "•"
+                                     )
+                                        :: Element.text " "
+                                        :: children
+                                    )
+                                ]
+                        )
+                )
+    , orderedList =
+        \startingIndex items ->
+            Element.column [ Element.spacing 15 ]
+                (items
+                    |> List.indexedMap
+                        (\index itemBlocks ->
+                            Element.row [ Element.spacing 5 ]
+                                [ Element.row [ Element.alignTop ]
+                                    (Element.text (String.fromInt (index + startingIndex) ++ " ") :: itemBlocks)
+                                ]
+                        )
+                )
     , codeBlock = codeBlock
+    , table = Element.column []
+    , tableHeader = Element.column []
+    , tableBody = Element.column []
+    , tableRow = Element.row []
+    , tableHeaderCell =
+        \maybeAlignment children ->
+            Element.paragraph [] children
+    , tableCell = Element.paragraph []
     , html =
         Markdown.Html.oneOf
-            [ Markdown.Html.tag "Banner"
+            [ Markdown.Html.tag "banner"
                 (\children ->
                     Element.paragraph
                         [ Font.center
@@ -132,7 +157,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Html.tag "Boxes"
+            , Markdown.Html.tag "boxes"
                 (\children ->
                     children
                         |> List.indexedMap
@@ -154,7 +179,7 @@ renderer =
                         |> List.reverse
                         |> Element.column [ Element.centerX ]
                 )
-            , Markdown.Html.tag "Box"
+            , Markdown.Html.tag "box"
                 (\children ->
                     Element.textColumn
                         [ Element.centerX
@@ -165,7 +190,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Html.tag "Values"
+            , Markdown.Html.tag "values"
                 (\children ->
                     Element.row
                         [ Element.spacing 30
@@ -173,7 +198,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Html.tag "Value"
+            , Markdown.Html.tag "value"
                 (\children ->
                     Element.column
                         [ Element.width Element.fill
@@ -184,7 +209,7 @@ renderer =
                         ]
                         children
                 )
-            , Markdown.Html.tag "Oembed"
+            , Markdown.Html.tag "oembed"
                 (\url children ->
                     Oembed.view [] Nothing url
                         |> Maybe.map Element.html
@@ -205,50 +230,46 @@ renderer =
     }
 
 
-unorderedList : List (List (Element msg)) -> Element msg
-unorderedList items =
-    Element.column [ Element.spacing 15 ]
-        (items
-            |> List.map
-                (\itemBlocks ->
-                    Element.row [ Element.spacing 5 ]
-                        [ Element.row
-                            [ Element.alignTop ]
-                            (Element.text "• " :: itemBlocks)
-                        ]
-                )
+styledToString : List Inline -> String
+styledToString inlines =
+    --List.map .string list
+    --|> String.join "-"
+    -- TODO do I need to hyphenate?
+    inlines
+        |> Block.extractInlineText
+
+
+gatherHeadings : List Block -> List ( Block.HeadingLevel, List Inline )
+gatherHeadings blocks =
+    List.filterMap
+        (\block ->
+            case block of
+                Block.Heading level content ->
+                    Just ( level, content )
+
+                _ ->
+                    Nothing
         )
+        blocks
 
 
-orderedList : Int -> List (List (Element msg)) -> Element msg
-orderedList startingIndex items =
-    Element.column [ Element.spacing 15 ]
-        (items
-            |> List.indexedMap
-                (\index itemBlocks ->
-                    Element.row [ Element.spacing 5 ]
-                        [ Element.row [ Element.alignTop ]
-                            (Element.text (String.fromInt index ++ " ") :: itemBlocks)
-                        ]
-                )
-        )
-
-
+rawTextToId : String -> String
 rawTextToId rawText =
     rawText
+        |> String.split " "
+        |> String.join "-"
         |> String.toLower
-        |> String.replace " " ""
 
 
-heading : { level : Int, rawText : String, children : List (Element msg) } -> Element msg
+heading : { level : Block.HeadingLevel, rawText : String, children : List (Element msg) } -> Element msg
 heading { level, rawText, children } =
     Element.paragraph
         [ Font.size
             (case level of
-                1 ->
+                Block.H1 ->
                     36
 
-                2 ->
+                Block.H2 ->
                     24
 
                 _ ->
@@ -256,7 +277,7 @@ heading { level, rawText, children } =
             )
         , Font.bold
         , Font.family [ Font.typeface "Montserrat" ]
-        , Element.Region.heading level
+        , Element.Region.heading (Block.headingLevelToInt level)
         , Element.htmlAttribute
             (Html.Attributes.attribute "name" (rawTextToId rawText))
         , Element.htmlAttribute
