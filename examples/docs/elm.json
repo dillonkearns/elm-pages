@@ -3,6 +3,7 @@
     "source-directories": [
         "src",
         "../../src",
+        "vendor/elm-ui",
         "gen"
     ],
     "elm-version": "0.19.1",
@@ -24,6 +25,7 @@
             "elm/svg": "1.0.1",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
+            "elm/virtual-dom": "1.0.2",
             "elm-community/dict-extra": "2.4.0",
             "elm-community/list-extra": "8.2.3",
             "elm-community/result-extra": "2.3.0",
@@ -31,7 +33,6 @@
             "elm-explorations/markdown": "1.0.0",
             "justinmimbs/date": "3.2.0",
             "lukewestby/elm-string-interpolate": "1.0.4",
-            "mdgriffith/elm-ui": "1.1.5",
             "miniBill/elm-codec": "1.2.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.2.0",
@@ -44,7 +45,6 @@
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
             "elm/regex": "1.0.0",
-            "elm/virtual-dom": "1.0.2",
             "fredcy/elm-parseint": "2.0.1",
             "justinmimbs/time-extra": "1.1.0",
             "lazamar/dict-parser": "1.0.2",
