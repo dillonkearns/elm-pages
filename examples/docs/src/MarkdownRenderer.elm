@@ -72,9 +72,7 @@ renderer =
     , codeSpan = code
     , link =
         \{ title, destination } body ->
-            Element.newTabLink
-                [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex")
-                ]
+            Element.newTabLink []
                 { url = destination
                 , label =
                     Element.paragraph
