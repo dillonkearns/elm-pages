@@ -105,7 +105,7 @@ renderer =
                 (items
                     |> List.map
                         (\(ListItem task children) ->
-                            Element.row [ Element.spacing 5 ]
+                            Element.paragraph [ Element.spacing 5 ]
                                 [ Element.row
                                     [ Element.alignTop ]
                                     ((case task of
