@@ -37,6 +37,7 @@ import RssPlugin
 import Secrets
 import Showcase
 import StructuredData
+import Template.Showcase
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -194,24 +195,10 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         Metadata.Showcase ->
-            StaticHttp.map2
-                (\stars showcaseData ->
-                    { view =
-                        \model viewForPage ->
-                            { title = "elm-pages blog"
-                            , body =
-                                Element.column [ Element.width Element.fill ]
-                                    [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseData ]
-                                    ]
-                            }
-                                |> wrapBody stars page model
-                    , head = head page.path page.frontmatter
-                    }
-                )
-                (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                    (D.field "stargazers_count" D.int)
-                )
-                Showcase.staticRequest
+            Template.Showcase.view siteMetadata
+                { path = page.path
+                , frontmatter = Template.Showcase.Metadata
+                }
 
         _ ->
             StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
