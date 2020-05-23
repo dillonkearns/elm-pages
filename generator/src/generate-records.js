@@ -157,7 +157,9 @@ function formatRecord(directoryPath, rec, asType, level) {
   var keyVals = [];
   const indentation = " ".repeat(level * 4);
   var valsAtThisLevel = [];
-  const keys = Object.keys(rec);
+  // The keys must be sorted to prevent a randomly different ordering
+  // from triggering recompilation.
+  const keys = Object.keys(rec).sort();
   for (const key of keys) {
     var val = rec[key];
 
