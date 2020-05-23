@@ -37,6 +37,7 @@ import RssPlugin
 import Secrets
 import Showcase
 import StructuredData
+import Template.BlogPost
 import Template.Showcase
 
 
@@ -199,6 +200,14 @@ view siteMetadata page =
                 { path = page.path
                 , frontmatter = Template.Showcase.Metadata
                 }
+
+        Metadata.Article metadata ->
+            --Template.BlogPost.view metadata
+            Template.BlogPost.template siteMetadata
+                { metadata = Template.BlogPost.Metadata metadata
+                , path = page.path
+                }
+                |> StaticHttp.map (\thing -> Debug.todo "")
 
         _ ->
             StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
