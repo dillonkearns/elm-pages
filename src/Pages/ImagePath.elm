@@ -1,5 +1,5 @@
 module Pages.ImagePath exposing
-    ( ImagePath, Dimensions, toString, external, dimensions
+    ( ImagePath, toString, external, dimensions, Dimensions
     , build
     )
 
@@ -39,7 +39,7 @@ or
     -- ImagePath.toString helloWorldPostPath
     -- => "images/profile-photos/dillon.jpg"
 
-@docs ImagePath, Dimensions, toString, external, dimensions
+@docs ImagePath, toString, external, dimensions, Dimensions
 
 
 ## Functions for code generation only
