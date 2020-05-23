@@ -75,14 +75,13 @@ pages =
     }
 
 images =
-    { iconPng = (buildImage [ \\"icon-png.png\\" ] { width = 50, height = 75 })
-    , directory = directoryWithoutIndex []
+    { directory = directoryWithoutIndex []
     }
 
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [(buildImage [ \\"icon-png.png\\" ] { width = 50, height = 75 })
+    [
     ]
 
 
