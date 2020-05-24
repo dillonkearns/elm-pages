@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Metadata(..), Model, Msg, decoder, head, init, liftViewMsg, staticData, template, view)
+module Template.BlogPost exposing (Metadata, Model, Msg, decoder, head, init, liftViewMsg, staticData, template, view)
 
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -21,11 +21,7 @@ import StructuredData
 import Template
 
 
-type Metadata
-    = Metadata MetadataRecord
-
-
-type alias MetadataRecord =
+type alias Metadata =
     { title : String
     , description : String
     , published : Date
@@ -57,7 +53,7 @@ template =
 
 decoder : Decode.Decoder Metadata
 decoder =
-    Decode.map6 MetadataRecord
+    Decode.map6 Metadata
         (Decode.field "title" Decode.string)
         (Decode.field "description" Decode.string)
         (Decode.field "published"
@@ -79,7 +75,6 @@ decoder =
             |> Decode.maybe
             |> Decode.map (Maybe.withDefault False)
         )
-        |> Decode.map Metadata
 
 
 imageDecoder : Decode.Decoder (ImagePath Pages.PathKey)
@@ -124,7 +119,7 @@ liftViewMsg liftMsg =
 
 
 view : StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view static model (Metadata blogPost) rendered =
+view static model blogPost rendered =
     { title = blogPost.title
     , body =
         Element.column [ Element.width Element.fill ]
@@ -157,7 +152,7 @@ view static model (Metadata blogPost) rendered =
 
 
 head : StaticData -> PagePath.PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
-head static currentPath (Metadata meta) =
+head static currentPath meta =
     Head.structuredData
         (StructuredData.article
             { title = meta.title

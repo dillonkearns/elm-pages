@@ -1,15 +1,17 @@
 module Index exposing (view)
 
+--import Pages.Metadata as Metadata exposing (Metadata)
+
 import Data.Author
 import Date
 import Element exposing (Element)
 import Element.Border
 import Element.Font
-import Metadata exposing (Metadata)
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
+import Template.BlogPost exposing (Metadata)
 
 
 view :
@@ -20,16 +22,11 @@ view posts =
         (posts
             |> List.filterMap
                 (\( path, metadata ) ->
-                    case metadata of
-                        Metadata.Article meta ->
-                            if meta.draft then
-                                Nothing
+                    if metadata.draft then
+                        Nothing
 
-                            else
-                                Just ( path, meta )
-
-                        _ ->
-                            Nothing
+                    else
+                        Just ( path, metadata )
                 )
             |> List.sortBy
                 (\( path, metadata ) ->
@@ -42,7 +39,7 @@ view posts =
 
 
 postSummary :
-    ( PagePath Pages.PathKey, Metadata.ArticleMetadata )
+    ( PagePath Pages.PathKey, Metadata )
     -> Element msg
 postSummary ( postPath, post ) =
     articleIndex post |> linkToPost postPath
@@ -66,7 +63,7 @@ title text =
             ]
 
 
-articleIndex : Metadata.ArticleMetadata -> Element msg
+articleIndex : Metadata -> Element msg
 articleIndex metadata =
     Element.el
         [ Element.centerX
@@ -86,7 +83,7 @@ grey =
     Element.Font.color (Element.rgba255 0 0 0 0.5)
 
 
-postPreview : Metadata.ArticleMetadata -> Element msg
+postPreview : Metadata -> Element msg
 postPreview post =
     Element.textColumn
         [ Element.centerX

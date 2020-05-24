@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import AllMetadata
 import Color
 import Data.Author as Author
 import Date
@@ -54,7 +55,7 @@ manifest =
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.white
-    , startUrl = pages.index
+    , startUrl = pages.blog.staticHttp
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
     }
@@ -64,7 +65,7 @@ type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg TemplateDemultiplexer.Metadata TemplateDemultiplexer.View
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg AllMetadata.Metadata TemplateDemultiplexer.View
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =
@@ -209,52 +210,6 @@ pageView :
     -> { title : String, body : Element Msg }
 pageView stars model siteMetadata page viewForPage =
     case page.frontmatter of
-        Metadata.Page metadata ->
-            { title = metadata.title
-            , body =
-                [ Element.column
-                    [ Element.padding 50
-                    , Element.spacing 60
-                    , Element.Region.mainContent
-                    ]
-                    (Tuple.second viewForPage)
-                ]
-                    |> Element.textColumn
-                        [ Element.width Element.fill
-                        ]
-            }
-
-        Metadata.Article metadata ->
-            { title = metadata.title
-            , body =
-                Element.column [ Element.width Element.fill ]
-                    [ Element.column
-                        [ Element.padding 30
-                        , Element.spacing 40
-                        , Element.Region.mainContent
-                        , Element.width (Element.fill |> Element.maximum 800)
-                        , Element.centerX
-                        ]
-                        (Element.column [ Element.spacing 10 ]
-                            [ Element.row [ Element.spacing 10 ]
-                                [ Author.view [] metadata.author
-                                , Element.column [ Element.spacing 10, Element.width Element.fill ]
-                                    [ Element.paragraph [ Font.bold, Font.size 24 ]
-                                        [ Element.text metadata.author.name
-                                        ]
-                                    , Element.paragraph [ Font.size 16 ]
-                                        [ Element.text metadata.author.bio ]
-                                    ]
-                                ]
-                            ]
-                            :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                            :: Palette.blogHeading metadata.title
-                            :: articleImageView metadata.image
-                            :: Tuple.second viewForPage
-                        )
-                    ]
-            }
-
         Metadata.Doc metadata ->
             { title = metadata.title
             , body =
@@ -281,96 +236,8 @@ pageView stars model siteMetadata page viewForPage =
                         ]
             }
 
-        Metadata.BlogIndex ->
-            { title = "elm-pages blog"
-            , body =
-                Element.column [ Element.width Element.fill ]
-                    [ Element.column [ Element.padding 20, Element.centerX ] [ Index.view siteMetadata ]
-                    ]
-            }
-
-        Metadata.Showcase ->
-            { title = "elm-pages blog"
-            , body =
-                Element.column [ Element.width Element.fill ]
-                    [--, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view siteMetadata ]
-                    ]
-            }
-
-
-wrapBody : Int -> { a | path : PagePath Pages.PathKey } -> Model -> { c | body : Element Msg, title : String } -> { body : Html Msg, title : String }
-wrapBody stars page model record =
-    { body =
-        (if model.showMobileMenu then
-            Element.column
-                [ Element.width Element.fill
-                , Element.padding 20
-                ]
-                [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
-                    [ logoLinkMobile
-                    , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
-                    ]
-                , Element.column [ Element.centerX, Element.spacing 20 ]
-                    (navbarLinks stars page.path)
-                ]
-
-         else
-            Element.column [ Element.width Element.fill ]
-                [ header stars page.path
-                , record.body
-                ]
-        )
-            |> Element.layout
-                [ Element.width Element.fill
-                , Font.size 20
-                , Font.family [ Font.typeface "Roboto" ]
-                , Font.color (Element.rgba255 0 0 0 0.8)
-                ]
-    , title = record.title
-    }
-
-
-articleImageView : ImagePath Pages.PathKey -> Element msg
-articleImageView articleImage =
-    Element.image [ Element.width Element.fill ]
-        { src = ImagePath.toString articleImage
-        , description = "Article cover photo"
-        }
-
-
-header : Int -> PagePath Pages.PathKey -> Element Msg
-header stars currentPath =
-    Element.column [ Element.width Element.fill ]
-        [ responsiveHeader
-        , Element.column
-            [ Element.width Element.fill
-            , Element.htmlAttribute (Attr.class "responsive-desktop")
-            ]
-            [ Element.el
-                [ Element.height (Element.px 4)
-                , Element.width Element.fill
-                , Element.Background.gradient
-                    { angle = 0.2
-                    , steps =
-                        [ Element.rgb255 0 242 96
-                        , Element.rgb255 5 117 230
-                        ]
-                    }
-                ]
-                Element.none
-            , Element.row
-                [ Element.paddingXY 25 4
-                , Element.spaceEvenly
-                , Element.width Element.fill
-                , Element.Region.navigation
-                , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-                , Element.Border.color (Element.rgba255 40 80 40 0.4)
-                ]
-                [ logoLink
-                , Element.row [ Element.spacing 15 ] (navbarLinks stars currentPath)
-                ]
-            ]
-        ]
+        _ ->
+            Debug.todo ""
 
 
 logoLink =
@@ -405,9 +272,10 @@ logoLinkMobile =
 navbarLinks stars currentPath =
     [ elmDocsLink
     , githubRepoLink stars
-    , highlightableLink currentPath pages.docs.directory "Docs"
-    , highlightableLink currentPath pages.showcase.directory "Showcase"
-    , highlightableLink currentPath pages.blog.directory "Blog"
+
+    --, highlightableLink currentPath pages.docs.directory "Docs"
+    --, highlightableLink currentPath pages.showcase.directory "Showcase"
+    --, highlightableLink currentPath pages.blog.directory "Blog"
     ]
 
 

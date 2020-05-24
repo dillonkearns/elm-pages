@@ -1,25 +1,20 @@
 module TemplateDemultiplexer exposing (..)
 
+import AllMetadata as M exposing (Metadata)
 import Element exposing (Element)
 import Global
 import Head
 import Html exposing (Html)
 import MarkdownRenderer
-import Metadata
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
+import Template.BlogIndex
 import Template.BlogPost
 import Template.Page
 import Template.Showcase
-
-
-type Metadata
-    = MetadataBlogPost Template.BlogPost.Metadata
-    | MetadataShowcase Template.Showcase.Metadata
-    | MetadataPage Template.Page.Metadata
 
 
 type alias Model =
@@ -32,6 +27,7 @@ type TemplateModel
     = ModelBlogPost Template.BlogPost.Model
     | ModelShowcase Template.Showcase.Model
     | ModelPage Template.Page.Model
+    | ModelBlogIndex Template.BlogIndex.Model
 
 
 type Msg
@@ -62,7 +58,7 @@ view :
             }
 view siteMetadata page =
     case page.frontmatter of
-        MetadataBlogPost metadata ->
+        M.MetadataBlogPost metadata ->
             StaticHttp.map2
                 (\data globalData ->
                     { view =
@@ -91,7 +87,7 @@ view siteMetadata page =
                 (Template.BlogPost.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
-        MetadataShowcase metadata ->
+        M.MetadataShowcase metadata ->
             StaticHttp.map2
                 (\data globalData ->
                     { view =
@@ -120,7 +116,7 @@ view siteMetadata page =
                 (Template.Showcase.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
-        MetadataPage metadata ->
+        M.MetadataPage metadata ->
             StaticHttp.map2
                 (\data globalData ->
                     { view =
@@ -149,6 +145,35 @@ view siteMetadata page =
                 (Template.Page.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
+        M.MetadataBlogIndex metadata ->
+            StaticHttp.map2
+                (\data globalData ->
+                    { view =
+                        \model rendered ->
+                            case model.page of
+                                ModelBlogIndex subModel ->
+                                    Template.BlogIndex.view data subModel metadata rendered
+                                        |> (\{ title, body } ->
+                                                Global.wrapBody
+                                                    globalData
+                                                    page
+                                                    model.global
+                                                    MsgGlobal
+                                                    { title = title
+                                                    , body =
+                                                        -- Template.BlogPost.liftViewMsg
+                                                        body
+                                                    }
+                                           )
+
+                                _ ->
+                                    { title = "", body = Html.text "" }
+                    , head = Template.BlogIndex.head data page.path metadata
+                    }
+                )
+                (Template.BlogIndex.staticData siteMetadata)
+                (Global.staticData siteMetadata)
+
 
 init :
     Maybe
@@ -169,17 +194,21 @@ init maybePagePath =
 
                 Just meta ->
                     case meta of
-                        MetadataBlogPost metadata ->
+                        M.MetadataBlogPost metadata ->
                             Template.BlogPost.init metadata
                                 |> ModelBlogPost
 
-                        MetadataShowcase metadata ->
+                        M.MetadataShowcase metadata ->
                             Template.Showcase.init metadata
                                 |> ModelShowcase
 
-                        MetadataPage metadata ->
+                        M.MetadataPage metadata ->
                             Template.Page.init metadata
                                 |> ModelPage
+
+                        M.MetadataBlogIndex metadata ->
+                            Template.BlogIndex.init metadata
+                                |> ModelBlogIndex
       }
     , Cmd.none
     )

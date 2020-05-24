@@ -1,10 +1,11 @@
 module MetadataNew exposing (DocMetadata, PageMetadata, decoder)
 
+import AllMetadata as Metadata exposing (Metadata)
 import Json.Decode as Decode exposing (Decoder)
+import Template.BlogIndex
 import Template.BlogPost
 import Template.Page
 import Template.Showcase
-import TemplateDemultiplexer as TD exposing (Metadata)
 
 
 type alias DocMetadata =
@@ -28,14 +29,15 @@ decoder =
                     --
                     "page" ->
                         Template.Page.decoder
-                            |> Decode.map TD.MetadataPage
+                            |> Decode.map Metadata.MetadataPage
 
-                    --
-                    --"blog-index" ->
-                    --    Decode.succeed BlogIndex
+                    "blog-index" ->
+                        Template.BlogIndex.decoder
+                            |> Decode.map Metadata.MetadataBlogIndex
+
                     "showcase" ->
                         Template.Showcase.decoder
-                            |> Decode.map TD.MetadataShowcase
+                            |> Decode.map Metadata.MetadataShowcase
 
                     --
                     --"author" ->
@@ -46,7 +48,7 @@ decoder =
                     --        |> Decode.map Author
                     "blog" ->
                         Template.BlogPost.decoder
-                            |> Decode.map TD.MetadataBlogPost
+                            |> Decode.map Metadata.MetadataBlogPost
 
                     _ ->
                         Decode.fail <| "Unexpected page \"type\" " ++ pageType
