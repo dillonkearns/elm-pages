@@ -5,9 +5,12 @@ import Global
 import Head
 import Html exposing (Html)
 import MarkdownRenderer
+import Metadata
 import Pages
 import Pages.PagePath exposing (PagePath)
+import Pages.Platform
 import Pages.StaticHttp as StaticHttp
+import SiteConfig
 import Template.BlogPost
 import Template.Showcase
 
@@ -30,6 +33,7 @@ type TemplateModel
 
 type Msg
     = MsgBlogPost Template.BlogPost.Msg
+    | MsgGlobal Global.Msg
 
 
 type alias View =
@@ -66,7 +70,7 @@ view siteMetadata page =
                                                     globalData
                                                     page
                                                     model.global
-                                                    liftGlobalMsg
+                                                    MsgGlobal
                                                     { title = title
                                                     , body =
                                                         -- Template.BlogPost.liftViewMsg
@@ -86,5 +90,65 @@ view siteMetadata page =
             Debug.todo ""
 
 
-liftGlobalMsg =
-    Debug.todo ""
+init :
+    Maybe
+        { path :
+            { path : PagePath Pages.PathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        , metadata : Metadata
+        }
+    -> ( Model, Cmd Msg )
+init maybePagePath =
+    ( { global = Global.init maybePagePath
+      , page =
+            case maybePagePath |> Maybe.map .metadata of
+                Nothing ->
+                    Debug.todo ""
+
+                Just meta ->
+                    case meta of
+                        MetadataBlogPost metadata ->
+                            Template.BlogPost.init metadata
+                                |> ModelBlogPost
+
+                        MetadataShowcase metadata ->
+                            Debug.todo ""
+      }
+    , Cmd.none
+    )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    -- TODO
+    ( model, Cmd.none )
+
+
+
+--main : Pages.Platform.Program Model Msg Metadata View
+
+
+mainTemplate { documents, manifest, canonicalSiteUrl } =
+    Pages.Platform.init
+        { init = init
+        , view = view
+        , update = update
+
+        --, subscriptions = subscriptions
+        , subscriptions = \_ -> Sub.none
+        , documents = documents
+
+        --[ { extension = "md"
+        --  , metadata = Metadata.decoder
+        --  , body = MarkdownRenderer.view
+        --  }
+        --]
+        --, onPageChange = Just OnPageChange
+        , onPageChange = Nothing
+        , manifest = manifest -- SiteConfig.manifest
+        , canonicalSiteUrl = canonicalSiteUrl -- SiteConfig.canonicalUrl
+        , internals = Pages.internals
+        }
+        |> Pages.Platform.toProgram

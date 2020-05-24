@@ -5,6 +5,7 @@ import Element.Font as Font
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
+import Json.Decode as Decode exposing (Decoder)
 import MarkdownRenderer
 import Metadata as GlobalMetadata
 import OptimizedDecoder as D
@@ -21,6 +22,11 @@ type Metadata
 
 type Msg
     = Msg
+
+
+decoder : Decoder Metadata
+decoder =
+    Decode.succeed Metadata
 
 
 

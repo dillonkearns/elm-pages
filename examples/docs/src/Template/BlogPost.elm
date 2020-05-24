@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Metadata(..), Model, Msg, decoder, head, liftViewMsg, staticData, template, view)
+module Template.BlogPost exposing (Metadata(..), Model, Msg, decoder, head, init, liftViewMsg, staticData, template, view)
 
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -103,8 +103,8 @@ findMatchingImage imageAssetPath =
         Pages.allImages
 
 
-init : Model
-init =
+init : Metadata -> Model
+init metadata =
     Model
 
 

@@ -83,9 +83,12 @@ type Builder pathKey model msg metadata view
     = Builder
         { init :
             Maybe
-                { path : PagePath pathKey
-                , query : Maybe String
-                , fragment : Maybe String
+                { path :
+                    { path : PagePath pathKey
+                    , query : Maybe String
+                    , fragment : Maybe String
+                    }
+                , metadata : metadata
                 }
             -> ( model, Cmd msg )
         , update : msg -> model -> ( model, Cmd msg )
@@ -161,9 +164,12 @@ Here's a basic example.
 init :
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )
@@ -313,9 +319,12 @@ toProgram (Builder config) =
 application :
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )

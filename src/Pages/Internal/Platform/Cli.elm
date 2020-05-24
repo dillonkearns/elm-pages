@@ -162,9 +162,12 @@ type Msg
 type alias Config pathKey userMsg userModel metadata view =
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )

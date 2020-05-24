@@ -282,9 +282,12 @@ init :
     -> Content
     ->
         (Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { metadata : metadata
+            , path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
             }
          -> ( userModel, Cmd userMsg )
         )
@@ -343,14 +346,18 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                             DevClient False
 
                 ( userModel, userCmd ) =
-                    maybePagePath
-                        |> Maybe.map
-                            (\pagePath ->
+                    Maybe.map2
+                        (\pagePath metadata ->
+                            { path =
                                 { path = pagePath
                                 , query = url.query
                                 , fragment = url.fragment
                                 }
-                            )
+                            , metadata = metadata
+                            }
+                        )
+                        maybePagePath
+                        maybeMetadata
                         |> initUserModel
 
                 cmd =
@@ -670,9 +677,12 @@ type HmrStatus
 application :
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
@@ -802,9 +812,12 @@ application config =
 cliApplication :
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )

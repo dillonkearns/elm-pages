@@ -21,6 +21,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
+import MetadataNew
 import MySitemap
 import OptimizedDecoder as D
 import Pages exposing (images, pages)
@@ -36,9 +37,11 @@ import Rss
 import RssPlugin
 import Secrets
 import Showcase
+import SiteConfig
 import StructuredData
 import Template.BlogPost
 import Template.Showcase
+import TemplateDemultiplexer
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -61,34 +64,49 @@ type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
 
-main : Pages.Platform.Program Model Msg Metadata View
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg TemplateDemultiplexer.Metadata TemplateDemultiplexer.View
 main =
-    Pages.Platform.init
-        { init = init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
-        , documents =
+    TemplateDemultiplexer.mainTemplate
+        { documents =
             [ { extension = "md"
-              , metadata = Metadata.decoder
+              , metadata = MetadataNew.decoder
               , body = MarkdownRenderer.view
               }
             ]
-        , onPageChange = Just OnPageChange
-        , manifest = manifest
-        , canonicalSiteUrl = canonicalSiteUrl
-        , internals = Pages.internals
+        , manifest = SiteConfig.manifest
+        , canonicalSiteUrl = SiteConfig.canonicalUrl
         }
-        |> RssPlugin.generate
-            { siteTagline = siteTagline
-            , siteUrl = canonicalSiteUrl
-            , title = "elm-pages Blog"
-            , builtAt = Pages.builtAt
-            , indexPage = Pages.pages.blog.index
-            }
-            metadataToRssItem
-        |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
-        |> Pages.Platform.toProgram
+
+
+
+--main : Pages.Platform.Program Model Msg Metadata View
+--main =
+--    Pages.Platform.init
+--        { init = init
+--        , view = view
+--        , update = update
+--        , subscriptions = subscriptions
+--        , documents =
+--            [ { extension = "md"
+--              , metadata = Metadata.decoder
+--              , body = MarkdownRenderer.view
+--              }
+--            ]
+--        , onPageChange = Just OnPageChange
+--        , manifest = manifest
+--        , canonicalSiteUrl = canonicalSiteUrl
+--        , internals = Pages.internals
+--        }
+--        |> RssPlugin.generate
+--            { siteTagline = siteTagline
+--            , siteUrl = canonicalSiteUrl
+--            , title = "elm-pages Blog"
+--            , builtAt = Pages.builtAt
+--            , indexPage = Pages.pages.blog.index
+--            }
+--            metadataToRssItem
+--        |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
+--        |> Pages.Platform.toProgram
 
 
 metadataToRssItem :

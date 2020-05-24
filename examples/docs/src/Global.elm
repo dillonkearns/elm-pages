@@ -34,6 +34,10 @@ type Msg
     | ToggleMobileMenu
 
 
+init maybePagePath =
+    Debug.todo ""
+
+
 toView : Element msg -> Html msg
 toView =
     Debug.todo ""
