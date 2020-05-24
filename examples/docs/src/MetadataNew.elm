@@ -2,6 +2,7 @@ module MetadataNew exposing (DocMetadata, PageMetadata, decoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Template.BlogPost
+import Template.Page
 import Template.Showcase
 import TemplateDemultiplexer as TD exposing (Metadata)
 
@@ -25,9 +26,10 @@ decoder =
                     --    Decode.field "title" Decode.string
                     --        |> Decode.map (\title -> Doc { title = title })
                     --
-                    --"page" ->
-                    --    Decode.field "title" Decode.string
-                    --        |> Decode.map (\title -> Page { title = title })
+                    "page" ->
+                        Template.Page.decoder
+                            |> Decode.map TD.MetadataPage
+
                     --
                     --"blog-index" ->
                     --    Decode.succeed BlogIndex

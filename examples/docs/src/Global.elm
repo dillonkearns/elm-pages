@@ -59,11 +59,6 @@ staticData siteMetadata =
         (D.field "stargazers_count" D.int)
 
 
-testing : { body : Html msg, title : String }
-testing =
-    Debug.todo ""
-
-
 wrapBody :
     StaticData
     -> { a | path : PagePath Pages.PathKey }

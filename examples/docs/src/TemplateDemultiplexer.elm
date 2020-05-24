@@ -12,12 +12,14 @@ import Pages.Platform
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
 import Template.BlogPost
+import Template.Page
 import Template.Showcase
 
 
 type Metadata
     = MetadataBlogPost Template.BlogPost.Metadata
     | MetadataShowcase Template.Showcase.Metadata
+    | MetadataPage Template.Page.Metadata
 
 
 type alias Model =
@@ -29,6 +31,7 @@ type alias Model =
 type TemplateModel
     = ModelBlogPost Template.BlogPost.Model
     | ModelShowcase Template.Showcase.Model
+    | ModelPage Template.Page.Model
 
 
 type Msg
@@ -38,10 +41,6 @@ type Msg
 
 type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
-
-
-toView =
-    Debug.todo ""
 
 
 view :
@@ -89,6 +88,35 @@ view siteMetadata page =
         MetadataShowcase metadata ->
             Debug.todo ""
 
+        MetadataPage metadata ->
+            StaticHttp.map2
+                (\data globalData ->
+                    { view =
+                        \model rendered ->
+                            case model.page of
+                                ModelPage subModel ->
+                                    Template.Page.view data subModel metadata rendered
+                                        |> (\{ title, body } ->
+                                                Global.wrapBody
+                                                    globalData
+                                                    page
+                                                    model.global
+                                                    MsgGlobal
+                                                    { title = title
+                                                    , body =
+                                                        -- Template.BlogPost.liftViewMsg
+                                                        body
+                                                    }
+                                           )
+
+                                _ ->
+                                    { title = "", body = Html.text "" }
+                    , head = Template.Page.head data page.path metadata
+                    }
+                )
+                (Template.Page.staticData siteMetadata)
+                (Global.staticData siteMetadata)
+
 
 init :
     Maybe
@@ -115,6 +143,10 @@ init maybePagePath =
 
                         MetadataShowcase metadata ->
                             Debug.todo ""
+
+                        MetadataPage metadata ->
+                            Template.Page.init metadata
+                                |> ModelPage
       }
     , Cmd.none
     )

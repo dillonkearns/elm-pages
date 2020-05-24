@@ -25,3 +25,8 @@ manifest =
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
     }
+
+
+tagline : String
+tagline =
+    "A statically typed site generator - elm-pages"
