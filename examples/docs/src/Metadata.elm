@@ -15,7 +15,6 @@ type Metadata
     = Page PageMetadata
     | Article ArticleMetadata
     | Doc DocMetadata
-    | Author Data.Author.Author
     | BlogIndex
     | Showcase
 
@@ -57,13 +56,6 @@ decoder =
 
                     "showcase" ->
                         Decode.succeed Showcase
-
-                    "author" ->
-                        Decode.map3 Data.Author.Author
-                            (Decode.field "name" Decode.string)
-                            (Decode.field "avatar" imageDecoder)
-                            (Decode.field "bio" Decode.string)
-                            |> Decode.map Author
 
                     "blog" ->
                         Decode.map6 ArticleMetadata
