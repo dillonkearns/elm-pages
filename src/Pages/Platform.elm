@@ -126,6 +126,7 @@ type Builder pathKey model msg metadata view
                 ({ path : PagePath pathKey
                  , query : Maybe String
                  , fragment : Maybe String
+                 , metadata : metadata
                  }
                  -> msg
                 )
@@ -196,6 +197,7 @@ init :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> msg
             )
@@ -362,6 +364,7 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> msg
             )

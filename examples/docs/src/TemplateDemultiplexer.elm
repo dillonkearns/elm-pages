@@ -37,6 +37,12 @@ type TemplateModel
 type Msg
     = MsgBlogPost Template.BlogPost.Msg
     | MsgGlobal Global.Msg
+    | OnPageChange
+        { path : PagePath Pages.PathKey
+        , query : Maybe String
+        , fragment : Maybe String
+        , metadata : Metadata
+        }
 
 
 type alias View =
@@ -192,6 +198,17 @@ update msg model =
             in
             ( { model | global = globalModel }, globalCmd |> Cmd.map MsgGlobal )
 
+        OnPageChange record ->
+            init <|
+                Just
+                    { path =
+                        { path = record.path
+                        , query = record.query
+                        , fragment = record.fragment
+                        }
+                    , metadata = record.metadata
+                    }
+
 
 mainTemplate { documents, manifest, canonicalSiteUrl } =
     Pages.Platform.init
@@ -209,7 +226,7 @@ mainTemplate { documents, manifest, canonicalSiteUrl } =
         --  }
         --]
         --, onPageChange = Just OnPageChange
-        , onPageChange = Nothing
+        , onPageChange = Just OnPageChange
         , manifest = manifest -- SiteConfig.manifest
         , canonicalSiteUrl = canonicalSiteUrl -- SiteConfig.canonicalUrl
         , internals = Pages.internals

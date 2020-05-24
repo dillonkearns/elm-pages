@@ -485,6 +485,7 @@ update :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )
@@ -609,14 +610,42 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                 ( userModel, userCmd ) =
                                     case maybeOnPageChangeMsg of
                                         Just onPageChangeMsg ->
-                                            userUpdate
-                                                (onPageChangeMsg
-                                                    { path = urlToPagePath pathKey url model.baseUrl
-                                                    , query = url.query
-                                                    , fragment = url.fragment
+                                            let
+                                                urls =
+                                                    { currentUrl = url
+                                                    , baseUrl = model.baseUrl
                                                     }
-                                                )
-                                                model.userModel
+
+                                                maybeMetadata =
+                                                    case ContentCache.lookup pathKey updatedCache urls of
+                                                        Just ( pagePath, entry ) ->
+                                                            case entry of
+                                                                ContentCache.Parsed metadata viewResult ->
+                                                                    Just metadata
+
+                                                                ContentCache.NeedContent string metadata ->
+                                                                    Nothing
+
+                                                                ContentCache.Unparsed string metadata contentJson ->
+                                                                    Nothing
+
+                                                        Nothing ->
+                                                            Nothing
+                                            in
+                                            maybeMetadata
+                                                |> Maybe.map
+                                                    (\metadata ->
+                                                        userUpdate
+                                                            (onPageChangeMsg
+                                                                { path = urlToPagePath pathKey url model.baseUrl
+                                                                , query = url.query
+                                                                , fragment = url.fragment
+                                                                , metadata = metadata
+                                                                }
+                                                            )
+                                                            model.userModel
+                                                    )
+                                                |> Maybe.withDefault ( model.userModel, Cmd.none )
 
                                         _ ->
                                             ( model.userModel, Cmd.none )
@@ -725,6 +754,7 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )
@@ -860,6 +890,7 @@ cliApplication :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )

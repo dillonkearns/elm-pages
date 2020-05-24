@@ -210,6 +210,7 @@ type alias Config pathKey userMsg userModel metadata view =
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )
