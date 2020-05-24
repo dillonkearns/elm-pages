@@ -2,29 +2,21 @@ module Main exposing (main)
 
 import AllMetadata
 import Color
-import Data.Author as Author
+import Data.Author
 import Date
 import DocSidebar
 import DocumentSvg
 import Element exposing (Element)
-import Element.Background
-import Element.Border
 import Element.Events
 import Element.Font as Font
 import Element.Region
 import FontAwesome
 import Head
 import Head.Seo as Seo
-import Html exposing (Html)
 import Html.Attributes as Attr
-import Index
-import Json.Decode as Decode exposing (Decoder)
-import Json.Encode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import MetadataNew
-import MySitemap
-import OptimizedDecoder as D
 import Pages exposing (images, pages)
 import Pages.Directory as Directory exposing (Directory)
 import Pages.ImagePath as ImagePath exposing (ImagePath)
@@ -32,16 +24,10 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
-import Pages.StaticHttp as StaticHttp
 import Palette
 import Rss
-import RssPlugin
-import Secrets
-import Showcase
 import SiteConfig
 import StructuredData
-import Template.BlogPost
-import Template.Showcase
 import TemplateDemultiplexer
 
 
@@ -166,17 +152,6 @@ type alias Model =
     }
 
 
-init :
-    Maybe
-        { path : PagePath Pages.PathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-    -> ( Model, Cmd Msg )
-init maybePagePath =
-    ( Model False, Cmd.none )
-
-
 type Msg
     = OnPageChange
         { path : PagePath Pages.PathKey
@@ -194,11 +169,6 @@ update msg model =
 
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
-
-
-subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
 
 
 pageView :
@@ -240,82 +210,6 @@ pageView stars model siteMetadata page viewForPage =
             Debug.todo ""
 
 
-logoLink =
-    Element.link []
-        { url = "/"
-        , label =
-            Element.row
-                [ Font.size 30
-                , Element.spacing 16
-                , Element.htmlAttribute (Attr.class "navbar-title")
-                ]
-                [ DocumentSvg.view
-                , Element.text "elm-pages"
-                ]
-        }
-
-
-logoLinkMobile =
-    Element.link []
-        { url = "/"
-        , label =
-            Element.row
-                [ Font.size 30
-                , Element.spacing 16
-                , Element.htmlAttribute (Attr.class "navbar-title")
-                ]
-                [ Element.text "elm-pages"
-                ]
-        }
-
-
-navbarLinks stars currentPath =
-    [ elmDocsLink
-    , githubRepoLink stars
-
-    --, highlightableLink currentPath pages.docs.directory "Docs"
-    --, highlightableLink currentPath pages.showcase.directory "Showcase"
-    --, highlightableLink currentPath pages.blog.directory "Blog"
-    ]
-
-
-responsiveHeader =
-    Element.row
-        [ Element.width Element.fill
-        , Element.spaceEvenly
-        , Element.htmlAttribute (Attr.class "responsive-mobile")
-        , Element.width Element.fill
-        , Element.padding 20
-        ]
-        [ logoLinkMobile
-        , FontAwesome.icon "fas fa-bars" |> Element.el [ Element.alignRight, Element.Events.onClick ToggleMobileMenu ]
-        ]
-
-
-highlightableLink :
-    PagePath Pages.PathKey
-    -> Directory Pages.PathKey Directory.WithIndex
-    -> String
-    -> Element msg
-highlightableLink currentPath linkDirectory displayName =
-    let
-        isHighlighted =
-            currentPath |> Directory.includes linkDirectory
-    in
-    Element.link
-        (if isHighlighted then
-            [ Font.underline
-            , Font.color Palette.color.primary
-            ]
-
-         else
-            []
-        )
-        { url = linkDirectory |> Directory.indexPath |> PagePath.toString
-        , label = Element.text displayName
-        }
-
-
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
 <https://htmlhead.dev>
 <https://html.spec.whatwg.org/multipage/semantics.html#standard-metadata-names>
@@ -324,22 +218,6 @@ highlightableLink currentPath linkDirectory displayName =
 head : PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
 head currentPath metadata =
     case metadata of
-        Metadata.Page meta ->
-            Seo.summary
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = siteTagline
-                , locale = Nothing
-                , title = meta.title
-                }
-                |> Seo.website
-
         Metadata.Doc meta ->
             Seo.summary
                 { canonicalUrlOverride = Nothing
@@ -356,78 +234,8 @@ head currentPath metadata =
                 }
                 |> Seo.website
 
-        Metadata.Article meta ->
-            Head.structuredData
-                (StructuredData.article
-                    { title = meta.title
-                    , description = meta.description
-                    , author = StructuredData.person { name = meta.author.name }
-                    , publisher = StructuredData.person { name = "Dillon Kearns" }
-                    , url = canonicalSiteUrl ++ "/" ++ PagePath.toString currentPath
-                    , imageUrl = canonicalSiteUrl ++ "/" ++ ImagePath.toString meta.image
-                    , datePublished = Date.toIsoString meta.published
-                    , mainEntityOfPage =
-                        StructuredData.softwareSourceCode
-                            { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
-                            , description = "A statically typed site generator for Elm."
-                            , author = "Dillon Kearns"
-                            , programmingLanguage = StructuredData.elmLang
-                            }
-                    }
-                )
-                :: (Seo.summaryLarge
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = meta.image
-                            , alt = meta.description
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = meta.description
-                        , locale = Nothing
-                        , title = meta.title
-                        }
-                        |> Seo.article
-                            { tags = []
-                            , section = Nothing
-                            , publishedTime = Just (Date.toIsoString meta.published)
-                            , modifiedTime = Nothing
-                            , expirationTime = Nothing
-                            }
-                   )
-
-        Metadata.BlogIndex ->
-            Seo.summary
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = siteTagline
-                , locale = Nothing
-                , title = "elm-pages blog"
-                }
-                |> Seo.website
-
-        Metadata.Showcase ->
-            Seo.summary
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = images.iconPng
-                    , alt = "elm-pages logo"
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = "See some neat sites built using elm-pages! (Or submit yours!)"
-                , locale = Nothing
-                , title = "elm-pages sites showcase"
-                }
-                |> Seo.website
+        _ ->
+            Debug.todo ""
 
 
 canonicalSiteUrl : String
@@ -455,39 +263,3 @@ tocView toc =
                     )
             )
         ]
-
-
-publishedDateView metadata =
-    Element.text
-        (metadata.published
-            |> Date.format "MMMM ddd, yyyy"
-        )
-
-
-githubRepoLink : Int -> Element msg
-githubRepoLink starCount =
-    Element.newTabLink []
-        { url = "https://github.com/dillonkearns/elm-pages"
-        , label =
-            Element.row [ Element.spacing 5 ]
-                [ Element.image
-                    [ Element.width (Element.px 22)
-                    , Font.color Palette.color.primary
-                    ]
-                    { src = ImagePath.toString Pages.images.github, description = "Github repo" }
-                , Element.text <| String.fromInt starCount
-                ]
-        }
-
-
-elmDocsLink : Element msg
-elmDocsLink =
-    Element.newTabLink []
-        { url = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/"
-        , label =
-            Element.image
-                [ Element.width (Element.px 22)
-                , Font.color Palette.color.primary
-                ]
-                { src = ImagePath.toString Pages.images.elmLogo, description = "Elm Package Docs" }
-        }
