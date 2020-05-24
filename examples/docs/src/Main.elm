@@ -200,47 +200,6 @@ subscriptions _ =
     Sub.none
 
 
-view :
-    List ( PagePath Pages.PathKey, Metadata )
-    ->
-        { path : PagePath Pages.PathKey
-        , frontmatter : Metadata
-        }
-    ->
-        StaticHttp.Request
-            { view : Model -> View -> { title : String, body : Html Msg }
-            , head : List (Head.Tag Pages.PathKey)
-            }
-view siteMetadata page =
-    case page.frontmatter of
-        Metadata.Showcase ->
-            Template.Showcase.view siteMetadata
-                { path = page.path
-                , frontmatter = Template.Showcase.Metadata
-                }
-
-        Metadata.Article metadata ->
-            --Template.BlogPost.view metadata
-            Template.BlogPost.template siteMetadata
-                { metadata = Template.BlogPost.Metadata metadata
-                , path = page.path
-                }
-                |> StaticHttp.map (\thing -> Debug.todo "")
-
-        _ ->
-            StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                (D.field "stargazers_count" D.int)
-                |> StaticHttp.map
-                    (\stars ->
-                        { view =
-                            \model viewForPage ->
-                                pageView stars model siteMetadata page viewForPage
-                                    |> wrapBody stars page model
-                        , head = head page.path page.frontmatter
-                        }
-                    )
-
-
 pageView :
     Int
     -> Model

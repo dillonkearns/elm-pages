@@ -86,7 +86,33 @@ view siteMetadata page =
                 (Global.staticData siteMetadata)
 
         MetadataShowcase metadata ->
-            Debug.todo ""
+            StaticHttp.map2
+                (\data globalData ->
+                    { view =
+                        \model rendered ->
+                            case model.page of
+                                ModelShowcase subModel ->
+                                    Template.Showcase.view data subModel metadata rendered
+                                        |> (\{ title, body } ->
+                                                Global.wrapBody
+                                                    globalData
+                                                    page
+                                                    model.global
+                                                    MsgGlobal
+                                                    { title = title
+                                                    , body =
+                                                        -- Template.BlogPost.liftViewMsg
+                                                        body
+                                                    }
+                                           )
+
+                                _ ->
+                                    { title = "", body = Html.text "" }
+                    , head = Template.Showcase.head data page.path metadata
+                    }
+                )
+                (Template.Showcase.staticData siteMetadata)
+                (Global.staticData siteMetadata)
 
         MetadataPage metadata ->
             StaticHttp.map2
@@ -142,7 +168,8 @@ init maybePagePath =
                                 |> ModelBlogPost
 
                         MetadataShowcase metadata ->
-                            Debug.todo ""
+                            Template.Showcase.init metadata
+                                |> ModelShowcase
 
                         MetadataPage metadata ->
                             Template.Page.init metadata
