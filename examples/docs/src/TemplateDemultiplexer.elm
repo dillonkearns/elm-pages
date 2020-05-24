@@ -122,12 +122,16 @@ init maybePagePath =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    -- TODO
-    ( model, Cmd.none )
+    case msg of
+        MsgBlogPost msg_ ->
+            ( model, Cmd.none )
 
-
-
---main : Pages.Platform.Program Model Msg Metadata View
+        MsgGlobal msg_ ->
+            let
+                ( globalModel, globalCmd ) =
+                    Global.update msg_ model.global
+            in
+            ( { model | global = globalModel }, globalCmd |> Cmd.map MsgGlobal )
 
 
 mainTemplate { documents, manifest, canonicalSiteUrl } =

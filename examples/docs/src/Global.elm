@@ -35,12 +35,18 @@ type Msg
 
 
 init maybePagePath =
-    Debug.todo ""
+    { showMobileMenu = False
+    }
 
 
-toView : Element msg -> Html msg
-toView =
-    Debug.todo ""
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        OnPageChange page ->
+            ( { model | showMobileMenu = False }, Cmd.none )
+
+        ToggleMobileMenu ->
+            ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
 
 
 type alias StaticData =
