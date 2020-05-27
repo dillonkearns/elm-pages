@@ -1,4 +1,4 @@
-module Template.Page exposing (Metadata, Model, Msg, decoder, head, init, staticData, view)
+module Template.Page exposing (Model, Msg, decoder, head, init, staticData, view)
 
 import Element exposing (Element)
 import Element.Region
@@ -9,6 +9,7 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
+import Template.Metadata exposing (Page)
 
 
 type alias StaticData =
@@ -23,7 +24,7 @@ type Msg
     = Msg
 
 
-init : Metadata -> Model
+init : Page -> Model
 init metadata =
     Model
 
@@ -33,17 +34,13 @@ staticData siteMetadata =
     StaticHttp.succeed ()
 
 
-type alias Metadata =
-    { title : String }
-
-
-decoder : Decode.Decoder Metadata
+decoder : Decode.Decoder Page
 decoder =
-    Decode.map Metadata
+    Decode.map Page
         (Decode.field "title" Decode.string)
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
+head : StaticData -> PagePath.PagePath Pages.PathKey -> Page -> List (Head.Tag Pages.PathKey)
 head static currentPath meta =
     Seo.summary
         { canonicalUrlOverride = Nothing
@@ -61,7 +58,7 @@ head static currentPath meta =
         |> Seo.website
 
 
-view : StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : StaticData -> Model -> Page -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view data model metadata viewForPage =
     { title = metadata.title
     , body =

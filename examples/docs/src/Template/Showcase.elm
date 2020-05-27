@@ -9,19 +9,16 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
-
-
-type alias Metadata =
-    {}
+import Template.Metadata exposing (Showcase)
 
 
 type Msg
     = Msg
 
 
-decoder : Decoder Metadata
+decoder : Decoder Showcase
 decoder =
-    Decode.succeed Metadata
+    Decode.succeed Showcase
 
 
 staticData : a -> StaticHttp.Request StaticData
@@ -33,7 +30,7 @@ type alias StaticData =
     List Showcase.Entry
 
 
-init : Metadata -> Model
+init : Showcase -> Model
 init metadata =
     Model
 
@@ -46,7 +43,7 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : StaticData -> Model -> Showcase -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
@@ -56,7 +53,7 @@ view data model metadata viewForPage =
     }
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
+head : StaticData -> PagePath.PagePath Pages.PathKey -> Showcase -> List (Head.Tag Pages.PathKey)
 head static currentPath metadata =
     Seo.summary
         { canonicalUrlOverride = Nothing

@@ -1,13 +1,10 @@
 module AllMetadata exposing (..)
 
-import Template.BlogIndexMetadata
-import Template.BlogPost
-import Template.Page
-import Template.Showcase
+import Template.Metadata
 
 
 type Metadata
-    = MetadataBlogPost Template.BlogPost.Metadata
-    | MetadataShowcase Template.Showcase.Metadata
-    | MetadataPage Template.Page.Metadata
-    | MetadataBlogIndex Template.BlogIndexMetadata.Metadata
+    = MetadataBlogPost Template.Metadata.BlogPost
+    | MetadataShowcase Template.Metadata.Showcase
+    | MetadataPage Template.Metadata.Page
+    | MetadataBlogIndex Template.Metadata.BlogIndex

@@ -11,8 +11,7 @@ import Element.Font
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.Platform exposing (Page)
-import Template.BlogPost exposing (Metadata)
+import Template.Metadata exposing (BlogPost)
 
 
 view :
@@ -43,7 +42,7 @@ view posts =
 
 
 postSummary :
-    ( PagePath Pages.PathKey, Metadata )
+    ( PagePath Pages.PathKey, BlogPost )
     -> Element msg
 postSummary ( postPath, post ) =
     articleIndex post |> linkToPost postPath
@@ -67,7 +66,7 @@ title text =
             ]
 
 
-articleIndex : Metadata -> Element msg
+articleIndex : BlogPost -> Element msg
 articleIndex metadata =
     Element.el
         [ Element.centerX
@@ -87,7 +86,7 @@ grey =
     Element.Font.color (Element.rgba255 0 0 0 0.5)
 
 
-postPreview : Metadata -> Element msg
+postPreview : BlogPost -> Element msg
 postPreview post =
     Element.textColumn
         [ Element.centerX

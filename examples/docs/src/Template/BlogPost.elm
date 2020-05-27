@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Metadata, Model, Msg, decoder, head, init, liftViewMsg, staticData, template, view)
+module Template.BlogPost exposing (Model, Msg, decoder, head, init, liftViewMsg, staticData, template, view)
 
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -19,16 +19,7 @@ import Secrets
 import SiteConfig
 import StructuredData
 import Template
-
-
-type alias Metadata =
-    { title : String
-    , description : String
-    , published : Date
-    , author : Author
-    , image : ImagePath Pages.PathKey
-    , draft : Bool
-    }
+import Template.Metadata exposing (BlogPost)
 
 
 type Model
@@ -41,7 +32,7 @@ type Msg
 
 template :
     List ( PagePath Pages.PathKey, globalMetadata )
-    -> { metadata : Metadata, path : PagePath.PagePath Pages.PathKey }
+    -> { metadata : BlogPost, path : PagePath.PagePath Pages.PathKey }
     -> StaticHttp.Request { view : Model -> ( a, List (Element msg) ) -> { title : String, body : Element msg }, head : List (Head.Tag Pages.PathKey) }
 template =
     Template.template
@@ -51,9 +42,19 @@ template =
         }
 
 
-decoder : Decode.Decoder Metadata
+
+--type Template metadata model staticData renderedView templateView
+--    = Template
+--        { init : metadata -> model
+--        , view : staticData -> model -> metadata -> renderedView -> templateView
+--        }
+--
+--template_ : Template { title : String, } Model StaticData
+
+
+decoder : Decode.Decoder BlogPost
 decoder =
-    Decode.map6 Metadata
+    Decode.map6 BlogPost
         (Decode.field "title" Decode.string)
         (Decode.field "description" Decode.string)
         (Decode.field "published"
@@ -98,7 +99,7 @@ findMatchingImage imageAssetPath =
         Pages.allImages
 
 
-init : Metadata -> Model
+init : BlogPost -> Model
 init metadata =
     Model
 
@@ -118,7 +119,7 @@ liftViewMsg liftMsg =
     identity
 
 
-view : StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view static model blogPost rendered =
     { title = blogPost.title
     , body =
@@ -151,7 +152,7 @@ view static model blogPost rendered =
     }
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
+head : StaticData -> PagePath.PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
 head static currentPath meta =
     Head.structuredData
         (StructuredData.article

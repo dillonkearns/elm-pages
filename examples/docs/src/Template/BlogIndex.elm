@@ -11,7 +11,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
 import SiteConfig
-import Template.BlogIndexMetadata exposing (Metadata)
+import Template.Metadata exposing (BlogIndex)
 
 
 type Msg
@@ -27,7 +27,7 @@ type alias StaticData =
     List Showcase.Entry
 
 
-init : Metadata -> Model
+init : BlogIndex -> Model
 init metadata =
     Model
 
@@ -40,7 +40,7 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : List ( PagePath Pages.PathKey, AllMetadata.Metadata ) -> StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : List ( PagePath Pages.PathKey, AllMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view siteMetadata data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
@@ -62,7 +62,7 @@ view siteMetadata data model metadata viewForPage =
 --}
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> Metadata -> List (Head.Tag Pages.PathKey)
+head : StaticData -> PagePath.PagePath Pages.PathKey -> BlogIndex -> List (Head.Tag Pages.PathKey)
 head static currentPath metadata =
     Seo.summary
         { canonicalUrlOverride = Nothing
