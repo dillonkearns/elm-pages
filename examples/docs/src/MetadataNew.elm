@@ -3,6 +3,7 @@ module MetadataNew exposing (DocMetadata, PageMetadata, decoder)
 import AllMetadata as Metadata exposing (Metadata)
 import Json.Decode as Decode exposing (Decoder)
 import Template.BlogIndex
+import Template.BlogIndexMetadata
 import Template.BlogPost
 import Template.Page
 import Template.Showcase
@@ -32,7 +33,7 @@ decoder =
                             |> Decode.map Metadata.MetadataPage
 
                     "blog-index" ->
-                        Template.BlogIndex.decoder
+                        Template.BlogIndexMetadata.decoder
                             |> Decode.map Metadata.MetadataBlogIndex
 
                     "showcase" ->

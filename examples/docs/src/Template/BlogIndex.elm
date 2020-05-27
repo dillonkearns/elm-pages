@@ -1,29 +1,21 @@
 module Template.BlogIndex exposing (..)
 
+import AllMetadata
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Index
-import Json.Decode as Decode exposing (Decoder)
 import MarkdownRenderer
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
 import SiteConfig
-
-
-type alias Metadata =
-    {}
+import Template.BlogIndexMetadata exposing (Metadata)
 
 
 type Msg
     = Msg
-
-
-decoder : Decoder Metadata
-decoder =
-    Decode.succeed Metadata
 
 
 staticData : a -> StaticHttp.Request StaticData
@@ -48,13 +40,15 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view data model metadata viewForPage =
+view : List ( PagePath Pages.PathKey, AllMetadata.Metadata ) -> StaticData -> Model -> Metadata -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view siteMetadata data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
             [ Element.column [ Element.padding 20, Element.centerX ]
-                [ Index.view [] ]
+                [ siteMetadata
+                    |> Index.view
+                ]
             ]
     }
 

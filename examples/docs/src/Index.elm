@@ -2,6 +2,7 @@ module Index exposing (view)
 
 --import Pages.Metadata as Metadata exposing (Metadata)
 
+import AllMetadata
 import Data.Author
 import Date
 import Element exposing (Element)
@@ -15,25 +16,28 @@ import Template.BlogPost exposing (Metadata)
 
 
 view :
-    List ( PagePath Pages.PathKey, Metadata )
+    List ( PagePath Pages.PathKey, AllMetadata.Metadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
         (posts
             |> List.filterMap
                 (\( path, metadata ) ->
-                    if metadata.draft then
-                        Nothing
+                    case metadata of
+                        AllMetadata.MetadataBlogPost meta ->
+                            if meta.draft then
+                                Nothing
 
-                    else
-                        Just ( path, metadata )
+                            else
+                                Just ( path, meta )
+
+                        _ ->
+                            Nothing
                 )
             |> List.sortBy
                 (\( path, metadata ) ->
-                    metadata.published
-                        |> Date.toRataDie
+                    -(metadata.published |> Date.toRataDie)
                 )
-            |> List.reverse
             |> List.map postSummary
         )
 
