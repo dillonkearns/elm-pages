@@ -1,4 +1,4 @@
-module AllMetadata exposing (..)
+module GlobalMetadata exposing (..)
 
 import Template.Metadata
 

@@ -1,41 +1,65 @@
 module Template exposing (..)
 
 import Head
-import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 
 
 template :
     { staticData :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
         templateStaticData
         -> templateModel
         -> templateMetadata
         -> renderedTemplate
-        -> view
+        -> templateView
     , head :
         templateStaticData
-        -> PagePath Pages.PathKey
+        -> PagePath pathKey
         -> templateMetadata
-        -> List (Head.Tag Pages.PathKey)
+        -> List (Head.Tag pathKey)
+    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateModel -> ( templateModel, Cmd templateMsg )
     }
-    -> List ( PagePath Pages.PathKey, globalMetadata )
-    -> { metadata : templateMetadata, path : PagePath Pages.PathKey }
-    ->
-        StaticHttp.Request
-            { view : templateModel -> renderedTemplate -> view
-            , head : List (Head.Tag Pages.PathKey)
-            }
-template config siteMetadata page =
-    config.staticData siteMetadata
-        |> StaticHttp.map
-            (\staticData ->
-                { view =
-                    \model rendered ->
-                        config.view staticData model page.metadata rendered
-                , head = config.head staticData page.path page.metadata
-                }
-            )
+    -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
+template config =
+    config
+
+
+type alias Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata =
+    { staticData :
+        List ( PagePath pathKey, globalMetadata )
+        -> StaticHttp.Request templateStaticData
+    , view :
+        templateStaticData
+        -> templateModel
+        -> templateMetadata
+        -> renderedTemplate
+        -> templateView
+    , head :
+        templateStaticData
+        -> PagePath pathKey
+        -> templateMetadata
+        -> List (Head.Tag pathKey)
+    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateModel -> ( templateModel, Cmd templateMsg )
+    }
+
+
+
+--template :
+--    { view : StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+--    , head : StaticData -> PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
+--    , staticData : b -> StaticHttp.Request StaticData
+--    , init : BlogPost -> ( Model, Cmd Msg )
+--    , update : BlogPost -> Model -> ( Model, Cmd Msg )
+--    }
+--template =
+--    { view = view
+--    , head = head
+--    , staticData = staticData
+--    , init = init
+--    , update = update
+--    }

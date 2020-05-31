@@ -1,8 +1,8 @@
 module TemplateDemultiplexer exposing (..)
 
-import AllMetadata as M exposing (Metadata)
 import Element exposing (Element)
 import Global
+import GlobalMetadata as M exposing (Metadata)
 import Head
 import Html exposing (Html)
 import MarkdownRenderer
@@ -195,7 +195,8 @@ init maybePagePath =
                 Just meta ->
                     case meta of
                         M.MetadataBlogPost metadata ->
-                            Template.BlogPost.init metadata
+                            Template.BlogPost.template.init metadata
+                                |> Tuple.first
                                 |> ModelBlogPost
 
                         M.MetadataShowcase metadata ->

@@ -1,6 +1,5 @@
 module Main exposing (main)
 
-import AllMetadata
 import Color
 import Data.Author
 import Date
@@ -11,6 +10,7 @@ import Element.Events
 import Element.Font as Font
 import Element.Region
 import FontAwesome
+import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Html.Attributes as Attr
@@ -51,7 +51,7 @@ type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg AllMetadata.Metadata TemplateDemultiplexer.View
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata TemplateDemultiplexer.View
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =

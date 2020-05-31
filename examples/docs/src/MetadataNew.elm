@@ -1,6 +1,6 @@
 module MetadataNew exposing (DocMetadata, PageMetadata, decoder)
 
-import AllMetadata as Metadata exposing (Metadata)
+import GlobalMetadata as Metadata exposing (Metadata)
 import Json.Decode as Decode exposing (Decoder)
 import Template.BlogPost
 import Template.Page

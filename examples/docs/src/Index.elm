@@ -2,12 +2,12 @@ module Index exposing (view)
 
 --import Pages.Metadata as Metadata exposing (Metadata)
 
-import AllMetadata
 import Data.Author
 import Date
 import Element exposing (Element)
 import Element.Border
 import Element.Font
+import GlobalMetadata
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -15,7 +15,7 @@ import Template.Metadata exposing (BlogPost)
 
 
 view :
-    List ( PagePath Pages.PathKey, AllMetadata.Metadata )
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
@@ -23,7 +23,7 @@ view posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        AllMetadata.MetadataBlogPost meta ->
+                        GlobalMetadata.MetadataBlogPost meta ->
                             if meta.draft then
                                 Nothing
 

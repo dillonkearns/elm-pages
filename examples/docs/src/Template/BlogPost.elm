@@ -20,6 +20,7 @@ import SiteConfig
 import StructuredData
 import Template
 import Template.Metadata exposing (BlogPost)
+import TemplateDocument exposing (TemplateDocument)
 
 
 type Model
@@ -30,19 +31,17 @@ type Msg
     = Msg
 
 
-template :
-    List ( PagePath Pages.PathKey, globalMetadata )
-    -> { metadata : BlogPost, path : PagePath.PagePath Pages.PathKey }
-    -> StaticHttp.Request { view : Model -> ( a, List (Element msg) ) -> { title : String, body : Element msg }, head : List (Head.Tag Pages.PathKey) }
-template =
-    Template.template
-        { staticData = staticData
-        , view = view
-        , head = head
-        }
 
-
-
+--template :
+--    List ( PagePath Pages.PathKey, globalMetadata )
+--    -> { metadata : BlogPost, path : PagePath.PagePath Pages.PathKey }
+--    -> StaticHttp.Request { view : Model -> ( a, List (Element msg) ) -> { title : String, body : Element msg }, head : List (Head.Tag Pages.PathKey) }
+--template =
+--    Template.template
+--        { staticData = staticData
+--        , view = view
+--        , head = head
+--        }
 --type Template metadata model staticData renderedView templateView
 --    = Template
 --        { init : metadata -> model
@@ -50,6 +49,28 @@ template =
 --        }
 --
 --template_ : Template { title : String, } Model StaticData
+--template :
+--    { view : StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+--    , head : StaticData -> PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
+--    , staticData : b -> StaticHttp.Request StaticData
+--    , init : BlogPost -> ( Model, Cmd Msg )
+--    , update : BlogPost -> Model -> ( Model, Cmd Msg )
+--    }
+--template :
+--    List ( PagePath Pages.PathKey, globalMetadata )
+--    -> { metadata : BlogPost, path : PagePath Pages.PathKey }
+--    -> StaticHttp.Request { view : Model -> ( a, List (Element msg) ) -> { title : String, body : Element msg }, head : List (Head.Tag Pages.PathKey) }
+
+
+template : TemplateDocument BlogPost StaticData Model Msg
+template =
+    Template.template
+        { view = view
+        , head = head
+        , staticData = staticData
+        , init = init
+        , update = update
+        }
 
 
 decoder : Decode.Decoder BlogPost
@@ -99,9 +120,14 @@ findMatchingImage imageAssetPath =
         Pages.allImages
 
 
-init : BlogPost -> Model
+init : BlogPost -> ( Model, Cmd Msg )
 init metadata =
-    Model
+    ( Model, Cmd.none )
+
+
+update : BlogPost -> Model -> ( Model, Cmd Msg )
+update metadata model =
+    ( Model, Cmd.none )
 
 
 staticData : a -> StaticHttp.Request StaticData

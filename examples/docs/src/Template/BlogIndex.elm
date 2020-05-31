@@ -1,7 +1,7 @@
 module Template.BlogIndex exposing (..)
 
-import AllMetadata
 import Element exposing (Element)
+import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Index
@@ -40,7 +40,7 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : List ( PagePath Pages.PathKey, AllMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view siteMetadata data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
