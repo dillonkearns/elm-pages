@@ -1,4 +1,4 @@
-module Template.Page exposing (Model, Msg, decoder, head, init, staticData, view)
+module Template.Page exposing (Model, Msg, decoder, head, init, staticData, template, view)
 
 import Element exposing (Element)
 import Element.Region
@@ -9,7 +9,9 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
+import Template
 import Template.Metadata exposing (Page)
+import TemplateDocument exposing (TemplateDocument)
 
 
 type alias StaticData =
@@ -24,9 +26,25 @@ type Msg
     = Msg
 
 
-init : Page -> Model
+template : TemplateDocument Page StaticData Model Msg
+template =
+    Template.template
+        { view = view
+        , head = head
+        , staticData = staticData
+        , init = init
+        , update = update
+        }
+
+
+init : Page -> ( Model, Cmd Msg )
 init metadata =
-    Model
+    ( Model, Cmd.none )
+
+
+update : Page -> Model -> ( Model, Cmd Msg )
+update metadata model =
+    ( Model, Cmd.none )
 
 
 staticData : a -> StaticHttp.Request StaticData

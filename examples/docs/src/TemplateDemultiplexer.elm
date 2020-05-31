@@ -204,7 +204,8 @@ init maybePagePath =
                                 |> ModelShowcase
 
                         M.MetadataPage metadata ->
-                            Template.Page.init metadata
+                            Template.Page.template.init metadata
+                                |> Tuple.first
                                 |> ModelPage
 
                         M.MetadataBlogIndex metadata ->
