@@ -42,8 +42,8 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : Page -> Model -> ( Model, Cmd Msg )
-update metadata model =
+update : Page -> Msg -> Model -> ( Model, Cmd Msg )
+update metadata msg model =
     ( Model, Cmd.none )
 
 

@@ -21,7 +21,7 @@ template :
         -> templateMetadata
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     }
     -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
 template config =
@@ -44,7 +44,7 @@ type alias Template pathKey templateMetadata renderedTemplate templateStaticData
         -> templateMetadata
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     }
 
 

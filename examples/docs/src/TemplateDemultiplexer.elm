@@ -1,5 +1,6 @@
 module TemplateDemultiplexer exposing (..)
 
+import Browser
 import Element exposing (Element)
 import Global
 import GlobalMetadata as M exposing (Metadata)
@@ -32,6 +33,7 @@ type TemplateModel
 
 type Msg
     = MsgBlogPost Template.BlogPost.Msg
+    | MsgBlogIndex Template.BlogIndex.Msg
     | MsgGlobal Global.Msg
     | OnPageChange
         { path : PagePath Pages.PathKey
@@ -42,7 +44,7 @@ type Msg
 
 
 type alias View =
-    ( MarkdownRenderer.TableOfContents, List (Element Msg) )
+    ( MarkdownRenderer.TableOfContents, List (Element Never) )
 
 
 view :
@@ -75,7 +77,7 @@ view siteMetadata page =
                                                     { title = title
                                                     , body =
                                                         -- Template.BlogPost.liftViewMsg
-                                                        body
+                                                        Element.map never body
                                                     }
                                            )
 
@@ -104,7 +106,7 @@ view siteMetadata page =
                                                     { title = title
                                                     , body =
                                                         -- Template.BlogPost.liftViewMsg
-                                                        body
+                                                        Element.map never body
                                                     }
                                            )
 
@@ -133,7 +135,7 @@ view siteMetadata page =
                                                     { title = title
                                                     , body =
                                                         -- Template.BlogPost.liftViewMsg
-                                                        body
+                                                        Element.map never body
                                                     }
                                            )
 
@@ -152,7 +154,12 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelBlogIndex subModel ->
-                                    Template.BlogIndex.view siteMetadata data subModel metadata rendered
+                                    --Template.BlogIndex.view siteMetadata data subModel metadata rendered
+                                    Template.BlogIndex.template.view
+                                        data
+                                        subModel
+                                        metadata
+                                        rendered
                                         |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
@@ -160,9 +167,7 @@ view siteMetadata page =
                                                     model.global
                                                     MsgGlobal
                                                     { title = title
-                                                    , body =
-                                                        -- Template.BlogPost.liftViewMsg
-                                                        body
+                                                    , body = Element.map never body
                                                     }
                                            )
 
@@ -209,7 +214,8 @@ init maybePagePath =
                                 |> ModelPage
 
                         M.MetadataBlogIndex metadata ->
-                            Template.BlogIndex.init metadata
+                            Template.BlogIndex.template.init metadata
+                                |> Tuple.first
                                 |> ModelBlogIndex
       }
     , Cmd.none
@@ -240,6 +246,21 @@ update msg model =
                     , metadata = record.metadata
                     }
 
+        MsgBlogIndex msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case model.page of
+                        ModelBlogIndex pageModel ->
+                            Template.BlogIndex.template.update (Debug.todo "")
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+
 
 mainTemplate { documents, manifest, canonicalSiteUrl } =
     Pages.Platform.init
@@ -263,3 +284,10 @@ mainTemplate { documents, manifest, canonicalSiteUrl } =
         , internals = Pages.internals
         }
         |> Pages.Platform.toProgram
+
+
+mapDocument : Browser.Document Never -> Browser.Document mapped
+mapDocument document =
+    { title = document.title
+    , body = document.body |> List.map (Html.map never)
+    }

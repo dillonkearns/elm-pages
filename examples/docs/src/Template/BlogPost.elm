@@ -31,37 +31,6 @@ type Msg
     = Msg
 
 
-
---template :
---    List ( PagePath Pages.PathKey, globalMetadata )
---    -> { metadata : BlogPost, path : PagePath.PagePath Pages.PathKey }
---    -> StaticHttp.Request { view : Model -> ( a, List (Element msg) ) -> { title : String, body : Element msg }, head : List (Head.Tag Pages.PathKey) }
---template =
---    Template.template
---        { staticData = staticData
---        , view = view
---        , head = head
---        }
---type Template metadata model staticData renderedView templateView
---    = Template
---        { init : metadata -> model
---        , view : staticData -> model -> metadata -> renderedView -> templateView
---        }
---
---template_ : Template { title : String, } Model StaticData
---template :
---    { view : StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
---    , head : StaticData -> PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
---    , staticData : b -> StaticHttp.Request StaticData
---    , init : BlogPost -> ( Model, Cmd Msg )
---    , update : BlogPost -> Model -> ( Model, Cmd Msg )
---    }
---template :
---    List ( PagePath Pages.PathKey, globalMetadata )
---    -> { metadata : BlogPost, path : PagePath Pages.PathKey }
---    -> StaticHttp.Request { view : Model -> ( a, List (Element msg) ) -> { title : String, body : Element msg }, head : List (Head.Tag Pages.PathKey) }
-
-
 template : TemplateDocument BlogPost StaticData Model Msg
 template =
     Template.template
@@ -125,8 +94,8 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogPost -> Model -> ( Model, Cmd Msg )
-update metadata model =
+update : BlogPost -> Msg -> Model -> ( Model, Cmd Msg )
+update metadata msg model =
     ( Model, Cmd.none )
 
 

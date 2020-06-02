@@ -11,11 +11,24 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
 import SiteConfig
+import Template
 import Template.Metadata exposing (BlogIndex)
+import TemplateDocument exposing (TemplateDocument)
 
 
 type Msg
     = Msg
+
+
+template : TemplateDocument BlogIndex StaticData Model Msg
+template =
+    Template.template
+        { view = view
+        , head = head
+        , staticData = staticData
+        , init = init
+        , update = update
+        }
 
 
 staticData : a -> StaticHttp.Request StaticData
@@ -27,9 +40,14 @@ type alias StaticData =
     List Showcase.Entry
 
 
-init : BlogIndex -> Model
+init : BlogIndex -> ( Model, Cmd msg )
 init metadata =
-    Model
+    ( Model, Cmd.none )
+
+
+update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg )
+update metadata msg model =
+    ( Model, Cmd.none )
 
 
 type alias Model =
@@ -40,26 +58,23 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view siteMetadata data model metadata viewForPage =
+
+--view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+--view siteMetadata data model metadata viewForPage =
+
+
+view : StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
             [ Element.column [ Element.padding 20, Element.centerX ]
-                [ siteMetadata
+                [ --siteMetadata
+                  []
                     |> Index.view
                 ]
             ]
     }
-
-
-
---{ title = "elm-pages blog"
---, body =
---    Element.column [ Element.width Element.fill ]
---        [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view data ]
---        ]
---}
 
 
 head : StaticData -> PagePath.PagePath Pages.PathKey -> BlogIndex -> List (Head.Tag Pages.PathKey)
