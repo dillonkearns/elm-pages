@@ -1,7 +1,18 @@
 ## Can you pass flags in to your `elm-pages` app?
-There's no way to pass flags in right now. I'm collecting use cases and trying to figure out what the most intuitive thing would be conceptual, given that the value of flags will be different during Pre-Rendering and Client-Side Rendering.
+I'm trying to figure out the most intuitive way to model the concept of flags in `elm-pages`. Because the value of flags will be different during Pre-Rendering and Client-Side Rendering, just passing a single flag value would be misleading and make it seem like you have access to JS in the context of the user's browser on init. But you have to account for the Pre-Rendering phase as well, so flags has two different meanings.
+
 So for example, if you get the window dimensions from the flags and do responsive design based on that, then you'll see a flash after the client-side code takes over since it will run with a different value for flags. So that semantics of the flags are not quite intuitive there. You can achieve the same thing with a port, but the semantics are a little more obvious there because you now have to explicitly say how to handle the case where you don't have access to flags.
 
+The discussion is being tracked here: https://github.com/dillonkearns/elm-pages/issues/9.
+
+I think the likely solution here will be to pass in flags, but wrap it in a custom type that makes the current lifecycle stage more clear:
+
+```elm
+type Flags value =
+  FromPrerenderer value | FromUsersBrowser value
+```
+
+Right now, you can achieve the same result with a port.
 
 ## How do you handle responsive layouts when you don't the browser dimensions at build time?
 
