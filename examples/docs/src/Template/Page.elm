@@ -1,4 +1,4 @@
-module Template.Page exposing (Model, Msg, decoder, head, init, staticData, template, view)
+module Template.Page exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
 import Element.Region
