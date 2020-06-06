@@ -67,7 +67,10 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelBlogPost subModel ->
-                                    Template.BlogPost.view data subModel metadata rendered
+                                    Template.BlogPost.template.view data
+                                        subModel
+                                        metadata
+                                        rendered
                                         |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
@@ -83,10 +86,10 @@ view siteMetadata page =
 
                                 _ ->
                                     { title = "", body = Html.text "" }
-                    , head = Template.BlogPost.head data page.path metadata
+                    , head = Template.BlogPost.template.head data page.path metadata
                     }
                 )
-                (Template.BlogPost.staticData siteMetadata)
+                (Template.BlogPost.template.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
         M.MetadataShowcase metadata ->

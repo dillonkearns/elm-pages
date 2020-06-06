@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Model, Msg, decoder, head, init, liftViewMsg, staticData, template, view)
+module Template.BlogPost exposing (Model, Msg, decoder, template)
 
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
