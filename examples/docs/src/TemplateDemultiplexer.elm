@@ -176,10 +176,10 @@ view siteMetadata page =
 
                                 _ ->
                                     { title = "", body = Html.text "" }
-                    , head = Template.BlogIndex.head data page.path metadata
+                    , head = Template.BlogIndex.template.head data page.path metadata
                     }
                 )
-                (Template.BlogIndex.staticData siteMetadata)
+                (Template.BlogIndex.template.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
 

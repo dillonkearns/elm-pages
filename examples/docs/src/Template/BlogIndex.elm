@@ -1,4 +1,4 @@
-module Template.BlogIndex exposing (..)
+module Template.BlogIndex exposing (Model, Msg, template)
 
 import Element exposing (Element)
 import GlobalMetadata
