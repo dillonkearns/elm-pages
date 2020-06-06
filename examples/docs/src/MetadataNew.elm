@@ -22,10 +22,10 @@ decoder =
         |> Decode.andThen
             (\pageType ->
                 case pageType of
-                    --"doc" ->
-                    --    Decode.field "title" Decode.string
-                    --        |> Decode.map (\title -> Doc { title = title })
-                    --
+                    "doc" ->
+                        Decode.field "title" Decode.string
+                            |> Decode.map (\title -> Metadata.MetadataDocumentation { title = title })
+
                     "page" ->
                         Template.Page.decoder
                             |> Decode.map Metadata.MetadataPage
@@ -38,13 +38,6 @@ decoder =
                         Template.Showcase.decoder
                             |> Decode.map Metadata.MetadataShowcase
 
-                    --
-                    --"author" ->
-                    --    Decode.map3 Data.Author.Author
-                    --        (Decode.field "name" Decode.string)
-                    --        (Decode.field "avatar" imageDecoder)
-                    --        (Decode.field "bio" Decode.string)
-                    --        |> Decode.map Author
                     "blog" ->
                         Template.BlogPost.decoder
                             |> Decode.map Metadata.MetadataBlogPost

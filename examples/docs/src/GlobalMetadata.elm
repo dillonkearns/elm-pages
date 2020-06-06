@@ -8,3 +8,4 @@ type Metadata
     | MetadataShowcase Template.Metadata.Showcase
     | MetadataPage Template.Metadata.Page
     | MetadataBlogIndex Template.Metadata.BlogIndex
+    | MetadataDocumentation Template.Metadata.Documentation

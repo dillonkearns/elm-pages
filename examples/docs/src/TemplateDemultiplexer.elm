@@ -14,6 +14,7 @@ import Pages.StaticHttp as StaticHttp
 import SiteConfig
 import Template.BlogIndex
 import Template.BlogPost
+import Template.Documentation
 import Template.Page
 import Template.Showcase
 
@@ -28,6 +29,7 @@ type TemplateModel
     = ModelBlogPost Template.BlogPost.Model
     | ModelShowcase Template.Showcase.Model
     | ModelPage Template.Page.Model
+    | ModelDocumentation Template.Documentation.Model
     | ModelBlogIndex Template.BlogIndex.Model
 
 
@@ -182,6 +184,35 @@ view siteMetadata page =
                 (Template.BlogIndex.template.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
+        M.MetadataDocumentation metadata ->
+            StaticHttp.map2
+                (\data globalData ->
+                    { view =
+                        \model rendered ->
+                            case model.page of
+                                ModelDocumentation subModel ->
+                                    Template.Documentation.template.view data subModel metadata rendered
+                                        |> (\{ title, body } ->
+                                                Global.wrapBody
+                                                    globalData
+                                                    page
+                                                    model.global
+                                                    MsgGlobal
+                                                    { title = title
+                                                    , body =
+                                                        -- Template.BlogPost.liftViewMsg
+                                                        Element.map never body
+                                                    }
+                                           )
+
+                                _ ->
+                                    { title = "", body = Html.text "" }
+                    , head = Template.Page.template.head data page.path metadata
+                    }
+                )
+                (Template.Page.template.staticData siteMetadata)
+                (Global.staticData siteMetadata)
+
 
 init :
     Maybe
@@ -221,6 +252,11 @@ init maybePagePath =
                             Template.BlogIndex.template.init metadata
                                 |> Tuple.first
                                 |> ModelBlogIndex
+
+                        M.MetadataDocumentation metadata ->
+                            Template.Documentation.template.init metadata
+                                |> Tuple.first
+                                |> ModelDocumentation
       }
     , Cmd.none
     )

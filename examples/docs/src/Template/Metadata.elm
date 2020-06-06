@@ -26,3 +26,7 @@ type alias Page =
 
 type alias Showcase =
     {}
+
+
+type alias Documentation =
+    { title : String }
