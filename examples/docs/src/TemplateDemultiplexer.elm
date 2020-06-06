@@ -99,7 +99,7 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelShowcase subModel ->
-                                    Template.Showcase.view data subModel metadata rendered
+                                    Template.Showcase.template.view data subModel metadata rendered
                                         |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
@@ -115,10 +115,10 @@ view siteMetadata page =
 
                                 _ ->
                                     { title = "", body = Html.text "" }
-                    , head = Template.Showcase.head data page.path metadata
+                    , head = Template.Showcase.template.head data page.path metadata
                     }
                 )
-                (Template.Showcase.staticData siteMetadata)
+                (Template.Showcase.template.staticData siteMetadata)
                 (Global.staticData siteMetadata)
 
         M.MetadataPage metadata ->
@@ -208,7 +208,8 @@ init maybePagePath =
                                 |> ModelBlogPost
 
                         M.MetadataShowcase metadata ->
-                            Template.Showcase.init metadata
+                            Template.Showcase.template.init metadata
+                                |> Tuple.first
                                 |> ModelShowcase
 
                         M.MetadataPage metadata ->

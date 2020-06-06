@@ -1,4 +1,4 @@
-module Template.Showcase exposing (..)
+module Template.Showcase exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
 import Head
@@ -9,11 +9,29 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
+import Template
 import Template.Metadata exposing (Showcase)
+import TemplateDocument exposing (TemplateDocument)
 
 
 type Msg
     = Msg
+
+
+template : TemplateDocument Showcase StaticData Model Msg
+template =
+    Template.template
+        { view = view
+        , head = head
+        , staticData = staticData
+        , init = init
+        , update = update
+        }
+
+
+update : Showcase -> Msg -> Model -> ( Model, Cmd Msg )
+update metadata msg model =
+    ( Model, Cmd.none )
 
 
 decoder : Decoder Showcase
@@ -30,9 +48,9 @@ type alias StaticData =
     List Showcase.Entry
 
 
-init : Showcase -> Model
+init : Showcase -> ( Model, Cmd Msg )
 init metadata =
-    Model
+    ( Model, Cmd.none )
 
 
 type alias Model =
