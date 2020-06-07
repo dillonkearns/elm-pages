@@ -22,7 +22,9 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import OptimizedDecoder
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.CreatePage as CreatePage
 import Pages.Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
@@ -202,6 +204,12 @@ type alias Config pathKey userMsg userModel metadata view =
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey
+    , pages :
+        List
+            { entries : StaticHttp.Request (List CreatePage.Payload)
+            , metadata : OptimizedDecoder.Decoder metadata
+            , body : OptimizedDecoder.Decoder view
+            }
     , onPageChange :
         Maybe
             ({ path : PagePath pathKey

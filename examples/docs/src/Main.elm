@@ -36,6 +36,7 @@ import Rss
 import RssPlugin
 import Secrets
 import Showcase
+import StaticPages
 import StructuredData
 
 
@@ -75,6 +76,7 @@ main =
         , onPageChange = Just OnPageChange
         , manifest = manifest
         , canonicalSiteUrl = canonicalSiteUrl
+        , pages = StaticPages.pages
         , internals = Pages.internals
         }
         |> RssPlugin.generate
@@ -342,6 +344,11 @@ pageView stars model siteMetadata page viewForPage =
                 Element.column [ Element.width Element.fill ]
                     [--, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view siteMetadata ]
                     ]
+            }
+
+        Metadata.ShowcaseEntry entry ->
+            { title = "It worked!"
+            , body = Element.column [] [ Element.text "Woohooo!!!!!" ]
             }
 
 
@@ -642,6 +649,9 @@ head currentPath metadata =
                 , title = "elm-pages sites showcase"
                 }
                 |> Seo.website
+
+        Metadata.ShowcaseEntry record ->
+            []
 
 
 canonicalSiteUrl : String

@@ -18,6 +18,7 @@ type Metadata
     | Author Data.Author.Author
     | BlogIndex
     | Showcase
+    | ShowcaseEntry {}
 
 
 type alias ArticleMetadata =

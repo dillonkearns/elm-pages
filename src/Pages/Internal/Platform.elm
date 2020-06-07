@@ -11,7 +11,9 @@ import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import OptimizedDecoder
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.CreatePage as CreatePage
 import Pages.Document
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.HotReloadLoadingIndicator as HotReloadLoadingIndicator
@@ -710,6 +712,12 @@ application :
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey
+    , pages :
+        List
+            { entries : StaticHttp.Request (List CreatePage.Payload)
+            , metadata : OptimizedDecoder.Decoder metadata
+            , body : OptimizedDecoder.Decoder view
+            }
     , onPageChange :
         Maybe
             ({ path : PagePath pathKey
@@ -842,6 +850,12 @@ cliApplication :
                 )
     , canonicalSiteUrl : String
     , pathKey : pathKey
+    , pages :
+        List
+            { entries : StaticHttp.Request (List CreatePage.Payload)
+            , metadata : OptimizedDecoder.Decoder metadata
+            , body : OptimizedDecoder.Decoder view
+            }
     , onPageChange :
         Maybe
             ({ path : PagePath pathKey

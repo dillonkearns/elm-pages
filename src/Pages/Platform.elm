@@ -66,6 +66,8 @@ which case there is no pre-rendering).
 import Head
 import Html exposing (Html)
 import Json.Decode
+import OptimizedDecoder
+import Pages.CreatePage as CreatePage
 import Pages.Document as Document
 import Pages.Internal
 import Pages.Internal.Platform
@@ -126,6 +128,12 @@ type Builder pathKey model msg metadata view
                  }
                  -> msg
                 )
+        , pages :
+            List
+                { entries : StaticHttp.Request (List CreatePage.Payload)
+                , metadata : OptimizedDecoder.Decoder metadata
+                , body : OptimizedDecoder.Decoder view
+                }
         , canonicalSiteUrl : String
         , internals : Pages.Internal.Internal pathKey
         }
@@ -195,6 +203,12 @@ init :
             )
     , manifest : Pages.Manifest.Config pathKey
     , canonicalSiteUrl : String
+    , pages :
+        List
+            { entries : StaticHttp.Request (List CreatePage.Payload)
+            , metadata : OptimizedDecoder.Decoder metadata
+            , body : OptimizedDecoder.Decoder view
+            }
     , internals : Pages.Internal.Internal pathKey
     }
     -> Builder pathKey model msg metadata view
@@ -209,6 +223,7 @@ init config =
         , onPageChange = config.onPageChange
         , generateFiles = \_ -> StaticHttp.succeed []
         , canonicalSiteUrl = config.canonicalSiteUrl
+        , pages = config.pages
         , internals = config.internals
         }
 
@@ -306,6 +321,7 @@ toProgram (Builder config) =
         , canonicalSiteUrl = config.canonicalSiteUrl
         , generateFiles = config.generateFiles
         , onPageChange = config.onPageChange
+        , pages = config.pages
         , internals = config.internals
         }
 
@@ -357,6 +373,12 @@ application :
              -> msg
             )
     , canonicalSiteUrl : String
+    , pages :
+        List
+            { entries : StaticHttp.Request (List CreatePage.Payload)
+            , metadata : OptimizedDecoder.Decoder metadata
+            , body : OptimizedDecoder.Decoder view
+            }
     , internals : Pages.Internal.Internal pathKey
     }
     -> Program model msg metadata view
@@ -381,6 +403,7 @@ application config =
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , onPageChange = config.onPageChange
+        , pages = config.pages
         , pathKey = config.internals.pathKey
         }
 
