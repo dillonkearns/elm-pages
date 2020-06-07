@@ -18,7 +18,15 @@ type Metadata
     | Author Data.Author.Author
     | BlogIndex
     | Showcase
-    | ShowcaseEntry {}
+    | ShowcaseEntry
+        { screenshotUrl : String
+        , displayName : String
+        , liveUrl : String
+        , authorName : String
+        , authorUrl : String
+        , categories : List String
+        , repoUrl : Maybe String
+        }
 
 
 type alias ArticleMetadata =

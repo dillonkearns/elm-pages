@@ -6,6 +6,7 @@ module Pages.ContentCache exposing
     , errorView
     , extractMetadata
     , init
+    , initNew
     , lazyLoad
     , lookup
     , lookupMetadata
@@ -21,6 +22,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
+import OptimizedDecoder
 import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -122,6 +124,69 @@ init document content maybeInitialPageContent =
             )
         |> combineTupleResults
         |> Result.map Dict.fromList
+
+
+initNew :
+    { metadata : Decode.Value, body : Decode.Value }
+    ->
+        { pagesDecoder
+            | metadata : OptimizedDecoder.Decoder metadata
+            , body : OptimizedDecoder.Decoder view
+        }
+    -> Document metadata view
+    -> Content
+    -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
+    -> ContentCache metadata view
+initNew payload pagesDecoder document content maybeInitialPageContent =
+    let
+        --currentPath =
+        --    Debug.todo ""
+        metadata : metadata
+        metadata =
+            case
+                payload.metadata
+                    |> OptimizedDecoder.decodeValue pagesDecoder.metadata
+                    |> Result.mapError OptimizedDecoder.errorToString
+            of
+                Ok okMetadata ->
+                    okMetadata
+
+                Err error ->
+                    Debug.todo error
+
+        body : Result ParseError view
+        body =
+            payload.body
+                |> OptimizedDecoder.decodeValue pagesDecoder.body
+                |> Result.mapError OptimizedDecoder.errorToString
+
+        staticData =
+            Dict.empty
+    in
+    [ ( []
+      , Parsed metadata
+            { body = body
+            , staticData = staticData
+            }
+      )
+    ]
+        |> Dict.fromList
+        |> Ok
+
+
+
+--content
+--    |> parseMetadata maybeInitialPageContent document
+--    |> List.map
+--        (\tuple ->
+--            tuple
+--                |> Tuple.first
+--                |> createErrors
+--                |> Result.mapError
+--                |> (\f -> Tuple.mapSecond f tuple)
+--        )
+--    |> combineTupleResults
+--    |> Result.map Dict.fromList
 
 
 createErrors path decodeError =

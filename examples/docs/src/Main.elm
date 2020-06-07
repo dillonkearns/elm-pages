@@ -216,8 +216,9 @@ view siteMetadata page =
                 Showcase.staticRequest
 
         _ ->
-            StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                (D.field "stargazers_count" D.int)
+            --StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+            --    (D.field "stargazers_count" D.int)
+            StaticHttp.succeed 123
                 |> StaticHttp.map
                     (\stars ->
                         { view =
@@ -347,8 +348,11 @@ pageView stars model siteMetadata page viewForPage =
             }
 
         Metadata.ShowcaseEntry entry ->
-            { title = "It worked!"
-            , body = Element.column [] [ Element.text "Woohooo!!!!!" ]
+            { title = entry.displayName
+            , body =
+                Element.column [ Element.centerX ]
+                    [ Showcase.entryView entry
+                    ]
             }
 
 

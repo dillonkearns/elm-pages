@@ -258,8 +258,38 @@ contentJsonDecoder =
         (Decode.field "staticData" (Decode.dict Decode.string))
 
 
+entityJsonString : String
+entityJsonString =
+    """{
+                            "id": "recErVCZJbJZHVFdz",
+                            "fields": {
+                                "Repository URL": "https://github.com/dillonkearns/incremental-elm-web",
+                                "Screenshot URL": "https://incrementalelm.com/articles/moving-faster-with-tiny-steps",
+                                "Author URL": "https://github.com/dillonkearns/",
+                                "Site Display Name": "Incremental Elm Consulting",
+                                "Author": "Dillon Kearns",
+                                "Categories": [
+                                    "Consulting",
+                                    "Education"
+                                ],
+                                "Live URL": "https://incrementalelm.com",
+                                "Approved": true,
+                                "ID": 4,
+                                "Field 8": "2020-01-21T17:24:39.000Z",
+                                "Field 9": "2020-01-22T17:02:10.000Z"
+                            },
+                            "createdTime": "2020-01-21T17:24:39.000Z"
+                        }
+                        """
+
+
 init :
-    pathKey
+    List
+        { entries : StaticHttp.Request (List CreatePage.Payload)
+        , metadata : OptimizedDecoder.Decoder metadata
+        , body : OptimizedDecoder.Decoder view
+        }
+    -> pathKey
     -> String
     -> Pages.Document.Document metadata view
     -> (Json.Encode.Value -> Cmd Never)
@@ -294,10 +324,32 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
-init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
+init pagesDecoders pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
-            ContentCache.init
+            ContentCache.initNew
+                { metadata =
+                    case entityJsonString |> Decode.decodeString Decode.value of
+                        Ok entityJson ->
+                            entityJson
+
+                        Err _ ->
+                            Debug.todo "Expected valid json"
+                , body =
+                    case "{}" |> Decode.decodeString Decode.value of
+                        Ok entityJson ->
+                            entityJson
+
+                        Err _ ->
+                            Debug.todo "Expected valid json"
+                }
+                (case pagesDecoders of
+                    [ singlePageDecoder ] ->
+                        singlePageDecoder
+
+                    _ ->
+                        Debug.todo "Hardcoded to handle a single decoder right now."
+                )
                 document
                 content
                 (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
@@ -733,7 +785,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
+                init config.pages config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =

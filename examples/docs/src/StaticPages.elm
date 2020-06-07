@@ -26,7 +26,7 @@ pages :
         }
 pages =
     [ { entries = staticRequest
-      , metadata = entryDecoder |> Decode.map (\_ -> Metadata.ShowcaseEntry {})
+      , metadata = entryDecoder |> Decode.map Metadata.ShowcaseEntry
       , body = Decode.succeed ( [], [] )
       }
     ]
