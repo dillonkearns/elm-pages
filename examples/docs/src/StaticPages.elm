@@ -1,11 +1,11 @@
 module StaticPages exposing (pages)
 
+import Airtable
 import Element exposing (Element)
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.StaticHttp as StaticHttp
-import Secrets
 
 
 type alias View msg =
@@ -25,34 +25,17 @@ pages :
         , body : Decoder (View msg)
         }
 pages =
-    [ { entries = staticRequest
-      , metadata = entryDecoder |> Decode.map Metadata.ShowcaseEntry
-      , body = Decode.succeed ( [], [] )
-      }
+    [ Airtable.pages
+        { entryToRoute = showcaseSlugDecoder
+        , viewId = "viwayJBsr63qRd7q3"
+        , maxRecords = 100
+        , airtableAccountId = "appDykQzbkQJAidjt"
+        , viewName = "Grid%202"
+        }
+        { metadata = entryDecoder |> Decode.map Metadata.ShowcaseEntry
+        , body = Decode.succeed ( [], [] )
+        }
     ]
-
-
-staticRequest : StaticHttp.Request (List CreatePagePayload)
-staticRequest =
-    StaticHttp.request
-        (Secrets.succeed
-            (\airtableToken ->
-                { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
-                , method = "GET"
-                , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
-                , body = StaticHttp.emptyBody
-                }
-            )
-            |> Secrets.with "AIRTABLE_TOKEN"
-        )
-        (Decode.field "records"
-            (Decode.list
-                (Decode.map2 CreatePagePayload
-                    showcaseSlugDecoder
-                    Decode.value
-                )
-            )
-        )
 
 
 type alias Entry =
