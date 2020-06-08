@@ -60,6 +60,7 @@ module.exports = class AddFilesPlugin {
             const rawContents = JSON.stringify({
               body: file.content,
               staticData: staticRequests || {},
+              decoderIndex: 0,
             });
 
             compilation.assets[filename] = {
