@@ -619,7 +619,12 @@ cliDictKey =
     "////elm-pages-CLI////"
 
 
-staticResponsesInit : Dict String (Maybe String) -> Result (List BuildError) (List ( PagePath pathKey, metadata )) -> Config pathKey userMsg userModel metadata view -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
+staticResponsesInit :
+    Dict String (Maybe String)
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Config pathKey userMsg userModel metadata view
+    -> List ( PagePath pathKey, StaticHttp.Request value )
+    -> StaticResponses
 staticResponsesInit staticHttpCache siteMetadataResult config list =
     let
         generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
