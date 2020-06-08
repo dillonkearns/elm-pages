@@ -137,7 +137,7 @@ initNew :
             }
     -> Document metadata view
     -> Content
-    -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
+    -> Maybe { contentJson : ContentJson Decode.Value, initialUrl : { url | path : String } }
     -> ContentCache metadata view
 initNew payload pagesDecoders document content maybeInitialPageContent =
     let

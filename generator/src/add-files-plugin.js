@@ -29,7 +29,9 @@ module.exports = class AddFilesPlugin {
     ).tapAsync("AddFilesPlugin", (compilation, callback) => {
       const files = globby.sync("content").map(unpackFile);
 
-      let staticRequestData = {};
+      /** @typedef {{ path: string[]; staticData: object; decoderIndex: number; metadata: unknown; body: unknown; }} Page */
+
+      /** @type {Page[]} */ let staticRequestData = [];
       global.pagesWithRequests
         .then((payload) => {
           if (payload.type === "error") {
@@ -41,26 +43,29 @@ module.exports = class AddFilesPlugin {
           }
         })
         .finally(() => {
-          files.forEach((file) => {
+          staticRequestData.forEach((file) => {
             // Couldn't find this documented in the webpack docs,
             // but I found the example code for it here:
             // https://github.com/jantimon/html-webpack-plugin/blob/35a154186501fba3ecddb819b6f632556d37a58f/index.js#L470-L478
 
-            let route = file.baseRoute.replace(/\/$/, "");
-            const staticRequests = staticRequestData[route];
+            let route = file.path.join("/");
+            const staticRequests = file.staticData;
 
-            const filename = path.join(file.baseRoute, "content.json");
+            const filename = path.join(route, "content.json");
             if (compilation.contextDependencies) {
               compilation.contextDependencies.add("content");
             }
             // compilation.fileDependencies.add(filename);
-            if (compilation.fileDependencies) {
-              compilation.fileDependencies.add(path.resolve(file.filePath));
-            }
+            // TODO add this back?
+            // if (compilation.fileDependencies) {
+            //   compilation.fileDependencies.add(path.resolve(file.filePath));
+            // }
             const rawContents = JSON.stringify({
-              body: file.content,
-              staticData: staticRequests || {},
-              decoderIndex: 0,
+              body: file.body,
+              staticData: file.staticData,
+              metadata: file.metadata,
+              path: file.path,
+              decoderIndex: file.decoderIndex,
             });
 
             compilation.assets[filename] = {

@@ -47,11 +47,20 @@ type ToJsPayload pathKey
 
 
 type alias ToJsSuccessPayload pathKey =
-    { pages : Dict String (Dict String String)
+    { pages : List PageRoute
     , manifest : Manifest.Config pathKey
     , filesToGenerate : List FileToGenerate
     , staticHttpCache : Dict String String
     , errors : List String
+    }
+
+
+type alias PageRoute =
+    { path : List String
+    , staticData : Dict String String
+    , decoderIndex : Int
+    , metadata : Decode.Value
+    , body : Decode.Value
     }
 
 
@@ -95,12 +104,21 @@ stubManifest =
     }
 
 
+pageRouteCodec : Codec PageRoute
+pageRouteCodec =
+    Codec.object PageRoute
+        |> Codec.field "path" .path (Codec.list Codec.string)
+        |> Codec.field "staticData" .staticData (Codec.dict Codec.string)
+        |> Codec.field "decoderIndex" .decoderIndex Codec.int
+        |> Codec.field "metadata" .metadata Codec.value
+        |> Codec.field "body" .body Codec.value
+        |> Codec.buildObject
+
+
 successCodec : Codec (ToJsSuccessPayload pathKey)
 successCodec =
     Codec.object ToJsSuccessPayload
-        |> Codec.field "pages"
-            .pages
-            (Codec.dict (Codec.dict Codec.string))
+        |> Codec.field "pages" .pages (Codec.list pageRouteCodec)
         |> Codec.field "manifest"
             .manifest
             (Codec.build Manifest.toJson (Decode.succeed stubManifest))
@@ -1013,7 +1031,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
         in
         ( updatedAllRawResponses
         , toJsPayload
-            (encodeStaticResponses mode staticResponses)
+            hardcodedEntries
             config.manifest
             generatedOkayFiles
             allRawResponses
@@ -1021,8 +1039,75 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
         )
 
 
+hardcodedEntries : List PageRoute
+hardcodedEntries =
+    [ { path = [ "hello" ]
+      , staticData = Dict.empty
+      , decoderIndex = 0
+      , metadata = toDecodeValue """
+    {
+            "id": "recErVCZJbJZHVFdz",
+            "fields": {
+                "Repository URL": "https://github.com/dillonkearns/incremental-elm-web",
+                "Screenshot URL": "https://incrementalelm.com/articles/moving-faster-with-tiny-steps",
+                "Author URL": "https://github.com/dillonkearns/",
+                "Site Display Name": "Incremental Elm Consulting",
+                "Author": "Dillon Kearns",
+                "Categories": [
+                    "Consulting",
+                    "Education"
+                ],
+                "Live URL": "https://incrementalelm.com",
+                "Approved": true,
+                "ID": 4,
+                "Field 8": "2020-01-21T17:24:39.000Z",
+                "Field 9": "2020-01-22T17:02:10.000Z"
+            },
+            "createdTime": "2020-01-21T17:24:39.000Z"
+        }
+    """
+      , body = toDecodeValue "{}"
+      }
+    , { path = [ "hello2" ]
+      , staticData = Dict.empty
+      , decoderIndex = 0
+      , metadata = toDecodeValue """
+          {
+                      "id": "recwOTC27KKuKkmxa",
+                      "fields": {
+                          "Screenshot URL": "https://fission.codes/",
+                          "Author URL": "https://fission.codes/",
+                          "Site Display Name": "Fission",
+                          "Author": "Fission",
+                          "Categories": [
+                              "Programming"
+                          ],
+                          "Live URL": "https://fission.codes/",
+                          "Approved": true,
+                          "ID": 16,
+                          "Field 8": "2020-02-18T19:07:38.000Z",
+                          "Field 9": "2020-02-18T19:24:58.000Z"
+                      },
+                      "createdTime": "2020-02-18T19:07:38.000Z"
+                  }
+          """
+      , body = toDecodeValue "{}"
+      }
+    ]
+
+
+toDecodeValue : String -> Decode.Value
+toDecodeValue jsonString =
+    case jsonString |> Decode.decodeString Decode.value of
+        Ok value ->
+            value
+
+        Err _ ->
+            Debug.todo ""
+
+
 toJsPayload :
-    Dict String (Dict String String)
+    List PageRoute
     -> Manifest.Config pathKey
     -> List FileToGenerate
     -> Dict String (Maybe String)

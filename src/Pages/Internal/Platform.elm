@@ -246,7 +246,7 @@ type alias Flags =
 
 
 type alias ContentJson =
-    { body : String
+    { body : Decode.Value
     , staticData : Dict String String
     , decoderIndex : Int
     , path : List String
@@ -257,7 +257,7 @@ type alias ContentJson =
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
     Decode.map5 ContentJson
-        (Decode.field "body" Decode.string)
+        (Decode.field "body" Decode.value)
         (Decode.field "staticData" (Decode.dict Decode.string))
         (Decode.field "decoderIndex" Decode.int)
         (Decode.field "path" (Decode.list Decode.string))
@@ -342,7 +342,7 @@ init pagesDecoders pathKey canonicalSiteUrl document toJsPort viewFn content ini
                         Err _ ->
                             Debug.todo "Expected valid json"
                 , body =
-                    case "{}" |> Decode.decodeString Decode.value of
+                    case "123" |> Decode.decodeString Decode.value of
                         Ok entityJson ->
                             entityJson
 
@@ -697,7 +697,9 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
 
                 HotReloadComplete contentJson ->
                     ( { model
-                        | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url })
+                        | contentCache =
+                            --ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url })
+                            Debug.todo ""
                         , hmrStatus = HmrLoaded
                       }
                     , Cmd.none
