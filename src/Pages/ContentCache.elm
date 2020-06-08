@@ -150,19 +150,19 @@ initNew payload pagesDecoders document content maybeInitialPageContent =
                 Nothing ->
                     Debug.todo ""
 
-        decoderIndex : Int
-        decoderIndex =
+        --decoderIndex : Int
+        ( decoderIndex, path, metadata ) =
             case maybeInitialPageContent of
                 Just { contentJson } ->
-                    contentJson.decoderIndex
+                    ( contentJson.decoderIndex, contentJson.path, contentJson.metadata )
 
                 Nothing ->
-                    0
+                    ( 0, [], emptyJson )
 
-        metadata : metadata
-        metadata =
+        parsedMetadata : metadata
+        parsedMetadata =
             case
-                payload.metadata
+                metadata
                     |> OptimizedDecoder.decodeValue pagesDecoder.metadata
                     |> Result.mapError OptimizedDecoder.errorToString
             of
@@ -181,16 +181,28 @@ initNew payload pagesDecoders document content maybeInitialPageContent =
         staticData =
             Dict.empty
     in
-    [ ( []
-      , Parsed metadata
+    [ ( path
+      , Parsed parsedMetadata
             { body = body
             , staticData = staticData
             , decoderIndex = decoderIndex
+            , path = path
+            , metadata = metadata
             }
       )
     ]
         |> Dict.fromList
         |> Ok
+
+
+emptyJson : Decode.Value
+emptyJson =
+    case Decode.decodeString Decode.value "{}" of
+        Ok okValue ->
+            okValue
+
+        Err _ ->
+            Debug.todo ""
 
 
 
@@ -254,6 +266,8 @@ parseMetadata maybeInitialPageContent document content =
                                                 { body = renderer contentJson.body
                                                 , staticData = contentJson.staticData
                                                 , decoderIndex = 0
+                                                , path = []
+                                                , metadata = emptyJson
                                                 }
 
                                         else
@@ -270,6 +284,8 @@ parseMetadata maybeInitialPageContent document content =
                                                     { body = renderer bodyFromCli
                                                     , staticData = Dict.empty
                                                     , decoderIndex = 0
+                                                    , path = []
+                                                    , metadata = emptyJson
                                                     }
 
                                             Nothing ->
@@ -511,15 +527,19 @@ type alias ContentJson body =
     { body : body
     , staticData : Dict String String
     , decoderIndex : Int
+    , path : List String
+    , metadata : Decode.Value
     }
 
 
 contentJsonDecoder : Decode.Decoder (ContentJson String)
 contentJsonDecoder =
-    Decode.map3 ContentJson
+    Decode.map5 ContentJson
         (Decode.field "body" Decode.string)
         (Decode.field "staticData" (Decode.dict Decode.string))
         (Decode.field "decoderIndex" Decode.int)
+        (Decode.field "path" (Decode.list Decode.string))
+        (Decode.field "metadata" Decode.value)
 
 
 update :
@@ -543,6 +563,8 @@ update cacheResult renderer urls rawContent =
                                 { body = renderer content.body
                                 , staticData = content.staticData
                                 , decoderIndex = 0
+                                , path = []
+                                , metadata = Debug.todo ""
                                 }
                                 |> Just
 
@@ -551,6 +573,8 @@ update cacheResult renderer urls rawContent =
                                 { body = renderer rawContent.body
                                 , staticData = rawContent.staticData
                                 , decoderIndex = 0
+                                , path = []
+                                , metadata = Debug.todo ""
                                 }
                                 |> Just
 

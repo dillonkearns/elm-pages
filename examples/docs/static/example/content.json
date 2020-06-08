@@ -1,0 +1,28 @@
+{
+    "body": "",
+    "decoderIndex": 0,
+    "staticData": {},
+    "path": [
+        "example"
+    ],
+    "metadata": {
+        "id": "recErVCZJbJZHVFdz",
+        "fields": {
+            "Repository URL": "https://github.com/dillonkearns/incremental-elm-web",
+            "Screenshot URL": "https://incrementalelm.com/articles/moving-faster-with-tiny-steps",
+            "Author URL": "https://github.com/dillonkearns/",
+            "Site Display Name": "Incremental Elm Consulting",
+            "Author": "Dillon Kearns",
+            "Categories": [
+                "Consulting",
+                "Education"
+            ],
+            "Live URL": "https://incrementalelm.com",
+            "Approved": true,
+            "ID": 4,
+            "Field 8": "2020-01-21T17:24:39.000Z",
+            "Field 9": "2020-01-22T17:02:10.000Z"
+        },
+        "createdTime": "2020-01-21T17:24:39.000Z"
+    }
+}

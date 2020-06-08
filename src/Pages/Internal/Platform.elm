@@ -249,15 +249,19 @@ type alias ContentJson =
     { body : String
     , staticData : Dict String String
     , decoderIndex : Int
+    , path : List String
+    , metadata : Decode.Value
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map3 ContentJson
+    Decode.map5 ContentJson
         (Decode.field "body" Decode.string)
         (Decode.field "staticData" (Decode.dict Decode.string))
         (Decode.field "decoderIndex" Decode.int)
+        (Decode.field "path" (Decode.list Decode.string))
+        (Decode.field "metadata" Decode.value)
 
 
 entityJsonString : String

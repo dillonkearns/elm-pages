@@ -1,0 +1,29 @@
+{
+    "body": "",
+    "decoderIndex": 0,
+    "staticData": {},
+    "path": [
+        "example2"
+    ],
+    "metadata": {
+        "id": "rec4jeXFGEs8nx5mf",
+        "fields": {
+            "Screenshot URL": "https://tennety.art/",
+            "Author URL": "https://github.com/tennety",
+            "Site Display Name": "Tennety.Art",
+            "Author": "Chandu Tennety",
+            "Featured": [
+                "2"
+            ],
+            "Categories": [
+                "Art"
+            ],
+            "Live URL": "https://tennety.art",
+            "Approved": true,
+            "ID": 10,
+            "Field 8": "2020-01-22T16:11:40.000Z",
+            "Field 9": "2020-04-22T00:06:14.000Z"
+        },
+        "createdTime": "2020-01-22T16:11:40.000Z"
+    }
+}
