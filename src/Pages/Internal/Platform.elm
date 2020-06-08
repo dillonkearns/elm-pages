@@ -248,14 +248,16 @@ type alias Flags =
 type alias ContentJson =
     { body : String
     , staticData : Dict String String
+    , decoderIndex : Int
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map2 ContentJson
+    Decode.map3 ContentJson
         (Decode.field "body" Decode.string)
         (Decode.field "staticData" (Decode.dict Decode.string))
+        (Decode.field "decoderIndex" Decode.int)
 
 
 entityJsonString : String
@@ -343,13 +345,7 @@ init pagesDecoders pathKey canonicalSiteUrl document toJsPort viewFn content ini
                         Err _ ->
                             Debug.todo "Expected valid json"
                 }
-                (case pagesDecoders of
-                    [ singlePageDecoder ] ->
-                        singlePageDecoder
-
-                    _ ->
-                        Debug.todo "Hardcoded to handle a single decoder right now."
-                )
+                pagesDecoders
                 document
                 content
                 (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)

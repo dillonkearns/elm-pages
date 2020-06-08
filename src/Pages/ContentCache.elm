@@ -22,6 +22,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
+import List.Extra
 import OptimizedDecoder
 import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
@@ -129,18 +130,35 @@ init document content maybeInitialPageContent =
 initNew :
     { metadata : Decode.Value, body : Decode.Value }
     ->
-        { pagesDecoder
-            | metadata : OptimizedDecoder.Decoder metadata
-            , body : OptimizedDecoder.Decoder view
-        }
+        List
+            { pagesDecoder
+                | metadata : OptimizedDecoder.Decoder metadata
+                , body : OptimizedDecoder.Decoder view
+            }
     -> Document metadata view
     -> Content
     -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
     -> ContentCache metadata view
-initNew payload pagesDecoder document content maybeInitialPageContent =
+initNew payload pagesDecoders document content maybeInitialPageContent =
     let
-        --currentPath =
-        --    Debug.todo ""
+        pagesDecoder : { pagesDecoder | metadata : OptimizedDecoder.Decoder metadata, body : OptimizedDecoder.Decoder view }
+        pagesDecoder =
+            case pagesDecoders |> List.Extra.getAt decoderIndex of
+                Just thing ->
+                    thing
+
+                Nothing ->
+                    Debug.todo ""
+
+        decoderIndex : Int
+        decoderIndex =
+            case maybeInitialPageContent of
+                Just { contentJson } ->
+                    contentJson.decoderIndex
+
+                Nothing ->
+                    0
+
         metadata : metadata
         metadata =
             case
@@ -167,6 +185,7 @@ initNew payload pagesDecoder document content maybeInitialPageContent =
       , Parsed metadata
             { body = body
             , staticData = staticData
+            , decoderIndex = decoderIndex
             }
       )
     ]
@@ -234,6 +253,7 @@ parseMetadata maybeInitialPageContent document content =
                                             Parsed metadata
                                                 { body = renderer contentJson.body
                                                 , staticData = contentJson.staticData
+                                                , decoderIndex = 0
                                                 }
 
                                         else
@@ -249,6 +269,7 @@ parseMetadata maybeInitialPageContent document content =
                                                 Parsed metadata
                                                     { body = renderer bodyFromCli
                                                     , staticData = Dict.empty
+                                                    , decoderIndex = 0
                                                     }
 
                                             Nothing ->
@@ -489,14 +510,16 @@ httpTask url =
 type alias ContentJson body =
     { body : body
     , staticData : Dict String String
+    , decoderIndex : Int
     }
 
 
 contentJsonDecoder : Decode.Decoder (ContentJson String)
 contentJsonDecoder =
-    Decode.map2 ContentJson
+    Decode.map3 ContentJson
         (Decode.field "body" Decode.string)
         (Decode.field "staticData" (Decode.dict Decode.string))
+        (Decode.field "decoderIndex" Decode.int)
 
 
 update :
@@ -519,6 +542,7 @@ update cacheResult renderer urls rawContent =
                             Parsed metadata
                                 { body = renderer content.body
                                 , staticData = content.staticData
+                                , decoderIndex = 0
                                 }
                                 |> Just
 
@@ -526,6 +550,7 @@ update cacheResult renderer urls rawContent =
                             Parsed metadata
                                 { body = renderer rawContent.body
                                 , staticData = rawContent.staticData
+                                , decoderIndex = 0
                                 }
                                 |> Just
 
