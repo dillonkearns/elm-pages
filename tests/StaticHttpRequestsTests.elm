@@ -44,7 +44,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
@@ -71,7 +71,7 @@ all =
                         "NEXT-REQUEST"
                         """null"""
                     |> expectSuccess
-                        [ ( "elm-pages"
+                        [ ( [ "elm-pages" ]
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """null"""
                               )
@@ -164,7 +164,7 @@ all =
                         "url10"
                         """{"image": "image10.jpg"}"""
                     |> expectSuccess
-                        [ ( "elm-pages"
+                        [ ( [ "elm-pages" ]
                           , [ ( get "https://pokeapi.co/api/v2/pokemon/"
                               , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
                               )
@@ -220,13 +220,13 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 22 }"""
                     |> expectSuccess
-                        [ ( "elm-pages"
+                        [ ( [ "elm-pages" ]
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
                             ]
                           )
-                        , ( "elm-pages-starter"
+                        , ( [ "elm-pages-starter" ]
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                               , """{"stargazer_count":22}"""
                               )
@@ -245,7 +245,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":86}"""
                               )
@@ -274,7 +274,7 @@ all =
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{ "stargazer_count": 86, "unused_field": 123 }"""
                               )
@@ -301,7 +301,7 @@ all =
                         "https://example.com/file.txt"
                         "This is a raw text file."
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "https://example.com/file.txt"
                               , "This is a raw text file."
                               )
@@ -365,7 +365,7 @@ String was not uppercased"""
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
@@ -396,7 +396,7 @@ String was not uppercased"""
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":100}"""
                               )
@@ -424,7 +424,7 @@ String was not uppercased"""
                         "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                               , """{"stargazer_count":100}"""
                               )
@@ -441,7 +441,7 @@ String was not uppercased"""
                       , StaticHttp.succeed ()
                       )
                     ]
-                    |> expectSuccess [ ( "", [] ) ]
+                    |> expectSuccess [ ( [], [] ) ]
         , test "the port sends out when there are duplicate http requests for the same page" <|
             \() ->
                 start
@@ -456,7 +456,7 @@ String was not uppercased"""
                         "http://example.com"
                         """null"""
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( get "http://example.com"
                               , """null"""
                               )
@@ -593,7 +593,7 @@ Body: """)
                             }
                         )
                     |> expectSuccess
-                        [ ( ""
+                        [ ( []
                           , [ ( { method = "GET"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>"
                                 , headers =
@@ -623,7 +623,7 @@ Body: """)
                           )
                         ]
                         |> expectSuccess
-                            [ ( ""
+                            [ ( []
                               , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                                   , """{"stargazer_count":86}"""
                                   )
@@ -650,7 +650,7 @@ Body: """)
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             """{ "stargazer_count": 86 }"""
                         |> expectSuccess
-                            [ ( ""
+                            [ ( []
                               , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                                   , """{"stargazer_count":86}"""
                                   )
@@ -718,6 +718,7 @@ startWithHttpCache documentBodyResult staticHttpCache pages =
             , generateFiles = \_ -> StaticHttp.succeed []
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ -> ( (), Cmd.none )
+            , pages = []
             , view =
                 \allFrontmatter page ->
                     let
@@ -921,7 +922,7 @@ starDecoder =
     Decode.field "stargazer_count" Decode.int
 
 
-expectSuccess : List ( String, List ( Request.Request, String ) ) -> ProgramTest model msg effect -> Expect.Expectation
+expectSuccess : List ( List String, List ( Request.Request, String ) ) -> ProgramTest model msg effect -> Expect.Expectation
 expectSuccess expectedRequests previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
@@ -931,6 +932,7 @@ expectSuccess expectedRequests previous =
                 case value of
                     [ Main.Success portPayload ] ->
                         portPayload.pages
+                            |> List.map (\page -> ( page.path, page.staticData ))
                             |> Expect.equal
                                 (expectedRequests
                                     |> List.map
@@ -944,7 +946,7 @@ expectSuccess expectedRequests previous =
                                                 |> Dict.fromList
                                             )
                                         )
-                                    |> Dict.fromList
+                                 --|> Dict.fromList
                                 )
 
                     [ _ ] ->
