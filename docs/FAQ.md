@@ -14,7 +14,7 @@ type Flags value =
 
 Right now, you can achieve the same result with a port.
 
-## How do you handle responsive layouts when you don't the browser dimensions at build time?
+## How do you handle responsive layouts when you don't know the browser dimensions at build time?
 
 A lot of users are building their `elm-pages` views with `elm-ui`, so this is a common question because
 `elm-ui` is designed to do responsive layouts by storing the browser dimensions in the Model and
