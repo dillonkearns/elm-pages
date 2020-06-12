@@ -1,6 +1,5 @@
 module Pages.Internal.Platform.Cli exposing
     ( Content
-    , Effect(..)
     , Flags
     , Model
     , Msg(..)
@@ -25,6 +24,7 @@ import Pages.Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticHttpResult(..), StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -109,13 +109,6 @@ successCodec =
             (Codec.dict Codec.string)
         |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.buildObject
-
-
-type Effect pathKey
-    = NoEffect
-    | SendJsData (ToJsPayload pathKey)
-    | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
-    | Batch (List (Effect pathKey))
 
 
 type alias Page metadata view pathKey =
@@ -240,21 +233,21 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
 perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform cliMsgConstructor toJsPort effect =
     case effect of
-        NoEffect ->
+        Effect.NoEffect ->
             Cmd.none
 
-        SendJsData value ->
+        Effect.SendJsData value ->
             value
                 |> Codec.encoder toJsCodec
                 |> toJsPort
                 |> Cmd.map never
 
-        Batch list ->
+        Effect.Batch list ->
             list
                 |> List.map (perform cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
-        FetchHttp ({ unmasked, masked } as requests) ->
+        Effect.FetchHttp ({ unmasked, masked } as requests) ->
             -- let
             --     _ =
             --         Debug.log "Fetching" masked.url
@@ -715,15 +708,15 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                                     |> Dict.toList
                                     |> List.map
                                         (\( maskedUrl, secureUrl ) ->
-                                            FetchHttp secureUrl
+                                            Effect.FetchHttp secureUrl
                                         )
-                                    |> Batch
+                                    |> Effect.Batch
                         in
                         ( newAllRawResponses, newThing )
 
                     Err error ->
                         ( allRawResponses
-                        , SendJsData <|
+                        , Effect.SendJsData <|
                             (ToJsPayload.Errors <| BuildError.errorsToString (error ++ failedRequests ++ errors))
                         )
         in
@@ -832,7 +825,7 @@ toJsPayload :
     -> List { title : String, message : List Terminal.Text, fatal : Bool }
     -> Effect pathKey
 toJsPayload encodedStatic manifest generated allRawResponses allErrors =
-    SendJsData <|
+    Effect.SendJsData <|
         if allErrors |> List.filter .fatal |> List.isEmpty then
             ToJsPayload.Success
                 (ToJsPayload.ToJsSuccessPayload

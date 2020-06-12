@@ -13,6 +13,7 @@ import Pages.Document as Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
+import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
@@ -679,12 +680,12 @@ Found an unhandled HTML tag in markdown doc."""
         ]
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Effect PathKey)
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
 
-startWithHttpCache : Result String () -> List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+startWithHttpCache : Result String () -> List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Effect PathKey)
 startWithHttpCache documentBodyResult staticHttpCache pages =
     let
         document =
@@ -799,22 +800,22 @@ flags jsonString =
             Debug.todo "Invalid JSON value."
 
 
-simulateEffects : Main.Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
+simulateEffects : Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
 simulateEffects effect =
     case effect of
-        NoEffect ->
+        Effect.NoEffect ->
             SimulatedEffect.Cmd.none
 
-        SendJsData value ->
+        Effect.SendJsData value ->
             SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder Main.toJsCodec)
 
         --            toJsPort value |> Cmd.map never
-        Batch list ->
+        Effect.Batch list ->
             list
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp ({ unmasked, masked } as requests) ->
+        Effect.FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
