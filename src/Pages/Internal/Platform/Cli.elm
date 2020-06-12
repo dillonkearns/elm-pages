@@ -573,11 +573,6 @@ combineMultipleErrors results =
         results
 
 
-cliDictKey : String
-cliDictKey =
-    "////elm-pages-CLI////"
-
-
 isJust : Maybe a -> Bool
 isJust maybeValue =
     case maybeValue of
