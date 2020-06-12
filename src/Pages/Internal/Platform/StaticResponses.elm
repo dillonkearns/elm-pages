@@ -1,9 +1,12 @@
 module Pages.Internal.Platform.StaticResponses exposing (..)
 
+import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
+import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
@@ -15,6 +18,109 @@ type alias StaticResponses =
 
 type StaticHttpResult
     = NotFetched (StaticHttpRequest.Request ()) (Dict String (Result () String))
+
+
+type alias Content =
+    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
+
+
+staticResponsesInit :
+    Dict String (Maybe String)
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    ->
+        { config
+            | content : Content
+            , generateFiles :
+                List
+                    { path : PagePath pathKey
+                    , frontmatter : metadata
+                    , body : String
+                    }
+                ->
+                    StaticHttp.Request
+                        (List
+                            (Result String
+                                { path : List String
+                                , content : String
+                                }
+                            )
+                        )
+        }
+    -> List ( PagePath pathKey, StaticHttp.Request value )
+    -> StaticResponses
+staticResponsesInit staticHttpCache siteMetadataResult config list =
+    let
+        generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
+        generateFilesRequest =
+            config.generateFiles siteMetadataWithContent
+
+        generateFilesStaticRequest =
+            ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
+              -- since that data is only needed to run these functions during the build step
+              -- in the future, this could be refactored to have a type to represent this more clearly
+              cliDictKey
+            , NotFetched (generateFilesRequest |> StaticHttp.map (\_ -> ())) Dict.empty
+            )
+
+        siteMetadataWithContent =
+            siteMetadataResult
+                |> Result.withDefault []
+                |> List.map
+                    (\( pagePath, metadata ) ->
+                        let
+                            contentForPage =
+                                config.content
+                                    |> List.filterMap
+                                        (\( path, { body } ) ->
+                                            let
+                                                pagePathToGenerate =
+                                                    PagePath.toString pagePath
+
+                                                currentContentPath =
+                                                    "/" ++ (path |> String.join "/")
+                                            in
+                                            if pagePathToGenerate == currentContentPath then
+                                                Just body
+
+                                            else
+                                                Nothing
+                                        )
+                                    |> List.head
+                                    |> Maybe.andThen identity
+                        in
+                        { path = pagePath
+                        , frontmatter = metadata
+                        , body = contentForPage |> Maybe.withDefault ""
+                        }
+                    )
+    in
+    list
+        |> List.map
+            (\( path, staticRequest ) ->
+                let
+                    entry =
+                        NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
+
+                    updatedEntry =
+                        staticHttpCache
+                            |> dictCompact
+                            |> Dict.toList
+                            |> List.foldl
+                                (\( hashedRequest, response ) entrySoFar ->
+                                    entrySoFar
+                                        |> addEntry
+                                            staticHttpCache
+                                            hashedRequest
+                                            (Ok response)
+                                )
+                                entry
+                in
+                ( PagePath.toString path
+                , updatedEntry
+                )
+            )
+        |> List.append [ generateFilesStaticRequest ]
+        |> Dict.fromList
 
 
 addEntry : Dict String (Maybe String) -> String -> Result () String -> StaticHttpResult -> StaticHttpResult

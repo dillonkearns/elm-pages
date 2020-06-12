@@ -341,11 +341,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            staticResponsesInit staticHttpCache siteMetadata config okRequests
+                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            staticResponsesInit staticHttpCache siteMetadata config []
+                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config []
 
                                 ( updatedRawResponses, effect ) =
                                     sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
@@ -367,11 +367,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            staticResponsesInit staticHttpCache siteMetadata config okRequests
+                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            staticResponsesInit staticHttpCache siteMetadata config []
+                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config []
                             in
                             updateAndSendPortIfDone
                                 config
@@ -576,82 +576,6 @@ combineMultipleErrors results =
 cliDictKey : String
 cliDictKey =
     "////elm-pages-CLI////"
-
-
-staticResponsesInit : Dict String (Maybe String) -> Result (List BuildError) (List ( PagePath pathKey, metadata )) -> Config pathKey userMsg userModel metadata view -> List ( PagePath pathKey, StaticHttp.Request value ) -> StaticResponses
-staticResponsesInit staticHttpCache siteMetadataResult config list =
-    let
-        generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
-        generateFilesRequest =
-            config.generateFiles siteMetadataWithContent
-
-        generateFilesStaticRequest =
-            ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
-              -- since that data is only needed to run these functions during the build step
-              -- in the future, this could be refactored to have a type to represent this more clearly
-              cliDictKey
-            , NotFetched (generateFilesRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-            )
-
-        siteMetadataWithContent =
-            siteMetadataResult
-                |> Result.withDefault []
-                |> List.map
-                    (\( pagePath, metadata ) ->
-                        let
-                            contentForPage =
-                                config.content
-                                    |> List.filterMap
-                                        (\( path, { body } ) ->
-                                            let
-                                                pagePathToGenerate =
-                                                    PagePath.toString pagePath
-
-                                                currentContentPath =
-                                                    "/" ++ (path |> String.join "/")
-                                            in
-                                            if pagePathToGenerate == currentContentPath then
-                                                Just body
-
-                                            else
-                                                Nothing
-                                        )
-                                    |> List.head
-                                    |> Maybe.andThen identity
-                        in
-                        { path = pagePath
-                        , frontmatter = metadata
-                        , body = contentForPage |> Maybe.withDefault ""
-                        }
-                    )
-    in
-    list
-        |> List.map
-            (\( path, staticRequest ) ->
-                let
-                    entry =
-                        NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-
-                    updatedEntry =
-                        staticHttpCache
-                            |> dictCompact
-                            |> Dict.toList
-                            |> List.foldl
-                                (\( hashedRequest, response ) entrySoFar ->
-                                    entrySoFar
-                                        |> StaticResponses.addEntry
-                                            staticHttpCache
-                                            hashedRequest
-                                            (Ok response)
-                                )
-                                entry
-                in
-                ( PagePath.toString path
-                , updatedEntry
-                )
-            )
-        |> List.append [ generateFilesStaticRequest ]
-        |> Dict.fromList
 
 
 staticResponsesUpdate : { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String } -> Model -> Model
