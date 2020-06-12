@@ -13,6 +13,7 @@ import Pages.Document as Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
@@ -844,7 +845,7 @@ simulateEffects effect =
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
 expectErrorsPort expectedPlainString actualPorts =
     case actualPorts of
-        [ Errors actualRichTerminalString ] ->
+        [ ToJsPayload.Errors actualRichTerminalString ] ->
             actualRichTerminalString
                 |> normalizeErrorExpectEqual expectedPlainString
 
@@ -855,7 +856,7 @@ expectErrorsPort expectedPlainString actualPorts =
 expectNonfatalErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
 expectNonfatalErrorsPort expectedPlainString actualPorts =
     case actualPorts of
-        [ Success successPayload ] ->
+        [ ToJsPayload.Success successPayload ] ->
             successPayload.errors
                 |> String.join "\n\n"
                 |> normalizeErrorExpectEqual expectedPlainString
@@ -929,7 +930,7 @@ expectSuccess expectedRequests previous =
             (Codec.decoder Main.toJsCodec)
             (\value ->
                 case value of
-                    [ Main.Success portPayload ] ->
+                    [ ToJsPayload.Success portPayload ] ->
                         portPayload.pages
                             |> Expect.equal
                                 (expectedRequests
@@ -963,7 +964,7 @@ expectError expectedErrors previous =
             (Codec.decoder Main.toJsCodec)
             (\value ->
                 case value of
-                    [ Main.Success portPayload ] ->
+                    [ ToJsPayload.Success portPayload ] ->
                         portPayload.errors
                             |> normalizeErrorsExpectEqual expectedErrors
 

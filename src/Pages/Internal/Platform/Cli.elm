@@ -5,8 +5,6 @@ module Pages.Internal.Platform.Cli exposing
     , Model
     , Msg(..)
     , Page
-    , ToJsPayload(..)
-    , ToJsSuccessPayload
     , cliApplication
     , init
     , toJsCodec
@@ -29,6 +27,7 @@ import Pages.ImagePath as ImagePath
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticHttpResult(..), StaticResponses)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -39,20 +38,6 @@ import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
 import TerminalText as Terminal
-
-
-type ToJsPayload pathKey
-    = Errors String
-    | Success (ToJsSuccessPayload pathKey)
-
-
-type alias ToJsSuccessPayload pathKey =
-    { pages : Dict String (Dict String String)
-    , manifest : Manifest.Config pathKey
-    , filesToGenerate : List FileToGenerate
-    , staticHttpCache : Dict String String
-    , errors : List String
-    }
 
 
 type alias FileToGenerate =
@@ -66,15 +51,15 @@ toJsCodec =
     Codec.custom
         (\errorsTag success value ->
             case value of
-                Errors errorList ->
+                ToJsPayload.Errors errorList ->
                     errorsTag errorList
 
-                Success { pages, manifest, filesToGenerate, errors, staticHttpCache } ->
-                    success (ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
+                ToJsPayload.Success { pages, manifest, filesToGenerate, errors, staticHttpCache } ->
+                    success (ToJsPayload.ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
         )
-        |> Codec.variant1 "Errors" Errors Codec.string
+        |> Codec.variant1 "Errors" ToJsPayload.Errors Codec.string
         |> Codec.variant1 "Success"
-            Success
+            ToJsPayload.Success
             successCodec
         |> Codec.buildCustom
 
@@ -95,9 +80,9 @@ stubManifest =
     }
 
 
-successCodec : Codec (ToJsSuccessPayload pathKey)
+successCodec : Codec (ToJsPayload.ToJsSuccessPayload pathKey)
 successCodec =
-    Codec.object ToJsSuccessPayload
+    Codec.object ToJsPayload.ToJsSuccessPayload
         |> Codec.field "pages"
             .pages
             (Codec.dict (Codec.dict Codec.string))
@@ -739,7 +724,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                     Err error ->
                         ( allRawResponses
                         , SendJsData <|
-                            (Errors <| BuildError.errorsToString (error ++ failedRequests ++ errors))
+                            (ToJsPayload.Errors <| BuildError.errorsToString (error ++ failedRequests ++ errors))
                         )
         in
         ( updatedAllRawResponses, newEffect )
@@ -849,8 +834,8 @@ toJsPayload :
 toJsPayload encodedStatic manifest generated allRawResponses allErrors =
     SendJsData <|
         if allErrors |> List.filter .fatal |> List.isEmpty then
-            Success
-                (ToJsSuccessPayload
+            ToJsPayload.Success
+                (ToJsPayload.ToJsSuccessPayload
                     encodedStatic
                     manifest
                     generated
@@ -867,7 +852,7 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
                 )
 
         else
-            Errors <| BuildError.errorsToString allErrors
+            ToJsPayload.Errors <| BuildError.errorsToString allErrors
 
 
 staticResponseForPage :
