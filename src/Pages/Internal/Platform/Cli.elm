@@ -27,6 +27,7 @@ import Pages.Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.Platform.StaticResponses exposing (StaticHttpResult(..), StaticResponses)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -1076,14 +1077,6 @@ encodeStaticResponses mode staticResponses =
                             Prod ->
                                 strippedResponses
             )
-
-
-type alias StaticResponses =
-    Dict String StaticHttpResult
-
-
-type StaticHttpResult
-    = NotFetched (StaticHttpRequest.Request ()) (Dict String (Result () String))
 
 
 staticResponseForPage :
