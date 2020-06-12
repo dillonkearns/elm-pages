@@ -960,7 +960,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
         in
         ( updatedAllRawResponses
         , toJsPayload
-            (encodeStaticResponses mode staticResponses)
+            (StaticResponses.encodeStaticResponses mode staticResponses)
             config.manifest
             generatedOkayFiles
             allRawResponses
@@ -997,40 +997,6 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
 
         else
             Errors <| BuildError.errorsToString allErrors
-
-
-encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)
-encodeStaticResponses mode staticResponses =
-    staticResponses
-        |> Dict.filter
-            (\key value ->
-                key /= cliDictKey
-            )
-        |> Dict.map
-            (\path result ->
-                case result of
-                    NotFetched request rawResponsesDict ->
-                        let
-                            relevantResponses =
-                                Dict.map
-                                    (\_ ->
-                                        -- TODO avoid running this code at all if there are errors here
-                                        Result.withDefault ""
-                                    )
-                                    rawResponsesDict
-
-                            strippedResponses : Dict String String
-                            strippedResponses =
-                                -- TODO should this return an Err and handle that here?
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
-                        in
-                        case mode of
-                            Mode.Dev ->
-                                relevantResponses
-
-                            Mode.Prod ->
-                                strippedResponses
-            )
 
 
 staticResponseForPage :
