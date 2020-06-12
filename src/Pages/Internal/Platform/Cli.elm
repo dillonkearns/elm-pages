@@ -27,6 +27,7 @@ import Pages.Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses exposing (StaticHttpResult(..), StaticResponses)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
@@ -251,23 +252,6 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
         }
 
 
-type Mode
-    = Prod
-    | Dev
-
-
-modeDecoder =
-    Decode.string
-        |> Decode.andThen
-            (\mode ->
-                if mode == "prod" then
-                    Decode.succeed Prod
-
-                else
-                    Decode.succeed Dev
-            )
-
-
 perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform cliMsgConstructor toJsPort effect =
     case effect of
@@ -329,7 +313,7 @@ init toModel contentCache siteMetadata config flags =
         Decode.decodeValue
             (Decode.map3 (\a b c -> ( a, b, c ))
                 (Decode.field "secrets" SecretsDict.decoder)
-                (Decode.field "mode" modeDecoder)
+                (Decode.field "mode" Mode.modeDecoder)
                 (Decode.field "staticHttpCache"
                     (Decode.dict
                         (Decode.string
@@ -425,7 +409,7 @@ init toModel contentCache siteMetadata config flags =
                       }
                     ]
                     Dict.empty
-                    Dev
+                    Mode.Dev
                 )
                 toModel
 
@@ -1071,10 +1055,10 @@ encodeStaticResponses mode staticResponses =
                                 StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
                         in
                         case mode of
-                            Dev ->
+                            Mode.Dev ->
                                 relevantResponses
 
-                            Prod ->
+                            Mode.Prod ->
                                 strippedResponses
             )
 
