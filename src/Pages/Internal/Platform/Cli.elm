@@ -457,7 +457,7 @@ update siteMetadata config msg model =
                 updatedModel =
                     (case response of
                         Ok okResponse ->
-                            staticResponsesUpdate
+                            StaticResponses.staticResponsesUpdate
                                 { request = request
                                 , response = Result.mapError (\_ -> ()) response
                                 }
@@ -499,7 +499,7 @@ update siteMetadata config msg model =
                                         ]
                             }
                     )
-                        |> staticResponsesUpdate
+                        |> StaticResponses.staticResponsesUpdate
                             -- TODO for hash pass in RequestDetails here
                             { request = request
                             , response = Result.mapError (\_ -> ()) response
@@ -576,65 +576,6 @@ combineMultipleErrors results =
 cliDictKey : String
 cliDictKey =
     "////elm-pages-CLI////"
-
-
-staticResponsesUpdate :
-    { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String }
-    ->
-        { model
-            | staticResponses : StaticResponses
-            , allRawResponses : Dict String (Maybe String)
-        }
-    ->
-        { model
-            | staticResponses : StaticResponses
-            , allRawResponses : Dict String (Maybe String)
-        }
-staticResponsesUpdate newEntry model =
-    let
-        updatedAllResponses =
-            -- @@@@@@@@@ TODO handle errors here, change Dict to have `Result` instead of `Maybe`
-            Dict.insert
-                (HashRequest.hash newEntry.request.masked)
-                (Just <| Result.withDefault "TODO" newEntry.response)
-                model.allRawResponses
-    in
-    { model
-        | allRawResponses = updatedAllResponses
-        , staticResponses =
-            Dict.map
-                (\pageUrl entry ->
-                    case entry of
-                        NotFetched request rawResponses ->
-                            let
-                                realUrls =
-                                    updatedAllResponses
-                                        |> dictCompact
-                                        |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                                        |> Tuple.second
-                                        |> List.map Secrets.maskedLookup
-                                        |> List.map HashRequest.hash
-
-                                includesUrl =
-                                    List.member
-                                        (HashRequest.hash newEntry.request.masked)
-                                        realUrls
-                            in
-                            if includesUrl then
-                                let
-                                    updatedRawResponses =
-                                        Dict.insert
-                                            (HashRequest.hash newEntry.request.masked)
-                                            newEntry.response
-                                            rawResponses
-                                in
-                                NotFetched request updatedRawResponses
-
-                            else
-                                entry
-                )
-                model.staticResponses
-    }
 
 
 isJust : Maybe a -> Bool
