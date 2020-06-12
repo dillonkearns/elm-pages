@@ -578,7 +578,18 @@ cliDictKey =
     "////elm-pages-CLI////"
 
 
-staticResponsesUpdate : { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String } -> Model -> Model
+staticResponsesUpdate :
+    { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result () String }
+    ->
+        { model
+            | staticResponses : StaticResponses
+            , allRawResponses : Dict String (Maybe String)
+        }
+    ->
+        { model
+            | staticResponses : StaticResponses
+            , allRawResponses : Dict String (Maybe String)
+        }
 staticResponsesUpdate newEntry model =
     let
         updatedAllResponses =
