@@ -28,7 +28,7 @@ import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
-import Pages.Internal.Platform.StaticResponses exposing (StaticHttpResult(..), StaticResponses)
+import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticHttpResult(..), StaticResponses)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -639,7 +639,7 @@ staticResponsesInit staticHttpCache siteMetadataResult config list =
                             |> List.foldl
                                 (\( hashedRequest, response ) entrySoFar ->
                                     entrySoFar
-                                        |> addEntry
+                                        |> StaticResponses.addEntry
                                             staticHttpCache
                                             hashedRequest
                                             (Ok response)
@@ -700,36 +700,6 @@ staticResponsesUpdate newEntry model =
                 )
                 model.staticResponses
     }
-
-
-addEntry : Dict String (Maybe String) -> String -> Result () String -> StaticHttpResult -> StaticHttpResult
-addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawResponses) as entry) =
-    let
-        realUrls =
-            globalRawResponses
-                |> dictCompact
-                |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                |> Tuple.second
-                |> List.map Secrets.maskedLookup
-                |> List.map HashRequest.hash
-
-        includesUrl =
-            List.member
-                hashedRequest
-                realUrls
-    in
-    if includesUrl then
-        let
-            updatedRawResponses =
-                Dict.insert
-                    hashedRequest
-                    rawResponse
-                    rawResponses
-        in
-        NotFetched request updatedRawResponses
-
-    else
-        entry
 
 
 isJust : Maybe a -> Bool
