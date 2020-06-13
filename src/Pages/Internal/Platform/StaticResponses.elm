@@ -200,7 +200,12 @@ staticResponsesUpdate newEntry model =
     }
 
 
-addEntry : Dict String (Maybe String) -> String -> Result () String -> StaticHttpResult -> StaticHttpResult
+addEntry :
+    Dict String (Maybe String)
+    -> String
+    -> Result () String
+    -> StaticHttpResult
+    -> StaticHttpResult
 addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawResponses) as entry) =
     let
         realUrls =
@@ -550,7 +555,11 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
         )
 
 
-performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
+performStaticHttpRequests :
+    Dict String (Maybe String)
+    -> SecretsDict
+    -> List ( String, StaticHttp.Request a )
+    -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         |> List.map
