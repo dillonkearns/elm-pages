@@ -5,12 +5,10 @@ import Dict exposing (Dict)
 import Expect
 import Html
 import Json.Decode as JD
-import Json.Decode.Exploration
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
-import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -339,7 +337,7 @@ all =
                         "This is a raw text file."
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -478,7 +476,7 @@ String was not uppercased"""
                         """{ "stargazer_count": 86 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -523,7 +521,7 @@ I encountered some errors while decoding this JSON:
                         """ "continuation-url" """
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort
                             """-- MISSING SECRET ----------------------------------------------------- elm-pages
 
@@ -552,7 +550,7 @@ So maybe MISSING should be API_KEY"""
                         )
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
 
 I got an error making an HTTP request to this URL: https://api.github.com/repos/dillonkearns/elm-pages
@@ -807,7 +805,7 @@ simulateEffects effect =
             SimulatedEffect.Cmd.none
 
         Effect.SendJsData value ->
-            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder Main.toJsCodec)
+            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder ToJsPayload.toJsCodec)
 
         --            toJsPort value |> Cmd.map never
         Effect.Batch list ->
@@ -928,7 +926,7 @@ expectSuccess expectedRequests previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder Main.toJsCodec)
+            (Codec.decoder ToJsPayload.toJsCodec)
             (\value ->
                 case value of
                     [ ToJsPayload.Success portPayload ] ->
@@ -962,7 +960,7 @@ expectError expectedErrors previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder Main.toJsCodec)
+            (Codec.decoder ToJsPayload.toJsCodec)
             (\value ->
                 case value of
                     [ ToJsPayload.Success portPayload ] ->

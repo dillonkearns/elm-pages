@@ -6,7 +6,6 @@ module Pages.Internal.Platform.Cli exposing
     , Page
     , cliApplication
     , init
-    , toJsCodec
     , update
     )
 
@@ -21,7 +20,6 @@ import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Http
-import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticHttpResult(..), StaticResponses)
@@ -39,71 +37,6 @@ type alias FileToGenerate =
     { path : List String
     , content : String
     }
-
-
-toJsCodec : Codec (ToJsPayload pathKey)
-toJsCodec =
-    Codec.custom
-        (\errorsTag success value ->
-            case value of
-                ToJsPayload.Errors errorList ->
-                    errorsTag errorList
-
-                ToJsPayload.Success { pages, manifest, filesToGenerate, errors, staticHttpCache } ->
-                    success (ToJsPayload.ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
-        )
-        |> Codec.variant1 "Errors" ToJsPayload.Errors Codec.string
-        |> Codec.variant1 "Success"
-            ToJsPayload.Success
-            successCodec
-        |> Codec.buildCustom
-
-
-stubManifest : Manifest.Config pathKey
-stubManifest =
-    { backgroundColor = Nothing
-    , categories = []
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
-    , iarcRatingId = Nothing
-    , name = "elm-pages docs"
-    , themeColor = Nothing
-    , startUrl = PagePath.external ""
-    , shortName = Just "elm-pages"
-    , sourceIcon = ImagePath.external ""
-    }
-
-
-successCodec : Codec (ToJsPayload.ToJsSuccessPayload pathKey)
-successCodec =
-    Codec.object ToJsPayload.ToJsSuccessPayload
-        |> Codec.field "pages"
-            .pages
-            (Codec.dict (Codec.dict Codec.string))
-        |> Codec.field "manifest"
-            .manifest
-            (Codec.build Manifest.toJson (Decode.succeed stubManifest))
-        |> Codec.field "filesToGenerate"
-            .filesToGenerate
-            (Codec.build
-                (\list ->
-                    list
-                        |> Json.Encode.list
-                            (\item ->
-                                Json.Encode.object
-                                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
-                                    , ( "content", item.content |> Json.Encode.string )
-                                    ]
-                            )
-                )
-                (Decode.succeed [])
-            )
-        |> Codec.field "staticHttpCache"
-            .staticHttpCache
-            (Codec.dict Codec.string)
-        |> Codec.field "errors" .errors (Codec.list Codec.string)
-        |> Codec.buildObject
 
 
 type alias Page metadata view pathKey =
@@ -233,7 +166,7 @@ perform cliMsgConstructor toJsPort effect =
 
         Effect.SendJsData value ->
             value
-                |> Codec.encoder toJsCodec
+                |> Codec.encoder ToJsPayload.toJsCodec
                 |> toJsPort
                 |> Cmd.map never
 

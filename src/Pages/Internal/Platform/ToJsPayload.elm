@@ -1,8 +1,13 @@
 module Pages.Internal.Platform.ToJsPayload exposing (..)
 
 import BuildError
+import Codec exposing (Codec)
 import Dict exposing (Dict)
+import Json.Decode as Decode
+import Json.Encode
+import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
+import Pages.PagePath as PagePath
 import TerminalText as Terminal
 
 
@@ -54,3 +59,66 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
 
     else
         Errors <| BuildError.errorsToString allErrors
+
+
+toJsCodec : Codec (ToJsPayload pathKey)
+toJsCodec =
+    Codec.custom
+        (\errorsTag success value ->
+            case value of
+                Errors errorList ->
+                    errorsTag errorList
+
+                Success { pages, manifest, filesToGenerate, errors, staticHttpCache } ->
+                    success (ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
+        )
+        |> Codec.variant1 "Errors" Errors Codec.string
+        |> Codec.variant1 "Success" Success successCodec
+        |> Codec.buildCustom
+
+
+stubManifest : Manifest.Config pathKey
+stubManifest =
+    { backgroundColor = Nothing
+    , categories = []
+    , displayMode = Manifest.Standalone
+    , orientation = Manifest.Portrait
+    , description = "elm-pages - A statically typed site generator."
+    , iarcRatingId = Nothing
+    , name = "elm-pages docs"
+    , themeColor = Nothing
+    , startUrl = PagePath.external ""
+    , shortName = Just "elm-pages"
+    , sourceIcon = ImagePath.external ""
+    }
+
+
+successCodec : Codec (ToJsSuccessPayload pathKey)
+successCodec =
+    Codec.object ToJsSuccessPayload
+        |> Codec.field "pages"
+            .pages
+            (Codec.dict (Codec.dict Codec.string))
+        |> Codec.field "manifest"
+            .manifest
+            (Codec.build Manifest.toJson (Decode.succeed stubManifest))
+        |> Codec.field "filesToGenerate"
+            .filesToGenerate
+            (Codec.build
+                (\list ->
+                    list
+                        |> Json.Encode.list
+                            (\item ->
+                                Json.Encode.object
+                                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
+                                    , ( "content", item.content |> Json.Encode.string )
+                                    ]
+                            )
+                )
+                (Decode.succeed [])
+            )
+        |> Codec.field "staticHttpCache"
+            .staticHttpCache
+            (Codec.dict Codec.string)
+        |> Codec.field "errors" .errors (Codec.list Codec.string)
+        |> Codec.buildObject
