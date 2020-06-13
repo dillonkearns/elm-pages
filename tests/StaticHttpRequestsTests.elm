@@ -675,6 +675,39 @@ I ran into a problem when parsing the metadata for the page with this path:
 Found an unhandled HTML tag in markdown doc."""
                             ]
             ]
+        , describe "generateFiles"
+            [ test "initial requests are sent out" <|
+                \() ->
+                    startLowLevel
+                        (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                            (starDecoder
+                                |> Decode.map
+                                    (\starCount ->
+                                        [ Ok
+                                            { path = [ "test.txt" ]
+                                            , content = "Star count: " ++ String.fromInt starCount
+                                            }
+                                        ]
+                                    )
+                            )
+                        )
+                        (Ok ())
+                        []
+                        []
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> expectSuccessNew
+                            [ \success ->
+                                success.filesToGenerate
+                                    |> Expect.equal
+                                        [ { path = [ "test.txt" ]
+                                          , content = "Star count: 86"
+                                          }
+                                        ]
+                            ]
+            ]
         ]
 
 
@@ -967,6 +1000,26 @@ expectSuccess expectedRequests previous =
                                         )
                                     |> Dict.fromList
                                 )
+
+                    [ _ ] ->
+                        Expect.fail "Expected success port."
+
+                    _ ->
+                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
+            )
+
+
+expectSuccessNew : List (ToJsPayload.ToJsSuccessPayload PathKey -> Expect.Expectation) -> ProgramTest model msg effect -> Expect.Expectation
+expectSuccessNew expectations previous =
+    previous
+        |> ProgramTest.expectOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder ToJsPayload.toJsCodec)
+            (\value ->
+                case value of
+                    [ ToJsPayload.Success portPayload ] ->
+                        portPayload
+                            |> Expect.all expectations
 
                     [ _ ] ->
                         Expect.fail "Expected success port."

@@ -115,7 +115,12 @@ successCodec =
                                     ]
                             )
                 )
-                (Decode.succeed [])
+                (Decode.list
+                    (Decode.map2 (\path content -> { path = path, content = content })
+                        (Decode.string |> Decode.map (String.split "/") |> Decode.field "path")
+                        (Decode.string |> Decode.field "content")
+                    )
+                )
             )
         |> Codec.field "staticHttpCache"
             .staticHttpCache
