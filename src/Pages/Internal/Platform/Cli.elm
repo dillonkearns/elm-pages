@@ -247,13 +247,13 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config okRequests
+                                            StaticResponses.init staticHttpCache siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config []
+                                            StaticResponses.init staticHttpCache siteMetadata config []
                             in
-                            StaticResponses.sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
+                            StaticResponses.nextStep config siteMetadata mode secrets staticHttpCache [] staticResponses
                                 |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode)
                                 |> Tuple.mapFirst toModel
 
@@ -270,11 +270,11 @@ init toModel contentCache siteMetadata config flags =
                                 staticResponses =
                                     case requests of
                                         Ok okRequests ->
-                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config okRequests
+                                            StaticResponses.init staticHttpCache siteMetadata config okRequests
 
                                         Err errors ->
                                             -- TODO need to handle errors better?
-                                            StaticResponses.staticResponsesInit staticHttpCache siteMetadata config []
+                                            StaticResponses.init staticHttpCache siteMetadata config []
                             in
                             updateAndSendPortIfDone
                                 config
@@ -324,7 +324,7 @@ updateAndSendPortIfDone :
     -> (Model -> model)
     -> ( model, Effect pathKey )
 updateAndSendPortIfDone config siteMetadata model toModel =
-    StaticResponses.sendStaticResponsesIfDone
+    StaticResponses.nextStep
         config
         siteMetadata
         model.mode
@@ -356,7 +356,7 @@ update siteMetadata config msg model =
                 updatedModel =
                     (case response of
                         Ok okResponse ->
-                            StaticResponses.staticResponsesUpdate
+                            StaticResponses.update
                                 { request = request
                                 , response = Result.mapError (\_ -> ()) response
                                 }
@@ -398,13 +398,13 @@ update siteMetadata config msg model =
                                         ]
                             }
                     )
-                        |> StaticResponses.staticResponsesUpdate
+                        |> StaticResponses.update
                             -- TODO for hash pass in RequestDetails here
                             { request = request
                             , response = Result.mapError (\_ -> ()) response
                             }
             in
-            StaticResponses.sendStaticResponsesIfDone config
+            StaticResponses.nextStep config
                 siteMetadata
                 updatedModel.mode
                 updatedModel.secrets

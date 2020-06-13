@@ -35,7 +35,7 @@ error =
     StaticResponses Dict.empty
 
 
-staticResponsesInit :
+init :
     Dict String (Maybe String)
     -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
     ->
@@ -59,7 +59,7 @@ staticResponsesInit :
         }
     -> List ( PagePath pathKey, StaticHttp.Request value )
     -> StaticResponses
-staticResponsesInit staticHttpCache siteMetadataResult config list =
+init staticHttpCache siteMetadataResult config list =
     let
         generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
         generateFilesRequest =
@@ -135,7 +135,7 @@ staticResponsesInit staticHttpCache siteMetadataResult config list =
         |> StaticResponses
 
 
-staticResponsesUpdate :
+update :
     { request :
         { masked : RequestDetails, unmasked : RequestDetails }
     , response : Result () String
@@ -150,7 +150,7 @@ staticResponsesUpdate :
             | staticResponses : StaticResponses
             , allRawResponses : Dict String (Maybe String)
         }
-staticResponsesUpdate newEntry model =
+update newEntry model =
     let
         updatedAllResponses =
             -- @@@@@@@@@ TODO handle errors here, change Dict to have `Result` instead of `Maybe`
@@ -235,8 +235,8 @@ addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawRe
         entry
 
 
-encodeStaticResponses : Mode -> StaticResponses -> Dict String (Dict String String)
-encodeStaticResponses mode (StaticResponses staticResponses) =
+encode : Mode -> StaticResponses -> Dict String (Dict String String)
+encode mode (StaticResponses staticResponses) =
     staticResponses
         |> Dict.filter
             (\key value ->
@@ -285,7 +285,7 @@ type NextStep pathKey
     | Finish (ToJsPayload pathKey)
 
 
-sendStaticResponsesIfDone :
+nextStep :
     { config
         | content : Content
         , manifest : Manifest.Config pathKey
@@ -312,7 +312,7 @@ sendStaticResponsesIfDone :
     -> List BuildError
     -> StaticResponses
     -> NextStep pathKey
-sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
+nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
         pendingRequests =
             staticResponses
@@ -540,7 +540,7 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                 errors ++ failedRequests ++ generatedFileErrors
         in
         ToJsPayload.toJsPayload
-            (encodeStaticResponses mode (StaticResponses staticResponses))
+            (encode mode (StaticResponses staticResponses))
             config.manifest
             generatedOkayFiles
             allRawResponses
