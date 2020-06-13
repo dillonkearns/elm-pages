@@ -356,11 +356,7 @@ update siteMetadata config msg model =
                 updatedModel =
                     (case response of
                         Ok okResponse ->
-                            StaticResponses.update
-                                { request = request
-                                , response = Result.mapError (\_ -> ()) response
-                                }
-                                model
+                            model
 
                         Err error ->
                             { model
