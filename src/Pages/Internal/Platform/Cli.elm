@@ -13,7 +13,6 @@ module Pages.Internal.Platform.Cli exposing
 import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
-import Dict.Extra
 import Head
 import Html exposing (Html)
 import Http
@@ -23,7 +22,6 @@ import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Http
 import Pages.ImagePath as ImagePath
-import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticHttpResult(..), StaticResponses)
@@ -32,11 +30,8 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
-import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets
 import SecretsDict exposing (SecretsDict)
-import Set exposing (Set)
 import TerminalText as Terminal
 
 
@@ -326,7 +321,7 @@ init toModel contentCache siteMetadata config flags =
                                             StaticResponses.staticResponsesInit staticHttpCache siteMetadata config []
 
                                 ( updatedRawResponses, effect ) =
-                                    sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
+                                    StaticResponses.sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
                             in
                             ( Model staticResponses secrets [] updatedRawResponses mode |> toModel
                             , effect
@@ -367,7 +362,7 @@ init toModel contentCache siteMetadata config flags =
                     updateAndSendPortIfDone
                         config
                         siteMetadata
-                        (Model Dict.empty
+                        (Model StaticResponses.error
                             secrets
                             (metadataParserErrors |> List.map Tuple.second)
                             staticHttpCache
@@ -379,7 +374,7 @@ init toModel contentCache siteMetadata config flags =
             updateAndSendPortIfDone
                 config
                 siteMetadata
-                (Model Dict.empty
+                (Model StaticResponses.error
                     SecretsDict.masked
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
@@ -401,7 +396,7 @@ updateAndSendPortIfDone :
 updateAndSendPortIfDone config siteMetadata model toModel =
     let
         ( updatedAllRawResponses, effect ) =
-            sendStaticResponsesIfDone
+            StaticResponses.sendStaticResponsesIfDone
                 config
                 siteMetadata
                 model.mode
@@ -484,368 +479,11 @@ update siteMetadata config msg model =
                             }
 
                 ( updatedAllRawResponses, effect ) =
-                    sendStaticResponsesIfDone config siteMetadata updatedModel.mode updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses
+                    StaticResponses.sendStaticResponsesIfDone config siteMetadata updatedModel.mode updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses
             in
             ( { updatedModel | allRawResponses = updatedAllRawResponses }
             , effect
             )
-
-
-dictCompact : Dict String (Maybe a) -> Dict String a
-dictCompact dict =
-    dict
-        |> Dict.Extra.filterMap (\key value -> value)
-
-
-performStaticHttpRequests : Dict String (Maybe String) -> SecretsDict -> List ( String, StaticHttp.Request a ) -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
-performStaticHttpRequests allRawResponses secrets staticRequests =
-    staticRequests
-        |> List.map
-            (\( pagePath, request ) ->
-                allRawResponses
-                    |> dictCompact
-                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                    |> Tuple.second
-            )
-        |> List.concat
-        -- TODO prevent duplicates... can't because Set needs comparable
-        --        |> Set.fromList
-        --        |> Set.toList
-        |> List.map
-            (\urlBuilder ->
-                urlBuilder
-                    |> Secrets.lookup secrets
-                    |> Result.map
-                        (\unmasked ->
-                            { unmasked = unmasked
-                            , masked = Secrets.maskedLookup urlBuilder
-                            }
-                        )
-            )
-        |> combineMultipleErrors
-        |> Result.mapError List.concat
-
-
-combineMultipleErrors : List (Result error a) -> Result (List error) (List a)
-combineMultipleErrors results =
-    List.foldr
-        (\result soFarResult ->
-            case soFarResult of
-                Ok soFarOk ->
-                    case result of
-                        Ok value ->
-                            value :: soFarOk |> Ok
-
-                        Err error ->
-                            Err [ error ]
-
-                Err errorsSoFar ->
-                    case result of
-                        Ok _ ->
-                            Err errorsSoFar
-
-                        Err error ->
-                            Err <| error :: errorsSoFar
-        )
-        (Ok [])
-        results
-
-
-isJust : Maybe a -> Bool
-isJust maybeValue =
-    case maybeValue of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
-
-
-sendStaticResponsesIfDone :
-    Config pathKey userMsg userModel metadata view
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Mode
-    -> SecretsDict
-    -> Dict String (Maybe String)
-    -> List BuildError
-    -> StaticResponses
-    -> ( Dict String (Maybe String), Effect pathKey )
-sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses errors staticResponses =
-    let
-        pendingRequests =
-            staticResponses
-                |> Dict.Extra.any
-                    (\path entry ->
-                        case entry of
-                            NotFetched request rawResponses ->
-                                let
-                                    usableRawResponses : Dict String String
-                                    usableRawResponses =
-                                        Dict.Extra.filterMap
-                                            (\key value ->
-                                                value
-                                                    |> Result.map Just
-                                                    |> Result.withDefault Nothing
-                                            )
-                                            rawResponses
-
-                                    hasPermanentError =
-                                        usableRawResponses
-                                            |> StaticHttpRequest.permanentError ApplicationType.Cli request
-                                            |> isJust
-
-                                    hasPermanentHttpError =
-                                        not (List.isEmpty errors)
-
-                                    --|> List.any
-                                    --    (\error ->
-                                    --        case error of
-                                    --            FailedStaticHttpRequestError _ ->
-                                    --                True
-                                    --
-                                    --            _ ->
-                                    --                False
-                                    --    )
-                                    ( allUrlsKnown, knownUrlsToFetch ) =
-                                        StaticHttpRequest.resolveUrls
-                                            ApplicationType.Cli
-                                            request
-                                            (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
-
-                                    fetchedAllKnownUrls =
-                                        (knownUrlsToFetch
-                                            |> List.map Secrets.maskedLookup
-                                            |> List.map HashRequest.hash
-                                            |> Set.fromList
-                                            |> Set.size
-                                        )
-                                            == (rawResponses |> Dict.keys |> List.length)
-                                in
-                                if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
-                                    False
-
-                                else
-                                    True
-                    )
-
-        failedRequests =
-            staticResponses
-                |> Dict.toList
-                |> List.concatMap
-                    (\( path, NotFetched request rawResponses ) ->
-                        let
-                            usableRawResponses : Dict String String
-                            usableRawResponses =
-                                rawResponses
-                                    |> Dict.Extra.filterMap
-                                        (\key value ->
-                                            value
-                                                |> Result.map Just
-                                                |> Result.withDefault Nothing
-                                        )
-
-                            maybePermanentError =
-                                StaticHttpRequest.permanentError
-                                    ApplicationType.Cli
-                                    request
-                                    usableRawResponses
-
-                            decoderErrors =
-                                maybePermanentError
-                                    |> Maybe.map (StaticHttpRequest.toBuildError path)
-                                    |> Maybe.map List.singleton
-                                    |> Maybe.withDefault []
-                        in
-                        decoderErrors
-                    )
-    in
-    if pendingRequests then
-        let
-            requestContinuations : List ( String, StaticHttp.Request () )
-            requestContinuations =
-                staticResponses
-                    |> Dict.toList
-                    |> List.map
-                        (\( path, NotFetched request rawResponses ) ->
-                            ( path, request )
-                        )
-
-            ( updatedAllRawResponses, newEffect ) =
-                case
-                    performStaticHttpRequests allRawResponses secrets requestContinuations
-                of
-                    Ok urlsToPerform ->
-                        let
-                            newAllRawResponses =
-                                Dict.union allRawResponses dictOfNewUrlsToPerform
-
-                            dictOfNewUrlsToPerform =
-                                urlsToPerform
-                                    |> List.map .masked
-                                    |> List.map HashRequest.hash
-                                    |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
-                                    |> Dict.fromList
-
-                            maskedToUnmasked : Dict String { masked : RequestDetails, unmasked : RequestDetails }
-                            maskedToUnmasked =
-                                urlsToPerform
-                                    --                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
-                                    |> List.map
-                                        (\secureUrl ->
-                                            --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
-                                            ( HashRequest.hash secureUrl.masked, secureUrl )
-                                        )
-                                    |> Dict.fromList
-
-                            alreadyPerformed =
-                                allRawResponses
-                                    |> Dict.keys
-                                    |> Set.fromList
-
-                            newThing =
-                                maskedToUnmasked
-                                    |> Dict.Extra.removeMany alreadyPerformed
-                                    |> Dict.toList
-                                    |> List.map
-                                        (\( maskedUrl, secureUrl ) ->
-                                            Effect.FetchHttp secureUrl
-                                        )
-                                    |> Effect.Batch
-                        in
-                        ( newAllRawResponses, newThing )
-
-                    Err error ->
-                        ( allRawResponses
-                        , Effect.SendJsData <|
-                            (ToJsPayload.Errors <| BuildError.errorsToString (error ++ failedRequests ++ errors))
-                        )
-        in
-        ( updatedAllRawResponses, newEffect )
-
-    else
-        let
-            updatedAllRawResponses =
-                Dict.empty
-
-            metadataForGenerateFiles =
-                siteMetadata
-                    |> Result.withDefault []
-                    |> List.map
-                        (\( pagePath, metadata ) ->
-                            let
-                                contentForPage =
-                                    config.content
-                                        |> List.filterMap
-                                            (\( path, { body } ) ->
-                                                let
-                                                    pagePathToGenerate =
-                                                        PagePath.toString pagePath
-
-                                                    currentContentPath =
-                                                        String.join "/" path
-                                                in
-                                                if pagePathToGenerate == currentContentPath then
-                                                    Just body
-
-                                                else
-                                                    Nothing
-                                            )
-                                        |> List.head
-                                        |> Maybe.andThen identity
-                            in
-                            { path = pagePath
-                            , frontmatter = metadata
-                            , body = contentForPage |> Maybe.withDefault ""
-                            }
-                        )
-
-            generatedFiles : List (Result String { path : List String, content : String })
-            generatedFiles =
-                resolvedGenerateFilesResult
-                    |> Result.withDefault []
-
-            resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
-            resolvedGenerateFilesResult =
-                StaticHttpRequest.resolve ApplicationType.Cli
-                    (config.generateFiles metadataForGenerateFiles)
-                    (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
-
-            generatedOkayFiles : List { path : List String, content : String }
-            generatedOkayFiles =
-                generatedFiles
-                    |> List.filterMap
-                        (\result ->
-                            case result of
-                                Ok ok ->
-                                    Just ok
-
-                                _ ->
-                                    Nothing
-                        )
-
-            generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
-            generatedFileErrors =
-                generatedFiles
-                    |> List.filterMap
-                        (\result ->
-                            case result of
-                                Ok ok ->
-                                    Nothing
-
-                                Err error ->
-                                    Just
-                                        { title = "Generate Files Error"
-                                        , message =
-                                            [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
-                                            , Terminal.text <| "Error: " ++ error
-                                            ]
-                                        , fatal = True
-                                        }
-                        )
-
-            allErrors : List BuildError
-            allErrors =
-                errors ++ failedRequests ++ generatedFileErrors
-        in
-        ( updatedAllRawResponses
-        , toJsPayload
-            (StaticResponses.encodeStaticResponses mode staticResponses)
-            config.manifest
-            generatedOkayFiles
-            allRawResponses
-            allErrors
-        )
-
-
-toJsPayload :
-    Dict String (Dict String String)
-    -> Manifest.Config pathKey
-    -> List FileToGenerate
-    -> Dict String (Maybe String)
-    -> List { title : String, message : List Terminal.Text, fatal : Bool }
-    -> Effect pathKey
-toJsPayload encodedStatic manifest generated allRawResponses allErrors =
-    Effect.SendJsData <|
-        if allErrors |> List.filter .fatal |> List.isEmpty then
-            ToJsPayload.Success
-                (ToJsPayload.ToJsSuccessPayload
-                    encodedStatic
-                    manifest
-                    generated
-                    (allRawResponses
-                        |> Dict.toList
-                        |> List.filterMap
-                            (\( key, maybeValue ) ->
-                                maybeValue
-                                    |> Maybe.map (\value -> ( key, value ))
-                            )
-                        |> Dict.fromList
-                    )
-                    (List.map BuildError.errorToString allErrors)
-                )
-
-        else
-            ToJsPayload.Errors <| BuildError.errorsToString allErrors
 
 
 staticResponseForPage :
