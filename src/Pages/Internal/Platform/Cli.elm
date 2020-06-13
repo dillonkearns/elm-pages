@@ -207,6 +207,31 @@ perform cliMsgConstructor toJsPort effect =
                 }
 
 
+flagsDecoder :
+    Decode.Decoder
+        { secrets : SecretsDict
+        , mode : Mode
+        , staticHttpCache : Dict String (Maybe String)
+        }
+flagsDecoder =
+    Decode.map3
+        (\secrets mode staticHttpCache ->
+            { secrets = secrets
+            , mode = mode
+            , staticHttpCache = staticHttpCache
+            }
+        )
+        (Decode.field "secrets" SecretsDict.decoder)
+        (Decode.field "mode" Mode.modeDecoder)
+        (Decode.field "staticHttpCache"
+            (Decode.dict
+                (Decode.string
+                    |> Decode.map Just
+                )
+            )
+        )
+
+
 init :
     (Model -> model)
     -> ContentCache.ContentCache metadata view
@@ -215,22 +240,8 @@ init :
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
-    case
-        Decode.decodeValue
-            (Decode.map3 (\a b c -> ( a, b, c ))
-                (Decode.field "secrets" SecretsDict.decoder)
-                (Decode.field "mode" Mode.modeDecoder)
-                (Decode.field "staticHttpCache"
-                    (Decode.dict
-                        (Decode.string
-                            |> Decode.map Just
-                        )
-                    )
-                )
-            )
-            flags
-    of
-        Ok ( secrets, mode, staticHttpCache ) ->
+    case Decode.decodeValue flagsDecoder flags of
+        Ok { secrets, mode, staticHttpCache } ->
             case contentCache of
                 Ok _ ->
                     case ContentCache.pagesWithErrors contentCache of
