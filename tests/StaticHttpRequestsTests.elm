@@ -688,7 +688,24 @@ startWithHttpCache :
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
     -> ProgramTest Main.Model Main.Msg (Effect PathKey)
-startWithHttpCache documentBodyResult staticHttpCache pages =
+startWithHttpCache =
+    startLowLevel (StaticHttp.succeed [])
+
+
+startLowLevel :
+    StaticHttp.Request
+        (List
+            (Result String
+                { path : List String
+                , content : String
+                }
+            )
+        )
+    -> Result String ()
+    -> List ( Request.Request, String )
+    -> List ( List String, StaticHttp.Request a )
+    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
         document =
             Document.fromList
@@ -719,7 +736,7 @@ startWithHttpCache documentBodyResult staticHttpCache pages =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
             , manifest = manifest
-            , generateFiles = \_ -> StaticHttp.succeed []
+            , generateFiles = \_ -> generateFiles
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ -> ( (), Cmd.none )
             , view =
