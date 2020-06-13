@@ -683,7 +683,11 @@ start pages =
     startWithHttpCache (Ok ()) [] pages
 
 
-startWithHttpCache : Result String () -> List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+startWithHttpCache :
+    Result String ()
+    -> List ( Request.Request, String )
+    -> List ( List String, StaticHttp.Request a )
+    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
 startWithHttpCache documentBodyResult staticHttpCache pages =
     let
         document =
