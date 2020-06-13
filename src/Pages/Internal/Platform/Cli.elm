@@ -336,10 +336,6 @@ updateAndSendPortIfDone config siteMetadata model toModel =
         |> Tuple.mapFirst toModel
 
 
-type alias PageErrors =
-    Dict String String
-
-
 update :
     Result (List BuildError) (List ( PagePath pathKey, metadata ))
     -> Config pathKey userMsg userModel metadata view
