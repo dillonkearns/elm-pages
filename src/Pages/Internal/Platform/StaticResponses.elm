@@ -6,7 +6,7 @@ import Dict.Extra
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
-import Pages.Internal.Platform.ToJsPayload as ToJsPayload
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
@@ -280,6 +280,11 @@ cliDictKey =
     "////elm-pages-CLI////"
 
 
+type NextStep pathKey
+    = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails })
+    | Finish (ToJsPayload pathKey)
+
+
 sendStaticResponsesIfDone :
     { config
         | content : Content
@@ -306,7 +311,7 @@ sendStaticResponsesIfDone :
     -> Dict String (Maybe String)
     -> List BuildError
     -> StaticResponses
-    -> ( Dict String (Maybe String), Effect pathKey )
+    -> NextStep pathKey
 sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
         pendingRequests =
@@ -406,64 +411,54 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
                         (\( path, NotFetched request rawResponses ) ->
                             ( path, request )
                         )
-
-            ( updatedAllRawResponses, newEffect ) =
-                case
-                    performStaticHttpRequests allRawResponses secrets requestContinuations
-                of
-                    Ok urlsToPerform ->
-                        let
-                            newAllRawResponses =
-                                Dict.union allRawResponses dictOfNewUrlsToPerform
-
-                            dictOfNewUrlsToPerform =
-                                urlsToPerform
-                                    |> List.map .masked
-                                    |> List.map HashRequest.hash
-                                    |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
-                                    |> Dict.fromList
-
-                            maskedToUnmasked : Dict String { masked : RequestDetails, unmasked : RequestDetails }
-                            maskedToUnmasked =
-                                urlsToPerform
-                                    --                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
-                                    |> List.map
-                                        (\secureUrl ->
-                                            --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
-                                            ( HashRequest.hash secureUrl.masked, secureUrl )
-                                        )
-                                    |> Dict.fromList
-
-                            alreadyPerformed =
-                                allRawResponses
-                                    |> Dict.keys
-                                    |> Set.fromList
-
-                            newThing =
-                                maskedToUnmasked
-                                    |> Dict.Extra.removeMany alreadyPerformed
-                                    |> Dict.toList
-                                    |> List.map
-                                        (\( maskedUrl, secureUrl ) ->
-                                            Effect.FetchHttp secureUrl
-                                        )
-                                    |> Effect.Batch
-                        in
-                        ( newAllRawResponses, newThing )
-
-                    Err error_ ->
-                        ( allRawResponses
-                        , Effect.SendJsData <|
-                            (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors))
-                        )
         in
-        ( updatedAllRawResponses, newEffect )
+        case
+            performStaticHttpRequests allRawResponses secrets requestContinuations
+        of
+            Ok urlsToPerform ->
+                let
+                    newAllRawResponses =
+                        Dict.union allRawResponses dictOfNewUrlsToPerform
+
+                    dictOfNewUrlsToPerform =
+                        urlsToPerform
+                            |> List.map .masked
+                            |> List.map HashRequest.hash
+                            |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
+                            |> Dict.fromList
+
+                    maskedToUnmasked : Dict String { masked : RequestDetails, unmasked : RequestDetails }
+                    maskedToUnmasked =
+                        urlsToPerform
+                            --                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
+                            |> List.map
+                                (\secureUrl ->
+                                    --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
+                                    ( HashRequest.hash secureUrl.masked, secureUrl )
+                                )
+                            |> Dict.fromList
+
+                    alreadyPerformed =
+                        allRawResponses
+                            |> Dict.keys
+                            |> Set.fromList
+
+                    newThing =
+                        maskedToUnmasked
+                            |> Dict.Extra.removeMany alreadyPerformed
+                            |> Dict.toList
+                            |> List.map
+                                (\( maskedUrl, secureUrl ) ->
+                                    secureUrl
+                                )
+                in
+                Continue newAllRawResponses newThing
+
+            Err error_ ->
+                Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors))
 
     else
         let
-            updatedAllRawResponses =
-                Dict.empty
-
             metadataForGenerateFiles =
                 siteMetadata
                     |> Result.withDefault []
@@ -544,15 +539,13 @@ sendStaticResponsesIfDone config siteMetadata mode secrets allRawResponses error
             allErrors =
                 errors ++ failedRequests ++ generatedFileErrors
         in
-        ( updatedAllRawResponses
-        , ToJsPayload.toJsPayload
+        ToJsPayload.toJsPayload
             (encodeStaticResponses mode (StaticResponses staticResponses))
             config.manifest
             generatedOkayFiles
             allRawResponses
             allErrors
-            |> Effect.SendJsData
-        )
+            |> Finish
 
 
 performStaticHttpRequests :

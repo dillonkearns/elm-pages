@@ -252,13 +252,10 @@ init toModel contentCache siteMetadata config flags =
                                         Err errors ->
                                             -- TODO need to handle errors better?
                                             StaticResponses.staticResponsesInit staticHttpCache siteMetadata config []
-
-                                ( updatedRawResponses, effect ) =
-                                    StaticResponses.sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
                             in
-                            ( Model staticResponses secrets [] updatedRawResponses mode |> toModel
-                            , effect
-                            )
+                            StaticResponses.sendStaticResponsesIfDone config siteMetadata mode secrets staticHttpCache [] staticResponses
+                                |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode)
+                                |> Tuple.mapFirst toModel
 
                         pageErrors ->
                             let
@@ -327,20 +324,16 @@ updateAndSendPortIfDone :
     -> (Model -> model)
     -> ( model, Effect pathKey )
 updateAndSendPortIfDone config siteMetadata model toModel =
-    let
-        ( updatedAllRawResponses, effect ) =
-            StaticResponses.sendStaticResponsesIfDone
-                config
-                siteMetadata
-                model.mode
-                model.secrets
-                model.allRawResponses
-                model.errors
-                model.staticResponses
-    in
-    ( { model | allRawResponses = updatedAllRawResponses } |> toModel
-    , effect
-    )
+    StaticResponses.sendStaticResponsesIfDone
+        config
+        siteMetadata
+        model.mode
+        model.secrets
+        model.allRawResponses
+        model.errors
+        model.staticResponses
+        |> nextStepToEffect model
+        |> Tuple.mapFirst toModel
 
 
 type alias PageErrors =
@@ -410,13 +403,29 @@ update siteMetadata config msg model =
                             { request = request
                             , response = Result.mapError (\_ -> ()) response
                             }
-
-                ( updatedAllRawResponses, effect ) =
-                    StaticResponses.sendStaticResponsesIfDone config siteMetadata updatedModel.mode updatedModel.secrets updatedModel.allRawResponses updatedModel.errors updatedModel.staticResponses
             in
-            ( { updatedModel | allRawResponses = updatedAllRawResponses }
-            , effect
+            StaticResponses.sendStaticResponsesIfDone config
+                siteMetadata
+                updatedModel.mode
+                updatedModel.secrets
+                updatedModel.allRawResponses
+                updatedModel.errors
+                updatedModel.staticResponses
+                |> nextStepToEffect updatedModel
+
+
+nextStepToEffect : Model -> StaticResponses.NextStep pathKey -> ( Model, Effect pathKey )
+nextStepToEffect model nextStep =
+    case nextStep of
+        StaticResponses.Continue updatedAllRawResponses httpRequests ->
+            ( { model | allRawResponses = updatedAllRawResponses }
+            , httpRequests
+                |> List.map Effect.FetchHttp
+                |> Effect.Batch
             )
+
+        StaticResponses.Finish toJsPayload ->
+            ( model, Effect.SendJsData toJsPayload )
 
 
 staticResponseForPage :
