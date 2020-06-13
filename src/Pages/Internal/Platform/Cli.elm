@@ -22,7 +22,7 @@ import Pages.Document
 import Pages.Http
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
-import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticHttpResult(..), StaticResponses)
+import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest

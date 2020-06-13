@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (..)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, update)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
