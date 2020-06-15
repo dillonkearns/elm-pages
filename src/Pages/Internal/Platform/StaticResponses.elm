@@ -365,7 +365,8 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                                 Just ok
 
                             Err error_ ->
-                                Debug.todo (Debug.toString error_)
+                                --Debug.todo (Debug.toString error_)
+                                Nothing
                     )
 
         generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
