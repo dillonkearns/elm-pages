@@ -985,7 +985,7 @@ expectSuccess expectedRequests previous =
                 case value of
                     [ ToJsPayload.Success portPayload ] ->
                         portPayload.pages
-                            |> Expect.equal
+                            |> Expect.equalDicts
                                 (expectedRequests
                                     |> List.map
                                         (\( url, requests ) ->
