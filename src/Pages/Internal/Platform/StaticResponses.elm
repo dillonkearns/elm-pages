@@ -313,6 +313,85 @@ nextStep :
     -> NextStep pathKey
 nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
+        metadataForGenerateFiles =
+            siteMetadata
+                |> Result.withDefault []
+                |> List.map
+                    (\( pagePath, metadata ) ->
+                        let
+                            contentForPage =
+                                config.content
+                                    |> List.filterMap
+                                        (\( path, { body } ) ->
+                                            let
+                                                pagePathToGenerate =
+                                                    PagePath.toString pagePath
+
+                                                currentContentPath =
+                                                    String.join "/" path
+                                            in
+                                            if pagePathToGenerate == currentContentPath then
+                                                Just body
+
+                                            else
+                                                Nothing
+                                        )
+                                    |> List.head
+                                    |> Maybe.andThen identity
+                        in
+                        { path = pagePath
+                        , frontmatter = metadata
+                        , body = contentForPage |> Maybe.withDefault ""
+                        }
+                    )
+
+        generatedFiles : List (Result String { path : List String, content : String })
+        generatedFiles =
+            resolvedGenerateFilesResult |> Result.withDefault []
+
+        resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
+        resolvedGenerateFilesResult =
+            StaticHttpRequest.resolve ApplicationType.Cli
+                (config.generateFiles metadataForGenerateFiles)
+                (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
+
+        generatedOkayFiles : List { path : List String, content : String }
+        generatedOkayFiles =
+            generatedFiles
+                |> List.filterMap
+                    (\result ->
+                        case result of
+                            Ok ok ->
+                                Just ok
+
+                            Err error_ ->
+                                Debug.todo (Debug.toString error_)
+                    )
+
+        generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
+        generatedFileErrors =
+            generatedFiles
+                |> List.filterMap
+                    (\result ->
+                        case result of
+                            Ok ok ->
+                                Nothing
+
+                            Err error_ ->
+                                Just
+                                    { title = "Generate Files Error"
+                                    , message =
+                                        [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
+                                        , Terminal.text <| "Error: " ++ error_
+                                        ]
+                                    , fatal = True
+                                    }
+                    )
+
+        allErrors : List BuildError
+        allErrors =
+            errors ++ failedRequests ++ generatedFileErrors
+
         pendingRequests =
             staticResponses
                 |> Dict.Extra.any
@@ -457,87 +536,6 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                 Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors))
 
     else
-        let
-            metadataForGenerateFiles =
-                siteMetadata
-                    |> Result.withDefault []
-                    |> List.map
-                        (\( pagePath, metadata ) ->
-                            let
-                                contentForPage =
-                                    config.content
-                                        |> List.filterMap
-                                            (\( path, { body } ) ->
-                                                let
-                                                    pagePathToGenerate =
-                                                        PagePath.toString pagePath
-
-                                                    currentContentPath =
-                                                        String.join "/" path
-                                                in
-                                                if pagePathToGenerate == currentContentPath then
-                                                    Just body
-
-                                                else
-                                                    Nothing
-                                            )
-                                        |> List.head
-                                        |> Maybe.andThen identity
-                            in
-                            { path = pagePath
-                            , frontmatter = metadata
-                            , body = contentForPage |> Maybe.withDefault ""
-                            }
-                        )
-
-            generatedFiles : List (Result String { path : List String, content : String })
-            generatedFiles =
-                resolvedGenerateFilesResult
-                    |> Result.withDefault []
-
-            resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
-            resolvedGenerateFilesResult =
-                StaticHttpRequest.resolve ApplicationType.Cli
-                    (config.generateFiles metadataForGenerateFiles)
-                    (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
-
-            generatedOkayFiles : List { path : List String, content : String }
-            generatedOkayFiles =
-                generatedFiles
-                    |> List.filterMap
-                        (\result ->
-                            case result of
-                                Ok ok ->
-                                    Just ok
-
-                                _ ->
-                                    Nothing
-                        )
-
-            generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
-            generatedFileErrors =
-                generatedFiles
-                    |> List.filterMap
-                        (\result ->
-                            case result of
-                                Ok ok ->
-                                    Nothing
-
-                                Err error_ ->
-                                    Just
-                                        { title = "Generate Files Error"
-                                        , message =
-                                            [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
-                                            , Terminal.text <| "Error: " ++ error_
-                                            ]
-                                        , fatal = True
-                                        }
-                        )
-
-            allErrors : List BuildError
-            allErrors =
-                errors ++ failedRequests ++ generatedFileErrors
-        in
         ToJsPayload.toJsPayload
             (encode mode (StaticResponses staticResponses))
             config.manifest
