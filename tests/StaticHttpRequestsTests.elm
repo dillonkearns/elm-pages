@@ -5,14 +5,14 @@ import Dict exposing (Dict)
 import Expect
 import Html
 import Json.Decode as JD
-import Json.Decode.Exploration
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
-import Pages.Http
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
+import Pages.Internal.Platform.Effect as Effect exposing (Effect)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
@@ -337,7 +337,7 @@ all =
                         "This is a raw text file."
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -476,7 +476,7 @@ String was not uppercased"""
                         """{ "stargazer_count": 86 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -521,7 +521,7 @@ I encountered some errors while decoding this JSON:
                         """ "continuation-url" """
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort
                             """-- MISSING SECRET ----------------------------------------------------- elm-pages
 
@@ -550,7 +550,7 @@ So maybe MISSING should be API_KEY"""
                         )
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder Main.toJsCodec)
+                        (Codec.decoder ToJsPayload.toJsCodec)
                         (expectErrorsPort """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
 
 I got an error making an HTTP request to this URL: https://api.github.com/repos/dillonkearns/elm-pages
@@ -675,16 +675,70 @@ I ran into a problem when parsing the metadata for the page with this path:
 Found an unhandled HTML tag in markdown doc."""
                             ]
             ]
+        , describe "generateFiles"
+            [ test "initial requests are sent out" <|
+                \() ->
+                    startLowLevel
+                        (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                            (starDecoder
+                                |> Decode.map
+                                    (\starCount ->
+                                        [ Ok
+                                            { path = [ "test.txt" ]
+                                            , content = "Star count: " ++ String.fromInt starCount
+                                            }
+                                        ]
+                                    )
+                            )
+                        )
+                        (Ok ())
+                        []
+                        []
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> expectSuccessNew
+                            [ \success ->
+                                success.filesToGenerate
+                                    |> Expect.equal
+                                        [ { path = [ "test.txt" ]
+                                          , content = "Star count: 86"
+                                          }
+                                        ]
+                            ]
+            ]
         ]
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Effect PathKey)
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
 
-startWithHttpCache : Result String () -> List ( Request.Request, String ) -> List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Main.Effect PathKey)
-startWithHttpCache documentBodyResult staticHttpCache pages =
+startWithHttpCache :
+    Result String ()
+    -> List ( Request.Request, String )
+    -> List ( List String, StaticHttp.Request a )
+    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+startWithHttpCache =
+    startLowLevel (StaticHttp.succeed [])
+
+
+startLowLevel :
+    StaticHttp.Request
+        (List
+            (Result String
+                { path : List String
+                , content : String
+                }
+            )
+        )
+    -> Result String ()
+    -> List ( Request.Request, String )
+    -> List ( List String, StaticHttp.Request a )
+    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
         document =
             Document.fromList
@@ -715,7 +769,7 @@ startWithHttpCache documentBodyResult staticHttpCache pages =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
             , manifest = manifest
-            , generateFiles = \_ -> StaticHttp.succeed []
+            , generateFiles = \_ -> generateFiles
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ -> ( (), Cmd.none )
             , view =
@@ -798,22 +852,22 @@ flags jsonString =
             Debug.todo "Invalid JSON value."
 
 
-simulateEffects : Main.Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
+simulateEffects : Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
 simulateEffects effect =
     case effect of
-        NoEffect ->
+        Effect.NoEffect ->
             SimulatedEffect.Cmd.none
 
-        SendJsData value ->
-            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder Main.toJsCodec)
+        Effect.SendJsData value ->
+            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder ToJsPayload.toJsCodec)
 
         --            toJsPort value |> Cmd.map never
-        Batch list ->
+        Effect.Batch list ->
             list
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        FetchHttp ({ unmasked, masked } as requests) ->
+        Effect.FetchHttp ({ unmasked, masked } as requests) ->
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -844,7 +898,7 @@ simulateEffects effect =
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
 expectErrorsPort expectedPlainString actualPorts =
     case actualPorts of
-        [ Errors actualRichTerminalString ] ->
+        [ ToJsPayload.Errors actualRichTerminalString ] ->
             actualRichTerminalString
                 |> normalizeErrorExpectEqual expectedPlainString
 
@@ -855,7 +909,7 @@ expectErrorsPort expectedPlainString actualPorts =
 expectNonfatalErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
 expectNonfatalErrorsPort expectedPlainString actualPorts =
     case actualPorts of
-        [ Success successPayload ] ->
+        [ ToJsPayload.Success successPayload ] ->
             successPayload.errors
                 |> String.join "\n\n"
                 |> normalizeErrorExpectEqual expectedPlainString
@@ -926,10 +980,10 @@ expectSuccess expectedRequests previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder Main.toJsCodec)
+            (Codec.decoder ToJsPayload.toJsCodec)
             (\value ->
                 case value of
-                    [ Main.Success portPayload ] ->
+                    [ ToJsPayload.Success portPayload ] ->
                         portPayload.pages
                             |> Expect.equal
                                 (expectedRequests
@@ -955,15 +1009,35 @@ expectSuccess expectedRequests previous =
             )
 
 
+expectSuccessNew : List (ToJsPayload.ToJsSuccessPayload PathKey -> Expect.Expectation) -> ProgramTest model msg effect -> Expect.Expectation
+expectSuccessNew expectations previous =
+    previous
+        |> ProgramTest.expectOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder ToJsPayload.toJsCodec)
+            (\value ->
+                case value of
+                    [ ToJsPayload.Success portPayload ] ->
+                        portPayload
+                            |> Expect.all expectations
+
+                    [ _ ] ->
+                        Expect.fail "Expected success port."
+
+                    _ ->
+                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
+            )
+
+
 expectError : List String -> ProgramTest model msg effect -> Expect.Expectation
 expectError expectedErrors previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder Main.toJsCodec)
+            (Codec.decoder ToJsPayload.toJsCodec)
             (\value ->
                 case value of
-                    [ Main.Success portPayload ] ->
+                    [ ToJsPayload.Success portPayload ] ->
                         portPayload.errors
                             |> normalizeErrorsExpectEqual expectedErrors
 
