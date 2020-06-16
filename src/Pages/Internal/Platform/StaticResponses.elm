@@ -431,16 +431,24 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                                         StaticHttpRequest.resolveUrls
                                             ApplicationType.Cli
                                             request
-                                            (rawResponses |> Dict.map (\key value -> value |> Result.withDefault ""))
+                                            (rawResponses
+                                                |> Dict.map (\key value -> value |> Result.withDefault "")
+                                                |> Dict.union (allRawResponses |> Dict.Extra.filterMap (\_ value -> value))
+                                            )
 
                                     fetchedAllKnownUrls =
-                                        (knownUrlsToFetch
-                                            |> List.map Secrets.maskedLookup
-                                            |> List.map HashRequest.hash
+                                        (rawResponses
+                                            |> Dict.keys
                                             |> Set.fromList
-                                            |> Set.size
+                                            |> Set.union (allRawResponses |> Dict.keys |> Set.fromList)
                                         )
-                                            == (rawResponses |> Dict.keys |> List.length)
+                                            |> Set.diff
+                                                (knownUrlsToFetch
+                                                    |> List.map Secrets.maskedLookup
+                                                    |> List.map HashRequest.hash
+                                                    |> Set.fromList
+                                                )
+                                            |> Set.isEmpty
                                 in
                                 if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
                                     False

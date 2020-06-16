@@ -25,7 +25,7 @@ import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, only, skip, test)
 import Test.Http
 
 
@@ -699,11 +699,63 @@ Found an unhandled HTML tag in markdown doc."""
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             """{ "stargazer_count": 86 }"""
                         |> expectSuccessNew
+                            []
                             [ \success ->
                                 success.filesToGenerate
                                     |> Expect.equal
                                         [ { path = [ "test.txt" ]
                                           , content = "Star count: 86"
+                                          }
+                                        ]
+                            ]
+            , test "it sends success port when no HTTP requests are needed because they're all cached" <|
+                \() ->
+                    startLowLevel
+                        (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                            (starDecoder
+                                |> Decode.map
+                                    (\starCount ->
+                                        [ Ok
+                                            { path = [ "test.txt" ]
+                                            , content = "Star count: " ++ String.fromInt starCount
+                                            }
+                                        ]
+                                    )
+                            )
+                        )
+                        (Ok ())
+                        [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                            , method = "GET"
+                            , headers = []
+                            , body = StaticHttpBody.EmptyBody
+                            }
+                          , """{"stargazer_count":86}"""
+                          )
+                        , ( { url = "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                            , method = "GET"
+                            , headers = []
+                            , body = StaticHttpBody.EmptyBody
+                            }
+                          , """{"stargazer_count":23}"""
+                          )
+                        ]
+                        [ ( []
+                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          )
+                        ]
+                        |> expectSuccessNew
+                            [ ( ""
+                              , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                                  , """{"stargazer_count":86}"""
+                                  )
+                                ]
+                              )
+                            ]
+                            [ \success ->
+                                success.filesToGenerate
+                                    |> Expect.equal
+                                        [ { path = [ "test.txt" ]
+                                          , content = "Star count: 23"
                                           }
                                         ]
                             ]
@@ -977,49 +1029,40 @@ starDecoder =
 
 expectSuccess : List ( String, List ( Request.Request, String ) ) -> ProgramTest model msg effect -> Expect.Expectation
 expectSuccess expectedRequests previous =
+    expectSuccessNew expectedRequests [] previous
+
+
+expectSuccessNew : List ( String, List ( Request.Request, String ) ) -> List (ToJsPayload.ToJsSuccessPayload PathKey -> Expect.Expectation) -> ProgramTest model msg effect -> Expect.Expectation
+expectSuccessNew expectedRequests expectations previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
             (Codec.decoder ToJsPayload.toJsCodec)
             (\value ->
                 case value of
-                    [ ToJsPayload.Success portPayload ] ->
-                        portPayload.pages
-                            |> Expect.equalDicts
-                                (expectedRequests
-                                    |> List.map
-                                        (\( url, requests ) ->
-                                            ( url
-                                            , requests
+                    (ToJsPayload.Success portPayload) :: rest ->
+                        portPayload
+                            |> Expect.all
+                                ((\subject ->
+                                    subject.pages
+                                        |> Expect.equalDicts
+                                            (expectedRequests
                                                 |> List.map
-                                                    (\( request, response ) ->
-                                                        ( Request.hash request, response )
+                                                    (\( url, requests ) ->
+                                                        ( url
+                                                        , requests
+                                                            |> List.map
+                                                                (\( request, response ) ->
+                                                                    ( Request.hash request, response )
+                                                                )
+                                                            |> Dict.fromList
+                                                        )
                                                     )
                                                 |> Dict.fromList
                                             )
-                                        )
-                                    |> Dict.fromList
+                                 )
+                                    :: expectations
                                 )
-
-                    [ _ ] ->
-                        Expect.fail "Expected success port."
-
-                    _ ->
-                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
-            )
-
-
-expectSuccessNew : List (ToJsPayload.ToJsSuccessPayload PathKey -> Expect.Expectation) -> ProgramTest model msg effect -> Expect.Expectation
-expectSuccessNew expectations previous =
-    previous
-        |> ProgramTest.expectOutgoingPortValues
-            "toJsPort"
-            (Codec.decoder ToJsPayload.toJsCodec)
-            (\value ->
-                case value of
-                    [ ToJsPayload.Success portPayload ] ->
-                        portPayload
-                            |> Expect.all expectations
 
                     [ _ ] ->
                         Expect.fail "Expected success port."
