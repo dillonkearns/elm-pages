@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.1] - 2020-06-16
+
+### Fixed
+
+- Fix `static` folder behavior in Windows, see [#118](https://github.com/dillonkearns/elm-pages/pull/118) (thank you [Y0hy0h](https://github.com/Y0hy0h)!).
+- Make sure that process exits with non-zero status on error so build fails when there are errors in the build. See [#121](https://github.com/dillonkearns/elm-pages/pull/121).
+
 ## [1.4.0] - 2020-05-11
 
 ### Added

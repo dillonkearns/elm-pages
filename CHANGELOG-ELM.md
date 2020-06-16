@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [5.0.2] - 2020-05-13
+
+### Fixed
+- Fixed issue where CLI would hang when fetching StaticHttp data for `generateFiles` functions. The problem was a looping condition for completing the CLI process to fetch StaticHttp data.
+  See [#120](https://github.com/dillonkearns/elm-pages/pull/120).
+
 ## [5.0.1] - 2020-05-13
 
 ### Fixed
