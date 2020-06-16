@@ -151,11 +151,10 @@ function webpackOptions(
       new AddFilesPlugin(),
       new CopyPlugin([
         {
-          from: "static/**/*",
-          transformPath(targetPath, absolutePath) {
-            // TODO this is a hack... how do I do this with proper config of `to` or similar?
-            return targetPath.substring(targetPath.indexOf("/") + 1);
-          }
+          // from inside the static folder
+          context: "static/",
+          // copy everything
+          from: "**/*",
         }
       ]),
       new CopyPlugin([
