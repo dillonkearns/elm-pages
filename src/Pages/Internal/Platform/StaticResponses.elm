@@ -402,13 +402,13 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                                 let
                                     usableRawResponses : Dict String String
                                     usableRawResponses =
-                                        Dict.Extra.filterMap
-                                            (\key value ->
-                                                value
-                                                    |> Result.map Just
-                                                    |> Result.withDefault Nothing
-                                            )
-                                            rawResponses
+                                        rawResponses
+                                            |> Dict.Extra.filterMap
+                                                (\key value ->
+                                                    value
+                                                        |> Result.map Just
+                                                        |> Result.withDefault Nothing
+                                                )
 
                                     hasPermanentError =
                                         usableRawResponses
