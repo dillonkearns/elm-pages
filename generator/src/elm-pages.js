@@ -82,12 +82,12 @@ function run() {
     const routes = toRoutes(markdownContent);
 
     global.mode = cliOptions.watch ? "dev" : "prod"
-    const staticRoutes = generateRecords();
-
-    doCliStuff(
-      global.mode,
-      staticRoutes,
-      markdownContent
+    generateRecords().then((staticRoutes) =>
+      doCliStuff(
+        global.mode,
+        staticRoutes,
+        markdownContent
+      )
     ).then((payload) => {
       if (cliOptions.watch) {
         develop.start({
