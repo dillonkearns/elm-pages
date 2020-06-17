@@ -75,13 +75,14 @@ pages =
     }
 
 images =
-    { directory = directoryWithoutIndex []
+    { staticHttpError = (buildImage [ \\"static-http-error.png\\" ] { width = 919, height = 105 })
+    , directory = directoryWithoutIndex []
     }
 
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [
+    [(buildImage [ \\"static-http-error.png\\" ] { width = 919, height = 105 })
     ]
 
 
