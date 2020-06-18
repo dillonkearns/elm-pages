@@ -48,7 +48,6 @@ function relativeImagePath(imageFilepath) {
   fragmentsWithExtension.splice(0, 1);
   pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(PATH_SEPARATOR);
   pathFragments.splice(0, 1);
-  const fullPath = imageFilepath;
   var relative = imageFilepath.slice(dir.length - 1);
   return { path: relative, pathFragments, fragmentsWithExtension };
 }
@@ -65,16 +64,12 @@ async function generate(scanned) {
 
   var routeRecord = {};
   var allRoutes = [];
-  var routeToMetadata = [];
-  var routeToExt = [];
-  var routeToSource = [];
 
   for (var i = 0; i < scanned.length; i++) {
     var pathFragments = scanned[i].path;
     //remove extesion and split into fragments
     pathFragments = pathFragments.replace(/\.[^/.]+$/, "").split(PATH_SEPARATOR);
     const is404 = pathFragments.length == 1 && pathFragments[0] == "404";
-    const ext = path.extname(scanned[i].path);
 
     // const elmType = pathFragments.map(toPascalCase).join("");
     const elmType =
@@ -129,12 +124,6 @@ async function elmType(info) {
   const metadata = await sharp(`images/${info.path}`).metadata();
   return `(buildImage [ ${pathFragments} ] { width = ${metadata.width}, height = ${metadata.height} })`
 }
-function toPascalCase(str) {
-  var pascal = str.replace(/(\-\w)/g, function (m) {
-    return m[1].toUpperCase();
-  });
-  return pascal.charAt(0).toUpperCase() + pascal.slice(1);
-}
 
 function toCamelCase(str) {
   var pascal = str.replace(/(\-\w)/g, function (m) {
@@ -143,11 +132,6 @@ function toCamelCase(str) {
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-function toFlatRouteType(routes) {
-  return `type Route
-    = ${routes.join("\n    | ")}
-`;
-}
 
 function toElmRecord(name, routeRecord, asType) {
   return name + " =\n" + formatRecord([], routeRecord, asType, 1);
@@ -212,33 +196,4 @@ function formatAsElmList(name, items) {
   var signature = name + " : List (PagePath PathKey)\n";
 
   return signature + name + " =\n    [ " + formatted + "\n    ]";
-}
-
-function literalUrl(piece) {
-  return `s "${piece}"`;
-}
-
-function quote(str) {
-  return `"${str}"`;
-}
-
-function formatCaseInstance(elmType, metadata) {
-  return `        ${elmType} ->
-            """${metadata}"""`;
-}
-
-function formatCaseStatement(name, branches) {
-  return `${name} : Route -> String
-${name} route =
-    case route of
-${branches.join("\n\n")}`;
-}
-
-function formatAsElmUrlToString(pieces) {
-  var toString = pieces.map(p => p.toString).join("\n\n");
-
-  return `routeToString : Route -> String
-routeToString route =
-    case route of
-${toString} `;
 }
