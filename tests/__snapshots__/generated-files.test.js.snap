@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`generate UI file 1`] = `
+exports[`generate UI file directory-casing 1`] = `
 "port module Pages exposing (PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)
 
 import Color exposing (Color)
@@ -67,22 +67,25 @@ internals =
 
 allPages : List (PagePath PathKey)
 allPages =
-    [ 
+    [ (buildPage [ \\"blog-post\\", \\"post1\\" ])
     ]
 
 pages =
-    { directory = directoryWithoutIndex []
+    { blogPost =
+        { post1 = (buildPage [ \\"blog-post\\", \\"post1\\" ])
+        , directory = directoryWithoutIndex [\\"blogPost\\"]
+        }
+    , directory = directoryWithoutIndex []
     }
 
 images =
-    { staticHttpError = (buildImage [ \\"static-http-error.png\\" ] { width = 919, height = 105 })
-    , directory = directoryWithoutIndex []
+    { directory = directoryWithoutIndex []
     }
 
 
 allImages : List (ImagePath PathKey)
 allImages =
-    [(buildImage [ \\"static-http-error.png\\" ] { width = 919, height = 105 })
+    [
     ]
 
 
