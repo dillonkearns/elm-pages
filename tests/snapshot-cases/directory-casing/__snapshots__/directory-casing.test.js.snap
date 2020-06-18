@@ -73,7 +73,7 @@ allPages =
 pages =
     { blogPost =
         { post1 = (buildPage [ \\"blog-post\\", \\"post1\\" ])
-        , directory = directoryWithoutIndex [\\"blog-post\\"]
+        , directory = directoryWithoutIndex [\\"blogPost\\"]
         }
     , directory = directoryWithoutIndex []
     }
