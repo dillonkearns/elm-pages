@@ -81,7 +81,7 @@ function run() {
       });
     const routes = toRoutes(markdownContent);
 
-    global.mode = cliOptions.watch ? "dev" : "prod"
+    global.mode = cliOptions.develop === 'start' ? "dev" : "prod"
     generateRecords().then((staticRoutes) =>
       doCliStuff(
         global.mode,
@@ -89,7 +89,7 @@ function run() {
         markdownContent
       )
     ).then((payload) => {
-      if (cliOptions.watch) {
+      if (cliOptions.develop === 'start') {
         develop.start({
           routes,
           debug: cliOptions.debug,
@@ -97,7 +97,7 @@ function run() {
           manifestConfig: payload.manifest,
 
         });
-      } else {
+      } else if (cliOptions.develop === 'run') {
         develop.run({
           routes,
           debug: cliOptions.debug,
@@ -107,7 +107,7 @@ function run() {
       }
 
     }).catch(function (errorPayload) {
-      if (cliOptions.watch) {
+      if (cliOptions.develop === 'start') {
         develop.start({
           routes,
           debug: cliOptions.debug,
