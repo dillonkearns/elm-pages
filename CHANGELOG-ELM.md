@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [5.0.3] - 2020-07-14
+
+### Fixed
+- Fixed missing content message flash for pages that are hosted on a sub path: https://github.com/dillonkearns/elm-pages/issues/106.
+
 ## [5.0.2] - 2020-06-16
 
 ### Fixed

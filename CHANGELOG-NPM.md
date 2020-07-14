@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.2] - 2020-07-14
+
+### Added
+- Added dimensions to static images: https://github.com/dillonkearns/elm-pages/pull/110.
+
 ## [1.4.1] - 2020-06-16
 
 ### Fixed
