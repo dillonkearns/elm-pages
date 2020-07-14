@@ -294,23 +294,23 @@ init :
     -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
-        contentCache =
-            ContentCache.init
-                document
-                content
-                (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
-
-        contentJson =
-            flags
-                |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
-                |> Result.toMaybe
-
         baseUrl =
             flags
                 |> Decode.decodeValue (Decode.field "baseUrl" Decode.string)
                 |> Result.toMaybe
                 |> Maybe.andThen Url.fromString
                 |> Maybe.withDefault url
+
+        contentCache =
+            ContentCache.init
+                document
+                content
+                (Maybe.map (\cj -> { contentJson = cj, initialUrl = url, baseUrl = baseUrl }) contentJson)
+
+        contentJson =
+            flags
+                |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
+                |> Result.toMaybe
 
         urls =
             { currentUrl = url
@@ -643,7 +643,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
 
                 HotReloadComplete contentJson ->
                     ( { model
-                        | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url })
+                        | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url, baseUrl = model.baseUrl })
                         , hmrStatus = HmrLoaded
                       }
                     , Cmd.none

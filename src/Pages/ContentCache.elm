@@ -60,6 +60,10 @@ type alias Path =
     List String
 
 
+type alias UrlPath url =
+    { url | path : String }
+
+
 extractMetadata : pathKey -> ContentCacheInner metadata view -> List ( PagePath pathKey, metadata )
 extractMetadata pathKey cache =
     cache
@@ -107,7 +111,7 @@ pagesWithErrors cache =
 init :
     Document metadata view
     -> Content
-    -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
+    -> Maybe { contentJson : ContentJson String, initialUrl : UrlPath url, baseUrl : UrlPath url }
     -> ContentCache metadata view
 init document content maybeInitialPageContent =
     content
@@ -142,7 +146,7 @@ createBuildError path decodeError =
 
 
 parseMetadata :
-    Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
+    Maybe { contentJson : ContentJson String, initialUrl : UrlPath url, baseUrl : UrlPath url }
     -> Document metadata view
     -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
     -> List ( List String, Result String (Entry metadata view) )
@@ -164,8 +168,8 @@ parseMetadata maybeInitialPageContent document content =
                                         parseContent extension value document
                                 in
                                 case maybeInitialPageContent of
-                                    Just { contentJson, initialUrl } ->
-                                        if normalizePath initialUrl.path == (String.join "/" path |> normalizePath) then
+                                    Just { contentJson, initialUrl, baseUrl } ->
+                                        if pathForUrl { currentUrl = initialUrl, baseUrl = baseUrl } == path then
                                             Parsed metadata
                                                 { body = renderer contentJson.body
                                                 , staticData = contentJson.staticData
@@ -477,7 +481,7 @@ update cacheResult renderer urls rawContent =
             Err error
 
 
-pathForUrl : { currentUrl : Url, baseUrl : Url } -> Path
+pathForUrl : { currentUrl : UrlPath url, baseUrl : UrlPath url } -> Path
 pathForUrl { currentUrl, baseUrl } =
     currentUrl.path
         |> String.dropLeft (String.length baseUrl.path)
