@@ -151,13 +151,17 @@ generateMarkdownPage markdown =
 
 type CliOptions
     = Develop DevelopOptions
-    | Build
-    | Generate
+    | Build BuildOptions
 
 
 type alias DevelopOptions =
     { debugger : Bool
     , customPort : Maybe Int
+    }
+
+
+type alias BuildOptions =
+    { skipDist : Bool
     }
 
 
@@ -175,9 +179,10 @@ application =
                 |> OptionsParser.map Develop
             )
         |> Program.add
-            (OptionsParser.buildSubCommand "build" Build)
-        |> Program.add
-            (OptionsParser.buildSubCommand "generate" Generate)
+            (OptionsParser.buildSubCommand "build" BuildOptions
+                |> with (Option.flag "skip-dist")
+                |> OptionsParser.map Build
+            )
 
 
 type alias Flags =
@@ -210,11 +215,8 @@ init flags cliOptions =
                 Develop options ->
                     ( Start, options.debugger, options.customPort )
 
-                Build ->
-                    ( Run, False, Nothing )
-
-                Generate ->
-                    ( None, False, Nothing )
+                Build options ->
+                    ( buildDevelopMode options, False, Nothing )
     in
     { develop = develop
     , debug = debug
@@ -222,6 +224,15 @@ init flags cliOptions =
     }
         |> encodeWriteFile
         |> writeFile
+
+
+buildDevelopMode : BuildOptions -> DevelopMode
+buildDevelopMode { skipDist } =
+    if skipDist then
+        None
+
+    else
+        Run
 
 
 encodeWriteFile : { develop : DevelopMode, debug : Bool, customPort : Maybe Int } -> Encode.Value
