@@ -670,7 +670,7 @@ Body: """)
                         |> expectError
                             [ """-- METADATA DECODE ERROR ----------------------------------------------------- elm-pages
 
-I ran into a problem when parsing the metadata for the page with this path: 
+I ran into a problem when parsing the metadata for the page with this path: /
 
 Found an unhandled HTML tag in markdown doc."""
                             ]
