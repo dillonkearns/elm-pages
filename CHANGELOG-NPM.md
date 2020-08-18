@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.3] - 2020-08-17
+
+### Added
+- `elm-pages build --skip-dist` option allows you to build the generated Elm code and 
+   check for errors without running the pre-rendering steps. Thank you [@sparksp](https://github.com/sparksp)!
+   See https://github.com/dillonkearns/elm-pages/pull/123/files.
+
+### Fixed
+- Added headers to the dev server that prevent Safari from serving up stale data. Thank you 
+  Kevin Yank for reporting the issue!
+
 ## [1.4.2] - 2020-07-14
 
 ### Added
