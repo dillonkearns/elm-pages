@@ -3,16 +3,12 @@ port module Main exposing (main)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser exposing (with)
 import Cli.Program as Program
+import Json.Encode as Encode
 import List.Extra
 import String.Interpolate exposing (interpolate)
 
 
-port writeFile :
-    { watch : Bool
-    , debug : Bool
-    , customPort : Maybe Int
-    }
-    -> Cmd msg
+port writeFile : Encode.Value -> Cmd msg
 
 
 port printAndExitSuccess : String -> Cmd msg
@@ -155,12 +151,17 @@ generateMarkdownPage markdown =
 
 type CliOptions
     = Develop DevelopOptions
-    | Build
+    | Build BuildOptions
 
 
 type alias DevelopOptions =
     { debugger : Bool
     , customPort : Maybe Int
+    }
+
+
+type alias BuildOptions =
+    { skipDist : Bool
     }
 
 
@@ -178,7 +179,10 @@ application =
                 |> OptionsParser.map Develop
             )
         |> Program.add
-            (OptionsParser.buildSubCommand "build" Build)
+            (OptionsParser.buildSubCommand "build" BuildOptions
+                |> with (Option.flag "skip-dist")
+                |> OptionsParser.map Build
+            )
 
 
 type alias Flags =
@@ -197,22 +201,67 @@ type alias MarkdownContent =
     { path : String, metadata : String, body : String }
 
 
+type DevelopMode
+    = None
+    | Run
+    | Start
+
+
 init : Flags -> CliOptions -> Cmd Never
 init flags cliOptions =
     let
-        ( watch, debug, customPort ) =
+        ( develop, debug, customPort ) =
             case cliOptions of
                 Develop options ->
-                    ( True, options.debugger, options.customPort )
+                    ( Start, options.debugger, options.customPort )
 
-                Build ->
-                    ( False, False, Nothing )
+                Build options ->
+                    ( buildDevelopMode options, False, Nothing )
     in
-    { watch = watch
+    { develop = develop
     , debug = debug
     , customPort = customPort
     }
+        |> encodeWriteFile
         |> writeFile
+
+
+buildDevelopMode : BuildOptions -> DevelopMode
+buildDevelopMode { skipDist } =
+    if skipDist then
+        None
+
+    else
+        Run
+
+
+encodeWriteFile : { develop : DevelopMode, debug : Bool, customPort : Maybe Int } -> Encode.Value
+encodeWriteFile { develop, debug, customPort } =
+    Encode.object
+        [ ( "develop", encodeDevelop develop )
+        , ( "debug", Encode.bool debug )
+        , ( "customPort", encodeCustomPort customPort )
+        ]
+
+
+encodeDevelop : DevelopMode -> Encode.Value
+encodeDevelop develop =
+    case develop of
+        None ->
+            Encode.string "none"
+
+        Run ->
+            Encode.string "run"
+
+        Start ->
+            Encode.string "start"
+
+
+encodeCustomPort : Maybe Int -> Encode.Value
+encodeCustomPort maybePort =
+    maybePort
+        |> Maybe.map Encode.int
+        |> Maybe.withDefault Encode.null
 
 
 generateFileContents : List MarkdownContent -> List ( String, String )
