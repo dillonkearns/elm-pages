@@ -43,7 +43,14 @@ function start({ routes, debug, customPort, manifestConfig }) {
     hot: true,
     inline: true,
     host: "localhost",
-    stats: "errors-only"
+    stats: "errors-only",
+    // Safari will use an in-memory cache for the content.json files if we don't set these headers
+    // See https://github.com/nuxt/nuxt.js/issues/3828#issuecomment-660745482
+    headers: {
+      'Cache-Control': 'max-age=0',
+      Vary: '*',
+    },
+
   };
 
   const app = express();
