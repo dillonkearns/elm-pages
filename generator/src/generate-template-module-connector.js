@@ -60,14 +60,15 @@ view :
             }
 view siteMetadata page =
     case page.frontmatter of
-        M.MetadataBlogPost metadata ->
+        ${templates.map(name =>
+        `M.Metadata${name} metadata ->
             StaticHttp.map2
                 (\data globalData ->
                     { view =
                         \model rendered ->
                             case model.page of
-                                ModelBlogPost subModel ->
-                                    Template.BlogPost.template.view
+                                Model${name} subModel ->
+                                    Template.${name}.template.view
                                         siteMetadata
                                         data
                                         subModel
@@ -88,131 +89,13 @@ view siteMetadata page =
 
                                 _ ->
                                     { title = "", body = Html.text "" }
-                    , head = Template.BlogPost.template.head data page.path metadata
+                    , head = Template.${name}.template.head data page.path metadata
                     }
                 )
-                (Template.BlogPost.template.staticData siteMetadata)
+                (Template.${name}.template.staticData siteMetadata)
                 (Global.staticData siteMetadata)
-
-        M.MetadataShowcase metadata ->
-            StaticHttp.map2
-                (\data globalData ->
-                    { view =
-                        \model rendered ->
-                            case model.page of
-                                ModelShowcase subModel ->
-                                    Template.Showcase.template.view siteMetadata data subModel metadata rendered
-                                        |> (\{ title, body } ->
-                                                Global.wrapBody
-                                                    globalData
-                                                    page
-                                                    model.global
-                                                    MsgGlobal
-                                                    { title = title
-                                                    , body =
-                                                        -- Template.BlogPost.liftViewMsg
-                                                        Element.map never body
-                                                    }
-                                           )
-
-                                _ ->
-                                    { title = "", body = Html.text "" }
-                    , head = Template.Showcase.template.head data page.path metadata
-                    }
-                )
-                (Template.Showcase.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
-
-        M.MetadataPage metadata ->
-            StaticHttp.map2
-                (\data globalData ->
-                    { view =
-                        \model rendered ->
-                            case model.page of
-                                ModelPage subModel ->
-                                    Template.Page.template.view siteMetadata data subModel metadata rendered
-                                        |> (\{ title, body } ->
-                                                Global.wrapBody
-                                                    globalData
-                                                    page
-                                                    model.global
-                                                    MsgGlobal
-                                                    { title = title
-                                                    , body =
-                                                        -- Template.BlogPost.liftViewMsg
-                                                        Element.map never body
-                                                    }
-                                           )
-
-                                _ ->
-                                    { title = "", body = Html.text "" }
-                    , head = Template.Page.template.head data page.path metadata
-                    }
-                )
-                (Template.Page.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
-
-        M.MetadataBlogIndex metadata ->
-            StaticHttp.map2
-                (\data globalData ->
-                    { view =
-                        \model rendered ->
-                            case model.page of
-                                ModelBlogIndex subModel ->
-                                    --Template.BlogIndex.view siteMetadata data subModel metadata rendered
-                                    Template.BlogIndex.template.view
-                                        siteMetadata
-                                        data
-                                        subModel
-                                        metadata
-                                        rendered
-                                        |> (\{ title, body } ->
-                                                Global.wrapBody
-                                                    globalData
-                                                    page
-                                                    model.global
-                                                    MsgGlobal
-                                                    { title = title
-                                                    , body = Element.map never body
-                                                    }
-                                           )
-
-                                _ ->
-                                    { title = "", body = Html.text "" }
-                    , head = Template.BlogIndex.template.head data page.path metadata
-                    }
-                )
-                (Template.BlogIndex.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
-
-        M.MetadataDocumentation metadata ->
-            StaticHttp.map2
-                (\data globalData ->
-                    { view =
-                        \model rendered ->
-                            case model.page of
-                                ModelDocumentation subModel ->
-                                    Template.Documentation.template.view siteMetadata data subModel metadata rendered
-                                        |> (\{ title, body } ->
-                                                Global.wrapBody
-                                                    globalData
-                                                    page
-                                                    model.global
-                                                    MsgGlobal
-                                                    { title = title
-                                                    , body =
-                                                        -- Template.BlogPost.liftViewMsg
-                                                        Element.map never body
-                                                    }
-                                           )
-
-                                _ ->
-                                    { title = "", body = Html.text "" }
-                    , head = Template.Page.template.head data page.path metadata
-                    }
-                )
-                (Template.Page.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+`).join("\n\n        ")
+        }
 
 
 init :
