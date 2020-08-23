@@ -131,9 +131,6 @@ init maybePagePath =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MsgBlogPost msg_ ->
-            ( model, Cmd.none )
-
         MsgGlobal msg_ ->
             let
                 ( globalModel, globalCmd ) =
@@ -152,20 +149,10 @@ update msg model =
                     , metadata = record.metadata
                     }
 
-        MsgBlogIndex msg_ ->
-            let
-                ( updatedPageModel, pageCmd ) =
-                    case model.page of
-                        ModelBlogIndex pageModel ->
-                            Template.BlogIndex.template.update (Debug.todo "")
-                                msg_
-                                pageModel
-                                |> Tuple.mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
+        _ ->
+            -- not implemented yet
+            ( model, Cmd.none )
 
-                        _ ->
-                            ( model.page, Cmd.none )
-            in
-            ( { model | page = updatedPageModel }, pageCmd )
 
 
 mainTemplate { documents, manifest, canonicalSiteUrl } =
