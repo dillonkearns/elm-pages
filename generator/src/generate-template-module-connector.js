@@ -1,121 +1,5 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`generate UI file 1`] = `
-"port module Pages exposing (PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)
-
-import Color exposing (Color)
-import Pages.Internal
-import Head
-import Html exposing (Html)
-import Json.Decode
-import Json.Encode
-import Pages.Platform
-import Pages.Manifest exposing (DisplayMode, Orientation)
-import Pages.Manifest.Category as Category exposing (Category)
-import Url.Parser as Url exposing ((</>), s)
-import Pages.ImagePath as ImagePath exposing (ImagePath)
-import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.Directory as Directory exposing (Directory)
-import Time
-
-
-builtAt : Time.Posix
-builtAt =
-    Time.millisToPosix 1589734402000
-
-
-type PathKey
-    = PathKey
-
-
-buildImage : List String -> ImagePath.Dimensions -> ImagePath PathKey
-buildImage path dimensions =
-    ImagePath.build PathKey (\\"images\\" :: path) dimensions
-
-
-buildPage : List String -> PagePath PathKey
-buildPage path =
-    PagePath.build PathKey path
-
-
-directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
-directoryWithIndex path =
-    Directory.withIndex PathKey allPages path
-
-
-directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
-directoryWithoutIndex path =
-    Directory.withoutIndex PathKey allPages path
-
-
-port toJsPort : Json.Encode.Value -> Cmd msg
-
-port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
-
-
-internals : Pages.Internal.Internal PathKey
-internals =
-    { applicationType = Pages.Internal.Browser
-    , toJsPort = toJsPort
-    , fromJsPort = fromJsPort identity
-    , content = content
-    , pathKey = PathKey
-    }
-
-
-
-
-allPages : List (PagePath PathKey)
-allPages =
-    [ 
-    ]
-
-pages =
-    { directory = directoryWithoutIndex []
-    }
-
-images =
-    { staticHttpError = (buildImage [ \\"static-http-error.png\\" ] { width = 919, height = 105 })
-    , directory = directoryWithoutIndex []
-    }
-
-
-allImages : List (ImagePath PathKey)
-allImages =
-    [(buildImage [ \\"static-http-error.png\\" ] { width = 919, height = 105 })
-    ]
-
-
-isValidRoute : String -> Result String ()
-isValidRoute route =
-    let
-        validRoutes =
-            List.map PagePath.toString allPages
-    in
-    if
-        (route |> String.startsWith \\"http://\\")
-            || (route |> String.startsWith \\"https://\\")
-            || (route |> String.startsWith \\"#\\")
-            || (validRoutes |> List.member route)
-    then
-        Ok ()
-
-    else
-        (\\"Valid routes:\\\\n\\"
-            ++ String.join \\"\\\\n\\\\n\\" validRoutes
-        )
-            |> Err
-
-
-content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
-content =
-    [ 
-    ]
-"
-`;
-
-exports[`generate template module connector 1`] = `
-"module TemplateDemultiplexer exposing (..)
+function generateTemplateModuleConnector(staticRoutes) {
+    return `module TemplateDemultiplexer exposing (..)
 
 import Browser
 import Element exposing (Element)
@@ -181,9 +65,9 @@ view siteMetadata page =
     case page.frontmatter of
         M.MetadataBlogPost metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\data globalData ->
                     { view =
-                        model rendered ->
+                        \model rendered ->
                             case model.page of
                                 ModelBlogPost subModel ->
                                     Template.BlogPost.template.view
@@ -192,7 +76,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -206,7 +90,7 @@ view siteMetadata page =
                                            )
 
                                 _ ->
-                                    { title = \\"\\", body = Html.text \\"\\" }
+                                    { title = "", body = Html.text "" }
                     , head = Template.BlogPost.template.head data page.path metadata
                     }
                 )
@@ -215,13 +99,13 @@ view siteMetadata page =
 
         M.MetadataShowcase metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\data globalData ->
                     { view =
-                        model rendered ->
+                        \model rendered ->
                             case model.page of
                                 ModelShowcase subModel ->
                                     Template.Showcase.template.view siteMetadata data subModel metadata rendered
-                                        |> ({ title, body } ->
+                                        |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -235,7 +119,7 @@ view siteMetadata page =
                                            )
 
                                 _ ->
-                                    { title = \\"\\", body = Html.text \\"\\" }
+                                    { title = "", body = Html.text "" }
                     , head = Template.Showcase.template.head data page.path metadata
                     }
                 )
@@ -244,13 +128,13 @@ view siteMetadata page =
 
         M.MetadataPage metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\data globalData ->
                     { view =
-                        model rendered ->
+                        \model rendered ->
                             case model.page of
                                 ModelPage subModel ->
                                     Template.Page.template.view siteMetadata data subModel metadata rendered
-                                        |> ({ title, body } ->
+                                        |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -264,7 +148,7 @@ view siteMetadata page =
                                            )
 
                                 _ ->
-                                    { title = \\"\\", body = Html.text \\"\\" }
+                                    { title = "", body = Html.text "" }
                     , head = Template.Page.template.head data page.path metadata
                     }
                 )
@@ -273,9 +157,9 @@ view siteMetadata page =
 
         M.MetadataBlogIndex metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\data globalData ->
                     { view =
-                        model rendered ->
+                        \model rendered ->
                             case model.page of
                                 ModelBlogIndex subModel ->
                                     --Template.BlogIndex.view siteMetadata data subModel metadata rendered
@@ -285,7 +169,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -297,7 +181,7 @@ view siteMetadata page =
                                            )
 
                                 _ ->
-                                    { title = \\"\\", body = Html.text \\"\\" }
+                                    { title = "", body = Html.text "" }
                     , head = Template.BlogIndex.template.head data page.path metadata
                     }
                 )
@@ -306,13 +190,13 @@ view siteMetadata page =
 
         M.MetadataDocumentation metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\data globalData ->
                     { view =
-                        model rendered ->
+                        \model rendered ->
                             case model.page of
                                 ModelDocumentation subModel ->
                                     Template.Documentation.template.view siteMetadata data subModel metadata rendered
-                                        |> ({ title, body } ->
+                                        |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -326,7 +210,7 @@ view siteMetadata page =
                                            )
 
                                 _ ->
-                                    { title = \\"\\", body = Html.text \\"\\" }
+                                    { title = "", body = Html.text "" }
                     , head = Template.Page.template.head data page.path metadata
                     }
                 )
@@ -349,7 +233,7 @@ init maybePagePath =
       , page =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
-                    Debug.todo \\"\\"
+                    Debug.todo ""
 
                 Just meta ->
                     case meta of
@@ -411,7 +295,7 @@ update msg model =
                 ( updatedPageModel, pageCmd ) =
                     case model.page of
                         ModelBlogIndex pageModel ->
-                            Template.BlogIndex.template.update (Debug.todo \\"\\")
+                            Template.BlogIndex.template.update (Debug.todo "")
                                 msg_
                                 pageModel
                                 |> Tuple.mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
@@ -427,7 +311,7 @@ mainTemplate { documents, manifest, canonicalSiteUrl } =
         { init = init
         , view = view
         , update = update
-        , subscriptions = _ -> Sub.none
+        , subscriptions = \_ -> Sub.none
         , documents = documents
         , onPageChange = Just OnPageChange
         , manifest = manifest -- SiteConfig.manifest
@@ -442,5 +326,7 @@ mapDocument document =
     { title = document.title
     , body = document.body |> List.map (Html.map never)
     }
-"
-`;
+`
+}
+
+module.exports = { generateTemplateModuleConnector }
