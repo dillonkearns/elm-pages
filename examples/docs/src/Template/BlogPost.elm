@@ -110,11 +110,6 @@ type alias StaticData =
     Int
 
 
-liftViewMsg : (Msg -> msg) -> ( a, List (Element msg) ) -> ( a, List (Element msg) )
-liftViewMsg liftMsg =
-    identity
-
-
 view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view allMetadata static model blogPost rendered =
     { title = blogPost.title
