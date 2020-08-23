@@ -82,9 +82,9 @@ type PathKey
     = PathKey
 
 
-buildImage : List String -> ImagePath PathKey
-buildImage path =
-    ImagePath.build PathKey ("images" :: path)
+buildImage : List String -> ImagePath.Dimensions -> ImagePath PathKey
+buildImage path dimensions =
+    ImagePath.build PathKey ("images" :: path) dimensions
 
 
 buildPage : List String -> PagePath PathKey
@@ -163,9 +163,9 @@ type PathKey
     = PathKey
 
 
-buildImage : List String -> ImagePath PathKey
-buildImage path =
-    ImagePath.build PathKey ("images" :: path)
+buildImage : List String -> ImagePath.Dimensions -> ImagePath PathKey
+buildImage path dimensions =
+    ImagePath.build PathKey ("images" :: path) dimensions
 
 
 buildPage : List String -> PagePath PathKey

@@ -85,6 +85,11 @@ urlToPagePath pathKey url baseUrl =
         |> PagePath.build pathKey
 
 
+normalizeUrl : Url -> Url -> Url
+normalizeUrl baseUrl url =
+    { url | path = url.path |> String.dropLeft (String.length baseUrl.path) |> String.chopForwardSlashes }
+
+
 pageViewOrError :
     pathKey
     ->
@@ -301,7 +306,14 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
             ContentCache.init
                 document
                 content
-                (Maybe.map (\cj -> { contentJson = cj, initialUrl = url }) contentJson)
+                (Maybe.map
+                    (\cj ->
+                        { contentJson = cj
+                        , initialUrl = url |> normalizeUrl baseUrl
+                        }
+                    )
+                    contentJson
+                )
 
         contentJson =
             flags

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [6.0.0] - 2020-07-14
+
+### Fixed
+- Fixed missing content message flash for pages that are hosted on a sub path: https://github.com/dillonkearns/elm-pages/issues/106.
+
+## [5.0.2] - 2020-06-16
+
+### Fixed
+- Fixed issue where CLI would hang when fetching StaticHttp data for `generateFiles` functions. The problem was a looping condition for completing the CLI process to fetch StaticHttp data.
+  See [#120](https://github.com/dillonkearns/elm-pages/pull/120).
+
 ## [5.0.1] - 2020-05-13
 
 ### Fixed

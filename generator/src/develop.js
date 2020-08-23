@@ -43,7 +43,14 @@ function start({ routes, debug, customPort, manifestConfig }) {
     hot: true,
     inline: true,
     host: "localhost",
-    stats: "errors-only"
+    stats: "errors-only",
+    // Safari will use an in-memory cache for the content.json files if we don't set these headers
+    // See https://github.com/nuxt/nuxt.js/issues/3828#issuecomment-660745482
+    headers: {
+      'Cache-Control': 'max-age=0',
+      Vary: '*',
+    },
+
   };
 
   const app = express();
@@ -98,35 +105,35 @@ function run({ routes, manifestConfig }) {
     })
   ).run((err, stats) => {
     if (err) {
-      console.error(err);
+      process.exit(1);
+    } else if (stats.compilation.errors && stats.compilation.errors.length > 0) {
+      console.error(stats.compilation.errors);
       process.exit(1);
     } else {
-      // done
+      console.log(
+        stats.toString({
+          chunks: false, // Makes the build much quieter
+          colors: true, // Shows colors in the console
+          // copied from `'minimal'`
+          all: false,
+          modules: false,
+          performance: true,
+          timings: false,
+          outputPath: true,
+          maxModules: 0,
+          errors: true,
+          warnings: true,
+          // our additional options
+          moduleTrace: false,
+          errorDetails: false
+        })
+      );
+
+      const duration = roundToOneDecimal(
+        (stats.endTime - stats.startTime) / 1000
+      );
+      console.log(`Duration: ${duration}s`);
     }
-
-    console.log(
-      stats.toString({
-        chunks: false, // Makes the build much quieter
-        colors: true, // Shows colors in the console
-        // copied from `'minimal'`
-        all: false,
-        modules: false,
-        performance: true,
-        timings: false,
-        outputPath: true,
-        maxModules: 0,
-        errors: true,
-        warnings: true,
-        // our additional options
-        moduleTrace: false,
-        errorDetails: false
-      })
-    );
-
-    const duration = roundToOneDecimal(
-      (stats.endTime - stats.startTime) / 1000
-    );
-    console.log(`Duration: ${duration}s`);
   });
 }
 
@@ -151,11 +158,10 @@ function webpackOptions(
       new AddFilesPlugin(),
       new CopyPlugin([
         {
-          from: "static/**/*",
-          transformPath(targetPath, absolutePath) {
-            // TODO this is a hack... how do I do this with proper config of `to` or similar?
-            return targetPath.substring(targetPath.indexOf("/") + 1);
-          }
+          // from inside the static folder
+          context: "static/",
+          // copy everything
+          from: "**/*",
         }
       ]),
       new CopyPlugin([

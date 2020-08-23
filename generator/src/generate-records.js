@@ -2,12 +2,13 @@ const path = require("path");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
+const sharp = require("sharp");
 const parseFrontmatter = require("./frontmatter.js");
 
 // Because we use node-glob, we must use `/` as a separator on all platforms. See https://github.com/isaacs/node-glob#windows
 const PATH_SEPARATOR = '/';
 
-module.exports = function wrapper() {
+module.exports = async function wrapper() {
   return generate(scan());
 };
 
@@ -52,7 +53,7 @@ function relativeImagePath(imageFilepath) {
   return { path: relative, pathFragments, fragmentsWithExtension };
 }
 
-function generate(scanned) {
+async function generate(scanned) {
   // Generate Pages/My/elm
   // Documents ->
   //     Routes
@@ -98,43 +99,35 @@ function generate(scanned) {
     // routeToMetadata: formatCaseStatement("toMetadata", routeToMetadata),
     // routeToDocExtension: formatCaseStatement("toExt", routeToExt),
     // routeToSource: formatCaseStatement("toSourcePath", routeToSource),
-    imageAssetsRecord: toElmRecord("images", getImageAssets(), true),
-    allImages: allImageAssetNames()
+    imageAssetsRecord: toElmRecord("images", await getImageAssets(), true),
+    allImages: await allImageAssetNames()
   };
 }
-function getImageAssets() {
-  var assetsRecord = {};
-
-  const content = glob
-    .sync("images/**/*", {})
-    .filter(filePath => !fs.lstatSync(filePath).isDirectory())
-    .map(relativeImagePath)
-    .forEach(info => {
-      const elmType =
-        "(buildImage [ " +
-        info.fragmentsWithExtension
-          .map(fragment => `"${fragment}"`)
-          .join(", ") +
-        " ])";
-
-      captureRouteRecord(info.pathFragments, elmType, assetsRecord);
-    });
-  return assetsRecord;
-}
-function allImageAssetNames() {
+function listImageAssets() {
   return glob
     .sync("images/**/*", {})
     .filter(filePath => !fs.lstatSync(filePath).isDirectory())
-    .map(relativeImagePath)
-    .map(info => {
-      return (
-        "(buildImage [ " +
-        info.fragmentsWithExtension
-          .map(fragment => `"${fragment}"`)
-          .join(", ") +
-        " ])"
-      );
-    });
+    .map(relativeImagePath);
+}
+async function getImageAssets() {
+  var assetsRecord = {};
+  await Promise.all(listImageAssets().map(async info => {
+    captureRouteRecord(info.pathFragments, await elmType(info), assetsRecord);
+  }));
+
+  return assetsRecord;
+}
+function allImageAssetNames() {
+  return Promise.all(listImageAssets().map(async info => {
+    return elmType(info);
+  }));
+}
+async function elmType(info) {
+  const pathFragments = info.fragmentsWithExtension
+    .map(fragment => `"${fragment}"`)
+    .join(", ");
+  const metadata = await sharp(`images/${info.path}`).metadata();
+  return `(buildImage [ ${pathFragments} ] { width = ${metadata.width}, height = ${metadata.height} })`
 }
 function toPascalCase(str) {
   var pascal = str.replace(/(\-\w)/g, function (m) {
@@ -164,7 +157,9 @@ function formatRecord(directoryPath, rec, asType, level) {
   var keyVals = [];
   const indentation = " ".repeat(level * 4);
   var valsAtThisLevel = [];
-  const keys = Object.keys(rec);
+  // The keys must be sorted to prevent a randomly different ordering
+  // from triggering recompilation.
+  const keys = Object.keys(rec).sort();
   for (const key of keys) {
     var val = rec[key];
 

@@ -36,6 +36,15 @@ That has been working very reliably for me, so I can make tweaks and it picks th
 
 Just be sure to change it back in your local project when you're done experimenting by running `npm install --save-dev elm-pages`.
 
+## Performance Profiling the Webpack Build
+You can analyze the webpack performance in the Chrome dev tools performance tab.
+It's a lot easier than you might imagine. The steps are:
+
+* Comment out this line: https://github.com/dillonkearns/elm-pages/blob/1fa02c015bf391f0223f0504ee7e8cc7f6f1c60b/generator/src/develop.js#L287
+* Run `elm-pages build` (with your dev build)
+* Drag and drop the `events.json` file that is emitted by the build into the Chrome performance tab (see https://webpack.js.org/plugins/profiling-plugin/)
+* You can use the techniques described here to use bottom-up to understand where most of the time is being spent: https://juliu.is/performant-elm/
+
 
 ## Making pull requests
 

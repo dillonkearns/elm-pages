@@ -12,8 +12,6 @@ module.exports = class PluginGenerateElmPagesBuild {
 
     apply(/** @type {webpack.Compiler} */ compiler) {
         compiler.hooks.beforeCompile.tapAsync('PluginGenerateElmPagesBuild', (compilation, done) => {
-            const staticRoutes = generateRecords();
-
             const markdownContent = globby
                 .sync(["content/**/*.*"], {})
                 .map(unpackFile)
@@ -28,21 +26,24 @@ module.exports = class PluginGenerateElmPagesBuild {
                 rejectPageRequests = reject;
             });
 
-            doCliStuff(
-                global.mode,
-                staticRoutes,
-                markdownContent
-            ).then((payload) => {
-                // console.log('PROMISE RESOLVED doCliStuff');
+            generateRecords()
+                .then(async (staticRoutes) =>
+                    await doCliStuff(
+                        global.mode,
+                        staticRoutes,
+                        markdownContent
+                    )
+                ).then((payload) => {
+                    // console.log('PROMISE RESOLVED doCliStuff');
 
-                resolvePageRequests(payload);
-                global.filesToGenerate = payload.filesToGenerate;
-                done()
+                    resolvePageRequests(payload);
+                    global.filesToGenerate = payload.filesToGenerate;
+                    done()
 
-            }).catch(function (errorPayload) {
-                resolvePageRequests({ type: 'error', message: errorPayload });
-                done()
-            })
+                }).catch(function (errorPayload) {
+                    resolvePageRequests({ type: 'error', message: errorPayload });
+                    done()
+                })
 
         });
     };
