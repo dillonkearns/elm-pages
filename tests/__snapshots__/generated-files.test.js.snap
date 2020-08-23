@@ -379,30 +379,36 @@ init maybePagePath =
 
                 Just meta ->
                     case meta of
+                        M.MetadataBlogIndex metadata ->
+                            Template.BlogIndex.template.init metadata
+                                |> Tuple.first
+                                |> ModelBlogIndex
+
+
                         M.MetadataBlogPost metadata ->
                             Template.BlogPost.template.init metadata
                                 |> Tuple.first
                                 |> ModelBlogPost
 
-                        M.MetadataShowcase metadata ->
-                            Template.Showcase.template.init metadata
+
+                        M.MetadataDocumentation metadata ->
+                            Template.Documentation.template.init metadata
                                 |> Tuple.first
-                                |> ModelShowcase
+                                |> ModelDocumentation
+
 
                         M.MetadataPage metadata ->
                             Template.Page.template.init metadata
                                 |> Tuple.first
                                 |> ModelPage
 
-                        M.MetadataBlogIndex metadata ->
-                            Template.BlogIndex.template.init metadata
-                                |> Tuple.first
-                                |> ModelBlogIndex
 
-                        M.MetadataDocumentation metadata ->
-                            Template.Documentation.template.init metadata
+                        M.MetadataShowcase metadata ->
+                            Template.Showcase.template.init metadata
                                 |> Tuple.first
-                                |> ModelDocumentation
+                                |> ModelShowcase
+
+
       }
     , Cmd.none
     )

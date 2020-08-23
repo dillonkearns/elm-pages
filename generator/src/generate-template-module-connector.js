@@ -117,30 +117,12 @@ init maybePagePath =
 
                 Just meta ->
                     case meta of
-                        M.MetadataBlogPost metadata ->
-                            Template.BlogPost.template.init metadata
+                        ${templates.map(name => `M.Metadata${name} metadata ->
+                            Template.${name}.template.init metadata
                                 |> Tuple.first
-                                |> ModelBlogPost
+                                |> Model${name}
 
-                        M.MetadataShowcase metadata ->
-                            Template.Showcase.template.init metadata
-                                |> Tuple.first
-                                |> ModelShowcase
-
-                        M.MetadataPage metadata ->
-                            Template.Page.template.init metadata
-                                |> Tuple.first
-                                |> ModelPage
-
-                        M.MetadataBlogIndex metadata ->
-                            Template.BlogIndex.template.init metadata
-                                |> Tuple.first
-                                |> ModelBlogIndex
-
-                        M.MetadataDocumentation metadata ->
-                            Template.Documentation.template.init metadata
-                                |> Tuple.first
-                                |> ModelDocumentation
+`).join("\n                        ")}
       }
     , Cmd.none
     )
