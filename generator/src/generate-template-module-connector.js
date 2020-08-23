@@ -29,23 +29,18 @@ type alias Model =
 
 
 type TemplateModel
-    = ModelBlogPost Template.BlogPost.Model
-    | ModelShowcase Template.Showcase.Model
-    | ModelPage Template.Page.Model
-    | ModelDocumentation Template.Documentation.Model
-    | ModelBlogIndex Template.BlogIndex.Model
+    = ${templates.map(name => `Model${name} Template.${name}.Model\n`).join("    | ")}
 
 
 type Msg
-    = MsgBlogPost Template.BlogPost.Msg
-    | MsgBlogIndex Template.BlogIndex.Msg
-    | MsgGlobal Global.Msg
+    = MsgGlobal Global.Msg
     | OnPageChange
         { path : PagePath Pages.PathKey
         , query : Maybe String
         , fragment : Maybe String
         , metadata : Metadata
         }
+    | ${templates.map(name => `Msg${name} Template.${name}.Msg\n`).join("    | ")}
 
 
 type alias View =

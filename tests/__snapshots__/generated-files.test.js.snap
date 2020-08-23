@@ -143,23 +143,28 @@ type alias Model =
 
 
 type TemplateModel
-    = ModelBlogPost Template.BlogPost.Model
-    | ModelShowcase Template.Showcase.Model
-    | ModelPage Template.Page.Model
+    = ModelBlogIndex Template.BlogIndex.Model
+    | ModelBlogPost Template.BlogPost.Model
     | ModelDocumentation Template.Documentation.Model
-    | ModelBlogIndex Template.BlogIndex.Model
+    | ModelPage Template.Page.Model
+    | ModelShowcase Template.Showcase.Model
+
 
 
 type Msg
-    = MsgBlogPost Template.BlogPost.Msg
-    | MsgBlogIndex Template.BlogIndex.Msg
-    | MsgGlobal Global.Msg
+    = MsgGlobal Global.Msg
     | OnPageChange
         { path : PagePath Pages.PathKey
         , query : Maybe String
         , fragment : Maybe String
         , metadata : Metadata
         }
+    | MsgBlogIndex Template.BlogIndex.Msg
+    | MsgBlogPost Template.BlogPost.Msg
+    | MsgDocumentation Template.Documentation.Msg
+    | MsgPage Template.Page.Msg
+    | MsgShowcase Template.Showcase.Msg
+
 
 
 type alias View =
