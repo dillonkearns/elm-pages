@@ -1,4 +1,10 @@
+const globby = require("globby")
+const path = require("path")
+
+
 function generateTemplateModuleConnector(staticRoutes) {
+    const templates = globby.sync(["src/Template/*.elm"], {}).map(file => path.basename(file, '.elm'))
+
     return `module TemplateDemultiplexer exposing (..)
 
 import Browser
@@ -13,11 +19,7 @@ import Pages.PagePath exposing (PagePath)
 import Pages.Platform
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
-import Template.BlogIndex
-import Template.BlogPost
-import Template.Documentation
-import Template.Page
-import Template.Showcase
+${templates.map(name => `import Template.${name}`).join("\n")}
 
 
 type alias Model =
