@@ -186,9 +186,9 @@ view siteMetadata page =
     case page.frontmatter of
         M.MetadataBlogIndex metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\\\\data globalData ->
                     { view =
-                        model rendered ->
+                        \\\\model rendered ->
                             case model.page of
                                 ModelBlogIndex subModel ->
                                     Template.BlogIndex.template.view
@@ -197,7 +197,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\\\\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -221,9 +221,9 @@ view siteMetadata page =
 
         M.MetadataBlogPost metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\\\\data globalData ->
                     { view =
-                        model rendered ->
+                        \\\\model rendered ->
                             case model.page of
                                 ModelBlogPost subModel ->
                                     Template.BlogPost.template.view
@@ -232,7 +232,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\\\\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -256,9 +256,9 @@ view siteMetadata page =
 
         M.MetadataDocumentation metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\\\\data globalData ->
                     { view =
-                        model rendered ->
+                        \\\\model rendered ->
                             case model.page of
                                 ModelDocumentation subModel ->
                                     Template.Documentation.template.view
@@ -267,7 +267,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\\\\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -291,9 +291,9 @@ view siteMetadata page =
 
         M.MetadataPage metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\\\\data globalData ->
                     { view =
-                        model rendered ->
+                        \\\\model rendered ->
                             case model.page of
                                 ModelPage subModel ->
                                     Template.Page.template.view
@@ -302,7 +302,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\\\\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -326,9 +326,9 @@ view siteMetadata page =
 
         M.MetadataShowcase metadata ->
             StaticHttp.map2
-                (data globalData ->
+                (\\\\data globalData ->
                     { view =
-                        model rendered ->
+                        \\\\model rendered ->
                             case model.page of
                                 ModelShowcase subModel ->
                                     Template.Showcase.template.view
@@ -337,7 +337,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> ({ title, body } ->
+                                        |> (\\\\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -446,7 +446,7 @@ mainTemplate { documents, manifest, canonicalSiteUrl } =
         { init = init
         , view = view
         , update = update
-        , subscriptions = _ -> Sub.none
+        , subscriptions = \\\\_ -> Sub.none
         , documents = documents
         , onPageChange = Just OnPageChange
         , manifest = manifest -- SiteConfig.manifest

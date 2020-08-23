@@ -11,8 +11,8 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
 import Template
-import Template.Metadata exposing (Showcase)
 import TemplateDocument exposing (TemplateDocument)
+import TemplateMetadata exposing (Showcase)
 
 
 type Msg

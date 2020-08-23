@@ -11,8 +11,8 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
 import Template
-import Template.Metadata exposing (Page)
 import TemplateDocument exposing (TemplateDocument)
+import TemplateMetadata exposing (Page)
 
 
 type alias StaticData =

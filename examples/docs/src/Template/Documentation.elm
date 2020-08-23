@@ -15,8 +15,8 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import SiteConfig
 import Template
-import Template.Metadata exposing (Documentation)
 import TemplateDocument exposing (TemplateDocument)
+import TemplateMetadata exposing (Documentation)
 
 
 type alias StaticData =

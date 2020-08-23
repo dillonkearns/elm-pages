@@ -20,8 +20,8 @@ import Secrets
 import SiteConfig
 import StructuredData
 import Template
-import Template.Metadata exposing (BlogPost)
 import TemplateDocument exposing (TemplateDocument)
+import TemplateMetadata exposing (BlogPost)
 
 
 type Model

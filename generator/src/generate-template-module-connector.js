@@ -63,9 +63,9 @@ view siteMetadata page =
         ${templates.map(name =>
         `M.Metadata${name} metadata ->
             StaticHttp.map2
-                (\data globalData ->
+                (\\data globalData ->
                     { view =
-                        \model rendered ->
+                        \\model rendered ->
                             case model.page of
                                 Model${name} subModel ->
                                     Template.${name}.template.view
@@ -74,7 +74,7 @@ view siteMetadata page =
                                         subModel
                                         metadata
                                         rendered
-                                        |> (\{ title, body } ->
+                                        |> (\\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
                                                     page
@@ -160,7 +160,7 @@ mainTemplate { documents, manifest, canonicalSiteUrl } =
         { init = init
         , view = view
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = \\_ -> Sub.none
         , documents = documents
         , onPageChange = Just OnPageChange
         , manifest = manifest -- SiteConfig.manifest

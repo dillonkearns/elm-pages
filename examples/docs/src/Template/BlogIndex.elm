@@ -12,8 +12,8 @@ import Pages.StaticHttp as StaticHttp
 import Showcase
 import SiteConfig
 import Template
-import Template.Metadata exposing (BlogIndex)
 import TemplateDocument exposing (TemplateDocument)
+import TemplateMetadata exposing (BlogIndex)
 
 
 type Msg

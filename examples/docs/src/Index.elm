@@ -11,7 +11,7 @@ import GlobalMetadata
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import Template.Metadata exposing (BlogPost)
+import TemplateMetadata exposing (BlogPost)
 
 
 view :

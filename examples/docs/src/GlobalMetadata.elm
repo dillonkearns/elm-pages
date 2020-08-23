@@ -1,11 +1,11 @@
 module GlobalMetadata exposing (..)
 
-import Template.Metadata
+import TemplateMetadata
 
 
 type Metadata
-    = MetadataBlogPost Template.Metadata.BlogPost
-    | MetadataShowcase Template.Metadata.Showcase
-    | MetadataPage Template.Metadata.Page
-    | MetadataBlogIndex Template.Metadata.BlogIndex
-    | MetadataDocumentation Template.Metadata.Documentation
+    = MetadataBlogPost TemplateMetadata.BlogPost
+    | MetadataShowcase TemplateMetadata.Showcase
+    | MetadataPage TemplateMetadata.Page
+    | MetadataBlogIndex TemplateMetadata.BlogIndex
+    | MetadataDocumentation TemplateMetadata.Documentation

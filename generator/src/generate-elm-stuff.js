@@ -2,6 +2,7 @@ const fs = require("fs");
 const runElm = require("./compile-elm.js");
 const copyModifiedElmJson = require("./rewrite-elm-json.js");
 const { elmPagesCliFile, elmPagesUiFile } = require("./elm-file-constants.js");
+const { generateTemplateModuleConnector } = require("./generate-template-module-connector.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require('./file-helpers.js')
 let wasEqualBefore = false
@@ -22,6 +23,7 @@ module.exports = function run(
 
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent)
+  const templateConnectorFile = generateTemplateModuleConnector()
 
   // TODO should just write it once, but webpack doesn't seem to pick up the changes
   // so this wasEqualBefore code causes it to get written twice to make sure the changes come through for HMR
@@ -39,6 +41,7 @@ module.exports = function run(
       "./gen/Pages.elm",
       uiFileContent
     );
+    fs.writeFileSync("./gen/TemplateDemultiplexer.elm", templateConnectorFile);
   }
 
   global.previousUiFileContent = uiFileContent
@@ -48,6 +51,8 @@ module.exports = function run(
     "./elm-stuff/elm-pages/Pages.elm",
     elmPagesCliFile(staticRoutes, markdownContent)
   );
+
+  fs.writeFileSync("./elm-stuff/elm-pages/TemplateDemultiplexer.elm", templateConnectorFile);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();

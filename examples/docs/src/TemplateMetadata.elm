@@ -1,4 +1,4 @@
-module Template.Metadata exposing (..)
+module TemplateMetadata exposing (..)
 
 import Data.Author exposing (Author)
 import Date exposing (Date)
