@@ -310,17 +310,8 @@ mainTemplate { documents, manifest, canonicalSiteUrl } =
         { init = init
         , view = view
         , update = update
-
-        --, subscriptions = subscriptions
         , subscriptions = \_ -> Sub.none
         , documents = documents
-
-        --[ { extension = "md"
-        --  , metadata = Metadata.decoder
-        --  , body = MarkdownRenderer.view
-        --  }
-        --]
-        --, onPageChange = Just OnPageChange
         , onPageChange = Just OnPageChange
         , manifest = manifest -- SiteConfig.manifest
         , canonicalSiteUrl = canonicalSiteUrl -- SiteConfig.canonicalUrl
