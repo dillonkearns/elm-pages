@@ -25,6 +25,15 @@ ${templates.map(name => `import Template.${name}`).join("\n")}
 type alias Model =
     { global : Global.Model
     , page : TemplateModel
+    , current :
+        Maybe
+            { path :
+                { path : PagePath Pages.PathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : Metadata
+            }
     }
 
 
@@ -123,6 +132,7 @@ init maybePagePath =
                                 |> Model${name}
 
 `).join("\n                        ")}
+      , current = maybePagePath
       }
     , Cmd.none
     )
@@ -149,9 +159,24 @@ update msg model =
                     , metadata = record.metadata
                     }
 
-        _ ->
-            -- not implemented yet
-            ( model, Cmd.none )
+        ${templates.map(name => `
+        Msg${name} msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, model.current |> Maybe.map .metadata ) of
+                        ( Model${name} pageModel, Just (M.Metadata${name} metadata) ) ->
+                            Template.${name}.template.update
+                                metadata
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+`
+        ).join("\n        ")}
 
 
 

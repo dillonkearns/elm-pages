@@ -139,6 +139,15 @@ import Template.Showcase
 type alias Model =
     { global : Global.Model
     , page : TemplateModel
+    , current :
+        Maybe
+            { path :
+                { path : PagePath Pages.PathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : Metadata
+            }
     }
 
 
@@ -409,6 +418,7 @@ init maybePagePath =
                                 |> ModelShowcase
 
 
+      , current = maybePagePath
       }
     , Cmd.none
     )
@@ -435,9 +445,91 @@ update msg model =
                     , metadata = record.metadata
                     }
 
-        _ ->
-            -- not implemented yet
-            ( model, Cmd.none )
+        
+        MsgBlogIndex msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, model.current |> Maybe.map .metadata ) of
+                        ( ModelBlogIndex pageModel, Just (M.MetadataBlogIndex metadata) ) ->
+                            Template.BlogIndex.template.update
+                                metadata
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+
+        
+        MsgBlogPost msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, model.current |> Maybe.map .metadata ) of
+                        ( ModelBlogPost pageModel, Just (M.MetadataBlogPost metadata) ) ->
+                            Template.BlogPost.template.update
+                                metadata
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth ModelBlogPost (Cmd.map MsgBlogPost)
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+
+        
+        MsgDocumentation msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, model.current |> Maybe.map .metadata ) of
+                        ( ModelDocumentation pageModel, Just (M.MetadataDocumentation metadata) ) ->
+                            Template.Documentation.template.update
+                                metadata
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth ModelDocumentation (Cmd.map MsgDocumentation)
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+
+        
+        MsgPage msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, model.current |> Maybe.map .metadata ) of
+                        ( ModelPage pageModel, Just (M.MetadataPage metadata) ) ->
+                            Template.Page.template.update
+                                metadata
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth ModelPage (Cmd.map MsgPage)
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+
+        
+        MsgShowcase msg_ ->
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, model.current |> Maybe.map .metadata ) of
+                        ( ModelShowcase pageModel, Just (M.MetadataShowcase metadata) ) ->
+                            Template.Showcase.template.update
+                                metadata
+                                msg_
+                                pageModel
+                                |> Tuple.mapBoth ModelShowcase (Cmd.map MsgShowcase)
+
+                        _ ->
+                            ( model.page, Cmd.none )
+            in
+            ( { model | page = updatedPageModel }, pageCmd )
+
 
 
 
