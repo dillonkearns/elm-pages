@@ -2,7 +2,7 @@ const globby = require("globby")
 const path = require("path")
 
 
-function generateTemplateModuleConnector(staticRoutes) {
+function generateTemplateModuleConnector() {
     const templates = globby.sync(["src/Template/*.elm"], {}).map(file => path.basename(file, '.elm'))
 
     return `module TemplateDemultiplexer exposing (..)

@@ -12,8 +12,7 @@ test('generate UI file', async () => {
 
 test('generate template module connector', async () => {
     process.chdir(__dirname);
-    const staticRoutes = await generateRecords();
-    const generated = await generateTemplateModuleConnector(staticRoutes);
+    const generated = await generateTemplateModuleConnector();
 
     expect(generated).toMatchSnapshot();
 });
