@@ -63,15 +63,13 @@ type alias View msg =
 --view siteMetadata data model metadata viewForPage =
 
 
-view : StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view data model metadata viewForPage =
+view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view allMetadata data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
             [ Element.column [ Element.padding 20, Element.centerX ]
-                [ --siteMetadata
-                  []
-                    |> Index.view
+                [ Index.view allMetadata
                 ]
             ]
     }

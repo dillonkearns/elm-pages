@@ -69,7 +69,9 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelBlogPost subModel ->
-                                    Template.BlogPost.template.view data
+                                    Template.BlogPost.template.view
+                                        siteMetadata
+                                        data
                                         subModel
                                         metadata
                                         rendered
@@ -101,7 +103,7 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelShowcase subModel ->
-                                    Template.Showcase.template.view data subModel metadata rendered
+                                    Template.Showcase.template.view siteMetadata data subModel metadata rendered
                                         |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
@@ -130,7 +132,7 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelPage subModel ->
-                                    Template.Page.template.view data subModel metadata rendered
+                                    Template.Page.template.view siteMetadata data subModel metadata rendered
                                         |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData
@@ -161,6 +163,7 @@ view siteMetadata page =
                                 ModelBlogIndex subModel ->
                                     --Template.BlogIndex.view siteMetadata data subModel metadata rendered
                                     Template.BlogIndex.template.view
+                                        siteMetadata
                                         data
                                         subModel
                                         metadata
@@ -191,7 +194,7 @@ view siteMetadata page =
                         \model rendered ->
                             case model.page of
                                 ModelDocumentation subModel ->
-                                    Template.Documentation.template.view data subModel metadata rendered
+                                    Template.Documentation.template.view siteMetadata data subModel metadata rendered
                                         |> (\{ title, body } ->
                                                 Global.wrapBody
                                                     globalData

@@ -10,7 +10,8 @@ template :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        templateStaticData
+        List ( PagePath pathKey, globalMetadata )
+        -> templateStaticData
         -> templateModel
         -> templateMetadata
         -> renderedTemplate
@@ -33,7 +34,8 @@ type alias Template pathKey templateMetadata renderedTemplate templateStaticData
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        templateStaticData
+        List ( PagePath pathKey, globalMetadata )
+        -> templateStaticData
         -> templateModel
         -> templateMetadata
         -> renderedTemplate

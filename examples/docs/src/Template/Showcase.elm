@@ -1,6 +1,7 @@
 module Template.Showcase exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
+import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode exposing (Decoder)
@@ -61,8 +62,8 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : StaticData -> Model -> Showcase -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view data model metadata viewForPage =
+view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> Showcase -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view allMetadata data model metadata viewForPage =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]

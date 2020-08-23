@@ -4,12 +4,13 @@ import DocSidebar
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
+import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import MarkdownRenderer
 import Pages exposing (images)
-import Pages.PagePath as PagePath
+import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import SiteConfig
@@ -80,8 +81,8 @@ head static currentPath meta =
         |> Seo.website
 
 
-view : StaticData -> Model -> Documentation -> ( MarkdownRenderer.TableOfContents, List (Element msg) ) -> { title : String, body : Element msg }
-view data model metadata viewForPage =
+view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> Documentation -> ( MarkdownRenderer.TableOfContents, List (Element msg) ) -> { title : String, body : Element msg }
+view allMetadata data model metadata viewForPage =
     { title = metadata.title
     , body =
         [ Element.row []
