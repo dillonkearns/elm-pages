@@ -62,7 +62,9 @@ main =
             ]
         , manifest = SiteConfig.manifest
         , canonicalSiteUrl = SiteConfig.canonicalUrl
+        , subscriptions = \_ -> Sub.none
         }
+        |> Pages.Platform.toProgram
 
 
 

@@ -180,19 +180,18 @@ update msg model =
 
 
 
-mainTemplate { documents, manifest, canonicalSiteUrl } =
+mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
     Pages.Platform.init
         { init = init
         , view = view
         , update = update
-        , subscriptions = \\_ -> Sub.none
+        , subscriptions = subscriptions
         , documents = documents
         , onPageChange = Just OnPageChange
         , manifest = manifest -- SiteConfig.manifest
         , canonicalSiteUrl = canonicalSiteUrl -- SiteConfig.canonicalUrl
         , internals = Pages.internals
         }
-        |> Pages.Platform.toProgram
 
 
 mapDocument : Browser.Document Never -> Browser.Document mapped
