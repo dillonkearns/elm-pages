@@ -10,6 +10,7 @@ import Element.Events
 import Element.Font as Font
 import Element.Region
 import FontAwesome
+import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -51,7 +52,7 @@ type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata TemplateDemultiplexer.View
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Global.View
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =

@@ -8,12 +8,10 @@ function generateTemplateModuleConnector() {
     return `module TemplateDemultiplexer exposing (..)
 
 import Browser
-import Element exposing (Element)
 import Global
 import GlobalMetadata as M exposing (Metadata)
 import Head
 import Html exposing (Html)
-import MarkdownRenderer
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
@@ -52,10 +50,6 @@ type Msg
     | ${templates.map(name => `Msg${name} Template.${name}.Msg\n`).join("    | ")}
 
 
-type alias View =
-    ( MarkdownRenderer.TableOfContents, List (Element Never) )
-
-
 view :
     List ( PagePath Pages.PathKey, Metadata )
     ->
@@ -64,7 +58,7 @@ view :
         }
     ->
         StaticHttp.Request
-            { view : Model -> View -> { title : String, body : Html Msg }
+            { view : Model -> Global.View -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
@@ -89,11 +83,7 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title
-                                                    , body =
-                                                        -- Template.BlogPost.liftViewMsg
-                                                        Element.map never body
-                                                    }
+                                                    { title = title, body = body }
                                            )
 
                                 _ ->

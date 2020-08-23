@@ -10,6 +10,7 @@ import Element.Region
 import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
+import MarkdownRenderer
 import OptimizedDecoder as D
 import Pages exposing (pages)
 import Pages.Directory as Directory exposing (Directory)
@@ -23,6 +24,14 @@ import Secrets
 type alias Model =
     { showMobileMenu : Bool
     }
+
+
+type alias View =
+    ( MarkdownRenderer.TableOfContents, List (Element Never) )
+
+
+type alias RenderedMarkdown msg =
+    ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
 type Msg
@@ -64,7 +73,7 @@ wrapBody :
     -> { a | path : PagePath Pages.PathKey }
     -> Model
     -> (Msg -> msg)
-    -> { body : Element msg, title : String }
+    -> { body : Element Never, title : String }
     -> { body : Html msg, title : String }
 wrapBody stars page model liftMsg record =
     { body =
@@ -85,7 +94,7 @@ wrapBody stars page model liftMsg record =
          else
             Element.column [ Element.width Element.fill ]
                 [ header stars page.path |> Element.map liftMsg
-                , record.body
+                , record.body |> Element.map never
                 ]
         )
             |> Element.layout

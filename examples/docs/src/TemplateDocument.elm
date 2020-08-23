@@ -1,7 +1,9 @@
 module TemplateDocument exposing (..)
 
+import Browser
 import Element exposing (Element)
 import GlobalMetadata
+import Html exposing (Html)
 import MarkdownRenderer
 import Pages
 import Template exposing (Template)
