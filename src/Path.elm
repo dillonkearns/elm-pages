@@ -1,4 +1,27 @@
-module Path exposing (..)
+module Path exposing (Path, fromList, fromPath, toList, toRelative)
+
+
+fromPath : { url | path : String } -> Path
+fromPath { path } =
+    path
+        |> normalizePath
+        |> RelativePath
+
+
+toList : Path -> List String
+toList (RelativePath relativePath) =
+    relativePath
+        |> dropTrailing
+        |> String.split "/"
+
+
+dropTrailing : String -> String
+dropTrailing string =
+    if string |> String.endsWith "/" then
+        string |> String.dropRight 1
+
+    else
+        string
 
 
 type Path
