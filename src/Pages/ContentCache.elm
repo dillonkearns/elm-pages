@@ -26,7 +26,6 @@ import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
 import Task exposing (Task)
 import TerminalText as Terminal
-import Url exposing (Url)
 
 
 type alias Content =
@@ -339,7 +338,7 @@ parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
     Document metadata view
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url a, baseUrl : Url a }
     -> ContentCache metadata view
     -> Task Http.Error (ContentCache metadata view)
 lazyLoad document urls cacheResult =
@@ -382,7 +381,7 @@ lazyLoad document urls cacheResult =
                     Task.succeed cacheResult
 
 
-httpTask : Url -> Task Http.Error (ContentJson String)
+httpTask : Url a -> Task Http.Error (ContentJson String)
 httpTask url =
     Http.task
         { method = "GET"
@@ -437,7 +436,7 @@ contentJsonDecoder =
 update :
     ContentCache metadata view
     -> (String -> Result ParseError view)
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url a, baseUrl : Url a }
     -> ContentJson String
     -> ContentCache metadata view
 update cacheResult renderer urls rawContent =
@@ -477,7 +476,7 @@ update cacheResult renderer urls rawContent =
             Err error
 
 
-pathForUrl : { currentUrl : Url, baseUrl : Url } -> Path
+pathForUrl : { currentUrl : Url a, baseUrl : Url a } -> Path
 pathForUrl { currentUrl, baseUrl } =
     currentUrl.path
         |> String.dropLeft (String.length baseUrl.path)
@@ -486,10 +485,16 @@ pathForUrl { currentUrl, baseUrl } =
         |> List.filter ((/=) "")
 
 
+type alias Url a =
+    { a
+        | path : String
+    }
+
+
 lookup :
     pathKey
     -> ContentCache metadata view
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url a, baseUrl : Url a }
     -> Maybe ( PagePath pathKey, Entry metadata view )
 lookup pathKey content urls =
     case content of
@@ -512,7 +517,7 @@ lookup pathKey content urls =
 lookupMetadata :
     pathKey
     -> ContentCache metadata view
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url a, baseUrl : Url a }
     -> Maybe ( PagePath pathKey, metadata )
 lookupMetadata pathKey content urls =
     urls
