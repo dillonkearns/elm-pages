@@ -156,6 +156,8 @@ type TemplateModel
     | ModelPage Template.Page.Model
     | ModelShowcase Template.Showcase.Model
 
+    | NotFound
+
 
 
 type Msg
@@ -358,7 +360,7 @@ init maybePagePath =
       , page =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
-                    Debug.todo \\"\\"
+                    NotFound
 
                 Just meta ->
                     case meta of

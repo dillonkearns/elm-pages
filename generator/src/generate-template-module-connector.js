@@ -37,6 +37,8 @@ type alias Model =
 
 type TemplateModel
     = ${templates.map(name => `Model${name} Template.${name}.Model\n`).join("    | ")}
+    | NotFound
+
 
 
 type Msg
@@ -112,7 +114,7 @@ init maybePagePath =
       , page =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
-                    Debug.todo ""
+                    NotFound
 
                 Just meta ->
                     case meta of
