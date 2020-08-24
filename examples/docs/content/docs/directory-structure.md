@@ -17,6 +17,9 @@ your files (both code and content).
 ├── index.js
 ├── package.json
 └── src/
+    └── Template/
+        ├── Bio.elm     # user-defined template modules
+        └── Catalog.elm
     └── Main.elm
 ```
 
@@ -74,6 +77,74 @@ markdownDocument =
 
 ```
 
-## Metadata
+## Modules
 
-You define how your metadata is parsed
+### Templates
+`src/Template/*.elm`
+
+A template represents a type of page. For example, a BlogPost template could live in `src/Template/BlogPost.elm`. Any files in your `content/` folder with frontmatter that you decode into type `GlobalMetadata.BlogPost` will be rendered using your `BlogPost` template.
+
+Think of each template as having its own mini `elm-pages architecture` lifecycle.
+
+Imagine you have a site called thegreatcomposers.com that lists the greatest works of Classical composers.
+
+Let's say you have a file called `content/catalog/sibelius.md` with these contents:
+
+```markdown
+---
+template: catalog
+composer: Sibelius
+---
+## Symphony 2, Op. 47
+### Notable Recordings
+Bernstein Vienna Philharmonic
+```
+
+You have a metadata decoder like this:
+
+```elm
+module Metadata exposing (Metadata, decoder)
+
+type Metadata = Catalog Composer | Bio Composer
+
+type Composer = Sibelius | Mozart
+
+decoder =
+  Decode.string
+    |> Decode.field "template"
+    |> Decode.andThen (\template ->
+       case template of
+          "catalog" -> Decode.map Catalog decodeComposer
+          "bio" -> Decode.map Bio decodeComposer
+    )
+```
+
+Now say you navigate to `/catalog/sibelius`. Let's look at the `elm-pages architecture` lifecycle steps that kick in.
+
+### Build
+
+* `staticData` - When you build your site (using `elm-pages build` for prod or `elm-pages develop` in dev mode), the `staticData` will be fetched for this page. Your `staticData` request has access to the page's `Metadata`. So if you wanted to request `api.composers.com/portrait-images/<composer-name>` to get the list of images for each composer's catalog page, you could. Behind the scenes, `elm-pages` will make sure this data is loaded for you in the browser so you have access to this data, even though the API is only hit during the initial build and then stored as a JSON asset for your site.
+#### Page Load
+* `init` - the page for Sibelius' catalog has its own state. Let's display a Carousel that shows photos of the composer. `init` is called when you navigate to this page. If you navigate to another composer's catalog page, like Mozart, it will call the same `init` function to get a fresh Model for the new page, passing in the metadata for the Mozart page (from the frontmatter in `content/catalog/mozart`.
+* `view` given the page's state, metadata, and StaticHttp data, you can render the catalog for Sibelius.
+#### Page Interaction
+* `update` - if you click the Carousel, the page's state gets updated.
+
+
+### Global
+`src/Global.elm`
+* `staticData` (loaded per-app, not per-page)
+* `View` - the data type that pages render to in your app
+* `view` - the top-level view function for your app
+
+### Build
+`src/Build.elm`
+* `staticData` (build-only)
+* `manifest`
+* `generateFiles`
+
+
+### Global Metadata
+`src/GlobalMetadata.elm`
+
+This module must define a variant for each template module.
