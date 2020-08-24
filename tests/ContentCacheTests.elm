@@ -17,8 +17,7 @@ all =
                     let
                         contentCache =
                             ContentCache.init document
-                                [ ( [], { extension = "md", frontMatter = "123", body = Nothing } )
-                                ]
+                                [ prodContentEntry [] ]
                                 (Just
                                     { contentJson =
                                         -- app is hydrated with this data
@@ -39,6 +38,10 @@ all =
                         }
                         |> expectPresent
             ]
+
+
+prodContentEntry path =
+    ( path, { extension = "md", frontMatter = "123", body = Nothing } )
 
 
 expectPresent : Maybe a -> Expectation
