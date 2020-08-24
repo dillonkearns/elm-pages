@@ -4,3 +4,4 @@ dist/
 .cache/
 generator/src/Main.js
 elm-pages-*.tgz
+coverage
