@@ -10,34 +10,33 @@ import Test exposing (..)
 
 all : Test
 all =
-    only <|
-        describe "ContentCache"
-            [ test "there is no content flash during hydration" <|
-                \() ->
-                    let
-                        contentCache =
-                            ContentCache.init document
-                                [ prodContentEntry [] ]
-                                (Just
-                                    { contentJson =
-                                        -- app is hydrated with this data
-                                        { body = ""
-                                        , staticData = Dict.empty
-                                        }
-                                    , initialUrl = { path = "" }
+    describe "ContentCache"
+        [ test "there is no content flash during hydration" <|
+            \() ->
+                let
+                    contentCache =
+                        ContentCache.init document
+                            [ prodContentEntry [] ]
+                            (Just
+                                { contentJson =
+                                    -- app is hydrated with this data
+                                    { body = ""
+                                    , staticData = Dict.empty
                                     }
-                                )
+                                , initialUrl = { path = "" }
+                                }
+                            )
 
-                        document =
-                            Document.fromList [ Document.parser { extension = "md", metadata = Decode.succeed (), body = \_ -> Ok () } ]
-                    in
-                    ContentCache.lookup ()
-                        (contentCache |> Debug.log "contentCache")
-                        { currentUrl = { path = "" }
-                        , baseUrl = { path = "" }
-                        }
-                        |> expectPresent
-            ]
+                    document =
+                        Document.fromList [ Document.parser { extension = "md", metadata = Decode.succeed (), body = \_ -> Ok () } ]
+                in
+                ContentCache.lookup ()
+                    (contentCache |> Debug.log "contentCache")
+                    { currentUrl = { path = "" }
+                    , baseUrl = { path = "" }
+                    }
+                    |> expectPresent
+        ]
 
 
 prodContentEntry path =
