@@ -177,7 +177,7 @@ update msg model =
 pageView :
     Int
     -> Model
-    -> List ( PagePath Pages.PathKey, Metadata )
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> { path : PagePath Pages.PathKey, frontmatter : Metadata }
     -> ( MarkdownRenderer.TableOfContents, List (Element Msg) )
     -> { title : String, body : Element Msg }

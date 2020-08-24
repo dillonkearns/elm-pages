@@ -87,10 +87,8 @@ view allMetadata data model metadata viewForPage =
     , body =
         [ Element.row []
             [ DocSidebar.view
-                -- page.path
                 Pages.pages.index
-                []
-                -- siteMetadata
+                allMetadata
                 |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
             , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
                 [ Palette.heading 1 [ Element.text metadata.title ]
