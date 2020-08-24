@@ -10,9 +10,17 @@ fromPath { path } =
 
 toList : Path -> List String
 toList (RelativePath relativePath) =
-    relativePath
-        |> dropTrailing
-        |> String.split "/"
+    let
+        value =
+            relativePath
+                |> dropTrailing
+                |> String.split "/"
+    in
+    if value == [ "" ] then
+        []
+
+    else
+        value
 
 
 dropTrailing : String -> String
