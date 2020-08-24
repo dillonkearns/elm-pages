@@ -44,6 +44,14 @@ type alias ContentCacheInner metadata view =
     Dict Path (Entry metadata view)
 
 
+
+{-
+   - if you initialize with a `Just`, then a `Parsed` value will be available immediately
+       (important because otherwise hydration step would show a flash of incomplete content)
+   -
+-}
+
+
 type Entry metadata view
     = NeedContent String metadata
     | Unparsed String metadata (ContentJson String)
