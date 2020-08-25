@@ -1,5 +1,6 @@
 module Template exposing (..)
 
+import Global
 import Head
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -10,7 +11,9 @@ template :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath pathKey, globalMetadata )
+        (templateMsg -> msg)
+        -> (Global.Msg -> msg)
+        -> List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateModel
         -> templateMetadata
@@ -24,17 +27,19 @@ template :
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     }
-    -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
+    -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata msg
 template config =
     config
 
 
-type alias Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata =
+type alias Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata msg =
     { staticData :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath pathKey, globalMetadata )
+        (templateMsg -> msg)
+        -> (Global.Msg -> msg)
+        -> List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateModel
         -> templateMetadata

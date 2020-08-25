@@ -2,6 +2,7 @@ module Template.Page exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
 import Element.Region
+import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -27,7 +28,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Page StaticData Model Msg
+template : TemplateDocument Page StaticData Model Msg msg
 template =
     Template.template
         { view = view
@@ -77,8 +78,16 @@ head static currentPath meta =
         |> Seo.website
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> Page -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view allMetadata data model metadata viewForPage =
+view :
+    (Msg -> msg)
+    -> (Global.Msg -> msg)
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticData
+    -> Model
+    -> Page
+    -> Global.RenderedBody Never
+    -> { title : String, body : Element Never }
+view toMsg toGlobalMsg allMetadata static model metadata rendered =
     { title = metadata.title
     , body =
         [ Element.column
@@ -86,7 +95,7 @@ view allMetadata data model metadata viewForPage =
             , Element.spacing 60
             , Element.Region.mainContent
             ]
-            (Tuple.second viewForPage)
+            (Tuple.second rendered)
         ]
             |> Element.textColumn
                 [ Element.width Element.fill

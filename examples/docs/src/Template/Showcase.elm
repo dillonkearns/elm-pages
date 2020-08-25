@@ -1,6 +1,7 @@
 module Template.Showcase exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
+import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -19,7 +20,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Showcase StaticData Model Msg
+template : TemplateDocument Showcase StaticData Model Msg msg
 template =
     Template.template
         { view = view
@@ -62,12 +63,20 @@ type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> Showcase -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view allMetadata data model metadata viewForPage =
+view :
+    (Msg -> msg)
+    -> (Global.Msg -> msg)
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticData
+    -> Model
+    -> Showcase
+    -> Global.RenderedBody Never
+    -> { title : String, body : Element Never }
+view toMsg toGlobalMsg allMetadata static model metadata rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
-            [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view data ]
+            [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view static ]
             ]
     }
 

@@ -2,6 +2,7 @@ module TemplateDocument exposing (..)
 
 import Browser
 import Element exposing (Element)
+import Global
 import GlobalMetadata
 import Html exposing (Html)
 import MarkdownRenderer
@@ -17,5 +18,5 @@ type alias RenderedBody msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-type alias TemplateDocument templateMetadata templateStaticData templateModel templateMsg =
-    Template Pages.PathKey templateMetadata (RenderedBody Never) templateStaticData templateModel (View Never) templateMsg GlobalMetadata.Metadata
+type alias TemplateDocument templateMetadata templateStaticData templateModel templateMsg internalMsg =
+    Template Pages.PathKey templateMetadata (RenderedBody Never) templateStaticData templateModel (View Never) templateMsg GlobalMetadata.Metadata internalMsg

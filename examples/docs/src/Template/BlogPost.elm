@@ -5,6 +5,7 @@ import Date exposing (Date)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
+import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -32,7 +33,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogPost StaticData Model Msg
+template : TemplateDocument BlogPost StaticData Model Msg msg
 template =
     Template.template
         { view = view
@@ -110,8 +111,16 @@ type alias StaticData =
     Int
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view allMetadata static model blogPost rendered =
+view :
+    (Msg -> msg)
+    -> (Global.Msg -> msg)
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticData
+    -> Model
+    -> BlogPost
+    -> Global.RenderedBody Never
+    -> { title : String, body : Element Never }
+view toMsg toGlobalMsg allMetadata static model blogPost rendered =
     { title = blogPost.title
     , body =
         Element.column [ Element.width Element.fill ]

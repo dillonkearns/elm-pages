@@ -4,6 +4,7 @@ import DocSidebar
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
+import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -31,7 +32,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Documentation StaticData Model Msg
+template : TemplateDocument Documentation StaticData Model Msg msg
 template =
     Template.template
         { view = view
@@ -81,8 +82,16 @@ head static currentPath meta =
         |> Seo.website
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> Documentation -> ( MarkdownRenderer.TableOfContents, List (Element msg) ) -> { title : String, body : Element msg }
-view allMetadata data model metadata viewForPage =
+view :
+    (Msg -> msg)
+    -> (Global.Msg -> msg)
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticData
+    -> Model
+    -> Documentation
+    -> Global.RenderedBody Never
+    -> { title : String, body : Element Never }
+view toMsg toGlobalMsg allMetadata static model metadata rendered =
     { title = metadata.title
     , body =
         [ Element.row []
@@ -93,13 +102,13 @@ view allMetadata data model metadata viewForPage =
             , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
                 [ Palette.heading 1 [ Element.text metadata.title ]
                 , Element.column [ Element.spacing 20 ]
-                    [ tocView (Tuple.first viewForPage)
+                    [ tocView (Tuple.first rendered)
                     , Element.column
                         [ Element.padding 50
                         , Element.spacing 30
                         , Element.Region.mainContent
                         ]
-                        (Tuple.second viewForPage)
+                        (Tuple.second rendered)
                     ]
                 ]
             ]

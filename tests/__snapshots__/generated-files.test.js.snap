@@ -197,6 +197,8 @@ view siteMetadata page =
                             case model.page of
                                 ModelBlogIndex subModel ->
                                     Template.BlogIndex.template.view
+                                        MsgBlogIndex
+                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -228,6 +230,8 @@ view siteMetadata page =
                             case model.page of
                                 ModelBlogPost subModel ->
                                     Template.BlogPost.template.view
+                                        MsgBlogPost
+                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -259,6 +263,8 @@ view siteMetadata page =
                             case model.page of
                                 ModelDocumentation subModel ->
                                     Template.Documentation.template.view
+                                        MsgDocumentation
+                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -290,6 +296,8 @@ view siteMetadata page =
                             case model.page of
                                 ModelPage subModel ->
                                     Template.Page.template.view
+                                        MsgPage
+                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -321,6 +329,8 @@ view siteMetadata page =
                             case model.page of
                                 ModelShowcase subModel ->
                                     Template.Showcase.template.view
+                                        MsgShowcase
+                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel

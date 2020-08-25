@@ -1,6 +1,7 @@
 module Template.BlogIndex exposing (Model, Msg, template)
 
 import Element exposing (Element)
+import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -20,7 +21,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogIndex StaticData Model Msg
+template : TemplateDocument BlogIndex StaticData Model Msg msg
 template =
     Template.template
         { view = view
@@ -63,8 +64,16 @@ type alias View msg =
 --view siteMetadata data model metadata viewForPage =
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
-view allMetadata data model metadata viewForPage =
+view :
+    (Msg -> msg)
+    -> (Global.Msg -> msg)
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticData
+    -> Model
+    -> BlogIndex
+    -> Global.RenderedBody Never
+    -> { title : String, body : Element Never }
+view toMsg toGlobalMsg allMetadata static model metadata rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
