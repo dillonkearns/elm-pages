@@ -13,9 +13,9 @@ type alias View msg =
     { title : String, body : Element msg }
 
 
-type alias RenderedMarkdown msg =
+type alias RenderedBody msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
 type alias TemplateDocument templateMetadata templateStaticData templateModel templateMsg =
-    Template Pages.PathKey templateMetadata (RenderedMarkdown Never) templateStaticData templateModel (View Never) templateMsg GlobalMetadata.Metadata
+    Template Pages.PathKey templateMetadata (RenderedBody Never) templateStaticData templateModel (View Never) templateMsg GlobalMetadata.Metadata

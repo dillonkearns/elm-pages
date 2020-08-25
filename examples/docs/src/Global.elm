@@ -30,7 +30,7 @@ type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Never) )
 
 
-type alias RenderedMarkdown msg =
+type alias RenderedBody msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
