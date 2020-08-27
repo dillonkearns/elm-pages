@@ -82,7 +82,7 @@ view siteMetadata page =
                                         metadata
                                         rendered
                                         |> (\\{ title, body } ->
-                                                Global.wrapBody
+                                                Global.view
                                                     globalData
                                                     page
                                                     model.global

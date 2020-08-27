@@ -72,14 +72,14 @@ staticData siteMetadata =
         (D.field "stargazers_count" D.int)
 
 
-wrapBody :
+view :
     StaticData
     -> { a | path : PagePath Pages.PathKey }
     -> Model
     -> (Msg -> msg)
     -> PageView Never
     -> { body : Html msg, title : String }
-wrapBody stars page model liftMsg pageView =
+view stars page model liftMsg pageView =
     { body =
         (if model.showMobileMenu then
             Element.column
