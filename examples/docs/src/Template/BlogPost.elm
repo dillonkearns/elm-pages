@@ -11,13 +11,11 @@ import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import List.Extra
-import OptimizedDecoder as D
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
-import Secrets
 import SiteConfig
 import StructuredData
 import Template
@@ -33,12 +31,11 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogPost StaticData Model Msg msg
+template : TemplateDocument BlogPost () Model Msg msg
 template =
-    Template.template
+    Template.simpler
         { view = view
         , head = head
-        , staticData = staticData
         , init = init
         , update = update
         }
@@ -101,26 +98,15 @@ update metadata msg model =
     ( Model, Cmd.none )
 
 
-staticData : a -> StaticHttp.Request StaticData
-staticData siteMetadata =
-    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (D.field "stargazers_count" D.int)
-
-
-type alias StaticData =
-    Int
-
-
 view :
     (Msg -> msg)
     -> (Global.Msg -> msg)
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticData
     -> Model
     -> BlogPost
     -> Global.RenderedBody Never
     -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata static model blogPost rendered =
+view toMsg toGlobalMsg allMetadata model blogPost rendered =
     { title = blogPost.title
     , body =
         Element.column [ Element.width Element.fill ]
@@ -152,8 +138,8 @@ view toMsg toGlobalMsg allMetadata static model blogPost rendered =
     }
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
-head static currentPath meta =
+head : PagePath.PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
+head currentPath meta =
     Head.structuredData
         (StructuredData.article
             { title = meta.title

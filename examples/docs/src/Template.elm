@@ -6,6 +6,35 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 
 
+simpler :
+    { view :
+        (templateMsg -> msg)
+        -> (Global.Msg -> msg)
+        -> List ( PagePath pathKey, globalMetadata )
+        -> templateModel
+        -> templateMetadata
+        -> renderedTemplate
+        -> templateView
+    , head :
+        PagePath pathKey
+        -> templateMetadata
+        -> List (Head.Tag pathKey)
+    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    }
+    -> Template pathKey templateMetadata renderedTemplate () templateModel templateView templateMsg globalMetadata msg
+simpler config =
+    template
+        { view =
+            \toMsg toGlobalMsg allMetadata static model blogPost rendered ->
+                config.view toMsg toGlobalMsg allMetadata model blogPost rendered
+        , head = \() -> config.head
+        , staticData = \_ -> StaticHttp.succeed ()
+        , init = config.init
+        , update = config.update
+        }
+
+
 template :
     { staticData :
         List ( PagePath pathKey, globalMetadata )
