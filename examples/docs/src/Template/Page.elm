@@ -20,8 +20,8 @@ type alias StaticData =
     ()
 
 
-type Model
-    = Model
+type alias Model =
+    ()
 
 
 type Msg
@@ -30,23 +30,20 @@ type Msg
 
 template : TemplateDocument Page StaticData Model Msg msg
 template =
-    Template.template
+    Template.simplest
         { view = view
         , head = head
-        , staticData = staticData
-        , init = init
-        , update = update
         }
 
 
 init : Page -> ( Model, Cmd Msg )
 init metadata =
-    ( Model, Cmd.none )
+    ( (), Cmd.none )
 
 
 update : Page -> Msg -> Model -> ( Model, Cmd Msg )
 update metadata msg model =
-    ( Model, Cmd.none )
+    ( (), Cmd.none )
 
 
 staticData : a -> StaticHttp.Request StaticData
@@ -60,8 +57,8 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> Page -> List (Head.Tag Pages.PathKey)
-head static currentPath meta =
+head : PagePath.PagePath Pages.PathKey -> Page -> List (Head.Tag Pages.PathKey)
+head currentPath meta =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -82,12 +79,11 @@ view :
     (Msg -> msg)
     -> (Global.Msg -> msg)
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticData
     -> Model
     -> Page
     -> Global.RenderedBody Never
     -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata static model metadata rendered =
+view toMsg toGlobalMsg allMetadata model metadata rendered =
     { title = metadata.title
     , body =
         [ Element.column

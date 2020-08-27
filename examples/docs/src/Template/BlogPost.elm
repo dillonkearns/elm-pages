@@ -14,7 +14,6 @@ import List.Extra
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Palette
 import SiteConfig
 import StructuredData

@@ -6,7 +6,6 @@ import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode exposing (Decoder)
-import MarkdownRenderer
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -16,24 +15,21 @@ import TemplateDocument exposing (TemplateDocument)
 import TemplateMetadata exposing (Showcase)
 
 
+type alias Model =
+    ()
+
+
 type Msg
     = Msg
 
 
 template : TemplateDocument Showcase StaticData Model Msg msg
 template =
-    Template.template
+    Template.stateless
         { view = view
         , head = head
         , staticData = staticData
-        , init = init
-        , update = update
         }
-
-
-update : Showcase -> Msg -> Model -> ( Model, Cmd Msg )
-update metadata msg model =
-    ( Model, Cmd.none )
 
 
 decoder : Decoder Showcase
@@ -50,29 +46,15 @@ type alias StaticData =
     List Showcase.Entry
 
 
-init : Showcase -> ( Model, Cmd Msg )
-init metadata =
-    ( Model, Cmd.none )
-
-
-type alias Model =
-    {}
-
-
-type alias View msg =
-    ( MarkdownRenderer.TableOfContents, List (Element msg) )
-
-
 view :
     (Msg -> msg)
     -> (Global.Msg -> msg)
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticData
-    -> Model
     -> Showcase
     -> Global.RenderedBody Never
     -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata static model metadata rendered =
+view toMsg toGlobalMsg allMetadata static metadata rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
