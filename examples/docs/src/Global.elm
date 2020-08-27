@@ -34,6 +34,10 @@ type alias RenderedBody msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
+type alias PageView msg =
+    { title : String, body : Element msg }
+
+
 type Msg
     = OnPageChange
         { path : PagePath Pages.PathKey
@@ -73,9 +77,9 @@ wrapBody :
     -> { a | path : PagePath Pages.PathKey }
     -> Model
     -> (Msg -> msg)
-    -> { body : Element Never, title : String }
+    -> PageView Never
     -> { body : Html msg, title : String }
-wrapBody stars page model liftMsg record =
+wrapBody stars page model liftMsg pageView =
     { body =
         (if model.showMobileMenu then
             Element.column
@@ -94,7 +98,7 @@ wrapBody stars page model liftMsg record =
          else
             Element.column [ Element.width Element.fill ]
                 [ header stars page.path |> Element.map liftMsg
-                , record.body |> Element.map never
+                , pageView.body |> Element.map never
                 ]
         )
             |> Element.layout
@@ -105,7 +109,7 @@ wrapBody stars page model liftMsg record =
                 ]
 
     --|> Html.map liftMsg
-    , title = record.title
+    , title = pageView.title
     }
 
 
