@@ -23,6 +23,7 @@ import Secrets
 
 type alias Model =
     { showMobileMenu : Bool
+    , counter : Int
     }
 
 
@@ -45,10 +46,13 @@ type Msg
         , fragment : Maybe String
         }
     | ToggleMobileMenu
+    | Increment
 
 
+init : a -> Model
 init maybePagePath =
     { showMobileMenu = False
+    , counter = 0
     }
 
 
@@ -60,6 +64,9 @@ update msg model =
 
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
+
+        Increment ->
+            ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
 type alias StaticData =
@@ -98,6 +105,7 @@ view stars page model toMsg pageView =
          else
             Element.column [ Element.width Element.fill ]
                 [ header stars page.path |> Element.map toMsg
+                , incrementView model |> Element.map toMsg
                 , pageView.body |> Element.map never
                 ]
         )
@@ -107,10 +115,13 @@ view stars page model toMsg pageView =
                 , Font.family [ Font.typeface "Roboto" ]
                 , Font.color (Element.rgba255 0 0 0 0.8)
                 ]
-
-    --|> Html.map liftMsg
     , title = pageView.title
     }
+
+
+incrementView : Model -> Element Msg
+incrementView model =
+    Element.el [ Element.Events.onClick Increment ] (Element.text <| String.fromInt model.counter)
 
 
 logoLinkMobile =
