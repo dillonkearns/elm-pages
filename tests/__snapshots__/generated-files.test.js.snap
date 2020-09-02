@@ -446,7 +446,7 @@ update msg model =
                         _ ->
                             ( model.page, Cmd.none )
             in
-            ( { model | page = updatedPageModel }, pageCmd )
+            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 
         
         MsgBlogPost msg_ ->
@@ -463,7 +463,7 @@ update msg model =
                         _ ->
                             ( model.page, Cmd.none )
             in
-            ( { model | page = updatedPageModel }, pageCmd )
+            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 
         
         MsgDocumentation msg_ ->
@@ -480,7 +480,7 @@ update msg model =
                         _ ->
                             ( model.page, Cmd.none )
             in
-            ( { model | page = updatedPageModel }, pageCmd )
+            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 
         
         MsgPage msg_ ->
@@ -497,7 +497,7 @@ update msg model =
                         _ ->
                             ( model.page, Cmd.none )
             in
-            ( { model | page = updatedPageModel }, pageCmd )
+            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 
         
         MsgShowcase msg_ ->
@@ -514,8 +514,32 @@ update msg model =
                         _ ->
                             ( model.page, Cmd.none )
             in
-            ( { model | page = updatedPageModel }, pageCmd )
+            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 
+
+
+
+save : TemplateModel -> Global.Model -> Global.Model
+save model globalModel=
+    case model of
+        ModelBlogIndex m ->
+            Template.BlogIndex.template.save m globalModel
+
+        ModelBlogPost m ->
+            Template.BlogPost.template.save m globalModel
+
+        ModelDocumentation m ->
+            Template.Documentation.template.save m globalModel
+
+        ModelPage m ->
+            Template.Page.template.save m globalModel
+
+        ModelShowcase m ->
+            Template.Showcase.template.save m globalModel
+
+
+        NotFound ->
+            globalModel
 
 
 

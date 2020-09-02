@@ -168,9 +168,22 @@ update msg model =
                         _ ->
                             ( model.page, Cmd.none )
             in
-            ( { model | page = updatedPageModel }, pageCmd )
+            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 `
         ).join("\n        ")}
+
+
+
+save : TemplateModel -> Global.Model -> Global.Model
+save model globalModel=
+    case model of
+        ${templates.map(name => `Model${name} m ->
+            Template.${name}.template.save m globalModel
+`
+        ).join("\n        ")}
+
+        NotFound ->
+            globalModel
 
 
 
