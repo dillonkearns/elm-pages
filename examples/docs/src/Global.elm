@@ -79,7 +79,7 @@ view :
     -> (Msg -> msg)
     -> PageView Never
     -> { body : Html msg, title : String }
-view stars page model liftMsg pageView =
+view stars page model toMsg pageView =
     { body =
         (if model.showMobileMenu then
             Element.column
@@ -87,9 +87,9 @@ view stars page model liftMsg pageView =
                 , Element.padding 20
                 ]
                 [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
-                    [ logoLinkMobile |> Element.map liftMsg
+                    [ logoLinkMobile |> Element.map toMsg
                     , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
-                        |> Element.map liftMsg
+                        |> Element.map toMsg
                     ]
                 , Element.column [ Element.centerX, Element.spacing 20 ]
                     (navbarLinks stars page.path)
@@ -97,7 +97,7 @@ view stars page model liftMsg pageView =
 
          else
             Element.column [ Element.width Element.fill ]
-                [ header stars page.path |> Element.map liftMsg
+                [ header stars page.path |> Element.map toMsg
                 , pageView.body |> Element.map never
                 ]
         )
