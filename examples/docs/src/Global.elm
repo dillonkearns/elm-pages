@@ -134,7 +134,7 @@ view stars page model toMsg pageView =
 
 incrementView : Model -> Element Msg
 incrementView model =
-    Element.el [ Element.Events.onClick Increment ] (Element.text <| String.fromInt model.counter)
+    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Global count: " ++ String.fromInt model.counter)
 
 
 logoLinkMobile =

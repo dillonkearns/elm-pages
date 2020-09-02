@@ -2,6 +2,7 @@ module Template.Documentation exposing (Model, Msg, decoder, template)
 
 import DocSidebar
 import Element exposing (Element)
+import Element.Events
 import Element.Font as Font
 import Element.Region
 import Global
@@ -24,12 +25,13 @@ type alias StaticData =
     ()
 
 
-type Model
-    = Model
+type alias Model =
+    { counter : Int
+    }
 
 
 type Msg
-    = Msg
+    = Increment
 
 
 template : TemplateDocument Documentation StaticData Model Msg
@@ -47,7 +49,7 @@ template =
 
 load : Global.Model -> Model -> ( Model, Cmd Msg )
 load globalModel model =
-    ( model, Cmd.none )
+    ( { model | counter = globalModel.counter }, Cmd.none )
 
 
 save : Model -> Global.Model -> Global.Model
@@ -57,12 +59,14 @@ save model globalModel =
 
 init : Documentation -> ( Model, Cmd Msg )
 init metadata =
-    ( Model, Cmd.none )
+    ( { counter = 0 }, Cmd.none )
 
 
 update : Documentation -> Msg -> Model -> ( Model, Cmd Msg )
 update metadata msg model =
-    ( Model, Cmd.none )
+    case msg of
+        Increment ->
+            ( { counter = model.counter + 1 }, Cmd.none )
 
 
 staticData : a -> StaticHttp.Request StaticData
@@ -133,7 +137,7 @@ view allMetadata static model metadata rendered =
 
 counterView : Model -> Element Msg
 counterView model =
-    Element.text ""
+    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt model.counter)
 
 
 tocView : MarkdownRenderer.TableOfContents -> Element msg

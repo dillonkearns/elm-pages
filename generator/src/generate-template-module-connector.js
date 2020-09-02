@@ -102,17 +102,19 @@ view siteMetadata page =
 
 
 init :
-    Maybe
-        { path :
-            { path : PagePath Pages.PathKey
-            , query : Maybe String
-            , fragment : Maybe String
+    Maybe Global.Model
+    ->
+        Maybe
+            { path :
+                { path : PagePath Pages.PathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : Metadata
             }
-        , metadata : Metadata
-        }
     -> ( Model, Cmd Msg )
-init maybePagePath =
-    ( { global = Global.init maybePagePath
+init currentGlobalModel maybePagePath =
+    ( { global = currentGlobalModel |> Maybe.withDefault (Global.init maybePagePath)
       , page =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
@@ -143,7 +145,7 @@ update msg model =
             ( { model | global = globalModel }, globalCmd |> Cmd.map MsgGlobal )
 
         OnPageChange record ->
-            init <|
+            init (Just model.global) <|
                 Just
                     { path =
                         { path = record.path
@@ -189,7 +191,7 @@ save model globalModel=
 
 mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
     Pages.Platform.init
-        { init = init
+        { init = init Nothing
         , view = view
         , update = update
         , subscriptions = subscriptions
