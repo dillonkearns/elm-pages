@@ -154,8 +154,19 @@ update msg model =
             let
                 ( globalModel, globalCmd ) =
                     Global.update msg_ model.global
+
+                ( templateModel, templateCmd ) =
+                    load globalModel model.page
             in
-            ( { model | global = globalModel }, globalCmd |> Cmd.map MsgGlobal )
+            ( { model
+                | global = globalModel
+                , page = templateModel
+              }
+            , Cmd.batch
+                [ templateCmd
+                , globalCmd |> Cmd.map MsgGlobal
+                ]
+            )
 
         OnPageChange record ->
             init (Just model.global) <|

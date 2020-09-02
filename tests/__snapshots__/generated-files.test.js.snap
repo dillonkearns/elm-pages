@@ -184,7 +184,7 @@ view :
         }
     ->
         StaticHttp.Request
-            { view : Model -> Global.View -> { title : String, body : Html Msg }
+            { view : Model -> Global.RenderedBody -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
@@ -197,8 +197,6 @@ view siteMetadata page =
                             case model.page of
                                 ModelBlogIndex subModel ->
                                     Template.BlogIndex.template.view
-                                        MsgBlogIndex
-                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -210,7 +208,9 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title, body = body }
+                                                    ({ title = title, body = body }
+                                                        |> Global.map MsgBlogIndex
+                                                    )
                                            )
 
                                 _ ->
@@ -230,8 +230,6 @@ view siteMetadata page =
                             case model.page of
                                 ModelBlogPost subModel ->
                                     Template.BlogPost.template.view
-                                        MsgBlogPost
-                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -243,7 +241,9 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title, body = body }
+                                                    ({ title = title, body = body }
+                                                        |> Global.map MsgBlogPost
+                                                    )
                                            )
 
                                 _ ->
@@ -263,8 +263,6 @@ view siteMetadata page =
                             case model.page of
                                 ModelDocumentation subModel ->
                                     Template.Documentation.template.view
-                                        MsgDocumentation
-                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -276,7 +274,9 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title, body = body }
+                                                    ({ title = title, body = body }
+                                                        |> Global.map MsgDocumentation
+                                                    )
                                            )
 
                                 _ ->
@@ -296,8 +296,6 @@ view siteMetadata page =
                             case model.page of
                                 ModelPage subModel ->
                                     Template.Page.template.view
-                                        MsgPage
-                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -309,7 +307,9 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title, body = body }
+                                                    ({ title = title, body = body }
+                                                        |> Global.map MsgPage
+                                                    )
                                            )
 
                                 _ ->
@@ -329,8 +329,6 @@ view siteMetadata page =
                             case model.page of
                                 ModelShowcase subModel ->
                                     Template.Showcase.template.view
-                                        MsgShowcase
-                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -342,7 +340,9 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title, body = body }
+                                                    ({ title = title, body = body }
+                                                        |> Global.map MsgShowcase
+                                                    )
                                            )
 
                                 _ ->
@@ -356,18 +356,23 @@ view siteMetadata page =
 
 
 init :
-    Maybe
-        { path :
-            { path : PagePath Pages.PathKey
-            , query : Maybe String
-            , fragment : Maybe String
+    Maybe Global.Model
+    ->
+        Maybe
+            { path :
+                { path : PagePath Pages.PathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : Metadata
             }
-        , metadata : Metadata
-        }
     -> ( Model, Cmd Msg )
-init maybePagePath =
-    ( { global = Global.init maybePagePath
-      , page =
+init currentGlobalModel maybePagePath =
+    let
+        ( globalModel, globalCmd ) =
+            currentGlobalModel |> Maybe.map (\\\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Global.init maybePagePath)
+
+        page =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
                     NotFound
@@ -404,10 +409,20 @@ init maybePagePath =
                                 |> ModelShowcase
 
 
+
+        ( templateModel, templateCmd ) =
+            load globalModel page
+    in
+    ( { global = globalModel
+      , page = templateModel
       , current = maybePagePath
       }
-    , Cmd.none
+    , Cmd.batch
+        [ templateCmd
+        , globalCmd |> Cmd.map MsgGlobal
+        ]
     )
+
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -417,11 +432,22 @@ update msg model =
             let
                 ( globalModel, globalCmd ) =
                     Global.update msg_ model.global
+
+                ( templateModel, templateCmd ) =
+                    load globalModel model.page
             in
-            ( { model | global = globalModel }, globalCmd |> Cmd.map MsgGlobal )
+            ( { model
+                | global = globalModel
+                , page = templateModel
+              }
+            , Cmd.batch
+                [ templateCmd
+                , globalCmd |> Cmd.map MsgGlobal
+                ]
+            )
 
         OnPageChange record ->
-            init <|
+            init (Just model.global) <|
                 Just
                     { path =
                         { path = record.path
@@ -519,6 +545,40 @@ update msg model =
 
 
 
+load : Global.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
+load globalModel model =
+    case model of
+        ModelBlogIndex m ->
+            Template.BlogIndex.template.load globalModel m
+                |> Tuple.mapFirst (ModelBlogIndex)
+                |> Tuple.mapSecond (Cmd.map MsgBlogIndex)
+
+        ModelBlogPost m ->
+            Template.BlogPost.template.load globalModel m
+                |> Tuple.mapFirst (ModelBlogPost)
+                |> Tuple.mapSecond (Cmd.map MsgBlogPost)
+
+        ModelDocumentation m ->
+            Template.Documentation.template.load globalModel m
+                |> Tuple.mapFirst (ModelDocumentation)
+                |> Tuple.mapSecond (Cmd.map MsgDocumentation)
+
+        ModelPage m ->
+            Template.Page.template.load globalModel m
+                |> Tuple.mapFirst (ModelPage)
+                |> Tuple.mapSecond (Cmd.map MsgPage)
+
+        ModelShowcase m ->
+            Template.Showcase.template.load globalModel m
+                |> Tuple.mapFirst (ModelShowcase)
+                |> Tuple.mapSecond (Cmd.map MsgShowcase)
+
+
+        NotFound ->
+            ( model, Cmd.none )
+
+
+
 save : TemplateModel -> Global.Model -> Global.Model
 save model globalModel=
     case model of
@@ -545,7 +605,7 @@ save model globalModel=
 
 mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
     Pages.Platform.init
-        { init = init
+        { init = init Nothing
         , view = view
         , update = update
         , subscriptions = subscriptions
