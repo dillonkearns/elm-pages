@@ -8,9 +8,7 @@ import Pages.StaticHttp as StaticHttp
 
 simplest :
     { view :
-        (templateMsg -> msg)
-        -> (Global.Msg -> msg)
-        -> List ( PagePath pathKey, globalMetadata )
+        List ( PagePath pathKey, globalMetadata )
         -> ()
         -> templateMetadata
         -> renderedTemplate
@@ -20,12 +18,12 @@ simplest :
         -> templateMetadata
         -> List (Head.Tag pathKey)
     }
-    -> Template pathKey templateMetadata renderedTemplate () () templateView templateMsg globalMetadata msg
+    -> Template pathKey templateMetadata renderedTemplate () () templateView templateMsg globalMetadata
 simplest config =
     template
         { view =
-            \toMsg toGlobalMsg allMetadata () model blogPost rendered ->
-                config.view toMsg toGlobalMsg allMetadata model blogPost rendered
+            \allMetadata () model blogPost rendered ->
+                config.view allMetadata model blogPost rendered
         , head = \() -> config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
@@ -37,9 +35,7 @@ simplest config =
 
 simpler :
     { view :
-        (templateMsg -> msg)
-        -> (Global.Msg -> msg)
-        -> List ( PagePath pathKey, globalMetadata )
+        List ( PagePath pathKey, globalMetadata )
         -> templateModel
         -> templateMetadata
         -> renderedTemplate
@@ -51,12 +47,12 @@ simpler :
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     }
-    -> Template pathKey templateMetadata renderedTemplate () templateModel templateView templateMsg globalMetadata msg
+    -> Template pathKey templateMetadata renderedTemplate () templateModel templateView templateMsg globalMetadata
 simpler config =
     template
         { view =
-            \toMsg toGlobalMsg allMetadata () model blogPost rendered ->
-                config.view toMsg toGlobalMsg allMetadata model blogPost rendered
+            \allMetadata () model blogPost rendered ->
+                config.view allMetadata model blogPost rendered
         , head = \() -> config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
@@ -71,9 +67,7 @@ stateless :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        (templateMsg -> msg)
-        -> (Global.Msg -> msg)
-        -> List ( PagePath pathKey, globalMetadata )
+        List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateMetadata
         -> renderedTemplate
@@ -84,12 +78,12 @@ stateless :
         -> templateMetadata
         -> List (Head.Tag pathKey)
     }
-    -> Template pathKey templateMetadata renderedTemplate templateStaticData () templateView templateMsg globalMetadata msg
+    -> Template pathKey templateMetadata renderedTemplate templateStaticData () templateView templateMsg globalMetadata
 stateless config =
     template
         { view =
-            \toMsg toGlobalMsg allMetadata staticData () blogPost rendered ->
-                config.view toMsg toGlobalMsg allMetadata staticData blogPost rendered
+            \allMetadata staticData () blogPost rendered ->
+                config.view allMetadata staticData blogPost rendered
         , head = config.head
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
@@ -104,9 +98,7 @@ template :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        (templateMsg -> msg)
-        -> (Global.Msg -> msg)
-        -> List ( PagePath pathKey, globalMetadata )
+        List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateModel
         -> templateMetadata
@@ -122,19 +114,17 @@ template :
     , save : templateModel -> Global.Model -> Global.Model
     , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }
-    -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata msg
+    -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
 template config =
     config
 
 
-type alias Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata msg =
+type alias Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata =
     { staticData :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        (templateMsg -> msg)
-        -> (Global.Msg -> msg)
-        -> List ( PagePath pathKey, globalMetadata )
+        List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateModel
         -> templateMetadata

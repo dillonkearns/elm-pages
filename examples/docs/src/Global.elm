@@ -27,12 +27,25 @@ type alias Model =
     }
 
 
-type alias View =
-    ( MarkdownRenderer.TableOfContents, List (Element Never) )
+map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
+map fn doc =
+    { title = doc.title
+    , body = Element.map fn doc.body
+    }
 
 
-type alias RenderedBody msg =
+
+--mapRendered : (msg1 -> msg2) -> RenderedBody msg1 -> RenderedBody msg2
+--mapRendered fn ( first, second ) =
+--    ( first, second |> List.map (Element.map fn) )
+
+
+type alias View msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
+
+
+type alias RenderedBody =
+    ( MarkdownRenderer.TableOfContents, List (Element Never) )
 
 
 type alias PageView msg =
@@ -84,7 +97,7 @@ view :
     -> { a | path : PagePath Pages.PathKey }
     -> Model
     -> (Msg -> msg)
-    -> PageView Never
+    -> PageView msg
     -> { body : Html msg, title : String }
 view stars page model toMsg pageView =
     { body =
@@ -106,7 +119,7 @@ view stars page model toMsg pageView =
             Element.column [ Element.width Element.fill ]
                 [ header stars page.path |> Element.map toMsg
                 , incrementView model |> Element.map toMsg
-                , pageView.body |> Element.map never
+                , pageView.body
                 ]
         )
             |> Element.layout

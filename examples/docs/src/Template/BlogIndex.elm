@@ -21,7 +21,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogIndex StaticData Model Msg msg
+template : TemplateDocument BlogIndex StaticData Model Msg
 template =
     Template.template
         { view = view
@@ -77,15 +77,13 @@ type alias View msg =
 
 
 view :
-    (Msg -> msg)
-    -> (Global.Msg -> msg)
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticData
     -> Model
     -> BlogIndex
-    -> Global.RenderedBody Never
-    -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata static model metadata rendered =
+    -> Global.RenderedBody
+    -> { title : String, body : Element Msg }
+view allMetadata static model metadata rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]

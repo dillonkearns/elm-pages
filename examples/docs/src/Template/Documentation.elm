@@ -32,7 +32,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Documentation StaticData Model Msg msg
+template : TemplateDocument Documentation StaticData Model Msg
 template =
     Template.template
         { view = view
@@ -95,19 +95,18 @@ head static currentPath meta =
 
 
 view :
-    (Msg -> msg)
-    -> (Global.Msg -> msg)
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticData
     -> Model
     -> Documentation
-    -> Global.RenderedBody Never
-    -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata static model metadata rendered =
+    -> Global.RenderedBody
+    -> { title : String, body : Element Msg }
+view allMetadata static model metadata rendered =
     { title = metadata.title
     , body =
         [ Element.row []
-            [ DocSidebar.view
+            [ counterView model
+            , DocSidebar.view
                 Pages.pages.index
                 allMetadata
                 |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
@@ -120,7 +119,7 @@ view toMsg toGlobalMsg allMetadata static model metadata rendered =
                         , Element.spacing 30
                         , Element.Region.mainContent
                         ]
-                        (Tuple.second rendered)
+                        (Tuple.second rendered |> List.map (Element.map never))
                     ]
                 ]
             ]
@@ -130,6 +129,11 @@ view toMsg toGlobalMsg allMetadata static model metadata rendered =
                 , Element.height Element.fill
                 ]
     }
+
+
+counterView : Model -> Element Msg
+counterView model =
+    Element.text ""
 
 
 tocView : MarkdownRenderer.TableOfContents -> Element msg

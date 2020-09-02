@@ -48,11 +48,7 @@ manifest =
     }
 
 
-type alias View =
-    ( MarkdownRenderer.TableOfContents, List (Element Msg) )
-
-
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Global.View
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Global.RenderedBody
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =

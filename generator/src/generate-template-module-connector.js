@@ -60,7 +60,7 @@ view :
         }
     ->
         StaticHttp.Request
-            { view : Model -> Global.View -> { title : String, body : Html Msg }
+            { view : Model -> Global.RenderedBody -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
@@ -74,8 +74,6 @@ view siteMetadata page =
                             case model.page of
                                 Model${name} subModel ->
                                     Template.${name}.template.view
-                                        Msg${name}
-                                        MsgGlobal
                                         siteMetadata
                                         data
                                         subModel
@@ -87,7 +85,9 @@ view siteMetadata page =
                                                     page
                                                     model.global
                                                     MsgGlobal
-                                                    { title = title, body = body }
+                                                    ({ title = title, body = body }
+                                                        |> Global.map Msg${name}
+                                                    )
                                            )
 
                                 _ ->

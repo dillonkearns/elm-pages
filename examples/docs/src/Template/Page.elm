@@ -28,7 +28,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Page StaticData Model Msg msg
+template : TemplateDocument Page StaticData Model Msg
 template =
     Template.simplest
         { view = view
@@ -76,14 +76,12 @@ head currentPath meta =
 
 
 view :
-    (Msg -> msg)
-    -> (Global.Msg -> msg)
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> Model
     -> Page
-    -> Global.RenderedBody Never
-    -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata model metadata rendered =
+    -> Global.RenderedBody
+    -> { title : String, body : Element Msg }
+view allMetadata model metadata rendered =
     { title = metadata.title
     , body =
         [ Element.column
@@ -91,7 +89,7 @@ view toMsg toGlobalMsg allMetadata model metadata rendered =
             , Element.spacing 60
             , Element.Region.mainContent
             ]
-            (Tuple.second rendered)
+            (Tuple.second rendered |> List.map (Element.map never))
         ]
             |> Element.textColumn
                 [ Element.width Element.fill

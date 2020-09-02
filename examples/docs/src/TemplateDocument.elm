@@ -18,5 +18,5 @@ type alias RenderedBody msg =
     ( MarkdownRenderer.TableOfContents, List (Element msg) )
 
 
-type alias TemplateDocument templateMetadata templateStaticData templateModel templateMsg internalMsg =
-    Template Pages.PathKey templateMetadata (RenderedBody Never) templateStaticData templateModel (View Never) templateMsg GlobalMetadata.Metadata internalMsg
+type alias TemplateDocument templateMetadata templateStaticData templateModel templateMsg =
+    Template Pages.PathKey templateMetadata Global.RenderedBody templateStaticData templateModel (View templateMsg) templateMsg GlobalMetadata.Metadata

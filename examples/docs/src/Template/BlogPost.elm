@@ -30,7 +30,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogPost () Model Msg msg
+template : TemplateDocument BlogPost () Model Msg
 template =
     Template.simpler
         { view = view
@@ -98,14 +98,12 @@ update metadata msg model =
 
 
 view :
-    (Msg -> msg)
-    -> (Global.Msg -> msg)
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> Model
     -> BlogPost
-    -> Global.RenderedBody Never
-    -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata model blogPost rendered =
+    -> Global.RenderedBody
+    -> { title : String, body : Element Msg }
+view allMetadata model blogPost rendered =
     { title = blogPost.title
     , body =
         Element.column [ Element.width Element.fill ]
@@ -132,6 +130,7 @@ view toMsg toGlobalMsg allMetadata model blogPost rendered =
                     :: Palette.blogHeading blogPost.title
                     :: articleImageView blogPost.image
                     :: Tuple.second rendered
+                    |> List.map (Element.map never)
                 )
             ]
     }

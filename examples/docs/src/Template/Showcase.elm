@@ -23,7 +23,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Showcase StaticData Model Msg msg
+template : TemplateDocument Showcase StaticData Model Msg
 template =
     Template.stateless
         { view = view
@@ -47,14 +47,12 @@ type alias StaticData =
 
 
 view :
-    (Msg -> msg)
-    -> (Global.Msg -> msg)
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticData
     -> Showcase
-    -> Global.RenderedBody Never
-    -> { title : String, body : Element Never }
-view toMsg toGlobalMsg allMetadata static metadata rendered =
+    -> Global.RenderedBody
+    -> { title : String, body : Element Msg }
+view allMetadata static metadata rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
