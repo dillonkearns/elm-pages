@@ -30,6 +30,8 @@ simplest config =
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
         , update = \_ _ _ -> ( (), Cmd.none )
+        , save = \_ globalModel -> globalModel
+        , load = \_ model -> ( model, Cmd.none )
         }
 
 
@@ -59,6 +61,8 @@ simpler config =
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
         , update = config.update
+        , save = \_ globalModel -> globalModel
+        , load = \_ model -> ( model, Cmd.none )
         }
 
 
@@ -90,6 +94,8 @@ stateless config =
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
         , update = \_ _ _ -> ( (), Cmd.none )
+        , save = \_ globalModel -> globalModel
+        , load = \_ model -> ( model, Cmd.none )
         }
 
 
@@ -113,6 +119,8 @@ template :
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , save : templateModel -> Global.Model -> Global.Model
+    , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }
     -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata msg
 template config =
@@ -139,6 +147,8 @@ type alias Template pathKey templateMetadata renderedTemplate templateStaticData
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , save : templateModel -> Global.Model -> Global.Model
+    , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }
 
 

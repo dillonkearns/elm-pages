@@ -29,7 +29,19 @@ template =
         , staticData = staticData
         , init = init
         , update = update
+        , load = load
+        , save = save
         }
+
+
+load : Global.Model -> Model -> ( Model, Cmd Msg )
+load globalModel model =
+    ( model, Cmd.none )
+
+
+save : Model -> Global.Model -> Global.Model
+save model globalModel =
+    globalModel
 
 
 staticData : a -> StaticHttp.Request StaticData
