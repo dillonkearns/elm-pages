@@ -114,8 +114,11 @@ init :
             }
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
-    ( { global = currentGlobalModel |> Maybe.withDefault (Global.init maybePagePath)
-      , page =
+    let
+        ( globalModel, globalCmd ) =
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Global.init maybePagePath)
+
+        page =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
                     NotFound
@@ -128,10 +131,20 @@ init currentGlobalModel maybePagePath =
                                 |> Model${name}
 
 `).join("\n                        ")}
+
+        ( templateModel, templateCmd ) =
+            load globalModel page
+    in
+    ( { global = globalModel
+      , page = templateModel
       , current = maybePagePath
       }
-    , Cmd.none
+    , Cmd.batch
+        [ templateCmd
+        , globalCmd |> Cmd.map MsgGlobal
+        ]
     )
+
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -173,6 +186,21 @@ update msg model =
             ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
 `
         ).join("\n        ")}
+
+
+
+load : Global.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
+load globalModel model =
+    case model of
+        ${templates.map(name => `Model${name} m ->
+            Template.${name}.template.load globalModel m
+                |> Tuple.mapFirst (Model${name})
+                |> Tuple.mapSecond (Cmd.map Msg${name})
+`
+        ).join("\n        ")}
+
+        NotFound ->
+            ( model, Cmd.none )
 
 
 

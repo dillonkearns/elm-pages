@@ -54,7 +54,7 @@ load globalModel model =
 
 save : Model -> Global.Model -> Global.Model
 save model globalModel =
-    globalModel
+    { globalModel | counter = model.counter }
 
 
 init : Documentation -> ( Model, Cmd Msg )

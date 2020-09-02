@@ -62,11 +62,13 @@ type Msg
     | Increment
 
 
-init : a -> Model
+init : a -> ( Model, Cmd Msg )
 init maybePagePath =
-    { showMobileMenu = False
-    , counter = 0
-    }
+    ( { showMobileMenu = False
+      , counter = 0
+      }
+    , Cmd.none
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
