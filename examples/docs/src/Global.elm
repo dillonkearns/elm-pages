@@ -39,16 +39,6 @@ map fn doc =
     }
 
 
-
---mapRendered : (msg1 -> msg2) -> RenderedBody msg1 -> RenderedBody msg2
---mapRendered fn ( first, second ) =
---    ( first, second |> List.map (Element.map fn) )
-
-
-type alias View msg =
-    ( MarkdownRenderer.TableOfContents, List (Element msg) )
-
-
 type alias RenderedBody =
     ( MarkdownRenderer.TableOfContents, List (Element Never) )
 
