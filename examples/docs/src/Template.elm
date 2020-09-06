@@ -116,7 +116,19 @@ template :
     }
     -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
 template config =
-    config
+    { view = config.view
+    , head = config.head
+    , staticData = config.staticData
+    , init = config.init
+    , update =
+        \a b c ->
+            config.update a b c
+                |> (\tuple ->
+                        ( tuple |> Tuple.first, tuple |> Tuple.second, Global.NoOp )
+                   )
+    , save = \_ globalModel -> globalModel
+    , load = \_ model -> ( model, Cmd.none )
+    }
 
 
 type alias Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata =
@@ -136,7 +148,7 @@ type alias Template pathKey templateMetadata renderedTemplate templateStaticData
         -> templateMetadata
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
     , save : templateModel -> Global.Model -> Global.Model
     , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }

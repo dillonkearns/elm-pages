@@ -21,6 +21,10 @@ import Palette
 import Secrets
 
 
+type GlobalMsg
+    = NoOp
+
+
 type alias Model =
     { showMobileMenu : Bool
     , counter : Int
@@ -60,6 +64,7 @@ type Msg
         }
     | ToggleMobileMenu
     | Increment
+    | SharedMsg GlobalMsg
 
 
 init : a -> ( Model, Cmd Msg )
@@ -82,6 +87,11 @@ update msg model =
 
         Increment ->
             ( { model | counter = model.counter + 1 }, Cmd.none )
+
+        SharedMsg globalMsg ->
+            case globalMsg of
+                NoOp ->
+                    ( model, Cmd.none )
 
 
 type alias StaticData =

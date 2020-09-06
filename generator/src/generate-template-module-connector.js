@@ -182,19 +182,24 @@ update msg model =
         ${templates.map(name => `
         Msg${name} msg_ ->
             let
-                ( updatedPageModel, pageCmd ) =
+                ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
                         ( Model${name} pageModel, Just (M.Metadata${name} metadata) ) ->
                             Template.${name}.template.update
                                 metadata
                                 msg_
                                 pageModel
-                                |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
+                                |> mapBoth Model${name} (Cmd.map Msg${name})
+                                |> (\\( a, b, c ) ->
+                                        ( a, b, Global.update (Global.SharedMsg c) model.global )
+                                   )
 
                         _ ->
-                            ( model.page, Cmd.none )
+                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
             in
-            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
+            ( { model | page = updatedPageModel, global = newGlobalModel }
+            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            )
 `
         ).join("\n        ")}
 
@@ -247,6 +252,10 @@ mapDocument document =
     { title = document.title
     , body = document.body |> List.map (Html.map never)
     }
+
+
+mapBoth fnA fnB ( a, b, c ) =
+    ( fnA a, fnB b, c )
 `
 }
 
