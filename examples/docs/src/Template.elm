@@ -136,8 +136,7 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
 
 type alias StaticPayload metadata staticData =
     { static : staticData
-
-    --, globalStatic : Global.StaticData
+    , globalStatic : Global.StaticData
     , metadata : metadata
     , path : PagePath Pages.PathKey
     }

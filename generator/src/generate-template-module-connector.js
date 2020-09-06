@@ -79,6 +79,7 @@ view siteMetadata page =
                                         }
                                         siteMetadata
                                         { static = data
+                                        , globalStatic = globalData
                                         , metadata = metadata
                                         , path = page.path
                                         }
