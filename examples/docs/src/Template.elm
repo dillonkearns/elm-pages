@@ -28,7 +28,6 @@ simplest config =
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
         , update = \_ _ _ -> ( (), Cmd.none, Global.NoOp )
-        , load = \_ model -> ( model, Cmd.none )
         }
 
 
@@ -56,7 +55,6 @@ simpler config =
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
         , update = \a1 b1 c1 -> config.update a1 b1 c1 |> (\( a, b ) -> ( a, b, Global.NoOp ))
-        , load = \_ model -> ( model, Cmd.none )
         }
 
 
@@ -86,7 +84,6 @@ stateless config =
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
         , update = \_ _ _ -> ( (), Cmd.none, Global.NoOp )
-        , load = \_ model -> ( model, Cmd.none )
         }
 
 
@@ -109,7 +106,6 @@ template :
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
-    , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }
     -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
 template config =
@@ -124,7 +120,6 @@ template config =
     --        |> (\tuple ->
     --                ( tuple |> Tuple.first, tuple |> Tuple.second, Global.NoOp )
     --           )
-    , load = \_ model -> ( model, Cmd.none )
     }
 
 
@@ -147,7 +142,6 @@ type alias Template pathKey templateMetadata renderedTemplate templateStaticData
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
-    , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }
 
 

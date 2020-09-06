@@ -119,22 +119,18 @@ init currentGlobalModel maybePagePath =
         ( globalModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Global.init maybePagePath)
 
-        page =
+        ( templateModel, templateCmd ) =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
-                    NotFound
+                    ( NotFound, Cmd.none )
 
                 Just meta ->
                     case meta of
                         ${templates.map(name => `M.Metadata${name} metadata ->
                             Template.${name}.template.init metadata
-                                |> Tuple.first
-                                |> Model${name}
+                                |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
 
 `).join("\n                        ")}
-
-        ( templateModel, templateCmd ) =
-            load globalModel page
     in
     ( { global = globalModel
       , page = templateModel
@@ -155,18 +151,9 @@ update msg model =
             let
                 ( globalModel, globalCmd ) =
                     Global.update msg_ model.global
-
-                ( templateModel, templateCmd ) =
-                    load globalModel model.page
             in
-            ( { model
-                | global = globalModel
-                , page = templateModel
-              }
-            , Cmd.batch
-                [ templateCmd
-                , globalCmd |> Cmd.map MsgGlobal
-                ]
+            ( { model | global = globalModel }
+            , globalCmd |> Cmd.map MsgGlobal
             )
 
         OnPageChange record ->
@@ -203,22 +190,6 @@ update msg model =
             )
 `
         ).join("\n        ")}
-
-
-
-load : Global.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
-load globalModel model =
-    case model of
-        ${templates.map(name => `Model${name} m ->
-            Template.${name}.template.load globalModel m
-                |> Tuple.mapFirst (Model${name})
-                |> Tuple.mapSecond (Cmd.map Msg${name})
-`
-        ).join("\n        ")}
-
-        NotFound ->
-            ( model, Cmd.none )
-
 
 
 mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
