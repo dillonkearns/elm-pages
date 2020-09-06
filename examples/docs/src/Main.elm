@@ -2,33 +2,21 @@ module Main exposing (main)
 
 import Color
 import Data.Author
-import Date
-import DocSidebar
-import DocumentSvg
 import Element exposing (Element)
-import Element.Events
 import Element.Font as Font
-import Element.Region
-import FontAwesome
 import Global
 import GlobalMetadata
-import Head
-import Head.Seo as Seo
-import Html.Attributes as Attr
 import MarkdownRenderer
-import Metadata exposing (Metadata)
 import MetadataNew
+import MySitemap
 import Pages exposing (images, pages)
-import Pages.Directory as Directory exposing (Directory)
-import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
-import Palette
 import Rss
+import RssPlugin
 import SiteConfig
-import StructuredData
 import TemplateDemultiplexer
 
 
@@ -61,60 +49,38 @@ main =
         , canonicalSiteUrl = SiteConfig.canonicalUrl
         , subscriptions = \_ -> Sub.none
         }
+        |> RssPlugin.generate
+            { siteTagline = siteTagline
+            , siteUrl = canonicalSiteUrl
+            , title = "elm-pages Blog"
+            , builtAt = Pages.builtAt
+            , indexPage = Pages.pages.blog.index
+            }
+            metadataToRssItem
+        |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
         |> Pages.Platform.toProgram
-
-
-
---main : Pages.Platform.Program Model Msg Metadata View
---main =
---    Pages.Platform.init
---        { init = init
---        , view = view
---        , update = update
---        , subscriptions = subscriptions
---        , documents =
---            [ { extension = "md"
---              , metadata = Metadata.decoder
---              , body = MarkdownRenderer.view
---              }
---            ]
---        , onPageChange = Just OnPageChange
---        , manifest = manifest
---        , canonicalSiteUrl = canonicalSiteUrl
---        , internals = Pages.internals
---        }
---        |> RssPlugin.generate
---            { siteTagline = siteTagline
---            , siteUrl = canonicalSiteUrl
---            , title = "elm-pages Blog"
---            , builtAt = Pages.builtAt
---            , indexPage = Pages.pages.blog.index
---            }
---            metadataToRssItem
---        |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
---        |> Pages.Platform.toProgram
 
 
 metadataToRssItem :
     { path : PagePath Pages.PathKey
-    , frontmatter : Metadata
+    , frontmatter : GlobalMetadata.Metadata
     , body : String
     }
     -> Maybe Rss.Item
 metadataToRssItem page =
     case page.frontmatter of
-        Metadata.Article article ->
-            if article.draft then
+        GlobalMetadata.MetadataBlogPost blogPost ->
+            if blogPost.draft then
                 Nothing
 
             else
                 Just
-                    { title = article.title
-                    , description = article.description
+                    { title = blogPost.title
+                    , description = blogPost.description
                     , url = PagePath.toString page.path
                     , categories = []
-                    , author = article.author.name
-                    , pubDate = Rss.Date article.published
+                    , author = blogPost.author.name
+                    , pubDate = Rss.Date blogPost.published
                     , content = Nothing
                     }
 
@@ -125,7 +91,7 @@ metadataToRssItem page =
 metadataToSitemapEntry :
     List
         { path : PagePath Pages.PathKey
-        , frontmatter : Metadata
+        , frontmatter : GlobalMetadata.Metadata
         , body : String
         }
     -> List { path : String, lastMod : Maybe String }
@@ -134,8 +100,8 @@ metadataToSitemapEntry siteMetadata =
         |> List.filter
             (\page ->
                 case page.frontmatter of
-                    Metadata.Article articleData ->
-                        not articleData.draft
+                    GlobalMetadata.MetadataBlogPost blogPost ->
+                        not blogPost.draft
 
                     _ ->
                         True
