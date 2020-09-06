@@ -16,8 +16,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import SiteConfig
-import Template
-import TemplateDocument exposing (TemplateDocument)
+import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (Documentation)
 
 
@@ -33,7 +32,7 @@ type Msg
     = Increment
 
 
-template : TemplateDocument Documentation StaticData Model Msg
+template : Template Documentation StaticData Model Msg GlobalMetadata.Metadata
 template =
     Template.template
         { view = view
@@ -86,24 +85,22 @@ head static currentPath meta =
 
 
 view :
-    Global.Model
+    DynamicPayload Model
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticData
-    -> Model
-    -> Documentation
+    -> StaticPayload Documentation StaticData
     -> Global.RenderedBody
-    -> { title : String, body : Element Msg }
-view globalModel allMetadata static model metadata rendered =
-    { title = metadata.title
+    -> Global.PageView Msg
+view dynamicPayload allMetadata staticPayload rendered =
+    { title = staticPayload.metadata.title
     , body =
         [ Element.row []
-            [ counterView globalModel
+            [ counterView dynamicPayload.globalModel
             , DocSidebar.view
                 Pages.pages.index
                 allMetadata
                 |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
             , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
-                [ Palette.heading 1 [ Element.text metadata.title ]
+                [ Palette.heading 1 [ Element.text staticPayload.metadata.title ]
                 , Element.column [ Element.spacing 20 ]
                     [ tocView (Tuple.first rendered)
                     , Element.column

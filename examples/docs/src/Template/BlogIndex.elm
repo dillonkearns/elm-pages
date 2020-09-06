@@ -6,14 +6,12 @@ import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Index
-import MarkdownRenderer
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
 import SiteConfig
-import Template
-import TemplateDocument exposing (TemplateDocument)
+import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (BlogIndex)
 
 
@@ -21,7 +19,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogIndex StaticData Model Msg
+template : Template BlogIndex StaticData Model Msg GlobalMetadata.Metadata
 template =
     Template.template
         { view = view
@@ -41,7 +39,7 @@ type alias StaticData =
     List Showcase.Entry
 
 
-init : BlogIndex -> ( Model, Cmd msg )
+init : BlogIndex -> ( Model, Cmd Msg )
 init metadata =
     ( Model, Cmd.none )
 
@@ -55,24 +53,13 @@ type alias Model =
     {}
 
 
-type alias View msg =
-    ( MarkdownRenderer.TableOfContents, List (Element msg) )
-
-
-
---view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogIndex -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
---view siteMetadata data model metadata viewForPage =
-
-
 view :
-    Global.Model
+    DynamicPayload Model
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticData
-    -> Model
-    -> BlogIndex
+    -> StaticPayload BlogIndex StaticData
     -> Global.RenderedBody
-    -> { title : String, body : Element Msg }
-view globalModel allMetadata static model metadata rendered =
+    -> Global.PageView Msg
+view dynamicPayload allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]

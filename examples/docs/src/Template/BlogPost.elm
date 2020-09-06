@@ -17,8 +17,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 import SiteConfig
 import StructuredData
-import Template
-import TemplateDocument exposing (TemplateDocument)
+import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (BlogPost)
 
 
@@ -30,7 +29,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument BlogPost () Model Msg
+template : Template BlogPost () Model Msg GlobalMetadata.Metadata
 template =
     Template.simpler
         { view = view
@@ -99,12 +98,12 @@ update metadata msg model =
 
 view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticPayload BlogPost ()
     -> Model
-    -> BlogPost
     -> Global.RenderedBody
-    -> { title : String, body : Element Msg }
-view allMetadata model blogPost rendered =
-    { title = blogPost.title
+    -> Global.PageView Msg
+view allMetadata staticPayload model rendered =
+    { title = staticPayload.metadata.title
     , body =
         Element.column [ Element.width Element.fill ]
             [ Element.column
@@ -116,19 +115,19 @@ view allMetadata model blogPost rendered =
                 ]
                 (Element.column [ Element.spacing 10 ]
                     [ Element.row [ Element.spacing 10 ]
-                        [ Author.view [] blogPost.author
+                        [ Author.view [] staticPayload.metadata.author
                         , Element.column [ Element.spacing 10, Element.width Element.fill ]
                             [ Element.paragraph [ Font.bold, Font.size 24 ]
-                                [ Element.text blogPost.author.name
+                                [ Element.text staticPayload.metadata.author.name
                                 ]
                             , Element.paragraph [ Font.size 16 ]
-                                [ Element.text blogPost.author.bio ]
+                                [ Element.text staticPayload.metadata.author.bio ]
                             ]
                         ]
                     ]
-                    :: (publishedDateView blogPost |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                    :: Palette.blogHeading blogPost.title
-                    :: articleImageView blogPost.image
+                    :: (publishedDateView staticPayload.metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+                    :: Palette.blogHeading staticPayload.metadata.title
+                    :: articleImageView staticPayload.metadata.image
                     :: Tuple.second rendered
                     |> List.map (Element.map never)
                 )

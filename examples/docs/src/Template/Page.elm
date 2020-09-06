@@ -11,8 +11,7 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import SiteConfig
-import Template
-import TemplateDocument exposing (TemplateDocument)
+import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Page)
 
 
@@ -28,7 +27,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Page StaticData Model Msg
+template : Template Page () () Msg GlobalMetadata.Metadata
 template =
     Template.simplest
         { view = view
@@ -77,12 +76,11 @@ head currentPath meta =
 
 view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> Model
-    -> Page
+    -> StaticPayload Page ()
     -> Global.RenderedBody
     -> { title : String, body : Element Msg }
-view allMetadata model metadata rendered =
-    { title = metadata.title
+view allMetadata staticPayload rendered =
+    { title = staticPayload.metadata.title
     , body =
         [ Element.column
             [ Element.padding 50

@@ -10,8 +10,7 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
-import Template
-import TemplateDocument exposing (TemplateDocument)
+import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Showcase)
 
 
@@ -23,7 +22,7 @@ type Msg
     = Msg
 
 
-template : TemplateDocument Showcase StaticData Model Msg
+template : Template Showcase StaticData () Msg GlobalMetadata.Metadata
 template =
     Template.stateless
         { view = view
@@ -48,15 +47,14 @@ type alias StaticData =
 
 view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticData
-    -> Showcase
+    -> StaticPayload Showcase StaticData
     -> Global.RenderedBody
-    -> { title : String, body : Element Msg }
-view allMetadata static metadata rendered =
+    -> Global.PageView msg
+view allMetadata static rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]
-            [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view static ]
+            [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view static.static ]
             ]
     }
 

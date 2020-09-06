@@ -74,11 +74,14 @@ view siteMetadata page =
                             case model.page of
                                 Model${name} subModel ->
                                     Template.${name}.template.view
-                                        model.global
+                                        { model = subModel
+                                        , globalModel = model.global
+                                        }
                                         siteMetadata
-                                        data
-                                        subModel
-                                        metadata
+                                        { static = data
+                                        , metadata = metadata
+                                        , path = page.path
+                                        }
                                         rendered
                                         |> (\\{ title, body } ->
                                                 Global.view
