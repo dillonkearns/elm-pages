@@ -32,7 +32,7 @@ type Msg
     = Increment
 
 
-template : Template Documentation StaticData Model Msg GlobalMetadata.Metadata
+template : Template Documentation StaticData Model Msg
 template =
     Template.template
         { view = view

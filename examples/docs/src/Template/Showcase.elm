@@ -22,7 +22,7 @@ type Msg
     = Msg
 
 
-template : Template Showcase StaticData () Msg GlobalMetadata.Metadata
+template : Template Showcase StaticData () Msg
 template =
     Template.stateless
         { view = view

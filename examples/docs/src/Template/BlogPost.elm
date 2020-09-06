@@ -29,7 +29,7 @@ type Msg
     = Msg
 
 
-template : Template BlogPost () Model Msg GlobalMetadata.Metadata
+template : Template BlogPost () Model Msg
 template =
     Template.simpler
         { view = view

@@ -19,7 +19,7 @@ type Msg
     = Msg
 
 
-template : Template BlogIndex StaticData Model Msg GlobalMetadata.Metadata
+template : Template BlogIndex StaticData Model Msg
 template =
     Template.template
         { view = view

@@ -1,6 +1,7 @@
 module Template exposing (..)
 
 import Global
+import GlobalMetadata
 import Head
 import Pages
 import Pages.PagePath exposing (PagePath)
@@ -9,7 +10,7 @@ import Pages.StaticHttp as StaticHttp
 
 simplest :
     { view :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata ()
         -> Global.RenderedBody
         -> Global.PageView templateMsg
@@ -17,7 +18,7 @@ simplest :
         StaticPayload templateMetadata ()
         -> List (Head.Tag Pages.PathKey)
     }
-    -> Template templateMetadata () () templateMsg globalMetadata
+    -> Template templateMetadata () () templateMsg
 simplest config =
     template
         { view =
@@ -32,7 +33,7 @@ simplest config =
 
 simpler :
     { view :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata ()
         -> templateModel
         -> Global.RenderedBody
@@ -43,7 +44,7 @@ simpler :
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     }
-    -> Template templateMetadata () templateModel templateMsg globalMetadata
+    -> Template templateMetadata () templateModel templateMsg
 simpler config =
     template
         { view =
@@ -58,10 +59,10 @@ simpler config =
 
 stateless :
     { staticData :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata templateStaticData
         -> Global.RenderedBody
         -> Global.PageView templateMsg
@@ -69,7 +70,7 @@ stateless :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     }
-    -> Template templateMetadata templateStaticData () templateMsg globalMetadata
+    -> Template templateMetadata templateStaticData () templateMsg
 stateless config =
     template
         { view =
@@ -84,11 +85,11 @@ stateless config =
 
 template :
     { staticData :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticHttp.Request templateStaticData
     , view :
         DynamicPayload templateModel
-        -> List ( PagePath Pages.PathKey, globalMetadata )
+        -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata templateStaticData
         -> Global.RenderedBody
         -> Global.PageView templateMsg
@@ -98,7 +99,7 @@ template :
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
     }
-    -> Template templateMetadata templateStaticData templateModel templateMsg globalMetadata
+    -> Template templateMetadata templateStaticData templateModel templateMsg
 template config =
     { view = config.view
     , head = config.head
@@ -108,13 +109,13 @@ template config =
     }
 
 
-type alias Template templateMetadata templateStaticData templateModel templateMsg globalMetadata =
+type alias Template templateMetadata templateStaticData templateModel templateMsg =
     { staticData :
-        List ( PagePath Pages.PathKey, globalMetadata )
+        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticHttp.Request templateStaticData
     , view :
         DynamicPayload templateModel
-        -> List ( PagePath Pages.PathKey, globalMetadata )
+        -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata templateStaticData
         -> Global.RenderedBody
         -> Global.PageView templateMsg

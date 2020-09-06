@@ -27,7 +27,7 @@ type Msg
     = Msg
 
 
-template : Template Page () () Msg GlobalMetadata.Metadata
+template : Template Page () () Msg
 template =
     Template.simplest
         { view = view
