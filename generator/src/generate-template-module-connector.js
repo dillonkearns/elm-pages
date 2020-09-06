@@ -208,8 +208,8 @@ mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
         , subscriptions = subscriptions
         , documents = documents
         , onPageChange = Just OnPageChange
-        , manifest = manifest -- SiteConfig.manifest
-        , canonicalSiteUrl = canonicalSiteUrl -- SiteConfig.canonicalUrl
+        , manifest = manifest -- Site.manifest
+        , canonicalSiteUrl = canonicalSiteUrl -- Site.canonicalUrl
         , internals = Pages.internals
         }
 

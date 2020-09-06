@@ -10,7 +10,7 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Showcase
-import SiteConfig
+import Site
 import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (BlogIndex)
 
@@ -83,7 +83,7 @@ head staticPayload =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = SiteConfig.tagline
+        , description = Site.tagline
         , locale = Nothing
         , title = "elm-pages blog"
         }

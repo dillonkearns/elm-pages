@@ -15,7 +15,7 @@ import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
-import SiteConfig
+import Site
 import StructuredData
 import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (BlogPost)
@@ -143,8 +143,8 @@ head staticPayload =
             , description = staticPayload.metadata.description
             , author = StructuredData.person { name = staticPayload.metadata.author.name }
             , publisher = StructuredData.person { name = "Dillon Kearns" }
-            , url = SiteConfig.canonicalUrl ++ "/" ++ PagePath.toString staticPayload.path
-            , imageUrl = SiteConfig.canonicalUrl ++ "/" ++ ImagePath.toString staticPayload.metadata.image
+            , url = Site.canonicalUrl ++ "/" ++ PagePath.toString staticPayload.path
+            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString staticPayload.metadata.image
             , datePublished = Date.toIsoString staticPayload.metadata.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode

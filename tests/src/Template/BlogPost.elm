@@ -17,7 +17,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
-import SiteConfig
+import Site
 import StructuredData
 import Template
 import Template.Metadata exposing (BlogPost)
@@ -151,8 +151,8 @@ head static currentPath meta =
             , description = meta.description
             , author = StructuredData.person { name = meta.author.name }
             , publisher = StructuredData.person { name = "Dillon Kearns" }
-            , url = SiteConfig.canonicalUrl ++ "/" ++ PagePath.toString currentPath
-            , imageUrl = SiteConfig.canonicalUrl ++ "/" ++ ImagePath.toString meta.image
+            , url = Site.canonicalUrl ++ "/" ++ PagePath.toString currentPath
+            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString meta.image
             , datePublished = Date.toIsoString meta.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode

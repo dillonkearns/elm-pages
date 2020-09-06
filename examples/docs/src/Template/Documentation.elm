@@ -15,7 +15,7 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
-import SiteConfig
+import Site
 import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (Documentation)
 
@@ -79,7 +79,7 @@ head staticPayload =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = SiteConfig.tagline
+        , description = Site.tagline
         , locale = Nothing
         , title = staticPayload.metadata.title
         }

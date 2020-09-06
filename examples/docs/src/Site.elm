@@ -1,4 +1,4 @@
-module SiteConfig exposing (..)
+module Site exposing (..)
 
 import Color
 import Pages exposing (images, pages)

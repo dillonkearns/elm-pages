@@ -10,7 +10,7 @@ import Json.Decode as Decode
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
-import SiteConfig
+import Site
 import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Page)
 
@@ -69,7 +69,7 @@ head staticPayload =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = SiteConfig.tagline
+        , description = Site.tagline
         , locale = Nothing
         , title = staticPayload.metadata.title
         }

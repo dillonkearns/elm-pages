@@ -13,7 +13,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Rss
 import RssPlugin
-import SiteConfig
+import Site
 import TemplateDemultiplexer
 
 
@@ -26,19 +26,19 @@ main =
               , body = MarkdownRenderer.view
               }
             ]
-        , manifest = SiteConfig.manifest
-        , canonicalSiteUrl = SiteConfig.canonicalUrl
+        , manifest = Site.manifest
+        , canonicalSiteUrl = Site.canonicalUrl
         , subscriptions = \_ -> Sub.none
         }
         |> RssPlugin.generate
-            { siteTagline = SiteConfig.tagline
-            , siteUrl = SiteConfig.canonicalUrl
+            { siteTagline = Site.tagline
+            , siteUrl = Site.canonicalUrl
             , title = "elm-pages Blog"
             , builtAt = Pages.builtAt
             , indexPage = Pages.pages.blog.index
             }
             metadataToRssItem
-        |> MySitemap.install { siteUrl = SiteConfig.canonicalUrl } metadataToSitemapEntry
+        |> MySitemap.install { siteUrl = Site.canonicalUrl } metadataToSitemapEntry
         |> Pages.Platform.toProgram
 
 
