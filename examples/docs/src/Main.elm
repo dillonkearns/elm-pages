@@ -1,8 +1,6 @@
 module Main exposing (main)
 
 import Data.Author
-import Element exposing (Element)
-import Element.Font as Font
 import Global
 import GlobalMetadata
 import MarkdownRenderer
@@ -91,44 +89,3 @@ metadataToSitemapEntry siteMetadata =
             (\page ->
                 { path = PagePath.toString page.path, lastMod = Nothing }
             )
-
-
-type alias Model =
-    { showMobileMenu : Bool
-    }
-
-
-type Msg
-    = OnPageChange
-        { path : PagePath Pages.PathKey
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-    | ToggleMobileMenu
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        OnPageChange page ->
-            ( { model | showMobileMenu = False }, Cmd.none )
-
-        ToggleMobileMenu ->
-            ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
-
-
-tocView : MarkdownRenderer.TableOfContents -> Element msg
-tocView toc =
-    Element.column [ Element.alignTop, Element.spacing 20 ]
-        [ Element.el [ Font.bold, Font.size 22 ] (Element.text "Table of Contents")
-        , Element.column [ Element.spacing 10 ]
-            (toc
-                |> List.map
-                    (\heading ->
-                        Element.link [ Font.color (Element.rgb255 100 100 100) ]
-                            { url = "#" ++ heading.anchorId
-                            , label = Element.text heading.name
-                            }
-                    )
-            )
-        ]
