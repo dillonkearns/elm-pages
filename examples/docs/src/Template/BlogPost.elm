@@ -135,17 +135,17 @@ view allMetadata staticPayload model rendered =
     }
 
 
-head : PagePath.PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
-head currentPath meta =
+head : StaticPayload BlogPost () -> List (Head.Tag Pages.PathKey)
+head staticPayload =
     Head.structuredData
         (StructuredData.article
-            { title = meta.title
-            , description = meta.description
-            , author = StructuredData.person { name = meta.author.name }
+            { title = staticPayload.metadata.title
+            , description = staticPayload.metadata.description
+            , author = StructuredData.person { name = staticPayload.metadata.author.name }
             , publisher = StructuredData.person { name = "Dillon Kearns" }
-            , url = SiteConfig.canonicalUrl ++ "/" ++ PagePath.toString currentPath
-            , imageUrl = SiteConfig.canonicalUrl ++ "/" ++ ImagePath.toString meta.image
-            , datePublished = Date.toIsoString meta.published
+            , url = SiteConfig.canonicalUrl ++ "/" ++ PagePath.toString staticPayload.path
+            , imageUrl = SiteConfig.canonicalUrl ++ "/" ++ ImagePath.toString staticPayload.metadata.image
+            , datePublished = Date.toIsoString staticPayload.metadata.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode
                     { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
@@ -159,19 +159,19 @@ head currentPath meta =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = meta.image
-                    , alt = meta.description
+                    { url = staticPayload.metadata.image
+                    , alt = staticPayload.metadata.description
                     , dimensions = Nothing
                     , mimeType = Nothing
                     }
-                , description = meta.description
+                , description = staticPayload.metadata.description
                 , locale = Nothing
-                , title = meta.title
+                , title = staticPayload.metadata.title
                 }
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Just (Date.toIsoString meta.published)
+                    , publishedTime = Just (Date.toIsoString staticPayload.metadata.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }

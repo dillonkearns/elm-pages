@@ -97,7 +97,12 @@ view siteMetadata page =
 
                                 _ ->
                                     { title = "", body = Html.text "" }
-                    , head = Template.${name}.template.head data page.path metadata
+                    , head = Template.${name}.template.head
+                        { static = data
+                        , globalStatic = globalData
+                        , metadata = metadata
+                        , path = page.path
+                        }
                     }
                 )
                 (Template.${name}.template.staticData siteMetadata)

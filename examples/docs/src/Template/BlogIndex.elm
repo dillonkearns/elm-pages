@@ -70,8 +70,8 @@ view dynamicPayload allMetadata staticPayload rendered =
     }
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> BlogIndex -> List (Head.Tag Pages.PathKey)
-head static currentPath metadata =
+head : StaticPayload BlogIndex StaticData -> List (Head.Tag Pages.PathKey)
+head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"

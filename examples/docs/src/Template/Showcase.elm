@@ -59,8 +59,8 @@ view allMetadata static rendered =
     }
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> Showcase -> List (Head.Tag Pages.PathKey)
-head static currentPath metadata =
+head : StaticPayload Showcase StaticData -> List (Head.Tag Pages.PathKey)
+head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"

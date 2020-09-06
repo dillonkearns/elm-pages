@@ -56,8 +56,8 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : PagePath.PagePath Pages.PathKey -> Page -> List (Head.Tag Pages.PathKey)
-head currentPath meta =
+head : StaticPayload Page () -> List (Head.Tag Pages.PathKey)
+head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -69,7 +69,7 @@ head currentPath meta =
             }
         , description = SiteConfig.tagline
         , locale = Nothing
-        , title = meta.title
+        , title = staticPayload.metadata.title
         }
         |> Seo.website
 
