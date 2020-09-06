@@ -16,7 +16,6 @@ import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
 import Pages.StaticHttp as StaticHttp
-import SiteConfig
 ${templates.map(name => `import Template.${name}`).join("\n")}
 
 
