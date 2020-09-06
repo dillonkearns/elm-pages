@@ -220,19 +220,6 @@ load globalModel model =
 
 
 
-save : TemplateModel -> Global.Model -> Global.Model
-save model globalModel=
-    case model of
-        ${templates.map(name => `Model${name} m ->
-            Template.${name}.template.save m globalModel
-`
-        ).join("\n        ")}
-
-        NotFound ->
-            globalModel
-
-
-
 mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
     Pages.Platform.init
         { init = init Nothing
