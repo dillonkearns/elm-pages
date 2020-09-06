@@ -1,6 +1,5 @@
 module Main exposing (main)
 
-import Color
 import Data.Author
 import Element exposing (Element)
 import Element.Font as Font
@@ -9,31 +8,13 @@ import GlobalMetadata
 import MarkdownRenderer
 import MetadataNew
 import MySitemap
-import Pages exposing (images, pages)
-import Pages.Manifest as Manifest
-import Pages.Manifest.Category
+import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Rss
 import RssPlugin
 import SiteConfig
 import TemplateDemultiplexer
-
-
-manifest : Manifest.Config Pages.PathKey
-manifest =
-    { backgroundColor = Just Color.white
-    , categories = [ Pages.Manifest.Category.education ]
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
-    , iarcRatingId = Nothing
-    , name = "elm-pages docs"
-    , themeColor = Just Color.white
-    , startUrl = pages.blog.staticHttp
-    , shortName = Just "elm-pages"
-    , sourceIcon = images.iconPng
-    }
 
 
 main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Global.RenderedBody
@@ -50,14 +31,14 @@ main =
         , subscriptions = \_ -> Sub.none
         }
         |> RssPlugin.generate
-            { siteTagline = siteTagline
-            , siteUrl = canonicalSiteUrl
+            { siteTagline = SiteConfig.tagline
+            , siteUrl = SiteConfig.canonicalUrl
             , title = "elm-pages Blog"
             , builtAt = Pages.builtAt
             , indexPage = Pages.pages.blog.index
             }
             metadataToRssItem
-        |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
+        |> MySitemap.install { siteUrl = SiteConfig.canonicalUrl } metadataToSitemapEntry
         |> Pages.Platform.toProgram
 
 
@@ -134,16 +115,6 @@ update msg model =
 
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
-
-
-canonicalSiteUrl : String
-canonicalSiteUrl =
-    "https://elm-pages.com"
-
-
-siteTagline : String
-siteTagline =
-    "A statically typed site generator - elm-pages"
 
 
 tocView : MarkdownRenderer.TableOfContents -> Element msg
