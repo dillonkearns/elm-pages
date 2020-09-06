@@ -22,12 +22,12 @@ simplest :
 simplest config =
     template
         { view =
-            \allMetadata () model blogPost rendered ->
+            \global allMetadata () model blogPost rendered ->
                 config.view allMetadata model blogPost rendered
         , head = \() -> config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none )
+        , update = \_ _ _ -> ( (), Cmd.none, Global.NoOp )
         , load = \_ model -> ( model, Cmd.none )
         }
 
@@ -50,12 +50,12 @@ simpler :
 simpler config =
     template
         { view =
-            \allMetadata () model blogPost rendered ->
+            \global allMetadata () model blogPost rendered ->
                 config.view allMetadata model blogPost rendered
         , head = \() -> config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
-        , update = config.update
+        , update = \a1 b1 c1 -> config.update a1 b1 c1 |> (\( a, b ) -> ( a, b, Global.NoOp ))
         , load = \_ model -> ( model, Cmd.none )
         }
 
@@ -80,12 +80,12 @@ stateless :
 stateless config =
     template
         { view =
-            \allMetadata staticData () blogPost rendered ->
+            \global allMetadata staticData () blogPost rendered ->
                 config.view allMetadata staticData blogPost rendered
         , head = config.head
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none )
+        , update = \_ _ _ -> ( (), Cmd.none, Global.NoOp )
         , load = \_ model -> ( model, Cmd.none )
         }
 
@@ -95,7 +95,8 @@ template :
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath pathKey, globalMetadata )
+        Global.Model
+        -> List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateModel
         -> templateMetadata
@@ -107,7 +108,7 @@ template :
         -> templateMetadata
         -> List (Head.Tag pathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
     , load : Global.Model -> templateModel -> ( templateModel, Cmd templateMsg )
     }
     -> Template pathKey templateMetadata renderedTemplate templateStaticData templateModel templateView templateMsg globalMetadata
@@ -116,12 +117,13 @@ template config =
     , head = config.head
     , staticData = config.staticData
     , init = config.init
-    , update =
-        \a b c ->
-            config.update a b c
-                |> (\tuple ->
-                        ( tuple |> Tuple.first, tuple |> Tuple.second, Global.NoOp )
-                   )
+    , update = config.update
+
+    --\a b c ->
+    --    config.update a b c
+    --        |> (\tuple ->
+    --                ( tuple |> Tuple.first, tuple |> Tuple.second, Global.NoOp )
+    --           )
     , load = \_ model -> ( model, Cmd.none )
     }
 
@@ -131,7 +133,8 @@ type alias Template pathKey templateMetadata renderedTemplate templateStaticData
         List ( PagePath pathKey, globalMetadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath pathKey, globalMetadata )
+        Global.Model
+        -> List ( PagePath pathKey, globalMetadata )
         -> templateStaticData
         -> templateModel
         -> templateMetadata

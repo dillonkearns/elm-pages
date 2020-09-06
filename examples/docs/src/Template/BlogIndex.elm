@@ -52,9 +52,9 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg )
+update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg, Global.GlobalMsg )
 update metadata msg model =
-    ( Model, Cmd.none )
+    ( Model, Cmd.none, Global.NoOp )
 
 
 type alias Model =
@@ -71,13 +71,14 @@ type alias View msg =
 
 
 view :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    Global.Model
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticData
     -> Model
     -> BlogIndex
     -> Global.RenderedBody
     -> { title : String, body : Element Msg }
-view allMetadata static model metadata rendered =
+view globalModel allMetadata static model metadata rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]

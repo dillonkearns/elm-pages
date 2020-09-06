@@ -26,8 +26,7 @@ type alias StaticData =
 
 
 type alias Model =
-    { counter : Int
-    }
+    {}
 
 
 type Msg
@@ -48,19 +47,19 @@ template =
 
 load : Global.Model -> Model -> ( Model, Cmd Msg )
 load globalModel model =
-    ( { model | counter = globalModel.counter }, Cmd.none )
+    ( model, Cmd.none )
 
 
 init : Documentation -> ( Model, Cmd Msg )
 init metadata =
-    ( { counter = 0 }, Cmd.none )
+    ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> Model -> ( Model, Cmd Msg )
+update : Documentation -> Msg -> Model -> ( Model, Cmd Msg, Global.GlobalMsg )
 update metadata msg model =
     case msg of
         Increment ->
-            ( { counter = model.counter + 1 }, Cmd.none )
+            ( model, Cmd.none, Global.IncrementFromChild )
 
 
 staticData : a -> StaticHttp.Request StaticData
@@ -93,17 +92,18 @@ head static currentPath meta =
 
 
 view :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    Global.Model
+    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticData
     -> Model
     -> Documentation
     -> Global.RenderedBody
     -> { title : String, body : Element Msg }
-view allMetadata static model metadata rendered =
+view globalModel allMetadata static model metadata rendered =
     { title = metadata.title
     , body =
         [ Element.row []
-            [ counterView model
+            [ counterView globalModel
             , DocSidebar.view
                 Pages.pages.index
                 allMetadata
@@ -129,9 +129,9 @@ view allMetadata static model metadata rendered =
     }
 
 
-counterView : Model -> Element Msg
-counterView model =
-    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt model.counter)
+counterView : Global.Model -> Element Msg
+counterView globalModel =
+    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt globalModel.counter)
 
 
 tocView : MarkdownRenderer.TableOfContents -> Element msg

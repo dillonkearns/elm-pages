@@ -23,6 +23,7 @@ import Secrets
 
 type GlobalMsg
     = NoOp
+    | IncrementFromChild
 
 
 type alias Model =
@@ -92,6 +93,9 @@ update msg model =
             case globalMsg of
                 NoOp ->
                     ( model, Cmd.none )
+
+                IncrementFromChild ->
+                    ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
 type alias StaticData =

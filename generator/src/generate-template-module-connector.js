@@ -74,6 +74,7 @@ view siteMetadata page =
                             case model.page of
                                 Model${name} subModel ->
                                     Template.${name}.template.view
+                                        model.global
                                         siteMetadata
                                         data
                                         subModel
