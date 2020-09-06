@@ -36,7 +36,9 @@ decoder =
     Decode.succeed Showcase
 
 
-staticData : a -> StaticHttp.Request StaticData
+staticData :
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticHttp.Request StaticData
 staticData siteMetadata =
     Showcase.staticRequest
 

@@ -55,7 +55,9 @@ update metadata msg model =
             ( model, Cmd.none, Global.IncrementFromChild )
 
 
-staticData : a -> StaticHttp.Request StaticData
+staticData :
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.succeed ()
 

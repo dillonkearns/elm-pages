@@ -45,7 +45,9 @@ update metadata msg model =
     ( (), Cmd.none )
 
 
-staticData : a -> StaticHttp.Request StaticData
+staticData :
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.succeed ()
 
@@ -78,7 +80,7 @@ view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticPayload Page ()
     -> Global.RenderedBody
-    -> { title : String, body : Element Msg }
+    -> Global.PageView Msg
 view allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =
