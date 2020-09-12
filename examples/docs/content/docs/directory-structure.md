@@ -131,8 +131,8 @@ Now say you navigate to `/catalog/sibelius`. Let's look at the `elm-pages archit
 * `update` - if you click the Carousel, the page's state gets updated.
 
 
-### Global
-`src/Global.elm`
+### Shared
+`src/Shared.elm`
 * `staticData` (loaded per-app, not per-page)
 * `View` - the data type that pages render to in your app
 * `view` - the top-level view function for your app

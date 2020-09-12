@@ -118,7 +118,7 @@ exports[`generate template module connector 1`] = `
 "module TemplateDemultiplexer exposing (..)
 
 import Browser
-import Global
+import Shared
 import GlobalMetadata as M exposing (Metadata)
 import Head
 import Html exposing (Html)
@@ -135,7 +135,7 @@ import Template.Showcase
 
 
 type alias Model =
-    { global : Global.Model
+    { global : Shared.Model
     , page : TemplateModel
     , current :
         Maybe
@@ -161,7 +161,7 @@ type TemplateModel
 
 
 type Msg
-    = MsgGlobal Global.Msg
+    = MsgGlobal Shared.Msg
     | OnPageChange
         { path : PagePath Pages.PathKey
         , query : Maybe String
@@ -184,7 +184,7 @@ view :
         }
     ->
         StaticHttp.Request
-            { view : Model -> Global.RenderedBody -> { title : String, body : Html Msg }
+            { view : Model -> Shared.RenderedBody -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
@@ -203,13 +203,13 @@ view siteMetadata page =
                                         metadata
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Global.view
+                                                Shared.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Global.map MsgBlogIndex
+                                                        |> Shared.map MsgBlogIndex
                                                     )
                                            )
 
@@ -219,7 +219,7 @@ view siteMetadata page =
                     }
                 )
                 (Template.BlogIndex.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+                (Shared.staticData siteMetadata)
 
 
         M.MetadataBlogPost metadata ->
@@ -236,13 +236,13 @@ view siteMetadata page =
                                         metadata
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Global.view
+                                                Shared.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Global.map MsgBlogPost
+                                                        |> Shared.map MsgBlogPost
                                                     )
                                            )
 
@@ -252,7 +252,7 @@ view siteMetadata page =
                     }
                 )
                 (Template.BlogPost.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+                (Shared.staticData siteMetadata)
 
 
         M.MetadataDocumentation metadata ->
@@ -269,13 +269,13 @@ view siteMetadata page =
                                         metadata
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Global.view
+                                                Shared.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Global.map MsgDocumentation
+                                                        |> Shared.map MsgDocumentation
                                                     )
                                            )
 
@@ -285,7 +285,7 @@ view siteMetadata page =
                     }
                 )
                 (Template.Documentation.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+                (Shared.staticData siteMetadata)
 
 
         M.MetadataPage metadata ->
@@ -302,13 +302,13 @@ view siteMetadata page =
                                         metadata
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Global.view
+                                                Shared.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Global.map MsgPage
+                                                        |> Shared.map MsgPage
                                                     )
                                            )
 
@@ -318,7 +318,7 @@ view siteMetadata page =
                     }
                 )
                 (Template.Page.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+                (Shared.staticData siteMetadata)
 
 
         M.MetadataShowcase metadata ->
@@ -335,13 +335,13 @@ view siteMetadata page =
                                         metadata
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Global.view
+                                                Shared.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Global.map MsgShowcase
+                                                        |> Shared.map MsgShowcase
                                                     )
                                            )
 
@@ -351,12 +351,12 @@ view siteMetadata page =
                     }
                 )
                 (Template.Showcase.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+                (Shared.staticData siteMetadata)
 
 
 
 init :
-    Maybe Global.Model
+    Maybe Shared.Model
     ->
         Maybe
             { path :
@@ -370,7 +370,7 @@ init :
 init currentGlobalModel maybePagePath =
     let
         ( globalModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Global.init maybePagePath)
+            currentGlobalModel |> Maybe.map (\\\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.init maybePagePath)
 
         page =
             case maybePagePath |> Maybe.map .metadata of
@@ -431,7 +431,7 @@ update msg model =
         MsgGlobal msg_ ->
             let
                 ( globalModel, globalCmd ) =
-                    Global.update msg_ model.global
+                    Shared.update msg_ model.global
 
                 ( templateModel, templateCmd ) =
                     load globalModel model.page
@@ -545,7 +545,7 @@ update msg model =
 
 
 
-load : Global.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
+load : Shared.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
 load globalModel model =
     case model of
         ModelBlogIndex m ->
@@ -579,7 +579,7 @@ load globalModel model =
 
 
 
-save : TemplateModel -> Global.Model -> Global.Model
+save : TemplateModel -> Shared.Model -> Shared.Model
 save model globalModel=
     case model of
         ModelBlogIndex m ->

@@ -1,7 +1,6 @@
 module Template.BlogIndex exposing (Model, Msg, template)
 
 import Element exposing (Element)
-import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -9,6 +8,7 @@ import Index
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import Shared
 import Showcase
 import Site
 import Template exposing (DynamicPayload, StaticPayload, Template)
@@ -46,9 +46,9 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg, Global.GlobalMsg )
+update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg, Shared.GlobalMsg )
 update metadata msg model =
-    ( Model, Cmd.none, Global.NoOp )
+    ( Model, Cmd.none, Shared.NoOp )
 
 
 type alias Model =
@@ -59,8 +59,8 @@ view :
     DynamicPayload Model
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticPayload BlogIndex StaticData
-    -> Global.RenderedBody
-    -> Global.PageView Msg
+    -> Shared.RenderedBody
+    -> Shared.PageView Msg
 view dynamicPayload allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =

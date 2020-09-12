@@ -2,7 +2,6 @@ module Template.Page exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
 import Element.Region
-import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -10,6 +9,7 @@ import Json.Decode as Decode
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import Shared
 import Site
 import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Page)
@@ -79,8 +79,8 @@ head staticPayload =
 view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticPayload Page ()
-    -> Global.RenderedBody
-    -> Global.PageView Msg
+    -> Shared.RenderedBody
+    -> Shared.PageView Msg
 view allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =

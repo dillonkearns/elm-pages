@@ -1,7 +1,6 @@
 module Main exposing (main)
 
 import Data.Author
-import Global
 import GlobalMetadata
 import MarkdownRenderer
 import MetadataNew
@@ -11,11 +10,12 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Rss
 import RssPlugin
+import Shared
 import Site
 import TemplateDemultiplexer
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Global.RenderedBody
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Shared.RenderedBody
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =

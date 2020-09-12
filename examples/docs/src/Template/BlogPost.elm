@@ -5,7 +5,6 @@ import Date exposing (Date)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
-import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -15,6 +14,7 @@ import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
+import Shared
 import Site
 import StructuredData
 import Template exposing (DynamicPayload, StaticPayload, Template)
@@ -100,8 +100,8 @@ view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticPayload BlogPost ()
     -> Model
-    -> Global.RenderedBody
-    -> Global.PageView Msg
+    -> Shared.RenderedBody
+    -> Shared.PageView Msg
 view allMetadata staticPayload model rendered =
     { title = staticPayload.metadata.title
     , body =

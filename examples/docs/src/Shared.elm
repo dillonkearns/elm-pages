@@ -1,4 +1,4 @@
-module Global exposing (..)
+module Shared exposing (..)
 
 import DocumentSvg
 import Element exposing (Element)
@@ -140,7 +140,7 @@ view stars page model toMsg pageView =
 
 incrementView : Model -> Element Msg
 incrementView model =
-    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Global count: " ++ String.fromInt model.counter)
+    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Shared count: " ++ String.fromInt model.counter)
 
 
 logoLinkMobile =

@@ -1,7 +1,6 @@
 module Template.Showcase exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
-import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -9,6 +8,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import Shared
 import Showcase
 import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Showcase)
@@ -50,8 +50,8 @@ type alias StaticData =
 view :
     List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticPayload Showcase StaticData
-    -> Global.RenderedBody
-    -> Global.PageView msg
+    -> Shared.RenderedBody
+    -> Shared.PageView msg
 view allMetadata static rendered =
     { title = "elm-pages blog"
     , body =

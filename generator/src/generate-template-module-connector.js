@@ -8,7 +8,7 @@ function generateTemplateModuleConnector() {
     return `module TemplateDemultiplexer exposing (..)
 
 import Browser
-import Global
+import Shared
 import GlobalMetadata as M exposing (Metadata)
 import Head
 import Html exposing (Html)
@@ -20,7 +20,7 @@ ${templates.map(name => `import Template.${name}`).join("\n")}
 
 
 type alias Model =
-    { global : Global.Model
+    { global : Shared.Model
     , page : TemplateModel
     , current :
         Maybe
@@ -41,7 +41,7 @@ type TemplateModel
 
 
 type Msg
-    = MsgGlobal Global.Msg
+    = MsgGlobal Shared.Msg
     | OnPageChange
         { path : PagePath Pages.PathKey
         , query : Maybe String
@@ -59,7 +59,7 @@ view :
         }
     ->
         StaticHttp.Request
-            { view : Model -> Global.RenderedBody -> { title : String, body : Html Msg }
+            { view : Model -> Shared.RenderedBody -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
 view siteMetadata page =
@@ -84,13 +84,13 @@ view siteMetadata page =
                                         }
                                         rendered
                                         |> (\\{ title, body } ->
-                                                Global.view
+                                                Shared.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Global.map Msg${name}
+                                                        |> Shared.map Msg${name}
                                                     )
                                            )
 
@@ -105,13 +105,13 @@ view siteMetadata page =
                     }
                 )
                 (Template.${name}.template.staticData siteMetadata)
-                (Global.staticData siteMetadata)
+                (Shared.staticData siteMetadata)
 `).join("\n\n        ")
         }
 
 
 init :
-    Maybe Global.Model
+    Maybe Shared.Model
     ->
         Maybe
             { path :
@@ -125,7 +125,7 @@ init :
 init currentGlobalModel maybePagePath =
     let
         ( globalModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Global.init maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.init maybePagePath)
 
         ( templateModel, templateCmd ) =
             case maybePagePath |> Maybe.map .metadata of
@@ -158,7 +158,7 @@ update msg model =
         MsgGlobal msg_ ->
             let
                 ( globalModel, globalCmd ) =
-                    Global.update msg_ model.global
+                    Shared.update msg_ model.global
             in
             ( { model | global = globalModel }
             , globalCmd |> Cmd.map MsgGlobal
@@ -187,7 +187,7 @@ update msg model =
                                 pageModel
                                 |> mapBoth Model${name} (Cmd.map Msg${name})
                                 |> (\\( a, b, c ) ->
-                                        ( a, b, Global.update (Global.SharedMsg c) model.global )
+                                        ( a, b, Shared.update (Shared.SharedMsg c) model.global )
                                    )
 
                         _ ->

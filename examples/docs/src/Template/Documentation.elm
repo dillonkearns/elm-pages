@@ -5,7 +5,6 @@ import Element exposing (Element)
 import Element.Events
 import Element.Font as Font
 import Element.Region
-import Global
 import GlobalMetadata
 import Head
 import Head.Seo as Seo
@@ -15,6 +14,7 @@ import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
+import Shared
 import Site
 import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (Documentation)
@@ -48,11 +48,11 @@ init metadata =
     ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> Model -> ( Model, Cmd Msg, Global.GlobalMsg )
+update : Documentation -> Msg -> Model -> ( Model, Cmd Msg, Shared.GlobalMsg )
 update metadata msg model =
     case msg of
         Increment ->
-            ( model, Cmd.none, Global.IncrementFromChild )
+            ( model, Cmd.none, Shared.IncrementFromChild )
 
 
 staticData :
@@ -90,8 +90,8 @@ view :
     DynamicPayload Model
     -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
     -> StaticPayload Documentation StaticData
-    -> Global.RenderedBody
-    -> Global.PageView Msg
+    -> Shared.RenderedBody
+    -> Shared.PageView Msg
 view dynamicPayload allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =
@@ -122,7 +122,7 @@ view dynamicPayload allMetadata staticPayload rendered =
     }
 
 
-counterView : Global.Model -> Element Msg
+counterView : Shared.Model -> Element Msg
 counterView globalModel =
     Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt globalModel.counter)
 

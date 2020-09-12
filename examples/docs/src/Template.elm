@@ -1,19 +1,19 @@
 module Template exposing (..)
 
-import Global
 import GlobalMetadata
 import Head
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import Shared
 
 
 simplest :
     { view :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata ()
-        -> Global.RenderedBody
-        -> Global.PageView templateMsg
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
     , head :
         StaticPayload templateMetadata ()
         -> List (Head.Tag Pages.PathKey)
@@ -27,7 +27,7 @@ simplest config =
         , head = config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none, Global.NoOp )
+        , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
         }
 
 
@@ -36,8 +36,8 @@ simpler :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata ()
         -> templateModel
-        -> Global.RenderedBody
-        -> Global.PageView templateMsg
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
     , head :
         StaticPayload templateMetadata ()
         -> List (Head.Tag Pages.PathKey)
@@ -53,7 +53,7 @@ simpler config =
         , head = config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
-        , update = \a1 b1 c1 -> config.update a1 b1 c1 |> (\( a, b ) -> ( a, b, Global.NoOp ))
+        , update = \a1 b1 c1 -> config.update a1 b1 c1 |> (\( a, b ) -> ( a, b, Shared.NoOp ))
         }
 
 
@@ -64,8 +64,8 @@ stateless :
     , view :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata templateStaticData
-        -> Global.RenderedBody
-        -> Global.PageView templateMsg
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
     , head :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
@@ -79,7 +79,7 @@ stateless config =
         , head = config.head
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none, Global.NoOp )
+        , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
         }
 
 
@@ -91,13 +91,13 @@ template :
         DynamicPayload templateModel
         -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata templateStaticData
-        -> Global.RenderedBody
-        -> Global.PageView templateMsg
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
     , head :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.GlobalMsg )
     }
     -> Template templateMetadata templateStaticData templateModel templateMsg
 template config =
@@ -117,19 +117,19 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
         DynamicPayload templateModel
         -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticPayload templateMetadata templateStaticData
-        -> Global.RenderedBody
-        -> Global.PageView templateMsg
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
     , head :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Global.GlobalMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.GlobalMsg )
     }
 
 
 type alias StaticPayload metadata staticData =
     { static : staticData
-    , globalStatic : Global.StaticData
+    , globalStatic : Shared.StaticData
     , metadata : metadata
     , path : PagePath Pages.PathKey
     }
@@ -137,5 +137,5 @@ type alias StaticPayload metadata staticData =
 
 type alias DynamicPayload model =
     { model : model
-    , globalModel : Global.Model
+    , globalModel : Shared.Model
     }
