@@ -369,7 +369,7 @@ init :
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
     let
-        ( globalModel, globalCmd ) =
+        ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.init maybePagePath)
 
         page =
@@ -411,9 +411,9 @@ init currentGlobalModel maybePagePath =
 
 
         ( templateModel, templateCmd ) =
-            load globalModel page
+            load sharedModel page
     in
-    ( { global = globalModel
+    ( { global = sharedModel
       , page = templateModel
       , current = maybePagePath
       }
@@ -430,14 +430,14 @@ update msg model =
     case msg of
         MsgGlobal msg_ ->
             let
-                ( globalModel, globalCmd ) =
+                ( sharedModel, globalCmd ) =
                     Shared.update msg_ model.global
 
                 ( templateModel, templateCmd ) =
-                    load globalModel model.page
+                    load sharedModel model.page
             in
             ( { model
-                | global = globalModel
+                | global = sharedModel
                 , page = templateModel
               }
             , Cmd.batch
@@ -546,30 +546,30 @@ update msg model =
 
 
 load : Shared.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
-load globalModel model =
+load sharedModel model =
     case model of
         ModelBlogIndex m ->
-            Template.BlogIndex.template.load globalModel m
+            Template.BlogIndex.template.load sharedModel m
                 |> Tuple.mapFirst (ModelBlogIndex)
                 |> Tuple.mapSecond (Cmd.map MsgBlogIndex)
 
         ModelBlogPost m ->
-            Template.BlogPost.template.load globalModel m
+            Template.BlogPost.template.load sharedModel m
                 |> Tuple.mapFirst (ModelBlogPost)
                 |> Tuple.mapSecond (Cmd.map MsgBlogPost)
 
         ModelDocumentation m ->
-            Template.Documentation.template.load globalModel m
+            Template.Documentation.template.load sharedModel m
                 |> Tuple.mapFirst (ModelDocumentation)
                 |> Tuple.mapSecond (Cmd.map MsgDocumentation)
 
         ModelPage m ->
-            Template.Page.template.load globalModel m
+            Template.Page.template.load sharedModel m
                 |> Tuple.mapFirst (ModelPage)
                 |> Tuple.mapSecond (Cmd.map MsgPage)
 
         ModelShowcase m ->
-            Template.Showcase.template.load globalModel m
+            Template.Showcase.template.load sharedModel m
                 |> Tuple.mapFirst (ModelShowcase)
                 |> Tuple.mapSecond (Cmd.map MsgShowcase)
 
@@ -580,26 +580,26 @@ load globalModel model =
 
 
 save : TemplateModel -> Shared.Model -> Shared.Model
-save model globalModel=
+save model sharedModel=
     case model of
         ModelBlogIndex m ->
-            Template.BlogIndex.template.save m globalModel
+            Template.BlogIndex.template.save m sharedModel
 
         ModelBlogPost m ->
-            Template.BlogPost.template.save m globalModel
+            Template.BlogPost.template.save m sharedModel
 
         ModelDocumentation m ->
-            Template.Documentation.template.save m globalModel
+            Template.Documentation.template.save m sharedModel
 
         ModelPage m ->
-            Template.Page.template.save m globalModel
+            Template.Page.template.save m sharedModel
 
         ModelShowcase m ->
-            Template.Showcase.template.save m globalModel
+            Template.Showcase.template.save m sharedModel
 
 
         NotFound ->
-            globalModel
+            sharedModel
 
 
 

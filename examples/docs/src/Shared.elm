@@ -21,7 +21,7 @@ import Palette
 import Secrets
 
 
-type GlobalMsg
+type SharedMsg
     = NoOp
     | IncrementFromChild
 
@@ -55,7 +55,7 @@ type Msg
         }
     | ToggleMobileMenu
     | Increment
-    | SharedMsg GlobalMsg
+    | SharedMsg SharedMsg
 
 
 init : a -> ( Model, Cmd Msg )

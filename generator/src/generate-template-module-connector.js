@@ -74,11 +74,11 @@ view siteMetadata page =
                                 Model${name} subModel ->
                                     Template.${name}.template.view
                                         { model = subModel
-                                        , globalModel = model.global
+                                        , sharedModel = model.global
                                         }
                                         siteMetadata
                                         { static = data
-                                        , globalStatic = globalData
+                                        , sharedStatic = globalData
                                         , metadata = metadata
                                         , path = page.path
                                         }
@@ -98,7 +98,7 @@ view siteMetadata page =
                                     { title = "", body = Html.text "" }
                     , head = Template.${name}.template.head
                         { static = data
-                        , globalStatic = globalData
+                        , sharedStatic = globalData
                         , metadata = metadata
                         , path = page.path
                         }
@@ -124,7 +124,7 @@ init :
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
     let
-        ( globalModel, globalCmd ) =
+        ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.init maybePagePath)
 
         ( templateModel, templateCmd ) =
@@ -140,7 +140,7 @@ init currentGlobalModel maybePagePath =
 
 `).join("\n                        ")}
     in
-    ( { global = globalModel
+    ( { global = sharedModel
       , page = templateModel
       , current = maybePagePath
       }
@@ -157,10 +157,10 @@ update msg model =
     case msg of
         MsgGlobal msg_ ->
             let
-                ( globalModel, globalCmd ) =
+                ( sharedModel, globalCmd ) =
                     Shared.update msg_ model.global
             in
-            ( { model | global = globalModel }
+            ( { model | global = sharedModel }
             , globalCmd |> Cmd.map MsgGlobal
             )
 

@@ -97,7 +97,7 @@ template :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.GlobalMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
     }
     -> Template templateMetadata templateStaticData templateModel templateMsg
 template config =
@@ -123,13 +123,13 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.GlobalMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
     }
 
 
 type alias StaticPayload metadata staticData =
     { static : staticData
-    , globalStatic : Shared.StaticData
+    , sharedStatic : Shared.StaticData
     , metadata : metadata
     , path : PagePath Pages.PathKey
     }
@@ -137,5 +137,5 @@ type alias StaticPayload metadata staticData =
 
 type alias DynamicPayload model =
     { model : model
-    , globalModel : Shared.Model
+    , sharedModel : Shared.Model
     }

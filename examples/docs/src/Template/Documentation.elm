@@ -48,7 +48,7 @@ init metadata =
     ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> Model -> ( Model, Cmd Msg, Shared.GlobalMsg )
+update : Documentation -> Msg -> Model -> ( Model, Cmd Msg, Shared.SharedMsg )
 update metadata msg model =
     case msg of
         Increment ->
@@ -96,7 +96,7 @@ view dynamicPayload allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =
         [ Element.row []
-            [ counterView dynamicPayload.globalModel
+            [ counterView dynamicPayload.sharedModel
             , DocSidebar.view
                 Pages.pages.index
                 allMetadata
@@ -123,8 +123,8 @@ view dynamicPayload allMetadata staticPayload rendered =
 
 
 counterView : Shared.Model -> Element Msg
-counterView globalModel =
-    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt globalModel.counter)
+counterView sharedModel =
+    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt sharedModel.counter)
 
 
 tocView : MarkdownRenderer.TableOfContents -> Element msg

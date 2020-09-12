@@ -46,7 +46,7 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg, Shared.GlobalMsg )
+update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg, Shared.SharedMsg )
 update metadata msg model =
     ( Model, Cmd.none, Shared.NoOp )
 
