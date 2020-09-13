@@ -42,7 +42,7 @@ simpler :
         StaticPayload templateMetadata ()
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg )
     }
     -> Template templateMetadata () templateModel templateMsg
 simpler config =
@@ -97,7 +97,7 @@ template :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
     }
     -> Template templateMetadata templateStaticData templateModel templateMsg
 template config =
@@ -123,7 +123,7 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
     }
 
 

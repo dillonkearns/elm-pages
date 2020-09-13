@@ -48,11 +48,11 @@ init metadata =
     ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> Model -> ( Model, Cmd Msg, Shared.SharedMsg )
+update : Documentation -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg, Shared.SharedMsg )
 update metadata msg model =
     case msg of
         Increment ->
-            ( model, Cmd.none, Shared.IncrementFromChild )
+            ( model.model, Cmd.none, Shared.IncrementFromChild )
 
 
 staticData :

@@ -185,7 +185,7 @@ update msg model =
                             Template.${name}.template.update
                                 metadata
                                 msg_
-                                pageModel
+                                { sharedModel = model.global, model = pageModel }
                                 |> mapBoth Model${name} (Cmd.map Msg${name})
                                 |> (\\( a, b, c ) ->
                                         ( a, b, Shared.update (Shared.SharedMsg c) model.global )

@@ -46,9 +46,9 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogIndex -> Msg -> Model -> ( Model, Cmd Msg, Shared.SharedMsg )
+update : BlogIndex -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg, Shared.SharedMsg )
 update metadata msg model =
-    ( Model, Cmd.none, Shared.NoOp )
+    ( model.model, Cmd.none, Shared.NoOp )
 
 
 type alias Model =

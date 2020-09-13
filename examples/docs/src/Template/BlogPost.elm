@@ -91,9 +91,9 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogPost -> Msg -> Model -> ( Model, Cmd Msg )
+update : BlogPost -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg )
 update metadata msg model =
-    ( Model, Cmd.none )
+    ( model.model, Cmd.none )
 
 
 view :
