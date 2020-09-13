@@ -24,8 +24,7 @@ main =
               , body = MarkdownRenderer.view
               }
             ]
-        , manifest = Site.manifest
-        , canonicalSiteUrl = Site.canonicalUrl
+        , site = Site.config
         , subscriptions = \_ -> Sub.none
         }
         |> RssPlugin.generate

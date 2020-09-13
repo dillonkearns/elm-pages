@@ -8,6 +8,7 @@ function generateTemplateModuleConnector() {
     return `module TemplateDemultiplexer exposing (..)
 
 import Browser
+import Pages.Manifest as Manifest
 import Shared
 import GlobalMetadata as M exposing (Metadata)
 import Head
@@ -200,7 +201,13 @@ update msg model =
         ).join("\n        ")}
 
 
-mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
+type alias SiteConfig =
+    { canonicalUrl : String
+    , manifest : Manifest.Config Pages.PathKey
+    }
+
+
+mainTemplate { documents, subscriptions, site } =
     Pages.Platform.init
         { init = init Nothing
         , view = view
@@ -208,10 +215,11 @@ mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
         , subscriptions = subscriptions
         , documents = documents
         , onPageChange = Just OnPageChange
-        , manifest = manifest -- Site.manifest
-        , canonicalSiteUrl = canonicalSiteUrl -- Site.canonicalUrl
+        , manifest = site.manifest
+        , canonicalSiteUrl = site.canonicalUrl
         , internals = Pages.internals
         }
+
 
 
 mapDocument : Browser.Document Never -> Browser.Document mapped

@@ -1,9 +1,22 @@
-module Site exposing (..)
+module Site exposing (canonicalUrl, config, tagline)
 
 import Color
 import Pages exposing (images, pages)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
+
+
+type alias SiteConfig =
+    { canonicalUrl : String
+    , manifest : Manifest.Config Pages.PathKey
+    }
+
+
+config : SiteConfig
+config =
+    { canonicalUrl = canonicalUrl
+    , manifest = manifest
+    }
 
 
 canonicalUrl : String
@@ -17,7 +30,7 @@ manifest =
     , categories = [ Pages.Manifest.Category.education ]
     , displayMode = Manifest.Standalone
     , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
+    , description = tagline
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.white
