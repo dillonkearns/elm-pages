@@ -1,9 +1,12 @@
 module Site exposing (canonicalUrl, config, tagline)
 
 import Color
+import GlobalMetadata
 import Pages exposing (images, pages)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
+import Pages.PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
 
 
 type alias SiteConfig =
@@ -17,6 +20,17 @@ config =
     { canonicalUrl = canonicalUrl
     , manifest = manifest
     }
+
+
+type alias StaticData =
+    ()
+
+
+staticData :
+    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> StaticHttp.Request StaticData
+staticData siteMetadata =
+    StaticHttp.succeed ()
 
 
 canonicalUrl : String
