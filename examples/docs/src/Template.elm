@@ -21,7 +21,7 @@ sandbox :
     }
     -> TemplateSandbox templateMetadata
 sandbox config =
-    template
+    application
         { view =
             \dynamicPayload allMetadata staticPayload rendered ->
                 config.view staticPayload.metadata staticPayload.path rendered
@@ -44,7 +44,7 @@ simplest :
     }
     -> Template templateMetadata () () templateMsg
 simplest config =
-    template
+    application
         { view =
             \dynamicPayload allMetadata staticPayload rendered ->
                 config.view allMetadata staticPayload rendered
@@ -70,7 +70,7 @@ simpler :
     }
     -> Template templateMetadata () templateModel templateMsg
 simpler config =
-    template
+    application
         { view =
             \dynamicPayload allMetadata staticPayload rendered ->
                 config.view allMetadata staticPayload dynamicPayload.model rendered
@@ -96,7 +96,7 @@ stateless :
     }
     -> Template templateMetadata templateStaticData () templateMsg
 stateless config =
-    template
+    application
         { view =
             \dynamicPayload allMetadata staticPayload rendered ->
                 config.view allMetadata staticPayload rendered
@@ -107,7 +107,7 @@ stateless config =
         }
 
 
-template :
+application :
     { staticData :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
         -> StaticHttp.Request templateStaticData
@@ -124,7 +124,7 @@ template :
     , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
     }
     -> Template templateMetadata templateStaticData templateModel templateMsg
-template config =
+application config =
     { view = config.view
     , head = config.head
     , staticData = config.staticData

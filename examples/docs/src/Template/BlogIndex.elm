@@ -21,7 +21,7 @@ type Msg
 
 template : Template BlogIndex StaticData Model Msg
 template =
-    Template.template
+    Template.application
         { view = view
         , head = head
         , staticData = staticData

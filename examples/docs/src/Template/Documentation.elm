@@ -34,7 +34,7 @@ type Msg
 
 template : Template Documentation StaticData Model Msg
 template =
-    Template.template
+    Template.application
         { view = view
         , head = head
         , staticData = staticData
