@@ -32,29 +32,6 @@ sandbox config =
         }
 
 
-simplest :
-    { view :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-        -> StaticPayload templateMetadata ()
-        -> Shared.RenderedBody
-        -> Shared.PageView templateMsg
-    , head :
-        StaticPayload templateMetadata ()
-        -> List (Head.Tag Pages.PathKey)
-    }
-    -> Template templateMetadata () () templateMsg
-simplest config =
-    application
-        { view =
-            \dynamicPayload allMetadata staticPayload rendered ->
-                config.view allMetadata staticPayload rendered
-        , head = config.head
-        , staticData = \_ -> StaticHttp.succeed ()
-        , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
-        }
-
-
 simpler :
     { view :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
