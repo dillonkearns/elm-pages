@@ -5,7 +5,6 @@ import Date exposing (Date)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
-import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
@@ -17,25 +16,23 @@ import Palette
 import Shared
 import Site
 import StructuredData
-import Template exposing (DynamicPayload, StaticPayload, Template)
+import Template exposing (DynamicPayload, StaticPayload, Template, TemplateSandbox)
 import TemplateMetadata exposing (BlogPost)
 
 
-type Model
-    = Model
+type alias Model =
+    ()
 
 
-type Msg
-    = Msg
+type alias Msg =
+    Never
 
 
-template : Template BlogPost () Model Msg
+template : TemplateSandbox BlogPost
 template =
-    Template.simpler
+    Template.sandbox
         { view = view
         , head = head
-        , init = init
-        , update = update
         }
 
 
@@ -86,24 +83,13 @@ findMatchingImage imageAssetPath =
         Pages.allImages
 
 
-init : BlogPost -> ( Model, Cmd Msg )
-init metadata =
-    ( Model, Cmd.none )
-
-
-update : BlogPost -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg )
-update metadata msg model =
-    ( model.model, Cmd.none )
-
-
 view :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticPayload BlogPost ()
-    -> Model
+    BlogPost
+    -> PagePath Pages.PathKey
     -> Shared.RenderedBody
-    -> Shared.PageView Msg
-view allMetadata staticPayload model rendered =
-    { title = staticPayload.metadata.title
+    -> Shared.PageView msg
+view metadata path rendered =
+    { title = metadata.title
     , body =
         Element.column [ Element.width Element.fill ]
             [ Element.column
@@ -115,19 +101,19 @@ view allMetadata staticPayload model rendered =
                 ]
                 (Element.column [ Element.spacing 10 ]
                     [ Element.row [ Element.spacing 10 ]
-                        [ Author.view [] staticPayload.metadata.author
+                        [ Author.view [] metadata.author
                         , Element.column [ Element.spacing 10, Element.width Element.fill ]
                             [ Element.paragraph [ Font.bold, Font.size 24 ]
-                                [ Element.text staticPayload.metadata.author.name
+                                [ Element.text metadata.author.name
                                 ]
                             , Element.paragraph [ Font.size 16 ]
-                                [ Element.text staticPayload.metadata.author.bio ]
+                                [ Element.text metadata.author.bio ]
                             ]
                         ]
                     ]
-                    :: (publishedDateView staticPayload.metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                    :: Palette.blogHeading staticPayload.metadata.title
-                    :: articleImageView staticPayload.metadata.image
+                    :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+                    :: Palette.blogHeading metadata.title
+                    :: articleImageView metadata.image
                     :: Tuple.second rendered
                     |> List.map (Element.map never)
                 )
@@ -135,17 +121,20 @@ view allMetadata staticPayload model rendered =
     }
 
 
-head : StaticPayload BlogPost () -> List (Head.Tag Pages.PathKey)
-head staticPayload =
+head :
+    BlogPost
+    -> PagePath Pages.PathKey
+    -> List (Head.Tag Pages.PathKey)
+head metadata path =
     Head.structuredData
         (StructuredData.article
-            { title = staticPayload.metadata.title
-            , description = staticPayload.metadata.description
-            , author = StructuredData.person { name = staticPayload.metadata.author.name }
+            { title = metadata.title
+            , description = metadata.description
+            , author = StructuredData.person { name = metadata.author.name }
             , publisher = StructuredData.person { name = "Dillon Kearns" }
-            , url = Site.canonicalUrl ++ "/" ++ PagePath.toString staticPayload.path
-            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString staticPayload.metadata.image
-            , datePublished = Date.toIsoString staticPayload.metadata.published
+            , url = Site.canonicalUrl ++ "/" ++ PagePath.toString path
+            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
+            , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode
                     { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
@@ -159,19 +148,19 @@ head staticPayload =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = staticPayload.metadata.image
-                    , alt = staticPayload.metadata.description
+                    { url = metadata.image
+                    , alt = metadata.description
                     , dimensions = Nothing
                     , mimeType = Nothing
                     }
-                , description = staticPayload.metadata.description
+                , description = metadata.description
                 , locale = Nothing
-                , title = staticPayload.metadata.title
+                , title = metadata.title
                 }
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Just (Date.toIsoString staticPayload.metadata.published)
+                    , publishedTime = Just (Date.toIsoString metadata.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }
