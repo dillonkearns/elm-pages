@@ -8,6 +8,30 @@ import Pages.StaticHttp as StaticHttp
 import Shared
 
 
+sandbox :
+    { view :
+        templateMetadata
+        -> PagePath Pages.PathKey
+        -> Shared.RenderedBody
+        -> Shared.PageView Never
+    , head :
+        templateMetadata
+        -> PagePath Pages.PathKey
+        -> List (Head.Tag Pages.PathKey)
+    }
+    -> TemplateSandbox templateMetadata
+sandbox config =
+    template
+        { view =
+            \dynamicPayload allMetadata staticPayload rendered ->
+                config.view staticPayload.metadata staticPayload.path rendered
+        , head = \staticPayload -> config.head staticPayload.metadata staticPayload.path
+        , staticData = \_ -> StaticHttp.succeed ()
+        , init = \_ -> ( (), Cmd.none )
+        , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
+        }
+
+
 simplest :
     { view :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
@@ -125,6 +149,10 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
     }
+
+
+type alias TemplateSandbox templateMetadata =
+    Template templateMetadata () () Never
 
 
 type alias StaticPayload metadata staticData =
