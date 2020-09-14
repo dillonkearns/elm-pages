@@ -2,54 +2,31 @@ module Template.Page exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
 import Element.Region
-import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import Pages exposing (images)
-import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
+import Pages.PagePath exposing (PagePath)
 import Shared
 import Site
 import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Page)
 
 
-type alias StaticData =
-    ()
-
-
 type alias Model =
     ()
 
 
-type Msg
-    = Msg
+type alias Msg =
+    Never
 
 
-template : Template Page () () Msg
+template : Template.TemplateSandbox Page
 template =
-    Template.simplest
+    Template.sandbox
         { view = view
         , head = head
         }
-
-
-init : Page -> ( Model, Cmd Msg )
-init metadata =
-    ( (), Cmd.none )
-
-
-update : Page -> Msg -> Model -> ( Model, Cmd Msg )
-update metadata msg model =
-    ( (), Cmd.none )
-
-
-staticData :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticHttp.Request StaticData
-staticData siteMetadata =
-    StaticHttp.succeed ()
 
 
 decoder : Decode.Decoder Page
@@ -58,8 +35,11 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : StaticPayload Page () -> List (Head.Tag Pages.PathKey)
-head staticPayload =
+head :
+    Page
+    -> PagePath Pages.PathKey
+    -> List (Head.Tag Pages.PathKey)
+head metadata path =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -71,18 +51,18 @@ head staticPayload =
             }
         , description = Site.tagline
         , locale = Nothing
-        , title = staticPayload.metadata.title
+        , title = metadata.title
         }
         |> Seo.website
 
 
 view :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
-    -> StaticPayload Page ()
+    Page
+    -> PagePath Pages.PathKey
     -> Shared.RenderedBody
-    -> Shared.PageView Msg
-view allMetadata staticPayload rendered =
-    { title = staticPayload.metadata.title
+    -> Shared.PageView msg
+view metadata path rendered =
+    { title = metadata.title
     , body =
         [ Element.column
             [ Element.padding 50
