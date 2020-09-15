@@ -40,6 +40,7 @@ template =
         , staticData = staticData
         , init = init
         , update = update
+        , subscriptions = \_ _ _ -> Sub.none
         }
 
 

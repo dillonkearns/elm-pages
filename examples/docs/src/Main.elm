@@ -25,7 +25,7 @@ main =
               }
             ]
         , site = Site.config
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = Sub.none
         }
         |> RssPlugin.generate
             { siteTagline = Site.tagline

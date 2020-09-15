@@ -92,7 +92,7 @@ type Builder pathKey model msg metadata view
                 }
             -> ( model, Cmd msg )
         , update : msg -> model -> ( model, Cmd msg )
-        , subscriptions : model -> Sub msg
+        , subscriptions : metadata -> PagePath pathKey -> model -> Sub msg
         , view :
             List ( PagePath pathKey, metadata )
             ->
@@ -185,7 +185,7 @@ init :
                 { view : model -> view -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
-    , subscriptions : model -> Sub msg
+    , subscriptions : metadata -> PagePath pathKey -> model -> Sub msg
     , documents :
         List
             { extension : String
@@ -330,7 +330,7 @@ application :
             }
         -> ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )
-    , subscriptions : model -> Sub msg
+    , subscriptions : metadata -> PagePath pathKey -> model -> Sub msg
     , view :
         List ( PagePath pathKey, metadata )
         ->

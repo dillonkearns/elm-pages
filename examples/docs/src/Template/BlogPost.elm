@@ -78,9 +78,7 @@ imageDecoder =
 
 findMatchingImage : String -> Maybe (ImagePath Pages.PathKey)
 findMatchingImage imageAssetPath =
-    List.Extra.find
-        (\image -> ImagePath.toString image == imageAssetPath)
-        Pages.allImages
+    List.Extra.find (\image -> ImagePath.toString image == imageAssetPath) Pages.allImages
 
 
 view :

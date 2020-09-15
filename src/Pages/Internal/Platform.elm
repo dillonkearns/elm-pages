@@ -727,7 +727,7 @@ application :
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -822,10 +822,33 @@ application config =
             \outerModel ->
                 case outerModel of
                     Model model ->
+                        let
+                            urls =
+                                { currentUrl = model.url
+                                , baseUrl = model.baseUrl
+                                }
+
+                            ( maybePagePath, maybeMetadata ) =
+                                case ContentCache.lookupMetadata config.pathKey model.contentCache urls of
+                                    Just ( pagePath, metadata ) ->
+                                        ( Just pagePath, Just metadata )
+
+                                    Nothing ->
+                                        ( Nothing, Nothing )
+
+                            userSub =
+                                Maybe.map2
+                                    (\metadata path ->
+                                        config.subscriptions metadata path model.userModel
+                                            |> Sub.map UserMsg
+                                            |> Sub.map AppMsg
+                                    )
+                                    maybeMetadata
+                                    maybePagePath
+                                    |> Maybe.withDefault Sub.none
+                        in
                         Sub.batch
-                            [ config.subscriptions model.userModel
-                                |> Sub.map UserMsg
-                                |> Sub.map AppMsg
+                            [ userSub
                             , config.fromJsPort
                                 |> Sub.map
                                     (\decodeValue ->
@@ -863,7 +886,7 @@ cliApplication :
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->

@@ -79,7 +79,7 @@ type alias Config pathKey userMsg userModel metadata view =
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->

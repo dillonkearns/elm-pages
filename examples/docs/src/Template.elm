@@ -29,6 +29,7 @@ sandbox config =
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
         , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
+        , subscriptions = \_ _ _ -> Sub.none
         }
 
 
@@ -55,9 +56,12 @@ simpler config =
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
         , update = \a1 b1 c1 -> config.update a1 b1 c1 |> (\( a, b ) -> ( a, b, Shared.NoOp ))
+        , subscriptions = \_ _ _ -> Sub.none
         }
 
 
+{-| Basic `staticData` (including access to Shared static data)
+-}
 stateless :
     { staticData :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
@@ -81,9 +85,12 @@ stateless config =
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
         , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
+        , subscriptions = \_ _ _ -> Sub.none
         }
 
 
+{-| Full application (including local `Model`, `Msg`, `update`)
+-}
 application :
     { staticData :
         List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
@@ -99,6 +106,7 @@ application :
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> DynamicPayload templateModel -> Sub templateMsg
     }
     -> Template templateMetadata templateStaticData templateModel templateMsg
 application config =
@@ -107,6 +115,7 @@ application config =
     , staticData = config.staticData
     , init = config.init
     , update = config.update
+    , subscriptions = config.subscriptions
     }
 
 
@@ -125,6 +134,7 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> DynamicPayload templateModel -> Sub templateMsg
     }
 
 

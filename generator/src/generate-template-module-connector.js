@@ -206,13 +206,42 @@ type alias SiteConfig =
     , manifest : Manifest.Config Pages.PathKey
     }
 
+templateSubscriptions : Metadata -> PagePath Pages.PathKey -> Model -> Sub Msg
+templateSubscriptions metadata path model =
+    case model.page of
+        ${templates.map(name => `
+        Model${name} templateModel ->
+            case metadata of
+                M.Metadata${name} templateMetadata ->
+                    Template.${name}.template.subscriptions
+                        templateMetadata
+                        path
+                        { model = templateModel
+                        , sharedModel = model.global
+                        }
+                        |> Sub.map Msg${name}
+
+                _ ->
+                    Sub.none
+`
+        ).join("\n        ")}
+
+
+        NotFound ->
+            Sub.none
+
 
 mainTemplate { documents, subscriptions, site } =
     Pages.Platform.init
         { init = init Nothing
         , view = view
         , update = update
-        , subscriptions = subscriptions
+        , subscriptions =
+            \\metadata path model ->
+                Sub.batch
+                    [ subscriptions
+                    , templateSubscriptions metadata path model
+                    ]
         , documents = documents
         , onPageChange = Just OnPageChange
         , manifest = site.manifest
