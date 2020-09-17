@@ -119,7 +119,7 @@ exports[`generate template module connector 1`] = `
 
 import Browser
 import Shared
-import GlobalMetadata as M exposing (Metadata)
+import TemplateType as M exposing (Metadata)
 import Head
 import Html exposing (Html)
 import Pages
@@ -189,7 +189,7 @@ view :
             }
 view siteMetadata page =
     case page.frontmatter of
-        M.MetadataBlogIndex metadata ->
+        M.BlogIndex metadata ->
             StaticHttp.map2
                 (\\\\data globalData ->
                     { view =
@@ -222,7 +222,7 @@ view siteMetadata page =
                 (Shared.staticData siteMetadata)
 
 
-        M.MetadataBlogPost metadata ->
+        M.BlogPost metadata ->
             StaticHttp.map2
                 (\\\\data globalData ->
                     { view =
@@ -255,7 +255,7 @@ view siteMetadata page =
                 (Shared.staticData siteMetadata)
 
 
-        M.MetadataDocumentation metadata ->
+        M.Documentation metadata ->
             StaticHttp.map2
                 (\\\\data globalData ->
                     { view =
@@ -288,7 +288,7 @@ view siteMetadata page =
                 (Shared.staticData siteMetadata)
 
 
-        M.MetadataPage metadata ->
+        M.Page metadata ->
             StaticHttp.map2
                 (\\\\data globalData ->
                     { view =
@@ -321,7 +321,7 @@ view siteMetadata page =
                 (Shared.staticData siteMetadata)
 
 
-        M.MetadataShowcase metadata ->
+        M.Showcase metadata ->
             StaticHttp.map2
                 (\\\\data globalData ->
                     { view =
@@ -379,31 +379,31 @@ init currentGlobalModel maybePagePath =
 
                 Just meta ->
                     case meta of
-                        M.MetadataBlogIndex metadata ->
+                        M.BlogIndex metadata ->
                             Template.BlogIndex.template.init metadata
                                 |> Tuple.first
                                 |> ModelBlogIndex
 
 
-                        M.MetadataBlogPost metadata ->
+                        M.BlogPost metadata ->
                             Template.BlogPost.template.init metadata
                                 |> Tuple.first
                                 |> ModelBlogPost
 
 
-                        M.MetadataDocumentation metadata ->
+                        M.Documentation metadata ->
                             Template.Documentation.template.init metadata
                                 |> Tuple.first
                                 |> ModelDocumentation
 
 
-                        M.MetadataPage metadata ->
+                        M.Page metadata ->
                             Template.Page.template.init metadata
                                 |> Tuple.first
                                 |> ModelPage
 
 
-                        M.MetadataShowcase metadata ->
+                        M.Showcase metadata ->
                             Template.Showcase.template.init metadata
                                 |> Tuple.first
                                 |> ModelShowcase
@@ -462,7 +462,7 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( ModelBlogIndex pageModel, Just (M.MetadataBlogIndex metadata) ) ->
+                        ( ModelBlogIndex pageModel, Just (M.BlogIndex metadata) ) ->
                             Template.BlogIndex.template.update
                                 metadata
                                 msg_
@@ -479,7 +479,7 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( ModelBlogPost pageModel, Just (M.MetadataBlogPost metadata) ) ->
+                        ( ModelBlogPost pageModel, Just (M.BlogPost metadata) ) ->
                             Template.BlogPost.template.update
                                 metadata
                                 msg_
@@ -496,7 +496,7 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( ModelDocumentation pageModel, Just (M.MetadataDocumentation metadata) ) ->
+                        ( ModelDocumentation pageModel, Just (M.Documentation metadata) ) ->
                             Template.Documentation.template.update
                                 metadata
                                 msg_
@@ -513,7 +513,7 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( ModelPage pageModel, Just (M.MetadataPage metadata) ) ->
+                        ( ModelPage pageModel, Just (M.Page metadata) ) ->
                             Template.Page.template.update
                                 metadata
                                 msg_
@@ -530,7 +530,7 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( ModelShowcase pageModel, Just (M.MetadataShowcase metadata) ) ->
+                        ( ModelShowcase pageModel, Just (M.Showcase metadata) ) ->
                             Template.Showcase.template.update
                                 metadata
                                 msg_

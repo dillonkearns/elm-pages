@@ -1,11 +1,11 @@
 module Template exposing (..)
 
-import GlobalMetadata
 import Head
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
+import TemplateType
 
 
 sandbox :
@@ -35,7 +35,7 @@ sandbox config =
 
 simpler :
     { view :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticPayload templateMetadata ()
         -> templateModel
         -> Shared.RenderedBody
@@ -64,10 +64,10 @@ simpler config =
 -}
 stateless :
     { staticData :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
@@ -93,11 +93,11 @@ stateless config =
 -}
 application :
     { staticData :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticHttp.Request templateStaticData
     , view :
         DynamicPayload templateModel
-        -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
@@ -121,11 +121,11 @@ application config =
 
 type alias Template templateMetadata templateStaticData templateModel templateMsg =
     { staticData :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticHttp.Request templateStaticData
     , view :
         DynamicPayload templateModel
-        -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg

@@ -1,7 +1,6 @@
 module Template.BlogIndex exposing (Model, Msg, template)
 
 import Element exposing (Element)
-import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Index
@@ -13,6 +12,7 @@ import Showcase
 import Site
 import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (BlogIndex)
+import TemplateType
 
 
 type Msg
@@ -32,7 +32,7 @@ template =
 
 
 staticData :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     Showcase.staticRequest
@@ -58,7 +58,7 @@ type alias Model =
 
 view :
     DynamicPayload Model
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticPayload BlogIndex StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg

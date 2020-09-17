@@ -5,7 +5,6 @@ import Date exposing (Date)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
-import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
@@ -22,6 +21,7 @@ import StructuredData
 import Template
 import Template.Metadata exposing (BlogPost)
 import TemplateDocument exposing (TemplateDocument)
+import TemplateType
 
 
 type Model
@@ -110,7 +110,7 @@ type alias StaticData =
     Int
 
 
-view : List ( PagePath Pages.PathKey, GlobalMetadata.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : List ( PagePath Pages.PathKey, TemplateType.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view allMetadata static model blogPost rendered =
     { title = blogPost.title
     , body =

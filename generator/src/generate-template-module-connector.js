@@ -10,7 +10,7 @@ function generateTemplateModuleConnector() {
 import Browser
 import Pages.Manifest as Manifest
 import Shared
-import GlobalMetadata as M exposing (Metadata)
+import TemplateType as M exposing (Metadata)
 import Head
 import Html exposing (Html)
 import Pages

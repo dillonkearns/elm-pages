@@ -1,7 +1,6 @@
 module Main exposing (main)
 
 import Data.Author
-import GlobalMetadata
 import MarkdownRenderer
 import MetadataNew
 import MySitemap
@@ -13,15 +12,16 @@ import RssPlugin
 import Shared
 import Site
 import TemplateDemultiplexer
+import TemplateType
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg GlobalMetadata.Metadata Shared.RenderedBody
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg TemplateType.Metadata Shared.RenderedBody
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =
             [ { extension = "md"
-              , metadata = MetadataNew.decoder
-              , body = MarkdownRenderer.view
+              , metadata = MetadataNew.decoder -- metadata parser/decoder?
+              , body = MarkdownRenderer.view -- body parser?
               }
             ]
         , site = Site.config
@@ -41,13 +41,13 @@ main =
 
 metadataToRssItem :
     { path : PagePath Pages.PathKey
-    , frontmatter : GlobalMetadata.Metadata
+    , frontmatter : TemplateType.Metadata
     , body : String
     }
     -> Maybe Rss.Item
 metadataToRssItem page =
     case page.frontmatter of
-        GlobalMetadata.MetadataBlogPost blogPost ->
+        TemplateType.BlogPost blogPost ->
             if blogPost.draft then
                 Nothing
 
@@ -69,7 +69,7 @@ metadataToRssItem page =
 metadataToSitemapEntry :
     List
         { path : PagePath Pages.PathKey
-        , frontmatter : GlobalMetadata.Metadata
+        , frontmatter : TemplateType.Metadata
         , body : String
         }
     -> List { path : String, lastMod : Maybe String }
@@ -78,7 +78,7 @@ metadataToSitemapEntry siteMetadata =
         |> List.filter
             (\page ->
                 case page.frontmatter of
-                    GlobalMetadata.MetadataBlogPost blogPost ->
+                    TemplateType.BlogPost blogPost ->
                         not blogPost.draft
 
                     _ ->

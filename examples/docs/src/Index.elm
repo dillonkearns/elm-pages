@@ -7,15 +7,15 @@ import Date
 import Element exposing (Element)
 import Element.Border
 import Element.Font
-import GlobalMetadata
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import TemplateMetadata exposing (BlogPost)
+import TemplateType
 
 
 view :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
@@ -23,7 +23,7 @@ view posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        GlobalMetadata.MetadataBlogPost meta ->
+                        TemplateType.BlogPost meta ->
                             if meta.draft then
                                 Nothing
 

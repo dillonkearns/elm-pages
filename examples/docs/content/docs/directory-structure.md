@@ -82,7 +82,7 @@ markdownDocument =
 ### Templates
 `src/Template/*.elm`
 
-A template represents a type of page. For example, a BlogPost template could live in `src/Template/BlogPost.elm`. Any files in your `content/` folder with frontmatter that you decode into type `GlobalMetadata.BlogPost` will be rendered using your `BlogPost` template.
+A template represents a type of page. For example, a BlogPost template could live in `src/Template/BlogPost.elm`. Any files in your `content/` folder with frontmatter that you decode into type `TemplateType.BlogPost` will be rendered using your `BlogPost` template.
 
 Think of each template as having its own mini `elm-pages architecture` lifecycle.
 
@@ -145,6 +145,6 @@ Now say you navigate to `/catalog/sibelius`. Let's look at the `elm-pages archit
 
 
 ### Global Metadata
-`src/GlobalMetadata.elm`
+`src/TemplateType.elm`
 
 This module must define a variant for each template module.

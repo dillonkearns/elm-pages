@@ -1,12 +1,12 @@
 module Site exposing (canonicalUrl, config, tagline)
 
 import Color
-import GlobalMetadata
 import Pages exposing (images, pages)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import TemplateType
 
 
 type alias SiteConfig =
@@ -27,7 +27,7 @@ type alias StaticData =
 
 
 staticData :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.succeed ()

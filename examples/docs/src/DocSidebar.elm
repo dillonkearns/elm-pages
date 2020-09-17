@@ -3,16 +3,16 @@ module DocSidebar exposing (view)
 import Element exposing (Element)
 import Element.Border as Border
 import Element.Font
-import GlobalMetadata
 import Metadata exposing (Metadata)
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
+import TemplateType
 
 
 view :
     PagePath Pages.PathKey
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> Element msg
 view currentPage posts =
     Element.column
@@ -26,7 +26,7 @@ view currentPage posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        GlobalMetadata.MetadataDocumentation meta ->
+                        TemplateType.Documentation meta ->
                             Just ( currentPage == path, path, meta )
 
                         _ ->

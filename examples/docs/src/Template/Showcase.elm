@@ -1,7 +1,6 @@
 module Template.Showcase exposing (Model, Msg, decoder, template)
 
 import Element exposing (Element)
-import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode exposing (Decoder)
@@ -12,6 +11,7 @@ import Shared
 import Showcase
 import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Showcase)
+import TemplateType
 
 
 type alias Model =
@@ -25,6 +25,7 @@ type Msg
 template : Template Showcase StaticData () Msg
 template =
     Template.stateless
+        -- static
         { view = view
         , head = head
         , staticData = staticData
@@ -37,7 +38,7 @@ decoder =
 
 
 staticData :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     Showcase.staticRequest
@@ -48,7 +49,7 @@ type alias StaticData =
 
 
 view :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticPayload Showcase StaticData
     -> Shared.RenderedBody
     -> Shared.PageView msg

@@ -5,7 +5,6 @@ import Element exposing (Element)
 import Element.Events
 import Element.Font as Font
 import Element.Region
-import GlobalMetadata
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
@@ -18,6 +17,7 @@ import Shared
 import Site
 import Template exposing (DynamicPayload, StaticPayload, Template)
 import TemplateMetadata exposing (Documentation)
+import TemplateType
 
 
 type alias StaticData =
@@ -50,14 +50,14 @@ init metadata =
 
 
 update : Documentation -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg, Shared.SharedMsg )
-update metadata msg model =
+update metadata msg dynamic =
     case msg of
         Increment ->
-            ( model.model, Cmd.none, Shared.IncrementFromChild )
+            ( dynamic.model, Cmd.none, Shared.IncrementFromChild )
 
 
 staticData :
-    List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.succeed ()
@@ -89,7 +89,7 @@ head staticPayload =
 
 view :
     DynamicPayload Model
-    -> List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+    -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
     -> StaticPayload Documentation StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg

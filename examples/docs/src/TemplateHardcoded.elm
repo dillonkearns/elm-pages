@@ -1,18 +1,18 @@
 module TemplateHardcoded exposing (..)
 
-import GlobalMetadata
 import Head
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import TemplateType
 
 
 template :
     { staticData :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticHttp.Request staticData
     , view :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> staticData
         -> model
         -> metadata
@@ -33,10 +33,10 @@ template config =
 
 type alias Template metadata renderedTemplate staticData model view templateMsg =
     { staticData :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> StaticHttp.Request staticData
     , view :
-        List ( PagePath Pages.PathKey, GlobalMetadata.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType.Metadata )
         -> staticData
         -> model
         -> metadata
