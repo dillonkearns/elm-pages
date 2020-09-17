@@ -6,7 +6,7 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
 type alias SiteConfig =
@@ -27,7 +27,7 @@ type alias StaticData =
 
 
 staticData :
-    List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.succeed ()

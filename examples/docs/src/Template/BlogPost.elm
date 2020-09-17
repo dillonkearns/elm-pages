@@ -16,7 +16,7 @@ import Palette
 import Shared
 import Site
 import StructuredData
-import Template exposing (DynamicPayload, StaticPayload, Template, TemplateSandbox)
+import Template exposing (StaticPayload, Template, TemplateSandbox)
 import TemplateMetadata exposing (BlogPost)
 
 

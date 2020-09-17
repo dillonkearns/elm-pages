@@ -10,7 +10,7 @@ function generateTemplateModuleConnector() {
 import Browser
 import Pages.Manifest as Manifest
 import Shared
-import TemplateType as M exposing (Metadata)
+import TemplateType as M exposing (TemplateType)
 import Head
 import Html exposing (Html)
 import Pages
@@ -30,7 +30,7 @@ type alias Model =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : Metadata
+            , metadata : TemplateType
             }
     }
 
@@ -47,16 +47,16 @@ type Msg
         { path : PagePath Pages.PathKey
         , query : Maybe String
         , fragment : Maybe String
-        , metadata : Metadata
+        , metadata : TemplateType
         }
     | ${templates.map(name => `Msg${name} Template.${name}.Msg\n`).join("    | ")}
 
 
 view :
-    List ( PagePath Pages.PathKey, Metadata )
+    List ( PagePath Pages.PathKey, TemplateType )
     ->
         { path : PagePath Pages.PathKey
-        , frontmatter : Metadata
+        , frontmatter : TemplateType
         }
     ->
         StaticHttp.Request
@@ -66,7 +66,7 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         ${templates.map(name =>
-        `M.Metadata${name} metadata ->
+        `M.${name} metadata ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
@@ -74,9 +74,8 @@ view siteMetadata page =
                             case model.page of
                                 Model${name} subModel ->
                                     Template.${name}.template.view
-                                        { model = subModel
-                                        , sharedModel = model.global
-                                        }
+                                        subModel
+                                        model.global
                                         siteMetadata
                                         { static = data
                                         , sharedStatic = globalData
@@ -120,7 +119,7 @@ init :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : Metadata
+            , metadata : TemplateType
             }
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
@@ -135,7 +134,7 @@ init currentGlobalModel maybePagePath =
 
                 Just meta ->
                     case meta of
-                        ${templates.map(name => `M.Metadata${name} metadata ->
+                        ${templates.map(name => `M.${name} metadata ->
                             Template.${name}.template.init metadata
                                 |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
 
@@ -181,11 +180,12 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( Model${name} pageModel, Just (M.Metadata${name} metadata) ) ->
+                        ( Model${name} pageModel, Just (M.${name} metadata) ) ->
                             Template.${name}.template.update
                                 metadata
                                 msg_
-                                { sharedModel = model.global, model = pageModel }
+                                pageModel
+                                model.global
                                 |> mapBoth Model${name} (Cmd.map Msg${name})
                                 |> (\\( a, b, c ) ->
                                         ( a, b, Shared.update (Shared.SharedMsg c) model.global )
@@ -206,19 +206,18 @@ type alias SiteConfig =
     , manifest : Manifest.Config Pages.PathKey
     }
 
-templateSubscriptions : Metadata -> PagePath Pages.PathKey -> Model -> Sub Msg
+templateSubscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
 templateSubscriptions metadata path model =
     case model.page of
         ${templates.map(name => `
         Model${name} templateModel ->
             case metadata of
-                M.Metadata${name} templateMetadata ->
+                M.${name} templateMetadata ->
                     Template.${name}.template.subscriptions
                         templateMetadata
                         path
-                        { model = templateModel
-                        , sharedModel = model.global
-                        }
+                        templateModel
+                        model.global
                         |> Sub.map Msg${name}
 
                 _ ->

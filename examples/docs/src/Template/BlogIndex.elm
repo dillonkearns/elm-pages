@@ -10,9 +10,9 @@ import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
 import Site
-import Template exposing (DynamicPayload, StaticPayload, Template)
+import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (BlogIndex)
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
 type Msg
@@ -27,12 +27,12 @@ template =
         , staticData = staticData
         , init = init
         , update = update
-        , subscriptions = \_ _ _ -> Sub.none
+        , subscriptions = \_ _ _ _ -> Sub.none
         }
 
 
 staticData :
-    List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     Showcase.staticRequest
@@ -47,9 +47,9 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogIndex -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg, Shared.SharedMsg )
-update metadata msg model =
-    ( model.model, Cmd.none, Shared.NoOp )
+update : BlogIndex -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Shared.SharedMsg )
+update metadata msg model sharedModel =
+    ( model, Cmd.none, Shared.NoOp )
 
 
 type alias Model =
@@ -57,12 +57,13 @@ type alias Model =
 
 
 view :
-    DynamicPayload Model
-    -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    Model
+    -> Shared.Model
+    -> List ( PagePath Pages.PathKey, TemplateType )
     -> StaticPayload BlogIndex StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view dynamicPayload allMetadata staticPayload rendered =
+view model sharedModel allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]

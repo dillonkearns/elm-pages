@@ -12,10 +12,10 @@ import RssPlugin
 import Shared
 import Site
 import TemplateDemultiplexer
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg TemplateType.Metadata Shared.RenderedBody
+main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg TemplateType Shared.RenderedBody
 main =
     TemplateDemultiplexer.mainTemplate
         { documents =
@@ -41,7 +41,7 @@ main =
 
 metadataToRssItem :
     { path : PagePath Pages.PathKey
-    , frontmatter : TemplateType.Metadata
+    , frontmatter : TemplateType
     , body : String
     }
     -> Maybe Rss.Item
@@ -69,7 +69,7 @@ metadataToRssItem page =
 metadataToSitemapEntry :
     List
         { path : PagePath Pages.PathKey
-        , frontmatter : TemplateType.Metadata
+        , frontmatter : TemplateType
         , body : String
         }
     -> List { path : String, lastMod : Maybe String }

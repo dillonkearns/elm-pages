@@ -1,9 +1,9 @@
-module TemplateType exposing (..)
+module TemplateType exposing (TemplateType(..))
 
 import TemplateMetadata
 
 
-type Metadata
+type TemplateType
     = BlogPost TemplateMetadata.BlogPost
     | Showcase TemplateMetadata.Showcase
     | Page TemplateMetadata.Page

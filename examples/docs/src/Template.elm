@@ -5,7 +5,7 @@ import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
 sandbox :
@@ -23,19 +23,19 @@ sandbox :
 sandbox config =
     application
         { view =
-            \dynamicPayload allMetadata staticPayload rendered ->
+            \model sharedModel allMetadata staticPayload rendered ->
                 config.view staticPayload.metadata staticPayload.path rendered
         , head = \staticPayload -> config.head staticPayload.metadata staticPayload.path
         , staticData = \_ -> StaticHttp.succeed ()
         , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
-        , subscriptions = \_ _ _ -> Sub.none
+        , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
+        , subscriptions = \_ _ _ _ -> Sub.none
         }
 
 
 simpler :
     { view :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType )
         -> StaticPayload templateMetadata ()
         -> templateModel
         -> Shared.RenderedBody
@@ -44,19 +44,19 @@ simpler :
         StaticPayload templateMetadata ()
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg )
     }
     -> Template templateMetadata () templateModel templateMsg
 simpler config =
     application
         { view =
-            \dynamicPayload allMetadata staticPayload rendered ->
-                config.view allMetadata staticPayload dynamicPayload.model rendered
+            \model sharedModel allMetadata staticPayload rendered ->
+                config.view allMetadata staticPayload model rendered
         , head = config.head
         , staticData = \_ -> StaticHttp.succeed ()
         , init = config.init
-        , update = \a1 b1 c1 -> config.update a1 b1 c1 |> (\( a, b ) -> ( a, b, Shared.NoOp ))
-        , subscriptions = \_ _ _ -> Sub.none
+        , update = \a1 b1 c1 d1 -> config.update a1 b1 c1 d1 |> (\( a, b ) -> ( a, b, Shared.NoOp ))
+        , subscriptions = \_ _ _ _ -> Sub.none
         }
 
 
@@ -64,10 +64,10 @@ simpler config =
 -}
 stateless :
     { staticData :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType )
         -> StaticHttp.Request templateStaticData
     , view :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
@@ -79,13 +79,13 @@ stateless :
 stateless config =
     application
         { view =
-            \dynamicPayload allMetadata staticPayload rendered ->
+            \model sharedModel allMetadata staticPayload rendered ->
                 config.view allMetadata staticPayload rendered
         , head = config.head
         , staticData = config.staticData
         , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ -> ( (), Cmd.none, Shared.NoOp )
-        , subscriptions = \_ _ _ -> Sub.none
+        , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
+        , subscriptions = \_ _ _ _ -> Sub.none
         }
 
 
@@ -93,11 +93,12 @@ stateless config =
 -}
 application :
     { staticData :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType )
         -> StaticHttp.Request templateStaticData
     , view :
-        DynamicPayload templateModel
-        -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        templateModel
+        -> Shared.Model
+        -> List ( PagePath Pages.PathKey, TemplateType )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
@@ -105,8 +106,8 @@ application :
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> DynamicPayload templateModel -> Sub templateMsg
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Template templateMetadata templateStaticData templateModel templateMsg
 application config =
@@ -121,11 +122,12 @@ application config =
 
 type alias Template templateMetadata templateStaticData templateModel templateMsg =
     { staticData :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath Pages.PathKey, TemplateType )
         -> StaticHttp.Request templateStaticData
     , view :
-        DynamicPayload templateModel
-        -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        templateModel
+        -> Shared.Model
+        -> List ( PagePath Pages.PathKey, TemplateType )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
@@ -133,8 +135,8 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> DynamicPayload templateModel -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> DynamicPayload templateModel -> Sub templateMsg
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
 
@@ -143,14 +145,8 @@ type alias TemplateSandbox templateMetadata =
 
 
 type alias StaticPayload metadata staticData =
-    { static : staticData
-    , sharedStatic : Shared.StaticData
+    { static : staticData -- local
+    , sharedStatic : Shared.StaticData -- share
     , metadata : metadata
     , path : PagePath Pages.PathKey
-    }
-
-
-type alias DynamicPayload model =
-    { model : model
-    , sharedModel : Shared.Model
     }

@@ -15,9 +15,9 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
 import Site
-import Template exposing (DynamicPayload, StaticPayload, Template)
+import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Documentation)
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
 type alias StaticData =
@@ -40,7 +40,7 @@ template =
         , staticData = staticData
         , init = init
         , update = update
-        , subscriptions = \_ _ _ -> Sub.none
+        , subscriptions = \_ _ _ _ -> Sub.none
         }
 
 
@@ -49,15 +49,15 @@ init metadata =
     ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> DynamicPayload Model -> ( Model, Cmd Msg, Shared.SharedMsg )
-update metadata msg dynamic =
+update : Documentation -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Shared.SharedMsg )
+update metadata msg model sharedModel =
     case msg of
         Increment ->
-            ( dynamic.model, Cmd.none, Shared.IncrementFromChild )
+            ( model, Cmd.none, Shared.IncrementFromChild )
 
 
 staticData :
-    List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.succeed ()
@@ -88,16 +88,17 @@ head staticPayload =
 
 
 view :
-    DynamicPayload Model
-    -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    Model
+    -> Shared.Model
+    -> List ( PagePath Pages.PathKey, TemplateType )
     -> StaticPayload Documentation StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view dynamicPayload allMetadata staticPayload rendered =
+view model sharedModel allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =
         [ Element.row []
-            [ counterView dynamicPayload.sharedModel
+            [ counterView sharedModel
             , DocSidebar.view
                 Pages.pages.index
                 allMetadata

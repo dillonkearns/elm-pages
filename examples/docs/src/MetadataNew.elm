@@ -4,7 +4,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Template.BlogPost
 import Template.Page
 import Template.Showcase
-import TemplateType as Metadata exposing (Metadata)
+import TemplateType exposing (TemplateType)
 
 
 type alias DocMetadata =
@@ -16,7 +16,7 @@ type alias PageMetadata =
     { title : String }
 
 
-decoder : Decoder Metadata
+decoder : Decoder TemplateType
 decoder =
     Decode.field "type" Decode.string
         |> Decode.andThen
@@ -24,23 +24,23 @@ decoder =
                 case pageType of
                     "doc" ->
                         Decode.field "title" Decode.string
-                            |> Decode.map (\title -> Metadata.Documentation { title = title })
+                            |> Decode.map (\title -> TemplateType.Documentation { title = title })
 
                     "page" ->
                         Template.Page.decoder
-                            |> Decode.map Metadata.Page
+                            |> Decode.map TemplateType.Page
 
                     "blog-index" ->
                         Decode.succeed {}
-                            |> Decode.map Metadata.BlogIndex
+                            |> Decode.map TemplateType.BlogIndex
 
                     "showcase" ->
                         Template.Showcase.decoder
-                            |> Decode.map Metadata.Showcase
+                            |> Decode.map TemplateType.Showcase
 
                     "blog" ->
                         Template.BlogPost.decoder
-                            |> Decode.map Metadata.BlogPost
+                            |> Decode.map TemplateType.BlogPost
 
                     _ ->
                         Decode.fail <| "Unexpected page \"type\" " ++ pageType

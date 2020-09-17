@@ -7,12 +7,12 @@ import Metadata exposing (Metadata)
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
 view :
     PagePath Pages.PathKey
-    -> List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    -> List ( PagePath Pages.PathKey, TemplateType )
     -> Element msg
 view currentPage posts =
     Element.column

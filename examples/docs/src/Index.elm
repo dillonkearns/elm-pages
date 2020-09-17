@@ -11,11 +11,11 @@ import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import TemplateMetadata exposing (BlogPost)
-import TemplateType
+import TemplateType exposing (TemplateType)
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType.Metadata )
+    List ( PagePath Pages.PathKey, TemplateType )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
