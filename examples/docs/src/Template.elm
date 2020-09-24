@@ -8,6 +8,126 @@ import Shared
 import TemplateType exposing (TemplateType)
 
 
+withLocalState :
+    { init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    }
+    -> Builder templateMetadata templateStaticData templateModel templateMsg
+    -> Builder templateMetadata templateStaticData templateModel templateMsg
+withLocalState { init, update } builderState =
+    builderState
+
+
+type Builder templateMetadata templateStaticData templateModel templateMsg
+    = WithStaticData
+        { staticData :
+            List ( PagePath Pages.PathKey, TemplateType )
+            -> StaticHttp.Request templateStaticData
+        , head :
+            StaticPayload templateMetadata templateStaticData
+            -> List (Head.Tag Pages.PathKey)
+        }
+
+
+buildNoState :
+    { view :
+        List ( PagePath Pages.PathKey, TemplateType )
+        -> StaticPayload templateMetadata templateStaticData
+        -> Shared.RenderedBody
+        -> Shared.PageView Never
+    }
+    -> Builder templateMetadata templateStaticData templateModel templateMsg
+    -> Template templateMetadata templateStaticData () Never
+buildNoState { view } builderState =
+    case builderState of
+        WithStaticData record ->
+            application
+                { view = \() _ -> view
+                , head = record.head
+                , staticData = record.staticData
+                , init = \_ -> ( (), Cmd.none )
+                , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
+                , subscriptions = \_ _ _ _ -> Sub.none
+                }
+
+
+buildWithLocalState :
+    { view :
+        templateModel
+        -> Shared.Model
+        -> List ( PagePath Pages.PathKey, TemplateType )
+        -> StaticPayload templateMetadata templateStaticData
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
+    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    }
+    -> Builder templateMetadata templateStaticData templateModel templateMsg
+    -> Template templateMetadata templateStaticData templateModel templateMsg
+buildWithLocalState config builderState =
+    case builderState of
+        WithStaticData record ->
+            application
+                { view = config.view
+                , head = record.head
+                , staticData = record.staticData
+                , init = config.init
+                , update = config.update
+                , subscriptions = config.subscriptions
+                }
+
+
+buildWithSharedState :
+    { view :
+        templateModel
+        -> Shared.Model
+        -> List ( PagePath Pages.PathKey, TemplateType )
+        -> StaticPayload templateMetadata templateStaticData
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
+    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    }
+    -> Builder templateMetadata templateStaticData templateModel templateMsg
+    -> Template templateMetadata templateStaticData templateModel templateMsg
+buildWithSharedState config builderState =
+    case builderState of
+        WithStaticData record ->
+            application
+                { view = config.view
+                , head = record.head
+                , staticData = record.staticData
+                , init = config.init
+                , update = config.update
+                , subscriptions = config.subscriptions
+                }
+
+
+withStaticData :
+    { staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request templateStaticData
+    , head : StaticPayload templateMetadata templateStaticData -> List (Head.Tag Pages.PathKey)
+    }
+    -> Builder templateMetadata templateStaticData templateModel templateMsg
+withStaticData { staticData, head } =
+    WithStaticData
+        { staticData = staticData
+        , head = head
+        }
+
+
+noStaticData :
+    { head : StaticPayload templateMetadata () -> List (Head.Tag Pages.PathKey) }
+    -> Builder templateMetadata () templateModel templateMsg
+noStaticData { head } =
+    WithStaticData
+        { staticData = \_ -> StaticHttp.succeed ()
+        , head = head
+        }
+
+
 sandbox :
     { view :
         templateMetadata

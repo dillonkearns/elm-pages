@@ -34,14 +34,13 @@ type Msg
 
 template : Template Documentation StaticData Model Msg
 template =
-    Template.application
-        { view = view
-        , head = head
-        , staticData = staticData
-        , init = init
-        , update = update
-        , subscriptions = \_ _ _ _ -> Sub.none
-        }
+    Template.noStaticData { head = head }
+        |> Template.buildWithSharedState
+            { view = view
+            , init = init
+            , update = update
+            , subscriptions = \_ _ _ _ -> Sub.none
+            }
 
 
 init : Documentation -> ( Model, Cmd Msg )

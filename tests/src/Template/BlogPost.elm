@@ -24,23 +24,18 @@ import TemplateDocument exposing (TemplateDocument)
 import TemplateType
 
 
-type Model
-    = Model
+type alias Model =
+    ()
 
 
-type Msg
-    = Msg
+type alias Msg =
+    Never
 
 
 template : TemplateDocument BlogPost StaticData Model Msg
 template =
-    Template.template
-        { view = view
-        , head = head
-        , staticData = staticData
-        , init = init
-        , update = update
-        }
+    Template.withStaticData staticData head
+        |> Template.buildNoState { view = view }
 
 
 decoder : Decode.Decoder BlogPost
@@ -90,14 +85,7 @@ findMatchingImage imageAssetPath =
         Pages.allImages
 
 
-init : BlogPost -> ( Model, Cmd Msg )
-init metadata =
-    ( Model, Cmd.none )
 
-
-update : BlogPost -> Msg -> Model -> ( Model, Cmd Msg )
-update metadata msg model =
-    ( Model, Cmd.none )
 
 
 staticData : a -> StaticHttp.Request StaticData

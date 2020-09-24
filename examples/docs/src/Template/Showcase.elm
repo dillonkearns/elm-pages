@@ -18,17 +18,17 @@ type alias Model =
     ()
 
 
-type Msg
-    = Msg
+type alias Msg =
+    Never
 
 
 template : Template Showcase StaticData () Msg
 template =
-    Template.stateless
-        { view = view
-        , head = head
+    Template.withStaticData
+        { head = head
         , staticData = staticData
         }
+        |> Template.buildNoState { view = view }
 
 
 decoder : Decoder Showcase

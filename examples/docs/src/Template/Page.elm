@@ -11,6 +11,7 @@ import Shared
 import Site
 import Template exposing (StaticPayload, Template)
 import TemplateMetadata exposing (Page)
+import TemplateType exposing (TemplateType)
 
 
 type alias Model =
@@ -23,10 +24,8 @@ type alias Msg =
 
 template : Template.TemplateSandbox Page
 template =
-    Template.sandbox
-        { view = view
-        , head = head
-        }
+    Template.noStaticData { head = head }
+        |> Template.buildNoState { view = view }
 
 
 decoder : Decode.Decoder Page
@@ -36,10 +35,9 @@ decoder =
 
 
 head :
-    Page
-    -> PagePath Pages.PathKey
+    StaticPayload Page ()
     -> List (Head.Tag Pages.PathKey)
-head metadata path =
+head { metadata } =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -57,11 +55,11 @@ head metadata path =
 
 
 view :
-    Page
-    -> PagePath Pages.PathKey
+    List ( PagePath Pages.PathKey, TemplateType )
+    -> StaticPayload Page ()
     -> Shared.RenderedBody
     -> Shared.PageView msg
-view metadata path rendered =
+view allMetadata { metadata } rendered =
     { title = metadata.title
     , body =
         [ Element.column

@@ -21,14 +21,16 @@ type Msg
 
 template : Template BlogIndex StaticData Model Msg
 template =
-    Template.application
-        { view = view
-        , head = head
+    Template.withStaticData
+        { head = head
         , staticData = staticData
-        , init = init
-        , update = update
-        , subscriptions = \_ _ _ _ -> Sub.none
         }
+        |> Template.buildWithSharedState
+            { view = view
+            , init = init
+            , update = update
+            , subscriptions = \_ _ _ _ -> Sub.none
+            }
 
 
 staticData :
