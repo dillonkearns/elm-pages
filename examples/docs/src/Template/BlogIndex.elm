@@ -25,11 +25,11 @@ template =
         { head = head
         , staticData = staticData
         }
-        |> Template.buildWithSharedState
+        |> Template.buildWithLocalState
             { view = view
             , init = init
             , update = update
-            , subscriptions = \_ _ _ _ -> Sub.none
+            , subscriptions = \_ _ _ -> Sub.none
             }
 
 
@@ -49,9 +49,13 @@ init metadata =
     ( Model, Cmd.none )
 
 
-update : BlogIndex -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Shared.SharedMsg )
-update metadata msg model sharedModel =
-    ( model, Cmd.none, Shared.NoOp )
+update :
+    BlogIndex
+    -> Msg
+    -> Model
+    -> ( Model, Cmd Msg )
+update metadata msg model =
+    ( model, Cmd.none )
 
 
 type alias Model =
@@ -60,12 +64,11 @@ type alias Model =
 
 view :
     Model
-    -> Shared.Model
     -> List ( PagePath Pages.PathKey, TemplateType )
     -> StaticPayload BlogIndex StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view model sharedModel allMetadata staticPayload rendered =
+view model allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =
         Element.column [ Element.width Element.fill ]

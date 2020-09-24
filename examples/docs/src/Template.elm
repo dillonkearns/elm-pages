@@ -44,14 +44,13 @@ buildNoState { view } builderState =
 buildWithLocalState :
     { view :
         templateModel
-        -> Shared.Model
         -> List ( PagePath Pages.PathKey, TemplateType )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
     }
     -> Builder templateMetadata templateStaticData
     -> Template templateMetadata templateStaticData templateModel templateMsg
@@ -59,12 +58,22 @@ buildWithLocalState config builderState =
     case builderState of
         WithStaticData record ->
             application
-                { view = config.view
+                { view =
+                    \model sharedModel allMetadata staticPayload rendered ->
+                        config.view model allMetadata staticPayload rendered
                 , head = record.head
                 , staticData = record.staticData
                 , init = config.init
-                , update = config.update
-                , subscriptions = config.subscriptions
+                , update =
+                    \metadata msg templateModel sharedModel_ ->
+                        let
+                            ( updatedModel, cmd ) =
+                                config.update metadata msg templateModel
+                        in
+                        ( updatedModel, cmd, Shared.NoOp )
+                , subscriptions =
+                    \templateMetadata path templateModel sharedModel ->
+                        config.subscriptions templateMetadata path templateModel
                 }
 
 
