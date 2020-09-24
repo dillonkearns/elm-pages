@@ -8,17 +8,6 @@ import Shared
 import TemplateType exposing (TemplateType)
 
 
-withLocalState :
-    { init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
-    }
-    -> Builder templateMetadata templateStaticData
-    -> Builder templateMetadata templateStaticData
-withLocalState { init, update } builderState =
-    builderState
-
-
 type Builder templateMetadata templateStaticData
     = WithStaticData
         { staticData :
