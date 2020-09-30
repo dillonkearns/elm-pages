@@ -92,6 +92,10 @@ type alias StaticData =
     Int
 
 
+subscriptions _ _ _ =
+    Sub.none
+
+
 staticData : a -> StaticHttp.Request StaticData
 staticData siteMetadata =
     StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")

@@ -137,7 +137,7 @@ sandbox :
         -> PagePath Pages.PathKey
         -> List (Head.Tag Pages.PathKey)
     }
-    -> TemplateSandbox templateMetadata
+    -> Template_ templateMetadata ()
 sandbox config =
     application
         { view =
@@ -258,8 +258,17 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
     }
 
 
-type alias TemplateSandbox templateMetadata =
-    Template templateMetadata () () Never
+type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
+    Template templateMetadata templateStaticData templateModel templateMsg
+
+
+
+--type alias Template_ templateMetadata =
+--    Template templateMetadata () () Never
+
+
+type alias Template_ templateMetadata staticData =
+    Template templateMetadata staticData () Never
 
 
 type alias StaticPayload metadata staticData =

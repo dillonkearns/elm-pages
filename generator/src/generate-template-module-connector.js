@@ -1,11 +1,12 @@
-const globby = require("globby")
-const path = require("path")
-
+const globby = require("globby");
+const path = require("path");
 
 function generateTemplateModuleConnector() {
-    const templates = globby.sync(["src/Template/*.elm"], {}).map(file => path.basename(file, '.elm'))
+  const templates = globby
+    .sync(["src/Template/*.elm"], {})
+    .map((file) => path.basename(file, ".elm"));
 
-    return `module TemplateDemultiplexer exposing (..)
+  return `module TemplateDemultiplexer exposing (..)
 
 import Browser
 import Pages.Manifest as Manifest
@@ -17,7 +18,7 @@ import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
 import Pages.StaticHttp as StaticHttp
-${templates.map(name => `import Template.${name}`).join("\n")}
+${templates.map((name) => `import Template.${name}`).join("\n")}
 
 
 type alias Model =
@@ -36,7 +37,9 @@ type alias Model =
 
 
 type TemplateModel
-    = ${templates.map(name => `Model${name} Template.${name}.Model\n`).join("    | ")}
+    = ${templates
+      .map((name) => `Model${name} Template.${name}.Model\n`)
+      .join("    | ")}
     | NotFound
 
 
@@ -49,7 +52,9 @@ type Msg
         , fragment : Maybe String
         , metadata : TemplateType
         }
-    | ${templates.map(name => `Msg${name} Template.${name}.Msg\n`).join("    | ")}
+    | ${templates
+      .map((name) => `Msg${name} Template.${name}.Msg\n`)
+      .join("    | ")}
 
 
 view :
@@ -65,8 +70,10 @@ view :
             }
 view siteMetadata page =
     case page.frontmatter of
-        ${templates.map(name =>
-        `M.${name} metadata ->
+        ${templates
+          .map(
+            (name) =>
+              `M.${name} metadata ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
@@ -106,8 +113,9 @@ view siteMetadata page =
                 )
                 (Template.${name}.template.staticData siteMetadata)
                 (Shared.staticData siteMetadata)
-`).join("\n\n        ")
-        }
+`
+          )
+          .join("\n\n        ")}
 
 
 init :
@@ -134,11 +142,15 @@ init currentGlobalModel maybePagePath =
 
                 Just meta ->
                     case meta of
-                        ${templates.map(name => `M.${name} metadata ->
+                        ${templates
+                          .map(
+                            (name) => `M.${name} metadata ->
                             Template.${name}.template.init metadata
                                 |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
 
-`).join("\n                        ")}
+`
+                          )
+                          .join("\n                        ")}
     in
     ( { global = sharedModel
       , page = templateModel
@@ -175,7 +187,9 @@ update msg model =
                     , metadata = record.metadata
                     }
 
-        ${templates.map(name => `
+        ${templates
+          .map(
+            (name) => `
         Msg${name} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
@@ -198,7 +212,8 @@ update msg model =
             , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
             )
 `
-        ).join("\n        ")}
+          )
+          .join("\n        ")}
 
 
 type alias SiteConfig =
@@ -209,7 +224,9 @@ type alias SiteConfig =
 templateSubscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
 templateSubscriptions metadata path model =
     case model.page of
-        ${templates.map(name => `
+        ${templates
+          .map(
+            (name) => `
         Model${name} templateModel ->
             case metadata of
                 M.${name} templateMetadata ->
@@ -223,14 +240,15 @@ templateSubscriptions metadata path model =
                 _ ->
                     Sub.none
 `
-        ).join("\n        ")}
+          )
+          .join("\n        ")}
 
 
         NotFound ->
             Sub.none
 
 
-mainTemplate { documents, subscriptions, site } =
+mainTemplate { documents, site } =
     Pages.Platform.init
         { init = init Nothing
         , view = view
@@ -238,7 +256,7 @@ mainTemplate { documents, subscriptions, site } =
         , subscriptions =
             \\metadata path model ->
                 Sub.batch
-                    [ subscriptions
+                    [ Shared.subscriptions metadata path model.global |> Sub.map MsgGlobal
                     , templateSubscriptions metadata path model
                     ]
         , documents = documents
@@ -259,7 +277,7 @@ mapDocument document =
 
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
-`
+`;
 }
 
-module.exports = { generateTemplateModuleConnector }
+module.exports = { generateTemplateModuleConnector };

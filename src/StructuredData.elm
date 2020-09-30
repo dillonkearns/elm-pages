@@ -132,7 +132,7 @@ encode (StructuredData typeName fields) =
 
 
 
---example : StructuredData { personOrOrganization : () } { address : (), affiliation : () }
+--example : StructuredDataHelper { personOrOrganization : () } { address : (), affiliation : () }
 
 
 example =
@@ -143,12 +143,12 @@ example =
 
 --organization :
 --    {}
---    -> StructuredData { personOrOrganization : () }
+--    -> StructuredDataHelper { personOrOrganization : () }
 --organization info =
---    StructuredData "Organization" []
---needsPersonOrOrg : StructuredData {}
+--    StructuredDataHelper "Organization" []
+--needsPersonOrOrg : StructuredDataHelper {}
 --needsPersonOrOrg =
---    StructuredData "" []
+--    StructuredDataHelper "" []
 
 
 {-|
