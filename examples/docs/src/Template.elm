@@ -31,14 +31,13 @@ buildNoState :
 buildNoState { view } builderState =
     case builderState of
         WithStaticData record ->
-            application
-                { view = \() _ -> view
-                , head = record.head
-                , staticData = record.staticData
-                , init = \_ -> ( (), Cmd.none )
-                , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
-                , subscriptions = \_ _ _ _ -> Sub.none
-                }
+            { view = \() _ -> view
+            , head = record.head
+            , staticData = record.staticData
+            , init = \_ -> ( (), Cmd.none )
+            , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
+            , subscriptions = \_ _ _ _ -> Sub.none
+            }
 
 
 buildWithLocalState :
@@ -57,24 +56,23 @@ buildWithLocalState :
 buildWithLocalState config builderState =
     case builderState of
         WithStaticData record ->
-            application
-                { view =
-                    \model sharedModel allMetadata staticPayload rendered ->
-                        config.view model allMetadata staticPayload rendered
-                , head = record.head
-                , staticData = record.staticData
-                , init = config.init
-                , update =
-                    \metadata msg templateModel sharedModel_ ->
-                        let
-                            ( updatedModel, cmd ) =
-                                config.update metadata msg templateModel
-                        in
-                        ( updatedModel, cmd, Shared.NoOp )
-                , subscriptions =
-                    \templateMetadata path templateModel sharedModel ->
-                        config.subscriptions templateMetadata path templateModel
-                }
+            { view =
+                \model sharedModel allMetadata staticPayload rendered ->
+                    config.view model allMetadata staticPayload rendered
+            , head = record.head
+            , staticData = record.staticData
+            , init = config.init
+            , update =
+                \metadata msg templateModel sharedModel_ ->
+                    let
+                        ( updatedModel, cmd ) =
+                            config.update metadata msg templateModel
+                    in
+                    ( updatedModel, cmd, Shared.NoOp )
+            , subscriptions =
+                \templateMetadata path templateModel sharedModel ->
+                    config.subscriptions templateMetadata path templateModel
+            }
 
 
 buildWithSharedState :
@@ -94,14 +92,13 @@ buildWithSharedState :
 buildWithSharedState config builderState =
     case builderState of
         WithStaticData record ->
-            application
-                { view = config.view
-                , head = record.head
-                , staticData = record.staticData
-                , init = config.init
-                , update = config.update
-                , subscriptions = config.subscriptions
-                }
+            { view = config.view
+            , head = record.head
+            , staticData = record.staticData
+            , init = config.init
+            , update = config.update
+            , subscriptions = config.subscriptions
+            }
 
 
 withStaticData :
@@ -124,118 +121,6 @@ noStaticData { head } =
         { staticData = \_ -> StaticHttp.succeed ()
         , head = head
         }
-
-
-sandbox :
-    { view :
-        templateMetadata
-        -> PagePath Pages.PathKey
-        -> Shared.RenderedBody
-        -> Shared.PageView Never
-    , head :
-        templateMetadata
-        -> PagePath Pages.PathKey
-        -> List (Head.Tag Pages.PathKey)
-    }
-    -> Template_ templateMetadata ()
-sandbox config =
-    application
-        { view =
-            \model sharedModel allMetadata staticPayload rendered ->
-                config.view staticPayload.metadata staticPayload.path rendered
-        , head = \staticPayload -> config.head staticPayload.metadata staticPayload.path
-        , staticData = \_ -> StaticHttp.succeed ()
-        , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
-        , subscriptions = \_ _ _ _ -> Sub.none
-        }
-
-
-simpler :
-    { view :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata ()
-        -> templateModel
-        -> Shared.RenderedBody
-        -> Shared.PageView templateMsg
-    , head :
-        StaticPayload templateMetadata ()
-        -> List (Head.Tag Pages.PathKey)
-    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg )
-    }
-    -> Template templateMetadata () templateModel templateMsg
-simpler config =
-    application
-        { view =
-            \model sharedModel allMetadata staticPayload rendered ->
-                config.view allMetadata staticPayload model rendered
-        , head = config.head
-        , staticData = \_ -> StaticHttp.succeed ()
-        , init = config.init
-        , update = \a1 b1 c1 d1 -> config.update a1 b1 c1 d1 |> (\( a, b ) -> ( a, b, Shared.NoOp ))
-        , subscriptions = \_ _ _ _ -> Sub.none
-        }
-
-
-{-| Basic `staticData` (including access to Shared static data)
--}
-stateless :
-    { staticData :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticHttp.Request templateStaticData
-    , view :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
-        -> Shared.RenderedBody
-        -> Shared.PageView templateMsg
-    , head :
-        StaticPayload templateMetadata templateStaticData
-        -> List (Head.Tag Pages.PathKey)
-    }
-    -> Template templateMetadata templateStaticData () templateMsg
-stateless config =
-    application
-        { view =
-            \model sharedModel allMetadata staticPayload rendered ->
-                config.view allMetadata staticPayload rendered
-        , head = config.head
-        , staticData = config.staticData
-        , init = \_ -> ( (), Cmd.none )
-        , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
-        , subscriptions = \_ _ _ _ -> Sub.none
-        }
-
-
-{-| Full application (including local `Model`, `Msg`, `update`)
--}
-application :
-    { staticData :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticHttp.Request templateStaticData
-    , view :
-        templateModel
-        -> Shared.Model
-        -> List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
-        -> Shared.RenderedBody
-        -> Shared.PageView templateMsg
-    , head :
-        StaticPayload templateMetadata templateStaticData
-        -> List (Head.Tag Pages.PathKey)
-    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
-    }
-    -> Template templateMetadata templateStaticData templateModel templateMsg
-application config =
-    { view = config.view
-    , head = config.head
-    , staticData = config.staticData
-    , init = config.init
-    , update = config.update
-    , subscriptions = config.subscriptions
-    }
 
 
 type alias Template templateMetadata templateStaticData templateModel templateMsg =
