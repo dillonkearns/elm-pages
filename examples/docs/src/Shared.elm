@@ -19,6 +19,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
+import TemplateType exposing (TemplateType)
 
 
 type SharedMsg
@@ -58,6 +59,33 @@ type Msg
     | SharedMsg SharedMsg
 
 
+sharedTemplate :
+    { init : a -> ( Model, Cmd Msg )
+    , update : Msg -> Model -> ( Model, Cmd Msg )
+    , view :
+        StaticData
+        ->
+            { path : PagePath Pages.PathKey
+            , frontmatter : TemplateType
+            }
+        -> Model
+        -> (Msg -> msg)
+        -> PageView msg
+        -> { body : Html msg, title : String }
+    , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
+    , staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request StaticData
+    , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
+    }
+sharedTemplate =
+    { init = init
+    , update = update
+    , view = view
+    , map = map
+    , staticData = staticData
+    , subscriptions = subscriptions
+    }
+
+
 init : a -> ( Model, Cmd Msg )
 init maybePagePath =
     ( { showMobileMenu = False
@@ -92,6 +120,7 @@ type alias StaticData =
     Int
 
 
+subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
 subscriptions _ _ _ =
     Sub.none
 
@@ -104,7 +133,10 @@ staticData siteMetadata =
 
 view :
     StaticData
-    -> { a | path : PagePath Pages.PathKey }
+    ->
+        { path : PagePath Pages.PathKey
+        , frontmatter : TemplateType
+        }
     -> Model
     -> (Msg -> msg)
     -> PageView msg
