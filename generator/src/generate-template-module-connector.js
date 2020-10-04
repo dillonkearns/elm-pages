@@ -91,13 +91,13 @@ view siteMetadata page =
                                         }
                                         rendered
                                         |> (\\{ title, body } ->
-                                                Shared.view
+                                                Shared.template.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.map Msg${name}
+                                                        |> Shared.template.map Msg${name}
                                                     )
                                            )
 
@@ -112,14 +112,14 @@ view siteMetadata page =
                     }
                 )
                 (Template.${name}.template.staticData siteMetadata)
-                (Shared.staticData siteMetadata)
+                (Shared.template.staticData siteMetadata)
 `
           )
           .join("\n\n        ")}
 
 
 init :
-    Maybe Shared.Model
+    Maybe Shared.template.Model
     ->
         Maybe
             { path :
@@ -133,7 +133,7 @@ init :
 init currentGlobalModel maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.init maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init maybePagePath)
 
         ( templateModel, templateCmd ) =
             case maybePagePath |> Maybe.map .metadata of
@@ -170,7 +170,7 @@ update msg model =
         MsgGlobal msg_ ->
             let
                 ( sharedModel, globalCmd ) =
-                    Shared.update msg_ model.global
+                    Shared.template.update msg_ model.global
             in
             ( { model | global = sharedModel }
             , globalCmd |> Cmd.map MsgGlobal
@@ -202,7 +202,7 @@ update msg model =
                                 model.global
                                 |> mapBoth Model${name} (Cmd.map Msg${name})
                                 |> (\\( a, b, c ) ->
-                                        ( a, b, Shared.update (Shared.SharedMsg c) model.global )
+                                        ( a, b, Shared.template.update (Shared.SharedMsg c) model.global )
                                    )
 
                         _ ->
@@ -256,7 +256,7 @@ mainTemplate { documents, site } =
         , subscriptions =
             \\metadata path model ->
                 Sub.batch
-                    [ Shared.subscriptions metadata path model.global |> Sub.map MsgGlobal
+                    [ Shared.template.subscriptions metadata path model.global |> Sub.map MsgGlobal
                     , templateSubscriptions metadata path model
                     ]
         , documents = documents

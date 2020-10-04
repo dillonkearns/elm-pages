@@ -1,4 +1,4 @@
-module Shared exposing (..)
+module Shared exposing (Model, Msg(..), PageView, RenderedBody, SharedMsg(..), StaticData, template)
 
 import DocumentSvg
 import Element exposing (Element)
@@ -22,21 +22,42 @@ import Secrets
 import TemplateType exposing (TemplateType)
 
 
-type SharedMsg
-    = NoOp
-    | IncrementFromChild
-
-
-type alias Model =
-    { showMobileMenu : Bool
-    , counter : Int
+type alias SharedTemplate msg msg1 msg2 =
+    { init :
+        Maybe
+            { path :
+                { path : PagePath Pages.PathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : TemplateType
+            }
+        -> ( Model, Cmd msg )
+    , update : msg -> Model -> ( Model, Cmd msg )
+    , view :
+        StaticData
+        ->
+            { path : PagePath Pages.PathKey
+            , frontmatter : TemplateType
+            }
+        -> Model
+        -> (msg -> msg)
+        -> PageView msg
+        -> { body : Html msg, title : String }
+    , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
+    , staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request StaticData
+    , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub msg
     }
 
 
-map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
-map fn doc =
-    { title = doc.title
-    , body = Element.map fn doc.body
+template : SharedTemplate Msg msg1 msg2
+template =
+    { init = init
+    , update = update
+    , view = view
+    , map = map
+    , staticData = staticData
+    , subscriptions = subscriptions
     }
 
 
@@ -59,34 +80,38 @@ type Msg
     | SharedMsg SharedMsg
 
 
-sharedTemplate :
-    { init : a -> ( Model, Cmd Msg )
-    , update : Msg -> Model -> ( Model, Cmd Msg )
-    , view :
-        StaticData
-        ->
+type alias StaticData =
+    Int
+
+
+type SharedMsg
+    = NoOp
+    | IncrementFromChild
+
+
+type alias Model =
+    { showMobileMenu : Bool
+    , counter : Int
+    }
+
+
+map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
+map fn doc =
+    { title = doc.title
+    , body = Element.map fn doc.body
+    }
+
+
+init :
+    Maybe
+        { path :
             { path : PagePath Pages.PathKey
-            , frontmatter : TemplateType
+            , query : Maybe String
+            , fragment : Maybe String
             }
-        -> Model
-        -> (Msg -> msg)
-        -> PageView msg
-        -> { body : Html msg, title : String }
-    , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
-    , staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request StaticData
-    , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
-    }
-sharedTemplate =
-    { init = init
-    , update = update
-    , view = view
-    , map = map
-    , staticData = staticData
-    , subscriptions = subscriptions
-    }
-
-
-init : a -> ( Model, Cmd Msg )
+        , metadata : TemplateType
+        }
+    -> ( Model, Cmd Msg )
 init maybePagePath =
     ( { showMobileMenu = False
       , counter = 0
@@ -114,10 +139,6 @@ update msg model =
 
                 IncrementFromChild ->
                     ( { model | counter = model.counter + 1 }, Cmd.none )
-
-
-type alias StaticData =
-    Int
 
 
 subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
