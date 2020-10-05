@@ -221,14 +221,12 @@ addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawRe
                 realUrls
     in
     if includesUrl then
-        let
-            updatedRawResponses =
-                Dict.insert
-                    hashedRequest
-                    rawResponse
-                    rawResponses
-        in
-        NotFetched request updatedRawResponses
+        NotFetched request
+            (Dict.insert
+                hashedRequest
+                rawResponse
+                rawResponses
+            )
 
     else
         entry
@@ -253,18 +251,13 @@ encode mode (StaticResponses staticResponses) =
                                         Result.withDefault ""
                                     )
                                     rawResponsesDict
-
-                            strippedResponses : Dict String String
-                            strippedResponses =
-                                -- TODO should this return an Err and handle that here?
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
                         in
                         case mode of
                             Mode.Dev ->
                                 relevantResponses
 
                             Mode.Prod ->
-                                strippedResponses
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
             )
 
 
@@ -495,7 +488,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                 staticResponses
                     |> Dict.toList
                     |> List.map
-                        (\( path, NotFetched request rawResponses ) ->
+                        (\( path, NotFetched request _ ) ->
                             ( path, request )
                         )
         in
