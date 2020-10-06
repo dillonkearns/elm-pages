@@ -86,6 +86,7 @@ import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (Request(..))
+import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 
 
@@ -241,7 +242,7 @@ map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
-                value : ApplicationType -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, Request c )
+                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( RequestsAndPending, Request c )
                 value appType rawResponses =
                     let
                         value1 =
@@ -326,12 +327,12 @@ map2 fn request1 request2 =
 This is assuming that there are no duplicate URLs, so it can safely choose between either a raw or a reduced response.
 It would not work correctly if it chose between two responses that were reduced with different `Json.Decode.Exploration.Decoder`s.
 -}
-combineReducedDicts : Dict String String -> Dict String String -> Dict String String
+combineReducedDicts : RequestsAndPending -> RequestsAndPending -> RequestsAndPending
 combineReducedDicts dict1 dict2 =
     (Dict.toList dict1 ++ Dict.toList dict2)
         |> Dict.Extra.fromListDedupe
             (\response1 response2 ->
-                if String.length response1 < String.length response2 then
+                if String.length (response1 |> Maybe.withDefault "") < String.length (response2 |> Maybe.withDefault "") then
                     response1
 
                 else
@@ -339,7 +340,7 @@ combineReducedDicts dict1 dict2 =
             )
 
 
-lookup : ApplicationType -> Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookup : ApplicationType -> Pages.StaticHttpRequest.Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( RequestsAndPending, value )
 lookup appType requestInfo rawResponses =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -595,7 +596,7 @@ unoptimizedRequest requestWithSecrets expect =
                     case appType of
                         ApplicationType.Cli ->
                             rawResponseDict
-                                |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                 |> (\maybeResponse ->
                                         case maybeResponse of
                                             Just rawResponse ->
@@ -640,7 +641,7 @@ unoptimizedRequest requestWithSecrets expect =
                                             |> Result.map
                                                 (\finalRequest ->
                                                     ( strippedResponses
-                                                        |> Dict.insert
+                                                        |> RequestsAndPending.insert
                                                             (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                                             reduced
                                                     , finalRequest
@@ -650,7 +651,7 @@ unoptimizedRequest requestWithSecrets expect =
 
                         ApplicationType.Browser ->
                             rawResponseDict
-                                |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                 |> (\maybeResponse ->
                                         case maybeResponse of
                                             Just rawResponse ->
@@ -690,7 +691,7 @@ unoptimizedRequest requestWithSecrets expect =
                 ( [ requestWithSecrets ]
                 , \appType rawResponseDict ->
                     rawResponseDict
-                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
@@ -726,7 +727,7 @@ unoptimizedRequest requestWithSecrets expect =
                                     |> Result.map
                                         (\finalRequest ->
                                             ( strippedResponses
-                                                |> Dict.insert
+                                                |> RequestsAndPending.insert
                                                     (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                                     rawResponse
                                             , finalRequest
@@ -740,7 +741,7 @@ unoptimizedRequest requestWithSecrets expect =
                 ( [ requestWithSecrets ]
                 , \appType rawResponseDict ->
                     rawResponseDict
-                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
@@ -765,7 +766,7 @@ unoptimizedRequest requestWithSecrets expect =
                                     |> Result.map
                                         (\finalRequest ->
                                             ( strippedResponses
-                                                |> Dict.insert
+                                                |> RequestsAndPending.insert
                                                     (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                                     rawResponse
                                             , finalRequest

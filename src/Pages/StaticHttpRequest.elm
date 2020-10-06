@@ -1,19 +1,21 @@
-module Pages.StaticHttpRequest exposing (Error(..), Request(..), permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
+module Pages.StaticHttpRequest exposing (Error(..), Request(..), cacheRequestResolution, permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request
+import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets.Value Pages.StaticHttp.Request.Request), ApplicationType -> Dict String String -> Result Error ( Dict String String, Request value ) )
+    = Request ( List (Secrets.Value Pages.StaticHttp.Request.Request), ApplicationType -> RequestsAndPending -> Result Error ( Dict String (Maybe String), Request value ) )
     | Done value
 
 
-strippedResponses : ApplicationType -> Request value -> Dict String String -> Dict String String
+strippedResponses : ApplicationType -> Request value -> RequestsAndPending -> RequestsAndPending
 strippedResponses appType request rawResponses =
     case request of
         Request ( list, lookupFn ) ->
@@ -78,7 +80,7 @@ toBuildError path error =
             }
 
 
-permanentError : ApplicationType -> Request value -> Dict String String -> Maybe Error
+permanentError : ApplicationType -> Request value -> RequestsAndPending -> Maybe Error
 permanentError appType request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -101,7 +103,7 @@ permanentError appType request rawResponses =
             Nothing
 
 
-resolve : ApplicationType -> Request value -> Dict String String -> Result Error value
+resolve : ApplicationType -> Request value -> RequestsAndPending -> Result Error value
 resolve appType request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -116,19 +118,53 @@ resolve appType request rawResponses =
             Ok value
 
 
-resolveUrls : ApplicationType -> Request value -> Dict String String -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+resolveUrls : ApplicationType -> Request value -> RequestsAndPending -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
 resolveUrls appType request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Ok ( partiallyStrippedResponses, nextRequest ) ->
+                Ok ( _, nextRequest ) ->
                     resolveUrls appType nextRequest rawResponses
                         |> Tuple.mapSecond ((++) urlList)
 
-                Err error ->
+                Err _ ->
                     ( False
                     , urlList
                     )
 
-        Done value ->
+        Done _ ->
             ( True, [] )
+
+
+cacheRequestResolution :
+    ApplicationType
+    -> Request value
+    -> RequestsAndPending
+    -> ( Status value, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+cacheRequestResolution =
+    cacheRequestResolutionHelp []
+
+
+type Status value
+    = CompleteWithError Error
+    | Complete value
+
+
+cacheRequestResolutionHelp :
+    List (Secrets.Value Pages.StaticHttp.Request.Request)
+    -> ApplicationType
+    -> Request value
+    -> RequestsAndPending
+    -> ( Status value, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+cacheRequestResolutionHelp foundUrls appType request rawResponses =
+    case request of
+        Request ( urlList, lookupFn ) ->
+            case lookupFn appType rawResponses of
+                Ok ( partiallyStrippedResponses, nextRequest ) ->
+                    cacheRequestResolutionHelp urlList appType nextRequest rawResponses
+
+                Err error ->
+                    ( CompleteWithError error, urlList ++ foundUrls )
+
+        Done value ->
+            ( Complete value, [] )
