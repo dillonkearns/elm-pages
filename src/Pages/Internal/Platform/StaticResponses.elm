@@ -124,10 +124,6 @@ init staticHttpCache siteMetadataResult config list =
 
                                         Just justResponse ->
                                             entrySoFar
-                                                |> addEntry
-                                                    staticHttpCache
-                                                    hashedRequest
-                                                    (Ok justResponse)
                                 )
                                 entry
                 in
@@ -173,38 +169,6 @@ dictCompact : Dict String (Maybe a) -> Dict String a
 dictCompact dict =
     dict
         |> Dict.Extra.filterMap (\key value -> value)
-
-
-addEntry :
-    RequestsAndPending
-    -> String
-    -> Result () String
-    -> StaticHttpResult
-    -> StaticHttpResult
-addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawResponses) as entry) =
-    let
-        realUrls =
-            globalRawResponses
-                |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                |> Tuple.second
-                |> List.map Secrets.maskedLookup
-                |> List.map HashRequest.hash
-
-        includesUrl =
-            List.member
-                hashedRequest
-                realUrls
-    in
-    if includesUrl then
-        NotFetched request
-            (Dict.insert
-                hashedRequest
-                rawResponse
-                rawResponses
-            )
-
-    else
-        entry
 
 
 encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict String String)
@@ -402,7 +366,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
             staticResponses
                 |> Dict.toList
                 |> List.concatMap
-                    (\( path, NotFetched request rawResponses ) ->
+                    (\( path, NotFetched request _ ) ->
                         let
                             staticRequestsStatus =
                                 StaticHttpRequest.cacheRequestResolution
