@@ -103,8 +103,7 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result
-                        String
+                    (Result String
                         { path : List String
                         , content : String
                         }
@@ -435,10 +434,10 @@ nextStepToEffect model nextStep =
                     model.pendingRequests ++ httpRequests
 
                 doNow =
-                    nextAndPending |> List.take 1
+                    nextAndPending
 
                 pending =
-                    nextAndPending |> List.drop 1
+                    []
             in
             ( { model | allRawResponses = updatedAllRawResponses, pendingRequests = pending }
             , doNow
@@ -465,8 +464,7 @@ staticResponseForPage :
                 }
         )
     ->
-        Result
-            (List BuildError)
+        Result (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

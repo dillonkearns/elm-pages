@@ -780,8 +780,7 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result
-                String
+            (Result String
                 { path : List String
                 , content : String
                 }
@@ -954,6 +953,9 @@ expectErrorsPort expectedPlainString actualPorts =
         [ ToJsPayload.Errors actualRichTerminalString ] ->
             actualRichTerminalString
                 |> normalizeErrorExpectEqual expectedPlainString
+
+        [] ->
+            Expect.fail "Expected single error port. Didn't receive any ports."
 
         _ ->
             Expect.fail <| "Expected single error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)

@@ -12,6 +12,7 @@ import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
+import Result.Extra
 import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set
@@ -50,8 +51,7 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result
-                                String
+                            (Result String
                                 { path : List String
                                 , content : String
                                 }
@@ -165,8 +165,48 @@ update newEntry model =
     in
     { model
         | allRawResponses = updatedAllResponses
+        , staticResponses =
+            case model.staticResponses of
+                StaticResponses staticResponses ->
+                    staticResponses
+                        |> Dict.map
+                            (\pageUrl entry ->
+                                case entry of
+                                    NotFetched request rawResponses ->
+                                        let
+                                            realUrls =
+                                                updatedAllResponses
+                                                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
+                                                    |> Tuple.second
+                                                    |> List.map Secrets.maskedLookup
+                                                    |> List.map HashRequest.hash
 
+                                            includesUrl =
+                                                List.member
+                                                    (HashRequest.hash newEntry.request.masked)
+                                                    realUrls
+                                        in
+                                        if includesUrl then
+                                            let
+                                                updatedRawResponses =
+                                                    Dict.insert
+                                                        (HashRequest.hash newEntry.request.masked)
+                                                        newEntry.response
+                                                        rawResponses
+                                            in
+                                            NotFetched request updatedRawResponses
+
+                                        else
+                                            entry
+                            )
+                        |> StaticResponses
     }
+
+
+dictCompact : Dict String (Maybe a) -> Dict String a
+dictCompact dict =
+    dict
+        |> Dict.Extra.filterMap (\key value -> value)
 
 
 addEntry :
@@ -244,8 +284,7 @@ nextStep :
             ->
                 StaticHttp.Request
                     (List
-                        (Result
-                            String
+                        (Result String
                             { path : List String
                             , content : String
                             }
