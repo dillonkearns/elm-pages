@@ -51,7 +51,8 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result String
+                            (Result
+                                String
                                 { path : List String
                                 , content : String
                                 }
@@ -284,7 +285,8 @@ nextStep :
             ->
                 StaticHttp.Request
                     (List
-                        (Result String
+                        (Result
+                            String
                             { path : List String
                             , content : String
                             }
@@ -445,13 +447,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
 
                             usableRawResponses : RequestsAndPending
                             usableRawResponses =
-                                rawResponses
-                                    |> Dict.map
-                                        (\key value ->
-                                            value
-                                                |> Result.map Just
-                                                |> Result.withDefault Nothing
-                                        )
+                                allRawResponses
 
                             maybePermanentError =
                                 case staticRequestsStatus of
