@@ -166,41 +166,6 @@ update newEntry model =
     in
     { model
         | allRawResponses = updatedAllResponses
-        , staticResponses =
-            case model.staticResponses of
-                StaticResponses staticResponses ->
-                    staticResponses
-                        |> Dict.map
-                            (\pageUrl entry ->
-                                case entry of
-                                    NotFetched request rawResponses ->
-                                        let
-                                            realUrls =
-                                                updatedAllResponses
-                                                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                                                    |> Tuple.second
-                                                    |> List.map Secrets.maskedLookup
-                                                    |> List.map HashRequest.hash
-
-                                            includesUrl =
-                                                List.member
-                                                    (HashRequest.hash newEntry.request.masked)
-                                                    realUrls
-                                        in
-                                        if includesUrl then
-                                            let
-                                                updatedRawResponses =
-                                                    Dict.insert
-                                                        (HashRequest.hash newEntry.request.masked)
-                                                        newEntry.response
-                                                        rawResponses
-                                            in
-                                            NotFetched request updatedRawResponses
-
-                                        else
-                                            entry
-                            )
-                        |> StaticResponses
     }
 
 
