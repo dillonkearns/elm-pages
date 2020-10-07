@@ -114,16 +114,12 @@ init staticHttpCache siteMetadataResult config list =
                     entry =
                         NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
 
+                    -- TODO don't update entry here, just use the plain entry with empty (or no) Dict
                     updatedEntry =
                         staticHttpCache
                             |> Dict.foldl
                                 (\hashedRequest response entrySoFar ->
-                                    case response of
-                                        Nothing ->
-                                            entrySoFar
-
-                                        Just justResponse ->
-                                            entrySoFar
+                                    entrySoFar
                                 )
                                 entry
                 in
