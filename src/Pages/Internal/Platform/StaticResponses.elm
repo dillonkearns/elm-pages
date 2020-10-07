@@ -387,43 +387,28 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                         case entry of
                             NotFetched request rawResponses ->
                                 let
-                                    usableRawResponses : RequestsAndPending
-                                    usableRawResponses =
-                                        rawResponses
-                                            |> Dict.map
-                                                (\key value ->
-                                                    value
-                                                        |> Result.map Just
-                                                        |> Result.withDefault Nothing
-                                                )
+                                    staticRequestsStatus =
+                                        allRawResponses
+                                            |> StaticHttpRequest.cacheRequestResolution ApplicationType.Cli request
 
                                     hasPermanentError =
-                                        usableRawResponses
-                                            |> StaticHttpRequest.permanentError ApplicationType.Cli request
-                                            |> isJust
+                                        case staticRequestsStatus of
+                                            StaticHttpRequest.HasPermanentError _ ->
+                                                True
+
+                                            _ ->
+                                                False
 
                                     hasPermanentHttpError =
                                         not (List.isEmpty errors)
 
-                                    --|> List.any
-                                    --    (\error ->
-                                    --        case error of
-                                    --            FailedStaticHttpRequestError _ ->
-                                    --                True
-                                    --
-                                    --            _ ->
-                                    --                False
-                                    --    )
                                     ( allUrlsKnown, knownUrlsToFetch ) =
-                                        StaticHttpRequest.resolveUrls
-                                            ApplicationType.Cli
-                                            request
-                                            (rawResponses
-                                                |> Dict.map (\key value -> value |> Result.withDefault "" |> Just)
-                                                --|> Dict.union (allRawResponses |> Dict.Extra.filterMap (\_ value -> value))
-                                                --|> Dict.map (\key value -> value)
-                                                |> Dict.union allRawResponses
-                                            )
+                                        case staticRequestsStatus of
+                                            StaticHttpRequest.Incomplete newUrlsToFetch ->
+                                                ( False, newUrlsToFetch )
+
+                                            _ ->
+                                                ( True, [] )
 
                                     fetchedAllKnownUrls =
                                         (rawResponses
