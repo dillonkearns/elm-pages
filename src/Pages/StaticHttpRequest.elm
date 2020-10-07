@@ -11,23 +11,28 @@ import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets.Value Pages.StaticHttp.Request.Request), ApplicationType -> RequestsAndPending -> Result Error ( Dict String (Maybe String), Request value ) )
+    = Request ( List (Secrets.Value Pages.StaticHttp.Request.Request), ApplicationType -> RequestsAndPending -> Result Error ( Dict String String, Request value ) )
     | Done value
 
 
-strippedResponses : ApplicationType -> Request value -> RequestsAndPending -> RequestsAndPending
-strippedResponses appType request rawResponses =
+strippedResponses : ApplicationType -> Request value -> RequestsAndPending -> Dict String String
+strippedResponses =
+    strippedResponsesHelp Dict.empty
+
+
+strippedResponsesHelp : Dict String String -> ApplicationType -> Request value -> RequestsAndPending -> Dict String String
+strippedResponsesHelp usedSoFar appType request rawResponses =
     case request of
         Request ( list, lookupFn ) ->
             case lookupFn appType rawResponses of
                 Err error ->
-                    rawResponses
+                    usedSoFar
 
                 Ok ( partiallyStrippedResponses, followupRequest ) ->
-                    strippedResponses appType followupRequest partiallyStrippedResponses
+                    strippedResponsesHelp (Dict.union usedSoFar partiallyStrippedResponses) appType followupRequest rawResponses
 
         Done value ->
-            rawResponses
+            usedSoFar
 
 
 type Error

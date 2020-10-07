@@ -103,7 +103,8 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -464,7 +465,8 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List BuildError)
+        Result
+            (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

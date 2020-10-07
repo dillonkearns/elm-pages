@@ -780,7 +780,8 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result String
+            (Result
+                String
                 { path : List String
                 , content : String
                 }

@@ -50,7 +50,8 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result String
+                            (Result
+                                String
                                 { path : List String
                                 , content : String
                                 }
@@ -164,41 +165,7 @@ update newEntry model =
     in
     { model
         | allRawResponses = updatedAllResponses
-        , staticResponses =
-            case model.staticResponses of
-                StaticResponses staticResponses ->
-                    staticResponses
-                        |> Dict.map
-                            (\pageUrl entry ->
-                                case entry of
-                                    NotFetched request rawResponses ->
-                                        let
-                                            realUrls =
-                                                updatedAllResponses
-                                                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                                                    |> Tuple.second
-                                                    |> List.map Secrets.maskedLookup
-                                                    |> List.map HashRequest.hash
 
-                                            includesUrl =
-                                                List.member
-                                                    (HashRequest.hash newEntry.request.masked)
-                                                    realUrls
-                                        in
-                                        if includesUrl then
-                                            let
-                                                updatedRawResponses =
-                                                    Dict.insert
-                                                        (HashRequest.hash newEntry.request.masked)
-                                                        newEntry.response
-                                                        rawResponses
-                                            in
-                                            NotFetched request updatedRawResponses
-
-                                        else
-                                            entry
-                            )
-                        |> StaticResponses
     }
 
 
@@ -234,8 +201,8 @@ addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawRe
         entry
 
 
-encode : Mode -> StaticResponses -> Dict String (Dict String String)
-encode mode (StaticResponses staticResponses) =
+encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict String String)
+encode requestsAndPending mode (StaticResponses staticResponses) =
     staticResponses
         |> Dict.filter
             (\key value ->
@@ -244,34 +211,14 @@ encode mode (StaticResponses staticResponses) =
         |> Dict.map
             (\path result ->
                 case result of
-                    NotFetched request rawResponsesDict ->
-                        let
-                            relevantResponses : RequestsAndPending
-                            relevantResponses =
-                                Dict.map
-                                    (\key value ->
-                                        -- TODO avoid running this code at all if there are errors here
-                                        value
-                                            |> Result.withDefault ""
-                                            |> Just
-                                    )
-                                    rawResponsesDict
-                        in
+                    NotFetched request _ ->
                         case mode of
                             Mode.Dev ->
-                                relevantResponses
-                                    |> Dict.Extra.filterMap (\key value -> value)
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
 
                             Mode.Prod ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
-                                    |> Dict.Extra.filterMap (\key value -> value)
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
             )
-
-
-dictCompact : Dict String (Maybe a) -> Dict String a
-dictCompact dict =
-    dict
-        |> Dict.Extra.filterMap (\key value -> value)
 
 
 cliDictKey : String
@@ -297,7 +244,8 @@ nextStep :
             ->
                 StaticHttp.Request
                     (List
-                        (Result String
+                        (Result
+                            String
                             { path : List String
                             , content : String
                             }
@@ -554,7 +502,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
 
     else
         ToJsPayload.toJsPayload
-            (encode mode (StaticResponses staticResponses))
+            (encode allRawResponses mode (StaticResponses staticResponses))
             config.manifest
             generatedOkayFiles
             allRawResponses
