@@ -452,7 +452,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                 |> List.concatMap
                     (\( path, NotFetched request rawResponses ) ->
                         let
-                            ( status, continuationRequests ) =
+                            staticRequestsStatus =
                                 StaticHttpRequest.cacheRequestResolution
                                     ApplicationType.Cli
                                     request
@@ -469,10 +469,12 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                                         )
 
                             maybePermanentError =
-                                StaticHttpRequest.permanentError
-                                    ApplicationType.Cli
-                                    request
-                                    usableRawResponses
+                                case staticRequestsStatus of
+                                    StaticHttpRequest.HasPermanentError theError ->
+                                        Just theError
+
+                                    _ ->
+                                        Nothing
 
                             decoderErrors =
                                 maybePermanentError

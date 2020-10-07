@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), Request(..), cacheRequestResolution, permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
+module Pages.StaticHttpRequest exposing (Error(..), Request(..), Status(..), cacheRequestResolution, permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -145,14 +145,15 @@ cacheRequestResolution :
     ApplicationType
     -> Request value
     -> RequestsAndPending
-    -> ( Status value, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+    -> Status value
 cacheRequestResolution =
     cacheRequestResolutionHelp []
 
 
 type Status value
-    = CompleteWithError Error
-    | Complete value
+    = Incomplete (List (Secrets.Value Pages.StaticHttp.Request.Request))
+    | HasPermanentError Error
+    | Complete value -- TODO include stripped responses?
 
 
 cacheRequestResolutionHelp :
@@ -160,7 +161,7 @@ cacheRequestResolutionHelp :
     -> ApplicationType
     -> Request value
     -> RequestsAndPending
-    -> ( Status value, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+    -> Status value
 cacheRequestResolutionHelp foundUrls appType request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -169,7 +170,15 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                     cacheRequestResolutionHelp urlList appType nextRequest rawResponses
 
                 Err error ->
-                    ( CompleteWithError error, urlList ++ foundUrls )
+                    case error of
+                        MissingHttpResponse string ->
+                            Incomplete (urlList ++ foundUrls)
+
+                        DecoderError string ->
+                            HasPermanentError error
+
+                        UserCalledStaticHttpFail string ->
+                            HasPermanentError error
 
         Done value ->
-            ( Complete value, [] )
+            Complete value
