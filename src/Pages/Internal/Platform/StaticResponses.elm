@@ -113,18 +113,9 @@ init staticHttpCache siteMetadataResult config list =
                 let
                     entry =
                         NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-
-                    -- TODO don't update entry here, just use the plain entry with empty (or no) Dict
-                    updatedEntry =
-                        staticHttpCache
-                            |> Dict.foldl
-                                (\hashedRequest response entrySoFar ->
-                                    entrySoFar
-                                )
-                                entry
                 in
                 ( PagePath.toString path
-                , updatedEntry
+                , entry
                 )
             )
         |> List.append [ generateFilesStaticRequest ]
