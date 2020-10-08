@@ -60,6 +60,7 @@ type alias Model =
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
+    , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     }
 
 
@@ -102,7 +103,8 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -265,7 +267,7 @@ init toModel contentCache siteMetadata config flags =
                                             StaticResponses.init staticHttpCache siteMetadata config []
                             in
                             StaticResponses.nextStep config siteMetadata mode secrets staticHttpCache [] staticResponses
-                                |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode)
+                                |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode [])
                                 |> Tuple.mapFirst toModel
 
                         pageErrors ->
@@ -296,6 +298,7 @@ init toModel contentCache siteMetadata config flags =
                                     pageErrors
                                     staticHttpCache
                                     mode
+                                    []
                                 )
                                 toModel
 
@@ -308,6 +311,7 @@ init toModel contentCache siteMetadata config flags =
                             (metadataParserErrors |> List.map Tuple.second)
                             staticHttpCache
                             mode
+                            []
                         )
                         toModel
 
@@ -324,6 +328,7 @@ init toModel contentCache siteMetadata config flags =
                     ]
                     Dict.empty
                     Mode.Dev
+                    []
                 )
                 toModel
 
@@ -363,7 +368,11 @@ update siteMetadata config msg model =
                 updatedModel =
                     (case response of
                         Ok okResponse ->
-                            model
+                            { model
+                                | pendingRequests =
+                                    model.pendingRequests
+                                        |> List.filter (\pending -> pending /= request)
+                            }
 
                         Err error ->
                             { model
@@ -421,8 +430,18 @@ nextStepToEffect : Model -> StaticResponses.NextStep pathKey -> ( Model, Effect 
 nextStepToEffect model nextStep =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests ->
-            ( { model | allRawResponses = updatedAllRawResponses }
-            , httpRequests
+            let
+                nextAndPending =
+                    model.pendingRequests ++ httpRequests
+
+                doNow =
+                    nextAndPending
+
+                pending =
+                    []
+            in
+            ( { model | allRawResponses = updatedAllRawResponses, pendingRequests = pending }
+            , doNow
                 |> List.map Effect.FetchHttp
                 |> Effect.Batch
             )
@@ -446,7 +465,8 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List BuildError)
+        Result
+            (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

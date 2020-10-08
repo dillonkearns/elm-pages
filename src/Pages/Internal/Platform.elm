@@ -21,6 +21,7 @@ import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
+import RequestsAndPending exposing (RequestsAndPending)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
@@ -250,7 +251,7 @@ type alias Flags =
 
 type alias ContentJson =
     { body : String
-    , staticData : Dict String String
+    , staticData : RequestsAndPending
     }
 
 
@@ -258,7 +259,7 @@ contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
     Decode.map2 ContentJson
         (Decode.field "body" Decode.string)
-        (Decode.field "staticData" (Decode.dict Decode.string))
+        (Decode.field "staticData" RequestsAndPending.decoder)
 
 
 init :

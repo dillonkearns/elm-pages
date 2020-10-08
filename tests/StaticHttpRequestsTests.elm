@@ -557,7 +557,13 @@ I got an error making an HTTP request to this URL: https://api.github.com/repos/
 
 Bad status: 404
 Status message: TODO: if you need this, please report to https://github.com/avh4/elm-program-test/issues
-Body: """)
+Body: 
+
+-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+
+
+
+Payload sent back invalid JSON""")
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
             \() ->
                 start
@@ -780,7 +786,8 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result String
+            (Result
+                String
                 { path : List String
                 , content : String
                 }
@@ -953,6 +960,9 @@ expectErrorsPort expectedPlainString actualPorts =
         [ ToJsPayload.Errors actualRichTerminalString ] ->
             actualRichTerminalString
                 |> normalizeErrorExpectEqual expectedPlainString
+
+        [] ->
+            Expect.fail "Expected single error port. Didn't receive any ports."
 
         _ ->
             Expect.fail <| "Expected single error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)

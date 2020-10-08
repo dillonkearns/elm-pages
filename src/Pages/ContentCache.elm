@@ -24,6 +24,7 @@ import Json.Decode as Decode
 import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
+import RequestsAndPending exposing (RequestsAndPending)
 import Task exposing (Task)
 import TerminalText as Terminal
 import Url exposing (Url)
@@ -423,7 +424,7 @@ httpTask url =
 
 type alias ContentJson body =
     { body : body
-    , staticData : Dict String String
+    , staticData : RequestsAndPending
     }
 
 
@@ -431,7 +432,7 @@ contentJsonDecoder : Decode.Decoder (ContentJson String)
 contentJsonDecoder =
     Decode.map2 ContentJson
         (Decode.field "body" Decode.string)
-        (Decode.field "staticData" (Decode.dict Decode.string))
+        (Decode.field "staticData" RequestsAndPending.decoder)
 
 
 update :

@@ -11,6 +11,8 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
+import RequestsAndPending exposing (RequestsAndPending)
+import Result.Extra
 import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set
@@ -49,7 +51,8 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result String
+                            (Result
+                                String
                                 { path : List String
                                 , content : String
                                 }
@@ -110,23 +113,9 @@ init staticHttpCache siteMetadataResult config list =
                 let
                     entry =
                         NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-
-                    updatedEntry =
-                        staticHttpCache
-                            |> dictCompact
-                            |> Dict.toList
-                            |> List.foldl
-                                (\( hashedRequest, response ) entrySoFar ->
-                                    entrySoFar
-                                        |> addEntry
-                                            staticHttpCache
-                                            hashedRequest
-                                            (Ok response)
-                                )
-                                entry
                 in
                 ( PagePath.toString path
-                , updatedEntry
+                , entry
                 )
             )
         |> List.append [ generateFilesStaticRequest ]
@@ -160,82 +149,17 @@ update newEntry model =
     in
     { model
         | allRawResponses = updatedAllResponses
-        , staticResponses =
-            case model.staticResponses of
-                StaticResponses staticResponses ->
-                    staticResponses
-                        |> Dict.map
-                            (\pageUrl entry ->
-                                case entry of
-                                    NotFetched request rawResponses ->
-                                        let
-                                            realUrls =
-                                                updatedAllResponses
-                                                    |> dictCompact
-                                                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                                                    |> Tuple.second
-                                                    |> List.map Secrets.maskedLookup
-                                                    |> List.map HashRequest.hash
-
-                                            includesUrl =
-                                                List.member
-                                                    (HashRequest.hash newEntry.request.masked)
-                                                    realUrls
-                                        in
-                                        if includesUrl then
-                                            let
-                                                updatedRawResponses =
-                                                    Dict.insert
-                                                        (HashRequest.hash newEntry.request.masked)
-                                                        newEntry.response
-                                                        rawResponses
-                                            in
-                                            NotFetched request updatedRawResponses
-
-                                        else
-                                            entry
-                            )
-                        |> StaticResponses
     }
 
 
-addEntry :
-    Dict String (Maybe String)
-    -> String
-    -> Result () String
-    -> StaticHttpResult
-    -> StaticHttpResult
-addEntry globalRawResponses hashedRequest rawResponse ((NotFetched request rawResponses) as entry) =
-    let
-        realUrls =
-            globalRawResponses
-                |> dictCompact
-                |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                |> Tuple.second
-                |> List.map Secrets.maskedLookup
-                |> List.map HashRequest.hash
-
-        includesUrl =
-            List.member
-                hashedRequest
-                realUrls
-    in
-    if includesUrl then
-        let
-            updatedRawResponses =
-                Dict.insert
-                    hashedRequest
-                    rawResponse
-                    rawResponses
-        in
-        NotFetched request updatedRawResponses
-
-    else
-        entry
+dictCompact : Dict String (Maybe a) -> Dict String a
+dictCompact dict =
+    dict
+        |> Dict.Extra.filterMap (\key value -> value)
 
 
-encode : Mode -> StaticResponses -> Dict String (Dict String String)
-encode mode (StaticResponses staticResponses) =
+encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict String String)
+encode requestsAndPending mode (StaticResponses staticResponses) =
     staticResponses
         |> Dict.filter
             (\key value ->
@@ -244,34 +168,14 @@ encode mode (StaticResponses staticResponses) =
         |> Dict.map
             (\path result ->
                 case result of
-                    NotFetched request rawResponsesDict ->
-                        let
-                            relevantResponses =
-                                Dict.map
-                                    (\_ ->
-                                        -- TODO avoid running this code at all if there are errors here
-                                        Result.withDefault ""
-                                    )
-                                    rawResponsesDict
-
-                            strippedResponses : Dict String String
-                            strippedResponses =
-                                -- TODO should this return an Err and handle that here?
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request relevantResponses
-                        in
+                    NotFetched request _ ->
                         case mode of
                             Mode.Dev ->
-                                relevantResponses
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
 
                             Mode.Prod ->
-                                strippedResponses
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
             )
-
-
-dictCompact : Dict String (Maybe a) -> Dict String a
-dictCompact dict =
-    dict
-        |> Dict.Extra.filterMap (\key value -> value)
 
 
 cliDictKey : String
@@ -297,7 +201,8 @@ nextStep :
             ->
                 StaticHttp.Request
                     (List
-                        (Result String
+                        (Result
+                            String
                             { path : List String
                             , content : String
                             }
@@ -307,7 +212,7 @@ nextStep :
     -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
     -> Mode
     -> SecretsDict
-    -> Dict String (Maybe String)
+    -> RequestsAndPending
     -> List BuildError
     -> StaticResponses
     -> NextStep pathKey
@@ -353,7 +258,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
         resolvedGenerateFilesResult =
             StaticHttpRequest.resolve ApplicationType.Cli
                 (config.generateFiles metadataForGenerateFiles)
-                (allRawResponses |> Dict.Extra.filterMap (\key value -> value))
+                (allRawResponses |> Dict.Extra.filterMap (\key value -> Just value))
 
         generatedOkayFiles : List { path : List String, content : String }
         generatedOkayFiles =
@@ -400,41 +305,28 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                         case entry of
                             NotFetched request rawResponses ->
                                 let
-                                    usableRawResponses : Dict String String
-                                    usableRawResponses =
-                                        rawResponses
-                                            |> Dict.Extra.filterMap
-                                                (\key value ->
-                                                    value
-                                                        |> Result.map Just
-                                                        |> Result.withDefault Nothing
-                                                )
+                                    staticRequestsStatus =
+                                        allRawResponses
+                                            |> StaticHttpRequest.cacheRequestResolution ApplicationType.Cli request
 
                                     hasPermanentError =
-                                        usableRawResponses
-                                            |> StaticHttpRequest.permanentError ApplicationType.Cli request
-                                            |> isJust
+                                        case staticRequestsStatus of
+                                            StaticHttpRequest.HasPermanentError _ ->
+                                                True
+
+                                            _ ->
+                                                False
 
                                     hasPermanentHttpError =
                                         not (List.isEmpty errors)
 
-                                    --|> List.any
-                                    --    (\error ->
-                                    --        case error of
-                                    --            FailedStaticHttpRequestError _ ->
-                                    --                True
-                                    --
-                                    --            _ ->
-                                    --                False
-                                    --    )
                                     ( allUrlsKnown, knownUrlsToFetch ) =
-                                        StaticHttpRequest.resolveUrls
-                                            ApplicationType.Cli
-                                            request
-                                            (rawResponses
-                                                |> Dict.map (\key value -> value |> Result.withDefault "")
-                                                |> Dict.union (allRawResponses |> Dict.Extra.filterMap (\_ value -> value))
-                                            )
+                                        case staticRequestsStatus of
+                                            StaticHttpRequest.Incomplete newUrlsToFetch ->
+                                                ( False, newUrlsToFetch )
+
+                                            _ ->
+                                                ( True, [] )
 
                                     fetchedAllKnownUrls =
                                         (rawResponses
@@ -461,23 +353,25 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
             staticResponses
                 |> Dict.toList
                 |> List.concatMap
-                    (\( path, NotFetched request rawResponses ) ->
+                    (\( path, NotFetched request _ ) ->
                         let
-                            usableRawResponses : Dict String String
-                            usableRawResponses =
-                                rawResponses
-                                    |> Dict.Extra.filterMap
-                                        (\key value ->
-                                            value
-                                                |> Result.map Just
-                                                |> Result.withDefault Nothing
-                                        )
-
-                            maybePermanentError =
-                                StaticHttpRequest.permanentError
+                            staticRequestsStatus =
+                                StaticHttpRequest.cacheRequestResolution
                                     ApplicationType.Cli
                                     request
                                     usableRawResponses
+
+                            usableRawResponses : RequestsAndPending
+                            usableRawResponses =
+                                allRawResponses
+
+                            maybePermanentError =
+                                case staticRequestsStatus of
+                                    StaticHttpRequest.HasPermanentError theError ->
+                                        Just theError
+
+                                    _ ->
+                                        Nothing
 
                             decoderErrors =
                                 maybePermanentError
@@ -495,7 +389,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
                 staticResponses
                     |> Dict.toList
                     |> List.map
-                        (\( path, NotFetched request rawResponses ) ->
+                        (\( path, NotFetched request _ ) ->
                             ( path, request )
                         )
         in
@@ -546,7 +440,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
 
     else
         ToJsPayload.toJsPayload
-            (encode mode (StaticResponses staticResponses))
+            (encode allRawResponses mode (StaticResponses staticResponses))
             config.manifest
             generatedOkayFiles
             allRawResponses
@@ -561,10 +455,10 @@ performStaticHttpRequests :
     -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
+        -- TODO look for performance bottleneck in this double nesting
         |> List.map
             (\( pagePath, request ) ->
                 allRawResponses
-                    |> dictCompact
                     |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
                     |> Tuple.second
             )

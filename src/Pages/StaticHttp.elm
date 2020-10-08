@@ -86,6 +86,7 @@ import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (Request(..))
+import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 
 
@@ -241,7 +242,7 @@ map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
-                value : ApplicationType -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, Request c )
+                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, Request c )
                 value appType rawResponses =
                     let
                         value1 =
@@ -339,20 +340,26 @@ combineReducedDicts dict1 dict2 =
             )
 
 
-lookup : ApplicationType -> Pages.StaticHttpRequest.Request value -> Dict String String -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
-lookup appType requestInfo rawResponses =
+lookup : ApplicationType -> Pages.StaticHttpRequest.Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookup =
+    lookupHelp Dict.empty
+
+
+lookupHelp : Dict String String -> ApplicationType -> Pages.StaticHttpRequest.Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
         Request ( urls, lookupFn ) ->
             lookupFn appType rawResponses
                 |> Result.andThen
                     (\( strippedResponses, nextRequest ) ->
-                        lookup appType
+                        lookupHelp (Dict.union strippedResponses strippedSoFar)
+                            appType
                             (addUrls urls nextRequest)
-                            strippedResponses
+                            rawResponses
                     )
 
         Done value ->
-            Ok ( rawResponses, value )
+            Ok ( strippedSoFar, value )
 
 
 addUrls : List (Pages.Secrets.Value HashRequest.Request) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
@@ -440,7 +447,7 @@ succeed value =
     Request
         ( []
         , \appType rawResponses ->
-            Ok ( rawResponses, Done value )
+            Ok ( Dict.empty, Done value )
         )
 
 
@@ -595,12 +602,12 @@ unoptimizedRequest requestWithSecrets expect =
                     case appType of
                         ApplicationType.Cli ->
                             rawResponseDict
-                                |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                 |> (\maybeResponse ->
                                         case maybeResponse of
                                             Just rawResponse ->
                                                 Ok
-                                                    ( rawResponseDict
+                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
                                                     , rawResponse
                                                     )
 
@@ -650,12 +657,12 @@ unoptimizedRequest requestWithSecrets expect =
 
                         ApplicationType.Browser ->
                             rawResponseDict
-                                |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                 |> (\maybeResponse ->
                                         case maybeResponse of
                                             Just rawResponse ->
                                                 Ok
-                                                    ( rawResponseDict
+                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
                                                     , rawResponse
                                                     )
 
@@ -690,13 +697,12 @@ unoptimizedRequest requestWithSecrets expect =
                 ( [ requestWithSecrets ]
                 , \appType rawResponseDict ->
                     rawResponseDict
-                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
-                                            ( rawResponseDict
-                                              --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                            ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
                                             , rawResponse
                                             )
 
@@ -710,7 +716,6 @@ unoptimizedRequest requestWithSecrets expect =
                             (\( strippedResponses, rawResponse ) ->
                                 rawResponse
                                     |> Json.Decode.decodeString decoder
-                                    --                                                        |> Result.mapError Json.Decode.Exploration.errorsToString
                                     |> (\decodeResult ->
                                             case decodeResult of
                                                 Err error ->
@@ -740,13 +745,12 @@ unoptimizedRequest requestWithSecrets expect =
                 ( [ requestWithSecrets ]
                 , \appType rawResponseDict ->
                     rawResponseDict
-                        |> Dict.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
-                                            ( rawResponseDict
-                                              --                                        |> Dict.update url (\maybeValue -> Just """{"fake": 123}""")
+                                            ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
                                             , rawResponse
                                             )
 
@@ -765,9 +769,7 @@ unoptimizedRequest requestWithSecrets expect =
                                     |> Result.map
                                         (\finalRequest ->
                                             ( strippedResponses
-                                                |> Dict.insert
-                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                    rawResponse
+                                                |> Dict.insert (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
                                             , finalRequest
                                             )
                                         )
