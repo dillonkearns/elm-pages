@@ -287,9 +287,9 @@ init toModel contentCache siteMetadata config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
             case mode of
-                Mode.ElmToHtmlBeta ->
-                    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
-
+                --Mode.ElmToHtmlBeta ->
+                --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
+                --
                 _ ->
                     initLegacy { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
 
@@ -328,12 +328,13 @@ elmToHtmlBetaInit { secrets, mode, staticHttpCache } toModel contentCache siteMe
             mode
             []
         )
-    , { html =
-            Html.div []
-                [ Html.text "Hello!!!!!" ]
-                |> viewRenderer
-      }
-        |> Effect.SendSinglePage
+    , Effect.NoEffect
+      --, { html =
+      --        Html.div []
+      --            [ Html.text "Hello!!!!!" ]
+      --            |> viewRenderer
+      --  }
+      --    |> Effect.SendSinglePage
     )
 
 
@@ -365,7 +366,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                                     StaticResponses.init staticHttpCache siteMetadata config []
                     in
                     StaticResponses.nextStep config siteMetadata mode secrets staticHttpCache [] staticResponses
-                        |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode [])
+                        |> nextStepToEffect config (Model staticResponses secrets [] staticHttpCache mode [])
                         |> Tuple.mapFirst toModel
 
                 pageErrors ->
@@ -429,7 +430,7 @@ updateAndSendPortIfDone config siteMetadata model toModel =
         model.allRawResponses
         model.errors
         model.staticResponses
-        |> nextStepToEffect model
+        |> nextStepToEffect config model
         |> Tuple.mapFirst toModel
 
 
@@ -504,11 +505,11 @@ update siteMetadata config msg model =
                 updatedModel.allRawResponses
                 updatedModel.errors
                 updatedModel.staticResponses
-                |> nextStepToEffect updatedModel
+                |> nextStepToEffect config updatedModel
 
 
-nextStepToEffect : Model -> StaticResponses.NextStep pathKey -> ( Model, Effect pathKey )
-nextStepToEffect model nextStep =
+nextStepToEffect : Config pathKey userMsg userModel metadata view -> Model -> StaticResponses.NextStep pathKey -> ( Model, Effect pathKey )
+nextStepToEffect config model nextStep =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests ->
             let
@@ -528,7 +529,57 @@ nextStepToEffect model nextStep =
             )
 
         StaticResponses.Finish toJsPayload ->
-            ( model, Effect.SendJsData toJsPayload )
+            case model.mode of
+                Mode.ElmToHtmlBeta ->
+                    let
+                        contentCache =
+                            ContentCache.init config.document config.content Nothing
+
+                        siteMetadata =
+                            contentCache
+                                |> Result.map
+                                    (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
+                                |> Result.mapError (List.map Tuple.second)
+                    in
+                    case siteMetadata of
+                        Ok [ ( page, metadata ) ] ->
+                            ( model
+                            , --{ html =
+                              --        Html.div []
+                              --            [ Html.text "Hello!!!!!" ]
+                              --            |> viewRenderer
+                              --  }
+                              { route = page |> PagePath.toString
+                              , contentJson =
+                                    case toJsPayload of
+                                        ToJsPayload.Success value ->
+                                            value.pages
+                                                |> Dict.values
+                                                |> List.head
+                                                |> Debug.log "@@@ 1"
+                                                |> Maybe.withDefault Dict.empty
+
+                                        _ ->
+                                            Dict.empty
+                                                |> Debug.log "@@@ 2"
+                              , html =
+                                    Html.div []
+                                        [ Html.text "Hello!!!!!" ]
+                                        |> viewRenderer
+                              , errors = []
+                              }
+                                |> Effect.SendSinglePage
+                            )
+
+                        Ok things ->
+                            Debug.todo (Debug.toString things)
+
+                        --( model, Effect.NoEffect )
+                        Err error ->
+                            Debug.todo (Debug.toString error)
+
+                _ ->
+                    ( model, Effect.SendJsData toJsPayload )
 
 
 staticResponseForPage :

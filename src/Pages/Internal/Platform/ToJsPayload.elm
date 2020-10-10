@@ -25,6 +25,14 @@ type alias ToJsSuccessPayload pathKey =
     }
 
 
+type alias ToJsSuccessPayloadNew =
+    { route : String
+    , html : String
+    , contentJson : Dict String String
+    , errors : List String
+    }
+
+
 type alias FileToGenerate =
     { path : List String
     , content : String
@@ -124,6 +132,22 @@ successCodec =
             )
         |> Codec.field "staticHttpCache"
             .staticHttpCache
+            (Codec.dict Codec.string)
+        |> Codec.field "errors" .errors (Codec.list Codec.string)
+        |> Codec.buildObject
+
+
+successCodecNew : Codec ToJsSuccessPayloadNew
+successCodecNew =
+    Codec.object ToJsSuccessPayloadNew
+        |> Codec.field "route"
+            .route
+            Codec.string
+        |> Codec.field "html"
+            .html
+            Codec.string
+        |> Codec.field "contentJson"
+            .contentJson
             (Codec.dict Codec.string)
         |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.buildObject
