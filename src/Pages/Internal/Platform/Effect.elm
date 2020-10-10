@@ -9,3 +9,4 @@ type Effect pathKey
     | SendJsData (ToJsPayload pathKey)
     | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
     | Batch (List (Effect pathKey))
+    | SendSinglePage { html : String }

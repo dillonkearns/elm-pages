@@ -51,8 +51,7 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result
-                                String
+                            (Result String
                                 { path : List String
                                 , content : String
                                 }
@@ -175,6 +174,9 @@ encode requestsAndPending mode (StaticResponses staticResponses) =
 
                             Mode.Prod ->
                                 StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
+
+                            Mode.ElmToHtmlBeta ->
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
             )
 
 
@@ -201,8 +203,7 @@ nextStep :
             ->
                 StaticHttp.Request
                     (List
-                        (Result
-                            String
+                        (Result String
                             { path : List String
                             , content : String
                             }

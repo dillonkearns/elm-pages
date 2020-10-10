@@ -12,6 +12,8 @@ module Pages.Internal.Platform.Cli exposing
 import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
+import ElmHtml.InternalTypes exposing (decodeElmHtml)
+import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
 import Head
 import Html exposing (Html)
 import Http
@@ -103,8 +105,7 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result
-                        String
+                    (Result String
                         { path : List String
                         , content : String
                         }
@@ -160,6 +161,40 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
         }
 
 
+viewRenderer : Html msg -> String
+viewRenderer html =
+    let
+        options =
+            { defaultFormatOptions | newLines = False, indent = 0 }
+    in
+    viewDecoder options html
+
+
+viewDecoder : FormatOptions -> Html msg -> String
+viewDecoder options viewHtml =
+    case
+        Decode.decodeValue
+            (decodeElmHtml
+                (\_ _ ->
+                    Decode.succeed ()
+                )
+            )
+            (asJsonView
+                viewHtml
+            )
+    of
+        Ok str ->
+            nodeToStringWithOptions options str
+
+        Err err ->
+            "Error: " ++ Decode.errorToString err
+
+
+asJsonView : Html msg -> Decode.Value
+asJsonView x =
+    Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
+
+
 perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform cliMsgConstructor toJsPort effect =
     case effect of
@@ -208,6 +243,13 @@ perform cliMsgConstructor toJsPort effect =
                 , tracker = Nothing
                 }
 
+        Effect.SendSinglePage info ->
+            Json.Encode.object
+                [ ( "html", Json.Encode.string info.html )
+                ]
+                |> toJsPort
+                |> Cmd.map never
+
 
 flagsDecoder :
     Decode.Decoder
@@ -244,76 +286,12 @@ init :
 init toModel contentCache siteMetadata config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
-            case contentCache of
-                Ok _ ->
-                    case ContentCache.pagesWithErrors contentCache of
-                        [] ->
-                            let
-                                requests =
-                                    Result.andThen
-                                        (\metadata ->
-                                            staticResponseForPage metadata config.view
-                                        )
-                                        siteMetadata
+            case mode of
+                Mode.ElmToHtmlBeta ->
+                    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
 
-                                staticResponses : StaticResponses
-                                staticResponses =
-                                    case requests of
-                                        Ok okRequests ->
-                                            StaticResponses.init staticHttpCache siteMetadata config okRequests
-
-                                        Err errors ->
-                                            -- TODO need to handle errors better?
-                                            StaticResponses.init staticHttpCache siteMetadata config []
-                            in
-                            StaticResponses.nextStep config siteMetadata mode secrets staticHttpCache [] staticResponses
-                                |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode [])
-                                |> Tuple.mapFirst toModel
-
-                        pageErrors ->
-                            let
-                                requests =
-                                    Result.andThen
-                                        (\metadata ->
-                                            staticResponseForPage metadata config.view
-                                        )
-                                        siteMetadata
-
-                                staticResponses : StaticResponses
-                                staticResponses =
-                                    case requests of
-                                        Ok okRequests ->
-                                            StaticResponses.init staticHttpCache siteMetadata config okRequests
-
-                                        Err errors ->
-                                            -- TODO need to handle errors better?
-                                            StaticResponses.init staticHttpCache siteMetadata config []
-                            in
-                            updateAndSendPortIfDone
-                                config
-                                siteMetadata
-                                (Model
-                                    staticResponses
-                                    secrets
-                                    pageErrors
-                                    staticHttpCache
-                                    mode
-                                    []
-                                )
-                                toModel
-
-                Err metadataParserErrors ->
-                    updateAndSendPortIfDone
-                        config
-                        siteMetadata
-                        (Model StaticResponses.error
-                            secrets
-                            (metadataParserErrors |> List.map Tuple.second)
-                            staticHttpCache
-                            mode
-                            []
-                        )
-                        toModel
+                _ ->
+                    initLegacy { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -328,6 +306,109 @@ init toModel contentCache siteMetadata config flags =
                     ]
                     Dict.empty
                     Mode.Dev
+                    []
+                )
+                toModel
+
+
+elmToHtmlBetaInit { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
+    --case flags of
+    --init toModel contentCache siteMetadata config flags
+    --|> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
+    --|> Tuple.mapSecond
+    --    (\cmd ->
+    --Cmd.map AppMsg
+    --Cmd.none
+    ( toModel
+        (Model StaticResponses.error
+            secrets
+            []
+            --(metadataParserErrors |> List.map Tuple.second)
+            staticHttpCache
+            mode
+            []
+        )
+    , { html =
+            Html.div []
+                [ Html.text "Hello!!!!!" ]
+                |> viewRenderer
+      }
+        |> Effect.SendSinglePage
+    )
+
+
+
+--)
+
+
+initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
+    case contentCache of
+        Ok _ ->
+            case ContentCache.pagesWithErrors contentCache of
+                [] ->
+                    let
+                        requests =
+                            Result.andThen
+                                (\metadata ->
+                                    staticResponseForPage metadata config.view
+                                )
+                                siteMetadata
+
+                        staticResponses : StaticResponses
+                        staticResponses =
+                            case requests of
+                                Ok okRequests ->
+                                    StaticResponses.init staticHttpCache siteMetadata config okRequests
+
+                                Err errors ->
+                                    -- TODO need to handle errors better?
+                                    StaticResponses.init staticHttpCache siteMetadata config []
+                    in
+                    StaticResponses.nextStep config siteMetadata mode secrets staticHttpCache [] staticResponses
+                        |> nextStepToEffect (Model staticResponses secrets [] staticHttpCache mode [])
+                        |> Tuple.mapFirst toModel
+
+                pageErrors ->
+                    let
+                        requests =
+                            Result.andThen
+                                (\metadata ->
+                                    staticResponseForPage metadata config.view
+                                )
+                                siteMetadata
+
+                        staticResponses : StaticResponses
+                        staticResponses =
+                            case requests of
+                                Ok okRequests ->
+                                    StaticResponses.init staticHttpCache siteMetadata config okRequests
+
+                                Err errors ->
+                                    -- TODO need to handle errors better?
+                                    StaticResponses.init staticHttpCache siteMetadata config []
+                    in
+                    updateAndSendPortIfDone
+                        config
+                        siteMetadata
+                        (Model
+                            staticResponses
+                            secrets
+                            pageErrors
+                            staticHttpCache
+                            mode
+                            []
+                        )
+                        toModel
+
+        Err metadataParserErrors ->
+            updateAndSendPortIfDone
+                config
+                siteMetadata
+                (Model StaticResponses.error
+                    secrets
+                    (metadataParserErrors |> List.map Tuple.second)
+                    staticHttpCache
+                    mode
                     []
                 )
                 toModel
@@ -465,8 +546,7 @@ staticResponseForPage :
                 }
         )
     ->
-        Result
-            (List BuildError)
+        Result (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

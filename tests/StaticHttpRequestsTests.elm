@@ -786,8 +786,7 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result
-                String
+            (Result String
                 { path : List String
                 , content : String
                 }
@@ -952,6 +951,13 @@ simulateEffects effect =
                 , timeout = Nothing
                 , tracker = Nothing
                 }
+
+        Effect.SendSinglePage info ->
+            SimulatedEffect.Ports.send "toJsPort"
+                (Encode.object
+                    [ ( "html", Encode.string info.html )
+                    ]
+                )
 
 
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
