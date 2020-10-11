@@ -336,30 +336,26 @@ expectSuccess expectedRequests previous =
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
             (Codec.decoder ToJsPayload.successCodecNew)
-            (\value ->
-                case value of
-                    [ portPayload ] ->
-                        Dict.fromList
-                            [ ( portPayload.route, portPayload.contentJson )
-                            ]
-                            |> Expect.equalDicts
-                                (expectedRequests
-                                    |> List.map
-                                        (\( url, requests ) ->
-                                            ( url
-                                            , requests
-                                                |> List.map
-                                                    (\( request, response ) ->
-                                                        ( Request.hash request, response )
-                                                    )
-                                                |> Dict.fromList
+            (\portPayloads ->
+                portPayloads
+                    |> List.map
+                        (\portPayload -> ( portPayload.route, portPayload.contentJson ))
+                    |> Dict.fromList
+                    |> Expect.equalDicts
+                        (expectedRequests
+                            |> List.map
+                                (\( url, requests ) ->
+                                    ( url
+                                    , requests
+                                        |> List.map
+                                            (\( request, response ) ->
+                                                ( Request.hash request, response )
                                             )
-                                        )
-                                    |> Dict.fromList
+                                        |> Dict.fromList
+                                    )
                                 )
-
-                    _ ->
-                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
+                            |> Dict.fromList
+                        )
             )
 
 
