@@ -3,6 +3,7 @@ module Pages.Internal.Platform.ToJsPayload exposing (..)
 import BuildError
 import Codec exposing (Codec)
 import Dict exposing (Dict)
+import Head
 import Json.Decode as Decode
 import Json.Encode
 import Pages.ImagePath as ImagePath
@@ -25,11 +26,12 @@ type alias ToJsSuccessPayload pathKey =
     }
 
 
-type alias ToJsSuccessPayloadNew =
+type alias ToJsSuccessPayloadNew pathKey =
     { route : String
     , html : String
     , contentJson : Dict String String
     , errors : List String
+    , head : List (Head.Tag pathKey)
     }
 
 
@@ -137,7 +139,7 @@ successCodec =
         |> Codec.buildObject
 
 
-successCodecNew : Codec ToJsSuccessPayloadNew
+successCodecNew : Codec (ToJsSuccessPayloadNew pathKey)
 successCodecNew =
     Codec.object ToJsSuccessPayloadNew
         |> Codec.field "route"
@@ -150,4 +152,5 @@ successCodecNew =
             .contentJson
             (Codec.dict Codec.string)
         |> Codec.field "errors" .errors (Codec.list Codec.string)
+        |> Codec.field "head" .head (Codec.list Head.codec)
         |> Codec.buildObject

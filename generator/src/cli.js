@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const seo = require("./seo-renderer.js");
 
 async function run() {
   XMLHttpRequest = require("xhr2");
@@ -65,7 +66,7 @@ async function run() {
 }
 
 function outputString(/** @type { Object } */ fromElm) {
-  fs.writeFileSync("dist/index.html", wrapHtml(fromElm.html));
+  fs.writeFileSync("dist/index.html", wrapHtml(fromElm));
   let contentJson = {};
   contentJson["body"] = "Hello!";
   contentJson["staticData"] = fromElm.contentJson;
@@ -73,7 +74,7 @@ function outputString(/** @type { Object } */ fromElm) {
 }
 run();
 
-function wrapHtml(/** @type { string } */ html) {
+function wrapHtml(/** @type { Object } */ fromElm) {
   /*html*/
   return `<!DOCTYPE html>
   <html lang="en">
@@ -100,8 +101,9 @@ function wrapHtml(/** @type { string } */ html) {
     <script defer="defer" src="main.js"></script>
     <script defer="defer" src="index.js" type="module"></script>
     <link rel="preload" href="main.js" as="script">
+    ${seo.toString(fromElm.head)}
     <body>
-      ${html}
+      ${fromElm.html}
     </body>
   </html>
   `;

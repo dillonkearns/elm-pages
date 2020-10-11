@@ -10,6 +10,7 @@ module Pages.ContentCache exposing
     , lookup
     , lookupMetadata
     , pagesWithErrors
+    , parseContent
     , pathForUrl
     , routesForCache
     , update
