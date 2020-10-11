@@ -12,6 +12,7 @@ module Pages.Internal.Platform.Cli exposing
 import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
+import Dict.Extra
 import ElmHtml.InternalTypes exposing (decodeElmHtml)
 import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
 import Head
@@ -22,6 +23,7 @@ import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Http
+import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
@@ -33,6 +35,7 @@ import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import SecretsDict exposing (SecretsDict)
 import TerminalText as Terminal
+import Url
 
 
 type alias FileToGenerate =
@@ -174,14 +177,8 @@ viewDecoder : FormatOptions -> Html msg -> String
 viewDecoder options viewHtml =
     case
         Decode.decodeValue
-            (decodeElmHtml
-                (\_ _ ->
-                    Decode.succeed ()
-                )
-            )
-            (asJsonView
-                viewHtml
-            )
+            (decodeElmHtml (\_ _ -> Decode.succeed ()))
+            (asJsonView viewHtml)
     of
         Ok str ->
             nodeToStringWithOptions options str
@@ -246,6 +243,7 @@ perform cliMsgConstructor toJsPort effect =
         Effect.SendSinglePage info ->
             Json.Encode.object
                 [ ( "html", Json.Encode.string info.html )
+                , ( "contentJson", Json.Encode.dict identity Json.Encode.string info.contentJson )
                 ]
                 |> toJsPort
                 |> Cmd.map never
@@ -540,6 +538,120 @@ nextStepToEffect config model nextStep =
                                 |> Result.map
                                     (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
                                 |> Result.mapError (List.map Tuple.second)
+
+                        currentPage : { path : PagePath pathKey, frontmatter : metadata }
+                        currentPage =
+                            siteMetadata
+                                |> Result.withDefault []
+                                |> singleItemOrCrash
+                                |> (\( path, frontmatter ) ->
+                                        { path = path, frontmatter = frontmatter }
+                                   )
+
+                        singleItemOrCrash : List a -> a
+                        singleItemOrCrash list =
+                            case list of
+                                [ item ] ->
+                                    item
+
+                                _ ->
+                                    todo "Expected exactly one item."
+
+                        renderedView : { title : String, body : Html userMsg }
+                        renderedView =
+                            viewRequest
+                                |> makeItWork
+
+                        --viewFnResult =
+                        --    --currentPage
+                        --         config.view siteMetadata currentPage
+                        --            --(contentCache
+                        --            --    |> Result.map (ContentCache.extractMetadata pathKey)
+                        --            --    |> Result.withDefault []
+                        --            -- -- TODO handle error better
+                        --            --)
+                        --        |> (\request ->
+                        --                StaticHttpRequest.resolve ApplicationType.Browser request viewResult.staticData
+                        --           )
+                        makeItWork :
+                            StaticHttp.Request
+                                { view :
+                                    userModel
+                                    -> view
+                                    -> { title : String, body : Html userMsg }
+                                , head : List (Head.Tag pathKey)
+                                }
+                            -> { title : String, body : Html userMsg }
+                        makeItWork request =
+                            case StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\k v -> Just v)) of
+                                Err error ->
+                                    todo (toString error)
+
+                                Ok functions ->
+                                    let
+                                        pageModel : userModel
+                                        pageModel =
+                                            config.init
+                                                (Just
+                                                    { path = currentPage.path
+                                                    , query = Nothing
+                                                    , fragment = Nothing
+                                                    }
+                                                )
+                                                |> Tuple.first
+
+                                        fakeUrl =
+                                            { protocol = Url.Https
+                                            , host = ""
+                                            , port_ = Nothing
+                                            , path = "" -- TODO
+                                            , query = Nothing
+                                            , fragment = Nothing
+                                            }
+
+                                        urls =
+                                            { currentUrl = fakeUrl
+                                            , baseUrl = fakeUrl
+                                            }
+
+                                        pageView : view
+                                        pageView =
+                                            case ContentCache.lookup config.pathKey contentCache urls of
+                                                Just ( pagePath, entry ) ->
+                                                    case entry of
+                                                        ContentCache.Parsed frontmatter viewResult ->
+                                                            expectOk viewResult.body
+
+                                                        _ ->
+                                                            todo "Unhandled content cache state"
+
+                                                _ ->
+                                                    todo "Unhandled content cache state"
+                                    in
+                                    functions.view pageModel pageView
+
+                        staticData =
+                            case toJsPayload of
+                                ToJsPayload.Success value ->
+                                    value.pages
+                                        |> Dict.values
+                                        |> List.head
+                                        --|> log "@@@ 1"
+                                        |> Maybe.withDefault Dict.empty
+
+                                _ ->
+                                    todo "Unhandled"
+
+                        viewRequest :
+                            StaticHttp.Request
+                                { view :
+                                    userModel
+                                    -> view
+                                    -> { title : String, body : Html userMsg }
+                                , head : List (Head.Tag pathKey)
+                                }
+                        viewRequest =
+                            config.view (siteMetadata |> Result.withDefault []) currentPage
                     in
                     case siteMetadata of
                         Ok [ ( page, metadata ) ] ->
@@ -556,15 +668,17 @@ nextStepToEffect config model nextStep =
                                             value.pages
                                                 |> Dict.values
                                                 |> List.head
-                                                |> Debug.log "@@@ 1"
+                                                --|> Debug.log "@@@ 1"
                                                 |> Maybe.withDefault Dict.empty
 
                                         _ ->
                                             Dict.empty
-                                                |> Debug.log "@@@ 2"
+
+                              --|> Debug.log "@@@ 2"
                               , html =
-                                    Html.div []
-                                        [ Html.text "Hello!!!!!" ]
+                                    --Html.div []
+                                    --[ Html.text "Hello!!!!!" ]
+                                    renderedView.body
                                         |> viewRenderer
                               , errors = []
                               }
@@ -572,14 +686,34 @@ nextStepToEffect config model nextStep =
                             )
 
                         Ok things ->
-                            Debug.todo (Debug.toString things)
+                            todo (toString things)
 
                         --( model, Effect.NoEffect )
                         Err error ->
-                            Debug.todo (Debug.toString error)
+                            todo (toString error)
 
                 _ ->
                     ( model, Effect.SendJsData toJsPayload )
+
+
+toString value =
+    --Debug.toString value
+    "toString"
+
+
+todo value =
+    --Debug.todo value
+    todo value
+
+
+expectOk : Result err value -> value
+expectOk result =
+    case result of
+        Ok value ->
+            value
+
+        Err error ->
+            todo (toString error)
 
 
 staticResponseForPage :

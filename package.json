@@ -63,6 +63,7 @@
     "elm-format": "^0.8.2",
     "elm-test": "^0.19.1-revision2",
     "jest": "^26.0.1",
+    "terser": "^5.3.4",
     "typescript": "^3.6.3"
   },
   "files": [

@@ -8,12 +8,15 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import MarkdownRenderer
 import Metadata exposing (Metadata)
+import OptimizedDecoder as D
 import Pages exposing (images, pages)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform exposing (Page)
 import Pages.StaticHttp as StaticHttp
+import Secrets
+import Time
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -59,6 +62,7 @@ main =
 
 type alias Model =
     { showMobileMenu : Bool
+    , counter : Int
     }
 
 
@@ -70,7 +74,7 @@ init :
         }
     -> ( Model, Cmd Msg )
 init maybePagePath =
-    ( Model False, Cmd.none )
+    ( Model False 0, Cmd.none )
 
 
 type Msg
@@ -80,6 +84,7 @@ type Msg
         , fragment : Maybe String
         }
     | ToggleMobileMenu
+    | Tick
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -91,10 +96,13 @@ update msg model =
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
 
+        Tick ->
+            ( { model | counter = model.counter + 1 }, Cmd.none )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Time.every 1000 (\_ -> Tick)
 
 
 view :
@@ -111,14 +119,25 @@ view :
 view siteMetadata page =
     case page.frontmatter of
         Metadata.Page meta ->
-            StaticHttp.succeed
-                { view =
-                    \_ _ ->
-                        { title = "Title"
-                        , body = Html.text "Hello from the view!"
+            StaticHttp.get
+                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                (D.field "stargazers_count" D.int)
+                |> StaticHttp.map
+                    (\stars ->
+                        { view =
+                            \model _ ->
+                                { title = "Title"
+                                , body =
+                                    Html.div []
+                                        [ Html.div []
+                                            [ Html.text <| "GitHub Stars: " ++ String.fromInt stars ]
+                                        , Html.div []
+                                            [ Html.text <| "Counter: " ++ String.fromInt model.counter ]
+                                        ]
+                                }
+                        , head = head page.path page.frontmatter
                         }
-                , head = head page.path page.frontmatter
-                }
+                    )
 
 
 {-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/abouts-cards>
