@@ -332,11 +332,6 @@ starDecoder =
 
 expectSuccess : List ( String, List ( Request.Request, String ) ) -> ProgramTest model msg effect -> Expect.Expectation
 expectSuccess expectedRequests previous =
-    expectSuccessNew expectedRequests [] previous
-
-
-expectSuccessNew : List ( String, List ( Request.Request, String ) ) -> List (ToJsPayload.ToJsSuccessPayload PathKey -> Expect.Expectation) -> ProgramTest model msg effect -> Expect.Expectation
-expectSuccessNew expectedRequests expectations previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
