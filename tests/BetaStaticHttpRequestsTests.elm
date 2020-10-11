@@ -339,30 +339,24 @@ expectSuccess expectedRequests previous =
             (\value ->
                 case value of
                     [ portPayload ] ->
-                        portPayload
-                            |> Expect.all
-                                [ \subject ->
-                                    Dict.fromList
-                                        [ ( subject.route, subject.contentJson )
-                                        ]
-                                        |> Expect.equalDicts
-                                            (expectedRequests
+                        Dict.fromList
+                            [ ( portPayload.route, portPayload.contentJson )
+                            ]
+                            |> Expect.equalDicts
+                                (expectedRequests
+                                    |> List.map
+                                        (\( url, requests ) ->
+                                            ( url
+                                            , requests
                                                 |> List.map
-                                                    (\( url, requests ) ->
-                                                        ( url
-                                                        , requests
-                                                            |> List.map
-                                                                (\( request, response ) ->
-                                                                    ( Request.hash request, response )
-                                                                )
-                                                            |> Dict.fromList
-                                                        )
+                                                    (\( request, response ) ->
+                                                        ( Request.hash request, response )
                                                     )
                                                 |> Dict.fromList
                                             )
-
-                                --:: expectations
-                                ]
+                                        )
+                                    |> Dict.fromList
+                                )
 
                     _ ->
                         Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
