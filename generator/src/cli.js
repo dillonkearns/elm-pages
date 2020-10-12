@@ -13,6 +13,14 @@ async function run() {
     "./elm-stuff/elm-pages",
     OUTPUT_FILE_NAME
   );
+  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
+  fs.writeFileSync(
+    ELM_FILE_PATH,
+    elmFileContent.replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+      "return x"
+    )
+  );
   const util = require("util");
   const exec = util.promisify(require("child_process").exec);
 
@@ -28,7 +36,7 @@ async function run() {
 
   const output2 = await exec(
     `elm-optimize-level-2 src/Main.elm --output dist/main.js`
-    // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --mangle --output=dist/main.js`
+    // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
     // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
   );
   if (output2.stderr) {
@@ -37,16 +45,15 @@ async function run() {
   }
   console.log("shell", `${output2.stdout}`);
   elmToEsm(path.join(process.cwd(), `./dist/main.js`));
-  fs.copyFileSync("./index.js", "dist/index.js");
-
-  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
-  fs.writeFileSync(
-    ELM_FILE_PATH,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return x"
-    )
+  const output3 = await exec(
+    `terser dist/main.js --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
   );
+
+  if (output3.stderr) {
+    // console.error("Error", `${output.stdout}`);
+    throw output3.stderr;
+  }
+  fs.copyFileSync("./index.js", "dist/index.js");
 
   function runElmApp() {
     return new Promise((resolve, _) => {
