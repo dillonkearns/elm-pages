@@ -893,7 +893,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     -}
     ProgramTest.createDocument
         { init = Main.init identity contentCache siteMetadata config
-        , update = Main.update siteMetadata config
+        , update = Main.update contentCache siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects

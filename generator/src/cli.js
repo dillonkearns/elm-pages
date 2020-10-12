@@ -56,21 +56,30 @@ async function run() {
       app.ports.toJsPort.subscribe((
         /** @type { { head: SeoTag[], allRoutes: string[], html: string } }  */ fromElm
       ) => {
-        resolve(fromElm);
+        console.log("@@@ fromElm", fromElm);
+        // resolve(fromElm);
+        outputString(fromElm);
       });
     });
   }
-  const value = await runElmApp();
-  outputString(value);
+  // const value = await runElmApp();
+  // outputString(value);
+  runElmApp();
   // console.log("Got value", value);
 }
 
 function outputString(/** @type { Object } */ fromElm) {
-  fs.writeFileSync("dist/index.html", wrapHtml(fromElm));
   let contentJson = {};
   contentJson["body"] = "Hello!";
   contentJson["staticData"] = fromElm.contentJson;
-  fs.writeFileSync("dist/content.json", JSON.stringify(contentJson));
+  const normalizedRoute = fromElm.route.replace(/index$/, "");
+  console.log("normalizedRoute", normalizedRoute);
+  fs.mkdirSync(`./dist/${normalizedRoute}`, { recursive: true });
+  fs.writeFileSync(`dist/${normalizedRoute}/index.html`, wrapHtml(fromElm));
+  fs.writeFileSync(
+    `dist/${normalizedRoute}/content.json`,
+    JSON.stringify(contentJson)
+  );
 }
 run();
 

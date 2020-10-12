@@ -11,7 +11,7 @@ type Metadata
 
 
 type alias PageMetadata =
-    { title : String }
+    { title : String, repo : String }
 
 
 decoder =
@@ -20,8 +20,10 @@ decoder =
             (\pageType ->
                 case pageType of
                     "page" ->
-                        Decode.field "title" Decode.string
-                            |> Decode.map (\title -> Page { title = title })
+                        Decode.map2 PageMetadata
+                            (Decode.field "title" Decode.string)
+                            (Decode.field "repo" Decode.string)
+                            |> Decode.map Page
 
                     _ ->
                         Decode.fail <| "Unexpected page \"type\" " ++ pageType

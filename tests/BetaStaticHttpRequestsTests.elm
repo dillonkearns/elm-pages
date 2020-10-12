@@ -51,6 +51,38 @@ all =
                             ]
                           )
                         ]
+        , test "two pages" <|
+            \() ->
+                start
+                    [ ( [ "elm-pages" ]
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      )
+                    , ( [ "elm-pages-starter" ]
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86 }"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                        """{ "stargazer_count": 49 }"""
+                    |> expectSuccess
+                        [ ( "elm-pages"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":86}"""
+                              )
+                            ]
+                          )
+                        , ( "elm-pages-starter"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                              , """{"stargazer_count":49}"""
+                              )
+                            ]
+                          )
+                        ]
         ]
 
 
@@ -182,7 +214,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     -}
     ProgramTest.createDocument
         { init = Main.init identity contentCache siteMetadata config
-        , update = Main.update siteMetadata config
+        , update = Main.update contentCache siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects

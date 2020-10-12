@@ -120,7 +120,7 @@ view siteMetadata page =
     case page.frontmatter of
         Metadata.Page meta ->
             StaticHttp.get
-                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                (Secrets.succeed <| "https://api.github.com/repos/dillonkearns/" ++ meta.repo)
                 (D.field "stargazers_count" D.int)
                 |> StaticHttp.map
                     (\stars ->
@@ -129,7 +129,8 @@ view siteMetadata page =
                                 { title = "Title"
                                 , body =
                                     Html.div []
-                                        [ Html.div []
+                                        [ Html.h1 [] [ Html.text meta.repo ]
+                                        , Html.div []
                                             [ Html.text <| "GitHub Stars: " ++ String.fromInt stars ]
                                         , Html.div []
                                             [ Html.text <| "Counter: " ++ String.fromInt model.counter ]

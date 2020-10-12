@@ -18,7 +18,7 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix 1602211703927
+    Time.millisToPosix 1602471727765
 
 
 type PathKey
@@ -64,11 +64,13 @@ internals =
 
 allPages : List (PagePath PathKey)
 allPages =
-    [ (buildPage [  ])
+    [ (buildPage [ "elm-markdown" ])
+    , (buildPage [  ])
     ]
 
 pages =
-    { index = (buildPage [  ])
+    { elmMarkdown = (buildPage [ "elm-markdown" ])
+    , index = (buildPage [  ])
     , directory = directoryWithIndex []
     }
 
@@ -108,8 +110,14 @@ isValidRoute route =
 content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
     [ 
+  ( ["elm-markdown"]
+    , { frontMatter = "{\"title\":\"Hello from another page.\",\"type\":\"page\",\"repo\":\"elm-markdown\"}"
+    , body = Nothing
+    , extension = "md"
+    } )
+  ,
   ( []
-    , { frontMatter = "{\"title\":\"elm-pages - a statically typed site generator\",\"type\":\"page\"}"
+    , { frontMatter = "{\"title\":\"elm-pages - a statically typed site generator\",\"type\":\"page\",\"repo\":\"elm-pages\"}"
     , body = Nothing
     , extension = "md"
     } )
