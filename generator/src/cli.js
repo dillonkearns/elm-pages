@@ -13,14 +13,6 @@ async function run() {
     "./elm-stuff/elm-pages",
     OUTPUT_FILE_NAME
   );
-  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
-  fs.writeFileSync(
-    ELM_FILE_PATH,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return x"
-    )
-  );
   const util = require("util");
   const exec = util.promisify(require("child_process").exec);
 
@@ -45,15 +37,16 @@ async function run() {
   }
   console.log("shell", `${output2.stdout}`);
   elmToEsm(path.join(process.cwd(), `./dist/main.js`));
-  const output3 = await exec(
-    `terser dist/main.js --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
-  );
-
-  if (output3.stderr) {
-    // console.error("Error", `${output.stdout}`);
-    throw output3.stderr;
-  }
   fs.copyFileSync("./index.js", "dist/index.js");
+
+  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
+  fs.writeFileSync(
+    ELM_FILE_PATH,
+    elmFileContent.replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+      "return x"
+    )
+  );
 
   function runElmApp() {
     return new Promise((resolve, _) => {
@@ -117,26 +110,13 @@ function wrapHtml(/** @type { Object } */ fromElm) {
     <meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#ffffff"><meta name="application-name" content="elm-pages docs"><link rel="apple-touch-icon" sizes="57x57" href="assets/apple-touch-icon-57x57.png"><link rel="apple-touch-icon" sizes="60x60" href="assets/apple-touch-icon-60x60.png"><link rel="apple-touch-icon" sizes="72x72" href="assets/apple-touch-icon-72x72.png"><link rel="apple-touch-icon" sizes="76x76" href="assets/apple-touch-icon-76x76.png"><link rel="apple-touch-icon" sizes="114x114" href="assets/apple-touch-icon-114x114.png"><link rel="apple-touch-icon" sizes="120x120" href="assets/apple-touch-icon-120x120.png"><link rel="apple-touch-icon" sizes="144x144" href="assets/apple-touch-icon-144x144.png"><link rel="apple-touch-icon" sizes="152x152" href="assets/apple-touch-icon-152x152.png"><link rel="apple-touch-icon" sizes="167x167" href="assets/apple-touch-icon-167x167.png"><link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon-180x180.png"><link rel="apple-touch-icon" sizes="1024x1024" href="assets/apple-touch-icon-1024x1024.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <meta name="apple-mobile-web-app-title" content="elm-pages">
-    <script defer="defer" src="main.js" type="module"></script>
-    <script defer="defer" src="index.js" type="module"></script>
-    <link rel="preload" href="main.js" as="script">
+    <script defer="defer" src="/main.js" type="module"></script>
+    <script defer="defer" src="/index.js" type="module"></script>
+    <link rel="preload" href="/main.js" as="script">
     ${seo.toString(fromElm.head)}
     <body>
       ${fromElm.html}
     </body>
   </html>
   `;
-}
-
-function elmToEsm(elmPath) {
-  const elmEs3 = fs.readFileSync(elmPath, "utf8");
-
-  const elmEsm =
-    "\n" +
-    "const scope = {};\n" +
-    elmEs3.replace("}(this));", "}(scope));") +
-    "export const { Elm } = scope;\n" +
-    "\n";
-
-  fs.writeFileSync(elmPath, elmEsm);
 }
