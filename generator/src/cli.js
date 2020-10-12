@@ -27,7 +27,8 @@ async function run() {
   console.log("shell", `${output.stdout}`);
 
   const output2 = await exec(
-    `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --mangle --output=dist/main.js`
+    `elm-optimize-level-2 src/Main.elm --output dist/main.js`
+    // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --mangle --output=dist/main.js`
     // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
   );
   if (output2.stderr) {
@@ -35,6 +36,8 @@ async function run() {
     throw output2.stderr;
   }
   console.log("shell", `${output2.stdout}`);
+  elmToEsm(path.join(process.cwd(), `./dist/main.js`));
+  fs.copyFileSync("./index.js", "dist/index.js");
 
   const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
   fs.writeFileSync(
@@ -107,7 +110,7 @@ function wrapHtml(/** @type { Object } */ fromElm) {
     <meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#ffffff"><meta name="application-name" content="elm-pages docs"><link rel="apple-touch-icon" sizes="57x57" href="assets/apple-touch-icon-57x57.png"><link rel="apple-touch-icon" sizes="60x60" href="assets/apple-touch-icon-60x60.png"><link rel="apple-touch-icon" sizes="72x72" href="assets/apple-touch-icon-72x72.png"><link rel="apple-touch-icon" sizes="76x76" href="assets/apple-touch-icon-76x76.png"><link rel="apple-touch-icon" sizes="114x114" href="assets/apple-touch-icon-114x114.png"><link rel="apple-touch-icon" sizes="120x120" href="assets/apple-touch-icon-120x120.png"><link rel="apple-touch-icon" sizes="144x144" href="assets/apple-touch-icon-144x144.png"><link rel="apple-touch-icon" sizes="152x152" href="assets/apple-touch-icon-152x152.png"><link rel="apple-touch-icon" sizes="167x167" href="assets/apple-touch-icon-167x167.png"><link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon-180x180.png"><link rel="apple-touch-icon" sizes="1024x1024" href="assets/apple-touch-icon-1024x1024.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <meta name="apple-mobile-web-app-title" content="elm-pages">
-    <script defer="defer" src="main.js"></script>
+    <script defer="defer" src="main.js" type="module"></script>
     <script defer="defer" src="index.js" type="module"></script>
     <link rel="preload" href="main.js" as="script">
     ${seo.toString(fromElm.head)}
@@ -116,4 +119,17 @@ function wrapHtml(/** @type { Object } */ fromElm) {
     </body>
   </html>
   `;
+}
+
+function elmToEsm(elmPath) {
+  const elmEs3 = fs.readFileSync(elmPath, "utf8");
+
+  const elmEsm =
+    "\n" +
+    "const scope = {};\n" +
+    elmEs3.replace("}(this));", "}(scope));") +
+    "export const { Elm } = scope;\n" +
+    "\n";
+
+  fs.writeFileSync(elmPath, elmEsm);
 }
