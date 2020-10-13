@@ -20,13 +20,7 @@ async function run() {
     `cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js`
   );
 
-  shellCommand(
-    `elm-optimize-level-2 src/Main.elm --output dist/main.js`
-    // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
-    // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
-  );
-  elmToEsm(path.join(process.cwd(), `./dist/main.js`));
-  fs.copyFileSync("./index.js", "dist/index.js");
+  compileElm();
 
   const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
   fs.writeFileSync(
@@ -115,6 +109,22 @@ function outputString(/** @type { FromElm } */ fromElm) {
     JSON.stringify(contentJson)
   );
 }
+
+async function compileElm() {
+  await shellCommand(
+    `elm-optimize-level-2 src/Main.elm --output dist/main.js`
+    // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
+    // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
+  );
+  elmToEsm(path.join(process.cwd(), `./dist/main.js`));
+
+  await shellCommand(
+    `terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
+    // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
+  );
+  fs.copyFileSync("./index.js", "dist/index.js");
+}
+
 run();
 
 /**
