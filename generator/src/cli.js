@@ -71,12 +71,31 @@ async function run() {
   // console.log("Got value", value);
 }
 
+
+function cleanRoute(route) {
+  return route.replace(/(^\/|\/$)/, "");
+}
+
+function pathToRoot(cleanedRoute) {
+  return cleanedRoute === ""
+    ? cleanedRoute
+    : cleanedRoute
+        .split("/")
+        .map((_) => "..")
+        .join("/")
+        .replace(/\.$/, "./");
+}
+
+function baseRoute(route) {
+  const cleanedRoute = cleanRoute(route);
+  return cleanedRoute === "" ? "./" : pathToRoot(route);
+}
+
 function outputString(/** @type { Object } */ fromElm) {
   let contentJson = {};
   contentJson["body"] = "Hello!";
   contentJson["staticData"] = fromElm.contentJson;
   const normalizedRoute = fromElm.route.replace(/index$/, "");
-  console.log("normalizedRoute", normalizedRoute);
   fs.mkdirSync(`./dist/${normalizedRoute}`, { recursive: true });
   fs.writeFileSync(`dist/${normalizedRoute}/index.html`, wrapHtml(fromElm));
   fs.writeFileSync(
@@ -92,7 +111,7 @@ function wrapHtml(/** @type { Object } */ fromElm) {
   <html lang="en">
   <head>
     <link rel="preload" href="content.json" as="fetch" crossorigin="">
-    <base href="./">
+    <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>if ("serviceWorker" in navigator) {
