@@ -38,8 +38,8 @@ type alias Content =
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias Program userModel userMsg metadata view =
-    Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
+type alias Program userModel userMsg metadata view pathKey =
+    Platform.Program Flags (Model userModel userMsg metadata view pathKey) (Msg userMsg metadata view)
 
 
 mainView :
@@ -447,9 +447,9 @@ type AppMsg userMsg metadata view
     | StartingHotReload
 
 
-type Model userModel userMsg metadata view
+type Model userModel userMsg metadata view pathKey
     = Model (ModelDetails userModel metadata view)
-    | CliModel Pages.Internal.Platform.Cli.Model
+    | CliModel (Pages.Internal.Platform.Cli.Model pathKey metadata)
 
 
 type alias ModelDetails userModel metadata view =
@@ -733,7 +733,7 @@ application :
             )
     }
     --    -> Program userModel userMsg metadata view
-    -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
+    -> Platform.Program Flags (Model userModel userMsg metadata view pathKey) (Msg userMsg metadata view)
 application config =
     Browser.application
         { init =
@@ -864,7 +864,7 @@ cliApplication :
              -> userMsg
             )
     }
-    -> Program userModel userMsg metadata view
+    -> Program userModel userMsg metadata view pathKey
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
         (\msg ->

@@ -294,7 +294,7 @@ withFileGenerator generateFiles (Builder config) =
 
 {-| When you're done with your builder pipeline, you complete it with `Pages.Platform.toProgram`.
 -}
-toProgram : Builder pathKey model msg metadata view -> Program model msg metadata view
+toProgram : Builder pathKey model msg metadata view -> Program model msg metadata view pathKey
 toProgram (Builder config) =
     application
         { init = config.init
@@ -359,7 +359,7 @@ application :
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Program model msg metadata view
+    -> Program model msg metadata view pathKey
 application config =
     (case config.internals.applicationType of
         Pages.Internal.Browser ->
@@ -387,8 +387,8 @@ application config =
 
 {-| The `Program` type for an `elm-pages` app.
 -}
-type alias Program model msg metadata view =
-    Pages.Internal.Platform.Program model msg metadata view
+type alias Program model msg metadata view pathKey =
+    Pages.Internal.Platform.Program model msg metadata view pathKey
 
 
 {-| -}

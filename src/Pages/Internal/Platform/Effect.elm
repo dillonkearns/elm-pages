@@ -10,3 +10,4 @@ type Effect pathKey
     | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
     | Batch (List (Effect pathKey))
     | SendSinglePage (ToJsSuccessPayloadNew pathKey)
+    | Continue

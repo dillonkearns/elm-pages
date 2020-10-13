@@ -223,6 +223,7 @@ nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponse
             siteMetadata
                 |> Result.withDefault []
                 |> List.map
+                    -- TODO extract helper function that processes next step *for a single page* at a time
                     (\( pagePath, metadata ) ->
                         let
                             contentForPage =

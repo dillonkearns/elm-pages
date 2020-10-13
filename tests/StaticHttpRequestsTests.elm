@@ -25,6 +25,7 @@ import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
+import SimulatedEffect.Task
 import Test exposing (Test, describe, only, skip, test)
 import Test.Http
 
@@ -769,7 +770,7 @@ Found an unhandled HTML tag in markdown doc."""
         ]
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
@@ -778,7 +779,7 @@ startWithHttpCache :
     Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+    -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
 startWithHttpCache =
     startLowLevel (StaticHttp.succeed [])
 
@@ -795,7 +796,7 @@ startLowLevel :
     -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+    -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
 startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
         document =
@@ -958,6 +959,10 @@ simulateEffects effect =
                     [ ( "html", Encode.string info.html )
                     ]
                 )
+
+        Effect.Continue ->
+            SimulatedEffect.Task.succeed ()
+                |> SimulatedEffect.Task.perform (\_ -> Continue)
 
 
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
