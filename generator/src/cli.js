@@ -56,9 +56,7 @@ async function run() {
         flags: { secrets: process.env, mode, staticHttpCache },
       });
 
-      app.ports.toJsPort.subscribe((
-        /** @type { { head: SeoTag[], allRoutes: string[], html: string } }  */ fromElm
-      ) => {
+      app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
         console.log("@@@ fromElm", fromElm);
         // resolve(fromElm);
         outputString(fromElm);
@@ -71,11 +69,32 @@ async function run() {
   // console.log("Got value", value);
 }
 
-
+/**
+ * @param {string} route
+ */
 function cleanRoute(route) {
   return route.replace(/(^\/|\/$)/, "");
 }
 
+/**
+ * @param {string} elmPath
+ */
+function elmToEsm(elmPath) {
+  const elmEs3 = fs.readFileSync(elmPath, "utf8");
+
+  const elmEsm =
+    "\n" +
+    "const scope = {};\n" +
+    elmEs3.replace("}(this));", "}(scope));") +
+    "export const { Elm } = scope;\n" +
+    "\n";
+
+  fs.writeFileSync(elmPath, elmEsm);
+}
+
+/**
+ * @param {string} cleanedRoute
+ */
 function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
@@ -86,12 +105,15 @@ function pathToRoot(cleanedRoute) {
         .replace(/\.$/, "./");
 }
 
+/**
+ * @param {string} route
+ */
 function baseRoute(route) {
   const cleanedRoute = cleanRoute(route);
   return cleanedRoute === "" ? "./" : pathToRoot(route);
 }
 
-function outputString(/** @type { Object } */ fromElm) {
+function outputString(/** @type { FromElm } */ fromElm) {
   let contentJson = {};
   contentJson["body"] = "Hello!";
   contentJson["staticData"] = fromElm.contentJson;
@@ -105,7 +127,12 @@ function outputString(/** @type { Object } */ fromElm) {
 }
 run();
 
-function wrapHtml(/** @type { Object } */ fromElm) {
+/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
+/** @typedef {HeadTag | JsonLdTag} SeoTag */
+/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
+/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
+
+function wrapHtml(/** @type { FromElm } */ fromElm) {
   /*html*/
   return `<!DOCTYPE html>
   <html lang="en">
