@@ -1,41 +1,30 @@
 const fs = require("fs");
 const path = require("path");
 const seo = require("./seo-renderer.js");
+const util = require("util");
+const exec = util.promisify(require("child_process").exec);
+
+const DIR_PATH = path.join(process.cwd());
+const OUTPUT_FILE_NAME = "elm.js";
+
+const ELM_FILE_PATH = path.join(
+  DIR_PATH,
+  "./elm-stuff/elm-pages",
+  OUTPUT_FILE_NAME
+);
 
 async function run() {
   XMLHttpRequest = require("xhr2");
 
-  const DIR_PATH = path.join(process.cwd());
-  const OUTPUT_FILE_NAME = "elm.js";
-
-  const ELM_FILE_PATH = path.join(
-    DIR_PATH,
-    "./elm-stuff/elm-pages",
-    OUTPUT_FILE_NAME
+  shellCommand(
+    `cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js`
   );
-  const util = require("util");
-  const exec = util.promisify(require("child_process").exec);
 
-  const output = await exec(
-    "cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js"
-    // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
-  );
-  if (output.stderr) {
-    // console.error("Error", `${output.stdout}`);
-    throw output.stderr;
-  }
-  console.log("shell", `${output.stdout}`);
-
-  const output2 = await exec(
+  shellCommand(
     `elm-optimize-level-2 src/Main.elm --output dist/main.js`
     // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
     // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
   );
-  if (output2.stderr) {
-    // console.error("Error", `${output.stdout}`);
-    throw output2.stderr;
-  }
-  console.log("shell", `${output2.stdout}`);
   elmToEsm(path.join(process.cwd(), `./dist/main.js`));
   fs.copyFileSync("./index.js", "dist/index.js");
 
@@ -48,25 +37,26 @@ async function run() {
     )
   );
 
-  function runElmApp() {
-    return new Promise((resolve, _) => {
-      const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
-      const staticHttpCache = {};
-      const app = require(ELM_FILE_PATH).Elm.Main.init({
-        flags: { secrets: process.env, mode, staticHttpCache },
-      });
-
-      app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
-        console.log("@@@ fromElm", fromElm);
-        // resolve(fromElm);
-        outputString(fromElm);
-      });
-    });
-  }
   // const value = await runElmApp();
   // outputString(value);
   runElmApp();
   // console.log("Got value", value);
+}
+
+function runElmApp() {
+  return new Promise((resolve, _) => {
+    const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
+    const staticHttpCache = {};
+    const app = require(ELM_FILE_PATH).Elm.Main.init({
+      flags: { secrets: process.env, mode, staticHttpCache },
+    });
+
+    app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
+      // console.log("@@@ fromElm", fromElm);
+      // resolve(fromElm);
+      outputString(fromElm);
+    });
+  });
 }
 
 /**
@@ -126,6 +116,17 @@ function outputString(/** @type { FromElm } */ fromElm) {
   );
 }
 run();
+
+/**
+ * @param {string} command
+ */
+async function shellCommand(command) {
+  const output = await exec(command);
+  if (output.stderr) {
+    throw output.stderr;
+  }
+  // console.log(output.stdout);
+}
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
