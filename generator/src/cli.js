@@ -3,6 +3,7 @@ const path = require("path");
 const seo = require("./seo-renderer.js");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
+const codegen = require("./codegen.js");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -16,20 +17,11 @@ const ELM_FILE_PATH = path.join(
 async function run() {
   XMLHttpRequest = require("xhr2");
 
-  shellCommand(
-    `cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js`
-  );
+  await codegen.generate();
+
+  await compileCliApp();
 
   compileElm();
-
-  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
-  fs.writeFileSync(
-    ELM_FILE_PATH,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return x"
-    )
-  );
 
   // const value = await runElmApp();
   // outputString(value);
@@ -125,6 +117,20 @@ async function compileElm() {
   fs.copyFileSync("./index.js", "dist/index.js");
 }
 
+async function compileCliApp() {
+  await shellCommand(
+    `cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js`
+  );
+  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
+  fs.writeFileSync(
+    ELM_FILE_PATH,
+    elmFileContent.replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+      "return x"
+    )
+  );
+}
+
 run();
 
 /**
@@ -136,6 +142,7 @@ async function shellCommand(command) {
     throw output.stderr;
   }
   // console.log(output.stdout);
+  return output;
 }
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
