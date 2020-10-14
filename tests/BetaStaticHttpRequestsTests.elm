@@ -275,13 +275,22 @@ simulateEffects effect =
                 }
 
         Effect.SendSinglePage info ->
-            info
-                |> Codec.encoder ToJsPayload.successCodecNew
-                |> SimulatedEffect.Ports.send "toJsPort"
+            SimulatedEffect.Cmd.batch
+                [ info
+                    |> Codec.encoder ToJsPayload.successCodecNew
+                    |> SimulatedEffect.Ports.send "toJsPort"
+
+                --, SimulatedEffect.Task.succeed ()
+                --    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
+                ]
 
         Effect.Continue ->
-            SimulatedEffect.Task.succeed ()
-                |> SimulatedEffect.Task.perform (\_ -> Continue)
+            SimulatedEffect.Cmd.none
+
+
+
+--SimulatedEffect.Task.succeed ()
+--    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
 
 
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation

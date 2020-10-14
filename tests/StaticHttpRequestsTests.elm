@@ -954,15 +954,21 @@ simulateEffects effect =
                 }
 
         Effect.SendSinglePage info ->
-            SimulatedEffect.Ports.send "toJsPort"
-                (Encode.object
-                    [ ( "html", Encode.string info.html )
-                    ]
-                )
+            SimulatedEffect.Cmd.batch
+                [ SimulatedEffect.Ports.send "toJsPort"
+                    (Encode.object
+                        [ ( "html", Encode.string info.html )
+                        ]
+                    )
+
+                --, SimulatedEffect.Task.succeed ()
+                --    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
+                ]
 
         Effect.Continue ->
-            SimulatedEffect.Task.succeed ()
-                |> SimulatedEffect.Task.perform (\_ -> Continue)
+            --SimulatedEffect.Task.succeed ()
+            --    |> SimulatedEffect.Task.perform (\_ -> Continue)
+            SimulatedEffect.Cmd.none
 
 
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation

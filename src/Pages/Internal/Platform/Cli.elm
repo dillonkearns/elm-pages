@@ -67,7 +67,7 @@ type alias Model pathKey metadata =
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
-    , unprocessesedPages : List ( PagePath pathKey, metadata )
+    , unprocessedPages : List ( PagePath pathKey, metadata )
     }
 
 
@@ -244,19 +244,29 @@ perform cliMsgConstructor toJsPort effect =
                 }
 
         Effect.SendSinglePage info ->
-            Json.Encode.object
-                [ ( "html", Json.Encode.string info.html )
-                , ( "contentJson", Json.Encode.dict identity Json.Encode.string info.contentJson )
-                , ( "head", Json.Encode.list (Head.toJson "https://canonical.com/" info.route) info.head )
-                , ( "route", Json.Encode.string info.route )
+            Cmd.batch
+                [ Json.Encode.object
+                    [ ( "html", Json.Encode.string info.html )
+                    , ( "contentJson", Json.Encode.dict identity Json.Encode.string info.contentJson )
+                    , ( "head", Json.Encode.list (Head.toJson "https://canonical.com/" info.route) info.head )
+                    , ( "route", Json.Encode.string info.route )
+                    ]
+                    |> toJsPort
+                    |> Cmd.map never
+
+                --, Task.succeed ()
+                --    |> Task.perform (\_ -> Continue)
+                --    |> Cmd.map cliMsgConstructor
                 ]
-                |> toJsPort
-                |> Cmd.map never
 
         Effect.Continue ->
-            Task.succeed ()
-                |> Task.perform (\_ -> Continue)
-                |> Cmd.map cliMsgConstructor
+            Cmd.none
+
+
+
+--Task.succeed ()
+--    |> Task.perform (\_ -> Continue)
+--    |> Cmd.map cliMsgConstructor
 
 
 flagsDecoder :
@@ -375,7 +385,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                                     -- TODO need to handle errors better?
                                     StaticResponses.init staticHttpCache siteMetadata config []
                     in
-                    StaticResponses.nextStep config siteMetadata mode secrets staticHttpCache [] staticResponses
+                    StaticResponses.nextStep config (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
                         |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (siteMetadata |> Result.withDefault []))
                         |> Tuple.mapFirst toModel
 
@@ -437,9 +447,13 @@ updateAndSendPortIfDone :
     -> (Model pathKey metadata -> model)
     -> ( model, Effect pathKey )
 updateAndSendPortIfDone contentCache config siteMetadata model toModel =
+    let
+        nextToProcess =
+            drop1 model
+    in
     StaticResponses.nextStep
         config
-        siteMetadata
+        (Ok nextToProcess)
         model.mode
         model.secrets
         model.allRawResponses
@@ -447,6 +461,14 @@ updateAndSendPortIfDone contentCache config siteMetadata model toModel =
         model.staticResponses
         |> nextStepToEffect contentCache config model
         |> Tuple.mapFirst toModel
+
+
+drop1 model =
+    List.take 1 model.unprocessedPages
+
+
+
+--, { model | unprocessedPages = List.drop 1 model.unprocessedPages }
 
 
 update :
@@ -513,9 +535,12 @@ update contentCache siteMetadata config msg model =
                             { request = request
                             , response = Result.mapError (\_ -> ()) response
                             }
+
+                nextToProcess =
+                    drop1 updatedModel
             in
             StaticResponses.nextStep config
-                siteMetadata
+                (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
                 updatedModel.allRawResponses
@@ -525,7 +550,24 @@ update contentCache siteMetadata config msg model =
 
         Continue ->
             -- TODO
-            ( model, Effect.NoEffect )
+            let
+                --_ =
+                --    Debug.log "Continuing..." (List.length model.unprocessedPages)
+                updatedModel =
+                    model
+                        |> popProcessedRequest
+
+                nextToProcess =
+                    drop1 model
+            in
+            StaticResponses.nextStep config
+                (Ok nextToProcess)
+                updatedModel.mode
+                updatedModel.secrets
+                updatedModel.allRawResponses
+                updatedModel.errors
+                updatedModel.staticResponses
+                |> nextStepToEffect contentCache config updatedModel
 
 
 nextStepToEffect :
@@ -711,11 +753,13 @@ nextStepToEffect contentCache config model nextStep =
                                         , errors = []
                                         , head = twoThings.head
                                         }
-                                            |> Effect.SendSinglePage
+                                            |> sendProgress
+                                     --|> Effect.SendSinglePage
                                     )
                                 |> Effect.Batch
                                 |> (\cmd -> ( model, cmd ))
 
+                        --|> (\cmd -> ( model |> popProcessedRequest, cmd ))
                         --( model, Effect.NoEffect )
                         Err error ->
                             --todo (toString error)
@@ -730,10 +774,16 @@ nextStepToEffect contentCache config model nextStep =
                     ( model, Effect.SendJsData toJsPayload )
 
 
-sendProgress singlePage isDone =
+popProcessedRequest model =
+    { model | unprocessedPages = List.drop 1 model.unprocessedPages }
+
+
+sendProgress : ToJsPayload.ToJsSuccessPayloadNew pathKey -> Effect pathKey
+sendProgress singlePage =
     Effect.Batch
         [ singlePage |> Effect.SendSinglePage
-        , Effect.Continue
+
+        --, Effect.Continue
         ]
 
 
