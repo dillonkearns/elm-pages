@@ -3,6 +3,7 @@ const path = require("path");
 const seo = require("./seo-renderer.js");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
+const copyFile = util.promisify(require("fs").copyFile);
 const codegen = require("./codegen.js");
 
 const DIR_PATH = path.join(process.cwd());
@@ -14,13 +15,19 @@ const ELM_FILE_PATH = path.join(
   OUTPUT_FILE_NAME
 );
 
+function ensureRequiredDirs() {
+  fs.mkdirSync(`dist`, { recursive: true });
+}
+
 async function run() {
+  ensureRequiredDirs();
   XMLHttpRequest = require("xhr2");
 
   await codegen.generate();
 
   await compileCliApp();
 
+  copyAssets();
   compileElm();
 
   // const value = await runElmApp();
@@ -119,8 +126,11 @@ async function compileElm() {
     `terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
     // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
   );
-  fs.copyFileSync("./index.js", "dist/index.js");
-  fs.copyFileSync("./style.css", "dist/style.css");
+}
+
+async function copyAssets() {
+  copyFile("index.js", "dist/index.js");
+  copyFile("style.css", "dist/style.css");
 }
 
 async function compileCliApp() {
