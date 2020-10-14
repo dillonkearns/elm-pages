@@ -40,7 +40,7 @@ function runElmApp() {
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
       // console.log("@@@ fromElm", fromElm);
       // resolve(fromElm);
-      if (fromElm.command === 'log') {
+      if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else {
         outputString(fromElm);
@@ -94,7 +94,7 @@ function baseRoute(route) {
 }
 
 function outputString(/** @type { FromElm } */ fromElm) {
-  console.log(`Pre-rendered /${fromElm.route}`)
+  console.log(`Pre-rendered /${fromElm.route}`);
   let contentJson = {};
   contentJson["body"] = "Hello!";
   contentJson["staticData"] = fromElm.contentJson;
@@ -120,6 +120,7 @@ async function compileElm() {
     // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
   );
   fs.copyFileSync("./index.js", "dist/index.js");
+  fs.copyFileSync("./style.css", "dist/style.css");
 }
 
 async function compileCliApp() {
@@ -181,6 +182,7 @@ function wrapHtml(/** @type { FromElm } */ fromElm) {
     <meta name="apple-mobile-web-app-title" content="elm-pages">
     <script defer="defer" src="/main.js" type="module"></script>
     <script defer="defer" src="/index.js" type="module"></script>
+    <link rel="stylesheet" href="/style.css"></link>
     <link rel="preload" href="/main.js" as="script">
     ${seo.toString(fromElm.head)}
     <body>
