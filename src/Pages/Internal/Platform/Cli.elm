@@ -262,10 +262,9 @@ perform cliMsgConstructor toJsPort effect =
                     ]
                     |> toJsPort
                     |> Cmd.map never
-
-                --, Task.succeed ()
-                --    |> Task.perform (\_ -> Continue)
-                --    |> Cmd.map cliMsgConstructor
+                , Task.succeed ()
+                    |> Task.perform (\_ -> Continue)
+                    |> Cmd.map cliMsgConstructor
                 ]
 
         Effect.Continue ->
@@ -564,8 +563,8 @@ update contentCache siteMetadata config msg model =
                 --    Debug.log "Continuing..." (List.length model.unprocessedPages)
                 updatedModel =
                     model
-                        |> popProcessedRequest
 
+                --|> popProcessedRequest
                 nextToProcess =
                     drop1 model
             in
@@ -641,7 +640,8 @@ nextStepToEffect contentCache config model nextStep =
                     in
                     case siteMetadata of
                         Ok pages ->
-                            pages
+                            model.unprocessedPages
+                                |> List.take 1
                                 --|> Debug.log "@@@ pages"
                                 |> List.map
                                     (\( page, metadata ) ->
@@ -766,9 +766,9 @@ nextStepToEffect contentCache config model nextStep =
                                      --|> Effect.SendSinglePage
                                     )
                                 |> Effect.Batch
-                                |> (\cmd -> ( model, cmd ))
+                                --|> (\cmd -> ( model, cmd ))
+                                |> (\cmd -> ( model |> popProcessedRequest, cmd ))
 
-                        --|> (\cmd -> ( model |> popProcessedRequest, cmd ))
                         --( model, Effect.NoEffect )
                         Err error ->
                             --todo (toString error)

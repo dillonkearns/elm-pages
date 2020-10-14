@@ -279,9 +279,8 @@ simulateEffects effect =
                 [ info
                     |> Codec.encoder ToJsPayload.successCodecNew
                     |> SimulatedEffect.Ports.send "toJsPort"
-
-                --, SimulatedEffect.Task.succeed ()
-                --    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
+                , SimulatedEffect.Task.succeed ()
+                    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
                 ]
 
         Effect.Continue ->
