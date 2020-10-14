@@ -94,6 +94,7 @@ function baseRoute(route) {
 }
 
 function outputString(/** @type { FromElm } */ fromElm) {
+  console.log(`Pre-rendered /${fromElm.route}`)
   let contentJson = {};
   contentJson["body"] = "Hello!";
   contentJson["staticData"] = fromElm.contentJson;
