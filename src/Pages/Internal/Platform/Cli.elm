@@ -217,31 +217,40 @@ perform cliMsgConstructor toJsPort effect =
             --     _ =
             --         Debug.log "Fetching" masked.url
             -- in
-            Http.request
-                { method = unmasked.method
-                , url = unmasked.url
-                , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                , body =
-                    case unmasked.body of
-                        StaticHttpBody.EmptyBody ->
-                            Http.emptyBody
+            Cmd.batch
+                [ Http.request
+                    { method = unmasked.method
+                    , url = unmasked.url
+                    , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
+                    , body =
+                        case unmasked.body of
+                            StaticHttpBody.EmptyBody ->
+                                Http.emptyBody
 
-                        StaticHttpBody.StringBody contentType string ->
-                            Http.stringBody contentType string
+                            StaticHttpBody.StringBody contentType string ->
+                                Http.stringBody contentType string
 
-                        StaticHttpBody.JsonBody value ->
-                            Http.jsonBody value
-                , expect =
-                    Pages.Http.expectString
-                        (\response ->
-                            (GotStaticHttpResponse >> cliMsgConstructor)
-                                { request = requests
-                                , response = response
-                                }
-                        )
-                , timeout = Nothing
-                , tracker = Nothing
-                }
+                            StaticHttpBody.JsonBody value ->
+                                Http.jsonBody value
+                    , expect =
+                        Pages.Http.expectString
+                            (\response ->
+                                (GotStaticHttpResponse >> cliMsgConstructor)
+                                    { request = requests
+                                    , response = response
+                                    }
+                            )
+                    , timeout = Nothing
+                    , tracker = Nothing
+                    }
+                , toJsPort
+                    (Json.Encode.object
+                        [ ( "command", Json.Encode.string "log" )
+                        , ( "value", Json.Encode.string ("Fetching " ++ masked.url ++ "...") )
+                        ]
+                    )
+                    |> Cmd.map never
+                ]
 
         Effect.SendSinglePage info ->
             Cmd.batch

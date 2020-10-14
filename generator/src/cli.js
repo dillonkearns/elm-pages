@@ -40,7 +40,11 @@ function runElmApp() {
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
       // console.log("@@@ fromElm", fromElm);
       // resolve(fromElm);
-      outputString(fromElm);
+      if (fromElm.command === 'log') {
+        console.log(fromElm.value);
+      } else {
+        outputString(fromElm);
+      }
     });
   });
 }
