@@ -32,6 +32,7 @@ type alias ToJsSuccessPayloadNew pathKey =
     , contentJson : Dict String String
     , errors : List String
     , head : List (Head.Tag pathKey)
+    , body : String
     }
 
 
@@ -153,4 +154,5 @@ successCodecNew =
             (Codec.dict Codec.string)
         |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.field "head" .head (Codec.list Head.codec)
+        |> Codec.field "body" .body Codec.string
         |> Codec.buildObject

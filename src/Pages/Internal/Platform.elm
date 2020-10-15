@@ -118,7 +118,7 @@ pageViewOrError pathKey viewFn model cache =
     case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
-                ContentCache.Parsed metadata viewResult ->
+                ContentCache.Parsed metadata body viewResult ->
                     let
                         viewFnResult =
                             { path = pagePath, frontmatter = metadata }
@@ -569,7 +569,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                     case ContentCache.lookup pathKey updatedCache urls of
                                         Just ( pagePath, entry ) ->
                                             case entry of
-                                                ContentCache.Parsed frontmatter viewResult ->
+                                                ContentCache.Parsed frontmatter body viewResult ->
                                                     headFn pagePath frontmatter viewResult.staticData
                                                         |> Result.map .head
                                                         |> Result.toMaybe

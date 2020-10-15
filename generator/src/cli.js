@@ -97,8 +97,7 @@ function baseRoute(route) {
 async function outputString(/** @type { FromElm } */ fromElm) {
   console.log(`Pre-rendered /${fromElm.route}`);
   let contentJson = {};
-  contentJson["body"] = "Hello!";
-  // TODO // contentJson["body"] = fromElm.body;
+  contentJson["body"] = fromElm.body;
 
   contentJson["staticData"] = fromElm.contentJson;
   const normalizedRoute = fromElm.route.replace(/index$/, "");
@@ -160,7 +159,7 @@ async function shellCommand(command) {
   return output;
 }
 
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
+/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 /** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */

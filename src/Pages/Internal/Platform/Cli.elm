@@ -152,13 +152,13 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
         { init =
             \flags ->
                 init toModel contentCache siteMetadata config flags
-                    |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
+                    |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
                     ( Just cliMsg, Just cliModel ) ->
                         update contentCache siteMetadata config cliMsg cliModel
-                            |> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
+                            |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
                             |> Tuple.mapFirst toModel
 
                     _ ->
@@ -195,8 +195,8 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
-perform cliMsgConstructor toJsPort effect =
+perform : Config pathKey userMsg userModel metadata view -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
             Cmd.none
@@ -209,7 +209,7 @@ perform cliMsgConstructor toJsPort effect =
 
         Effect.Batch list ->
             list
-                |> List.map (perform cliMsgConstructor toJsPort)
+                |> List.map (perform config cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
@@ -257,8 +257,9 @@ perform cliMsgConstructor toJsPort effect =
                 [ Json.Encode.object
                     [ ( "html", Json.Encode.string info.html )
                     , ( "contentJson", Json.Encode.dict identity Json.Encode.string info.contentJson )
-                    , ( "head", Json.Encode.list (Head.toJson "https://canonical.com/" info.route) info.head )
+                    , ( "head", Json.Encode.list (Head.toJson config.canonicalSiteUrl info.route) info.head )
                     , ( "route", Json.Encode.string info.route )
+                    , ( "body", Json.Encode.string info.body )
                     ]
                     |> toJsPort
                     |> Cmd.map never
@@ -712,8 +713,21 @@ nextStepToEffect contentCache config model nextStep =
                                                 case ContentCache.lookup config.pathKey updatedCache urls of
                                                     Just ( pagePath, entry ) ->
                                                         case entry of
-                                                            ContentCache.Parsed frontmatter viewResult ->
+                                                            ContentCache.Parsed frontmatter body viewResult ->
                                                                 expectOk viewResult.body
+
+                                                            _ ->
+                                                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
+
+                                                    _ ->
+                                                        todo "Unhandled content cache state - Nothing"
+
+                                            rawBody =
+                                                case ContentCache.lookup config.pathKey updatedCache urls of
+                                                    Just ( pagePath, entry ) ->
+                                                        case entry of
+                                                            ContentCache.Parsed frontmatter body viewResult ->
+                                                                body
 
                                                             _ ->
                                                                 todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
@@ -761,6 +775,7 @@ nextStepToEffect contentCache config model nextStep =
                                                 |> viewRenderer
                                         , errors = []
                                         , head = twoThings.head
+                                        , body = rawBody
                                         }
                                             |> sendProgress
                                      --|> Effect.SendSinglePage
