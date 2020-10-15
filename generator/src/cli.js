@@ -1,9 +1,8 @@
-const fs = require("fs");
+const fs = require("fs/promises");
 const path = require("path");
 const seo = require("./seo-renderer.js");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
-const copyFile = util.promisify(require("fs").copyFile);
 const codegen = require("./codegen.js");
 
 const DIR_PATH = path.join(process.cwd());
@@ -15,12 +14,12 @@ const ELM_FILE_PATH = path.join(
   OUTPUT_FILE_NAME
 );
 
-function ensureRequiredDirs() {
-  fs.mkdirSync(`dist`, { recursive: true });
+async function ensureRequiredDirs() {
+  await fs.mkdir(`dist`, { recursive: true });
 }
 
 async function run() {
-  ensureRequiredDirs();
+  await ensureRequiredDirs();
   XMLHttpRequest = require("xhr2");
 
   await codegen.generate();
@@ -30,10 +29,7 @@ async function run() {
   copyAssets();
   compileElm();
 
-  // const value = await runElmApp();
-  // outputString(value);
   runElmApp();
-  // console.log("Got value", value);
 }
 
 function runElmApp() {
@@ -45,8 +41,6 @@ function runElmApp() {
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
-      // console.log("@@@ fromElm", fromElm);
-      // resolve(fromElm);
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else {
@@ -66,8 +60,8 @@ function cleanRoute(route) {
 /**
  * @param {string} elmPath
  */
-function elmToEsm(elmPath) {
-  const elmEs3 = fs.readFileSync(elmPath, "utf8");
+async function elmToEsm(elmPath) {
+  const elmEs3 = await fs.readFile(elmPath, "utf8");
 
   const elmEsm =
     "\n" +
@@ -76,7 +70,7 @@ function elmToEsm(elmPath) {
     "export const { Elm } = scope;\n" +
     "\n";
 
-  fs.writeFileSync(elmPath, elmEsm);
+  await fs.writeFile(elmPath, elmEsm);
 }
 
 /**
@@ -100,45 +94,48 @@ function baseRoute(route) {
   return cleanedRoute === "" ? "./" : pathToRoot(route);
 }
 
-function outputString(/** @type { FromElm } */ fromElm) {
+async function outputString(/** @type { FromElm } */ fromElm) {
   console.log(`Pre-rendered /${fromElm.route}`);
   let contentJson = {};
   contentJson["body"] = "Hello!";
+  // TODO // contentJson["body"] = fromElm.body;
+
   contentJson["staticData"] = fromElm.contentJson;
   const normalizedRoute = fromElm.route.replace(/index$/, "");
-  fs.mkdirSync(`./dist/${normalizedRoute}`, { recursive: true });
-  fs.writeFileSync(`dist/${normalizedRoute}/index.html`, wrapHtml(fromElm));
-  fs.writeFileSync(
+  await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
+  fs.writeFile(`dist/${normalizedRoute}/index.html`, wrapHtml(fromElm));
+  fs.writeFile(
     `dist/${normalizedRoute}/content.json`,
     JSON.stringify(contentJson)
   );
 }
 
 async function compileElm() {
-  await shellCommand(
-    `elm-optimize-level-2 src/Main.elm --output dist/main.js`
-    // `elm-optimize-level-2 src/Main.elm --output dist/main.js && terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
-    // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
-  );
-  elmToEsm(path.join(process.cwd(), `./dist/main.js`));
+  await shellCommand(`elm-optimize-level-2 src/Main.elm --output dist/main.js`);
+  await elmToEsm(path.join(process.cwd(), `./dist/main.js`));
+  runTerser(`dist/main.js`);
+}
 
+/**
+ * @param {string} filePath
+ */
+async function runTerser(filePath) {
   await shellCommand(
-    `terser dist/main.js  --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=dist/main.js`
-    // "cd ./elm-stuff/elm-pages && elm make ../../src/Main.elm --output elm.js"
+    `terser ${filePath} --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --module --mangle --output=${filePath}`
   );
 }
 
 async function copyAssets() {
-  copyFile("index.js", "dist/index.js");
-  copyFile("style.css", "dist/style.css");
+  fs.copyFile("index.js", "dist/index.js");
+  fs.copyFile("style.css", "dist/style.css");
 }
 
 async function compileCliApp() {
   await shellCommand(
     `cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js`
   );
-  const elmFileContent = fs.readFileSync(ELM_FILE_PATH, "utf-8");
-  fs.writeFileSync(
+  const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
+  await fs.writeFile(
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
@@ -157,7 +154,6 @@ async function shellCommand(command) {
   if (output.stderr) {
     throw output.stderr;
   }
-  // console.log(output.stdout);
   return output;
 }
 
