@@ -111,9 +111,12 @@ async function outputString(/** @type { FromElm } */ fromElm) {
 }
 
 async function compileElm() {
-  await shellCommand(`elm-optimize-level-2 src/Main.elm --output dist/main.js`);
-  await elmToEsm(path.join(process.cwd(), `./dist/main.js`));
-  runTerser(`dist/main.js`);
+  const outputPath = `dist/main.js`;
+  await shellCommand(
+    `elm-optimize-level-2 src/Main.elm --output ${outputPath}`
+  );
+  await elmToEsm(path.join(process.cwd(), outputPath));
+  runTerser(outputPath);
 }
 
 /**
