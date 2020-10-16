@@ -1,7 +1,14 @@
-const fs = require("fs/promises");
+const util = require("util");
+const fsSync = require("fs");
+const fs = {
+  writeFile: util.promisify(fsSync.writeFile),
+  mkdir: util.promisify(fsSync.mkdir),
+  readFile: util.promisify(fsSync.readFile),
+  copyFile: util.promisify(fsSync.copyFile),
+};
+
 const path = require("path");
 const seo = require("./seo-renderer.js");
-const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const codegen = require("./codegen.js");
 const generateManifest = require("./generate-manifest.js");
