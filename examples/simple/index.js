@@ -1,6 +1,7 @@
 // @ts-ignore
 // const { Elm } = require("./src/Main.elm");
 import { Elm } from "/main.js";
+import userInit from "/user-index.js";
 // const pagesInit = require("../../index.js");
 
 let prefetchedPages;
@@ -159,9 +160,11 @@ function httpGet(/** @type string */ theUrl) {
   });
 }
 
-pagesInit({
-  mainElmModule: Elm.Main,
-});
+userInit(
+  pagesInit({
+    mainElmModule: Elm.Main,
+  })
+);
 
 // function pagesInit(config) {
 //   const path = window.location.pathname.replace(/(\w)$/, "$1/");

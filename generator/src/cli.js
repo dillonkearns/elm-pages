@@ -129,6 +129,7 @@ async function runTerser(filePath) {
 
 async function copyAssets() {
   fs.copyFile("index.js", "dist/index.js");
+  fs.copyFile("user-index.js", "dist/user-index.js");
   fs.copyFile("style.css", "dist/style.css");
 }
 
