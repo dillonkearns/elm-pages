@@ -644,142 +644,7 @@ nextStepToEffect contentCache config model nextStep =
                             model.unprocessedPages
                                 |> List.take 1
                                 --|> Debug.log "@@@ pages"
-                                |> List.map
-                                    (\( page, metadata ) ->
-                                        let
-                                            makeItWork request =
-                                                case StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\k v -> Just v)) of
-                                                    Err error ->
-                                                        todo <| " 591: " ++ toString error
-
-                                                    Ok functions ->
-                                                        functions
-
-                                            staticData =
-                                                case toJsPayload of
-                                                    ToJsPayload.Success value ->
-                                                        value.pages
-                                                            |> Dict.get (PagePath.toString page)
-                                                            |> Maybe.withDefault Dict.empty
-
-                                                    _ ->
-                                                        --todo "Unhandled"
-                                                        Dict.empty
-
-                                            viewRequest :
-                                                StaticHttp.Request
-                                                    { view :
-                                                        userModel
-                                                        -> view
-                                                        -> { title : String, body : Html userMsg }
-                                                    , head : List (Head.Tag pathKey)
-                                                    }
-                                            viewRequest =
-                                                config.view (siteMetadata |> Result.withDefault []) currentPage
-
-                                            twoThings =
-                                                viewRequest |> makeItWork
-
-                                            renderer value =
-                                                ContentCache.parseContent "md" value config.document
-
-                                            updatedCache =
-                                                ContentCache.update contentCache
-                                                    renderer
-                                                    urls
-                                                    { body = "", staticData = model.allRawResponses }
-
-                                            currentPage : { path : PagePath pathKey, frontmatter : metadata }
-                                            currentPage =
-                                                { path = page, frontmatter = metadata }
-
-                                            pageModel : userModel
-                                            pageModel =
-                                                config.init
-                                                    (Just
-                                                        { path = currentPage.path
-                                                        , query = Nothing
-                                                        , fragment = Nothing
-                                                        }
-                                                    )
-                                                    |> Tuple.first
-
-                                            renderedView : { title : String, body : Html userMsg }
-                                            renderedView =
-                                                twoThings.view pageModel pageView
-
-                                            pageView : view
-                                            pageView =
-                                                case ContentCache.lookup config.pathKey updatedCache urls of
-                                                    Just ( pagePath, entry ) ->
-                                                        case entry of
-                                                            ContentCache.Parsed frontmatter body viewResult ->
-                                                                expectOk viewResult.body
-
-                                                            _ ->
-                                                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
-
-                                                    _ ->
-                                                        todo "Unhandled content cache state - Nothing"
-
-                                            rawBody =
-                                                case ContentCache.lookup config.pathKey updatedCache urls of
-                                                    Just ( pagePath, entry ) ->
-                                                        case entry of
-                                                            ContentCache.Parsed frontmatter body viewResult ->
-                                                                body
-
-                                                            _ ->
-                                                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
-
-                                                    _ ->
-                                                        todo "Unhandled content cache state - Nothing"
-
-                                            fakeUrl =
-                                                { protocol = Url.Https
-                                                , host = config.canonicalSiteUrl
-                                                , port_ = Nothing
-                                                , path = currentPage.path |> PagePath.toString
-                                                , query = Nothing
-                                                , fragment = Nothing
-                                                }
-
-                                            urls =
-                                                { currentUrl = fakeUrl
-                                                , baseUrl =
-                                                    { protocol = Url.Https
-                                                    , host = config.canonicalSiteUrl
-                                                    , port_ = Nothing
-                                                    , path = ""
-                                                    , query = Nothing
-                                                    , fragment = Nothing
-                                                    }
-                                                }
-                                        in
-                                        { route = page |> PagePath.toString
-                                        , contentJson =
-                                            case toJsPayload of
-                                                ToJsPayload.Success value ->
-                                                    value.pages
-                                                        |> Dict.get (PagePath.toString page)
-                                                        |> Maybe.withDefault Dict.empty
-
-                                                _ ->
-                                                    Dict.empty
-
-                                        --|> Debug.log "@@@ 2"
-                                        , html =
-                                            --Html.div []
-                                            --[ Html.text "Hello!!!!!" ]
-                                            renderedView.body
-                                                |> viewRenderer
-                                        , errors = []
-                                        , head = twoThings.head
-                                        , body = rawBody
-                                        }
-                                            |> sendProgress
-                                     --|> Effect.SendSinglePage
-                                    )
+                                |> List.map (sendSinglePageProgress toJsPayload siteMetadata config contentCache model)
                                 |> Effect.Batch
                                 --|> (\cmd -> ( model, cmd ))
                                 |> (\cmd -> ( model |> popProcessedRequest, cmd ))
@@ -796,6 +661,152 @@ nextStepToEffect contentCache config model nextStep =
 
                 _ ->
                     ( model, Effect.SendJsData toJsPayload )
+
+
+sendSinglePageProgress :
+    ToJsPayload pathKey
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Config pathKey userMsg userModel metadata view
+    -> ContentCache metadata view
+    -> Model pathKey metadata
+    -> ( PagePath pathKey, metadata )
+    -> Effect pathKey
+sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
+    (\( page, metadata ) ->
+        let
+            makeItWork request =
+                case StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\k v -> Just v)) of
+                    Err error ->
+                        todo <| " 591: " ++ toString error
+
+                    Ok functions ->
+                        functions
+
+            staticData =
+                case toJsPayload of
+                    ToJsPayload.Success value ->
+                        value.pages
+                            |> Dict.get (PagePath.toString page)
+                            |> Maybe.withDefault Dict.empty
+
+                    _ ->
+                        --todo "Unhandled"
+                        Dict.empty
+
+            viewRequest :
+                StaticHttp.Request
+                    { view :
+                        userModel
+                        -> view
+                        -> { title : String, body : Html userMsg }
+                    , head : List (Head.Tag pathKey)
+                    }
+            viewRequest =
+                config.view (siteMetadata |> Result.withDefault []) currentPage
+
+            twoThings =
+                viewRequest |> makeItWork
+
+            renderer value =
+                ContentCache.parseContent "md" value config.document
+
+            updatedCache =
+                ContentCache.update contentCache
+                    renderer
+                    urls
+                    { body = "", staticData = model.allRawResponses }
+
+            currentPage : { path : PagePath pathKey, frontmatter : metadata }
+            currentPage =
+                { path = page, frontmatter = metadata }
+
+            pageModel : userModel
+            pageModel =
+                config.init
+                    (Just
+                        { path = currentPage.path
+                        , query = Nothing
+                        , fragment = Nothing
+                        }
+                    )
+                    |> Tuple.first
+
+            renderedView : { title : String, body : Html userMsg }
+            renderedView =
+                twoThings.view pageModel pageView
+
+            pageView : view
+            pageView =
+                case ContentCache.lookup config.pathKey updatedCache urls of
+                    Just ( pagePath, entry ) ->
+                        case entry of
+                            ContentCache.Parsed frontmatter body viewResult ->
+                                expectOk viewResult.body
+
+                            _ ->
+                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
+
+                    _ ->
+                        todo "Unhandled content cache state - Nothing"
+
+            rawBody =
+                case ContentCache.lookup config.pathKey updatedCache urls of
+                    Just ( pagePath, entry ) ->
+                        case entry of
+                            ContentCache.Parsed frontmatter body viewResult ->
+                                body
+
+                            _ ->
+                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
+
+                    _ ->
+                        todo "Unhandled content cache state - Nothing"
+
+            fakeUrl =
+                { protocol = Url.Https
+                , host = config.canonicalSiteUrl
+                , port_ = Nothing
+                , path = currentPage.path |> PagePath.toString
+                , query = Nothing
+                , fragment = Nothing
+                }
+
+            urls =
+                { currentUrl = fakeUrl
+                , baseUrl =
+                    { protocol = Url.Https
+                    , host = config.canonicalSiteUrl
+                    , port_ = Nothing
+                    , path = ""
+                    , query = Nothing
+                    , fragment = Nothing
+                    }
+                }
+        in
+        { route = page |> PagePath.toString
+        , contentJson =
+            case toJsPayload of
+                ToJsPayload.Success value ->
+                    value.pages
+                        |> Dict.get (PagePath.toString page)
+                        |> Maybe.withDefault Dict.empty
+
+                _ ->
+                    Dict.empty
+
+        --|> Debug.log "@@@ 2"
+        , html =
+            --Html.div []
+            --[ Html.text "Hello!!!!!" ]
+            renderedView.body
+                |> viewRenderer
+        , errors = []
+        , head = twoThings.head
+        , body = rawBody
+        }
+            |> sendProgress
+     --|> Effect.SendSinglePage
+    )
 
 
 popProcessedRequest model =
