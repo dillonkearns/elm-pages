@@ -6,7 +6,6 @@ import { Elm } from "/main.js";
 let prefetchedPages;
 let initialLocationHash;
 let elmViewRendered = false;
-let headTagsAdded = false;
 
 function pagesInit(
   /** @type { mainElmModule: { init: any  } } */ { mainElmModule }
@@ -18,9 +17,6 @@ function pagesInit(
     document.addEventListener("DOMContentLoaded", (_) => {
       new MutationObserver(function () {
         elmViewRendered = true;
-        if (headTagsAdded) {
-          document.dispatchEvent(new Event("prerender-trigger"));
-        }
       }).observe(document.body, {
         attributes: true,
         childList: true,
