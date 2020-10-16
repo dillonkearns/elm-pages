@@ -194,6 +194,7 @@ function wrapHtml(/** @type { FromElm } */ fromElm) {
     <link rel="preload" href="/main.js" as="script">
     ${seo.toString(fromElm.head)}
     <body>
+      <div data-url="" display="none"></div>
       ${fromElm.html}
     </body>
   </html>
