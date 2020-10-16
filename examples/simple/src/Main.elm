@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Color
 import Element exposing (Element)
@@ -18,6 +18,9 @@ import Pages.Platform exposing (Page)
 import Pages.StaticHttp as StaticHttp
 import Secrets
 import Time
+
+
+port example : String -> Cmd msg
 
 
 manifest : Manifest.Config Pages.PathKey
@@ -75,7 +78,7 @@ init :
         }
     -> ( Model, Cmd Msg )
 init maybePagePath =
-    ( Model False 0, Cmd.none )
+    ( Model False 0, example "Whyyyyy hello there!" )
 
 
 type Msg
