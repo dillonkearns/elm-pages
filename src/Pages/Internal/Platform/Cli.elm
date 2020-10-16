@@ -271,6 +271,26 @@ perform config cliMsgConstructor toJsPort effect =
         Effect.Continue ->
             Cmd.none
 
+        Effect.SendInitialData record ->
+            Json.Encode.object
+                [ ( "command", Json.Encode.string "initial" )
+                , ( "filesToGenerate", encodeFilesToGenerate record.filesToGenerate )
+                , ( "manifest", Manifest.toJson record.manifest )
+                ]
+                |> toJsPort
+                |> Cmd.map never
+
+
+encodeFilesToGenerate list =
+    list
+        |> Json.Encode.list
+            (\item ->
+                Json.Encode.object
+                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
+                    , ( "content", item.content |> Json.Encode.string )
+                    ]
+            )
+
 
 
 --Task.succeed ()
@@ -641,6 +661,22 @@ nextStepToEffect contentCache config model nextStep =
                     in
                     case siteMetadata of
                         Ok pages ->
+                            let
+                                sendManifestIfNeeded =
+                                    if List.length model.unprocessedPages == List.length pages then
+                                        case toJsPayload of
+                                            ToJsPayload.Success value ->
+                                                Effect.SendInitialData
+                                                    { manifest = value.manifest
+                                                    , filesToGenerate = value.filesToGenerate
+                                                    }
+
+                                            _ ->
+                                                todo "Unhandled"
+
+                                    else
+                                        Effect.NoEffect
+                            in
                             model.unprocessedPages
                                 |> List.take 1
                                 --|> Debug.log "@@@ pages"
@@ -653,8 +689,7 @@ nextStepToEffect contentCache config model nextStep =
                                             todo "Unhandled"
                                     )
                                 |> Effect.Batch
-                                --|> (\cmd -> ( model, cmd ))
-                                |> (\cmd -> ( model |> popProcessedRequest, cmd ))
+                                |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
 
                         --( model, Effect.NoEffect )
                         Err error ->
