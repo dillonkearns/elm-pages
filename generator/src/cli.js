@@ -49,10 +49,20 @@ function runElmApp() {
           `dist/manifest.json`,
           JSON.stringify(generateManifest(fromElm.manifest))
         );
+        generateFiles(fromElm.filesToGenerate);
       } else {
         outputString(fromElm);
       }
     });
+  });
+}
+
+/**
+ * @param {{ path: string; content: string; }[]} filesToGenerate
+ */
+async function generateFiles(filesToGenerate) {
+  filesToGenerate.forEach(({ path, content }) => {
+    fs.writeFile(`dist/${path}`, content);
   });
 }
 

@@ -61,7 +61,26 @@ main =
         , canonicalSiteUrl = canonicalSiteUrl
         , internals = Pages.internals
         }
+        |> Pages.Platform.withFileGenerator fileGenerator
         |> Pages.Platform.toProgram
+
+
+fileGenerator :
+    List { path : PagePath Pages.PathKey, frontmatter : metadata, body : String }
+    ->
+        StaticHttp.Request
+            (List
+                (Result String
+                    { path : List String
+                    , content : String
+                    }
+                )
+            )
+fileGenerator siteMetadata =
+    StaticHttp.succeed
+        [ Ok { path = [ "hello.txt" ], content = "Hello there!" }
+        , Ok { path = [ "goodbye.txt" ], content = "Goodbye there!" }
+        ]
 
 
 type alias Model =
