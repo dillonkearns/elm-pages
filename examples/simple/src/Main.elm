@@ -6,6 +6,7 @@ import Element.Font as Font
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
+import Html.Attributes
 import MarkdownRenderer
 import Metadata exposing (Metadata)
 import OptimizedDecoder as D
@@ -134,6 +135,10 @@ view siteMetadata page =
                                             [ Html.text <| "GitHub Stars: " ++ String.fromInt stars ]
                                         , Html.div []
                                             [ Html.text <| "Counter: " ++ String.fromInt model.counter ]
+                                        , Html.div []
+                                            [ Html.a [ Html.Attributes.href "/" ] [ Html.text "elm-pages" ]
+                                            , Html.a [ Html.Attributes.href "/elm-markdown" ] [ Html.text "elm-markdown" ]
+                                            ]
                                         ]
                                 }
                         , head = head page.path page.frontmatter
