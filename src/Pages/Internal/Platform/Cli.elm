@@ -27,7 +27,7 @@ import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
-import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload, ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -644,7 +644,14 @@ nextStepToEffect contentCache config model nextStep =
                             model.unprocessedPages
                                 |> List.take 1
                                 --|> Debug.log "@@@ pages"
-                                |> List.map (sendSinglePageProgress toJsPayload siteMetadata config contentCache model)
+                                |> List.map
+                                    (case toJsPayload of
+                                        ToJsPayload.Success value ->
+                                            sendSinglePageProgress value siteMetadata config contentCache model
+
+                                        _ ->
+                                            todo "Unhandled"
+                                    )
                                 |> Effect.Batch
                                 --|> (\cmd -> ( model, cmd ))
                                 |> (\cmd -> ( model |> popProcessedRequest, cmd ))
@@ -664,7 +671,7 @@ nextStepToEffect contentCache config model nextStep =
 
 
 sendSinglePageProgress :
-    ToJsPayload pathKey
+    ToJsSuccessPayload pathKey
     -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
     -> Config pathKey userMsg userModel metadata view
     -> ContentCache metadata view
@@ -683,15 +690,9 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                         functions
 
             staticData =
-                case toJsPayload of
-                    ToJsPayload.Success value ->
-                        value.pages
-                            |> Dict.get (PagePath.toString page)
-                            |> Maybe.withDefault Dict.empty
-
-                    _ ->
-                        --todo "Unhandled"
-                        Dict.empty
+                toJsPayload.pages
+                    |> Dict.get (PagePath.toString page)
+                    |> Maybe.withDefault Dict.empty
 
             viewRequest :
                 StaticHttp.Request
@@ -785,14 +786,9 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
         in
         { route = page |> PagePath.toString
         , contentJson =
-            case toJsPayload of
-                ToJsPayload.Success value ->
-                    value.pages
-                        |> Dict.get (PagePath.toString page)
-                        |> Maybe.withDefault Dict.empty
-
-                _ ->
-                    Dict.empty
+            toJsPayload.pages
+                |> Dict.get (PagePath.toString page)
+                |> Maybe.withDefault Dict.empty
 
         --|> Debug.log "@@@ 2"
         , html =
