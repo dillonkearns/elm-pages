@@ -1,7 +1,7 @@
 const indexTemplate = require("../../index-template.js");
 const util = require("util");
 const fsSync = require("fs");
-const copyDir = require("./copy-dir.js");
+const { copyDirFlat, copyDirNested } = require("./copy-dir.js");
 const fs = {
   writeFile: util.promisify(fsSync.writeFile),
   mkdir: util.promisify(fsSync.mkdir),
@@ -156,8 +156,8 @@ async function copyAssets() {
   fs.writeFile("dist/index.js", indexTemplate);
   fs.copyFile("user-index.js", "dist/user-index.js");
   fs.copyFile("style.css", "dist/style.css");
-  copyDir("static", "dist");
-  copyDir("images", "dist");
+  copyDirFlat("static", "dist");
+  copyDirNested("images", "dist");
 }
 
 async function compileCliApp() {

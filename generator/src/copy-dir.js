@@ -13,21 +13,21 @@ const path = require("path");
  * @param {string} srcDirectory
  * @param {string} destDir
  */
-module.exports = async function copyDir(srcDirectory, destDir) {
+async function copyDirFlat(srcDirectory, destDir) {
   const items = await fs.readdir(srcDirectory);
   items.forEach(function (childItemName) {
-    copyDirHelp(
+    copyDirNested(
       path.join(srcDirectory, childItemName),
       path.join(destDir, childItemName)
     );
   });
-};
+}
 
 /**
  * @param {string} src
  * @param {string} dest
  */
-async function copyDirHelp(src, dest) {
+async function copyDirNested(src, dest) {
   var exists = fsSync.existsSync(src);
   var stats = exists && fsSync.statSync(src);
   var isDirectory = exists && stats.isDirectory();
@@ -35,7 +35,7 @@ async function copyDirHelp(src, dest) {
     await fs.mkdir(dest);
     const items = await fs.readdir(src);
     items.forEach(function (childItemName) {
-      copyDirHelp(
+      copyDirNested(
         path.join(src, childItemName),
         path.join(dest, childItemName)
       );
@@ -44,3 +44,5 @@ async function copyDirHelp(src, dest) {
     fs.copyFile(src, dest);
   }
 }
+
+module.exports = { copyDirFlat, copyDirNested };
