@@ -1,14 +1,6 @@
 const indexTemplate = require("../../index-template.js");
 const util = require("util");
-const fsSync = require("fs");
-const { copyDirFlat, copyDirNested } = require("./copy-dir.js");
-const fs = {
-  writeFile: util.promisify(fsSync.writeFile),
-  mkdir: util.promisify(fsSync.mkdir),
-  readFile: util.promisify(fsSync.readFile),
-  copyFile: util.promisify(fsSync.copyFile),
-};
-
+const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
 const exec = util.promisify(require("child_process").exec);
@@ -25,7 +17,7 @@ const ELM_FILE_PATH = path.join(
 );
 
 async function ensureRequiredDirs() {
-  await fs.mkdir(`dist`, { recursive: true });
+  fs.tryMkdir(`dist`);
 }
 
 async function run() {
@@ -126,7 +118,8 @@ async function outputString(/** @type { FromElm } */ fromElm) {
 
   contentJson["staticData"] = fromElm.contentJson;
   const normalizedRoute = fromElm.route.replace(/index$/, "");
-  await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
+  // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
+  await fs.tryMkdir(`./dist/${normalizedRoute}`);
   fs.writeFile(`dist/${normalizedRoute}/index.html`, wrapHtml(fromElm));
   fs.writeFile(
     `dist/${normalizedRoute}/content.json`,
@@ -156,8 +149,8 @@ async function copyAssets() {
   fs.writeFile("dist/index.js", indexTemplate);
   fs.copyFile("user-index.js", "dist/user-index.js");
   fs.copyFile("style.css", "dist/style.css");
-  copyDirFlat("static", "dist");
-  copyDirNested("images", "dist");
+  fs.copyDirFlat("static", "dist");
+  fs.copyDirNested("images", "dist");
 }
 
 async function compileCliApp() {
