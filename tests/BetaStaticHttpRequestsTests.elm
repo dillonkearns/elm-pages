@@ -286,6 +286,25 @@ simulateEffects effect =
         Effect.Continue ->
             SimulatedEffect.Cmd.none
 
+        Effect.SendInitialData record ->
+            Encode.object
+                [ ( "command", Encode.string "initial" )
+                , ( "filesToGenerate", encodeFilesToGenerate record.filesToGenerate )
+                , ( "manifest", Manifest.toJson record.manifest )
+                ]
+                |> SimulatedEffect.Ports.send "toJsPort"
+
+
+encodeFilesToGenerate list =
+    list
+        |> Encode.list
+            (\item ->
+                Encode.object
+                    [ ( "path", item.path |> String.join "/" |> Encode.string )
+                    , ( "content", item.content |> Encode.string )
+                    ]
+            )
+
 
 
 --SimulatedEffect.Task.succeed ()
