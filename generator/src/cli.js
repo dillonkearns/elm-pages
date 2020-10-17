@@ -150,7 +150,8 @@ async function copyAssets() {
   fs.copyFile("user-index.js", "dist/user-index.js");
   fs.copyFile("style.css", "dist/style.css");
   fs.copyDirFlat("static", "dist");
-  fs.copyDirNested("images", "dist");
+  fs.tryMkdir("dist/images");
+  fs.copyDirNested("images", "dist/images");
 }
 
 async function compileCliApp() {
