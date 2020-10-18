@@ -10,6 +10,8 @@ const generateManifest = require("./generate-manifest.js");
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 
+let foundErrors = false;
+
 const ELM_FILE_PATH = path.join(
   DIR_PATH,
   "./elm-stuff/elm-pages",
@@ -35,6 +37,14 @@ async function run() {
 }
 
 function runElmApp() {
+  process.on("beforeExit", (code) => {
+    if (foundErrors) {
+      process.exit(1);
+    } else {
+      process.exit(0);
+    }
+  });
+
   return new Promise((resolve, _) => {
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
@@ -53,7 +63,11 @@ function runElmApp() {
         generateFiles(fromElm.args[0].filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         outputString(fromElm);
+      } else if (fromElm.tag === "Errors") {
+        console.error(fromElm.args[0]);
+        foundErrors = true;
       } else {
+        console.log(fromElm);
         throw "Unknown port tag.";
       }
     });
