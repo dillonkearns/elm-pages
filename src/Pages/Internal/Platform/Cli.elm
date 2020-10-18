@@ -680,9 +680,7 @@ nextStepToEffect contentCache config model nextStep =
                                 |> Effect.Batch
                                 |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
 
-                        --( model, Effect.NoEffect )
                         Err error ->
-                            --todo (toString error)
                             ( model
                             , Effect.SendJsData
                                 (ToJsPayload.Errors <|
@@ -703,15 +701,12 @@ sendSinglePageProgress :
     -> ( PagePath pathKey, metadata )
     -> Effect pathKey
 sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
-    (\( page, metadata ) ->
+    \( page, metadata ) ->
         let
+            makeItWork : StaticHttpRequest.Request staticData -> Result BuildError staticData
             makeItWork request =
-                case StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\k v -> Just v)) of
-                    Err error ->
-                        todo <| " 591: " ++ toString error
-
-                    Ok functions ->
-                        functions
+                StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\k v -> Just v))
+                    |> Result.mapError (StaticHttpRequest.toBuildError (page |> PagePath.toString))
 
             staticData =
                 toJsPayload.pages
@@ -729,6 +724,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
             viewRequest =
                 config.view (siteMetadata |> Result.withDefault []) currentPage
 
+            twoThings : Result BuildError { view : userModel -> view -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
             twoThings =
                 viewRequest |> makeItWork
 
@@ -755,10 +751,6 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                         }
                     )
                     |> Tuple.first
-
-            renderedView : { title : String, body : Html userMsg }
-            renderedView =
-                twoThings.view pageModel pageView
 
             pageView : view
             pageView =
@@ -808,25 +800,28 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     }
                 }
         in
-        { route = page |> PagePath.toString
-        , contentJson =
-            toJsPayload.pages
-                |> Dict.get (PagePath.toString page)
-                |> Maybe.withDefault Dict.empty
+        case twoThings of
+            Ok success ->
+                { route = page |> PagePath.toString
+                , contentJson =
+                    toJsPayload.pages
+                        |> Dict.get (PagePath.toString page)
+                        |> Maybe.withDefault Dict.empty
+                , html =
+                    success.view pageModel pageView
+                        |> .body
+                        |> viewRenderer
+                , errors = []
+                , head = success.head
+                , body = rawBody
+                }
+                    |> sendProgress
 
-        --|> Debug.log "@@@ 2"
-        , html =
-            --Html.div []
-            --[ Html.text "Hello!!!!!" ]
-            renderedView.body
-                |> viewRenderer
-        , errors = []
-        , head = twoThings.head
-        , body = rawBody
-        }
-            |> sendProgress
-     --|> Effect.SendSinglePage
-    )
+            Err error ->
+                error
+                    |> BuildError.errorToString
+                    |> ToJsPayload.Errors
+                    |> Effect.SendJsData
 
 
 popProcessedRequest model =
