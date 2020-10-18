@@ -779,7 +779,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     _ ->
                         todo "Unhandled content cache state - Nothing"
 
-            fakeUrl =
+            currentUrl =
                 { protocol = Url.Https
                 , host = config.canonicalSiteUrl
                 , port_ = Nothing
@@ -789,7 +789,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                 }
 
             urls =
-                { currentUrl = fakeUrl
+                { currentUrl = currentUrl
                 , baseUrl =
                     { protocol = Url.Https
                     , host = config.canonicalSiteUrl
