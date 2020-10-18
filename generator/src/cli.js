@@ -45,14 +45,16 @@ function runElmApp() {
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
       if (fromElm.command === "log") {
         console.log(fromElm.value);
-      } else if (fromElm.command === "initial") {
+      } else if (fromElm.tag === "InitialData") {
         fs.writeFile(
           `dist/manifest.json`,
-          JSON.stringify(generateManifest(fromElm.manifest))
+          JSON.stringify(generateManifest(fromElm.args[0].manifest))
         );
-        generateFiles(fromElm.filesToGenerate);
-      } else {
+        generateFiles(fromElm.args[0].filesToGenerate);
+      } else if (fromElm.tag === "PageProgress") {
         outputString(fromElm);
+      } else {
+        throw "Unknown port tag.";
       }
     });
   });
@@ -111,16 +113,17 @@ function baseRoute(route) {
   return cleanedRoute === "" ? "./" : pathToRoot(route);
 }
 
-async function outputString(/** @type { FromElm } */ fromElm) {
-  console.log(`Pre-rendered /${fromElm.route}`);
+async function outputString(/** @type { PageProgress } */ fromElm) {
+  const args = fromElm.args[0];
+  console.log(`Pre-rendered /${args.route}`);
   let contentJson = {};
-  contentJson["body"] = fromElm.body;
+  contentJson["body"] = args.body;
 
-  contentJson["staticData"] = fromElm.contentJson;
-  const normalizedRoute = fromElm.route.replace(/index$/, "");
+  contentJson["staticData"] = args.contentJson;
+  const normalizedRoute = args.route.replace(/index$/, "");
   // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
   await fs.tryMkdir(`./dist/${normalizedRoute}`);
-  fs.writeFile(`dist/${normalizedRoute}/index.html`, wrapHtml(fromElm));
+  fs.writeFile(`dist/${normalizedRoute}/index.html`, wrapHtml(args));
   fs.writeFile(
     `dist/${normalizedRoute}/content.json`,
     JSON.stringify(contentJson)
@@ -186,7 +189,20 @@ async function shellCommand(command) {
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 /** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
 
-function wrapHtml(/** @type { FromElm } */ fromElm) {
+/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
+
+/** @typedef {     
+     {
+        body: string;
+        head: any[];
+        errors: any[];
+        contentJson: any[];
+        html: string;
+        route: string; }
+    } Arg
+*/
+
+function wrapHtml(/** @type { Arg } */ fromElm) {
   /*html*/
   return `<!DOCTYPE html>
   <html lang="en">

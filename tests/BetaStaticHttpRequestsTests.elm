@@ -277,7 +277,7 @@ simulateEffects effect =
         Effect.SendSinglePage info ->
             SimulatedEffect.Cmd.batch
                 [ info
-                    |> Codec.encoder ToJsPayload.successCodecNew
+                    |> Codec.encoder ToJsPayload.successCodecNew2
                     |> SimulatedEffect.Ports.send "toJsPort"
                 , SimulatedEffect.Task.succeed ()
                     |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
@@ -285,25 +285,6 @@ simulateEffects effect =
 
         Effect.Continue ->
             SimulatedEffect.Cmd.none
-
-        Effect.SendInitialData record ->
-            Encode.object
-                [ ( "command", Encode.string "initial" )
-                , ( "filesToGenerate", encodeFilesToGenerate record.filesToGenerate )
-                , ( "manifest", Manifest.toJson record.manifest )
-                ]
-                |> SimulatedEffect.Ports.send "toJsPort"
-
-
-encodeFilesToGenerate list =
-    list
-        |> Encode.list
-            (\item ->
-                Encode.object
-                    [ ( "path", item.path |> String.join "/" |> Encode.string )
-                    , ( "content", item.content |> Encode.string )
-                    ]
-            )
 
 
 
@@ -399,11 +380,18 @@ expectSuccess expectedRequests previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.successCodecNew)
+            (Codec.decoder ToJsPayload.successCodecNew2)
             (\portPayloads ->
                 portPayloads
-                    |> List.map
-                        (\portPayload -> ( portPayload.route, portPayload.contentJson ))
+                    |> List.filterMap
+                        (\portPayload ->
+                            case portPayload of
+                                ToJsPayload.PageProgress value ->
+                                    Just ( value.route, value.contentJson )
+
+                                ToJsPayload.InitialData record ->
+                                    Nothing
+                        )
                     |> Dict.fromList
                     |> Expect.equalDicts
                         (expectedRequests
@@ -428,10 +416,10 @@ expectError expectedErrors previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.successCodecNew)
+            (Codec.decoder ToJsPayload.successCodecNew2)
             (\value ->
                 case value of
-                    [ portPayload ] ->
+                    [ ToJsPayload.PageProgress portPayload ] ->
                         portPayload.errors
                             |> normalizeErrorsExpectEqual expectedErrors
 

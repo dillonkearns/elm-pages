@@ -12,7 +12,6 @@ module Pages.Internal.Platform.Cli exposing
 import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
-import Dict.Extra
 import ElmHtml.InternalTypes exposing (decodeElmHtml)
 import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
 import Head
@@ -254,13 +253,8 @@ perform config cliMsgConstructor toJsPort effect =
 
         Effect.SendSinglePage info ->
             Cmd.batch
-                [ Json.Encode.object
-                    [ ( "html", Json.Encode.string info.html )
-                    , ( "contentJson", Json.Encode.dict identity Json.Encode.string info.contentJson )
-                    , ( "head", Json.Encode.list (Head.toJson config.canonicalSiteUrl info.route) info.head )
-                    , ( "route", Json.Encode.string info.route )
-                    , ( "body", Json.Encode.string info.body )
-                    ]
+                [ info
+                    |> Codec.encoder ToJsPayload.successCodecNew2
                     |> toJsPort
                     |> Cmd.map never
                 , Task.succeed ()
@@ -270,15 +264,6 @@ perform config cliMsgConstructor toJsPort effect =
 
         Effect.Continue ->
             Cmd.none
-
-        Effect.SendInitialData record ->
-            Json.Encode.object
-                [ ( "command", Json.Encode.string "initial" )
-                , ( "filesToGenerate", encodeFilesToGenerate record.filesToGenerate )
-                , ( "manifest", Manifest.toJson record.manifest )
-                ]
-                |> toJsPort
-                |> Cmd.map never
 
 
 encodeFilesToGenerate list =
@@ -666,10 +651,12 @@ nextStepToEffect contentCache config model nextStep =
                                     if List.length model.unprocessedPages == List.length pages then
                                         case toJsPayload of
                                             ToJsPayload.Success value ->
-                                                Effect.SendInitialData
-                                                    { manifest = value.manifest
-                                                    , filesToGenerate = value.filesToGenerate
-                                                    }
+                                                Effect.SendSinglePage
+                                                    (ToJsPayload.InitialData
+                                                        { manifest = value.manifest
+                                                        , filesToGenerate = value.filesToGenerate
+                                                        }
+                                                    )
 
                                             _ ->
                                                 todo "Unhandled"
@@ -847,7 +834,7 @@ popProcessedRequest model =
 sendProgress : ToJsPayload.ToJsSuccessPayloadNew pathKey -> Effect pathKey
 sendProgress singlePage =
     Effect.Batch
-        [ singlePage |> Effect.SendSinglePage
+        [ singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage
 
         --, Effect.Continue
         ]

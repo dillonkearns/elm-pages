@@ -156,3 +156,68 @@ successCodecNew =
         |> Codec.field "head" .head (Codec.list Head.codec)
         |> Codec.field "body" .body Codec.string
         |> Codec.buildObject
+
+
+type ToJsSuccessPayloadNewCombined pathKey
+    = PageProgress (ToJsSuccessPayloadNew pathKey)
+    | InitialData (InitialDataRecord pathKey)
+
+
+type alias InitialDataRecord pathKey =
+    { filesToGenerate : List FileToGenerate
+    , manifest : Manifest.Config pathKey
+    }
+
+
+successCodecNew2 : Codec (ToJsSuccessPayloadNewCombined pathKey)
+successCodecNew2 =
+    Codec.custom
+        (\success initialData value ->
+            case value of
+                PageProgress payload ->
+                    success payload
+
+                InitialData payload ->
+                    initialData payload
+        )
+        |> Codec.variant1 "PageProgress" PageProgress successCodecNew
+        |> Codec.variant1 "InitialData" InitialData initialDataCodec
+        |> Codec.buildCustom
+
+
+manifestCodec : Codec (Manifest.Config pathKey)
+manifestCodec =
+    Codec.build Manifest.toJson (Decode.succeed stubManifest)
+
+
+filesToGenerateCodec : Codec (List { path : List String, content : String })
+filesToGenerateCodec =
+    Codec.build
+        (\list ->
+            list
+                |> Json.Encode.list
+                    (\item ->
+                        Json.Encode.object
+                            [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
+                            , ( "content", item.content |> Json.Encode.string )
+                            ]
+                    )
+        )
+        (Decode.list
+            (Decode.map2 (\path content -> { path = path, content = content })
+                (Decode.string |> Decode.map (String.split "/") |> Decode.field "path")
+                (Decode.string |> Decode.field "content")
+            )
+        )
+
+
+initialDataCodec : Codec (InitialDataRecord pathKey)
+initialDataCodec =
+    Codec.object InitialDataRecord
+        |> Codec.field "filesToGenerate"
+            .filesToGenerate
+            filesToGenerateCodec
+        |> Codec.field "manifest"
+            .manifest
+            manifestCodec
+        |> Codec.buildObject

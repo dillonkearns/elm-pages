@@ -955,39 +955,17 @@ simulateEffects effect =
 
         Effect.SendSinglePage info ->
             SimulatedEffect.Cmd.batch
-                [ SimulatedEffect.Ports.send "toJsPort"
-                    (Encode.object
-                        [ ( "html", Encode.string info.html )
-                        ]
-                    )
-
-                --, SimulatedEffect.Task.succeed ()
-                --    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
+                [ info
+                    |> Codec.encoder ToJsPayload.successCodecNew2
+                    |> SimulatedEffect.Ports.send "toJsPort"
+                , SimulatedEffect.Task.succeed ()
+                    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
                 ]
 
         Effect.Continue ->
             --SimulatedEffect.Task.succeed ()
             --    |> SimulatedEffect.Task.perform (\_ -> Continue)
             SimulatedEffect.Cmd.none
-
-        Effect.SendInitialData record ->
-            Encode.object
-                [ ( "command", Encode.string "initial" )
-                , ( "filesToGenerate", encodeFilesToGenerate record.filesToGenerate )
-                , ( "manifest", Manifest.toJson record.manifest )
-                ]
-                |> SimulatedEffect.Ports.send "toJsPort"
-
-
-encodeFilesToGenerate list =
-    list
-        |> Encode.list
-            (\item ->
-                Encode.object
-                    [ ( "path", item.path |> String.join "/" |> Encode.string )
-                    , ( "content", item.content |> Encode.string )
-                    ]
-            )
 
 
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
