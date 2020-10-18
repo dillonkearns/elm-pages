@@ -658,8 +658,8 @@ nextStepToEffect contentCache config model nextStep =
                                                         }
                                                     )
 
-                                            _ ->
-                                                todo "Unhandled"
+                                            ToJsPayload.Errors errorMessage ->
+                                                Effect.SendJsData toJsPayload
 
                                     else
                                         Effect.NoEffect
@@ -667,13 +667,15 @@ nextStepToEffect contentCache config model nextStep =
                             model.unprocessedPages
                                 |> List.take 1
                                 --|> Debug.log "@@@ pages"
-                                |> List.map
-                                    (case toJsPayload of
-                                        ToJsPayload.Success value ->
-                                            sendSinglePageProgress value siteMetadata config contentCache model
+                                |> List.filterMap
+                                    (\pageAndMetadata ->
+                                        case toJsPayload of
+                                            ToJsPayload.Success value ->
+                                                sendSinglePageProgress value siteMetadata config contentCache model pageAndMetadata
+                                                    |> Just
 
-                                        _ ->
-                                            todo "Unhandled"
+                                            ToJsPayload.Errors errorMessage ->
+                                                Nothing
                                     )
                                 |> Effect.Batch
                                 |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
