@@ -752,33 +752,6 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     )
                     |> Tuple.first
 
-            pageView : view
-            pageView =
-                case ContentCache.lookup config.pathKey updatedCache urls of
-                    Just ( pagePath, entry ) ->
-                        case entry of
-                            ContentCache.Parsed frontmatter body viewResult ->
-                                expectOk viewResult.body
-
-                            _ ->
-                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
-
-                    _ ->
-                        todo "Unhandled content cache state - Nothing"
-
-            rawBody =
-                case ContentCache.lookup config.pathKey updatedCache urls of
-                    Just ( pagePath, entry ) ->
-                        case entry of
-                            ContentCache.Parsed frontmatter body viewResult ->
-                                body
-
-                            _ ->
-                                todo <| "Unhandled content cache state - Not Parsed" ++ toString entry
-
-                    _ ->
-                        todo "Unhandled content cache state - Nothing"
-
             currentUrl =
                 { protocol = Url.Https
                 , host = config.canonicalSiteUrl
@@ -799,21 +772,47 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     , fragment = Nothing
                     }
                 }
+
+            value2 =
+                case ContentCache.lookup config.pathKey updatedCache urls of
+                    Just ( path, ContentCache.Parsed frontmatter unparsedBody viewResult ) ->
+                        viewResult.body
+                            |> Result.map
+                                (\body ->
+                                    { body = body
+                                    , viewResult = viewResult
+                                    , unparsedBody = unparsedBody
+                                    }
+                                )
+                            |> Result.mapError
+                                (\parseError ->
+                                    { title = "Internal Error"
+                                    , message = [ Terminal.text parseError ]
+                                    , fatal = True
+                                    }
+                                )
+
+                    _ ->
+                        Err
+                            { title = "Internal Error"
+                            , message = [ Terminal.text "Unable to lookup value in ContentCache." ]
+                            , fatal = True
+                            }
         in
-        case twoThings of
-            Ok success ->
+        case Result.map2 Tuple.pair twoThings value2 of
+            Ok ( success, lookedUp ) ->
                 { route = page |> PagePath.toString
                 , contentJson =
                     toJsPayload.pages
                         |> Dict.get (PagePath.toString page)
                         |> Maybe.withDefault Dict.empty
                 , html =
-                    success.view pageModel pageView
+                    success.view pageModel lookedUp.body
                         |> .body
                         |> viewRenderer
                 , errors = []
                 , head = success.head
-                , body = rawBody
+                , body = lookedUp.unparsedBody
                 }
                     |> sendProgress
 
@@ -835,32 +834,6 @@ sendProgress singlePage =
 
         --, Effect.Continue
         ]
-
-
-toString value =
-    "toString"
-
-
-
---Debug.toString value
-
-
-todo value =
-    todo value
-
-
-
---Debug.todo value
-
-
-expectOk : Result err value -> value
-expectOk result =
-    case result of
-        Ok value ->
-            value
-
-        Err error ->
-            todo <| " 741: " ++ toString error
 
 
 staticResponseForPage :
