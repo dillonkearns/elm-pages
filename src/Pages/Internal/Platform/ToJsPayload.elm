@@ -140,8 +140,8 @@ successCodec =
         |> Codec.buildObject
 
 
-successCodecNew : Codec (ToJsSuccessPayloadNew pathKey)
-successCodecNew =
+successCodecNew : String -> String -> Codec (ToJsSuccessPayloadNew pathKey)
+successCodecNew canonicalSiteUrl currentPagePath =
     Codec.object ToJsSuccessPayloadNew
         |> Codec.field "route"
             .route
@@ -153,9 +153,15 @@ successCodecNew =
             .contentJson
             (Codec.dict Codec.string)
         |> Codec.field "errors" .errors (Codec.list Codec.string)
-        |> Codec.field "head" .head (Codec.list Head.codec)
+        |> Codec.field "head" .head (Codec.list (headCodec canonicalSiteUrl currentPagePath))
         |> Codec.field "body" .body Codec.string
         |> Codec.buildObject
+
+
+headCodec : String -> String -> Codec (Head.Tag pathKey)
+headCodec canonicalSiteUrl currentPagePath =
+    Codec.build (Head.toJson canonicalSiteUrl currentPagePath)
+        (Decode.succeed (Head.canonicalLink Nothing))
 
 
 type ToJsSuccessPayloadNewCombined pathKey
@@ -169,8 +175,8 @@ type alias InitialDataRecord pathKey =
     }
 
 
-successCodecNew2 : Codec (ToJsSuccessPayloadNewCombined pathKey)
-successCodecNew2 =
+successCodecNew2 : String -> String -> Codec (ToJsSuccessPayloadNewCombined pathKey)
+successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
         (\success initialData value ->
             case value of
@@ -180,7 +186,7 @@ successCodecNew2 =
                 InitialData payload ->
                     initialData payload
         )
-        |> Codec.variant1 "PageProgress" PageProgress successCodecNew
+        |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
         |> Codec.variant1 "InitialData" InitialData initialDataCodec
         |> Codec.buildCustom
 

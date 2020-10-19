@@ -252,9 +252,18 @@ perform config cliMsgConstructor toJsPort effect =
                 ]
 
         Effect.SendSinglePage info ->
+            let
+                currentPagePath =
+                    case info of
+                        ToJsPayload.PageProgress toJsSuccessPayloadNew ->
+                            toJsSuccessPayloadNew.route
+
+                        _ ->
+                            ""
+            in
             Cmd.batch
                 [ info
-                    |> Codec.encoder ToJsPayload.successCodecNew2
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl currentPagePath)
                     |> toJsPort
                     |> Cmd.map never
                 , Task.succeed ()

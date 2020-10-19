@@ -5,7 +5,6 @@ module Head exposing
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
     , toJson, canonicalLink
-    , codec
     )
 
 {-| This module contains low-level functions for building up
@@ -313,69 +312,6 @@ toJson canonicalSiteUrl currentPagePath tag =
                 [ ( "contents", value )
                 , ( "type", Json.Encode.string "json-ld" )
                 ]
-
-
-codec : Codec (Tag pathKey)
-codec =
-    Codec.custom
-        (\fTag fStructuredData v ->
-            case v of
-                Tag err ->
-                    fTag err
-
-                StructuredData ok ->
-                    fStructuredData ok
-        )
-        |> Codec.variant1 "Tag" Tag tagCodec
-        |> Codec.variant1 "StructuredData" StructuredData codecStructuredData
-        |> Codec.buildCustom
-
-
-tagCodec : Codec (Details pathKey)
-tagCodec =
-    --Debug.todo ""
-    Codec.object Details
-        |> Codec.field "name" .name Codec.string
-        |> Codec.field "attributes" .attributes (Codec.list (Codec.tuple Codec.string attributeCodec))
-        |> Codec.buildObject
-
-
-
---{ name : String
---, attributes : List ( String, AttributeValue pathKey )
---}
-
-
-attributeCodec : Codec (AttributeValue pathKey)
-attributeCodec =
-    Codec.custom
-        (\fRaw fFull fCurrent v ->
-            case v of
-                Raw string ->
-                    fRaw string
-
-                FullUrl string ->
-                    fFull string
-
-                FullUrlToCurrentPage ->
-                    fCurrent
-        )
-        |> Codec.variant1 "Raw" Raw Codec.string
-        |> Codec.variant1 "FullUrl" FullUrl Codec.string
-        |> Codec.variant0 "FullUrlToCurrentPage" FullUrlToCurrentPage
-        |> Codec.buildCustom
-
-
-
---type AttributeValue pathKey
---    = Raw String
---    | FullUrl String
---    | FullUrlToCurrentPage
-
-
-codecStructuredData : Codec Json.Encode.Value
-codecStructuredData =
-    Codec.value
 
 
 encodeProperty : String -> String -> ( String, AttributeValue pathKey ) -> Json.Encode.Value

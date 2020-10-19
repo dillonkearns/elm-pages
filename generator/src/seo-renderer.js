@@ -23,12 +23,10 @@ function toString(/** @type { SeoTag[] }  */ tags) {
   //   tags.concat([generatorTag]);
 
   return tags
-    .map((rawValue) => {
-      const type = rawValue.tag;
-      const headTag = rawValue.args[0];
-      if (type === "Tag") {
+    .map((headTag) => {
+      if (headTag.type === "head") {
         return appendTag(headTag);
-      } else if (headTag.type === "StructuredData") {
+      } else if (headTag.type === "json-ld") {
         return appendJsonLdTag(headTag);
       } else {
         throw new Error(`Unknown tag type ${JSON.stringify(headTag)}`);
