@@ -1,4 +1,4 @@
-const indexTemplate = require("../../index-template.js");
+const indexTemplate = require("./index-template.js");
 const util = require("util");
 const fs = require("./dir-helpers.js");
 const path = require("path");
