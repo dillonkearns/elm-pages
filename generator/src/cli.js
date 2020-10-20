@@ -232,13 +232,17 @@ function wrapHtml(/** @type { Arg } */ fromElm) {
     <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <script>if ("serviceWorker" in navigator) {
+    <script>
+    if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("service-worker.js");
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister()
+          } 
+        })
       });
-    } else {
-      console.log("No service worker registered.");
-    }</script>
+    }
+    </script>
     <link rel="shortcut icon" href="https://res.cloudinary.com/dillonkearns/image/upload/w_64/v1602878565/Favicon_Dark_adgn6v.png">
     <link rel="icon" type="image/png" sizes="16x16" href="https://res.cloudinary.com/dillonkearns/image/upload/w_16/v1602878565/Favicon_Dark_adgn6v.png">
     <link rel="icon" type="image/png" sizes="32x32" href="https://res.cloudinary.com/dillonkearns/image/upload/w_32/v1602878565/Favicon_Dark_adgn6v.png">
