@@ -9,6 +9,7 @@
     "dependencies": {
         "direct": {
             "avh4/elm-color": "1.0.0",
+            "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-markdown": "1.1.3",
             "dillonkearns/elm-oembed": "1.0.0",
             "elm/browser": "1.0.1",

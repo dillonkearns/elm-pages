@@ -9,6 +9,7 @@ import Html exposing (Html)
 import Html.Attributes
 import MarkdownRenderer
 import Metadata exposing (Metadata)
+import MimeType
 import OptimizedDecoder as D
 import Pages exposing (images, pages)
 import Pages.Manifest as Manifest
@@ -36,6 +37,61 @@ manifest =
     , startUrl = pages.index
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
+    , icons =
+        [ icon webp 192
+        , icon webp 512
+        , icon MimeType.Png 192
+        , icon MimeType.Png 512
+        ]
+    }
+
+
+webp : MimeType.MimeImage
+webp =
+    MimeType.OtherImage "webp"
+
+
+icon :
+    MimeType.MimeImage
+    -> Int
+    -> Manifest.Icon
+icon format width =
+    let
+        base =
+            "https://res.cloudinary.com/dillonkearns/image/upload"
+
+        asset =
+            "v1603234028/elm-pages/elm-pages-icon"
+
+        fetch_format =
+            case format of
+                MimeType.Png ->
+                    "png"
+
+                MimeType.OtherImage "webp" ->
+                    "webp"
+
+                _ ->
+                    "auto"
+
+        transforms =
+            [ "c_pad"
+            , "w_" ++ String.fromInt width
+            , "h_" ++ String.fromInt width
+            , "q_auto"
+            , "f_" ++ fetch_format
+            ]
+                |> String.join ","
+    in
+    { src =
+        base
+            ++ "/"
+            ++ transforms
+            ++ "/"
+            ++ asset
+    , sizes = [ ( width, width ) ]
+    , mimeType = format |> Just
+    , purposes = []
     }
 
 
