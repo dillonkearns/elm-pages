@@ -44,6 +44,10 @@ function runElmApp() {
       process.exit(0);
     }
   });
+  process.on("unhandledRejection", (error) => {
+    console.error(error);
+    process.exit(1);
+  });
 
   return new Promise((resolve, _) => {
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
@@ -78,8 +82,11 @@ function runElmApp() {
  * @param {{ path: string; content: string; }[]} filesToGenerate
  */
 async function generateFiles(filesToGenerate) {
-  filesToGenerate.forEach(({ path, content }) => {
-    fs.writeFile(`dist/${path}`, content);
+  filesToGenerate.forEach(async ({ path: pathToGenerate, content }) => {
+    const fullPath = `dist/${pathToGenerate}`;
+    console.log(`Generating file /${pathToGenerate}`);
+    await fs.tryMkdir(path.dirname(fullPath));
+    fs.writeFile(fullPath, content);
   });
 }
 
