@@ -15,7 +15,7 @@ const fs = {
 async function tryMkdir(dirName) {
   const exists = await fs.exists(dirName);
   if (!exists) {
-    fs.mkdir(dirName, { recursive: true });
+    await fs.mkdir(dirName, { recursive: true });
   }
 }
 
