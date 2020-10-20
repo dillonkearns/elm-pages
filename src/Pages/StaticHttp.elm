@@ -266,44 +266,22 @@ map2 fn request1 request2 =
             Request
                 ( urls1
                 , \appType rawResponses ->
-                    let
-                        value1 =
-                            lookupFn1 appType rawResponses
-                                |> Result.map Tuple.second
-
-                        dict1 =
-                            lookupFn1 appType rawResponses
-                                |> Result.map Tuple.first
-                                |> Result.withDefault Dict.empty
-                    in
-                    Result.map2
-                        (\thing1 thing2 ->
-                            ( dict1, map2 fn thing1 thing2 )
-                        )
-                        value1
-                        (Ok (Done value2))
+                    lookupFn1 appType rawResponses
+                        |> Result.map
+                            (\( dict1, value1 ) ->
+                                ( dict1, map2 fn value1 (Done value2) )
+                            )
                 )
 
         ( Done value2, Request ( urls1, lookupFn1 ) ) ->
             Request
                 ( urls1
                 , \appType rawResponses ->
-                    let
-                        value1 =
-                            lookupFn1 appType rawResponses
-                                |> Result.map Tuple.second
-
-                        dict1 =
-                            lookupFn1 appType rawResponses
-                                |> Result.map Tuple.first
-                                |> Result.withDefault Dict.empty
-                    in
-                    Result.map2
-                        (\thing1 thing2 ->
-                            ( dict1, map2 fn thing1 thing2 )
-                        )
-                        (Ok (Done value2))
-                        value1
+                    lookupFn1 appType rawResponses
+                        |> Result.map
+                            (\( dict1, value1 ) ->
+                                ( dict1, map2 fn (Done value2) value1 )
+                            )
                 )
 
         ( Done value1, Done value2 ) ->
