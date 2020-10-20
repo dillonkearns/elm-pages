@@ -277,7 +277,7 @@ simulateEffects effect =
         Effect.SendSinglePage info ->
             SimulatedEffect.Cmd.batch
                 [ info
-                    |> Codec.encoder ToJsPayload.successCodecNew2
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
                     |> SimulatedEffect.Ports.send "toJsPort"
                 , SimulatedEffect.Task.succeed ()
                     |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
@@ -380,7 +380,7 @@ expectSuccess expectedRequests previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.successCodecNew2)
+            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\portPayloads ->
                 portPayloads
                     |> List.filterMap
@@ -416,7 +416,7 @@ expectError expectedErrors previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.successCodecNew2)
+            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\value ->
                 case value of
                     [ ToJsPayload.PageProgress portPayload ] ->

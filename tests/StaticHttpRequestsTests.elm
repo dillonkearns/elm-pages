@@ -956,7 +956,7 @@ simulateEffects effect =
         Effect.SendSinglePage info ->
             SimulatedEffect.Cmd.batch
                 [ info
-                    |> Codec.encoder ToJsPayload.successCodecNew2
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
                     |> SimulatedEffect.Ports.send "toJsPort"
                 , SimulatedEffect.Task.succeed ()
                     |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
