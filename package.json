@@ -73,6 +73,7 @@
     "generator/src/"
   ],
   "bin": {
-    "elm-pages": "generator/src/elm-pages.js"
+    "elm-pages": "generator/src/elm-pages.js",
+    "elm-pages-beta": "generator/src/cli.js"
   }
 }
