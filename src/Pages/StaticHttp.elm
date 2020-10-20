@@ -161,7 +161,10 @@ map fn requestInfo =
                 ( urls
                 , \appType rawResponses ->
                     lookupFn appType rawResponses
-                        |> Result.map (\( partiallyStripped, nextRequest ) -> ( partiallyStripped, map fn nextRequest ))
+                        |> Result.map
+                            (\( partiallyStripped, nextRequest ) ->
+                                ( partiallyStripped, map fn nextRequest )
+                            )
                 )
 
         Done value ->
@@ -244,31 +247,15 @@ map2 fn request1 request2 =
             let
                 value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, Request c )
                 value appType rawResponses =
-                    let
-                        value1 =
-                            lookupFn1 appType rawResponses
-                                |> Result.map Tuple.second
+                    case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
+                        ( Ok ( newDict1, newValue1 ), Ok ( newDict2, newValue2 ) ) ->
+                            Ok ( combineReducedDicts newDict1 newDict2, map2 fn newValue1 newValue2 )
 
-                        value2 =
-                            lookupFn2 appType rawResponses
-                                |> Result.map Tuple.second
+                        ( Err error, _ ) ->
+                            Err error
 
-                        dict1 =
-                            lookupFn1 appType rawResponses
-                                |> Result.map Tuple.first
-                                |> Result.withDefault Dict.empty
-
-                        dict2 =
-                            lookupFn2 appType rawResponses
-                                |> Result.map Tuple.first
-                                |> Result.withDefault Dict.empty
-                    in
-                    Result.map2
-                        (\thing1 thing2 ->
-                            ( combineReducedDicts dict1 dict2, map2 fn thing1 thing2 )
-                        )
-                        value1
-                        value2
+                        ( _, Err error ) ->
+                            Err error
             in
             Request
                 ( urls1 ++ urls2
