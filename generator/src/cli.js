@@ -174,7 +174,7 @@ async function runTerser(filePath) {
 async function copyAssets() {
   fs.writeFile("dist/index.js", indexTemplate);
   fs.copyFile("beta-index.js", "dist/beta-index.js");
-  fs.copyFile("style.css", "dist/style.css");
+  fs.copyFile("beta-style.css", "dist/style.css");
   fs.copyDirFlat("static", "dist");
   fs.tryMkdir("dist/images");
   fs.copyDirNested("images", "dist/images");
