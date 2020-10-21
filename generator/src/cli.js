@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const cliVersion = require("../../package.json").version;
 const indexTemplate = require("./index-template.js");
 const util = require("util");
 const fs = require("./dir-helpers.js");
@@ -248,6 +249,7 @@ function wrapHtml(/** @type { Arg } */ fromElm) {
     }
     </script>
     <title>${fromElm.title}</title>
+    <meta name="generator" content="elm-pages v${cliVersion}">
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#ffffff">
