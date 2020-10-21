@@ -239,6 +239,7 @@ rssLink url =
         ]
 
 
+{-| -}
 icon : List ( Int, Int ) -> MimeType.MimeImage -> ImagePath pathKey -> Tag pathKey
 icon sizes imageMimeType image =
     -- TODO allow "any" for sizes value

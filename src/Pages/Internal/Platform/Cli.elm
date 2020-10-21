@@ -245,7 +245,7 @@ perform config cliMsgConstructor toJsPort effect =
                 , toJsPort
                     (Json.Encode.object
                         [ ( "command", Json.Encode.string "log" )
-                        , ( "value", Json.Encode.string ("Fetching " ++ masked.url ++ "...") )
+                        , ( "value", Json.Encode.string ("Fetching " ++ masked.url) )
                         ]
                     )
                     |> Cmd.map never

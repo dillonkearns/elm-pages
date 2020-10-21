@@ -52,6 +52,7 @@ manifest =
     , startUrl = pages.index
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
+    , icons = []
     }
 
 
@@ -59,7 +60,7 @@ type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
 
-main : Pages.Platform.Program Model Msg Metadata View
+main : Pages.Platform.Program Model Msg Metadata View Pages.PathKey
 main =
     Pages.Platform.init
         { init = init
