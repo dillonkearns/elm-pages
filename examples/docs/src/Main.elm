@@ -88,6 +88,11 @@ cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
 
 
+socialIcon : ImagePath pathKey
+socialIcon =
+    Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" Nothing 250
+
+
 type alias View =
     ( MarkdownRenderer.TableOfContents, List (Element Msg) )
 
@@ -547,7 +552,7 @@ head currentPath metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.iconPng
+                    { url = socialIcon
                     , alt = "elm-pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -563,7 +568,7 @@ head currentPath metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.iconPng
+                    { url = socialIcon
                     , alt = "elm pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -655,7 +660,7 @@ head currentPath metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.iconPng
+                    { url = socialIcon
                     , alt = "elm-pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
@@ -671,7 +676,7 @@ head currentPath metadata =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = images.iconPng
+                    { url = socialIcon
                     , alt = "elm-pages logo"
                     , dimensions = Nothing
                     , mimeType = Nothing
