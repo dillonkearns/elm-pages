@@ -21,6 +21,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode
 import MarkdownRenderer
 import Metadata exposing (Metadata)
+import MimeType
 import MySitemap
 import OptimizedDecoder as D
 import Pages exposing (images, pages)
@@ -52,8 +53,65 @@ manifest =
     , startUrl = pages.index
     , shortName = Just "elm-pages"
     , sourceIcon = images.iconPng
-    , icons = []
+    , icons =
+        [ icon webp 192
+        , icon webp 512
+        , icon MimeType.Png 192
+        , icon MimeType.Png 512
+        ]
     }
+
+
+webp : MimeType.MimeImage
+webp =
+    MimeType.OtherImage "webp"
+
+
+icon :
+    MimeType.MimeImage
+    -> Int
+    -> Manifest.Icon pathKey
+icon format width =
+    { src = cloudinaryIcon format width
+    , sizes = [ ( width, width ) ]
+    , mimeType = format |> Just
+    , purposes = []
+    }
+
+
+cloudinaryIcon :
+    MimeType.MimeImage
+    -> Int
+    -> ImagePath pathKey
+cloudinaryIcon format width =
+    let
+        base =
+            "https://res.cloudinary.com/dillonkearns/image/upload"
+
+        asset =
+            "v1603234028/elm-pages/elm-pages-icon"
+
+        fetch_format =
+            case format of
+                MimeType.Png ->
+                    "png"
+
+                MimeType.OtherImage "webp" ->
+                    "webp"
+
+                _ ->
+                    "auto"
+
+        transforms =
+            [ "c_pad"
+            , "w_" ++ String.fromInt width
+            , "h_" ++ String.fromInt width
+            , "q_auto"
+            , "f_" ++ fetch_format
+            ]
+                |> String.join ","
+    in
+    ImagePath.external (base ++ "/" ++ transforms ++ "/" ++ asset)
 
 
 type alias View =
@@ -87,6 +145,12 @@ main =
             }
             metadataToRssItem
         |> MySitemap.install { siteUrl = canonicalSiteUrl } metadataToSitemapEntry
+        |> Pages.Platform.withGlobalHeadTags
+            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+            ]
         |> Pages.Platform.toProgram
 
 
