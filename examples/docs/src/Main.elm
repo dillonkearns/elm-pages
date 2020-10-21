@@ -85,7 +85,7 @@ cloudinaryIcon :
     -> Int
     -> ImagePath pathKey
 cloudinaryIcon mimeType width =
-    Cloudinary.url "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
+    Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
 
 
 type alias View =
