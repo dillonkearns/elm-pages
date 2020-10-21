@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Cloudinary
 import Color
 import Data.Author as Author
 import Date
@@ -83,35 +84,8 @@ cloudinaryIcon :
     MimeType.MimeImage
     -> Int
     -> ImagePath pathKey
-cloudinaryIcon format width =
-    let
-        base =
-            "https://res.cloudinary.com/dillonkearns/image/upload"
-
-        asset =
-            "v1603234028/elm-pages/elm-pages-icon"
-
-        fetch_format =
-            case format of
-                MimeType.Png ->
-                    "png"
-
-                MimeType.OtherImage "webp" ->
-                    "webp"
-
-                _ ->
-                    "auto"
-
-        transforms =
-            [ "c_pad"
-            , "w_" ++ String.fromInt width
-            , "h_" ++ String.fromInt width
-            , "q_auto"
-            , "f_" ++ fetch_format
-            ]
-                |> String.join ","
-    in
-    ImagePath.external (base ++ "/" ++ transforms ++ "/" ++ asset)
+cloudinaryIcon mimeType width =
+    Cloudinary.url "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
 
 
 type alias View =
