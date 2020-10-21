@@ -1043,6 +1043,7 @@ manifest =
     , startUrl = PagePath.external ""
     , shortName = Just "elm-pages"
     , sourceIcon = ImagePath.external ""
+    , icons = []
     }
 
 
