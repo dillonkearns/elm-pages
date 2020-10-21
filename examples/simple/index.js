@@ -1,7 +1,7 @@
 // @ts-ignore
 // const { Elm } = require("./src/Main.elm");
 import { Elm } from "/main.js";
-import userInit from "/user-index.js";
+import userInit from "/beta-index.js";
 // const pagesInit = require("../../index.js");
 
 let prefetchedPages;

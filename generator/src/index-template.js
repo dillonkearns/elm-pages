@@ -1,5 +1,5 @@
 module.exports = `import { Elm } from "/main.js";
-import userInit from "/user-index.js";
+import userInit from "/beta-index.js";
 
 let prefetchedPages;
 let initialLocationHash;
