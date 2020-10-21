@@ -76,7 +76,7 @@ icon format width =
     { src = cloudinaryIcon format width
     , sizes = [ ( width, width ) ]
     , mimeType = format |> Just
-    , purposes = []
+    , purposes = [ Manifest.IconPurposeAny, Manifest.IconPurposeMaskable ]
     }
 
 
