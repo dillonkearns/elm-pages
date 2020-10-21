@@ -33,6 +33,7 @@ type alias ToJsSuccessPayloadNew pathKey =
     , errors : List String
     , head : List (Head.Tag pathKey)
     , body : String
+    , title : String
     }
 
 
@@ -156,6 +157,7 @@ successCodecNew canonicalSiteUrl currentPagePath =
         |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.field "head" .head (Codec.list (headCodec canonicalSiteUrl currentPagePath))
         |> Codec.field "body" .body Codec.string
+        |> Codec.field "title" .title Codec.string
         |> Codec.buildObject
 
 

@@ -12,6 +12,7 @@ import Metadata exposing (Metadata)
 import MimeType
 import OptimizedDecoder as D
 import Pages exposing (images, pages)
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath exposing (PagePath)
@@ -56,6 +57,18 @@ icon :
     -> Int
     -> Manifest.Icon
 icon format width =
+    { src = cloudinaryIcon format width
+    , sizes = [ ( width, width ) ]
+    , mimeType = format |> Just
+    , purposes = []
+    }
+
+
+cloudinaryIcon :
+    MimeType.MimeImage
+    -> Int
+    -> String
+cloudinaryIcon format width =
     let
         base =
             "https://res.cloudinary.com/dillonkearns/image/upload"
@@ -83,16 +96,11 @@ icon format width =
             ]
                 |> String.join ","
     in
-    { src =
-        base
-            ++ "/"
-            ++ transforms
-            ++ "/"
-            ++ asset
-    , sizes = [ ( width, width ) ]
-    , mimeType = format |> Just
-    , purposes = []
-    }
+    base
+        ++ "/"
+        ++ transforms
+        ++ "/"
+        ++ asset
 
 
 type alias View =
@@ -118,6 +126,12 @@ main =
         , internals = Pages.internals
         }
         |> Pages.Platform.withFileGenerator fileGenerator
+        |> Pages.Platform.withGlobalHeadTags
+            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32 |> ImagePath.external)
+            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16 |> ImagePath.external)
+            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180 |> ImagePath.external)
+            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192 |> ImagePath.external)
+            ]
         |> Pages.Platform.toProgram
 
 

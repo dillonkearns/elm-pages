@@ -1,5 +1,5 @@
 module Pages.ImagePath exposing
-    ( ImagePath, toString, external, dimensions, Dimensions
+    ( ImagePath, toString, toAbsoluteUrl, external, dimensions, Dimensions
     , build
     )
 
@@ -39,7 +39,7 @@ or
     -- ImagePath.toString helloWorldPostPath
     -- => "images/profile-photos/dillon.jpg"
 
-@docs ImagePath, toString, external, dimensions, Dimensions
+@docs ImagePath, toString, toAbsoluteUrl, external, dimensions, Dimensions
 
 
 ## Functions for code generation only
@@ -49,6 +49,8 @@ Don't bother using these.
 @docs build
 
 -}
+
+import Path
 
 
 {-| There are only two ways to get an `ImagePath`:
@@ -96,6 +98,20 @@ toString path =
     case path of
         Internal rawPath _ ->
             String.join "/" rawPath
+
+        External url ->
+            url
+
+
+{-| Gives you the image's absolute URL as a String. This is useful for constructing `<img>` tags:
+-}
+toAbsoluteUrl : String -> ImagePath key -> String
+toAbsoluteUrl canonicalSiteUrl path =
+    case path of
+        Internal rawPath _ ->
+            Path.join
+                canonicalSiteUrl
+                (String.join "/" rawPath)
 
         External url ->
             url

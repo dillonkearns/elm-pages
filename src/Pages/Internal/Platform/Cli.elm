@@ -810,17 +810,19 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
         in
         case Result.map2 Tuple.pair twoThings value2 of
             Ok ( success, lookedUp ) ->
+                let
+                    viewValue =
+                        success.view pageModel lookedUp.body
+                in
                 { route = page |> PagePath.toString
                 , contentJson =
                     toJsPayload.pages
                         |> Dict.get (PagePath.toString page)
                         |> Maybe.withDefault Dict.empty
-                , html =
-                    success.view pageModel lookedUp.body
-                        |> .body
-                        |> viewRenderer
+                , html = viewValue.body |> viewRenderer
                 , errors = []
                 , head = success.head
+                , title = viewValue.title
                 , body = lookedUp.unparsedBody
                 }
                     |> sendProgress
