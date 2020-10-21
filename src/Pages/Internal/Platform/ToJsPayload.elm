@@ -73,8 +73,8 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
         Errors <| BuildError.errorsToString allErrors
 
 
-toJsCodec : Codec (ToJsPayload pathKey)
-toJsCodec =
+toJsCodec : String -> Codec (ToJsPayload pathKey)
+toJsCodec canonicalSiteUrl =
     Codec.custom
         (\errorsTag success value ->
             case value of
@@ -85,7 +85,7 @@ toJsCodec =
                     success (ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
         )
         |> Codec.variant1 "Errors" Errors Codec.string
-        |> Codec.variant1 "Success" Success successCodec
+        |> Codec.variant1 "Success" Success (successCodec canonicalSiteUrl)
         |> Codec.buildCustom
 
 
@@ -106,15 +106,15 @@ stubManifest =
     }
 
 
-successCodec : Codec (ToJsSuccessPayload pathKey)
-successCodec =
+successCodec : String -> Codec (ToJsSuccessPayload pathKey)
+successCodec canonicalSiteUrl =
     Codec.object ToJsSuccessPayload
         |> Codec.field "pages"
             .pages
             (Codec.dict (Codec.dict Codec.string))
         |> Codec.field "manifest"
             .manifest
-            (Codec.build Manifest.toJson (Decode.succeed stubManifest))
+            (Codec.build (Manifest.toJson canonicalSiteUrl) (Decode.succeed stubManifest))
         |> Codec.field "filesToGenerate"
             .filesToGenerate
             (Codec.build
@@ -190,13 +190,13 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                     initialData payload
         )
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
-        |> Codec.variant1 "InitialData" InitialData initialDataCodec
+        |> Codec.variant1 "InitialData" InitialData (initialDataCodec canonicalSiteUrl)
         |> Codec.buildCustom
 
 
-manifestCodec : Codec (Manifest.Config pathKey)
-manifestCodec =
-    Codec.build Manifest.toJson (Decode.succeed stubManifest)
+manifestCodec : String -> Codec (Manifest.Config pathKey)
+manifestCodec canonicalSiteUrl =
+    Codec.build (Manifest.toJson canonicalSiteUrl) (Decode.succeed stubManifest)
 
 
 filesToGenerateCodec : Codec (List { path : List String, content : String })
@@ -220,13 +220,13 @@ filesToGenerateCodec =
         )
 
 
-initialDataCodec : Codec (InitialDataRecord pathKey)
-initialDataCodec =
+initialDataCodec : String -> Codec (InitialDataRecord pathKey)
+initialDataCodec canonicalSiteUrl =
     Codec.object InitialDataRecord
         |> Codec.field "filesToGenerate"
             .filesToGenerate
             filesToGenerateCodec
         |> Codec.field "manifest"
             .manifest
-            manifestCodec
+            (manifestCodec canonicalSiteUrl)
         |> Codec.buildObject

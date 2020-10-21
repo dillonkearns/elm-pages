@@ -202,7 +202,7 @@ perform config cliMsgConstructor toJsPort effect =
 
         Effect.SendJsData value ->
             value
-                |> Codec.encoder ToJsPayload.toJsCodec
+                |> Codec.encoder (ToJsPayload.toJsCodec config.canonicalSiteUrl)
                 |> toJsPort
                 |> Cmd.map never
 

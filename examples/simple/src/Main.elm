@@ -55,7 +55,7 @@ webp =
 icon :
     MimeType.MimeImage
     -> Int
-    -> Manifest.Icon
+    -> Manifest.Icon pathKey
 icon format width =
     { src = cloudinaryIcon format width
     , sizes = [ ( width, width ) ]
@@ -67,7 +67,7 @@ icon format width =
 cloudinaryIcon :
     MimeType.MimeImage
     -> Int
-    -> String
+    -> ImagePath pathKey
 cloudinaryIcon format width =
     let
         base =
@@ -96,11 +96,7 @@ cloudinaryIcon format width =
             ]
                 |> String.join ","
     in
-    base
-        ++ "/"
-        ++ transforms
-        ++ "/"
-        ++ asset
+    ImagePath.external (base ++ "/" ++ transforms ++ "/" ++ asset)
 
 
 type alias View =
@@ -127,10 +123,10 @@ main =
         }
         |> Pages.Platform.withFileGenerator fileGenerator
         |> Pages.Platform.withGlobalHeadTags
-            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32 |> ImagePath.external)
-            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16 |> ImagePath.external)
-            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180 |> ImagePath.external)
-            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192 |> ImagePath.external)
+            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
             ]
         |> Pages.Platform.toProgram
 

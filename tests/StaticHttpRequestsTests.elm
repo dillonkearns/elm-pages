@@ -338,7 +338,7 @@ all =
                         "This is a raw text file."
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -477,7 +477,7 @@ String was not uppercased"""
                         """{ "stargazer_count": 86 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -522,7 +522,7 @@ I encountered some errors while decoding this JSON:
                         """ "continuation-url" """
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort
                             """-- MISSING SECRET ----------------------------------------------------- elm-pages
 
@@ -551,7 +551,7 @@ So maybe MISSING should be API_KEY"""
                         )
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
 
 I got an error making an HTTP request to this URL: https://api.github.com/repos/dillonkearns/elm-pages
@@ -855,7 +855,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , subscriptions = \_ -> Sub.none
             , document = document
             , content = []
-            , canonicalSiteUrl = ""
+            , canonicalSiteUrl = canonicalSiteUrl
             , pathKey = PathKey
             , onPageChange = Just (\_ -> ())
             }
@@ -918,7 +918,7 @@ simulateEffects effect =
             SimulatedEffect.Cmd.none
 
         Effect.SendJsData value ->
-            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder ToJsPayload.toJsCodec)
+            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder (ToJsPayload.toJsCodec canonicalSiteUrl))
 
         --            toJsPort value |> Cmd.map never
         Effect.Batch list ->
@@ -1062,7 +1062,7 @@ expectSuccessNew expectedRequests expectations previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.toJsCodec)
+            (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
             (\value ->
                 case value of
                     (ToJsPayload.Success portPayload) :: rest ->
@@ -1102,7 +1102,7 @@ expectError expectedErrors previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.toJsCodec)
+            (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
             (\value ->
                 case value of
                     [ ToJsPayload.Success portPayload ] ->
@@ -1115,6 +1115,10 @@ expectError expectedErrors previous =
                     _ ->
                         Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
             )
+
+
+canonicalSiteUrl =
+    ""
 
 
 get : String -> Request.Request

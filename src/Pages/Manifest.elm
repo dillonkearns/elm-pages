@@ -166,14 +166,14 @@ type alias Config pathKey =
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
     , sourceIcon : ImagePath pathKey
-    , icons : List Icon
+    , icons : List (Icon pathKey)
     }
 
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/Manifest/icons>
 -}
-type alias Icon =
-    { src : String -- TODO should this be an ImagePath? If so, I need to fix the bug with external
+type alias Icon pathKey =
+    { src : ImagePath pathKey
     , sizes : List ( Int, Int )
     , mimeType : Maybe MimeType.MimeImage
     , purposes : List IconPurpose
@@ -209,10 +209,10 @@ displayModeToAttribute displayMode =
             "browser"
 
 
-encodeIcon : Icon -> Encode.Value
-encodeIcon icon =
+encodeIcon : String -> Icon pathKey -> Encode.Value
+encodeIcon canonicalSiteUrl icon =
     encodeMaybeObject
-        [ ( "src", icon.src |> Encode.string |> Just )
+        [ ( "src", icon.src |> ImagePath.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )
         , ( "type", icon.mimeType |> Maybe.map MimeType.Image |> Maybe.map MimeType.toString |> Maybe.map Encode.string )
         , ( "sizes", icon.sizes |> nonEmptyList |> Maybe.map sizesString |> Maybe.map Encode.string )
         , ( "purpose", icon.purposes |> nonEmptyList |> Maybe.map purposesString |> Maybe.map Encode.string )
@@ -258,8 +258,8 @@ nonEmptyList list =
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated
 code will run this for you to generate your `manifest.json` file automatically!
 -}
-toJson : Config pathKey -> Encode.Value
-toJson config =
+toJson : String -> Config pathKey -> Encode.Value
+toJson canonicalSiteUrl config =
     [ ( "sourceIcon"
       , config.sourceIcon
             |> ImagePath.toString
@@ -268,7 +268,7 @@ toJson config =
       )
     , ( "icons"
       , config.icons
-            |> Encode.list encodeIcon
+            |> Encode.list (encodeIcon canonicalSiteUrl)
             |> Just
       )
     , ( "background_color"

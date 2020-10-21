@@ -176,7 +176,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                   , { extension = "md", frontMatter = "{}", body = Nothing }
                   )
                 ]
-            , canonicalSiteUrl = ""
+            , canonicalSiteUrl = canonicalSiteUrl
             , pathKey = PathKey
             , onPageChange = Just (\_ -> ())
             }
@@ -222,6 +222,10 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
+canonicalSiteUrl =
+    ""
+
+
 flags : String -> JD.Value
 flags jsonString =
     case JD.decodeString JD.value jsonString of
@@ -239,7 +243,7 @@ simulateEffects effect =
             SimulatedEffect.Cmd.none
 
         Effect.SendJsData value ->
-            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder ToJsPayload.toJsCodec)
+            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder (ToJsPayload.toJsCodec canonicalSiteUrl))
 
         --            toJsPort value |> Cmd.map never
         Effect.Batch list ->
