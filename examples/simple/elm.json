@@ -4,7 +4,8 @@
         "src",
         "../../src",
         "vendor/elm-ui",
-        "gen"
+        "gen",
+        "plugins"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
