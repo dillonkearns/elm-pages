@@ -31,7 +31,7 @@ all =
         [ test "andThen" <|
             \() ->
                 StaticResponses.init Dict.empty (Ok []) config []
-                    |> StaticResponses.nextStep config (Ok []) Mode.Dev (SecretsDict.unmasked Dict.empty) Dict.empty []
+                    |> StaticResponses.nextStep config (Ok []) (Ok []) Mode.Dev (SecretsDict.unmasked Dict.empty) Dict.empty []
                     |> Expect.equal
                         (StaticResponses.Finish
                             (ToJsPayload.Success

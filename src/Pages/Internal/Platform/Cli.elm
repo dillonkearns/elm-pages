@@ -408,7 +408,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                                     -- TODO need to handle errors better?
                                     StaticResponses.init staticHttpCache siteMetadata config []
                     in
-                    StaticResponses.nextStep config (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
+                    StaticResponses.nextStep config siteMetadata (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
                         |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (siteMetadata |> Result.withDefault []))
                         |> Tuple.mapFirst toModel
 
@@ -476,6 +476,7 @@ updateAndSendPortIfDone contentCache config siteMetadata model toModel =
     in
     StaticResponses.nextStep
         config
+        siteMetadata
         (Ok nextToProcess)
         model.mode
         model.secrets
@@ -563,6 +564,7 @@ update contentCache siteMetadata config msg model =
                     drop1 updatedModel
             in
             StaticResponses.nextStep config
+                siteMetadata
                 (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
@@ -584,6 +586,7 @@ update contentCache siteMetadata config msg model =
                     drop1 model
             in
             StaticResponses.nextStep config
+                siteMetadata
                 (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
