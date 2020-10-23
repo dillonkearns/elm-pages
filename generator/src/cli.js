@@ -156,7 +156,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
 }
 
 async function compileElm() {
-  const outputPath = `dist/main.js`;
+  const outputPath = `dist/elm.js`;
   await spawnElmMake("src/Main.elm", outputPath);
 
   await elmToEsm(path.join(process.cwd(), outputPath));
@@ -203,8 +203,8 @@ async function runTerser(filePath) {
 }
 
 async function copyAssets() {
-  fs.writeFile("dist/index.js", indexTemplate);
-  fs.copyFile("beta-index.js", "dist/beta-index.js");
+  fs.writeFile("dist/elm-pages.js", indexTemplate);
+  fs.copyFile("beta-index.js", "dist/index.js");
   fs.copyFile("beta-style.css", "dist/style.css");
   fs.copyDirFlat("static", "dist");
   fs.tryMkdir("dist/images");
@@ -268,6 +268,13 @@ function wrapHtml(/** @type { Arg } */ fromElm) {
   <html lang="en">
   <head>
     <link rel="preload" href="content.json" as="fetch" crossorigin="">
+    <link rel="stylesheet" href="/style.css"></link>
+    <link rel="preload" href="/elm-pages.js" as="script">
+    <link rel="preload" href="/index.js" as="script">
+    <link rel="preload" href="/elm.js" as="script">
+    <link rel="preload" href="/elm.js" as="script">
+    <script defer="defer" src="/elm.js" type="module"></script>
+    <script defer="defer" src="/elm-pages.js" type="module"></script>
     <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -290,10 +297,6 @@ function wrapHtml(/** @type { Arg } */ fromElm) {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <script defer="defer" src="/main.js" type="module"></script>
-    <script defer="defer" src="/index.js" type="module"></script>
-    <link rel="stylesheet" href="/style.css"></link>
-    <link rel="preload" href="/main.js" as="script">
     ${seo.toString(fromElm.head)}
     <body>
       <div data-url="" display="none"></div>
