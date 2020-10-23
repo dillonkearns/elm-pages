@@ -7,6 +7,7 @@ const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
 const exec = util.promisify(require("child_process").exec);
+const spawnCallback = require("child_process").spawn;
 const codegen = require("./codegen.js");
 const generateManifest = require("./generate-manifest.js");
 
@@ -14,6 +15,10 @@ const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 
 let foundErrors = false;
+process.on("unhandledRejection", (error) => {
+  console.error(error);
+  process.exit(1);
+});
 
 const ELM_FILE_PATH = path.join(
   DIR_PATH,
@@ -46,10 +51,6 @@ function runElmApp() {
     } else {
       process.exit(0);
     }
-  });
-  process.on("unhandledRejection", (error) => {
-    console.error(error);
-    process.exit(1);
   });
 
   return new Promise((resolve, _) => {
@@ -156,11 +157,40 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
 
 async function compileElm() {
   const outputPath = `dist/main.js`;
-  await shellCommand(
-    `elm-optimize-level-2 src/Main.elm --output ${outputPath}`
-  );
+  await spawnElmMake("src/Main.elm", outputPath);
+
   await elmToEsm(path.join(process.cwd(), outputPath));
   runTerser(outputPath);
+}
+
+function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
+  return new Promise((resolve, reject) => {
+    const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
+    if (fs.existsSync(fullOutputPath)) {
+      fs.rmSync(fullOutputPath, {
+        force: true /* ignore errors if file doesn't exist */,
+      });
+    }
+    const subprocess = spawnCallback(
+      `elm-optimize-level-2`,
+      [elmEntrypointPath, "--output", outputPath],
+      {
+        // ignore stdout
+        stdio: ["inherit", "ignore", "inherit"],
+        cwd: cwd,
+      }
+    );
+
+    subprocess.on("close", (code) => {
+      const fileOutputExists = fs.existsSync(fullOutputPath);
+      if (code == 0 && fileOutputExists) {
+        resolve();
+      } else {
+        reject();
+        process.exit(1);
+      }
+    });
+  });
 }
 
 /**
@@ -182,9 +212,8 @@ async function copyAssets() {
 }
 
 async function compileCliApp() {
-  await shellCommand(
-    `cd ./elm-stuff/elm-pages && elm-optimize-level-2 ../../src/Main.elm --output elm.js`
-  );
+  await spawnElmMake("../../src/Main.elm", "elm.js", "./elm-stuff/elm-pages");
+
   const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
   await fs.writeFile(
     ELM_FILE_PATH,
@@ -200,12 +229,17 @@ run();
 /**
  * @param {string} command
  */
-async function shellCommand(command) {
-  const output = await exec(command);
-  if (output.stderr) {
-    throw output.stderr;
-  }
-  return output;
+function shellCommand(command) {
+  const promise = exec(command, { stdio: "inherit" });
+  promise.then((output) => {
+    if (output.stdout) {
+      console.log(output.stdout);
+    }
+    if (output.stderr) {
+      throw output.stderr;
+    }
+  });
+  return promise;
 }
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
