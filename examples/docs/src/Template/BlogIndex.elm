@@ -71,11 +71,12 @@ view :
 view model allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =
-        Element.column [ Element.width Element.fill ]
+        [ Element.column [ Element.width Element.fill ]
             [ Element.column [ Element.padding 20, Element.centerX ]
                 [ Index.view allMetadata
                 ]
             ]
+        ]
     }
 
 

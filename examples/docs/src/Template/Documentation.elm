@@ -96,30 +96,31 @@ view :
 view model sharedModel allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =
-        [ Element.row []
-            [ counterView sharedModel
-            , DocSidebar.view
-                Pages.pages.index
-                allMetadata
-                |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
-            , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
-                [ Palette.heading 1 [ Element.text staticPayload.metadata.title ]
-                , Element.column [ Element.spacing 20 ]
-                    [ tocView (Tuple.first rendered)
-                    , Element.column
-                        [ Element.padding 50
-                        , Element.spacing 30
-                        , Element.Region.mainContent
+        [ [ Element.row []
+                [ counterView sharedModel
+                , DocSidebar.view
+                    Pages.pages.index
+                    allMetadata
+                    |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
+                , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
+                    [ Palette.heading 1 [ Element.text staticPayload.metadata.title ]
+                    , Element.column [ Element.spacing 20 ]
+                        [ tocView (Tuple.first rendered)
+                        , Element.column
+                            [ Element.padding 50
+                            , Element.spacing 30
+                            , Element.Region.mainContent
+                            ]
+                            (Tuple.second rendered |> List.map (Element.map never))
                         ]
-                        (Tuple.second rendered |> List.map (Element.map never))
                     ]
                 ]
-            ]
-        ]
+          ]
             |> Element.textColumn
                 [ Element.width Element.fill
                 , Element.height Element.fill
                 ]
+        ]
     }
 
 

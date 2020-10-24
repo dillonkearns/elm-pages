@@ -88,7 +88,7 @@ view :
 view allMetadata { metadata } rendered =
     { title = metadata.title
     , body =
-        Element.column [ Element.width Element.fill ]
+        [ Element.column [ Element.width Element.fill ]
             [ Element.column
                 [ Element.padding 30
                 , Element.spacing 40
@@ -115,6 +115,7 @@ view allMetadata { metadata } rendered =
                     |> List.map (Element.map never)
                 )
             ]
+        ]
     }
 
 

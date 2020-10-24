@@ -55,9 +55,10 @@ view :
 view allMetadata static rendered =
     { title = "elm-pages blog"
     , body =
-        Element.column [ Element.width Element.fill ]
+        [ Element.column [ Element.width Element.fill ]
             [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view static.static ]
             ]
+        ]
     }
 
 

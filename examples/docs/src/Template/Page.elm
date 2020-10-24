@@ -62,14 +62,15 @@ view :
 view allMetadata { metadata } rendered =
     { title = metadata.title
     , body =
-        [ Element.column
-            [ Element.padding 50
-            , Element.spacing 60
-            , Element.Region.mainContent
-            ]
-            (Tuple.second rendered |> List.map (Element.map never))
-        ]
+        [ [ Element.column
+                [ Element.padding 50
+                , Element.spacing 60
+                , Element.Region.mainContent
+                ]
+                (Tuple.second rendered |> List.map (Element.map never))
+          ]
             |> Element.textColumn
                 [ Element.width Element.fill
                 ]
+        ]
     }

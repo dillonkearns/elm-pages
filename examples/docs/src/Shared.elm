@@ -22,7 +22,7 @@ import Secrets
 import TemplateType exposing (TemplateType)
 
 
-type alias SharedTemplate msg msg1 msg2 =
+type alias SharedTemplate templateDemuxMsg msg1 msg2 =
     { init :
         Maybe
             { path :
@@ -32,8 +32,8 @@ type alias SharedTemplate msg msg1 msg2 =
                 }
             , metadata : TemplateType
             }
-        -> ( Model, Cmd msg )
-    , update : msg -> Model -> ( Model, Cmd msg )
+        -> ( Model, Cmd Msg )
+    , update : Msg -> Model -> ( Model, Cmd Msg )
     , view :
         StaticData
         ->
@@ -41,16 +41,16 @@ type alias SharedTemplate msg msg1 msg2 =
             , frontmatter : TemplateType
             }
         -> Model
-        -> (msg -> msg)
-        -> PageView msg
-        -> { body : Html msg, title : String }
+        -> (Msg -> templateDemuxMsg)
+        -> PageView templateDemuxMsg
+        -> { body : Html templateDemuxMsg, title : String }
     , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
     , staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request StaticData
-    , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub msg
+    , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
     }
 
 
-template : SharedTemplate Msg msg1 msg2
+template : SharedTemplate msg msg1 msg2
 template =
     { init = init
     , update = update
@@ -66,7 +66,7 @@ type alias RenderedBody =
 
 
 type alias PageView msg =
-    { title : String, body : Element msg }
+    { title : String, body : List (Element msg) }
 
 
 type Msg
@@ -98,7 +98,7 @@ type alias Model =
 map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
 map fn doc =
     { title = doc.title
-    , body = Element.map fn doc.body
+    , body = List.map (Element.map fn) doc.body
     }
 
 
@@ -180,10 +180,13 @@ view stars page model toMsg pageView =
 
          else
             Element.column [ Element.width Element.fill ]
-                [ header stars page.path |> Element.map toMsg
-                , incrementView model |> Element.map toMsg
-                , pageView.body
-                ]
+                (List.concat
+                    [ [ header stars page.path |> Element.map toMsg
+                      , incrementView model |> Element.map toMsg
+                      ]
+                    , pageView.body
+                    ]
+                )
         )
             |> Element.layout
                 [ Element.width Element.fill

@@ -119,7 +119,7 @@ view siteMetadata page =
 
 
 init :
-    Maybe Shared.template.Model
+    Maybe Shared.Model
     ->
         Maybe
             { path :
