@@ -21,6 +21,7 @@ import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
+import RequestsAndPending exposing (RequestsAndPending)
 import Result.Extra
 import Task exposing (Task)
 import Url exposing (Url)
@@ -37,8 +38,8 @@ type alias Content =
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias Program userModel userMsg metadata view =
-    Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
+type alias Program userModel userMsg metadata view pathKey =
+    Platform.Program Flags (Model userModel userMsg metadata view pathKey) (Msg userMsg metadata view)
 
 
 mainView :
@@ -117,7 +118,7 @@ pageViewOrError pathKey viewFn model cache =
     case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
-                ContentCache.Parsed metadata viewResult ->
+                ContentCache.Parsed metadata body viewResult ->
                     let
                         viewFnResult =
                             { path = pagePath, frontmatter = metadata }
@@ -250,7 +251,7 @@ type alias Flags =
 
 type alias ContentJson =
     { body : String
-    , staticData : Dict String String
+    , staticData : RequestsAndPending
     }
 
 
@@ -258,7 +259,7 @@ contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
     Decode.map2 ContentJson
         (Decode.field "body" Decode.string)
-        (Decode.field "staticData" (Decode.dict Decode.string))
+        (Decode.field "staticData" RequestsAndPending.decoder)
 
 
 init :
@@ -453,9 +454,9 @@ type AppMsg userMsg metadata view
     | StartingHotReload
 
 
-type Model userModel userMsg metadata view
+type Model userModel userMsg metadata view pathKey
     = Model (ModelDetails userModel metadata view)
-    | CliModel Pages.Internal.Platform.Cli.Model
+    | CliModel (Pages.Internal.Platform.Cli.Model pathKey metadata)
 
 
 type alias ModelDetails userModel metadata view =
@@ -576,7 +577,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                     case ContentCache.lookup pathKey updatedCache urls of
                                         Just ( pagePath, entry ) ->
                                             case entry of
-                                                ContentCache.Parsed frontmatter viewResult ->
+                                                ContentCache.Parsed frontmatter body viewResult ->
                                                     headFn pagePath frontmatter viewResult.staticData
                                                         |> Result.map .head
                                                         |> Result.toMaybe
@@ -632,7 +633,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                                     case ContentCache.lookup pathKey updatedCache urls of
                                                         Just ( pagePath, entry ) ->
                                                             case entry of
-                                                                ContentCache.Parsed metadata viewResult ->
+                                                                ContentCache.Parsed metadata rawBody viewResult ->
                                                                     Just metadata
 
                                                                 ContentCache.NeedContent string metadata ->
@@ -772,7 +773,7 @@ application :
             )
     }
     --    -> Program userModel userMsg metadata view
-    -> Platform.Program Flags (Model userModel userMsg metadata view) (Msg userMsg metadata view)
+    -> Platform.Program Flags (Model userModel userMsg metadata view pathKey) (Msg userMsg metadata view)
 application config =
     Browser.application
         { init =
@@ -930,7 +931,7 @@ cliApplication :
              -> userMsg
             )
     }
-    -> Program userModel userMsg metadata view
+    -> Program userModel userMsg metadata view pathKey
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
         (\msg ->

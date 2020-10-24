@@ -1,5 +1,6 @@
 module Metadata exposing (ArticleMetadata, DocMetadata, Metadata(..), PageMetadata, decoder)
 
+import Cloudinary
 import Data.Author
 import Date exposing (Date)
 import Dict exposing (Dict)
@@ -90,15 +91,7 @@ decoder =
 imageDecoder : Decoder (ImagePath Pages.PathKey)
 imageDecoder =
     Decode.string
-        |> Decode.andThen
-            (\imageAssetPath ->
-                case findMatchingImage imageAssetPath of
-                    Nothing ->
-                        Decode.fail "Couldn't find image."
-
-                    Just imagePath ->
-                        Decode.succeed imagePath
-            )
+        |> Decode.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
 
 
 findMatchingImage : String -> Maybe (ImagePath Pages.PathKey)

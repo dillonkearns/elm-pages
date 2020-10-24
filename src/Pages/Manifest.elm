@@ -1,6 +1,6 @@
 module Pages.Manifest exposing
-    ( Config
-    , DisplayMode(..), Orientation(..)
+    ( Config, Icon
+    , DisplayMode(..), Orientation(..), IconPurpose(..)
     , toJson
     )
 
@@ -44,12 +44,12 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
             , canonicalSiteUrl = canonicalSiteUrl
             }
 
-@docs Config
+@docs Config, Icon
 
 
 ## Config options
 
-@docs DisplayMode, Orientation
+@docs DisplayMode, Orientation, IconPurpose
 
 
 ## Functions for use by the generated code (`Pages.elm`)
@@ -61,6 +61,7 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
+import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -70,7 +71,6 @@ import Pages.PagePath as PagePath exposing (PagePath)
 {- TODO serviceworker https://developer.mozilla.org/en-US/docs/Web/Manifest/serviceworker
    This is mandatory... need to process this in a special way
 -}
--- TODO icons https://developer.mozilla.org/en-US/docs/Web/Manifest/icons
 -- TODO use language https://developer.mozilla.org/en-US/docs/Web/Manifest/lang
 
 
@@ -166,7 +166,31 @@ type alias Config pathKey =
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
     , sourceIcon : ImagePath pathKey
+    , icons : List (Icon pathKey)
     }
+
+
+{-| <https://developer.mozilla.org/en-US/docs/Web/Manifest/icons>
+-}
+type alias Icon pathKey =
+    { src : ImagePath pathKey
+    , sizes : List ( Int, Int )
+    , mimeType : Maybe MimeType.MimeImage
+    , purposes : List IconPurpose
+    }
+
+
+{-| <https://w3c.github.io/manifest/#dfn-icon-purposes>
+-}
+type IconPurpose
+    = IconPurposeMonochrome
+    | IconPurposeMaskable
+    | IconPurposeAny
+
+
+square : Int -> ( Int, Int )
+square x =
+    ( x, x )
 
 
 displayModeToAttribute : DisplayMode -> String
@@ -185,15 +209,66 @@ displayModeToAttribute displayMode =
             "browser"
 
 
+encodeIcon : String -> Icon pathKey -> Encode.Value
+encodeIcon canonicalSiteUrl icon =
+    encodeMaybeObject
+        [ ( "src", icon.src |> ImagePath.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )
+        , ( "type", icon.mimeType |> Maybe.map MimeType.Image |> Maybe.map MimeType.toString |> Maybe.map Encode.string )
+        , ( "sizes", icon.sizes |> nonEmptyList |> Maybe.map sizesString |> Maybe.map Encode.string )
+        , ( "purpose", icon.purposes |> nonEmptyList |> Maybe.map purposesString |> Maybe.map Encode.string )
+        ]
+
+
+purposesString : List IconPurpose -> String
+purposesString purposes =
+    purposes
+        |> List.map purposeToString
+        |> String.join " "
+
+
+purposeToString : IconPurpose -> String
+purposeToString purpose =
+    case purpose of
+        IconPurposeMonochrome ->
+            "monochrome"
+
+        IconPurposeMaskable ->
+            "maskable"
+
+        IconPurposeAny ->
+            "any"
+
+
+sizesString : List ( Int, Int ) -> String
+sizesString sizes =
+    sizes
+        |> List.map (\( x, y ) -> String.fromInt x ++ "x" ++ String.fromInt y)
+        |> String.join " "
+
+
+nonEmptyList : List a -> Maybe (List a)
+nonEmptyList list =
+    if List.isEmpty list then
+        Nothing
+
+    else
+        Just list
+
+
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated
 code will run this for you to generate your `manifest.json` file automatically!
 -}
-toJson : Config pathKey -> Encode.Value
-toJson config =
+toJson : String -> Config pathKey -> Encode.Value
+toJson canonicalSiteUrl config =
     [ ( "sourceIcon"
       , config.sourceIcon
             |> ImagePath.toString
             |> Encode.string
+            |> Just
+      )
+    , ( "icons"
+      , config.icons
+            |> Encode.list (encodeIcon canonicalSiteUrl)
             |> Just
       )
     , ( "background_color"
@@ -267,6 +342,12 @@ toJson config =
             |> Just
       )
     ]
+        |> encodeMaybeObject
+
+
+encodeMaybeObject : List ( String, Maybe Encode.Value ) -> Encode.Value
+encodeMaybeObject list =
+    list
         |> List.filterMap
             (\( key, maybeValue ) ->
                 case maybeValue of

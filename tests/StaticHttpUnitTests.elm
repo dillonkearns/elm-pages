@@ -21,7 +21,7 @@ requestsDict requestMap =
         |> List.map
             (\( request, response ) ->
                 ( request |> Request.hash
-                , response
+                , Just response
                 )
             )
         |> Dict.fromList

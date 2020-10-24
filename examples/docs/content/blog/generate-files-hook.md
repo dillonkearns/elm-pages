@@ -5,7 +5,7 @@
   "author": "Dillon Kearns",
   "title": "Generating Files with Pure Elm",
   "description": "Introducing a new parser that extends your palette with no additional syntax",
-  "image": "images/article-covers/generating-files.jpg",
+  "image": "v1603304397/elm-pages/article-covers/generating-files_blzn2d.jpg",
   "published": "2020-01-28",
 }
 ---
