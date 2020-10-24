@@ -4,7 +4,7 @@
   "author": "Dillon Kearns",
   "title": "Types Over Conventions",
   "description": "How elm-pages approaches configuration, using type-safe Elm.",
-  "image": "images/article-covers/introducing-elm-pages.jpg",
+  "image": "v1603304397/elm-pages/article-covers/introducing-elm-pages_ceksg2.jpg",
   "draft": true,
   "published": "2019-09-21",
 }
@@ -162,6 +162,7 @@ Each file in the `content` folder will result in a new route for your static sit
 Now, in our `elm-pages` app, our `view` function will get the markdown that we rendered for a given page along with the corresponding `Metadata`. It's completely in our hands what we want to do with that data.
 
 ## Takeaways
+
 So which is better, configuration through types or configuration by convention?
 
 They both have their benefits. If you're like me, then you enjoy being able to figure out what your Elm code is doing by just following the types. And I hope you'll agree that `elm-pages` gives you that experience for wiring up your content and your parsers.

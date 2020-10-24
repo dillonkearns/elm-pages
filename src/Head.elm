@@ -4,6 +4,7 @@ module Head exposing
     , structuredData
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
+    , appleTouchIcon, icon
     , toJson, canonicalLink
     )
 
@@ -31,13 +32,20 @@ writing a plugin package to extend `elm-pages`.
 @docs currentPageFullUrl, fullImageUrl, fullPageUrl, raw
 
 
+## Icons
+
+@docs appleTouchIcon, icon
+
+
 ## Functions for use by generated code
 
 @docs toJson, canonicalLink
 
 -}
 
+import Codec exposing (Codec)
 import Json.Encode
+import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -162,7 +170,7 @@ raw value =
 -}
 fullImageUrl : ImagePath pathKey -> AttributeValue pathKey
 fullImageUrl value =
-    FullUrl (ImagePath.toString value)
+    FullImageUrl value
 
 
 {-| Create an `AttributeValue` from a `PagePath`.
@@ -189,6 +197,7 @@ currentPageFullUrl =
 type AttributeValue pathKey
     = Raw String
     | FullUrl String
+    | FullImageUrl (ImagePath pathKey)
     | FullUrlToCurrentPage
 
 
@@ -228,6 +237,76 @@ rssLink url =
         , ( "type", raw "application/rss+xml" )
         , ( "href", raw url )
         ]
+
+
+{-| -}
+icon : List ( Int, Int ) -> MimeType.MimeImage -> ImagePath pathKey -> Tag pathKey
+icon sizes imageMimeType image =
+    -- TODO allow "any" for sizes value
+    [ ( "rel", raw "icon" |> Just )
+    , ( "sizes"
+      , sizes
+            |> nonEmptyList
+            |> Maybe.map sizesToString
+            |> Maybe.map raw
+      )
+    , ( "type", imageMimeType |> MimeType.Image |> MimeType.toString |> raw |> Just )
+    , ( "href", fullImageUrl image |> Just )
+    ]
+        |> filterMaybeValues
+        |> node "link"
+
+
+nonEmptyList : List a -> Maybe (List a)
+nonEmptyList list =
+    if List.isEmpty list then
+        Nothing
+
+    else
+        Just list
+
+
+{-| Note: the type must be png.
+See <https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html>.
+
+If a size is provided, it will be turned into square dimensions as per the recommendations here: <https://developers.google.com/web/fundamentals/design-and-ux/browser-customization/#safari>
+
+Images must be png's, and non-transparent images are recommended. Current recommended dimensions are 180px and 192px.
+
+-}
+appleTouchIcon : Maybe Int -> ImagePath pathKey -> Tag pathKey
+appleTouchIcon maybeSize image =
+    [ ( "rel", raw "apple-touch-icon" |> Just )
+    , ( "sizes"
+      , maybeSize
+            |> Maybe.map (\size -> sizesToString [ ( size, size ) ])
+            |> Maybe.map raw
+      )
+    , ( "href", fullImageUrl image |> Just )
+    ]
+        |> filterMaybeValues
+        |> node "link"
+
+
+filterMaybeValues : List ( String, Maybe a ) -> List ( String, a )
+filterMaybeValues list =
+    list
+        |> List.filterMap
+            (\( key, maybeValue ) ->
+                case maybeValue of
+                    Just value ->
+                        Just ( key, value )
+
+                    Nothing ->
+                        Nothing
+            )
+
+
+sizesToString : List ( Int, Int ) -> String
+sizesToString sizes =
+    sizes
+        |> List.map (\( x, y ) -> String.fromInt x ++ "x" ++ String.fromInt y)
+        |> String.join " "
 
 
 {-| Add a link to the site's RSS feed.
@@ -324,6 +403,9 @@ encodeProperty canonicalSiteUrl currentPagePath ( name, value ) =
 
         FullUrlToCurrentPage ->
             Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl currentPagePath ]
+
+        FullImageUrl imagePath ->
+            Json.Encode.list Json.Encode.string [ name, ImagePath.toAbsoluteUrl canonicalSiteUrl imagePath ]
 
 
 joinPaths : String -> String -> String

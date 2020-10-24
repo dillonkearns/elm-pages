@@ -23,6 +23,8 @@ function runElm(/** @type string */ mode) {
         if (payload.tag === "Success") {
           global.staticHttpCache = payload.args[0].staticHttpCache;
           resolve(payload.args[0])
+        } else if (payload.command === "log") {
+          console.log(payload.value);
         } else {
           reject(payload.args[0])
         }

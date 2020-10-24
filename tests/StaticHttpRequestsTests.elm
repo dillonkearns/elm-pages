@@ -25,6 +25,7 @@ import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
+import SimulatedEffect.Task
 import Test exposing (Test, describe, only, skip, test)
 import Test.Http
 
@@ -337,7 +338,7 @@ all =
                         "This is a raw text file."
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -476,7 +477,7 @@ String was not uppercased"""
                         """{ "stargazer_count": 86 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
@@ -521,7 +522,7 @@ I encountered some errors while decoding this JSON:
                         """ "continuation-url" """
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort
                             """-- MISSING SECRET ----------------------------------------------------- elm-pages
 
@@ -550,7 +551,7 @@ So maybe MISSING should be API_KEY"""
                         )
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
-                        (Codec.decoder ToJsPayload.toJsCodec)
+                        (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
                         (expectErrorsPort """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
 
 I got an error making an HTTP request to this URL: https://api.github.com/repos/dillonkearns/elm-pages
@@ -769,7 +770,7 @@ Found an unhandled HTML tag in markdown doc."""
         ]
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
@@ -778,7 +779,7 @@ startWithHttpCache :
     Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+    -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
 startWithHttpCache =
     startLowLevel (StaticHttp.succeed [])
 
@@ -786,8 +787,7 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result
-                String
+            (Result String
                 { path : List String
                 , content : String
                 }
@@ -796,7 +796,7 @@ startLowLevel :
     -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest Main.Model Main.Msg (Effect PathKey)
+    -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
 startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
         document =
@@ -855,7 +855,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , subscriptions = \_ -> Sub.none
             , document = document
             , content = []
-            , canonicalSiteUrl = ""
+            , canonicalSiteUrl = canonicalSiteUrl
             , pathKey = PathKey
             , onPageChange = Just (\_ -> ())
             }
@@ -894,7 +894,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     -}
     ProgramTest.createDocument
         { init = Main.init identity contentCache siteMetadata config
-        , update = Main.update siteMetadata config
+        , update = Main.update contentCache siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -918,7 +918,7 @@ simulateEffects effect =
             SimulatedEffect.Cmd.none
 
         Effect.SendJsData value ->
-            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder ToJsPayload.toJsCodec)
+            SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder (ToJsPayload.toJsCodec canonicalSiteUrl))
 
         --            toJsPort value |> Cmd.map never
         Effect.Batch list ->
@@ -952,6 +952,20 @@ simulateEffects effect =
                 , timeout = Nothing
                 , tracker = Nothing
                 }
+
+        Effect.SendSinglePage info ->
+            SimulatedEffect.Cmd.batch
+                [ info
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
+                    |> SimulatedEffect.Ports.send "toJsPort"
+                , SimulatedEffect.Task.succeed ()
+                    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
+                ]
+
+        Effect.Continue ->
+            --SimulatedEffect.Task.succeed ()
+            --    |> SimulatedEffect.Task.perform (\_ -> Continue)
+            SimulatedEffect.Cmd.none
 
 
 expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
@@ -1029,6 +1043,7 @@ manifest =
     , startUrl = PagePath.external ""
     , shortName = Just "elm-pages"
     , sourceIcon = ImagePath.external ""
+    , icons = []
     }
 
 
@@ -1047,7 +1062,7 @@ expectSuccessNew expectedRequests expectations previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.toJsCodec)
+            (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
             (\value ->
                 case value of
                     (ToJsPayload.Success portPayload) :: rest ->
@@ -1087,7 +1102,7 @@ expectError expectedErrors previous =
     previous
         |> ProgramTest.expectOutgoingPortValues
             "toJsPort"
-            (Codec.decoder ToJsPayload.toJsCodec)
+            (Codec.decoder (ToJsPayload.toJsCodec canonicalSiteUrl))
             (\value ->
                 case value of
                     [ ToJsPayload.Success portPayload ] ->
@@ -1100,6 +1115,10 @@ expectError expectedErrors previous =
                     _ ->
                         Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
             )
+
+
+canonicalSiteUrl =
+    ""
 
 
 get : String -> Request.Request

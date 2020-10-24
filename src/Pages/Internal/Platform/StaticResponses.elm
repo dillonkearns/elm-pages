@@ -51,8 +51,7 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result
-                                String
+                            (Result String
                                 { path : List String
                                 , content : String
                                 }
@@ -175,6 +174,9 @@ encode requestsAndPending mode (StaticResponses staticResponses) =
 
                             Mode.Prod ->
                                 StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
+
+                            Mode.ElmToHtmlBeta ->
+                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
             )
 
 
@@ -201,8 +203,7 @@ nextStep :
             ->
                 StaticHttp.Request
                     (List
-                        (Result
-                            String
+                        (Result String
                             { path : List String
                             , content : String
                             }
@@ -210,18 +211,20 @@ nextStep :
                     )
     }
     -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
     -> Mode
     -> SecretsDict
     -> RequestsAndPending
     -> List BuildError
     -> StaticResponses
     -> NextStep pathKey
-nextStep config siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
+nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
         metadataForGenerateFiles =
-            siteMetadata
+            allSiteMetadata
                 |> Result.withDefault []
                 |> List.map
+                    -- TODO extract helper function that processes next step *for a single page* at a time
                     (\( pagePath, metadata ) ->
                         let
                             contentForPage =

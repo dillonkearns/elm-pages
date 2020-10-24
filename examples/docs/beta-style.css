@@ -1,0 +1,41 @@
+@import "/syntax.css";
+@import url("https://fonts.googleapis.com/css?family=Montserrat:400,700|Roboto|Roboto+Mono&display=swap");
+@import url("https://use.fontawesome.com/releases/v5.9.0/css/all.css");
+
+.dotted-line {
+  -webkit-animation: animation-yweh2o 400ms linear infinite;
+  animation: animation-yweh2o 400ms linear infinite;
+}
+@-webkit-keyframes animation-yweh2o {
+  to {
+    stroke-dashoffset: 10;
+  }
+}
+@keyframes animation-yweh2o {
+  to {
+    stroke-dashoffset: 10;
+  }
+}
+
+.avatar img {
+  border-radius: 50%;
+}
+@media all and (max-width: 600px) {
+  .navbar-title {
+    font-size: 20px !important;
+  }
+  .navbar-title svg {
+    width: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .responsive-desktop {
+    display: none !important;
+  }
+}
+@media (min-width: 600px) {
+  .responsive-mobile {
+    display: none !important;
+  }
+}
