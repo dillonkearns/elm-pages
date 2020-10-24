@@ -1,6 +1,9 @@
 const fs = require("fs");
 const copyModifiedElmJson = require("./rewrite-elm-json.js");
 const { elmPagesCliFile, elmPagesUiFile } = require("./elm-file-constants.js");
+const {
+  generateTemplateModuleConnector,
+} = require("./generate-template-module-connector.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 const globby = require("globby");
@@ -50,6 +53,7 @@ async function writeFiles(markdownContent) {
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
+  const templateConnectorFile = generateTemplateModuleConnector();
 
   fs.writeFileSync("./gen/Pages.elm", uiFileContent);
 
@@ -58,6 +62,11 @@ async function writeFiles(markdownContent) {
     "./elm-stuff/elm-pages/Pages.elm",
     elmPagesCliFile(staticRoutes, markdownContent)
   );
+  fs.writeFileSync(
+    "./elm-stuff/elm-pages/TemplateDemultiplexer.elm",
+    templateConnectorFile
+  );
+  fs.writeFileSync("./gen/TemplateDemultiplexer.elm", templateConnectorFile);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();
