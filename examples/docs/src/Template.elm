@@ -1,8 +1,46 @@
-module Template exposing (Builder(..), StaticPayload, TemplateWithState, Template, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData)
+module Template exposing
+    ( Builder(..)
+    , StaticPayload
+    , withStaticData, noStaticData
+    , Template, buildNoState
+    , TemplateWithState, buildWithLocalState, buildWithSharedState
+    )
 
 {-|
 
-@docs Builder, StaticPayload, TemplateWithState, Template, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData
+
+## Building a Template
+
+@docs Builder
+
+
+## Static Data
+
+Every template will have access to a `StaticPayload`.
+
+@docs StaticPayload
+
+Since this data is _static_, you have access to it before the user has loaded the page, including at build time.
+An example of dynamic data would be keyboard input from the user, query params, or any other data that comes from the app running in the browser.
+
+But before the user even requests the page, we have the following data:
+
+  - `path` - these paths are static. In other words, we know every single path when we build an elm-pages site.
+  - `metadata` - we have a decoded Elm value for the page's metadata.
+  - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
+  - `static` - this is the static data for this specific page. If you use `noStaticData`, then this will be `()`, meaning there is no page-specific static data.
+
+@docs withStaticData, noStaticData
+
+
+## Stateless Templates
+
+@docs Template, buildNoState
+
+
+## Stateful Templates
+
+@docs TemplateWithState, buildWithLocalState, buildWithSharedState
 
 -}
 
@@ -12,6 +50,41 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
 import TemplateType exposing (TemplateType)
+
+
+{-| -}
+type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
+    { staticData :
+        List ( PagePath Pages.PathKey, TemplateType )
+        -> StaticHttp.Request templateStaticData
+    , view :
+        templateModel
+        -> Shared.Model
+        -> List ( PagePath Pages.PathKey, TemplateType )
+        -> StaticPayload templateMetadata templateStaticData
+        -> Shared.RenderedBody
+        -> Shared.PageView templateMsg
+    , head :
+        StaticPayload templateMetadata templateStaticData
+        -> List (Head.Tag Pages.PathKey)
+    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    }
+
+
+{-| -}
+type alias Template templateMetadata staticData =
+    TemplateWithState templateMetadata staticData () Never
+
+
+{-| -}
+type alias StaticPayload metadata staticData =
+    { static : staticData -- local
+    , sharedStatic : Shared.StaticData -- share
+    , metadata : metadata
+    , path : PagePath Pages.PathKey
+    }
 
 
 {-| -}
@@ -133,43 +206,3 @@ noStaticData { head } =
         { staticData = \_ -> StaticHttp.succeed ()
         , head = head
         }
-
-
-{-| -}
-type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
-    { staticData :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticHttp.Request templateStaticData
-    , view :
-        templateModel
-        -> Shared.Model
-        -> List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
-        -> Shared.RenderedBody
-        -> Shared.PageView templateMsg
-    , head :
-        StaticPayload templateMetadata templateStaticData
-        -> List (Head.Tag Pages.PathKey)
-    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
-    }
-
-
-
---type alias Template_ templateMetadata =
---    Template templateMetadata () () Never
-
-
-{-| -}
-type alias Template templateMetadata staticData =
-    TemplateWithState templateMetadata staticData () Never
-
-
-{-| -}
-type alias StaticPayload metadata staticData =
-    { static : staticData -- local
-    , sharedStatic : Shared.StaticData -- share
-    , metadata : metadata
-    , path : PagePath Pages.PathKey
-    }
