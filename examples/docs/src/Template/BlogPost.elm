@@ -16,7 +16,7 @@ import Palette
 import Shared
 import Site
 import StructuredData
-import Template exposing (StaticPayload, Template, Template_)
+import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateMetadata exposing (BlogPost)
 import TemplateType exposing (TemplateType)
 
@@ -29,7 +29,7 @@ type alias Msg =
     Never
 
 
-template : Template_ BlogPost ()
+template : Template BlogPost ()
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }

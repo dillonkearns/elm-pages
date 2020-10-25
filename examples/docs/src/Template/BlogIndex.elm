@@ -10,7 +10,7 @@ import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
 import Site
-import Template exposing (StaticPayload, Template)
+import Template exposing (StaticPayload, TemplateWithState)
 import TemplateMetadata exposing (BlogIndex)
 import TemplateType exposing (TemplateType)
 
@@ -19,7 +19,7 @@ type Msg
     = Msg
 
 
-template : Template BlogIndex StaticData Model Msg
+template : TemplateWithState BlogIndex StaticData Model Msg
 template =
     Template.withStaticData
         { head = head

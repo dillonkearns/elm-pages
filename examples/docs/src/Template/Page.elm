@@ -9,7 +9,7 @@ import Pages exposing (images)
 import Pages.PagePath exposing (PagePath)
 import Shared
 import Site
-import Template exposing (StaticPayload, Template, Template_)
+import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateMetadata exposing (Page)
 import TemplateType exposing (TemplateType)
 
@@ -22,7 +22,7 @@ type alias Msg =
     Never
 
 
-template : Template_ Page ()
+template : Template Page ()
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }

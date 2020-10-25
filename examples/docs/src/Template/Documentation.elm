@@ -15,7 +15,7 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
 import Site
-import Template exposing (StaticPayload, Template)
+import Template exposing (StaticPayload, TemplateWithState)
 import TemplateMetadata exposing (Documentation)
 import TemplateType exposing (TemplateType)
 
@@ -32,7 +32,7 @@ type Msg
     = Increment
 
 
-template : Template Documentation StaticData Model Msg
+template : TemplateWithState Documentation StaticData Model Msg
 template =
     Template.noStaticData { head = head }
         |> Template.buildWithSharedState

@@ -1,11 +1,8 @@
-module Template exposing
-    ( StaticPayload, Template, TemplateWithState, Template_, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData
-    , Builder(..)
-    )
+module Template exposing (Builder(..), StaticPayload, TemplateWithState, Template, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData)
 
 {-|
 
-@docs Builder, StaticPayload, Template, TemplateWithState, Template_, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData
+@docs Builder, StaticPayload, TemplateWithState, Template, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData
 
 -}
 
@@ -38,7 +35,7 @@ buildNoState :
         -> Shared.PageView Never
     }
     -> Builder templateMetadata templateStaticData
-    -> Template templateMetadata templateStaticData () Never
+    -> TemplateWithState templateMetadata templateStaticData () Never
 buildNoState { view } builderState =
     case builderState of
         WithStaticData record ->
@@ -64,7 +61,7 @@ buildWithLocalState :
     , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
     }
     -> Builder templateMetadata templateStaticData
-    -> Template templateMetadata templateStaticData templateModel templateMsg
+    -> TemplateWithState templateMetadata templateStaticData templateModel templateMsg
 buildWithLocalState config builderState =
     case builderState of
         WithStaticData record ->
@@ -101,7 +98,7 @@ buildWithSharedState :
     , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder templateMetadata templateStaticData
-    -> Template templateMetadata templateStaticData templateModel templateMsg
+    -> TemplateWithState templateMetadata templateStaticData templateModel templateMsg
 buildWithSharedState config builderState =
     case builderState of
         WithStaticData record ->
@@ -139,7 +136,7 @@ noStaticData { head } =
 
 
 {-| -}
-type alias Template templateMetadata templateStaticData templateModel templateMsg =
+type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
     { staticData :
         List ( PagePath Pages.PathKey, TemplateType )
         -> StaticHttp.Request templateStaticData
@@ -159,19 +156,14 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
     }
 
 
-{-| -}
-type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
-    Template templateMetadata templateStaticData templateModel templateMsg
-
-
 
 --type alias Template_ templateMetadata =
 --    Template templateMetadata () () Never
 
 
 {-| -}
-type alias Template_ templateMetadata staticData =
-    Template templateMetadata staticData () Never
+type alias Template templateMetadata staticData =
+    TemplateWithState templateMetadata staticData () Never
 
 
 {-| -}

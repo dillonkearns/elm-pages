@@ -9,7 +9,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
-import Template exposing (StaticPayload, Template)
+import Template exposing (StaticPayload, TemplateWithState)
 import TemplateMetadata exposing (Showcase)
 import TemplateType exposing (TemplateType)
 
@@ -22,7 +22,7 @@ type alias Msg =
     Never
 
 
-template : Template Showcase StaticData () Msg
+template : TemplateWithState Showcase StaticData () Msg
 template =
     Template.withStaticData
         { head = head
