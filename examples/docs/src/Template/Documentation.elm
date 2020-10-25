@@ -48,11 +48,11 @@ init metadata =
     ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Shared.SharedMsg )
+update : Documentation -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
 update metadata msg model sharedModel =
     case msg of
         Increment ->
-            ( model, Cmd.none, Shared.IncrementFromChild )
+            ( model, Cmd.none, Just Shared.IncrementFromChild )
 
 
 staticData :

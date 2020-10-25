@@ -68,7 +68,7 @@ type alias TemplateWithState templateMetadata templateStaticData templateModel t
         StaticPayload templateMetadata templateStaticData
         -> List (Head.Tag Pages.PathKey)
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
@@ -116,7 +116,7 @@ buildNoState { view } builderState =
             , head = record.head
             , staticData = record.staticData
             , init = \_ -> ( (), Cmd.none )
-            , update = \_ _ _ _ -> ( (), Cmd.none, Shared.NoOp )
+            , update = \_ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ -> Sub.none
             }
 
@@ -150,7 +150,7 @@ buildWithLocalState config builderState =
                         ( updatedModel, cmd ) =
                             config.update metadata msg templateModel
                     in
-                    ( updatedModel, cmd, Shared.NoOp )
+                    ( updatedModel, cmd, Nothing )
             , subscriptions =
                 \templateMetadata path templateModel sharedModel ->
                     config.subscriptions templateMetadata path templateModel
@@ -167,7 +167,7 @@ buildWithSharedState :
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Shared.SharedMsg )
+    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder templateMetadata templateStaticData

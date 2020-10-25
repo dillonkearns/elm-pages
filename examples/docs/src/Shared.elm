@@ -85,8 +85,7 @@ type alias StaticData =
 
 
 type SharedMsg
-    = NoOp
-    | IncrementFromChild
+    = IncrementFromChild
 
 
 type alias Model =
@@ -134,9 +133,6 @@ update msg model =
 
         SharedMsg globalMsg ->
             case globalMsg of
-                NoOp ->
-                    ( model, Cmd.none )
-
                 IncrementFromChild ->
                     ( { model | counter = model.counter + 1 }, Cmd.none )
 

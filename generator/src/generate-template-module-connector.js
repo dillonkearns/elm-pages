@@ -202,7 +202,12 @@ update msg model =
                                 model.global
                                 |> mapBoth Model${name} (Cmd.map Msg${name})
                                 |> (\\( a, b, c ) ->
-                                        ( a, b, Shared.template.update (Shared.SharedMsg c) model.global )
+                                        case c of
+                                            Just sharedMsg ->
+                                                ( a, b, Shared.template.update (Shared.SharedMsg sharedMsg) model.global )
+
+                                            Nothing ->
+                                                ( a, b, ( model.global, Cmd.none ) )
                                    )
 
                         _ ->

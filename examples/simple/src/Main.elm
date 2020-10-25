@@ -157,9 +157,12 @@ type alias Model =
 
 init :
     Maybe
-        { path : PagePath Pages.PathKey
-        , query : Maybe String
-        , fragment : Maybe String
+        { path :
+            { path : PagePath Pages.PathKey
+            , query : Maybe String
+            , fragment : Maybe String
+            }
+        , metadata : Metadata
         }
     -> ( Model, Cmd Msg )
 init maybePagePath =
@@ -189,8 +192,8 @@ update msg model =
             ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
-subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions : Metadata -> PagePath Pages.PathKey -> Model -> Sub Msg
+subscriptions _ _ _ =
     Time.every 1000 (\_ -> Tick)
 
 
