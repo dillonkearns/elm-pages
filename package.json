@@ -75,6 +75,7 @@
   ],
   "bin": {
     "elm-pages": "generator/src/elm-pages.js",
-    "elm-pages-beta": "generator/src/cli.js"
+    "elm-pages-beta": "generator/src/cli.js",
+    "elm-pages-generate": "generator/src/codegen-template-module.js"
   }
 }
