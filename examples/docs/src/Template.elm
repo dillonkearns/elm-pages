@@ -1,4 +1,13 @@
-module Template exposing (..)
+module Template exposing
+    ( StaticPayload, Template, TemplateWithState, Template_, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData
+    , Builder(..)
+    )
+
+{-|
+
+@docs Builder, StaticPayload, Template, TemplateWithState, Template_, buildNoState, buildWithLocalState, buildWithSharedState, noStaticData, withStaticData
+
+-}
 
 import Head
 import Pages
@@ -8,6 +17,7 @@ import Shared
 import TemplateType exposing (TemplateType)
 
 
+{-| -}
 type Builder templateMetadata templateStaticData
     = WithStaticData
         { staticData :
@@ -19,6 +29,7 @@ type Builder templateMetadata templateStaticData
         }
 
 
+{-| -}
 buildNoState :
     { view :
         List ( PagePath Pages.PathKey, TemplateType )
@@ -40,6 +51,7 @@ buildNoState { view } builderState =
             }
 
 
+{-| -}
 buildWithLocalState :
     { view :
         templateModel
@@ -75,6 +87,7 @@ buildWithLocalState config builderState =
             }
 
 
+{-| -}
 buildWithSharedState :
     { view :
         templateModel
@@ -101,6 +114,7 @@ buildWithSharedState config builderState =
             }
 
 
+{-| -}
 withStaticData :
     { staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request templateStaticData
     , head : StaticPayload templateMetadata templateStaticData -> List (Head.Tag Pages.PathKey)
@@ -113,6 +127,7 @@ withStaticData { staticData, head } =
         }
 
 
+{-| -}
 noStaticData :
     { head : StaticPayload templateMetadata () -> List (Head.Tag Pages.PathKey) }
     -> Builder templateMetadata ()
@@ -123,6 +138,7 @@ noStaticData { head } =
         }
 
 
+{-| -}
 type alias Template templateMetadata templateStaticData templateModel templateMsg =
     { staticData :
         List ( PagePath Pages.PathKey, TemplateType )
@@ -143,6 +159,7 @@ type alias Template templateMetadata templateStaticData templateModel templateMs
     }
 
 
+{-| -}
 type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
     Template templateMetadata templateStaticData templateModel templateMsg
 
@@ -152,10 +169,12 @@ type alias TemplateWithState templateMetadata templateStaticData templateModel t
 --    Template templateMetadata () () Never
 
 
+{-| -}
 type alias Template_ templateMetadata staticData =
     Template templateMetadata staticData () Never
 
 
+{-| -}
 type alias StaticPayload metadata staticData =
     { static : staticData -- local
     , sharedStatic : Shared.StaticData -- share
