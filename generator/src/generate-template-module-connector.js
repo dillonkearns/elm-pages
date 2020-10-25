@@ -177,7 +177,7 @@ update msg model =
             )
 
         OnPageChange record ->
-            init (Just model.global) <|
+            (init (Just model.global) <|
                 Just
                     { path =
                         { path = record.path
@@ -186,6 +186,31 @@ update msg model =
                         }
                     , metadata = record.metadata
                     }
+            )
+                |> (\\( updatedModel, cmd ) ->
+                        case Shared.template.onPageChange of
+                            Nothing ->
+                                ( updatedModel, cmd )
+
+                            Just thingy ->
+                                let
+                                    ( updatedGlobalModel, globalCmd ) =
+                                        Shared.template.update
+                                            (thingy
+                                                { path = record.path
+                                                , query = record.query
+                                                , fragment = record.fragment
+                                                }
+                                            )
+                                            model.global
+                                in
+                                ( { updatedModel
+                                    | global = updatedGlobalModel
+                                  }
+                                , Cmd.batch [ cmd, Cmd.map MsgGlobal globalCmd ]
+                                )
+                   )
+
 
         ${templates
           .map(

@@ -47,6 +47,14 @@ type alias SharedTemplate templateDemuxMsg msg1 msg2 =
     , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
     , staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request StaticData
     , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
+    , onPageChange :
+        Maybe
+            ({ path : PagePath Pages.PathKey
+             , query : Maybe String
+             , fragment : Maybe String
+             }
+             -> Msg
+            )
     }
 
 
@@ -58,6 +66,7 @@ template =
     , map = map
     , staticData = staticData
     , subscriptions = subscriptions
+    , onPageChange = Just OnPageChange
     }
 
 
