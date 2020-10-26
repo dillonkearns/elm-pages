@@ -118,15 +118,15 @@ exports[`generate template module connector 1`] = `
 "module TemplateModulesBeta exposing (..)
 
 import Browser
+import Pages.Manifest as Manifest
 import Shared
-import TemplateType as M exposing (Metadata)
+import TemplateType as M exposing (TemplateType)
 import Head
 import Html exposing (Html)
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
 import Pages.StaticHttp as StaticHttp
-import Site
 import Template.BlogIndex
 import Template.BlogPost
 import Template.Documentation
@@ -144,7 +144,7 @@ type alias Model =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : Metadata
+            , metadata : TemplateType
             }
     }
 
@@ -166,7 +166,7 @@ type Msg
         { path : PagePath Pages.PathKey
         , query : Maybe String
         , fragment : Maybe String
-        , metadata : Metadata
+        , metadata : TemplateType
         }
     | MsgBlogIndex Template.BlogIndex.Msg
     | MsgBlogPost Template.BlogPost.Msg
@@ -177,10 +177,10 @@ type Msg
 
 
 view :
-    List ( PagePath Pages.PathKey, Metadata )
+    List ( PagePath Pages.PathKey, TemplateType )
     ->
         { path : PagePath Pages.PathKey
-        , frontmatter : Metadata
+        , frontmatter : TemplateType
         }
     ->
         StaticHttp.Request
@@ -197,29 +197,38 @@ view siteMetadata page =
                             case model.page of
                                 ModelBlogIndex subModel ->
                                     Template.BlogIndex.template.view
-                                        siteMetadata
-                                        data
                                         subModel
-                                        metadata
+                                        model.global
+                                        siteMetadata
+                                        { static = data
+                                        , sharedStatic = globalData
+                                        , metadata = metadata
+                                        , path = page.path
+                                        }
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Shared.view
+                                                Shared.template.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.map MsgBlogIndex
+                                                        |> Shared.template.map MsgBlogIndex
                                                     )
                                            )
 
                                 _ ->
                                     { title = \\"\\", body = Html.text \\"\\" }
-                    , head = Template.BlogIndex.template.head data page.path metadata
+                    , head = Template.BlogIndex.template.head
+                        { static = data
+                        , sharedStatic = globalData
+                        , metadata = metadata
+                        , path = page.path
+                        }
                     }
                 )
                 (Template.BlogIndex.template.staticData siteMetadata)
-                (Shared.staticData siteMetadata)
+                (Shared.template.staticData siteMetadata)
 
 
         M.BlogPost metadata ->
@@ -230,29 +239,38 @@ view siteMetadata page =
                             case model.page of
                                 ModelBlogPost subModel ->
                                     Template.BlogPost.template.view
-                                        siteMetadata
-                                        data
                                         subModel
-                                        metadata
+                                        model.global
+                                        siteMetadata
+                                        { static = data
+                                        , sharedStatic = globalData
+                                        , metadata = metadata
+                                        , path = page.path
+                                        }
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Shared.view
+                                                Shared.template.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.map MsgBlogPost
+                                                        |> Shared.template.map MsgBlogPost
                                                     )
                                            )
 
                                 _ ->
                                     { title = \\"\\", body = Html.text \\"\\" }
-                    , head = Template.BlogPost.template.head data page.path metadata
+                    , head = Template.BlogPost.template.head
+                        { static = data
+                        , sharedStatic = globalData
+                        , metadata = metadata
+                        , path = page.path
+                        }
                     }
                 )
                 (Template.BlogPost.template.staticData siteMetadata)
-                (Shared.staticData siteMetadata)
+                (Shared.template.staticData siteMetadata)
 
 
         M.Documentation metadata ->
@@ -263,29 +281,38 @@ view siteMetadata page =
                             case model.page of
                                 ModelDocumentation subModel ->
                                     Template.Documentation.template.view
-                                        siteMetadata
-                                        data
                                         subModel
-                                        metadata
+                                        model.global
+                                        siteMetadata
+                                        { static = data
+                                        , sharedStatic = globalData
+                                        , metadata = metadata
+                                        , path = page.path
+                                        }
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Shared.view
+                                                Shared.template.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.map MsgDocumentation
+                                                        |> Shared.template.map MsgDocumentation
                                                     )
                                            )
 
                                 _ ->
                                     { title = \\"\\", body = Html.text \\"\\" }
-                    , head = Template.Documentation.template.head data page.path metadata
+                    , head = Template.Documentation.template.head
+                        { static = data
+                        , sharedStatic = globalData
+                        , metadata = metadata
+                        , path = page.path
+                        }
                     }
                 )
                 (Template.Documentation.template.staticData siteMetadata)
-                (Shared.staticData siteMetadata)
+                (Shared.template.staticData siteMetadata)
 
 
         M.Page metadata ->
@@ -296,29 +323,38 @@ view siteMetadata page =
                             case model.page of
                                 ModelPage subModel ->
                                     Template.Page.template.view
-                                        siteMetadata
-                                        data
                                         subModel
-                                        metadata
+                                        model.global
+                                        siteMetadata
+                                        { static = data
+                                        , sharedStatic = globalData
+                                        , metadata = metadata
+                                        , path = page.path
+                                        }
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Shared.view
+                                                Shared.template.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.map MsgPage
+                                                        |> Shared.template.map MsgPage
                                                     )
                                            )
 
                                 _ ->
                                     { title = \\"\\", body = Html.text \\"\\" }
-                    , head = Template.Page.template.head data page.path metadata
+                    , head = Template.Page.template.head
+                        { static = data
+                        , sharedStatic = globalData
+                        , metadata = metadata
+                        , path = page.path
+                        }
                     }
                 )
                 (Template.Page.template.staticData siteMetadata)
-                (Shared.staticData siteMetadata)
+                (Shared.template.staticData siteMetadata)
 
 
         M.Showcase metadata ->
@@ -329,29 +365,38 @@ view siteMetadata page =
                             case model.page of
                                 ModelShowcase subModel ->
                                     Template.Showcase.template.view
-                                        siteMetadata
-                                        data
                                         subModel
-                                        metadata
+                                        model.global
+                                        siteMetadata
+                                        { static = data
+                                        , sharedStatic = globalData
+                                        , metadata = metadata
+                                        , path = page.path
+                                        }
                                         rendered
                                         |> (\\\\{ title, body } ->
-                                                Shared.view
+                                                Shared.template.view
                                                     globalData
                                                     page
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.map MsgShowcase
+                                                        |> Shared.template.map MsgShowcase
                                                     )
                                            )
 
                                 _ ->
                                     { title = \\"\\", body = Html.text \\"\\" }
-                    , head = Template.Showcase.template.head data page.path metadata
+                    , head = Template.Showcase.template.head
+                        { static = data
+                        , sharedStatic = globalData
+                        , metadata = metadata
+                        , path = page.path
+                        }
                     }
                 )
                 (Template.Showcase.template.staticData siteMetadata)
-                (Shared.staticData siteMetadata)
+                (Shared.template.staticData siteMetadata)
 
 
 
@@ -364,54 +409,46 @@ init :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : Metadata
+            , metadata : TemplateType
             }
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.init maybePagePath)
+            currentGlobalModel |> Maybe.map (\\\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init maybePagePath)
 
-        page =
+        ( templateModel, templateCmd ) =
             case maybePagePath |> Maybe.map .metadata of
                 Nothing ->
-                    NotFound
+                    ( NotFound, Cmd.none )
 
                 Just meta ->
                     case meta of
                         M.BlogIndex metadata ->
                             Template.BlogIndex.template.init metadata
-                                |> Tuple.first
-                                |> ModelBlogIndex
+                                |> Tuple.mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
 
 
                         M.BlogPost metadata ->
                             Template.BlogPost.template.init metadata
-                                |> Tuple.first
-                                |> ModelBlogPost
+                                |> Tuple.mapBoth ModelBlogPost (Cmd.map MsgBlogPost)
 
 
                         M.Documentation metadata ->
                             Template.Documentation.template.init metadata
-                                |> Tuple.first
-                                |> ModelDocumentation
+                                |> Tuple.mapBoth ModelDocumentation (Cmd.map MsgDocumentation)
 
 
                         M.Page metadata ->
                             Template.Page.template.init metadata
-                                |> Tuple.first
-                                |> ModelPage
+                                |> Tuple.mapBoth ModelPage (Cmd.map MsgPage)
 
 
                         M.Showcase metadata ->
                             Template.Showcase.template.init metadata
-                                |> Tuple.first
-                                |> ModelShowcase
+                                |> Tuple.mapBoth ModelShowcase (Cmd.map MsgShowcase)
 
 
-
-        ( templateModel, templateCmd ) =
-            load sharedModel page
     in
     ( { global = sharedModel
       , page = templateModel
@@ -431,23 +468,14 @@ update msg model =
         MsgGlobal msg_ ->
             let
                 ( sharedModel, globalCmd ) =
-                    Shared.update msg_ model.global
-
-                ( templateModel, templateCmd ) =
-                    load sharedModel model.page
+                    Shared.template.update msg_ model.global
             in
-            ( { model
-                | global = sharedModel
-                , page = templateModel
-              }
-            , Cmd.batch
-                [ templateCmd
-                , globalCmd |> Cmd.map MsgGlobal
-                ]
+            ( { model | global = sharedModel }
+            , globalCmd |> Cmd.map MsgGlobal
             )
 
         OnPageChange record ->
-            init (Just model.global) <|
+            (init (Just model.global) <|
                 Just
                     { path =
                         { path = record.path
@@ -456,165 +484,276 @@ update msg model =
                         }
                     , metadata = record.metadata
                     }
+            )
+                |> (\\\\( updatedModel, cmd ) ->
+                        case Shared.template.onPageChange of
+                            Nothing ->
+                                ( updatedModel, cmd )
+
+                            Just thingy ->
+                                let
+                                    ( updatedGlobalModel, globalCmd ) =
+                                        Shared.template.update
+                                            (thingy
+                                                { path = record.path
+                                                , query = record.query
+                                                , fragment = record.fragment
+                                                }
+                                            )
+                                            model.global
+                                in
+                                ( { updatedModel
+                                    | global = updatedGlobalModel
+                                  }
+                                , Cmd.batch [ cmd, Cmd.map MsgGlobal globalCmd ]
+                                )
+                   )
+
 
         
         MsgBlogIndex msg_ ->
             let
-                ( updatedPageModel, pageCmd ) =
+                ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
                         ( ModelBlogIndex pageModel, Just (M.BlogIndex metadata) ) ->
                             Template.BlogIndex.template.update
                                 metadata
                                 msg_
                                 pageModel
-                                |> Tuple.mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
+                                model.global
+                                |> mapBoth ModelBlogIndex (Cmd.map MsgBlogIndex)
+                                |> (\\\\( a, b, c ) ->
+                                        case c of
+                                            Just sharedMsg ->
+                                                ( a, b, Shared.template.update (Shared.SharedMsg sharedMsg) model.global )
+
+                                            Nothing ->
+                                                ( a, b, ( model.global, Cmd.none ) )
+                                   )
 
                         _ ->
-                            ( model.page, Cmd.none )
+                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
             in
-            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
+            ( { model | page = updatedPageModel, global = newGlobalModel }
+            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            )
 
         
         MsgBlogPost msg_ ->
             let
-                ( updatedPageModel, pageCmd ) =
+                ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
                         ( ModelBlogPost pageModel, Just (M.BlogPost metadata) ) ->
                             Template.BlogPost.template.update
                                 metadata
                                 msg_
                                 pageModel
-                                |> Tuple.mapBoth ModelBlogPost (Cmd.map MsgBlogPost)
+                                model.global
+                                |> mapBoth ModelBlogPost (Cmd.map MsgBlogPost)
+                                |> (\\\\( a, b, c ) ->
+                                        case c of
+                                            Just sharedMsg ->
+                                                ( a, b, Shared.template.update (Shared.SharedMsg sharedMsg) model.global )
+
+                                            Nothing ->
+                                                ( a, b, ( model.global, Cmd.none ) )
+                                   )
 
                         _ ->
-                            ( model.page, Cmd.none )
+                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
             in
-            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
+            ( { model | page = updatedPageModel, global = newGlobalModel }
+            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            )
 
         
         MsgDocumentation msg_ ->
             let
-                ( updatedPageModel, pageCmd ) =
+                ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
                         ( ModelDocumentation pageModel, Just (M.Documentation metadata) ) ->
                             Template.Documentation.template.update
                                 metadata
                                 msg_
                                 pageModel
-                                |> Tuple.mapBoth ModelDocumentation (Cmd.map MsgDocumentation)
+                                model.global
+                                |> mapBoth ModelDocumentation (Cmd.map MsgDocumentation)
+                                |> (\\\\( a, b, c ) ->
+                                        case c of
+                                            Just sharedMsg ->
+                                                ( a, b, Shared.template.update (Shared.SharedMsg sharedMsg) model.global )
+
+                                            Nothing ->
+                                                ( a, b, ( model.global, Cmd.none ) )
+                                   )
 
                         _ ->
-                            ( model.page, Cmd.none )
+                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
             in
-            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
+            ( { model | page = updatedPageModel, global = newGlobalModel }
+            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            )
 
         
         MsgPage msg_ ->
             let
-                ( updatedPageModel, pageCmd ) =
+                ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
                         ( ModelPage pageModel, Just (M.Page metadata) ) ->
                             Template.Page.template.update
                                 metadata
                                 msg_
                                 pageModel
-                                |> Tuple.mapBoth ModelPage (Cmd.map MsgPage)
+                                model.global
+                                |> mapBoth ModelPage (Cmd.map MsgPage)
+                                |> (\\\\( a, b, c ) ->
+                                        case c of
+                                            Just sharedMsg ->
+                                                ( a, b, Shared.template.update (Shared.SharedMsg sharedMsg) model.global )
+
+                                            Nothing ->
+                                                ( a, b, ( model.global, Cmd.none ) )
+                                   )
 
                         _ ->
-                            ( model.page, Cmd.none )
+                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
             in
-            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
+            ( { model | page = updatedPageModel, global = newGlobalModel }
+            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            )
 
         
         MsgShowcase msg_ ->
             let
-                ( updatedPageModel, pageCmd ) =
+                ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
                         ( ModelShowcase pageModel, Just (M.Showcase metadata) ) ->
                             Template.Showcase.template.update
                                 metadata
                                 msg_
                                 pageModel
-                                |> Tuple.mapBoth ModelShowcase (Cmd.map MsgShowcase)
+                                model.global
+                                |> mapBoth ModelShowcase (Cmd.map MsgShowcase)
+                                |> (\\\\( a, b, c ) ->
+                                        case c of
+                                            Just sharedMsg ->
+                                                ( a, b, Shared.template.update (Shared.SharedMsg sharedMsg) model.global )
+
+                                            Nothing ->
+                                                ( a, b, ( model.global, Cmd.none ) )
+                                   )
 
                         _ ->
-                            ( model.page, Cmd.none )
+                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
             in
-            ( { model | page = updatedPageModel, global = save updatedPageModel model.global }, pageCmd )
+            ( { model | page = updatedPageModel, global = newGlobalModel }
+            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            )
 
 
 
+type alias SiteConfig =
+    { canonicalUrl : String
+    , manifest : Manifest.Config Pages.PathKey
+    }
 
-load : Shared.Model -> TemplateModel -> ( TemplateModel, Cmd Msg )
-load sharedModel model =
-    case model of
-        ModelBlogIndex m ->
-            Template.BlogIndex.template.load sharedModel m
-                |> Tuple.mapFirst (ModelBlogIndex)
-                |> Tuple.mapSecond (Cmd.map MsgBlogIndex)
+templateSubscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
+templateSubscriptions metadata path model =
+    case model.page of
+        
+        ModelBlogIndex templateModel ->
+            case metadata of
+                M.BlogIndex templateMetadata ->
+                    Template.BlogIndex.template.subscriptions
+                        templateMetadata
+                        path
+                        templateModel
+                        model.global
+                        |> Sub.map MsgBlogIndex
 
-        ModelBlogPost m ->
-            Template.BlogPost.template.load sharedModel m
-                |> Tuple.mapFirst (ModelBlogPost)
-                |> Tuple.mapSecond (Cmd.map MsgBlogPost)
+                _ ->
+                    Sub.none
 
-        ModelDocumentation m ->
-            Template.Documentation.template.load sharedModel m
-                |> Tuple.mapFirst (ModelDocumentation)
-                |> Tuple.mapSecond (Cmd.map MsgDocumentation)
+        
+        ModelBlogPost templateModel ->
+            case metadata of
+                M.BlogPost templateMetadata ->
+                    Template.BlogPost.template.subscriptions
+                        templateMetadata
+                        path
+                        templateModel
+                        model.global
+                        |> Sub.map MsgBlogPost
 
-        ModelPage m ->
-            Template.Page.template.load sharedModel m
-                |> Tuple.mapFirst (ModelPage)
-                |> Tuple.mapSecond (Cmd.map MsgPage)
+                _ ->
+                    Sub.none
 
-        ModelShowcase m ->
-            Template.Showcase.template.load sharedModel m
-                |> Tuple.mapFirst (ModelShowcase)
-                |> Tuple.mapSecond (Cmd.map MsgShowcase)
+        
+        ModelDocumentation templateModel ->
+            case metadata of
+                M.Documentation templateMetadata ->
+                    Template.Documentation.template.subscriptions
+                        templateMetadata
+                        path
+                        templateModel
+                        model.global
+                        |> Sub.map MsgDocumentation
+
+                _ ->
+                    Sub.none
+
+        
+        ModelPage templateModel ->
+            case metadata of
+                M.Page templateMetadata ->
+                    Template.Page.template.subscriptions
+                        templateMetadata
+                        path
+                        templateModel
+                        model.global
+                        |> Sub.map MsgPage
+
+                _ ->
+                    Sub.none
+
+        
+        ModelShowcase templateModel ->
+            case metadata of
+                M.Showcase templateMetadata ->
+                    Template.Showcase.template.subscriptions
+                        templateMetadata
+                        path
+                        templateModel
+                        model.global
+                        |> Sub.map MsgShowcase
+
+                _ ->
+                    Sub.none
+
 
 
         NotFound ->
-            ( model, Cmd.none )
+            Sub.none
 
 
-
-save : TemplateModel -> Shared.Model -> Shared.Model
-save model sharedModel=
-    case model of
-        ModelBlogIndex m ->
-            Template.BlogIndex.template.save m sharedModel
-
-        ModelBlogPost m ->
-            Template.BlogPost.template.save m sharedModel
-
-        ModelDocumentation m ->
-            Template.Documentation.template.save m sharedModel
-
-        ModelPage m ->
-            Template.Page.template.save m sharedModel
-
-        ModelShowcase m ->
-            Template.Showcase.template.save m sharedModel
-
-
-        NotFound ->
-            sharedModel
-
-
-
-mainTemplate { documents, manifest, canonicalSiteUrl, subscriptions } =
+mainTemplate { documents, site } =
     Pages.Platform.init
         { init = init Nothing
         , view = view
         , update = update
-        , subscriptions = subscriptions
+        , subscriptions =
+            \\\\metadata path model ->
+                Sub.batch
+                    [ Shared.template.subscriptions metadata path model.global |> Sub.map MsgGlobal
+                    , templateSubscriptions metadata path model
+                    ]
         , documents = documents
         , onPageChange = Just OnPageChange
-        , manifest = manifest -- Site.manifest
-        , canonicalSiteUrl = canonicalSiteUrl -- Site.canonicalUrl
+        , manifest = site.manifest
+        , canonicalSiteUrl = site.canonicalUrl
         , internals = Pages.internals
         }
+
 
 
 mapDocument : Browser.Document Never -> Browser.Document mapped
@@ -622,5 +761,9 @@ mapDocument document =
     { title = document.title
     , body = document.body |> List.map (Html.map never)
     }
+
+
+mapBoth fnA fnB ( a, b, c ) =
+    ( fnA a, fnB b, c )
 "
 `;
