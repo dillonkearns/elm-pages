@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [7.0.0] - 2020-10-26
+
+### Fixed
+
+- Fixed a bug where using `ImagePath.external` in any `Head` tags would prepend the canonical site URL to the external URL, creating an invalid URL. Now it will only prepend the canonical site URL for local images, and it will use external image URLs directly with no modifications.
+- StaticHttp performance improvements - whether you use the new beta build or the existing `elm-pages build` or `elm-pages develop` commands, you should see significantly faster StaticHttp any place you combined multiple StaticHttp results together. I would welcome getting any before/after performance numbers!
+
 ## [6.0.0] - 2020-07-14
 
 ### Fixed
