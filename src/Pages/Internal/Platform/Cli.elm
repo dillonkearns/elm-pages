@@ -78,13 +78,16 @@ type Msg
 type alias Config pathKey userMsg userModel metadata view =
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -123,6 +126,7 @@ type alias Config pathKey userMsg userModel metadata view =
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )
@@ -757,9 +761,12 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
             pageModel =
                 config.init
                     (Just
-                        { path = currentPage.path
-                        , query = Nothing
-                        , fragment = Nothing
+                        { path =
+                            { path = currentPage.path
+                            , query = Nothing
+                            , fragment = Nothing
+                            }
+                        , metadata = metadata
                         }
                     )
                     |> Tuple.first

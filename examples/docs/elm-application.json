@@ -1,0 +1,8 @@
+{
+  "name": "dillonkearns/elm-pages-local",
+  "summary": "Elm Pages local docs",
+  "version": "1.0.0",
+  "exposed-modules": [
+    "Template"
+  ]
+}

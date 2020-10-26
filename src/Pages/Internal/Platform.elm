@@ -288,9 +288,12 @@ init :
     -> Content
     ->
         (Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { metadata : metadata
+            , path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
             }
          -> ( userModel, Cmd userMsg )
         )
@@ -356,14 +359,18 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                             DevClient False
 
                 ( userModel, userCmd ) =
-                    maybePagePath
-                        |> Maybe.map
-                            (\pagePath ->
+                    Maybe.map2
+                        (\pagePath metadata ->
+                            { path =
                                 { path = pagePath
                                 , query = url.query
                                 , fragment = url.fragment
                                 }
-                            )
+                            , metadata = metadata
+                            }
+                        )
+                        maybePagePath
+                        maybeMetadata
                         |> initUserModel
 
                 cmd =
@@ -491,6 +498,7 @@ update :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )
@@ -615,14 +623,42 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                 ( userModel, userCmd ) =
                                     case maybeOnPageChangeMsg of
                                         Just onPageChangeMsg ->
-                                            userUpdate
-                                                (onPageChangeMsg
-                                                    { path = urlToPagePath pathKey url model.baseUrl
-                                                    , query = url.query
-                                                    , fragment = url.fragment
+                                            let
+                                                urls =
+                                                    { currentUrl = url
+                                                    , baseUrl = model.baseUrl
                                                     }
-                                                )
-                                                model.userModel
+
+                                                maybeMetadata =
+                                                    case ContentCache.lookup pathKey updatedCache urls of
+                                                        Just ( pagePath, entry ) ->
+                                                            case entry of
+                                                                ContentCache.Parsed metadata rawBody viewResult ->
+                                                                    Just metadata
+
+                                                                ContentCache.NeedContent string metadata ->
+                                                                    Nothing
+
+                                                                ContentCache.Unparsed string metadata contentJson ->
+                                                                    Nothing
+
+                                                        Nothing ->
+                                                            Nothing
+                                            in
+                                            maybeMetadata
+                                                |> Maybe.map
+                                                    (\metadata ->
+                                                        userUpdate
+                                                            (onPageChangeMsg
+                                                                { path = urlToPagePath pathKey url model.baseUrl
+                                                                , query = url.query
+                                                                , fragment = url.fragment
+                                                                , metadata = metadata
+                                                                }
+                                                            )
+                                                            model.userModel
+                                                    )
+                                                |> Maybe.withDefault ( model.userModel, Cmd.none )
 
                                         _ ->
                                             ( model.userModel, Cmd.none )
@@ -683,13 +719,16 @@ type HmrStatus
 application :
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -728,6 +767,7 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )
@@ -783,10 +823,33 @@ application config =
             \outerModel ->
                 case outerModel of
                     Model model ->
+                        let
+                            urls =
+                                { currentUrl = model.url
+                                , baseUrl = model.baseUrl
+                                }
+
+                            ( maybePagePath, maybeMetadata ) =
+                                case ContentCache.lookupMetadata config.pathKey model.contentCache urls of
+                                    Just ( pagePath, metadata ) ->
+                                        ( Just pagePath, Just metadata )
+
+                                    Nothing ->
+                                        ( Nothing, Nothing )
+
+                            userSub =
+                                Maybe.map2
+                                    (\metadata path ->
+                                        config.subscriptions metadata path model.userModel
+                                            |> Sub.map UserMsg
+                                            |> Sub.map AppMsg
+                                    )
+                                    maybeMetadata
+                                    maybePagePath
+                                    |> Maybe.withDefault Sub.none
+                        in
                         Sub.batch
-                            [ config.subscriptions model.userModel
-                                |> Sub.map UserMsg
-                                |> Sub.map AppMsg
+                            [ userSub
                             , config.fromJsPort
                                 |> Sub.map
                                     (\decodeValue ->
@@ -815,13 +878,16 @@ application config =
 cliApplication :
     { init :
         Maybe
-            { path : PagePath pathKey
-            , query : Maybe String
-            , fragment : Maybe String
+            { path :
+                { path : PagePath pathKey
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : metadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : userModel -> Sub userMsg
+    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, metadata )
         ->
@@ -860,6 +926,7 @@ cliApplication :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
+             , metadata : metadata
              }
              -> userMsg
             )

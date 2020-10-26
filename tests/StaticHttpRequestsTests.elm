@@ -852,7 +852,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
 
                         Nothing ->
                             Debug.todo "Couldn't find page"
-            , subscriptions = \_ -> Sub.none
+            , subscriptions = \_ _ _ -> Sub.none
             , document = document
             , content = []
             , canonicalSiteUrl = canonicalSiteUrl

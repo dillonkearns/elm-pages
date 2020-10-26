@@ -1,23 +1,24 @@
-module Metadata exposing (ArticleMetadata, DocMetadata, Metadata(..), PageMetadata, decoder)
+module MetadataNew exposing (DocMetadata, PageMetadata, decoder)
 
 import Cloudinary
 import Data.Author
 import Date exposing (Date)
-import Dict exposing (Dict)
-import Element exposing (Element)
-import Element.Font as Font
 import Json.Decode as Decode exposing (Decoder)
-import List.Extra
 import Pages
-import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.ImagePath exposing (ImagePath)
+import Template.BlogPost
+import Template.Page
+import Template.Showcase
+import TemplateType exposing (TemplateType)
 
 
-type Metadata
-    = Page PageMetadata
-    | Article ArticleMetadata
-    | Doc DocMetadata
-    | BlogIndex
-    | Showcase
+type alias DocMetadata =
+    { title : String
+    }
+
+
+type alias PageMetadata =
+    { title : String }
 
 
 type alias ArticleMetadata =
@@ -30,15 +31,7 @@ type alias ArticleMetadata =
     }
 
 
-type alias DocMetadata =
-    { title : String
-    }
-
-
-type alias PageMetadata =
-    { title : String }
-
-
+decoder : Decoder TemplateType
 decoder =
     Decode.field "type" Decode.string
         |> Decode.andThen
@@ -46,17 +39,19 @@ decoder =
                 case pageType of
                     "doc" ->
                         Decode.field "title" Decode.string
-                            |> Decode.map (\title -> Doc { title = title })
+                            |> Decode.map (\title -> TemplateType.Documentation { title = title })
 
                     "page" ->
-                        Decode.field "title" Decode.string
-                            |> Decode.map (\title -> Page { title = title })
+                        Template.Page.decoder
+                            |> Decode.map TemplateType.Page
 
                     "blog-index" ->
-                        Decode.succeed BlogIndex
+                        Decode.succeed {}
+                            |> Decode.map TemplateType.BlogIndex
 
                     "showcase" ->
-                        Decode.succeed Showcase
+                        Template.Showcase.decoder
+                            |> Decode.map TemplateType.Showcase
 
                     "blog" ->
                         Decode.map6 ArticleMetadata
@@ -81,7 +76,7 @@ decoder =
                                 |> Decode.maybe
                                 |> Decode.map (Maybe.withDefault False)
                             )
-                            |> Decode.map Article
+                            |> Decode.map TemplateType.BlogPost
 
                     _ ->
                         Decode.fail <| "Unexpected page \"type\" " ++ pageType
@@ -92,10 +87,3 @@ imageDecoder : Decoder (ImagePath Pages.PathKey)
 imageDecoder =
     Decode.string
         |> Decode.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
-
-
-findMatchingImage : String -> Maybe (ImagePath Pages.PathKey)
-findMatchingImage imageAssetPath =
-    List.Extra.find
-        (\image -> ImagePath.toString image == imageAssetPath)
-        Pages.allImages

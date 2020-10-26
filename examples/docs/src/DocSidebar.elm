@@ -7,11 +7,12 @@ import Metadata exposing (Metadata)
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
+import TemplateType exposing (TemplateType)
 
 
 view :
     PagePath Pages.PathKey
-    -> List ( PagePath Pages.PathKey, Metadata )
+    -> List ( PagePath Pages.PathKey, TemplateType )
     -> Element msg
 view currentPage posts =
     Element.column
@@ -25,7 +26,7 @@ view currentPage posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        Metadata.Doc meta ->
+                        TemplateType.Documentation meta ->
                             Just ( currentPage == path, path, meta )
 
                         _ ->

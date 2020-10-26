@@ -113,8 +113,8 @@ To get that data, you would write this in your `elm-pages` head tags:
     encodeArticle :
         { title : String
         , description : String
-        , author : StructuredData { authorMemberOf | personOrOrganization : () } authorPossibleFields
-        , publisher : StructuredData { publisherMemberOf | personOrOrganization : () } publisherPossibleFields
+        , author : StructuredDataHelper { authorMemberOf | personOrOrganization : () } authorPossibleFields
+        , publisher : StructuredDataHelper { publisherMemberOf | personOrOrganization : () } publisherPossibleFields
         , url : String
         , imageUrl : String
         , datePublished : String
