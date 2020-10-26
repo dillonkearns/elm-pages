@@ -97,9 +97,9 @@ view model sharedModel allMetadata staticPayload rendered =
     { title = staticPayload.metadata.title
     , body =
         [ [ Element.row []
-                [ counterView sharedModel
-                , DocSidebar.view
-                    Pages.pages.index
+                [ --counterView sharedModel,
+                  DocSidebar.view
+                    staticPayload.path
                     allMetadata
                     |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                 , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]

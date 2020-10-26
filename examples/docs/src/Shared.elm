@@ -187,7 +187,8 @@ view stars page model toMsg pageView =
             Element.column [ Element.width Element.fill ]
                 (List.concat
                     [ [ header stars page.path |> Element.map toMsg
-                      , incrementView model |> Element.map toMsg
+
+                      --, incrementView model |> Element.map toMsg
                       ]
                     , pageView.body
                     ]
