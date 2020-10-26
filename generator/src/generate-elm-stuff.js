@@ -36,6 +36,7 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
 
   global.previousUiFileContent = uiFileContent;
 
+  fs.copyFileSync(path.join(__dirname, `./Template.elm`), `./gen/Template.elm`);
   // write `Pages.elm` with cli interface
   fs.writeFileSync(
     "./elm-stuff/elm-pages/Pages.elm",

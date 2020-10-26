@@ -47,6 +47,11 @@ async function writeFiles(markdownContent) {
   ensureDirSync("./elm-stuff");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages");
+  fs.copyFileSync(path.join(__dirname, `./Template.elm`), `./gen/Template.elm`);
+  fs.copyFileSync(
+    path.join(__dirname, `./Template.elm`),
+    `./elm-stuff/elm-pages/Template.elm`
+  );
 
   // prevent compilation errors if migrating from previous elm-pages version
   deleteIfExists("./elm-stuff/elm-pages/Pages/ContentCache.elm");
