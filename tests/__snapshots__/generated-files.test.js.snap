@@ -115,7 +115,7 @@ content =
 `;
 
 exports[`generate template module connector 1`] = `
-"module TemplateDemultiplexer exposing (..)
+"module TemplateModulesBeta exposing (..)
 
 import Browser
 import Shared

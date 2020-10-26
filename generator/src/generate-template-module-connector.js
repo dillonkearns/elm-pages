@@ -6,7 +6,7 @@ function generateTemplateModuleConnector() {
     .sync(["src/Template/*.elm"], {})
     .map((file) => path.basename(file, ".elm"));
 
-  return `module TemplateDemultiplexer exposing (..)
+  return `module TemplateModulesBeta exposing (..)
 
 import Browser
 import Pages.Manifest as Manifest

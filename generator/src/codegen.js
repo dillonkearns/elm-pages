@@ -63,10 +63,10 @@ async function writeFiles(markdownContent) {
     elmPagesCliFile(staticRoutes, markdownContent)
   );
   fs.writeFileSync(
-    "./elm-stuff/elm-pages/TemplateDemultiplexer.elm",
+    "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
     templateConnectorFile
   );
-  fs.writeFileSync("./gen/TemplateDemultiplexer.elm", templateConnectorFile);
+  fs.writeFileSync("./gen/TemplateModulesBeta.elm", templateConnectorFile);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();

@@ -18,7 +18,7 @@ import Rss
 import RssPlugin
 import Shared
 import Site
-import TemplateDemultiplexer
+import TemplateModulesBeta
 import TemplateType exposing (TemplateType)
 
 
@@ -56,9 +56,9 @@ socialIcon =
 --main : Pages.Platform.Program Model Msg Metadata View Pages.PathKey
 
 
-main : Pages.Platform.Program TemplateDemultiplexer.Model TemplateDemultiplexer.Msg TemplateType Shared.RenderedBody Pages.PathKey
+main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg TemplateType Shared.RenderedBody Pages.PathKey
 main =
-    TemplateDemultiplexer.mainTemplate
+    TemplateModulesBeta.mainTemplate
         { documents =
             [ { extension = "md"
               , metadata = MetadataNew.decoder -- metadata parser/decoder?
