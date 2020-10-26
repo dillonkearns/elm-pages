@@ -11,10 +11,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [7.0.0] - 2020-10-26
 
+See the upgrade guide for some information for getting to the latest version, and how to try out the 2 new opt-in beta features: https://github.com/dillonkearns/elm-pages/blob/master/docs/7.0.0-elm-package-upgrade-guide.md.
+
 ### Fixed
 
 - Fixed a bug where using `ImagePath.external` in any `Head` tags would prepend the canonical site URL to the external URL, creating an invalid URL. Now it will only prepend the canonical site URL for local images, and it will use external image URLs directly with no modifications.
 - StaticHttp performance improvements - whether you use the new beta build or the existing `elm-pages build` or `elm-pages develop` commands, you should see significantly faster StaticHttp any place you combined multiple StaticHttp results together. I would welcome getting any before/after performance numbers!
+
+### Changed
+
+- There is now an `icons` field in the `Manifest.Config` type. You can use an empty List if you are not using the beta no-webpack build (it will be ignored if you use `elm-pages build`, but will be used going forward with the beta which will eventually replace `elm-pages build`).
+
+### Added
+
+- There are 2 new beta features, a new beta no-webpack build and a beta Template Modules feature (see https://github.com/dillonkearns/elm-pages/blob/master/docs/7.0.0-elm-package-upgrade-guide.md for detailed info and instructions).
 
 ## [6.0.0] - 2020-07-14
 
