@@ -29,7 +29,11 @@ function pagesInit(
 function loadContentAndInitializeApp(
   /** @type { init: any  } */ mainElmModule
 ) {
-  const path = window.location.pathname.replace(/(\w)$/, "$1/");
+  let path = window.location.pathname.replace(/(\w)$/, "$1/");
+  if (!path.endsWith('/')) {
+    path = path + '/'
+  }
+
 
   return Promise.all([
     httpGet(\`\${window.location.origin}\${path}content.json\`),
