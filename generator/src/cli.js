@@ -298,6 +298,7 @@ function wrapHtml(/** @type { Arg } */ fromElm) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     ${seo.toString(fromElm.head)}
+    </head>
     <body>
       <div data-url="" display="none"></div>
       ${fromElm.html}
