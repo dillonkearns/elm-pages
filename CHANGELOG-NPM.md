@@ -9,20 +9,36 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.5.1] - 2020-10-27
+
+### Fixed
+
+- Add missing closing tag for `<head>` in beta build command output.
+- Make sure to add `/` separator for `content.json` file requests in beta build's JS code.
+
+## [1.5.0] - 2020-10-26
+
+### Added
+
+- Support for `elm-pages-beta` no-webpack build command (see Elm package [release notes for 7.0.0](https://github.com/dillonkearns/elm-pages/blob/master/CHANGELOG-ELM.md#700---2020-10-26)).
+
 ## [1.4.3] - 2020-08-17
 
 ### Added
-- `elm-pages build --skip-dist` option allows you to build the generated Elm code and 
-   check for errors without running the pre-rendering steps. Thank you [@sparksp](https://github.com/sparksp)!
-   See https://github.com/dillonkearns/elm-pages/pull/123/files.
+
+- `elm-pages build --skip-dist` option allows you to build the generated Elm code and
+  check for errors without running the pre-rendering steps. Thank you [@sparksp](https://github.com/sparksp)!
+  See https://github.com/dillonkearns/elm-pages/pull/123/files.
 
 ### Fixed
-- Added headers to the dev server that prevent Safari from serving up stale data. Thank you 
+
+- Added headers to the dev server that prevent Safari from serving up stale data. Thank you
   Kevin Yank for reporting the issue!
 
 ## [1.4.2] - 2020-07-14
 
 ### Added
+
 - Added dimensions to static images: https://github.com/dillonkearns/elm-pages/pull/110.
 
 ## [1.4.1] - 2020-06-16
@@ -35,6 +51,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.4.0] - 2020-05-11
 
 ### Added
+
 - Added hot content reloading to the dev server! That means that you no longer have to restart your dev server if you add/change a StaticHttp request. You don't even
   have to reload your browser! It will automatically load in the new data, while keeping your application state. Your markdown (or other format) data, and metadata,
   from the `content` folder will also load for you without having to restart the dev server or refresh your browser! You'll see a loading indicator to show you when
@@ -46,11 +63,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   there's still an issue where if you no longer generate a file, you'll need to restart your dev server to get a 404 when hitting that URL.
 
 ### Changed
+
 - Uses Terser instead of GoogleClosureCompiler to minify the JavaScript bundle in production. GoogleClosureCompiler was causing some issues for Windows users when
   they ran `elm-pages build` because that dependency has known issues on Windows. See [#90](https://github.com/dillonkearns/elm-pages/pull/90). Thank you very much
   to [Johannes Maas](https://github.com/Y0hy0h) for the PR!
 
 ### Fixed
+
 - Fixed an issue with the dev server not noticing changes to `.emu` files. See [#78](https://github.com/dillonkearns/elm-pages/issues/78). `elm-markup` files, and files with
   the `.emu` extension, are handled exactly like any other files in the `content/` folder now. This simplifies the API, and the internal logic is simpler and less error-prone.
 - Decode errors now show error messages correctly for `StaticHttp.unoptimizedRequest`s.
@@ -62,6 +81,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.3.0] - 2020-03-28
 
 ### Added
+
 - You can now host your `elm-pages` site in a sub-directory. For example, you could host it at mysite.com/blog, where the top-level mysite.com/ is hosting a different app.
   This works using [HTML `<base>` tags](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base). The paths you get from `PagePath.toString` and `ImagePath.toString`
   will use relative paths (e.g. `blog/my-article`) instead of absolute URLs (e.g. `/blog/my-article`), so you can take advantage of this functionality by just making sure you
