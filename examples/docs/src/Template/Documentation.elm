@@ -105,7 +105,7 @@ view model sharedModel allMetadata staticPayload rendered =
                 , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
                     [ Palette.heading 1 [ Element.text staticPayload.metadata.title ]
                     , Element.column [ Element.spacing 20 ]
-                        [ tocView (Tuple.first rendered)
+                        [ tocView staticPayload.path (Tuple.first rendered)
                         , Element.column
                             [ Element.padding 50
                             , Element.spacing 30
@@ -129,8 +129,8 @@ counterView sharedModel =
     Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt sharedModel.counter)
 
 
-tocView : MarkdownRenderer.TableOfContents -> Element msg
-tocView toc =
+tocView : PagePath Pages.PathKey -> MarkdownRenderer.TableOfContents -> Element msg
+tocView path toc =
     Element.column [ Element.alignTop, Element.spacing 20 ]
         [ Element.el [ Font.bold, Font.size 22 ] (Element.text "Table of Contents")
         , Element.column [ Element.spacing 10 ]
@@ -138,7 +138,7 @@ tocView toc =
                 |> List.map
                     (\heading ->
                         Element.link [ Font.color (Element.rgb255 100 100 100) ]
-                            { url = "#" ++ heading.anchorId
+                            { url = PagePath.toString path ++ "#" ++ heading.anchorId
                             , label = Element.text heading.name
                             }
                     )
