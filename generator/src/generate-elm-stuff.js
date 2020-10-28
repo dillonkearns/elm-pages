@@ -20,13 +20,15 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
   const templateConnectorFile = generateTemplateModuleConnector();
+  const generatedFilesFingerprint = uiFileContent + templateConnectorFile;
 
   // TODO should just write it once, but webpack doesn't seem to pick up the changes
   // so this wasEqualBefore code causes it to get written twice to make sure the changes come through for HMR
+
   if (wasEqualBefore) {
     fs.writeFileSync("./gen/Pages.elm", uiFileContent);
   }
-  if (global.previousUiFileContent === uiFileContent) {
+  if (global.previousUiFileContent === generatedFilesFingerprint) {
     wasEqualBefore = false;
   } else {
     wasEqualBefore = true;
@@ -34,7 +36,7 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
     fs.writeFileSync("./gen/TemplateModulesBeta.elm", templateConnectorFile);
   }
 
-  global.previousUiFileContent = uiFileContent;
+  global.previousUiFileContent = generatedFilesFingerprint;
 
   fs.copyFileSync(path.join(__dirname, `./Template.elm`), `./gen/Template.elm`);
   // write `Pages.elm` with cli interface
