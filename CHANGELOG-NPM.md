@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.5.3] - 2020-10-29
+
+### Fixed
+
+- 1.5.2 didn't end up fixing the infinite loop in `elm-pages develop`. It's now properly fixed.
+- No more double-builds on changes for `elm-pages develop` webpack dev server, so page changes are faster.
+
 ## [1.5.2] - 2020-10-28
 
 ### Fixed
