@@ -22,23 +22,24 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
   const templateConnectorFile = generateTemplateModuleConnector();
   const generatedFilesFingerprint = uiFileContent + templateConnectorFile;
 
+  if (!global.hasDoneInitialWrite) {
+    global.hasDoneInitialWrite = true;
+    fs.copyFileSync(
+      path.join(__dirname, `./Template.elm`),
+      `./gen/Template.elm`
+    );
+  }
+
   // TODO should just write it once, but webpack doesn't seem to pick up the changes
   // so this wasEqualBefore code causes it to get written twice to make sure the changes come through for HMR
-
-  if (wasEqualBefore) {
-    fs.writeFileSync("./gen/Pages.elm", uiFileContent);
-  }
-  if (global.previousUiFileContent === generatedFilesFingerprint) {
-    wasEqualBefore = false;
-  } else {
-    wasEqualBefore = true;
+  if (global.lastWrittenFingerprint !== generatedFilesFingerprint) {
+    global.lastWrittenFingerprint = generatedFilesFingerprint;
     fs.writeFileSync("./gen/Pages.elm", uiFileContent);
     fs.writeFileSync("./gen/TemplateModulesBeta.elm", templateConnectorFile);
   }
 
   global.previousUiFileContent = generatedFilesFingerprint;
 
-  fs.copyFileSync(path.join(__dirname, `./Template.elm`), `./gen/Template.elm`);
   // write `Pages.elm` with cli interface
   fs.writeFileSync(
     "./elm-stuff/elm-pages/Pages.elm",
