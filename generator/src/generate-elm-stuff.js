@@ -32,7 +32,7 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
   } else {
     wasEqualBefore = true;
     fs.writeFileSync("./gen/Pages.elm", uiFileContent);
-    // fs.writeFileSync("./gen/TemplateModulesBeta.elm", templateConnectorFile);
+    fs.writeFileSync("./gen/TemplateModulesBeta.elm", templateConnectorFile);
   }
 
   global.previousUiFileContent = codeGenFingerprint;
@@ -54,10 +54,10 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
     elmPagesCliFile(staticRoutes, markdownContent)
   );
 
-  // fs.writeFileSync(
-  //   "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
-  //   templateConnectorFile
-  // );
+  fs.writeFileSync(
+    "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
+    templateConnectorFile
+  );
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();
