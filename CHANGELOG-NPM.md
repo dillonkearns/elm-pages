@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.5.4] - 2020-11-02
+
+### Fixed
+
+- Use a more reliable codegeneration order for the elm-pages dev server to make sure changes hot reload correctly.
+
 ## [1.5.3] - 2020-10-29
 
 ### Fixed
