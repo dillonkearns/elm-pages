@@ -113,6 +113,7 @@ init :
     -> ContentCache metadata view
 init document content maybeInitialPageContent =
     content
+        |> Debug.log "initial"
         |> parseMetadata maybeInitialPageContent document
         |> List.map
             (\tuple ->
@@ -167,11 +168,12 @@ parseMetadata maybeInitialPageContent document content =
                                 in
                                 case maybeInitialPageContent of
                                     Just { contentJson, initialUrl } ->
-                                        if normalizePath initialUrl.path == (String.join "/" path |> normalizePath) then
+                                        if (normalizePath contentJson.path |> Debug.log "parseMetadata path") == (String.join "/" path |> normalizePath |> Debug.log "equals this?") then
                                             Parsed metadata
                                                 contentJson.body
                                                 { body = renderer contentJson.body
                                                 , staticData = contentJson.staticData
+                                                , path = contentJson.path
                                                 }
 
                                         else
@@ -188,6 +190,7 @@ parseMetadata maybeInitialPageContent document content =
                                                     bodyFromCli
                                                     { body = renderer bodyFromCli
                                                     , staticData = Dict.empty
+                                                    , path = "TODO"
                                                     }
 
                                             Nothing ->
@@ -403,7 +406,7 @@ httpTask url =
         , resolver =
             Http.stringResolver
                 (\response ->
-                    case response of
+                    case response |> Debug.log "response" of
                         Http.BadUrl_ url_ ->
                             Err (Http.BadUrl url_)
 
@@ -428,14 +431,16 @@ httpTask url =
 type alias ContentJson body =
     { body : body
     , staticData : RequestsAndPending
+    , path : String
     }
 
 
 contentJsonDecoder : Decode.Decoder (ContentJson String)
 contentJsonDecoder =
-    Decode.map2 ContentJson
+    Decode.map3 ContentJson
         (Decode.field "body" Decode.string)
         (Decode.field "staticData" RequestsAndPending.decoder)
+        (Decode.field "path" Decode.string)
 
 
 update :
@@ -459,6 +464,7 @@ update cacheResult renderer urls rawContent =
                                 content.body
                                 { body = renderer content.body
                                 , staticData = content.staticData
+                                , path = content.path
                                 }
                                 |> Just
 
@@ -467,6 +473,7 @@ update cacheResult renderer urls rawContent =
                                 rawContent.body
                                 { body = renderer rawContent.body
                                 , staticData = rawContent.staticData
+                                , path = "TODO"
                                 }
                                 |> Just
 
@@ -486,7 +493,7 @@ update cacheResult renderer urls rawContent =
 pathForUrl : { currentUrl : Url, baseUrl : Url } -> Path
 pathForUrl { currentUrl, baseUrl } =
     currentUrl.path
-        |> String.dropLeft (String.length baseUrl.path)
+        --|> String.dropLeft (String.length baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
@@ -503,6 +510,7 @@ lookup pathKey content urls =
             let
                 path =
                     pathForUrl urls
+                        |> Debug.log "@@@ path"
             in
             dict
                 |> Dict.get path

@@ -113,7 +113,8 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -751,7 +752,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                 ContentCache.update contentCache
                     renderer
                     urls
-                    { body = "", staticData = model.allRawResponses }
+                    { body = "", staticData = model.allRawResponses, path = "TODO" }
 
             currentPage : { path : PagePath pathKey, frontmatter : metadata }
             currentPage =
@@ -872,7 +873,8 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List BuildError)
+        Result
+            (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

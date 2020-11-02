@@ -114,7 +114,9 @@ pageViewOrError pathKey viewFn model cache =
             { currentUrl = model.url
             , baseUrl = model.baseUrl
             }
+                |> Debug.log "URLs"
     in
+    -- TODO use contentJson.path instead of model.url
     case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
@@ -252,14 +254,16 @@ type alias Flags =
 type alias ContentJson =
     { body : String
     , staticData : RequestsAndPending
+    , path : String
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map2 ContentJson
+    Decode.map3 ContentJson
         (Decode.field "body" Decode.string)
         (Decode.field "staticData" RequestsAndPending.decoder)
+        (Decode.field "path" Decode.string)
 
 
 init :
@@ -329,7 +333,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                 |> Maybe.withDefault url
 
         urls =
-            { currentUrl = url
+            { currentUrl = { url | path = contentJson |> Maybe.map .path |> Maybe.withDefault "TODO" }
             , baseUrl = baseUrl
             }
     in
@@ -399,7 +403,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                             ( Nothing, Nothing )
             in
             ( { key = key
-              , url = url
+              , url = { url | path = contentJson |> Maybe.map .path |> Maybe.withDefault "TODO" }
               , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
@@ -415,7 +419,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                     initUserModel Nothing
             in
             ( { key = key
-              , url = url
+              , url = { url | path = contentJson |> Maybe.map .path |> Maybe.withDefault "TODO" }
               , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
@@ -630,7 +634,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                                     }
 
                                                 maybeMetadata =
-                                                    case ContentCache.lookup pathKey updatedCache urls of
+                                                    case ContentCache.lookup pathKey updatedCache urls |> Debug.log "maybeMetadata" of
                                                         Just ( pagePath, entry ) ->
                                                             case entry of
                                                                 ContentCache.Parsed metadata rawBody viewResult ->
@@ -754,7 +758,8 @@ application :
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -913,7 +918,8 @@ cliApplication :
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }

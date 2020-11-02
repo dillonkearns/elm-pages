@@ -145,6 +145,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   contentJson["body"] = args.body;
 
   contentJson["staticData"] = args.contentJson;
+  contentJson["path"] = `/${args.route}`;
   const normalizedRoute = args.route.replace(/index$/, "");
   // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
   await fs.tryMkdir(`./dist/${normalizedRoute}`);
@@ -172,8 +173,8 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
       });
     }
     const subprocess = spawnCallback(
-      `elm-optimize-level-2`,
-      [elmEntrypointPath, "--output", outputPath],
+      `elm`,
+      ['make', elmEntrypointPath, "--output", outputPath],
       {
         // ignore stdout
         stdio: ["inherit", "ignore", "inherit"],
@@ -219,7 +220,8 @@ async function compileCliApp() {
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return x"
+      "return _Json_wrap(x)"
+//      "return x"
     )
   );
 }
