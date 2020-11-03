@@ -69,4 +69,5 @@ module.exports = {
   copyDirNested,
   rmSync: fs.rmSync,
   existsSync: fs.existsSync,
+  readdir: fs.readdir,
 };

@@ -17,7 +17,7 @@ import Shared
 import Site
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
-import TemplateMetadata exposing (BlogPost)
+import TemplateMetadata exposing (Article)
 import TemplateType exposing (TemplateType)
 
 
@@ -29,15 +29,15 @@ type alias Msg =
     Never
 
 
-template : Template BlogPost ()
+template : Template Article ()
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }
 
 
-decoder : Decode.Decoder BlogPost
+decoder : Decode.Decoder Article
 decoder =
-    Decode.map6 BlogPost
+    Decode.map6 Article
         (Decode.field "title" Decode.string)
         (Decode.field "description" Decode.string)
         (Decode.field "published"
@@ -82,7 +82,7 @@ findMatchingImage imageAssetPath =
 
 view :
     List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload BlogPost ()
+    -> StaticPayload Article ()
     -> Shared.RenderedBody
     -> Shared.PageView msg
 view allMetadata { metadata } rendered =
@@ -120,7 +120,7 @@ view allMetadata { metadata } rendered =
 
 
 head :
-    StaticPayload BlogPost ()
+    StaticPayload Article ()
     -> List (Head.Tag Pages.PathKey)
 head { metadata, path } =
     Head.structuredData
