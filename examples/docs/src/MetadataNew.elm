@@ -6,7 +6,7 @@ import Date exposing (Date)
 import Json.Decode as Decode exposing (Decoder)
 import Pages
 import Pages.ImagePath exposing (ImagePath)
-import Template.BlogPost
+import Template.Article
 import Template.Page
 import Template.Showcase
 import TemplateType exposing (TemplateType)
@@ -76,7 +76,7 @@ decoder =
                                 |> Decode.maybe
                                 |> Decode.map (Maybe.withDefault False)
                             )
-                            |> Decode.map TemplateType.BlogPost
+                            |> Decode.map TemplateType.Article
 
                     _ ->
                         Decode.fail <| "Unexpected page \"type\" " ++ pageType

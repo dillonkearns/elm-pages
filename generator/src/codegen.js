@@ -1,4 +1,5 @@
 const fs = require("fs");
+const fsHelpers = require("./dir-helpers.js");
 const copyModifiedElmJson = require("./rewrite-elm-json.js");
 const { elmPagesCliFile, elmPagesUiFile } = require("./elm-file-constants.js");
 const {
@@ -59,6 +60,7 @@ async function writeFiles(markdownContent) {
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
   const templateConnectorFile = generateTemplateModuleConnector();
+  generateTemplateTypeModule();
 
   fs.writeFileSync("./gen/Pages.elm", uiFileContent);
 
@@ -84,6 +86,25 @@ function parseMarkdown(path, fileContents) {
     metadata: JSON.stringify(data),
     body: content,
   };
+}
+
+function generateTemplateTypeModule() {
+  const templateModules = fs.readdirSync(`./src/Template/`);
+  const moduleNames = templateModules.map((fileName) =>
+    path.basename(fileName, ".elm")
+  );
+  const moduleContent = `module TemplateType exposing (TemplateType(..))
+
+import TemplateMetadata
+
+
+type TemplateType
+    = ${moduleNames
+      .map((moduleName) => `${moduleName} TemplateMetadata.${moduleName}`)
+      .join("\n    | ")}
+`;
+  fs.writeFileSync("./gen/TemplateType.elm", moduleContent);
+  fs.writeFileSync(`./elm-stuff/elm-pages/TemplateType.elm`, moduleContent);
 }
 
 module.exports = { generate };

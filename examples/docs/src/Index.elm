@@ -10,7 +10,7 @@ import Element.Font
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import TemplateMetadata exposing (BlogPost)
+import TemplateMetadata exposing (Article)
 import TemplateType exposing (TemplateType)
 
 
@@ -23,7 +23,7 @@ view posts =
             |> List.filterMap
                 (\( path, metadata ) ->
                     case metadata of
-                        TemplateType.BlogPost meta ->
+                        TemplateType.Article meta ->
                             if meta.draft then
                                 Nothing
 
@@ -42,7 +42,7 @@ view posts =
 
 
 postSummary :
-    ( PagePath Pages.PathKey, BlogPost )
+    ( PagePath Pages.PathKey, Article )
     -> Element msg
 postSummary ( postPath, post ) =
     articleIndex post |> linkToPost postPath
@@ -66,7 +66,7 @@ title text =
             ]
 
 
-articleIndex : BlogPost -> Element msg
+articleIndex : Article -> Element msg
 articleIndex metadata =
     Element.el
         [ Element.centerX
@@ -86,7 +86,7 @@ grey =
     Element.Font.color (Element.rgba255 0 0 0 0.5)
 
 
-postPreview : BlogPost -> Element msg
+postPreview : Article -> Element msg
 postPreview post =
     Element.textColumn
         [ Element.centerX

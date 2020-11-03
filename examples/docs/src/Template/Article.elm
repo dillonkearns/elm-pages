@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Model, Msg, decoder, template)
+module Template.Article exposing (Model, Msg, decoder, template)
 
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)

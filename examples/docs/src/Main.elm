@@ -93,18 +93,18 @@ metadataToRssItem :
     -> Maybe Rss.Item
 metadataToRssItem page =
     case page.frontmatter of
-        TemplateType.BlogPost blogPost ->
-            if blogPost.draft then
+        TemplateType.Article article ->
+            if article.draft then
                 Nothing
 
             else
                 Just
-                    { title = blogPost.title
-                    , description = blogPost.description
+                    { title = article.title
+                    , description = article.description
                     , url = PagePath.toString page.path
                     , categories = []
-                    , author = blogPost.author.name
-                    , pubDate = Rss.Date blogPost.published
+                    , author = article.author.name
+                    , pubDate = Rss.Date article.published
                     , content = Nothing
                     }
 
@@ -124,8 +124,8 @@ metadataToSitemapEntry siteMetadata =
         |> List.filter
             (\page ->
                 case page.frontmatter of
-                    TemplateType.BlogPost blogPost ->
-                        not blogPost.draft
+                    TemplateType.Article article ->
+                        not article.draft
 
                     _ ->
                         True

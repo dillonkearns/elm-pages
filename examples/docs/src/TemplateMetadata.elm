@@ -1,4 +1,4 @@
-module TemplateMetadata exposing (..)
+module TemplateMetadata exposing (Article, BlogIndex, Documentation, Page, Showcase)
 
 import Data.Author exposing (Author)
 import Date exposing (Date)
@@ -10,7 +10,7 @@ type alias BlogIndex =
     {}
 
 
-type alias BlogPost =
+type alias Article =
     { title : String
     , description : String
     , published : Date
