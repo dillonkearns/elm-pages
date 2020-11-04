@@ -10,7 +10,10 @@ const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 const globby = require("globby");
 const parseFrontmatter = require("./frontmatter.js");
 const generateRecords = require("./generate-records.js");
-const { templateTypesModuleName } = require("./constants.js");
+const {
+  templateTypesModuleName,
+  allTemplateTypesModuleName,
+} = require("./constants.js");
 
 async function generate() {
   global.builtAt = new Date();
@@ -99,15 +102,18 @@ function generateTemplateTypeModule() {
 import ${templateTypesModuleName}
 
 
-type TemplateType
+type ${allTemplateTypesModuleName}
     = ${moduleNames
       .map(
         (moduleName) => `${moduleName} ${templateTypesModuleName}.${moduleName}`
       )
       .join("\n    | ")}
 `;
-  fs.writeFileSync("./gen/TemplateType.elm", moduleContent);
-  fs.writeFileSync(`./elm-stuff/elm-pages/TemplateType.elm`, moduleContent);
+  fs.writeFileSync(`./gen/${allTemplateTypesModuleName}.elm`, moduleContent);
+  fs.writeFileSync(
+    `./elm-stuff/elm-pages/${allTemplateTypesModuleName}.elm`,
+    moduleContent
+  );
 }
 
 module.exports = { generate };

@@ -1,1 +1,4 @@
-module.exports = { templateTypesModuleName: `TemplateTypes` };
+module.exports = {
+  templateTypesModuleName: "TemplateTypes",
+  allTemplateTypesModuleName: "TemplateType",
+};
