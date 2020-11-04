@@ -16,8 +16,8 @@ import Palette
 import Shared
 import Site
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateMetadata exposing (Documentation)
 import TemplateType exposing (TemplateType)
+import TemplateTypes exposing (Documentation)
 
 
 type alias StaticData =

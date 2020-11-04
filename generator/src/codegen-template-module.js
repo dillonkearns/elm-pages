@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require("./dir-helpers.js");
+const { templateTypesModuleName } = require("./constants.js");
 
 if (process.argv.length === 3) {
   const moduleName = process.argv[2];
@@ -25,7 +26,7 @@ import Pages
 import Pages.PagePath exposing (PagePath)
 import Shared
 import Template exposing (StaticPayload, Template)
-import TemplateMetadata exposing (${templateName})
+import ${templateTypesModuleName} exposing (${templateName})
 import TemplateType exposing (TemplateType)
 
 

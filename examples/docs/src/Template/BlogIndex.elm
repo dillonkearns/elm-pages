@@ -11,8 +11,8 @@ import Shared
 import Showcase
 import Site
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateMetadata exposing (BlogIndex)
 import TemplateType exposing (TemplateType)
+import TemplateTypes exposing (BlogIndex)
 
 
 type Msg

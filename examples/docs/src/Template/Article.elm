@@ -17,8 +17,8 @@ import Shared
 import Site
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
-import TemplateMetadata exposing (Article)
 import TemplateType exposing (TemplateType)
+import TemplateTypes exposing (Article)
 
 
 type alias Model =

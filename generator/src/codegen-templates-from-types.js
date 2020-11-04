@@ -5,8 +5,9 @@ const ElmModuleParser = require("elm-module-parser");
 const path = require("path");
 const readline = require("readline");
 const rl = readline.createInterface(process.stdin, process.stdout);
+const { templateTypesModuleName } = require("./constants.js");
 
-const templateModulePath = `./src/TemplateMetadata.elm`;
+const templateModulePath = `./src/${templateTypesModuleName}.elm`;
 
 async function exposedTypes() {
   const fileContents = await fs.readFile(templateModulePath);
@@ -158,7 +159,7 @@ import Pages
 import Pages.PagePath exposing (PagePath)
 import Shared
 import Template exposing (StaticPayload, Template)
-import TemplateMetadata exposing (${templateName})
+import ${templateTypesModuleName} exposing (${templateName})
 import TemplateType exposing (TemplateType)
 
 

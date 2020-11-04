@@ -10,8 +10,8 @@ import Element.Font
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import TemplateMetadata exposing (Article)
 import TemplateType exposing (TemplateType)
+import TemplateTypes exposing (Article)
 
 
 view :

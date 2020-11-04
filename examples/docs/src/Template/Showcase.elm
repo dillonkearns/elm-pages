@@ -10,8 +10,8 @@ import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateMetadata exposing (Showcase)
 import TemplateType exposing (TemplateType)
+import TemplateTypes exposing (Showcase)
 
 
 type alias Model =

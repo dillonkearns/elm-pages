@@ -10,8 +10,8 @@ import Pages.PagePath exposing (PagePath)
 import Shared
 import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
-import TemplateMetadata exposing (Page)
 import TemplateType exposing (TemplateType)
+import TemplateTypes exposing (Page)
 
 
 type alias Model =
