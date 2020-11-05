@@ -11,7 +11,7 @@ import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import TemplateType exposing (TemplateType)
-import TemplateTypes exposing (Article)
+import TemplateTypeDefs exposing (Article)
 
 
 view :

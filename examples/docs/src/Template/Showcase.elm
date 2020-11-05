@@ -11,7 +11,7 @@ import Shared
 import Showcase
 import Template exposing (StaticPayload, TemplateWithState)
 import TemplateType exposing (TemplateType)
-import TemplateTypes exposing (Showcase)
+import TemplateTypeDefs exposing (Showcase)
 
 
 type alias Model =

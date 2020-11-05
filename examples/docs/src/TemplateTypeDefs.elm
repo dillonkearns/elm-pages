@@ -1,4 +1,4 @@
-module TemplateTypes exposing (Article, BlogIndex, Documentation, Page, Showcase)
+module TemplateTypeDefs exposing (Article, BlogIndex, Documentation, Page, Showcase)
 
 import Data.Author exposing (Author)
 import Date exposing (Date)

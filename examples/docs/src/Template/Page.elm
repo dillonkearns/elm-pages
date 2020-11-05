@@ -11,7 +11,7 @@ import Shared
 import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateType exposing (TemplateType)
-import TemplateTypes exposing (Page)
+import TemplateTypeDefs exposing (Page)
 
 
 type alias Model =

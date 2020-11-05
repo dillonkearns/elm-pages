@@ -12,7 +12,7 @@ import Showcase
 import Site
 import Template exposing (StaticPayload, TemplateWithState)
 import TemplateType exposing (TemplateType)
-import TemplateTypes exposing (BlogIndex)
+import TemplateTypeDefs exposing (BlogIndex)
 
 
 type Msg

@@ -1,4 +1,4 @@
 module.exports = {
-  templateTypesModuleName: "TemplateTypes",
+  templateTypesModuleName: "TemplateTypeDefs",
   allTemplateTypesModuleName: "TemplateType",
 };
