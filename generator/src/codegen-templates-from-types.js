@@ -73,7 +73,7 @@ async function exposedTypes() {
         "My plan is to generate the following modules: ",
         missingModules.join("\n")
       );
-      rl.question("Overwrite? [Y]/n: ", async function (answer) {
+      rl.question("Should I make these changes? [Y]/n: ", async function (answer) {
         if (answer === "y" || answer == "") {
           console.log("Generating...", missingModules);
           await writeTemplateModules(missingModules);
