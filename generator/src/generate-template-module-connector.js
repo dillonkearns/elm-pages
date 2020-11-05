@@ -5,6 +5,10 @@ function generateTemplateModuleConnector() {
   const templates = globby
     .sync(["src/Template/*.elm"], {})
     .map((file) => path.basename(file, ".elm"));
+  let wildcardForMoreThanOne = (indentation, wildcardBody) =>
+    templates.length > 1
+      ? `${indentation}_ ->\n${indentation}    ${wildcardBody}`
+      : ``;
 
   return `module TemplateModulesBeta exposing (..)
 
@@ -101,8 +105,13 @@ view siteMetadata page =
                                                     )
                                            )
 
-                                _ ->
+                                NotFound ->
                                     { title = "", body = Html.text "" }
+
+${wildcardForMoreThanOne(
+  "                                ",
+  '{ title = "", body = Html.text "" }'
+)}
                     , head = Template.${name}.template.head
                         { static = data
                         , sharedStatic = globalData
@@ -267,8 +276,7 @@ templateSubscriptions metadata path model =
                         model.global
                         |> Sub.map Msg${name}
 
-                _ ->
-                    Sub.none
+${wildcardForMoreThanOne("                ", "Sub.none")}
 `
           )
           .join("\n        ")}
