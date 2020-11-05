@@ -73,7 +73,9 @@ async function exposedTypes() {
         "My plan is to generate the following modules: ",
         missingModules.join("\n")
       );
-      rl.question("Should I make these changes? [Y]/n: ", async function (answer) {
+      rl.question("Should I make these changes? [Y]/n: ", async function (
+        answer
+      ) {
         if (answer === "y" || answer == "") {
           console.log("Generating...", missingModules);
           await writeTemplateModules(missingModules);
@@ -89,7 +91,7 @@ async function exposedTypes() {
   } else {
     if (missingModules.length > 0) {
       console.log(
-        "There are some mismatched items in both the Template Module files in src/Template/ and the types in TemplateTypeDefinitions.elm. If you're renaming a type or a module, be sure to change both the type name and the module name.\n"
+        `There are some mismatched items in both the Template Module files in src/Template/ and the types in ${templateTypesModuleName}.elm. If you're renaming a type or a module, be sure to change both the type name and the module name.\n`
       );
       console.log("I have modules but no types for these", staleModules);
       console.log("\nI have types but no modules for these", missingModules);
@@ -97,20 +99,20 @@ async function exposedTypes() {
     }
     if (staleBecauseNotExposedModules.length > 0) {
       console.log(
-        "The following modules have a type defined in TemplateTypeDefinitions.elm as well as a corresponding Template Module in src/Template/, but the type is not exposed:\n\n",
+        `The following modules have a type defined in ${templateTypesModuleName}.elm as well as a corresponding Template Module in src/Template/, but the type is not exposed:\n\n`,
         staleBecauseNotExposedModules
       );
       console.log(
-        "\nYou can get them in sync by either exposing the type in TemplateTypeDefinitions.elm, or by deleting the corresponding Template Module file from src/Template/."
+        `\nYou can get them in sync by either exposing the type in ${templateTypesModuleName}.elm, or by deleting the corresponding Template Module file from src/Template/.`
       );
     }
     if (staleBecauseNoType.length > 0) {
       console.log(
-        "The following modules have a module in src/Template/, but no corresponding type in TemplateTypeDefinitions.elm:\n\n",
+        `The following modules have a module in src/Template/, but no corresponding type in ${templateTypesModuleName}.elm:\n\n`,
         staleBecauseNoType
       );
       console.log(
-        "\nYou can fix them by either defining a corresponding type in TemplateTypeDefinitions, or by deleting the Template Module file from src/Template/."
+        `\nYou can fix them by either defining a corresponding type in ${templateTypesModuleName}.elm, or by deleting the Template Module file from src/Template/.`
       );
     }
     process.exit(1);
