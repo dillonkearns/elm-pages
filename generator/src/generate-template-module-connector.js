@@ -1,7 +1,12 @@
+const fs = require("fs");
 const globby = require("globby");
 const path = require("path");
 
-function generateTemplateModuleConnector() {
+async function generateTemplateModuleConnector() {
+  fs.copyFileSync(
+    path.join(__dirname, `./Template.elm`),
+    `./elm-stuff/elm-pages/Template.elm`
+  );
   const templates = globby
     .sync(["src/Template/*.elm"], {})
     .map((file) => path.basename(file, ".elm"));
@@ -9,6 +14,10 @@ function generateTemplateModuleConnector() {
     templates.length > 1
       ? `${indentation}_ ->\n${indentation}    ${wildcardBody}`
       : ``;
+
+  /** @type {[string, boolean][]} */
+  const templatesAndState = await templatesWithLocalState(templates);
+  // console.log("templatesAndState", templatesAndState);
 
   return `module TemplateModulesBeta exposing (..)
 
@@ -22,7 +31,9 @@ import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
 import Pages.StaticHttp as StaticHttp
-${templates.map((name) => `import Template.${name}`).join("\n")}
+${templatesAndState
+  .map(([name, hasLocalState]) => `import Template.${name}`)
+  .join("\n")}
 
 
 type alias Model =
@@ -41,8 +52,8 @@ type alias Model =
 
 
 type TemplateModel
-    = ${templates
-      .map((name) => `Model${name} Template.${name}.Model\n`)
+    = ${templatesAndState
+      .map(([name, hasLocalState]) => `Model${name} Template.${name}.Model\n`)
       .join("    | ")}
     | NotFound
 
@@ -56,8 +67,8 @@ type Msg
         , fragment : Maybe String
         , metadata : TemplateType
         }
-    | ${templates
-      .map((name) => `Msg${name} Template.${name}.Msg\n`)
+    | ${templatesAndState
+      .map(([name, hasLocalState]) => `Msg${name} Template.${name}.Msg\n`)
       .join("    | ")}
 
 
@@ -74,9 +85,9 @@ view :
             }
 view siteMetadata page =
     case page.frontmatter of
-        ${templates
+        ${templatesAndState
           .map(
-            (name) =>
+            ([name, hasLocalState]) =>
               `M.${name} metadata ->
             StaticHttp.map2
                 (\\data globalData ->
@@ -151,9 +162,9 @@ init currentGlobalModel maybePagePath =
 
                 Just meta ->
                     case meta of
-                        ${templates
+                        ${templatesAndState
                           .map(
-                            (name) => `M.${name} metadata ->
+                            ([name, hasLocalState]) => `M.${name} metadata ->
                             Template.${name}.template.init metadata
                                 |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
 
@@ -221,9 +232,9 @@ update msg model =
                    )
 
 
-        ${templates
+        ${templatesAndState
           .map(
-            (name) => `
+            ([name, hasLocalState]) => `
         Msg${name} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
@@ -263,9 +274,9 @@ type alias SiteConfig =
 templateSubscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
 templateSubscriptions metadata path model =
     case model.page of
-        ${templates
+        ${templatesAndState
           .map(
-            (name) => `
+            ([name, hasLocalState]) => `
         Model${name} templateModel ->
             case metadata of
                 M.${name} templateMetadata ->
@@ -318,4 +329,44 @@ mapBoth fnA fnB ( a, b, c ) =
 `;
 }
 
+async function templatesWithLocalState(templates) {
+  return new Promise((resolve, reject) => {
+    const { compileToStringSync } = require("../node-elm-compiler/index.js");
+    fs.writeFileSync(
+      `./elm-stuff/elm-pages/TemplatesAndState.elm`,
+      hasLocalStateModule(templates)
+    );
+    const data = compileToStringSync(
+      [`./elm-stuff/elm-pages/TemplatesAndState.elm`],
+      {}
+    );
+    eval(data.toString());
+    const app = Elm.TemplatesAndState.init({ flags: null });
+    app.ports.toJs.subscribe(function (payload) {
+      resolve(payload);
+      //   console.log("@@@@ payload from Elm", payload);
+    });
+  });
+}
+
+function hasLocalStateModule(templates) {
+  return `port module TemplatesAndState exposing (main)
+
+import Template
+${templates.map((template) => `import Template.${template}`).join("\n")}
+
+
+port toJs : List ( String, Bool ) -> Cmd msg
+
+
+main =
+  Platform.worker
+    { init = \\() -> ( (), toJs [ ${templates.map(
+      (template) =>
+        `( "${template}", Template.hasLocalState Template.${template}.template )`
+    )} ] )
+    , update = \\msg model -> (model, Cmd.none)
+    , subscriptions = \\model -> Sub.none
+    }`;
+}
 module.exports = { generateTemplateModuleConnector };

@@ -4,6 +4,7 @@ module Template exposing
     , withStaticData, noStaticData
     , Template, buildNoState
     , TemplateWithState, buildWithLocalState, buildWithSharedState
+    , hasLocalState
     )
 
 {-|
@@ -52,6 +53,11 @@ import Shared
 import TemplateType exposing (TemplateType)
 
 
+hasLocalState : TemplateWithState templateMetadata templateStaticData templateModel templateMsg -> Bool
+hasLocalState template =
+    template.hasLocalState
+
+
 {-| -}
 type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
     { staticData :
@@ -70,6 +76,7 @@ type alias TemplateWithState templateMetadata templateStaticData templateModel t
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
     , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , hasLocalState : Bool
     }
 
 
@@ -118,6 +125,7 @@ buildNoState { view } builderState =
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ -> Sub.none
+            , hasLocalState = False
             }
 
 
@@ -154,6 +162,7 @@ buildWithLocalState config builderState =
             , subscriptions =
                 \templateMetadata path templateModel sharedModel ->
                     config.subscriptions templateMetadata path templateModel
+            , hasLocalState = True
             }
 
 
@@ -181,6 +190,7 @@ buildWithSharedState config builderState =
             , init = config.init
             , update = config.update
             , subscriptions = config.subscriptions
+            , hasLocalState = True
             }
 
 

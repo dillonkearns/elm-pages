@@ -63,7 +63,7 @@ async function writeFiles(markdownContent) {
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
-  const templateConnectorFile = generateTemplateModuleConnector();
+  const templateConnectorFile = await generateTemplateModuleConnector();
   generateTemplateTypeModule();
 
   fs.writeFileSync("./gen/Pages.elm", uiFileContent);
