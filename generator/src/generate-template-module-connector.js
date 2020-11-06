@@ -1,8 +1,10 @@
 const fs = require("fs");
+const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 const globby = require("globby");
 const path = require("path");
 
 async function generateTemplateModuleConnector() {
+  ensureDirSync("./elm-stuff/elm-pages");
   fs.copyFileSync(
     path.join(__dirname, `./Template.elm`),
     `./elm-stuff/elm-pages/Template.elm`
