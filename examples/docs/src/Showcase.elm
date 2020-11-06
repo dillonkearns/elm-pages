@@ -8,7 +8,6 @@ import OptimizedDecoder as Decode
 import Pages.Secrets as Secrets
 import Pages.StaticHttp as StaticHttp
 import Palette
-import Url.Builder
 
 
 view : List Entry -> Element.Element msg
@@ -21,6 +20,7 @@ view entries =
         )
 
 
+submitShowcaseItemButton : Element.Element msg
 submitShowcaseItemButton =
     Element.newTabLink
         [ Element.Font.color Palette.color.primary
@@ -135,27 +135,3 @@ staticRequest =
             |> Secrets.with "AIRTABLE_TOKEN"
         )
         decoder
-
-
-allCategroies : List String
-allCategroies =
-    [ "Documentation"
-    , "eCommerce"
-    , "Conference"
-    , "Consulting"
-    , "Education"
-    , "Entertainment"
-    , "Event"
-    , "Food"
-    , "Freelance"
-    , "Gallery"
-    , "Landing Page"
-    , "Music"
-    , "Nonprofit"
-    , "Podcast"
-    , "Portfolio"
-    , "Programming"
-    , "Sports"
-    , "Travel"
-    , "Blog"
-    ]
