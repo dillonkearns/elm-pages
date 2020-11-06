@@ -339,6 +339,10 @@ mapBoth fnA fnB ( a, b, c ) =
 `;
 }
 
+/**
+ * @param {string[]} templates
+ * @returns {Promise<[string, boolean][]]>}
+ */
 async function templatesWithLocalState(templates) {
   return new Promise((resolve, reject) => {
     const { compileToStringSync } = require("../node-elm-compiler/index.js");
@@ -359,6 +363,9 @@ async function templatesWithLocalState(templates) {
   });
 }
 
+/**
+ * @param {string[]} templates
+ */
 function hasLocalStateModule(templates) {
   return `port module TemplatesAndState exposing (main)
 
@@ -371,10 +378,12 @@ port toJs : List ( String, Bool ) -> Cmd msg
 
 main =
   Platform.worker
-    { init = \\() -> ( (), toJs [ ${templates.map(
-      (template) =>
-        `( "${template}", Template.hasLocalState Template.${template}.template )`
-    )} ] )
+    { init = \\() -> ( (), toJs [ ${templates
+      .map(
+        (template) =>
+          `( "${template}", Template.hasLocalState Template.${template}.template )`
+      )
+      .join(",")} ] )
     , update = \\msg model -> (model, Cmd.none)
     , subscriptions = \\model -> Sub.none
     }`;
