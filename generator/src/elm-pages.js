@@ -45,7 +45,7 @@ const stubManifest = {
   }
 }
 
-function run() {
+async function run() {
   const markdownContent = globby
     .sync(["content/**/*.*"], {})
     .map(unpackFile)

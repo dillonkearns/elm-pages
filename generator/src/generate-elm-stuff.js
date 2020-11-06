@@ -9,7 +9,7 @@ const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 let wasEqualBefore = false;
 
-module.exports = function run(mode, staticRoutes, markdownContent) {
+module.exports = async function run(mode, staticRoutes, markdownContent) {
   ensureDirSync("./elm-stuff");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages");
@@ -19,7 +19,7 @@ module.exports = function run(mode, staticRoutes, markdownContent) {
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
-  const templateConnectorFile = generateTemplateModuleConnector();
+  const templateConnectorFile = await generateTemplateModuleConnector();
   const codeGenFingerprint = uiFileContent + templateConnectorFile;
 
   // TODO should just write it once, but webpack doesn't seem to pick up the changes
