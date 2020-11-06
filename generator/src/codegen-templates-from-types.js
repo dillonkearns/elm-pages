@@ -154,7 +154,7 @@ async function writeTemplateModules(typeNames) {
  */
 function tempateModuleFileContent(templateName) {
   return `
-module Template.${templateName} exposing (Model, Msg, template)
+module Template.${templateName} exposing (template)
 
 import Head
 import Pages
@@ -163,14 +163,6 @@ import Shared
 import Template exposing (StaticPayload, Template)
 import ${templateTypesModuleName} exposing (${templateName})
 import TemplateType exposing (TemplateType)
-
-
-type alias Model =
-    ()
-
-
-type alias Msg =
-    Never
 
 
 type alias StaticData =
