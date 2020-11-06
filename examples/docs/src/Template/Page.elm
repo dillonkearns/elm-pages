@@ -1,4 +1,4 @@
-module Template.Page exposing (Model, Msg, decoder, template)
+module Template.Page exposing (decoder, template)
 
 import Element exposing (Element)
 import Element.Region
@@ -12,14 +12,6 @@ import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateType exposing (TemplateType)
 import TemplateTypeDefs exposing (Page)
-
-
-type alias Model =
-    ()
-
-
-type alias Msg =
-    Never
 
 
 template : Template Page ()

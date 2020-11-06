@@ -1,4 +1,4 @@
-module Template.Article exposing (Model, Msg, decoder, template)
+module Template.Article exposing (decoder, template)
 
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -19,14 +19,6 @@ import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateType exposing (TemplateType)
 import TemplateTypeDefs exposing (Article)
-
-
-type alias Model =
-    ()
-
-
-type alias Msg =
-    Never
 
 
 template : Template Article ()

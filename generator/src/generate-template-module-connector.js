@@ -53,7 +53,11 @@ type alias Model =
 
 type TemplateModel
     = ${templatesAndState
-      .map(([name, hasLocalState]) => `Model${name} Template.${name}.Model\n`)
+      .map(([name, hasLocalState]) =>
+        hasLocalState
+          ? `Model${name} Template.${name}.Model\n`
+          : `Model${name} ()\n`
+      )
       .join("    | ")}
     | NotFound
 
@@ -68,7 +72,11 @@ type Msg
         , metadata : TemplateType
         }
     | ${templatesAndState
-      .map(([name, hasLocalState]) => `Msg${name} Template.${name}.Msg\n`)
+      .map(([name, hasLocalState]) =>
+        hasLocalState
+          ? `Msg${name} Template.${name}.Msg\n`
+          : `Msg${name} Never\n`
+      )
       .join("    | ")}
 
 

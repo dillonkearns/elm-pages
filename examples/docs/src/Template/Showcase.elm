@@ -1,4 +1,4 @@
-module Template.Showcase exposing (Model, Msg, decoder, template)
+module Template.Showcase exposing (decoder, template)
 
 import Element exposing (Element)
 import Head
@@ -9,20 +9,12 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
-import Template exposing (StaticPayload, TemplateWithState)
+import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateType exposing (TemplateType)
 import TemplateTypeDefs exposing (Showcase)
 
 
-type alias Model =
-    ()
-
-
-type alias Msg =
-    Never
-
-
-template : TemplateWithState Showcase StaticData () Msg
+template : Template Showcase StaticData
 template =
     Template.withStaticData
         { head = head
