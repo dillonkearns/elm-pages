@@ -1,7 +1,6 @@
 module Pages.ContentCache exposing
     ( ContentCache
     , Entry(..)
-    , Page
     , Path
     , errorView
     , extractMetadata
@@ -11,7 +10,6 @@ module Pages.ContentCache exposing
     , lookupMetadata
     , pagesWithErrors
     , parseContent
-    , pathForUrl
     , routesForCache
     , update
     )
@@ -286,13 +284,6 @@ routesForCache cacheResult =
 
         Err _ ->
             []
-
-
-type alias Page metadata view pathKey =
-    { metadata : metadata
-    , path : PagePath pathKey
-    , view : view
-    }
 
 
 combineTupleResults :

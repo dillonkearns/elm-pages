@@ -43,7 +43,6 @@ writing a plugin package to extend `elm-pages`.
 
 -}
 
-import Codec exposing (Codec)
 import Json.Encode
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)

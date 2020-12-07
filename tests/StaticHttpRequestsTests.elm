@@ -1,7 +1,7 @@
 module StaticHttpRequestsTests exposing (all)
 
 import Codec
-import Dict exposing (Dict)
+import Dict
 import Expect
 import Html
 import Json.Decode as JD
@@ -26,7 +26,7 @@ import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, only, skip, test)
+import Test exposing (Test, describe, test)
 import Test.Http
 
 
@@ -980,18 +980,6 @@ expectErrorsPort expectedPlainString actualPorts =
 
         _ ->
             Expect.fail <| "Expected single error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)
-
-
-expectNonfatalErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
-expectNonfatalErrorsPort expectedPlainString actualPorts =
-    case actualPorts of
-        [ ToJsPayload.Success successPayload ] ->
-            successPayload.errors
-                |> String.join "\n\n"
-                |> normalizeErrorExpectEqual expectedPlainString
-
-        _ ->
-            Expect.fail <| "Expected single non-fatal error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)
 
 
 normalizeErrorExpectEqual : String -> String -> Expect.Expectation

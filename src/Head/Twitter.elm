@@ -1,66 +1,7 @@
-module Head.Twitter exposing (SummarySize(..), TwitterCard(..), rawTags, summaryLarge, summaryRegular)
+module Head.Twitter exposing (SummarySize(..), TwitterCard(..), rawTags)
 
 import Head
 import Pages.ImagePath exposing (ImagePath)
-
-
-{-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary>
--}
-summaryRegular details =
-    Summary
-        { title = details.title
-        , description = details.description
-        , siteUser = details.siteUser
-        , image = details.image
-        , size = Regular
-        }
-        |> tags
-
-
-{-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/summary-card-with-large-image.html>
--}
-summaryLarge details =
-    Summary
-        { title = details.title
-        , description = details.description
-        , siteUser = details.siteUser
-        , image = details.image
-        , size = Large
-        }
-        |> tags
-
-
-{-| <https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/app-card>
--}
-app :
-    { title : String
-    , description : Maybe String
-    , siteUser : String
-    , image : Maybe (Image pathKey)
-    , appIdIphone : Maybe Int
-    , appIdIpad : Maybe Int
-    , appIdGooglePlay : Maybe String
-    , appUrlIphone : Maybe String
-    , appUrlIpad : Maybe String
-    , appUrlGooglePlay : Maybe String
-    , appCountry : Maybe String
-    , appNameIphone : Maybe String
-    , appNameIpad : Maybe String
-    , appNameGooglePlay : Maybe String
-    }
-    -> List (Head.Tag pathKey)
-app details =
-    App details
-        |> tags
-
-
-ensureAtPrefix : String -> String
-ensureAtPrefix twitterUsername =
-    if twitterUsername |> String.startsWith "@" then
-        twitterUsername
-
-    else
-        "@" ++ twitterUsername
 
 
 type SummarySize
@@ -148,17 +89,6 @@ rawTags card =
                     , ( "twitter:image:alt", details.image.alt |> Head.raw |> Just )
                     ]
            )
-
-
-tags : TwitterCard pathKey -> List (Head.Tag pathKey)
-tags card =
-    card
-        |> rawTags
-        |> List.filterMap
-            (\( name, maybeContent ) ->
-                maybeContent
-                    |> Maybe.map (\content -> Head.metaName name content)
-            )
 
 
 cardValue : TwitterCard pathKey -> String

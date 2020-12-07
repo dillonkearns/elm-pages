@@ -74,12 +74,6 @@ import Pages.PagePath as PagePath exposing (PagePath)
 -- TODO use language https://developer.mozilla.org/en-US/docs/Web/Manifest/lang
 
 
-type alias Language =
-    { dir : String -- "rtl",
-    , lang : String -- "ar" -- TODO should this be an enum? What standard code?
-    }
-
-
 {-| See <https://developer.mozilla.org/en-US/docs/Web/Manifest/display>
 -}
 type DisplayMode
@@ -186,11 +180,6 @@ type IconPurpose
     = IconPurposeMonochrome
     | IconPurposeMaskable
     | IconPurposeAny
-
-
-square : Int -> ( Int, Int )
-square x =
-    ( x, x )
 
 
 displayModeToAttribute : DisplayMode -> String

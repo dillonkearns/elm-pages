@@ -1,9 +1,8 @@
-module Pages.StaticHttpRequest exposing (Error(..), Request(..), Status(..), cacheRequestResolution, permanentError, resolve, resolveUrls, strippedResponses, toBuildError, urls)
+module Pages.StaticHttpRequest exposing (Error(..), Request(..), Status(..), cacheRequestResolution, resolve, resolveUrls, strippedResponses, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
-import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
-import Pages.Internal.StaticHttpBody as StaticHttpBody
+import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
@@ -41,16 +40,6 @@ type Error
     | UserCalledStaticHttpFail String
 
 
-urls : Request value -> List (Secrets.Value Pages.StaticHttp.Request.Request)
-urls request =
-    case request of
-        Request ( urlList, lookupFn ) ->
-            urlList
-
-        Done value ->
-            []
-
-
 toBuildError : String -> Error -> BuildError
 toBuildError path error =
     case error of
@@ -83,29 +72,6 @@ toBuildError path error =
                 ]
             , fatal = True
             }
-
-
-permanentError : ApplicationType -> Request value -> RequestsAndPending -> Maybe Error
-permanentError appType request rawResponses =
-    case request of
-        Request ( urlList, lookupFn ) ->
-            case lookupFn appType rawResponses of
-                Ok ( partiallyStrippedResponses, nextRequest ) ->
-                    permanentError appType nextRequest rawResponses
-
-                Err error ->
-                    case error of
-                        MissingHttpResponse _ ->
-                            Nothing
-
-                        DecoderError _ ->
-                            Just error
-
-                        UserCalledStaticHttpFail string ->
-                            Just error
-
-        Done value ->
-            Nothing
 
 
 resolve : ApplicationType -> Request value -> RequestsAndPending -> Result Error value

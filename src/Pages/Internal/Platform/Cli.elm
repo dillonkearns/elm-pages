@@ -3,14 +3,13 @@ module Pages.Internal.Platform.Cli exposing
     , Flags
     , Model
     , Msg(..)
-    , Page
     , cliApplication
     , init
     , update
     )
 
 import BuildError exposing (BuildError)
-import Codec exposing (Codec)
+import Codec
 import Dict exposing (Dict)
 import ElmHtml.InternalTypes exposing (decodeElmHtml)
 import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
@@ -26,7 +25,7 @@ import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
-import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload, ToJsSuccessPayload)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -36,19 +35,6 @@ import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
 import Url
-
-
-type alias FileToGenerate =
-    { path : List String
-    , content : String
-    }
-
-
-type alias Page metadata view pathKey =
-    { metadata : metadata
-    , path : PagePath pathKey
-    , view : view
-    }
 
 
 type alias Content =
@@ -279,17 +265,6 @@ perform config cliMsgConstructor toJsPort effect =
             Cmd.none
 
 
-encodeFilesToGenerate list =
-    list
-        |> Json.Encode.list
-            (\item ->
-                Json.Encode.object
-                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
-                    , ( "content", item.content |> Json.Encode.string )
-                    ]
-            )
-
-
 
 --Task.succeed ()
 --    |> Task.perform (\_ -> Continue)
@@ -356,33 +331,6 @@ init toModel contentCache siteMetadata config flags =
                     (siteMetadata |> Result.withDefault [])
                 )
                 toModel
-
-
-elmToHtmlBetaInit { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
-    --case flags of
-    --init toModel contentCache siteMetadata config flags
-    --|> Tuple.mapSecond (perform cliMsgConstructor config.toJsPort)
-    --|> Tuple.mapSecond
-    --    (\cmd ->
-    --Cmd.map AppMsg
-    --Cmd.none
-    ( toModel
-        (Model StaticResponses.error
-            secrets
-            []
-            --(metadataParserErrors |> List.map Tuple.second)
-            staticHttpCache
-            mode
-            []
-        )
-    , Effect.NoEffect
-      --, { html =
-      --        Html.div []
-      --            [ Html.text "Hello!!!!!" ]
-      --            |> viewRenderer
-      --  }
-      --    |> Effect.SendSinglePage
-    )
 
 
 

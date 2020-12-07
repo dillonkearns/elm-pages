@@ -1,7 +1,7 @@
 module BetaStaticHttpRequestsTests exposing (all)
 
 import Codec
-import Dict exposing (Dict)
+import Dict
 import Expect
 import Html
 import Json.Decode as JD
@@ -12,7 +12,7 @@ import Pages.Document as Document
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli as Main exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
-import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
@@ -20,14 +20,12 @@ import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as Request
 import PagesHttp
 import ProgramTest exposing (ProgramTest)
-import Regex
 import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, only, skip, test)
-import Test.Http
+import Test exposing (Test, describe, test)
 
 
 all : Test
@@ -296,56 +294,6 @@ simulateEffects effect =
 --    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
 
 
-expectErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
-expectErrorsPort expectedPlainString actualPorts =
-    case actualPorts of
-        [ ToJsPayload.Errors actualRichTerminalString ] ->
-            actualRichTerminalString
-                |> normalizeErrorExpectEqual expectedPlainString
-
-        [] ->
-            Expect.fail "Expected single error port. Didn't receive any ports."
-
-        _ ->
-            Expect.fail <| "Expected single error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)
-
-
-expectNonfatalErrorsPort : String -> List (ToJsPayload pathKey) -> Expect.Expectation
-expectNonfatalErrorsPort expectedPlainString actualPorts =
-    case actualPorts of
-        [ ToJsPayload.Success successPayload ] ->
-            successPayload.errors
-                |> String.join "\n\n"
-                |> normalizeErrorExpectEqual expectedPlainString
-
-        _ ->
-            Expect.fail <| "Expected single non-fatal error port. Got\n" ++ String.join "\n\n" (List.map Debug.toString actualPorts)
-
-
-normalizeErrorExpectEqual : String -> String -> Expect.Expectation
-normalizeErrorExpectEqual expectedPlainString actualRichTerminalString =
-    actualRichTerminalString
-        |> Regex.replace
-            (Regex.fromString "\u{001B}\\[[0-9;]+m"
-                |> Maybe.withDefault Regex.never
-            )
-            (\_ -> "")
-        |> Expect.equal expectedPlainString
-
-
-normalizeErrorsExpectEqual : List String -> List String -> Expect.Expectation
-normalizeErrorsExpectEqual expectedPlainStrings actualRichTerminalStrings =
-    actualRichTerminalStrings
-        |> List.map
-            (Regex.replace
-                (Regex.fromString "\u{001B}\\[[0-9;]+m"
-                    |> Maybe.withDefault Regex.never
-                )
-                (\_ -> "")
-            )
-        |> Expect.equalLists expectedPlainStrings
-
-
 toJsPort foo =
     Cmd.none
 
@@ -413,23 +361,6 @@ expectSuccess expectedRequests previous =
                                 )
                             |> Dict.fromList
                         )
-            )
-
-
-expectError : List String -> ProgramTest model msg effect -> Expect.Expectation
-expectError expectedErrors previous =
-    previous
-        |> ProgramTest.expectOutgoingPortValues
-            "toJsPort"
-            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-            (\value ->
-                case value of
-                    [ ToJsPayload.PageProgress portPayload ] ->
-                        portPayload.errors
-                            |> normalizeErrorsExpectEqual expectedErrors
-
-                    _ ->
-                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
             )
 
 

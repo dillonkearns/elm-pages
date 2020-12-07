@@ -569,39 +569,6 @@ lazy toDecoder =
         jde
 
 
-{-| Useful for checking a value in the JSON matches the value you expect it to
-have. If it does, succeeds with the second decoder. If it doesn't it fails.
-
-This can be used to decode union types:
-
-    type Pet = Cat | Dog | Rabbit
-
-    petDecoder : Decoder Pet
-    petDecoder =
-        oneOf
-            [ check string "cat" <| succeed Cat
-            , check string "dog" <| succeed Dog
-            , check string "rabbit" <| succeed Rabbit
-            ]
-
-    """ [ "dog", "rabbit", "cat" ] """
-        |> decodeString (list petDecoder)
-    --> Success [ Dog, Rabbit, Cat ]
-
--}
-check : Decoder a -> a -> Decoder b -> Decoder b
-check checkDecoder expectedVal actualDecoder =
-    checkDecoder
-        |> andThen
-            (\actual ->
-                if actual == expectedVal then
-                    actualDecoder
-
-                else
-                    fail "Verification failed"
-            )
-
-
 
 -- Mapping and chaining
 

@@ -38,34 +38,6 @@ succeed value =
     Value (\_ -> Ok value)
 
 
-append : Value (List value) -> Value (List value) -> Value (List value)
-append (Value lookupSecrets1) (Value lookupSecrets2) =
-    Value
-        (\secrets ->
-            let
-                secrets1 : Result (List BuildError) (List value)
-                secrets1 =
-                    lookupSecrets1 secrets
-
-                secrets2 : Result (List BuildError) (List value)
-                secrets2 =
-                    lookupSecrets2 secrets
-            in
-            case ( secrets1, secrets2 ) of
-                ( Ok value1, Ok value2 ) ->
-                    Ok (value1 ++ value2)
-
-                ( Ok value1, Err errors2 ) ->
-                    Err errors2
-
-                ( Err errors1, Ok value2 ) ->
-                    Err errors1
-
-                ( Err errors1, Err errors2 ) ->
-                    Err (errors1 ++ errors2)
-        )
-
-
 buildError : String -> SecretsDict -> BuildError
 buildError secretName secretsDict =
     let

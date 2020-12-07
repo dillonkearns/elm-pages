@@ -1,12 +1,11 @@
-module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Page, Program, application, cliApplication)
+module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Program, application, cliApplication)
 
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
-import Dict exposing (Dict)
 import Head
 import Html exposing (Html)
-import Html.Attributes exposing (style)
+import Html.Attributes
 import Html.Lazy
 import Http
 import Json.Decode as Decode
@@ -22,16 +21,8 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
-import Result.Extra
-import Task exposing (Task)
+import Task
 import Url exposing (Url)
-
-
-type alias Page metadata view pathKey =
-    { metadata : metadata
-    , path : PagePath pathKey
-    , view : view
-    }
 
 
 type alias Content =

@@ -1,4 +1,4 @@
-module Head.Seo exposing (Common, Image, article, audioPlayer, profile, song, summary, summaryLarge, videoPlayer, website)
+module Head.Seo exposing (Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website)
 
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
@@ -45,14 +45,14 @@ with the `head` function that you pass to your Pages config (`Pages.application`
                 , expirationTime = Nothing
                 }
 
-@docs Common, Image, article, audioPlayer, profile, song, summary, summaryLarge, videoPlayer, website
+@docs Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
 
 -}
 
 import Head
 import Head.Twitter as Twitter
-import Pages.ImagePath as ImagePath exposing (ImagePath)
-import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.ImagePath exposing (ImagePath)
+import Pages.PagePath exposing (PagePath)
 
 
 {-| Will be displayed as a large card in twitter

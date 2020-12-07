@@ -12,7 +12,6 @@ import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
-import Result.Extra
 import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set
@@ -149,12 +148,6 @@ update newEntry model =
     { model
         | allRawResponses = updatedAllResponses
     }
-
-
-dictCompact : Dict String (Maybe a) -> Dict String a
-dictCompact dict =
-    dict
-        |> Dict.Extra.filterMap (\key value -> value)
 
 
 encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict String String)
@@ -507,13 +500,3 @@ combineMultipleErrors results =
         )
         (Ok [])
         results
-
-
-isJust : Maybe a -> Bool
-isJust maybeValue =
-    case maybeValue of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
