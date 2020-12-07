@@ -439,7 +439,6 @@ type AppMsg userMsg metadata view
     | UserMsg userMsg
     | UpdateCache (Result Http.Error (ContentCache metadata view))
     | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
-    | UpdateCacheForHotReload (Result Http.Error (ContentCache metadata view))
     | PageScrollComplete
     | HotReloadComplete ContentJson
     | StartingHotReload
@@ -669,15 +668,6 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                             -- TODO handle error
                             ( { model | url = url }, Cmd.none )
 
-                UpdateCacheForHotReload cacheUpdateResult ->
-                    case cacheUpdateResult of
-                        Ok updatedCache ->
-                            ( { model | contentCache = updatedCache }, Cmd.none )
-
-                        Err _ ->
-                            -- TODO handle error
-                            ( model, Cmd.none )
-
                 PageScrollComplete ->
                     ( model, Cmd.none )
 
@@ -687,12 +677,6 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                         , hmrStatus = HmrLoaded
                       }
                     , Cmd.none
-                      -- ContentCache.init document content (Maybe.map (\cj -> { contentJson = contentJson, initialUrl = model.url }) Nothing)
-                      --|> ContentCache.lazyLoad document
-                      --    { currentUrl = model.url
-                      --    , baseUrl = model.baseUrl
-                      --    }
-                      --|> Task.attempt UpdateCacheForHotReload
                     )
 
                 StartingHotReload ->

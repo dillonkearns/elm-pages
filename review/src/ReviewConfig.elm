@@ -11,6 +11,8 @@ when inside the directory containing this file.
 
 -}
 
+import NoInconsistentAliases
+import NoModuleOnExposedNames
 import NoUnused.CustomTypeConstructorArgs
 import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
@@ -19,7 +21,7 @@ import NoUnused.Modules
 import NoUnused.Parameters
 import NoUnused.Patterns
 import NoUnused.Variables
-import Review.Rule exposing (Rule)
+import Review.Rule as Rule exposing (Rule)
 
 
 config : List Rule
@@ -29,8 +31,18 @@ config =
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
     , NoUnused.Modules.rule
+        |> Rule.ignoreErrorsForFiles [ "src/StructuredData.elm" ]
 
     --, NoUnused.Parameters.rule
     --, NoUnused.Patterns.rule
     , NoUnused.Variables.rule
+    , NoInconsistentAliases.config
+        [--( "Html.Attributes", "Attr" )
+         --, ( "Json.Decode", "Decode" )
+         --, ( "Json.Encode", "Encode" )
+        ]
+        |> NoInconsistentAliases.noMissingAliases
+        |> NoInconsistentAliases.rule
+
+    --, NoModuleOnExposedNames.rule
     ]
