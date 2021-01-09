@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 
 const cliVersion = require("../../package.json").version;
 const indexTemplate = require("./index-template.js");
@@ -10,6 +11,7 @@ const exec = util.promisify(require("child_process").exec);
 const spawnCallback = require("child_process").spawn;
 const codegen = require("./codegen.js");
 const generateManifest = require("./generate-manifest.js");
+const terser = require("terser");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -107,14 +109,13 @@ function cleanRoute(route) {
 async function elmToEsm(elmPath) {
   const elmEs3 = await fs.readFile(elmPath, "utf8");
 
-  const elmEsm =
+  return (
     "\n" +
     "const scope = {};\n" +
     elmEs3.replace("}(this));", "}(scope));") +
     "export const { Elm } = scope;\n" +
-    "\n";
-
-  await fs.writeFile(elmPath, elmEsm);
+    "\n"
+  );
 }
 
 /**
@@ -159,8 +160,9 @@ async function compileElm() {
   const outputPath = `dist/elm.js`;
   await spawnElmMake("src/Main.elm", outputPath);
 
-  await elmToEsm(path.join(process.cwd(), outputPath));
-  runTerser(outputPath);
+  const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
+  const elmFileOutput = await runTerserNew(elmEsmContent);
+  await fs.writeFile(path.join(process.cwd(), outputPath), elmFileOutput);
 }
 
 function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
@@ -194,12 +196,46 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
 }
 
 /**
- * @param {string} filePath
+ * @param {string} fileContents
+ * @returns string
  */
-async function runTerser(filePath) {
-  await shellCommand(
-    `npx terser ${filePath} --module --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | npx terser --module --mangle --output=${filePath}`
-  );
+async function runTerserNew(fileContents) {
+  const minifiedElm = await terser.minify(fileContents, {
+    ecma: 5,
+
+    module: true,
+    compress: {
+      pure_funcs: [
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        "A9",
+      ],
+      pure_getters: true,
+      keep_fargs: false,
+      unsafe_comps: true,
+      unsafe: true,
+    },
+    mangle: true,
+  });
+  const code = minifiedElm.code;
+  if (code) {
+    return code;
+  } else {
+    throw "Error running terser.";
+  }
 }
 
 async function copyAssets() {
