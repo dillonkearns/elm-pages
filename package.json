@@ -59,6 +59,7 @@
     "xhr2": "^0.2.0"
   },
   "devDependencies": {
+    "@incrementalelm/elm-ts-interop-pro": "^0.0.10",
     "@types/express": "^4.17.0",
     "@types/jest": "^25.2.2",
     "@types/node": "^12.7.7",
