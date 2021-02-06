@@ -15,6 +15,7 @@ const terser = require("terser");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
+const debug = false;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -161,8 +162,12 @@ async function compileElm() {
   await spawnElmMake("src/Main.elm", outputPath);
 
   const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
-  const elmFileOutput = await runTerserNew(elmEsmContent);
-  await fs.writeFile(path.join(process.cwd(), outputPath), elmFileOutput);
+  if (debug) {
+    await fs.writeFile(path.join(process.cwd(), outputPath), elmEsmContent);
+  } else {
+    const elmFileOutput = await runTerserNew(elmEsmContent);
+    await fs.writeFile(path.join(process.cwd(), outputPath), elmFileOutput);
+  }
 }
 
 function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
@@ -173,15 +178,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
-    const subprocess = spawnCallback(
-      `elm-optimize-level-2`,
-      [elmEntrypointPath, "--output", outputPath],
-      {
-        // ignore stdout
-        stdio: ["inherit", "ignore", "inherit"],
-        cwd: cwd,
-      }
-    );
+    const subprocess = runElm(elmEntrypointPath, outputPath, cwd)
 
     subprocess.on("close", (code) => {
       const fileOutputExists = fs.existsSync(fullOutputPath);
@@ -193,6 +190,36 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
       }
     });
   });
+}
+
+/**
+ * @param {string} elmEntrypointPath
+ * @param {string} outputPath
+ * @param {string} cwd
+ */
+function runElm(elmEntrypointPath, outputPath, cwd) {
+  if (debug) {
+    return spawnCallback(
+      `elm`,
+      ["make", elmEntrypointPath, "--output", outputPath, "--debug"],
+      {
+        // ignore stdout
+        stdio: ["inherit", "ignore", "inherit"],
+        cwd: cwd,
+      }
+    );
+  } else {
+    return spawnCallback(
+      `elm-optimize-level-2`,
+      [elmEntrypointPath, "--output", outputPath],
+      {
+        // ignore stdout
+        stdio: ["inherit", "ignore", "inherit"],
+        cwd: cwd,
+      }
+    );
+  }
+
 }
 
 /**
@@ -255,7 +282,7 @@ async function compileCliApp() {
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return x"
+      ('return ' + (debug ? '_Json_wrap(x)' : 'x'))
     )
   );
 }
