@@ -8,6 +8,8 @@
   "scripts": {
     "build": "cd generator && elm make src/Main.elm --output src/Main.js --optimize",
     "test": "elm-test && jest --rootDir jest-tests",
+    "generate-dts": "(cd generator && npx elm-ts-interop --entrypoint Main --output elm.d.ts)",
+    "typecheck": "npm run generate-dts && (cd generator && npx tsc)",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
@@ -59,7 +61,7 @@
     "xhr2": "^0.2.0"
   },
   "devDependencies": {
-    "@incrementalelm/elm-ts-interop-pro": "^0.0.10",
+    "@incrementalelm/elm-ts-interop-pro": "^0.0.11",
     "@types/express": "^4.17.0",
     "@types/jest": "^25.2.2",
     "@types/node": "^12.7.7",

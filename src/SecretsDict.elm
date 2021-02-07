@@ -1,7 +1,8 @@
-module SecretsDict exposing (SecretsDict, available, decoder, get, masked, unmasked)
+module SecretsDict exposing (SecretsDict, available, decoder, get, masked, tsDecoder, unmasked)
 
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder)
+import TsJson.Decode as TsDecode
 
 
 available : SecretsDict -> List String
@@ -18,6 +19,12 @@ decoder : Decoder SecretsDict
 decoder =
     Decode.dict Decode.string
         |> Decode.map Unmasked
+
+
+tsDecoder : TsDecode.Decoder SecretsDict
+tsDecoder =
+    TsDecode.dict TsDecode.string
+        |> TsDecode.map Unmasked
 
 
 unmasked : Dict String String -> SecretsDict

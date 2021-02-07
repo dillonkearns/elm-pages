@@ -1,6 +1,8 @@
 module Pages.Internal.Platform.Mode exposing (..)
 
 import Json.Decode as Decode
+import Json.Encode as Encode
+import TsJson.Decode as TsDecode
 
 
 type Mode
@@ -22,3 +24,12 @@ modeDecoder =
                 else
                     Decode.succeed Dev
             )
+
+
+tsModeDecoder : TsDecode.Decoder Mode
+tsModeDecoder =
+    TsDecode.oneOf
+        [ TsDecode.literal Prod (Encode.string "prod")
+        , TsDecode.literal ElmToHtmlBeta (Encode.string "elm-to-html-beta")
+        , TsDecode.literal Dev (Encode.string "dev")
+        ]

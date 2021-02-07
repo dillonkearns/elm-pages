@@ -34,6 +34,7 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
+import TsJson.Decode as TsDecode
 import Url
 
 
@@ -99,7 +100,8 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -272,25 +274,25 @@ perform config cliMsgConstructor toJsPort effect =
 
 
 flagsDecoder :
-    Decode.Decoder
+    TsDecode.Decoder
         { secrets : SecretsDict
         , mode : Mode
         , staticHttpCache : Dict String (Maybe String)
         }
 flagsDecoder =
-    Decode.map3
+    TsDecode.map3
         (\secrets mode staticHttpCache ->
             { secrets = secrets
             , mode = mode
             , staticHttpCache = staticHttpCache
             }
         )
-        (Decode.field "secrets" SecretsDict.decoder)
-        (Decode.field "mode" Mode.modeDecoder)
-        (Decode.field "staticHttpCache"
-            (Decode.dict
-                (Decode.string
-                    |> Decode.map Just
+        (TsDecode.field "secrets" SecretsDict.tsDecoder)
+        (TsDecode.field "mode" Mode.tsModeDecoder)
+        (TsDecode.field "staticHttpCache"
+            (TsDecode.dict
+                (TsDecode.string
+                    |> TsDecode.map Just
                 )
             )
         )
@@ -820,7 +822,8 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List BuildError)
+        Result
+            (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

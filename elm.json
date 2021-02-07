@@ -24,6 +24,7 @@
         "ThinkAlexandria/elm-html-in-elm": "1.0.1 <= v < 2.0.0",
         "avh4/elm-color": "1.0.0 <= v < 2.0.0",
         "danyx23/elm-mimetype": "4.0.1 <= v < 5.0.0",
+        "dillonkearns/elm-ts-json": "1.0.0 <= v < 2.0.0",
         "elm/browser": "1.0.1 <= v < 2.0.0",
         "elm/core": "1.0.2 <= v < 2.0.0",
         "elm/html": "1.0.0 <= v < 2.0.0",

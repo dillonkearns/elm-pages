@@ -6,7 +6,12 @@
     "strict": true,
     "sourceMap": false,
     "resolveJsonModule": true,
-    "lib": ["es2015", "es2017.object"]
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["es2015", "es2017.object", "dom"],
+    "allowUmdGlobalAccess": true,
+    "noEmit": true,
   },
+  "include": ["src/cli.js"],
   "exclude": ["node_modules", "generated"]
 }

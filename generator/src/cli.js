@@ -57,9 +57,13 @@ function runElmApp() {
   });
 
   return new Promise((resolve, _) => {
-    const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
+    const mode /** @type { "dev" | "prod" | "elm-to-html-beta" } */ =
+      "elm-to-html-beta";
+    /** @type {{ [key: string]: string; }} */
     const staticHttpCache = {};
-    const app = require(ELM_FILE_PATH).Elm.Main.init({
+    /** @type {import('../elm')} */
+    const { Elm } = require(ELM_FILE_PATH);
+    const app = Elm.Main.init({
       flags: { secrets: process.env, mode, staticHttpCache },
     });
 
