@@ -33,6 +33,7 @@ async function ensureRequiredDirs() {
 
 async function run() {
   await ensureRequiredDirs();
+  // @ts-ignore
   XMLHttpRequest = require("xhr2");
 
   await codegen.generate();
@@ -185,7 +186,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
     subprocess.on("close", (code) => {
       const fileOutputExists = fs.existsSync(fullOutputPath);
       if (code == 0 && fileOutputExists) {
-        resolve();
+        resolve(null);
       } else {
         reject();
         process.exit(1);
