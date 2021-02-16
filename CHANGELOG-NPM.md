@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.5.5] - 2020-02-16
+
+### Fixed
+
+- Use `cross-spawn` in the beta build to support running on Windows. Thank you @Y0hy0h for fix [#161](https://github.com/dillonkearns/elm-pages/pull/161)!
+
 ## [1.5.4] - 2020-11-02
 
 ### Fixed
