@@ -10,7 +10,7 @@
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "dependencies": {
-    "node-sass": "^4.12.0"
+    "node-sass": "^4.13.1"
   },
   "devDependencies": {
     "elm": "^0.19.1-3",
