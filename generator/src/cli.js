@@ -8,7 +8,7 @@ const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
 const exec = util.promisify(require("child_process").exec);
-const spawnCallback = require("child_process").spawn;
+const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const generateManifest = require("./generate-manifest.js");
 const terser = require("terser");
@@ -126,10 +126,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-        .split("/")
-        .map((_) => "..")
-        .join("/")
-        .replace(/\.$/, "./");
+      .split("/")
+      .map((_) => "..")
+      .join("/")
+      .replace(/\.$/, "./");
 }
 
 /**
