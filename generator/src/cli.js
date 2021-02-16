@@ -3,11 +3,9 @@
 
 const cliVersion = require("../../package.json").version;
 const indexTemplate = require("./index-template.js");
-const util = require("util");
 const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
-const exec = util.promisify(require("child_process").exec);
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const generateManifest = require("./generate-manifest.js");
@@ -288,22 +286,6 @@ async function compileCliApp() {
 }
 
 run();
-
-/**
- * @param {string} command
- */
-function shellCommand(command) {
-  const promise = exec(command, { stdio: "inherit" });
-  promise.then((output) => {
-    if (output.stdout) {
-      console.log(output.stdout);
-    }
-    if (output.stderr) {
-      throw output.stderr;
-    }
-  });
-  return promise;
-}
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
