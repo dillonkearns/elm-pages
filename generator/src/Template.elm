@@ -125,6 +125,7 @@ buildNoState { view } builderState =
 buildWithLocalState :
     { view :
         templateModel
+        -> Shared.Model
         -> List ( PagePath Pages.PathKey, TemplateType )
         -> StaticPayload templateMetadata templateStaticData
         -> Shared.RenderedBody
@@ -140,7 +141,7 @@ buildWithLocalState config builderState =
         WithStaticData record ->
             { view =
                 \model sharedModel allMetadata staticPayload rendered ->
-                    config.view model allMetadata staticPayload rendered
+                    config.view model sharedModel allMetadata staticPayload rendered
             , head = record.head
             , staticData = record.staticData
             , init = config.init
