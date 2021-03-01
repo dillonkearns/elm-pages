@@ -131,7 +131,7 @@ buildWithLocalState :
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
     , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : Shared.Model -> templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
     }
     -> Builder templateMetadata templateStaticData
@@ -146,10 +146,10 @@ buildWithLocalState config builderState =
             , staticData = record.staticData
             , init = config.init
             , update =
-                \metadata msg templateModel sharedModel_ ->
+                \metadata msg templateModel sharedModel ->
                     let
                         ( updatedModel, cmd ) =
-                            config.update metadata msg templateModel
+                            config.update sharedModel metadata msg templateModel
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
