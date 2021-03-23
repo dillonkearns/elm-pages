@@ -50,11 +50,12 @@ init metadata =
 
 
 update :
-    BlogIndex
+    Shared.Model
+    -> BlogIndex
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update metadata msg model =
+update sharedModel metadata msg model =
     ( model, Cmd.none )
 
 
@@ -64,11 +65,12 @@ type alias Model =
 
 view :
     Model
+    -> Shared.Model
     -> List ( PagePath Pages.PathKey, TemplateType )
     -> StaticPayload BlogIndex StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view model allMetadata staticPayload rendered =
+view model sharedModel allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =
         [ Element.column [ Element.width Element.fill ]
