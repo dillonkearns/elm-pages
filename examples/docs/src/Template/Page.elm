@@ -5,8 +5,11 @@ import Element.Region
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
+import OptimizedDecoder
 import Pages exposing (images)
 import Pages.PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
+import Secrets
 import Shared
 import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
@@ -22,9 +25,19 @@ type alias Msg =
     Never
 
 
-template : Template Page ()
+type alias StaticData =
+    String
+
+
+template : Template Page StaticData
 template =
-    Template.noStaticData { head = head }
+    Template.withStaticData
+        { head = head
+        , staticData =
+            \_ ->
+                StaticHttp.get (Secrets.succeed "http://worldtimeapi.org/api/timezone/America/Los_Angeles")
+                    (OptimizedDecoder.field "datetime" OptimizedDecoder.string)
+        }
         |> Template.buildNoState { view = view }
 
 
@@ -35,7 +48,7 @@ decoder =
 
 
 head :
-    StaticPayload Page ()
+    StaticPayload Page StaticData
     -> List (Head.Tag Pages.PathKey)
 head { metadata } =
     Seo.summary
@@ -56,21 +69,13 @@ head { metadata } =
 
 view :
     List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload Page ()
+    -> StaticPayload Page StaticData
     -> Shared.RenderedBody
     -> Shared.PageView msg
-view allMetadata { metadata } rendered =
-    { title = metadata.title
+view allMetadata static rendered =
+    { title = static.metadata.title
     , body =
-        [ [ Element.column
-                [ Element.padding 50
-                , Element.spacing 60
-                , Element.Region.mainContent
-                ]
-                (Tuple.second rendered |> List.map (Element.map never))
-          ]
-            |> Element.textColumn
-                [ Element.width Element.fill
-                ]
+        [ Element.text static.static
+            |> Element.el [ Element.padding 40 ]
         ]
     }
