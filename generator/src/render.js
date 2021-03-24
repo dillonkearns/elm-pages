@@ -32,11 +32,7 @@ function runElmApp() {
   });
 
   return new Promise((resolve, _) => {
-    const ELM_FILE_PATH = path.join(
-      process.cwd(),
-      "./elm-stuff/elm-pages",
-      OUTPUT_FILE_NAME
-    );
+    const ELM_FILE_PATH = path.join(process.cwd(), "elm-pages-cli.js");
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
     const app = require(ELM_FILE_PATH).Elm.Main.init({
