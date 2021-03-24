@@ -6,7 +6,6 @@ const path = require("path");
 const seo = require("./seo-renderer.js");
 const spawnCallback = require("cross-spawn").spawn;
 
-const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 const debug = false;
 
@@ -15,12 +14,6 @@ process.on("unhandledRejection", (error) => {
   console.error(error);
   process.exit(1);
 });
-
-const ELM_FILE_PATH = path.join(
-  DIR_PATH,
-  "./elm-stuff/elm-pages",
-  OUTPUT_FILE_NAME
-);
 
 module.exports = async function run() {
   XMLHttpRequest = require("xhr2");
@@ -39,6 +32,11 @@ function runElmApp() {
   });
 
   return new Promise((resolve, _) => {
+    const ELM_FILE_PATH = path.join(
+      process.cwd(),
+      "./elm-stuff/elm-pages",
+      OUTPUT_FILE_NAME
+    );
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
     const app = require(ELM_FILE_PATH).Elm.Main.init({
