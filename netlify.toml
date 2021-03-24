@@ -2,8 +2,11 @@
   base = "examples/docs/"
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
+  command = "cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
   ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
+
+[build.environment]
+  ELM_HOME = "$NETLIFY_BUILD_BASE/cache/elm"
 
 [[redirects]]
   from = "/"
