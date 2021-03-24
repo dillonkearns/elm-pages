@@ -15,14 +15,17 @@ process.on("unhandledRejection", (error) => {
   process.exit(1);
 });
 
-module.exports = async function run() {
+module.exports = async function run(/** @type {string} */ compiledElmPath) {
   XMLHttpRequest = require("xhr2");
   console.log("RENDER NEW");
-  const result = await runElmApp();
+  const result = await runElmApp(compiledElmPath);
   return result;
 };
 
-function runElmApp() {
+/**
+ * @param {string} compiledElmPath
+ */
+function runElmApp(compiledElmPath) {
   process.on("beforeExit", (code) => {
     if (foundErrors) {
       process.exit(1);
@@ -32,10 +35,9 @@ function runElmApp() {
   });
 
   return new Promise((resolve, _) => {
-    const ELM_FILE_PATH = path.join(process.cwd(), "elm-pages-cli.js");
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
-    const app = require(ELM_FILE_PATH).Elm.Main.init({
+    const app = require(compiledElmPath).Elm.Main.init({
       flags: { secrets: process.env, mode, staticHttpCache },
     });
 
