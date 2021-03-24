@@ -1,15 +1,10 @@
-#!/usr/bin/env node
 // @ts-check
 
 const cliVersion = require("../../package.json").version;
-const indexTemplate = require("./index-template.js");
 const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
 const spawnCallback = require("cross-spawn").spawn;
-const codegen = require("./codegen.js");
-const generateManifest = require("./generate-manifest.js");
-const terser = require("terser");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -27,23 +22,10 @@ const ELM_FILE_PATH = path.join(
   OUTPUT_FILE_NAME
 );
 
-async function ensureRequiredDirs() {
-  fs.tryMkdir(`dist`);
-}
-
 module.exports = async function run() {
-  // await ensureRequiredDirs();
   XMLHttpRequest = require("xhr2");
-
-  await codegen.generate();
-
-  // await compileCliApp();
-
-  // copyAssets();
-  // compileElm();
-
+  console.log("RENDER NEW");
   const result = await runElmApp();
-  // console.log("GOT RESULT", JSON.stringify(result, null, 2));
   return result;
 };
 
@@ -95,21 +77,6 @@ async function generateFiles(filesToGenerate) {
  */
 function cleanRoute(route) {
   return route.replace(/(^\/|\/$)/, "");
-}
-
-/**
- * @param {string} elmPath
- */
-async function elmToEsm(elmPath) {
-  const elmEs3 = await fs.readFile(elmPath, "utf8");
-
-  return (
-    "\n" +
-    "const scope = {};\n" +
-    elmEs3.replace("}(this));", "}(scope));") +
-    "export const { Elm } = scope;\n" +
-    "\n"
-  );
 }
 
 /**
@@ -198,19 +165,6 @@ function runElm(elmEntrypointPath, outputPath, cwd) {
       }
     );
   }
-}
-
-async function compileCliApp() {
-  await spawnElmMake("../../src/Main.elm", "elm.js", "./elm-stuff/elm-pages");
-
-  const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
-  await fs.writeFile(
-    ELM_FILE_PATH,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return " + (debug ? "_Json_wrap(x)" : "x")
-    )
-  );
 }
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
