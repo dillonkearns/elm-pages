@@ -99,7 +99,8 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -337,7 +338,58 @@ init toModel contentCache siteMetadata config flags =
 --)
 
 
+type alias RequestPayload =
+    { path : String
+    }
+
+
+requestPayloadDecoder : Decode.Decoder (Maybe RequestPayload)
+requestPayloadDecoder =
+    Decode.map RequestPayload
+        (Decode.field "path" Decode.string)
+        |> optionalField "request"
+
+
+optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
+optionalField fieldName decoder =
+    let
+        finishDecoding json =
+            case Decode.decodeValue (Decode.field fieldName Decode.value) json of
+                Ok val ->
+                    -- The field is present, so run the decoder on it.
+                    Decode.map Just (Decode.field fieldName decoder)
+
+                Err _ ->
+                    -- The field was missing, which is fine!
+                    Decode.succeed Nothing
+    in
+    Decode.value
+        |> Decode.andThen finishDecoding
+
+
 initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
+    let
+        maybeRequestPayload =
+            Decode.decodeValue requestPayloadDecoder flags
+                -- TODO handle decoder errors
+                |> Result.withDefault Nothing
+
+        filteredMetadata =
+            case maybeRequestPayload of
+                Just requestPayload ->
+                    siteMetadata
+                        |> Result.map
+                            (\okMetadata ->
+                                okMetadata
+                                    |> List.filter
+                                        (\( path, metadata ) ->
+                                            ("/" ++ PagePath.toString path) == requestPayload.path
+                                        )
+                            )
+
+                Nothing ->
+                    siteMetadata
+    in
     case contentCache of
         Ok _ ->
             case ContentCache.pagesWithErrors contentCache of
@@ -394,7 +446,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                             staticHttpCache
                             mode
                             []
-                            (siteMetadata |> Result.withDefault [])
+                            (filteredMetadata |> Result.withDefault [])
                         )
                         toModel
 
@@ -409,7 +461,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                     staticHttpCache
                     mode
                     []
-                    (siteMetadata |> Result.withDefault [])
+                    (filteredMetadata |> Result.withDefault [])
                 )
                 toModel
 
@@ -820,7 +872,8 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List BuildError)
+        Result
+            (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

@@ -11,17 +11,27 @@ process.on("unhandledRejection", (error) => {
   process.exit(1);
 });
 
-module.exports = async function run(/** @type {string} */ compiledElmPath) {
-  XMLHttpRequest = require("xhr2");
-  console.log("RENDER NEW");
-  const result = await runElmApp(compiledElmPath);
-  return result;
-};
+module.exports =
+  /**
+   *
+   * @param {string} compiledElmPath
+   * @param {string} path
+   * @param {import('aws-lambda').APIGatewayProxyEvent} request
+   * @returns
+   */
+  async function run(compiledElmPath, path, request) {
+    XMLHttpRequest = require("xhr2");
+    console.log("RENDER NEW");
+    const result = await runElmApp(compiledElmPath, path, request);
+    return result;
+  };
 
 /**
  * @param {string} compiledElmPath
+ * @param {string} path
+ * @param {import('aws-lambda').APIGatewayProxyEvent} request
  */
-function runElmApp(compiledElmPath) {
+function runElmApp(compiledElmPath, path, request) {
   process.on("beforeExit", (code) => {
     if (foundErrors) {
       process.exit(1);
@@ -34,14 +44,17 @@ function runElmApp(compiledElmPath) {
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
     const app = require(compiledElmPath).Elm.Main.init({
-      flags: { secrets: process.env, mode, staticHttpCache },
+      flags: { secrets: process.env, mode, staticHttpCache, request },
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "PageProgress") {
-        resolve(outputString(fromElm));
+        const args = fromElm.args[0];
+        if ("/" + args.route === path) {
+          resolve(outputString(fromElm));
+        }
       } else if (fromElm.tag === "Errors") {
         console.error(fromElm.args[0]);
         foundErrors = true;
