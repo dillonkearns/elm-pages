@@ -124,10 +124,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-      .split("/")
-      .map((_) => "..")
-      .join("/")
-      .replace(/\.$/, "./");
+        .split("/")
+        .map((_) => "..")
+        .join("/")
+        .replace(/\.$/, "./");
 }
 
 /**
@@ -176,7 +176,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
-    const subprocess = runElm(elmEntrypointPath, outputPath, cwd)
+    const subprocess = runElm(elmEntrypointPath, outputPath, cwd);
 
     subprocess.on("close", (code) => {
       const fileOutputExists = fs.existsSync(fullOutputPath);
@@ -217,7 +217,6 @@ function runElm(elmEntrypointPath, outputPath, cwd) {
       }
     );
   }
-
 }
 
 /**
@@ -280,7 +279,7 @@ async function compileCliApp() {
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      ('return ' + (debug ? '_Json_wrap(x)' : 'x'))
+      "return " + (debug ? "_Json_wrap(x)" : "x")
     )
   );
 }
