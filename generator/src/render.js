@@ -140,11 +140,9 @@ function wrapHtml(fromElm, contentJsonString) {
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
-    <link rel="preload" href="content.json" as="fetch" crossorigin="">
     <link rel="stylesheet" href="/style.css"></link>
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">
-    <link rel="preload" href="/elm.js" as="script">
     <link rel="preload" href="/elm.js" as="script">
     <script defer="defer" src="/elm.js" type="module"></script>
     <script defer="defer" src="/elm-pages.js" type="module"></script>
@@ -161,7 +159,7 @@ function wrapHtml(fromElm, contentJsonString) {
         })
       });
     }
-    const contentJson = ${contentJsonString}
+    window.__elmPagesContentJson__ = ${contentJsonString}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
