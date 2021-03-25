@@ -398,22 +398,23 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                         requests =
                             Result.andThen
                                 (\metadata ->
+                                    -- TODO pass in Event here if relevant
                                     staticResponseForPage metadata config.view
                                 )
-                                siteMetadata
+                                filteredMetadata
 
                         staticResponses : StaticResponses
                         staticResponses =
                             case requests of
                                 Ok okRequests ->
-                                    StaticResponses.init staticHttpCache siteMetadata config okRequests
+                                    StaticResponses.init staticHttpCache filteredMetadata config okRequests
 
                                 Err errors ->
                                     -- TODO need to handle errors better?
-                                    StaticResponses.init staticHttpCache siteMetadata config []
+                                    StaticResponses.init staticHttpCache filteredMetadata config []
                     in
-                    StaticResponses.nextStep config siteMetadata (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
-                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (siteMetadata |> Result.withDefault []))
+                    StaticResponses.nextStep config filteredMetadata (filteredMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
+                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (filteredMetadata |> Result.withDefault []))
                         |> Tuple.mapFirst toModel
 
                 pageErrors ->
