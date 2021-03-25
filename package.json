@@ -66,7 +66,7 @@
     "@types/webpack-dev-middleware": "^2.0.3",
     "elm-format": "^0.8.2",
     "elm-review": "^2.3.3",
-    "elm-test": "^0.19.1-revision2",
+    "elm-test": "^0.19.1-revision6",
     "jest": "^26.0.1",
     "typescript": "^3.6.3"
   },
