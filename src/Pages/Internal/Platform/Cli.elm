@@ -53,6 +53,7 @@ type alias Model pathKey metadata =
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( PagePath pathKey, metadata )
+    , maybeRequestJson : Maybe Decode.Value
     }
 
 
@@ -141,14 +142,19 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     Platform.worker
         { init =
             \flags ->
-                init toModel contentCache siteMetadata config flags
-                    |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
+                let
+                    maybeRequestJson =
+                        Decode.decodeValue (optionalField "request" Decode.value) flags
+                            |> Result.withDefault Nothing
+                in
+                init maybeRequestJson toModel contentCache siteMetadata config flags
+                    |> Tuple.mapSecond (perform maybeRequestJson config cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
                     ( Just cliMsg, Just cliModel ) ->
                         update contentCache siteMetadata config cliMsg cliModel
-                            |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
+                            |> Tuple.mapSecond (perform cliModel.maybeRequestJson config cliMsgConstructor config.toJsPort)
                             |> Tuple.mapFirst toModel
 
                     _ ->
@@ -185,8 +191,8 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Config pathKey userMsg userModel metadata view -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
-perform config cliMsgConstructor toJsPort effect =
+perform : Maybe Decode.Value -> Config pathKey userMsg userModel metadata view -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform maybeRequest config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
             Cmd.none
@@ -199,7 +205,7 @@ perform config cliMsgConstructor toJsPort effect =
 
         Effect.Batch list ->
             list
-                |> List.map (perform config cliMsgConstructor toJsPort)
+                |> List.map (perform maybeRequest config cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
@@ -298,13 +304,14 @@ flagsDecoder =
 
 
 init :
-    (Model pathKey metadata -> model)
+    Maybe Decode.Value
+    -> (Model pathKey metadata -> model)
     -> ContentCache.ContentCache metadata view
     -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
     -> Config pathKey userMsg userModel metadata view
     -> Decode.Value
     -> ( model, Effect pathKey )
-init toModel contentCache siteMetadata config flags =
+init maybeRequestJson toModel contentCache siteMetadata config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
             case mode of
@@ -312,7 +319,7 @@ init toModel contentCache siteMetadata config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
+                    initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -330,6 +337,7 @@ init toModel contentCache siteMetadata config flags =
                     Mode.Dev
                     []
                     (siteMetadata |> Result.withDefault [])
+                    maybeRequestJson
                 )
                 toModel
 
@@ -367,7 +375,7 @@ optionalField fieldName decoder =
         |> Decode.andThen finishDecoding
 
 
-initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
+initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
     let
         maybeRequestPayload =
             Decode.decodeValue requestPayloadDecoder flags
@@ -414,7 +422,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                                     StaticResponses.init staticHttpCache filteredMetadata config []
                     in
                     StaticResponses.nextStep config filteredMetadata (filteredMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
-                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (filteredMetadata |> Result.withDefault []))
+                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (filteredMetadata |> Result.withDefault []) maybeRequestJson)
                         |> Tuple.mapFirst toModel
 
                 pageErrors ->
@@ -448,6 +456,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                             mode
                             []
                             (filteredMetadata |> Result.withDefault [])
+                            maybeRequestJson
                         )
                         toModel
 
@@ -463,6 +472,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                     mode
                     []
                     (filteredMetadata |> Result.withDefault [])
+                    maybeRequestJson
                 )
                 toModel
 
