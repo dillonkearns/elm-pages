@@ -7,8 +7,7 @@ const seo = require("./seo-renderer.js");
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
-  console.error(error);
-  process.exit(1);
+  console.error("@@@ UNHANDLED", error);
 });
 
 module.exports =
@@ -21,7 +20,6 @@ module.exports =
    */
   async function run(compiledElmPath, path, request) {
     XMLHttpRequest = require("xhr2");
-    console.log("RENDER NEW");
     const result = await runElmApp(compiledElmPath, path, request);
     return result;
   };
@@ -32,15 +30,7 @@ module.exports =
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
  */
 function runElmApp(compiledElmPath, path, request) {
-  process.on("beforeExit", (code) => {
-    if (foundErrors) {
-      process.exit(1);
-    } else {
-      process.exit(0);
-    }
-  });
-
-  return new Promise((resolve, _) => {
+  return new Promise((resolve, reject) => {
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
     const app = require(compiledElmPath).Elm.Main.init({
@@ -56,8 +46,8 @@ function runElmApp(compiledElmPath, path, request) {
           resolve(outputString(fromElm));
         }
       } else if (fromElm.tag === "Errors") {
-        console.error(fromElm.args[0]);
         foundErrors = true;
+        reject(fromElm.args[0]);
       } else {
         console.log(fromElm);
       }

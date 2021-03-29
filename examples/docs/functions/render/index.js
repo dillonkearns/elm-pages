@@ -6,17 +6,23 @@ exports.handler =
    * @param {any} context
    */
   async function (event, context) {
-    // event.path
     console.log(JSON.stringify(event));
-    // process.chdir(path.join(__dirname, "../../"));
-    // process.chdir("../");
 
-    // const compiledElmPath = path.join(process.cwd(), "elm-pages-cli.js");
     const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
     const renderer = require("../../../../generator/src/render");
-    // console.log("pwd", process.cwd());
-    return {
-      body: (await renderer(compiledElmPath, event.path, event)).htmlString,
-      statusCode: 200,
-    };
+    try {
+      const renderResult = await renderer(compiledElmPath, event.path, event);
+
+      return {
+        body: renderResult.htmlString,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        // body: JSON.stringify({ error }),
+        body: `<body><h1>Error</h1><pre>${error}</pre></body>`,
+        statusCode: 500,
+        headers: [{ "content-type": "text/html" }],
+      };
+    }
   };
