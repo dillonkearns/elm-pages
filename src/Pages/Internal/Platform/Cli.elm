@@ -414,6 +414,11 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
                                             not (List.member ("/" ++ PagePath.toString path) dynamicRoutes)
                                         )
                             )
+
+        dynamicRoutes : List String
+        dynamicRoutes =
+            [-- "/"
+            ]
     in
     case contentCache of
         Ok _ ->
@@ -719,7 +724,16 @@ nextStepToEffect contentCache config model nextStep =
                                                     |> Just
 
                                             ToJsPayload.Errors errorMessage ->
-                                                Nothing
+                                                Just <|
+                                                    Effect.SendJsData
+                                                        (ToJsPayload.Errors <|
+                                                            BuildError.errorsToString
+                                                                [ { title = "Error"
+                                                                  , message = [ Terminal.text errorMessage ]
+                                                                  , fatal = True
+                                                                  }
+                                                                ]
+                                                        )
                                     )
                                 |> Effect.Batch
                                 |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
