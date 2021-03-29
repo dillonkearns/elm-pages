@@ -787,7 +787,8 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result String
+            (Result
+                String
                 { path : List String
                 , content : String
                 }
@@ -893,7 +894,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
        -> ( model, Effect pathKey )
     -}
     ProgramTest.createDocument
-        { init = Main.init identity contentCache siteMetadata config
+        { init = Main.init Nothing identity contentCache siteMetadata config
         , update = Main.update contentCache siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }

@@ -2,7 +2,7 @@ module OptimizedDecoder exposing
     ( Error, errorToString
     , Decoder, string, bool, int, float, Value
     , nullable, list, array, dict, keyValuePairs
-    , field, at, index
+    , field, at, index, optionalField
     , maybe, oneOf
     , lazy, value, null, succeed, fail, andThen
     , map, map2, map3, map4, map5, map6, map7, map8, andMap
@@ -37,7 +37,7 @@ module which is largely a copy of [`NoRedInk/elm-decode-pipeline`][edp].
 
 # Object Primitives
 
-@docs field, at, index
+@docs field, at, index, optionalField
 
 
 # Inconsistent Structure
@@ -436,6 +436,69 @@ keyValuePairs (OptimizedDecoder jd jde) =
 field : String -> Decoder a -> Decoder a
 field fieldName (OptimizedDecoder jd jde) =
     OptimizedDecoder (JD.field fieldName jd) (JDE.field fieldName jde)
+
+
+{-| If a field is missing, succeed with `Nothing`. If it is present, decode it
+as normal and wrap successes in a `Just`.
+
+When decoding with
+[`maybe`](http://package.elm-lang.org/packages/elm-lang/core/latest/Json-Decode#maybe),
+if a field is present but malformed, you get a success and Nothing.
+`optionalField` gives you a failed decoding in that case, so you know
+you received malformed data.
+
+Examples:
+
+    import Json.Decode exposing (..)
+    import Json.Encode
+
+Let's define a `stuffDecoder` that extracts the `"stuff"` field, if it exists.
+
+    stuffDecoder : Decoder (Maybe String)
+    stuffDecoder =
+        optionalField "stuff" string
+
+If the "stuff" field is missing, decode to Nothing.
+
+    """ { } """
+        |> decodeString stuffDecoder
+    --> Ok Nothing
+
+If the "stuff" field is present but not a String, fail decoding.
+
+    expectedError : Error
+    expectedError =
+        Failure "Expecting a STRING" (Json.Encode.list identity [])
+          |> Field "stuff"
+
+    """ { "stuff": [] } """
+        |> decodeString stuffDecoder
+    --> Err expectedError
+
+If the "stuff" field is present and valid, decode to Just String.
+
+    """ { "stuff": "yay!" } """
+        |> decodeString stuffDecoder
+    --> Ok <| Just "yay!"
+
+Definition from the json-extra package: <https://github.com/elm-community/json-extra>.
+
+-}
+optionalField : String -> Decoder a -> Decoder (Maybe a)
+optionalField fieldName decoder_ =
+    let
+        finishDecoding json =
+            case decodeValue (field fieldName value) json of
+                Ok val ->
+                    -- The field is present, so run the decoder on it.
+                    map Just (field fieldName decoder_)
+
+                Err _ ->
+                    -- The field was missing, which is fine!
+                    succeed Nothing
+    in
+    value
+        |> andThen finishDecoding
 
 
 {-| Decodes a value at a certain path, using a provided decoder. Essentially,

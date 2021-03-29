@@ -1,5 +1,15 @@
 [build]
   base = "examples/docs/"
+  functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
+  command = "cd ../../ && npm run build && cd examples/docs && npm install && npm run build && find dist -name \"*.html\" -type f -delete && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js"
   ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
+
+[build.environment]
+  ELM_HOME = "$NETLIFY_BUILD_BASE/cache/elm"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/render"
+  status = 200
+  # force = true

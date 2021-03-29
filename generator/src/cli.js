@@ -124,10 +124,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-      .split("/")
-      .map((_) => "..")
-      .join("/")
-      .replace(/\.$/, "./");
+        .split("/")
+        .map((_) => "..")
+        .join("/")
+        .replace(/\.$/, "./");
 }
 
 /**
@@ -146,13 +146,14 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
 
   contentJson["staticData"] = args.contentJson;
   const normalizedRoute = args.route.replace(/index$/, "");
+  const contentJsonString = JSON.stringify(contentJson);
   // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
   await fs.tryMkdir(`./dist/${normalizedRoute}`);
-  fs.writeFile(`dist/${normalizedRoute}/index.html`, wrapHtml(args));
   fs.writeFile(
-    `dist/${normalizedRoute}/content.json`,
-    JSON.stringify(contentJson)
+    `dist/${normalizedRoute}/index.html`,
+    wrapHtml(args, contentJsonString)
   );
+  fs.writeFile(`dist/${normalizedRoute}/content.json`, contentJsonString);
 }
 
 async function compileElm() {
@@ -176,7 +177,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
-    const subprocess = runElm(elmEntrypointPath, outputPath, cwd)
+    const subprocess = runElm(elmEntrypointPath, outputPath, cwd);
 
     subprocess.on("close", (code) => {
       const fileOutputExists = fs.existsSync(fullOutputPath);
@@ -217,7 +218,6 @@ function runElm(elmEntrypointPath, outputPath, cwd) {
       }
     );
   }
-
 }
 
 /**
@@ -280,7 +280,7 @@ async function compileCliApp() {
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      ('return ' + (debug ? '_Json_wrap(x)' : 'x'))
+      "return " + (debug ? "_Json_wrap(x)" : "x")
     )
   );
 }
@@ -294,25 +294,18 @@ run();
 
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
 
-/** @typedef {     
-     {
-        body: string;
-        head: any[];
-        errors: any[];
-        contentJson: any[];
-        html: string;
-        route: string;
-        title: string;
-      }
-    } Arg
-*/
+/** @typedef {     { body: string; head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-function wrapHtml(/** @type { Arg } */ fromElm) {
+/**
+ * @param {Arg} fromElm
+ * @param {string} contentJsonString
+ * @returns {string}
+ */
+function wrapHtml(fromElm, contentJsonString) {
   /*html*/
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
-    <link rel="preload" href="content.json" as="fetch" crossorigin="">
     <link rel="stylesheet" href="/style.css"></link>
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">
@@ -333,6 +326,7 @@ function wrapHtml(/** @type { Arg } */ fromElm) {
         })
       });
     }
+    window.__elmPagesContentJson__ = ${contentJsonString}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">

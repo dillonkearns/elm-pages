@@ -5,3 +5,4 @@ dist/
 generator/src/Main.js
 elm-pages-*.tgz
 coverage
+.netlify
