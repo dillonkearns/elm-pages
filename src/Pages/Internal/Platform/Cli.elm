@@ -209,44 +209,53 @@ perform maybeRequest config cliMsgConstructor toJsPort effect =
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
-            -- let
-            --     _ =
-            --         Debug.log "Fetching" masked.url
-            -- in
-            Cmd.batch
-                [ Http.request
-                    { method = unmasked.method
-                    , url = unmasked.url
-                    , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                    , body =
-                        case unmasked.body of
-                            StaticHttpBody.EmptyBody ->
-                                Http.emptyBody
+            if unmasked.url == "$$elm-pages$$headers" then
+                Cmd.batch
+                    [ Task.succeed
+                        { request = requests
+                        , response =
+                            maybeRequest
+                                |> Maybe.map (Json.Encode.encode 0)
+                                |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
+                        }
+                        |> Task.perform (GotStaticHttpResponse >> cliMsgConstructor)
+                    ]
 
-                            StaticHttpBody.StringBody contentType string ->
-                                Http.stringBody contentType string
+            else
+                Cmd.batch
+                    [ Http.request
+                        { method = unmasked.method
+                        , url = unmasked.url
+                        , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
+                        , body =
+                            case unmasked.body of
+                                StaticHttpBody.EmptyBody ->
+                                    Http.emptyBody
 
-                            StaticHttpBody.JsonBody value ->
-                                Http.jsonBody value
-                    , expect =
-                        Pages.Http.expectString
-                            (\response ->
-                                (GotStaticHttpResponse >> cliMsgConstructor)
-                                    { request = requests
-                                    , response = response
-                                    }
-                            )
-                    , timeout = Nothing
-                    , tracker = Nothing
-                    }
-                , toJsPort
-                    (Json.Encode.object
-                        [ ( "command", Json.Encode.string "log" )
-                        , ( "value", Json.Encode.string ("Fetching " ++ masked.url) )
-                        ]
-                    )
-                    |> Cmd.map never
-                ]
+                                StaticHttpBody.StringBody contentType string ->
+                                    Http.stringBody contentType string
+
+                                StaticHttpBody.JsonBody value ->
+                                    Http.jsonBody value
+                        , expect =
+                            Pages.Http.expectString
+                                (\response ->
+                                    (GotStaticHttpResponse >> cliMsgConstructor)
+                                        { request = requests
+                                        , response = response
+                                        }
+                                )
+                        , timeout = Nothing
+                        , tracker = Nothing
+                        }
+                    , toJsPort
+                        (Json.Encode.object
+                            [ ( "command", Json.Encode.string "log" )
+                            , ( "value", Json.Encode.string ("Fetching " ++ masked.url) )
+                            ]
+                        )
+                        |> Cmd.map never
+                    ]
 
         Effect.SendSinglePage info ->
             let
@@ -397,6 +406,14 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
 
                 Nothing ->
                     siteMetadata
+                        |> Result.map
+                            (\okMetadata ->
+                                okMetadata
+                                    |> List.filter
+                                        (\( path, metadata ) ->
+                                            not (List.member ("/" ++ PagePath.toString path) dynamicRoutes)
+                                        )
+                            )
     in
     case contentCache of
         Ok _ ->
@@ -432,22 +449,22 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
                                 (\metadata ->
                                     staticResponseForPage metadata config.view
                                 )
-                                siteMetadata
+                                filteredMetadata
 
                         staticResponses : StaticResponses
                         staticResponses =
                             case requests of
                                 Ok okRequests ->
-                                    StaticResponses.init staticHttpCache siteMetadata config okRequests
+                                    StaticResponses.init staticHttpCache filteredMetadata config okRequests
 
                                 Err errors ->
                                     -- TODO need to handle errors better?
-                                    StaticResponses.init staticHttpCache siteMetadata config []
+                                    StaticResponses.init staticHttpCache filteredMetadata config []
                     in
                     updateAndSendPortIfDone
                         contentCache
                         config
-                        siteMetadata
+                        filteredMetadata
                         (Model
                             staticResponses
                             secrets
@@ -464,7 +481,7 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
             updateAndSendPortIfDone
                 contentCache
                 config
-                siteMetadata
+                filteredMetadata
                 (Model StaticResponses.error
                     secrets
                     (metadataParserErrors |> List.map Tuple.second)
