@@ -28,13 +28,23 @@ module.exports =
  * @param {string} compiledElmPath
  * @param {string} path
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
+ * @returns {Promise<({ kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string })>}
  */
 function runElmApp(compiledElmPath, path, request) {
   return new Promise((resolve, reject) => {
+    const isJson = path.match(/content\.json\/?$/);
+    const route = path.replace(/content\.json\/?$/, "");
+
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
+    const modifiedRequest = { ...request, path: route };
     const app = require(compiledElmPath).Elm.Main.init({
-      flags: { secrets: process.env, mode, staticHttpCache, request },
+      flags: {
+        secrets: process.env,
+        mode,
+        staticHttpCache,
+        request: modifiedRequest,
+      },
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
@@ -42,8 +52,21 @@ function runElmApp(compiledElmPath, path, request) {
         console.log(fromElm.value);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        if ("/" + args.route === path) {
-          resolve(outputString(fromElm));
+        if (isJson) {
+          if ("/" + args.route === route) {
+            let contentJson = {};
+            contentJson["body"] = args.body;
+
+            contentJson["staticData"] = args.contentJson;
+            resolve({
+              kind: "json",
+              contentJson: JSON.stringify(contentJson),
+            });
+          }
+        } else {
+          if ("/" + args.route === route) {
+            resolve(outputString(fromElm));
+          }
         }
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
@@ -108,6 +131,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   return {
     route: normalizedRoute,
     htmlString: wrapHtml(args, contentJsonString),
+    kind: "html",
   };
 }
 

@@ -13,16 +13,33 @@ exports.handler =
     try {
       const renderResult = await renderer(compiledElmPath, event.path, event);
 
-      return {
-        body: renderResult.htmlString,
-        statusCode: 200,
-      };
+      if (renderResult.kind === "json") {
+        return {
+          body: renderResult.contentJson,
+          headers: {
+            "Content-Type": "application/json",
+            "x-powered-by": "elm-pages",
+          },
+          statusCode: 200,
+        };
+      } else {
+        return {
+          body: renderResult.htmlString,
+          headers: {
+            "Content-Type": "text/html",
+            "x-powered-by": "elm-pages",
+          },
+          statusCode: 200,
+        };
+      }
     } catch (error) {
       return {
-        // body: JSON.stringify({ error }),
         body: `<body><h1>Error</h1><pre>${error}</pre></body>`,
         statusCode: 500,
-        headers: [{ "content-type": "text/html" }],
+        headers: {
+          "Content-Type": "text/html",
+          "x-powered-by": "elm-pages",
+        },
       };
     }
   };
