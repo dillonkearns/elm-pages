@@ -204,7 +204,11 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
       link.setAttribute("as", "fetch");
 
       link.setAttribute("rel", "prefetch");
-      link.setAttribute("href", origin + target.pathname + "/content.json");
+      if (target.pathname.slice(-1) === "/") {
+        link.setAttribute("href", origin + target.pathname + "content.json");
+      } else {
+        link.setAttribute("href", origin + target.pathname + "/content.json");
+      }
       document.head.appendChild(link);
     }
   }
