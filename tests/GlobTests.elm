@@ -26,7 +26,29 @@ all =
                         , expectedMatch = "my-file"
                         , expectedPattern = "*.txt"
                         }
+        , test "oneOf" <|
+            \() ->
+                Glob.init Tuple.pair
+                    |> Glob.keep Glob.star
+                    |> Glob.drop (Glob.literal ".")
+                    |> Glob.keep
+                        (Glob.oneOf
+                            ( ( "yml", Yml )
+                            , [ ( "json", Json )
+                              ]
+                            )
+                        )
+                    |> expect
+                        { captures = [ "data-file", "json" ]
+                        , expectedMatch = ( "data-file", Json )
+                        , expectedPattern = "*.{yml,json}"
+                        }
         ]
+
+
+type DataExtension
+    = Yml
+    | Json
 
 
 expect :

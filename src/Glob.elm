@@ -1,13 +1,19 @@
 module Glob exposing (..)
 
+import List.Extra
+
 
 type Glob a
     = Glob String (List String -> a)
 
 
-type GlobMatcher
-    = Literal String
-    | Star
+type GlobMatcher a
+    = GlobMatcher String (CaptureToValue a)
+
+
+type CaptureToValue a
+    = Hardcoded a
+    | Dynamic (String -> a)
 
 
 init : constructor -> Glob constructor
@@ -17,7 +23,10 @@ init constructor =
 
 run : List String -> Glob a -> { match : a, pattern : String }
 run captures (Glob pattern applyCapture) =
-    { match = applyCapture captures
+    { match =
+        captures
+            |> List.reverse
+            |> applyCapture
     , pattern = pattern
     }
 
@@ -27,63 +36,89 @@ toPattern (Glob pattern applyCapture) =
     pattern
 
 
-keep : GlobMatcher -> Glob (String -> value) -> Glob value
-keep matcher (Glob pattern applyCapture) =
-    Glob (pattern ++ matcherToPattern matcher)
-        (case matcher of
-            Literal literalString ->
-                continueNonCapturing literalString applyCapture
+keep : GlobMatcher a -> Glob (a -> value) -> Glob value
+keep (GlobMatcher matcherPattern toValue) (Glob pattern applyCapture) =
+    Glob (pattern ++ matcherPattern)
+        (case toValue of
+            Hardcoded value ->
+                continueNonCapturing value applyCapture
 
-            Star ->
-                popCapture applyCapture
+            Dynamic toValueFn ->
+                popCapture toValueFn applyCapture
         )
 
 
-matcherToPattern : GlobMatcher -> String
-matcherToPattern matcher =
-    case matcher of
-        Literal literalString ->
-            literalString
-
-        Star ->
-            "*"
-
-
-continueNonCapturing : String -> (List String -> (String -> value)) -> (List String -> value)
+continueNonCapturing : a -> (List String -> (a -> value)) -> (List String -> value)
 continueNonCapturing hardcodedCaptureValue applyCapture =
     \captures ->
         applyCapture captures hardcodedCaptureValue
 
 
-popCapture : (List String -> (String -> value)) -> (List String -> value)
-popCapture applyCapture =
+popCapture : (String -> a) -> (List String -> (a -> value)) -> (List String -> value)
+popCapture toValueFn applyCapture =
     \captures ->
+        let
+            _ =
+                Debug.log "pop" captures
+        in
         case captures of
             first :: rest ->
-                applyCapture rest first
+                applyCapture rest (toValueFn first)
 
             [] ->
-                applyCapture [] "ERROR"
+                --applyCapture [] (toValueFn "ERROR")
+                Debug.todo "Ran out of items"
 
 
-drop : GlobMatcher -> Glob a -> Glob a
-drop matcher (Glob pattern applyCapture) =
-    Glob (pattern ++ matcherToPattern matcher)
-        (\captures ->
-            case matcher of
-                Literal literalString ->
-                    applyCapture captures
+drop : GlobMatcher a -> Glob value -> Glob value
+drop (GlobMatcher matcherPattern toValue) (Glob pattern applyCapture) =
+    Glob
+        (pattern ++ matcherPattern)
+        (case toValue of
+            Hardcoded value ->
+                applyCapture
 
-                Star ->
-                    applyCapture captures
+            Dynamic toValueFn ->
+                \captures ->
+                    applyCapture (captures |> List.drop 1)
         )
 
 
-literal : String -> GlobMatcher
+oneOf : ( ( String, a ), List ( String, a ) ) -> GlobMatcher a
+oneOf ( defaultMatch, otherMatchers ) =
+    let
+        allMatchers =
+            defaultMatch :: otherMatchers
+    in
+    GlobMatcher
+        ("{"
+            ++ (allMatchers |> List.map Tuple.first |> String.join ",")
+            ++ "}"
+        )
+        (Dynamic
+            (\match ->
+                allMatchers
+                    |> List.Extra.findMap
+                        (\( literalString, result ) ->
+                            if
+                                (literalString |> Debug.log "lhs")
+                                    == (match |> Debug.log "rhs")
+                            then
+                                Just result
+
+                            else
+                                Nothing
+                        )
+                    |> Maybe.withDefault (defaultMatch |> Tuple.second)
+            )
+        )
+
+
+literal : String -> GlobMatcher String
 literal string =
-    Literal string
+    GlobMatcher string (Hardcoded string)
 
 
-star : GlobMatcher
+star : GlobMatcher String
 star =
-    Star
+    GlobMatcher "*" (Dynamic identity)
