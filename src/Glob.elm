@@ -114,6 +114,27 @@ oneOf ( defaultMatch, otherMatchers ) =
         )
 
 
+optional : List (GlobMatcher a) -> GlobMatcher (Maybe String)
+optional matchers =
+    GlobMatcher
+        ("*("
+            ++ (matchers
+                    |> List.map (\(GlobMatcher pattern _) -> pattern)
+                    |> String.join "|"
+               )
+            ++ ")"
+        )
+        (Dynamic
+            (\s ->
+                if s == "" then
+                    Nothing
+
+                else
+                    Just s
+            )
+        )
+
+
 literal : String -> GlobMatcher String
 literal string =
     GlobMatcher string (Hardcoded string)
