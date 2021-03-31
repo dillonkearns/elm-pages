@@ -46,7 +46,7 @@ all =
                             }
             , test "optional group - no match" <|
                 \() ->
-                    oneOrMoreGlob
+                    zeroOrMoreGlob
                         |> expect
                             -- test/a/x.js
                             -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L42
@@ -56,7 +56,7 @@ all =
                             }
             , test "optional group - single match" <|
                 \() ->
-                    oneOrMoreGlob
+                    zeroOrMoreGlob
                         |> expect
                             -- test/ab/x.js
                             -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L44
@@ -66,7 +66,7 @@ all =
                             }
             , test "optional group - multiple matches" <|
                 \() ->
-                    oneOrMoreGlob
+                    zeroOrMoreGlob
                         |> expect
                             -- test/aba/x.js
                             -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L45
@@ -77,16 +77,11 @@ all =
             ]
 
 
-oneOrMoreGlob : Glob.Glob (Maybe String)
-oneOrMoreGlob =
+zeroOrMoreGlob : Glob.Glob (Maybe String)
+zeroOrMoreGlob =
     Glob.init identity
         |> Glob.drop (Glob.literal "test/a")
-        |> Glob.keep
-            (Glob.optional
-                [ Glob.literal "a"
-                , Glob.literal "b"
-                ]
-            )
+        |> Glob.keep (Glob.zeroOrMore [ "a", "b" ])
         |> Glob.drop (Glob.literal "/x.js")
 
 

@@ -114,14 +114,11 @@ oneOf ( defaultMatch, otherMatchers ) =
         )
 
 
-optional : List (GlobMatcher a) -> GlobMatcher (Maybe String)
-optional matchers =
+zeroOrMore : List String -> GlobMatcher (Maybe String)
+zeroOrMore matchers =
     GlobMatcher
         ("*("
-            ++ (matchers
-                    |> List.map (\(GlobMatcher pattern _) -> pattern)
-                    |> String.join "|"
-               )
+            ++ (matchers |> String.join "|")
             ++ ")"
         )
         (Dynamic
