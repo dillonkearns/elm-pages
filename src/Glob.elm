@@ -4,16 +4,12 @@ import List.Extra
 
 
 type Glob a
-    = Glob String (List String -> a)
+    = Glob String (List String -> ( a, List String ))
 
 
-type NewGlob a
-    = NewGlob String (List String -> ( a, List String ))
-
-
-map : (a -> b) -> NewGlob a -> NewGlob b
-map mapFn (NewGlob pattern applyCapture) =
-    NewGlob pattern
+map : (a -> b) -> Glob a -> Glob b
+map mapFn (Glob pattern applyCapture) =
+    Glob pattern
         (\captures ->
             captures
                 |> applyCapture
@@ -21,14 +17,14 @@ map mapFn (NewGlob pattern applyCapture) =
         )
 
 
-succeed : constructor -> NewGlob constructor
+succeed : constructor -> Glob constructor
 succeed constructor =
-    NewGlob "" (\captures -> ( constructor, captures ))
+    Glob "" (\captures -> ( constructor, captures ))
 
 
-star : NewGlob String
+star : Glob String
 star =
-    NewGlob "*"
+    Glob "*"
         (\captures ->
             case captures of
                 first :: rest ->
@@ -39,9 +35,9 @@ star =
         )
 
 
-zeroOrMore : List String -> NewGlob (Maybe String)
+zeroOrMore : List String -> Glob (Maybe String)
 zeroOrMore matchers =
-    NewGlob
+    Glob
         ("*("
             ++ (matchers |> String.join "|")
             ++ ")"
@@ -62,13 +58,13 @@ zeroOrMore matchers =
         )
 
 
-literal2 : String -> NewGlob String
-literal2 string =
-    NewGlob string (\captures -> ( string, captures ))
+literal : String -> Glob String
+literal string =
+    Glob string (\captures -> ( string, captures ))
 
 
-runNew : List String -> NewGlob a -> { match : a, pattern : String }
-runNew captures (NewGlob pattern applyCapture) =
+run : List String -> Glob a -> { match : a, pattern : String }
+run captures (Glob pattern applyCapture) =
     { match =
         captures
             |> List.reverse
@@ -78,31 +74,21 @@ runNew captures (NewGlob pattern applyCapture) =
     }
 
 
-run : List String -> Glob a -> { match : a, pattern : String }
-run captures (Glob pattern applyCapture) =
-    { match =
-        captures
-            |> List.reverse
-            |> applyCapture
-    , pattern = pattern
-    }
-
-
-toPattern : NewGlob a -> String
-toPattern (NewGlob pattern applyCapture) =
+toPattern : Glob a -> String
+toPattern (Glob pattern applyCapture) =
     pattern
 
 
-drop2 : NewGlob a -> NewGlob value -> NewGlob value
-drop2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
-    NewGlob
+drop : Glob a -> Glob value -> Glob value
+drop (Glob matcherPattern apply1) (Glob pattern apply2) =
+    Glob
         (pattern ++ matcherPattern)
         apply2
 
 
-keep2 : NewGlob a -> NewGlob (a -> value) -> NewGlob value
-keep2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
-    NewGlob
+keep : Glob a -> Glob (a -> value) -> Glob value
+keep (Glob matcherPattern apply1) (Glob pattern apply2) =
+    Glob
         (pattern ++ matcherPattern)
         (\captures ->
             let
@@ -120,13 +106,13 @@ keep2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
         )
 
 
-oneOf2 : ( ( String, a ), List ( String, a ) ) -> NewGlob a
-oneOf2 ( defaultMatch, otherMatchers ) =
+oneOf : ( ( String, a ), List ( String, a ) ) -> Glob a
+oneOf ( defaultMatch, otherMatchers ) =
     let
         allMatchers =
             defaultMatch :: otherMatchers
     in
-    NewGlob
+    Glob
         ("{"
             ++ (allMatchers |> List.map Tuple.first |> String.join ",")
             ++ "}"

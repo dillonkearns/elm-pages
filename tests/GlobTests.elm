@@ -10,7 +10,7 @@ all =
         describe "glob"
             [ test "literal" <|
                 \() ->
-                    Glob.literal2 "hello"
+                    Glob.literal "hello"
                         |> expect
                             { captures = []
                             , expectedMatch = "hello"
@@ -19,8 +19,8 @@ all =
             , test "capture" <|
                 \() ->
                     Glob.succeed identity
-                        |> Glob.keep2 Glob.star
-                        |> Glob.drop2 (Glob.literal2 ".txt")
+                        |> Glob.keep Glob.star
+                        |> Glob.drop (Glob.literal ".txt")
                         |> expect
                             { captures = [ "my-file" ]
                             , expectedMatch = "my-file"
@@ -29,10 +29,10 @@ all =
             , test "oneOf" <|
                 \() ->
                     Glob.succeed Tuple.pair
-                        |> Glob.keep2 Glob.star
-                        |> Glob.drop2 (Glob.literal2 ".")
-                        |> Glob.keep2
-                            (Glob.oneOf2
+                        |> Glob.keep Glob.star
+                        |> Glob.drop (Glob.literal ".")
+                        |> Glob.keep
+                            (Glob.oneOf
                                 ( ( "yml", Yml )
                                 , [ ( "json", Json )
                                   ]
@@ -84,10 +84,10 @@ all =
             , test "new star with literal" <|
                 \() ->
                     Glob.succeed Tuple.pair
-                        |> Glob.keep2 Glob.star
-                        |> Glob.drop2 (Glob.literal2 "/")
-                        |> Glob.keep2 (Glob.star |> Glob.map String.toUpper)
-                        |> Glob.drop2 (Glob.literal2 ".txt")
+                        |> Glob.keep Glob.star
+                        |> Glob.drop (Glob.literal "/")
+                        |> Glob.keep (Glob.star |> Glob.map String.toUpper)
+                        |> Glob.drop (Glob.literal ".txt")
                         |> expect
                             { captures = [ "before-slash", "after-slash" ]
                             , expectedMatch = ( "before-slash", "AFTER-SLASH" )
@@ -96,12 +96,12 @@ all =
             ]
 
 
-zeroOrMoreGlob : Glob.NewGlob (Maybe String)
+zeroOrMoreGlob : Glob.Glob (Maybe String)
 zeroOrMoreGlob =
     Glob.succeed identity
-        |> Glob.drop2 (Glob.literal2 "test/a")
-        |> Glob.keep2 (Glob.zeroOrMore [ "a", "b" ])
-        |> Glob.drop2 (Glob.literal2 "/x.js")
+        |> Glob.drop (Glob.literal "test/a")
+        |> Glob.keep (Glob.zeroOrMore [ "a", "b" ])
+        |> Glob.drop (Glob.literal "/x.js")
 
 
 type DataExtension
@@ -114,11 +114,11 @@ expect :
     , expectedMatch : match
     , expectedPattern : String
     }
-    -> Glob.NewGlob match
+    -> Glob.Glob match
     -> Expect.Expectation
 expect { captures, expectedMatch, expectedPattern } glob =
     glob
-        |> Glob.runNew captures
+        |> Glob.run captures
         |> Expect.equal
             { pattern = expectedPattern
             , match = expectedMatch
