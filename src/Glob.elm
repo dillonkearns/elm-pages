@@ -181,30 +181,35 @@ drop (GlobMatcher matcherPattern toValue) (Glob pattern applyCapture) =
         )
 
 
-oneOf : ( ( String, a ), List ( String, a ) ) -> GlobMatcher a
-oneOf ( defaultMatch, otherMatchers ) =
+oneOf2 : ( ( String, a ), List ( String, a ) ) -> NewGlob a
+oneOf2 ( defaultMatch, otherMatchers ) =
     let
         allMatchers =
             defaultMatch :: otherMatchers
     in
-    GlobMatcher
+    NewGlob
         ("{"
             ++ (allMatchers |> List.map Tuple.first |> String.join ",")
             ++ "}"
         )
-        (Dynamic
-            (\match ->
-                allMatchers
-                    |> List.Extra.findMap
-                        (\( literalString, result ) ->
-                            if literalString == match then
-                                Just result
+        (\captures ->
+            case captures of
+                match :: rest ->
+                    ( allMatchers
+                        |> List.Extra.findMap
+                            (\( literalString, result ) ->
+                                if literalString == match then
+                                    Just result
 
-                            else
-                                Nothing
-                        )
-                    |> Maybe.withDefault (defaultMatch |> Tuple.second)
-            )
+                                else
+                                    Nothing
+                            )
+                        |> Maybe.withDefault (defaultMatch |> Tuple.second)
+                    , rest
+                    )
+
+                [] ->
+                    ( Tuple.second defaultMatch, [] )
         )
 
 

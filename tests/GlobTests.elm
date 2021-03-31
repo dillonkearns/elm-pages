@@ -28,17 +28,17 @@ all =
                             }
             , test "oneOf" <|
                 \() ->
-                    Glob.succeed Tuple.pair
-                        |> Glob.keep Glob.star
-                        |> Glob.drop (Glob.literal ".")
-                        |> Glob.keep
-                            (Glob.oneOf
+                    Glob.succeed2 Tuple.pair
+                        |> Glob.keep2 Glob.star2
+                        |> Glob.drop2 (Glob.literal2 ".")
+                        |> Glob.keep2
+                            (Glob.oneOf2
                                 ( ( "yml", Yml )
                                 , [ ( "json", Json )
                                   ]
                                 )
                             )
-                        |> expect
+                        |> expect2
                             { captures = [ "data-file", "json" ]
                             , expectedMatch = ( "data-file", Json )
                             , expectedPattern = "*.{yml,json}"
