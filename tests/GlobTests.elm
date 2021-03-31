@@ -47,7 +47,7 @@ all =
             , test "optional group - no match" <|
                 \() ->
                     zeroOrMoreGlob
-                        |> expect
+                        |> expect2
                             -- test/a/x.js
                             -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L42
                             { captures = [ "" ]
@@ -57,7 +57,7 @@ all =
             , test "optional group - single match" <|
                 \() ->
                     zeroOrMoreGlob
-                        |> expect
+                        |> expect2
                             -- test/ab/x.js
                             -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L44
                             { captures = [ "b" ]
@@ -67,7 +67,7 @@ all =
             , test "optional group - multiple matches" <|
                 \() ->
                     zeroOrMoreGlob
-                        |> expect
+                        |> expect2
                             -- test/aba/x.js
                             -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L45
                             { captures = [ "ba" ]
@@ -97,12 +97,12 @@ all =
             ]
 
 
-zeroOrMoreGlob : Glob.Glob (Maybe String)
+zeroOrMoreGlob : Glob.NewGlob (Maybe String)
 zeroOrMoreGlob =
-    Glob.succeed identity
-        |> Glob.drop (Glob.literal "test/a")
-        |> Glob.keep (Glob.zeroOrMore [ "a", "b" ])
-        |> Glob.drop (Glob.literal "/x.js")
+    Glob.succeed2 identity
+        |> Glob.drop2 (Glob.literal2 "test/a")
+        |> Glob.keep2 (Glob.zeroOrMore2 [ "a", "b" ])
+        |> Glob.drop2 (Glob.literal2 "/x.js")
 
 
 type DataExtension

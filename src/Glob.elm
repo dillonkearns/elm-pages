@@ -48,10 +48,31 @@ star2 =
                 first :: rest ->
                     ( first, rest )
 
-                --applyCapture rest (toValueFn first)
                 [] ->
                     ( "ERROR", [] )
-         --applyCapture [] (toValueFn "ERROR")
+        )
+
+
+zeroOrMore2 : List String -> NewGlob (Maybe String)
+zeroOrMore2 matchers =
+    NewGlob
+        ("*("
+            ++ (matchers |> String.join "|")
+            ++ ")"
+        )
+        (\captures ->
+            case captures of
+                first :: rest ->
+                    ( if first == "" then
+                        Nothing
+
+                      else
+                        Just first
+                    , rest
+                    )
+
+                [] ->
+                    ( Just "ERROR", [] )
         )
 
 
