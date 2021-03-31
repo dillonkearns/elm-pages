@@ -57,17 +57,12 @@ continueNonCapturing hardcodedCaptureValue applyCapture =
 popCapture : (String -> a) -> (List String -> (a -> value)) -> (List String -> value)
 popCapture toValueFn applyCapture =
     \captures ->
-        let
-            _ =
-                Debug.log "pop" captures
-        in
         case captures of
             first :: rest ->
                 applyCapture rest (toValueFn first)
 
             [] ->
-                --applyCapture [] (toValueFn "ERROR")
-                Debug.todo "Ran out of items"
+                applyCapture [] (toValueFn "ERROR")
 
 
 drop : GlobMatcher a -> Glob value -> Glob value
@@ -100,10 +95,7 @@ oneOf ( defaultMatch, otherMatchers ) =
                 allMatchers
                     |> List.Extra.findMap
                         (\( literalString, result ) ->
-                            if
-                                (literalString |> Debug.log "lhs")
-                                    == (match |> Debug.log "rhs")
-                            then
+                            if literalString == match then
                                 Just result
 
                             else
