@@ -25,8 +25,8 @@ succeed constructor =
     Glob "" (\captures -> ( constructor, captures ))
 
 
-star : Glob String
-star =
+wildcard : Glob String
+wildcard =
     Glob "*"
         (\captures ->
             case captures of
@@ -38,8 +38,8 @@ star =
         )
 
 
-recursiveStar : Glob String
-recursiveStar =
+recursiveWildcard : Glob String
+recursiveWildcard =
     Glob "**"
         (\captures ->
             case captures of

@@ -19,7 +19,7 @@ all =
             , test "capture" <|
                 \() ->
                     Glob.succeed identity
-                        |> Glob.keep Glob.star
+                        |> Glob.keep Glob.wildcard
                         |> Glob.drop (Glob.literal ".txt")
                         |> expect
                             { captures = [ "my-file" ]
@@ -29,7 +29,7 @@ all =
             , test "oneOf" <|
                 \() ->
                     Glob.succeed Tuple.pair
-                        |> Glob.keep Glob.star
+                        |> Glob.keep Glob.wildcard
                         |> Glob.drop (Glob.literal ".")
                         |> Glob.keep
                             (Glob.oneOf
@@ -75,7 +75,7 @@ all =
                             }
             , test "new star" <|
                 \() ->
-                    Glob.star
+                    Glob.wildcard
                         |> expect
                             { captures = [ "star-pattern" ]
                             , expectedMatch = "star-pattern"
@@ -84,9 +84,9 @@ all =
             , test "new star with literal" <|
                 \() ->
                     Glob.succeed Tuple.pair
-                        |> Glob.keep Glob.star
+                        |> Glob.keep Glob.wildcard
                         |> Glob.drop (Glob.literal "/")
-                        |> Glob.keep (Glob.star |> Glob.map String.toUpper)
+                        |> Glob.keep (Glob.wildcard |> Glob.map String.toUpper)
                         |> Glob.drop (Glob.literal ".txt")
                         |> expect
                             { captures = [ "before-slash", "after-slash" ]
@@ -96,9 +96,9 @@ all =
             , test "recursive match" <|
                 \() ->
                     Glob.succeed Tuple.pair
-                        |> Glob.keep Glob.recursiveStar
+                        |> Glob.keep Glob.recursiveWildcard
                         |> Glob.drop (Glob.literal "/")
-                        |> Glob.keep Glob.star
+                        |> Glob.keep Glob.wildcard
                         |> Glob.drop (Glob.literal ".txt")
                         |> expect
                             { captures = [ "a/b/c", "d" ]
