@@ -79,6 +79,19 @@ literal string =
     Glob string (\captures -> ( string, captures ))
 
 
+not : String -> Glob String
+not string =
+    Glob ("!(" ++ string ++ ")")
+        (\captures ->
+            case captures of
+                first :: rest ->
+                    ( first, rest )
+
+                [] ->
+                    ( "ERROR", [] )
+        )
+
+
 run : List String -> Glob a -> { match : a, pattern : String }
 run captures (Glob pattern applyCapture) =
     { match =

@@ -105,6 +105,20 @@ all =
                             , expectedMatch = ( "a/b/c", "d" )
                             , expectedPattern = "**/*.txt"
                             }
+            , test "not" <|
+                \() ->
+                    Glob.succeed Tuple.pair
+                        |> Glob.keep (Glob.not "xyz")
+                        |> Glob.drop (Glob.literal "/")
+                        |> Glob.keep Glob.wildcard
+                        |> Glob.drop (Glob.literal ".txt")
+                        |> expect
+                            -- abc/d.txt
+                            -- https://runkit.com/embed/05epbnc0c7g1
+                            { captures = [ "abc", "d" ]
+                            , expectedMatch = ( "abc", "d" )
+                            , expectedPattern = "!(xyz)/*.txt"
+                            }
             ]
 
 
