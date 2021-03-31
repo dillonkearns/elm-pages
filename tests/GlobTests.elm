@@ -44,6 +44,24 @@ all =
                             , expectedMatch = ( "data-file", Json )
                             , expectedPattern = "*.(yml|json)"
                             }
+            , test "at least one" <|
+                \() ->
+                    Glob.succeed identity
+                        |> Glob.drop Glob.wildcard
+                        |> Glob.drop (Glob.literal ".")
+                        |> Glob.keep
+                            (Glob.atLeastOne
+                                ( ( "yml", Yml )
+                                , [ ( "json", Json )
+                                  ]
+                                )
+                            )
+                        -- https://runkit.com/embed/05epbnc0c7g1
+                        |> expect
+                            { captures = [ "data-file", "jsonymljsonjson" ]
+                            , expectedMatch = ( Json, [ Yml, Json, Json ] )
+                            , expectedPattern = "*.+(yml|json)"
+                            }
             , test "optional group - no match" <|
                 \() ->
                     zeroOrMoreGlob

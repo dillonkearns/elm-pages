@@ -188,6 +188,75 @@ oneOf ( defaultMatch, otherMatchers ) =
         )
 
 
+atLeastOne : ( ( String, a ), List ( String, a ) ) -> Glob ( a, List a )
+atLeastOne ( defaultMatch, otherMatchers ) =
+    let
+        allMatchers =
+            defaultMatch :: otherMatchers
+    in
+    Glob
+        ("+("
+            ++ (allMatchers |> List.map Tuple.first |> String.join "|")
+            ++ ")"
+        )
+        (\captures ->
+            case captures of
+                match :: rest ->
+                    ( --( allMatchers
+                      --        |> List.Extra.findMap
+                      --            (\( literalString, result ) ->
+                      --                if literalString == match then
+                      --                    Just result
+                      --
+                      --                else
+                      --                    Nothing
+                      --            )
+                      --        |> Maybe.withDefault (defaultMatch |> Tuple.second)
+                      --  , []
+                      --  )
+                      extractMatches (defaultMatch |> Tuple.second) allMatchers match
+                        |> toNonEmptyWithDefault (defaultMatch |> Tuple.second)
+                    , rest
+                    )
+
+                [] ->
+                    ( ( Tuple.second defaultMatch, [] ), [] )
+        )
+
+
+toNonEmptyWithDefault : a -> List a -> ( a, List a )
+toNonEmptyWithDefault default list =
+    case list of
+        first :: rest ->
+            ( first, rest )
+
+        _ ->
+            ( default, [] )
+
+
+extractMatches : a -> List ( String, a ) -> String -> List a
+extractMatches defaultValue list string =
+    if string == "" then
+        []
+
+    else
+        let
+            ( matchedValue, updatedString ) =
+                List.Extra.findMap
+                    (\( literalString, value ) ->
+                        if string |> String.startsWith literalString then
+                            Just ( value, string |> String.dropLeft (String.length literalString) )
+
+                        else
+                            Nothing
+                    )
+                    list
+                    |> Maybe.withDefault ( defaultValue, "" )
+        in
+        matchedValue
+            :: extractMatches defaultValue list updatedString
+
+
 toStaticHttp : Glob a -> StaticHttp.Request (List a)
 toStaticHttp glob =
     StaticHttp.get (Secrets.succeed <| "glob://" ++ toPattern glob)
