@@ -92,6 +92,27 @@ not string =
         )
 
 
+notOneOf : ( String, List String ) -> Glob String
+notOneOf ( firstPattern, otherPatterns ) =
+    let
+        allPatterns =
+            firstPattern :: otherPatterns
+    in
+    Glob
+        ("!("
+            ++ (allPatterns |> String.join "|")
+            ++ ")"
+        )
+        (\captures ->
+            case captures of
+                first :: rest ->
+                    ( first, rest )
+
+                [] ->
+                    ( "ERROR", [] )
+        )
+
+
 run : List String -> Glob a -> { match : a, pattern : String }
 run captures (Glob pattern applyCapture) =
     { match =
@@ -142,9 +163,9 @@ oneOf ( defaultMatch, otherMatchers ) =
             defaultMatch :: otherMatchers
     in
     Glob
-        ("{"
-            ++ (allMatchers |> List.map Tuple.first |> String.join ",")
-            ++ "}"
+        ("("
+            ++ (allMatchers |> List.map Tuple.first |> String.join "|")
+            ++ ")"
         )
         (\captures ->
             case captures of

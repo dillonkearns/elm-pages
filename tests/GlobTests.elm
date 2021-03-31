@@ -38,10 +38,11 @@ all =
                                   ]
                                 )
                             )
+                        -- https://runkit.com/embed/05epbnc0c7g1
                         |> expect
                             { captures = [ "data-file", "json" ]
                             , expectedMatch = ( "data-file", Json )
-                            , expectedPattern = "*.{yml,json}"
+                            , expectedPattern = "*.(yml|json)"
                             }
             , test "optional group - no match" <|
                 \() ->
@@ -108,7 +109,10 @@ all =
             , test "not" <|
                 \() ->
                     Glob.succeed Tuple.pair
-                        |> Glob.keep (Glob.not "xyz")
+                        |> Glob.keep
+                            (Glob.notOneOf
+                                ( "xyz", [] )
+                            )
                         |> Glob.drop (Glob.literal "/")
                         |> Glob.keep Glob.wildcard
                         |> Glob.drop (Glob.literal ".txt")
@@ -118,6 +122,21 @@ all =
                             { captures = [ "abc", "d" ]
                             , expectedMatch = ( "abc", "d" )
                             , expectedPattern = "!(xyz)/*.txt"
+                            }
+            , test "not with multiple patterns" <|
+                \() ->
+                    Glob.succeed Tuple.pair
+                        |> Glob.keep
+                            (Glob.notOneOf ( "abz", [ "xyz" ] ))
+                        |> Glob.drop (Glob.literal "/")
+                        |> Glob.keep Glob.wildcard
+                        |> Glob.drop (Glob.literal ".txt")
+                        |> expect
+                            -- abc/d.txt
+                            -- https://runkit.com/embed/05epbnc0c7g1
+                            { captures = [ "abc", "d" ]
+                            , expectedMatch = ( "abc", "d" )
+                            , expectedPattern = "!(abz|xyz)/*.txt"
                             }
             ]
 
