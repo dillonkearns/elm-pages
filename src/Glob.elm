@@ -11,15 +11,6 @@ type NewGlob a
     = NewGlob String (List String -> ( a, List String ))
 
 
-type GlobMatcher a
-    = GlobMatcher String (CaptureToValue a)
-
-
-type CaptureToValue a
-    = Hardcoded a
-    | Dynamic (String -> a)
-
-
 map : (a -> b) -> NewGlob a -> NewGlob b
 map mapFn (NewGlob pattern applyCapture) =
     NewGlob pattern
@@ -30,18 +21,13 @@ map mapFn (NewGlob pattern applyCapture) =
         )
 
 
-succeed : constructor -> Glob constructor
+succeed : constructor -> NewGlob constructor
 succeed constructor =
-    Glob "" (\captures -> constructor)
-
-
-succeed2 : constructor -> NewGlob constructor
-succeed2 constructor =
     NewGlob "" (\captures -> ( constructor, captures ))
 
 
-star2 : NewGlob String
-star2 =
+star : NewGlob String
+star =
     NewGlob "*"
         (\captures ->
             case captures of
@@ -53,8 +39,8 @@ star2 =
         )
 
 
-zeroOrMore2 : List String -> NewGlob (Maybe String)
-zeroOrMore2 matchers =
+zeroOrMore : List String -> NewGlob (Maybe String)
+zeroOrMore matchers =
     NewGlob
         ("*("
             ++ (matchers |> String.join "|")
@@ -102,38 +88,9 @@ run captures (Glob pattern applyCapture) =
     }
 
 
-toPattern : Glob a -> String
-toPattern (Glob pattern applyCapture) =
+toPattern : NewGlob a -> String
+toPattern (NewGlob pattern applyCapture) =
     pattern
-
-
-keep : GlobMatcher a -> Glob (a -> value) -> Glob value
-keep (GlobMatcher matcherPattern toValue) (Glob pattern applyCapture) =
-    Glob (pattern ++ matcherPattern)
-        (case toValue of
-            Hardcoded value ->
-                continueNonCapturing value applyCapture
-
-            Dynamic toValueFn ->
-                popCapture toValueFn applyCapture
-        )
-
-
-continueNonCapturing : a -> (List String -> (a -> value)) -> (List String -> value)
-continueNonCapturing hardcodedCaptureValue applyCapture =
-    \captures ->
-        applyCapture captures hardcodedCaptureValue
-
-
-popCapture : (String -> a) -> (List String -> (a -> value)) -> (List String -> value)
-popCapture toValueFn applyCapture =
-    \captures ->
-        case captures of
-            first :: rest ->
-                applyCapture rest (toValueFn first)
-
-            [] ->
-                applyCapture [] (toValueFn "ERROR")
 
 
 drop2 : NewGlob a -> NewGlob value -> NewGlob value
@@ -141,10 +98,6 @@ drop2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
     NewGlob
         (pattern ++ matcherPattern)
         apply2
-
-
-
---keep : GlobMatcher a -> Glob (a -> value) -> Glob value
 
 
 keep2 : NewGlob a -> NewGlob (a -> value) -> NewGlob value
@@ -164,20 +117,6 @@ keep2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
             ( applied1 |> applied2
             , captured2
             )
-        )
-
-
-drop : GlobMatcher a -> Glob value -> Glob value
-drop (GlobMatcher matcherPattern toValue) (Glob pattern applyCapture) =
-    Glob
-        (pattern ++ matcherPattern)
-        (case toValue of
-            Hardcoded value ->
-                applyCapture
-
-            Dynamic toValueFn ->
-                \captures ->
-                    applyCapture (captures |> List.drop 1)
         )
 
 
@@ -211,31 +150,3 @@ oneOf2 ( defaultMatch, otherMatchers ) =
                 [] ->
                     ( Tuple.second defaultMatch, [] )
         )
-
-
-zeroOrMore : List String -> GlobMatcher (Maybe String)
-zeroOrMore matchers =
-    GlobMatcher
-        ("*("
-            ++ (matchers |> String.join "|")
-            ++ ")"
-        )
-        (Dynamic
-            (\s ->
-                if s == "" then
-                    Nothing
-
-                else
-                    Just s
-            )
-        )
-
-
-literal : String -> GlobMatcher String
-literal string =
-    GlobMatcher string (Hardcoded string)
-
-
-star : GlobMatcher String
-star =
-    GlobMatcher "*" (Dynamic identity)
