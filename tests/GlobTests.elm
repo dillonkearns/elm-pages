@@ -74,6 +74,26 @@ all =
                             , expectedMatch = Just "ba"
                             , expectedPattern = "test/a*(a|b)/x.js"
                             }
+            , test "new star" <|
+                \() ->
+                    Glob.star2
+                        |> expect2
+                            { captures = [ "star-pattern" ]
+                            , expectedMatch = "star-pattern"
+                            , expectedPattern = "*"
+                            }
+            , test "new star with literal" <|
+                \() ->
+                    Glob.succeed2 Tuple.pair
+                        |> Glob.keep2 Glob.star2
+                        |> Glob.drop2 (Glob.literal2 "/")
+                        |> Glob.keep2 (Glob.star2 |> Glob.map String.toUpper)
+                        |> Glob.drop2 (Glob.literal2 ".txt")
+                        |> expect2
+                            { captures = [ "before-slash", "after-slash" ]
+                            , expectedMatch = ( "before-slash", "AFTER-SLASH" )
+                            , expectedPattern = "*/*.txt"
+                            }
             ]
 
 
@@ -100,6 +120,22 @@ expect :
 expect { captures, expectedMatch, expectedPattern } glob =
     glob
         |> Glob.run captures
+        |> Expect.equal
+            { pattern = expectedPattern
+            , match = expectedMatch
+            }
+
+
+expect2 :
+    { captures : List String
+    , expectedMatch : match
+    , expectedPattern : String
+    }
+    -> Glob.NewGlob match
+    -> Expect.Expectation
+expect2 { captures, expectedMatch, expectedPattern } glob =
+    glob
+        |> Glob.runNew captures
         |> Expect.equal
             { pattern = expectedPattern
             , match = expectedMatch

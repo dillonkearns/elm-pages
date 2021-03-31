@@ -7,6 +7,10 @@ type Glob a
     = Glob String (List String -> a)
 
 
+type NewGlob a
+    = NewGlob String (List String -> ( a, List String ))
+
+
 type GlobMatcher a
     = GlobMatcher String (CaptureToValue a)
 
@@ -16,9 +20,55 @@ type CaptureToValue a
     | Dynamic (String -> a)
 
 
+map : (a -> b) -> NewGlob a -> NewGlob b
+map mapFn (NewGlob pattern applyCapture) =
+    NewGlob pattern
+        (\captures ->
+            captures
+                |> applyCapture
+                |> Tuple.mapFirst mapFn
+        )
+
+
 succeed : constructor -> Glob constructor
 succeed constructor =
     Glob "" (\captures -> constructor)
+
+
+succeed2 : constructor -> NewGlob constructor
+succeed2 constructor =
+    NewGlob "" (\captures -> ( constructor, captures ))
+
+
+star2 : NewGlob String
+star2 =
+    NewGlob "*"
+        (\captures ->
+            case captures of
+                first :: rest ->
+                    ( first, rest )
+
+                --applyCapture rest (toValueFn first)
+                [] ->
+                    ( "ERROR", [] )
+         --applyCapture [] (toValueFn "ERROR")
+        )
+
+
+literal2 : String -> NewGlob String
+literal2 string =
+    NewGlob string (\captures -> ( string, captures ))
+
+
+runNew : List String -> NewGlob a -> { match : a, pattern : String }
+runNew captures (NewGlob pattern applyCapture) =
+    { match =
+        captures
+            |> List.reverse
+            |> applyCapture
+            |> Tuple.first
+    , pattern = pattern
+    }
 
 
 run : List String -> Glob a -> { match : a, pattern : String }
@@ -63,6 +113,37 @@ popCapture toValueFn applyCapture =
 
             [] ->
                 applyCapture [] (toValueFn "ERROR")
+
+
+drop2 : NewGlob a -> NewGlob value -> NewGlob value
+drop2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
+    NewGlob
+        (pattern ++ matcherPattern)
+        apply2
+
+
+
+--keep : GlobMatcher a -> Glob (a -> value) -> Glob value
+
+
+keep2 : NewGlob a -> NewGlob (a -> value) -> NewGlob value
+keep2 (NewGlob matcherPattern apply1) (NewGlob pattern apply2) =
+    NewGlob
+        (pattern ++ matcherPattern)
+        (\captures ->
+            let
+                ( applied1, captured1 ) =
+                    captures
+                        |> apply1
+
+                ( applied2, captured2 ) =
+                    captured1
+                        |> apply2
+            in
+            ( applied1 |> applied2
+            , captured2
+            )
+        )
 
 
 drop : GlobMatcher a -> Glob value -> Glob value
