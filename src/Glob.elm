@@ -16,8 +16,8 @@ type CaptureToValue a
     | Dynamic (String -> a)
 
 
-init : constructor -> Glob constructor
-init constructor =
+succeed : constructor -> Glob constructor
+succeed constructor =
     Glob "" (\captures -> constructor)
 
 

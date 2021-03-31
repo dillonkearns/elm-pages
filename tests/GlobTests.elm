@@ -10,7 +10,7 @@ all =
         describe "glob"
             [ test "literal" <|
                 \() ->
-                    Glob.init identity
+                    Glob.succeed identity
                         |> Glob.keep (Glob.literal "hello")
                         |> expect
                             { captures = []
@@ -19,7 +19,7 @@ all =
                             }
             , test "capture" <|
                 \() ->
-                    Glob.init identity
+                    Glob.succeed identity
                         |> Glob.keep Glob.star
                         |> Glob.drop (Glob.literal ".txt")
                         |> expect
@@ -29,7 +29,7 @@ all =
                             }
             , test "oneOf" <|
                 \() ->
-                    Glob.init Tuple.pair
+                    Glob.succeed Tuple.pair
                         |> Glob.keep Glob.star
                         |> Glob.drop (Glob.literal ".")
                         |> Glob.keep
@@ -79,7 +79,7 @@ all =
 
 zeroOrMoreGlob : Glob.Glob (Maybe String)
 zeroOrMoreGlob =
-    Glob.init identity
+    Glob.succeed identity
         |> Glob.drop (Glob.literal "test/a")
         |> Glob.keep (Glob.zeroOrMore [ "a", "b" ])
         |> Glob.drop (Glob.literal "/x.js")
