@@ -10,19 +10,18 @@ all =
         describe "glob"
             [ test "literal" <|
                 \() ->
-                    Glob.succeed identity
-                        |> Glob.keep (Glob.literal "hello")
-                        |> expect
+                    Glob.literal2 "hello"
+                        |> expect2
                             { captures = []
                             , expectedMatch = "hello"
                             , expectedPattern = "hello"
                             }
             , test "capture" <|
                 \() ->
-                    Glob.succeed identity
-                        |> Glob.keep Glob.star
-                        |> Glob.drop (Glob.literal ".txt")
-                        |> expect
+                    Glob.succeed2 identity
+                        |> Glob.keep2 Glob.star2
+                        |> Glob.drop2 (Glob.literal2 ".txt")
+                        |> expect2
                             { captures = [ "my-file" ]
                             , expectedMatch = "my-file"
                             , expectedPattern = "*.txt"
