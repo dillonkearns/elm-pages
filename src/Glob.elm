@@ -1,6 +1,9 @@
 module Glob exposing (..)
 
 import List.Extra
+import OptimizedDecoder
+import Pages.StaticHttp as StaticHttp
+import Secrets
 
 
 type Glob a
@@ -25,6 +28,19 @@ succeed constructor =
 star : Glob String
 star =
     Glob "*"
+        (\captures ->
+            case captures of
+                first :: rest ->
+                    ( first, rest )
+
+                [] ->
+                    ( "ERROR", [] )
+        )
+
+
+recursiveStar : Glob String
+recursiveStar =
+    Glob "**"
         (\captures ->
             case captures of
                 first :: rest ->
@@ -135,4 +151,15 @@ oneOf ( defaultMatch, otherMatchers ) =
 
                 [] ->
                     ( Tuple.second defaultMatch, [] )
+        )
+
+
+toStaticHttp : Glob a -> StaticHttp.Request (List a)
+toStaticHttp glob =
+    StaticHttp.get (Secrets.succeed <| "glob://" ++ toPattern glob)
+        (OptimizedDecoder.string
+            |> OptimizedDecoder.list
+            |> OptimizedDecoder.list
+            |> OptimizedDecoder.map
+                (\appliedList -> appliedList |> List.map (\inner -> run inner glob |> .match))
         )

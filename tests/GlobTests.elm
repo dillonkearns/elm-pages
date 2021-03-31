@@ -93,6 +93,18 @@ all =
                             , expectedMatch = ( "before-slash", "AFTER-SLASH" )
                             , expectedPattern = "*/*.txt"
                             }
+            , test "recursive match" <|
+                \() ->
+                    Glob.succeed Tuple.pair
+                        |> Glob.keep Glob.recursiveStar
+                        |> Glob.drop (Glob.literal "/")
+                        |> Glob.keep Glob.star
+                        |> Glob.drop (Glob.literal ".txt")
+                        |> expect
+                            { captures = [ "a/b/c", "d" ]
+                            , expectedMatch = ( "a/b/c", "d" )
+                            , expectedPattern = "**/*.txt"
+                            }
             ]
 
 
