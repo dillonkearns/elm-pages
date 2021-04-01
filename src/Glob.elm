@@ -283,3 +283,23 @@ toStaticHttp glob =
             |> OptimizedDecoder.map
                 (\rawGlob -> rawGlob |> List.map (\inner -> run inner glob |> .match))
         )
+
+
+singleFile : String -> StaticHttp.Request (Maybe String)
+singleFile filePath =
+    succeed identity
+        |> drop (literal filePath)
+        |> keep fullFilePath
+        |> toStaticHttp
+        |> StaticHttp.andThen
+            (\globResults ->
+                case globResults of
+                    [] ->
+                        StaticHttp.succeed Nothing
+
+                    [ single ] ->
+                        Just single |> StaticHttp.succeed
+
+                    multipleResults ->
+                        StaticHttp.fail <| "Unexpected - getSingleFile returned multiple results." ++ (multipleResults |> String.join ", ")
+            )
