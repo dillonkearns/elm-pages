@@ -170,6 +170,8 @@ headCodec canonicalSiteUrl currentPagePath =
 type ToJsSuccessPayloadNewCombined pathKey
     = PageProgress (ToJsSuccessPayloadNew pathKey)
     | InitialData (InitialDataRecord pathKey)
+    | ReadFile String
+    | Glob String
 
 
 type alias InitialDataRecord pathKey =
@@ -181,16 +183,24 @@ type alias InitialDataRecord pathKey =
 successCodecNew2 : String -> String -> Codec (ToJsSuccessPayloadNewCombined pathKey)
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\success initialData value ->
+        (\success initialData vReadFile vGlob value ->
             case value of
                 PageProgress payload ->
                     success payload
 
                 InitialData payload ->
                     initialData payload
+
+                ReadFile filePath ->
+                    vReadFile filePath
+
+                Glob globPattern ->
+                    vGlob globPattern
         )
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
         |> Codec.variant1 "InitialData" InitialData (initialDataCodec canonicalSiteUrl)
+        |> Codec.variant1 "ReadFile" ReadFile Codec.string
+        |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.buildCustom
 
 

@@ -37,7 +37,7 @@ get url =
 
 all : Test
 all =
-    describe "Static Http Requests"
+    describe "Static Http Requests unit tests"
         [ test "andThen" <|
             \() ->
                 StaticHttp.get (Secrets.succeed "first") (Decode.succeed "NEXT")

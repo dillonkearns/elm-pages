@@ -9,6 +9,8 @@ type Effect pathKey
     = NoEffect
     | SendJsData (ToJsPayload pathKey)
     | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
+    | ReadFile String
+    | GetGlob String
     | Batch (List (Effect pathKey))
     | SendSinglePage (ToJsSuccessPayloadNewCombined pathKey)
     | Continue

@@ -787,7 +787,8 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result String
+            (Result
+                String
                 { path : List String
                 , content : String
                 }
@@ -965,6 +966,12 @@ simulateEffects effect =
         Effect.Continue ->
             --SimulatedEffect.Task.succeed ()
             --    |> SimulatedEffect.Task.perform (\_ -> Continue)
+            SimulatedEffect.Cmd.none
+
+        Effect.ReadFile string ->
+            SimulatedEffect.Cmd.none
+
+        Effect.GetGlob string ->
             SimulatedEffect.Cmd.none
 
 

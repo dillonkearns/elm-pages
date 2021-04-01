@@ -1,4 +1,4 @@
-module Data.Author exposing (Author, all, decoder, view)
+module Data.Author exposing (Author, all, decoder, dillon, view)
 
 import Cloudinary
 import Element exposing (Element)
@@ -18,11 +18,16 @@ type alias Author =
 
 all : List Author
 all =
-    [ { name = "Dillon Kearns"
-      , avatar = Cloudinary.url "v1602899672/elm-radio/dillon-profile_n2lqst.jpg" Nothing 140
-      , bio = "Elm developer and educator. Founder of Incremental Elm Consulting."
-      }
+    [ dillon
     ]
+
+
+dillon : Author
+dillon =
+    { name = "Dillon Kearns"
+    , avatar = Cloudinary.url "v1602899672/elm-radio/dillon-profile_n2lqst.jpg" Nothing 140
+    , bio = "Elm developer and educator. Founder of Incremental Elm Consulting."
+    }
 
 
 decoder : Decoder Author

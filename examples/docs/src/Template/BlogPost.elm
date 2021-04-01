@@ -1,17 +1,23 @@
-module Template.BlogPost exposing (Model, Msg, decoder, template)
+module Template.BlogPost exposing (Model, Msg, template)
 
+import Cloudinary
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
+import Glob
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import List.Extra
+import MarkdownRenderer
+import OptimizedDecoder
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticFile as StaticFile
+import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
 import Site
@@ -29,50 +35,28 @@ type alias Msg =
     Never
 
 
-template : Template BlogPost ()
+type alias Route =
+    { slug : String }
+
+
+routes : StaticHttp.Request (List Route)
+routes =
+    Glob.succeed Route
+        |> Glob.drop (Glob.literal "content/blog/")
+        |> Glob.keep Glob.wildcard
+        |> Glob.drop (Glob.literal ".md")
+        |> Glob.toStaticHttp
+
+
+template : Template BlogPost DataFromFile
 template =
-    Template.noStaticData { head = head }
+    Template.withStaticData
+        { staticData = \_ -> fileRequest
+        , head = head
+
+        --, route = route
+        }
         |> Template.buildNoState { view = view }
-
-
-decoder : Decode.Decoder BlogPost
-decoder =
-    Decode.map6 BlogPost
-        (Decode.field "title" Decode.string)
-        (Decode.field "description" Decode.string)
-        (Decode.field "published"
-            (Decode.string
-                |> Decode.andThen
-                    (\isoString ->
-                        case Date.fromIsoString isoString of
-                            Ok date ->
-                                Decode.succeed date
-
-                            Err error ->
-                                Decode.fail error
-                    )
-            )
-        )
-        (Decode.field "author" Author.decoder)
-        (Decode.field "image" imageDecoder)
-        (Decode.field "draft" Decode.bool
-            |> Decode.maybe
-            |> Decode.map (Maybe.withDefault False)
-        )
-
-
-imageDecoder : Decode.Decoder (ImagePath Pages.PathKey)
-imageDecoder =
-    Decode.string
-        |> Decode.andThen
-            (\imageAssetPath ->
-                case findMatchingImage imageAssetPath of
-                    Nothing ->
-                        Decode.fail "Couldn't find image."
-
-                    Just imagePath ->
-                        Decode.succeed imagePath
-            )
 
 
 findMatchingImage : String -> Maybe (ImagePath Pages.PathKey)
@@ -82,12 +66,16 @@ findMatchingImage imageAssetPath =
 
 view :
     List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload BlogPost ()
+    -> StaticPayload BlogPost DataFromFile
     -> Shared.RenderedBody
     -> Shared.PageView msg
-view allMetadata { metadata } rendered =
-    { title = metadata.title
+view allMetadata { static } rendered =
+    { title = static.frontmatter.title
     , body =
+        let
+            author =
+                Author.dillon
+        in
         [ Element.column [ Element.width Element.fill ]
             [ Element.column
                 [ Element.padding 30
@@ -98,19 +86,20 @@ view allMetadata { metadata } rendered =
                 ]
                 (Element.column [ Element.spacing 10 ]
                     [ Element.row [ Element.spacing 10 ]
-                        [ Author.view [] metadata.author
+                        [ Author.view [] author
                         , Element.column [ Element.spacing 10, Element.width Element.fill ]
                             [ Element.paragraph [ Font.bold, Font.size 24 ]
-                                [ Element.text metadata.author.name
+                                [ Element.text author.name
                                 ]
                             , Element.paragraph [ Font.size 16 ]
-                                [ Element.text metadata.author.bio ]
+                                [ Element.text author.bio
+                                ]
                             ]
                         ]
                     ]
-                    :: (publishedDateView metadata |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                    :: Palette.blogHeading metadata.title
-                    :: articleImageView metadata.image
+                    :: (publishedDateView static.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+                    :: Palette.blogHeading static.frontmatter.title
+                    :: articleImageView static.frontmatter.image
                     :: Tuple.second rendered
                     |> List.map (Element.map never)
                 )
@@ -120,7 +109,7 @@ view allMetadata { metadata } rendered =
 
 
 head :
-    StaticPayload BlogPost ()
+    StaticPayload BlogPost DataFromFile
     -> List (Head.Tag Pages.PathKey)
 head { metadata, path } =
     Head.structuredData
@@ -178,3 +167,70 @@ articleImageView articleImage =
         { src = ImagePath.toString articleImage
         , description = "Article cover photo"
         }
+
+
+type alias DataFromFile =
+    { body : List (Element Msg)
+    , frontmatter : ArticleMetadata
+    }
+
+
+fileRequest : StaticHttp.Request DataFromFile
+fileRequest =
+    StaticFile.request
+        "content/blog/extensible-markdown-parsing-in-elm.md"
+        --"content/blog/" ++ route.slug ++ ".md"
+        (OptimizedDecoder.map2 DataFromFile
+            (StaticFile.body
+                |> OptimizedDecoder.andThen
+                    (\rawBody ->
+                        case rawBody |> MarkdownRenderer.view |> Result.map Tuple.second of
+                            Ok renderedBody ->
+                                OptimizedDecoder.succeed renderedBody
+
+                            Err error ->
+                                OptimizedDecoder.fail error
+                    )
+            )
+            (StaticFile.frontmatter frontmatterDecoder)
+        )
+
+
+type alias ArticleMetadata =
+    { title : String
+    , description : String
+    , published : Date
+    , image : ImagePath Pages.PathKey
+    , draft : Bool
+    }
+
+
+frontmatterDecoder : OptimizedDecoder.Decoder ArticleMetadata
+frontmatterDecoder =
+    OptimizedDecoder.map5 ArticleMetadata
+        (OptimizedDecoder.field "title" OptimizedDecoder.string)
+        (OptimizedDecoder.field "description" OptimizedDecoder.string)
+        (OptimizedDecoder.field "published"
+            (OptimizedDecoder.string
+                |> OptimizedDecoder.andThen
+                    (\isoString ->
+                        case Date.fromIsoString isoString of
+                            Ok date ->
+                                OptimizedDecoder.succeed date
+
+                            Err error ->
+                                OptimizedDecoder.fail error
+                    )
+            )
+        )
+        (OptimizedDecoder.field "image" imageDecoder)
+        (OptimizedDecoder.field "draft" OptimizedDecoder.bool
+            |> OptimizedDecoder.maybe
+            |> OptimizedDecoder.map (Maybe.withDefault False)
+        )
+
+
+imageDecoder : OptimizedDecoder.Decoder (ImagePath Pages.PathKey)
+imageDecoder =
+    OptimizedDecoder.string
+        |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

@@ -12,7 +12,7 @@ import Test exposing (Test, describe, test)
 
 all : Test
 all =
-    describe "Static Http Requests"
+    describe "Static Http Responses"
         [ test "andThen" <|
             \() ->
                 StaticResponses.init Dict.empty (Ok []) config []

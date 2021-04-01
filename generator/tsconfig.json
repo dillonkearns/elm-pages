@@ -2,6 +2,8 @@
   "compilerOptions": {
     "types": ["node"],
     "module": "commonjs",
+    "checkJs": true,
+    "allowJs": true,
     "target": "es5",
     "strict": true,
     "sourceMap": false,

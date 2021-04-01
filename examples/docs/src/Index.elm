@@ -2,6 +2,7 @@ module Index exposing (view)
 
 --import Pages.Metadata as Metadata exposing (Metadata)
 
+import Article
 import Data.Author
 import Date
 import Element exposing (Element)
@@ -15,37 +16,40 @@ import TemplateType exposing (TemplateType)
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
+    --List ( PagePath Pages.PathKey, TemplateType )
+    List ( PagePath Pages.PathKey, Article.ArticleMetadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
         (posts
-            |> List.filterMap
-                (\( path, metadata ) ->
-                    case metadata of
-                        TemplateType.BlogPost meta ->
-                            if meta.draft then
-                                Nothing
-
-                            else
-                                Just ( path, meta )
-
-                        _ ->
-                            Nothing
-                )
+            --|> List.filterMap
+            --    (\( path, metadata ) ->
+            --        case metadata of
+            --            TemplateType.BlogPost meta ->
+            --                if meta.draft then
+            --                    Nothing
+            --
+            --                else
+            --                    Just ( path, meta )
+            --
+            --            _ ->
+            --                Nothing
+            --    )
             |> List.sortBy
-                (\( path, metadata ) ->
-                    -(metadata.published |> Date.toRataDie)
-                )
+                (\( path, metadata ) -> -(metadata.published |> Date.toRataDie))
             |> List.map postSummary
         )
 
 
 postSummary :
-    ( PagePath Pages.PathKey, BlogPost )
+    ( PagePath Pages.PathKey, Article.ArticleMetadata )
     -> Element msg
-postSummary ( postPath, post ) =
-    articleIndex post |> linkToPost postPath
+postSummary ( path, post ) =
+    articleIndex post |> linkToPost path
+
+
+
+-- postPath
 
 
 linkToPost : PagePath Pages.PathKey -> Element msg -> Element msg
@@ -66,7 +70,7 @@ title text =
             ]
 
 
-articleIndex : BlogPost -> Element msg
+articleIndex : Article.ArticleMetadata -> Element msg
 articleIndex metadata =
     Element.el
         [ Element.centerX
@@ -86,8 +90,12 @@ grey =
     Element.Font.color (Element.rgba255 0 0 0 0.5)
 
 
-postPreview : BlogPost -> Element msg
+postPreview : Article.ArticleMetadata -> Element msg
 postPreview post =
+    let
+        author =
+            Data.Author.dillon
+    in
     Element.textColumn
         [ Element.centerX
         , Element.width Element.fill
@@ -101,8 +109,8 @@ postPreview post =
             , Element.centerX
             , grey
             ]
-            [ Data.Author.view [ Element.width (Element.px 40) ] post.author
-            , Element.text post.author.name
+            [ Data.Author.view [ Element.width (Element.px 40) ] author
+            , Element.text author.name
             , Element.text "•"
             , Element.text (post.published |> Date.format "MMMM ddd, yyyy")
             ]

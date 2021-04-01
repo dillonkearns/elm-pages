@@ -7,6 +7,7 @@ module Pages.StaticHttp exposing
     , map2, map3, map4, map5, map6, map7, map8, map9
     , unoptimizedRequest
     , Expect, expectString, expectUnoptimizedJson
+    , jsonFile
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -449,6 +450,7 @@ get url decoder =
     request
         (Secrets.map
             (\okUrl ->
+                -- wrap in new variant
                 { url = okUrl
                 , method = "GET"
                 , headers = []
@@ -456,6 +458,21 @@ get url decoder =
                 }
             )
             url
+        )
+        decoder
+
+
+jsonFile : String -> Decoder a -> Request a
+jsonFile filename decoder =
+    --"""{"stargazer_count":86}"""
+    request
+        (Secrets.succeed
+            -- TODO wrap in new variant
+            { url = "file://" ++ filename
+            , method = "GET"
+            , headers = []
+            , body = emptyBody
+            }
         )
         decoder
 

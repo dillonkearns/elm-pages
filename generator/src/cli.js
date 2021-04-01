@@ -10,10 +10,13 @@ const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const generateManifest = require("./generate-manifest.js");
 const terser = require("terser");
+const matter = require("gray-matter");
+const globby = require("globby");
+const mm = require("micromatch");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
-const debug = false;
+const debug = true;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -72,6 +75,34 @@ function runElmApp() {
         generateFiles(fromElm.args[0].filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         outputString(fromElm);
+      } else if (fromElm.tag === "ReadFile") {
+        const filePath = fromElm.args[0];
+
+        const fileContents = fs.readFileSync(filePath).toString();
+        const parsedFile = matter(fileContents);
+        app.ports.fromJsPort.send({
+          tag: "GotFile",
+          data: {
+            filePath,
+            parsedFrontmatter: parsedFile.data,
+            withoutFrontmatter: parsedFile.content,
+            rawFile: fileContents,
+          },
+        });
+      } else if (fromElm.tag === "Glob") {
+        const globPattern = fromElm.args[0];
+        const globResult = globby.sync(globPattern);
+        const captures = globResult.map((result) => {
+          return {
+            captures: mm.capture(globPattern, result),
+            fullPath: result,
+          };
+        });
+
+        app.ports.fromJsPort.send({
+          tag: "GotGlob",
+          data: { pattern: globPattern, result: captures },
+        });
       } else if (fromElm.tag === "Errors") {
         console.error(fromElm.args[0]);
         foundErrors = true;
@@ -124,10 +155,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-      .split("/")
-      .map((_) => "..")
-      .join("/")
-      .replace(/\.$/, "./");
+        .split("/")
+        .map((_) => "..")
+        .join("/")
+        .replace(/\.$/, "./");
 }
 
 /**
@@ -176,7 +207,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
-    const subprocess = runElm(elmEntrypointPath, outputPath, cwd)
+    const subprocess = runElm(elmEntrypointPath, outputPath, cwd);
 
     subprocess.on("close", (code) => {
       const fileOutputExists = fs.existsSync(fullOutputPath);
@@ -197,6 +228,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
  */
 function runElm(elmEntrypointPath, outputPath, cwd) {
   if (debug) {
+    console.log("Running elm make");
     return spawnCallback(
       `elm`,
       ["make", elmEntrypointPath, "--output", outputPath, "--debug"],
@@ -207,6 +239,7 @@ function runElm(elmEntrypointPath, outputPath, cwd) {
       }
     );
   } else {
+    console.log("Running elm-optimize-level-2");
     return spawnCallback(
       `elm-optimize-level-2`,
       [elmEntrypointPath, "--output", outputPath],
@@ -217,7 +250,6 @@ function runElm(elmEntrypointPath, outputPath, cwd) {
       }
     );
   }
-
 }
 
 /**
@@ -280,7 +312,7 @@ async function compileCliApp() {
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      ('return ' + (debug ? '_Json_wrap(x)' : 'x'))
+      "return " + (debug ? "_Json_wrap(x)" : "x")
     )
   );
 }

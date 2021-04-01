@@ -62,6 +62,7 @@ async function copyDirNested(src, dest) {
 module.exports = {
   writeFile: fs.writeFile,
   readFile: fs.readFile,
+  readFileSync: fsSync.readFileSync,
   copyFile: fs.copyFile,
   exists: fs.exists,
   tryMkdir,

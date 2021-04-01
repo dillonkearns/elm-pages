@@ -10,7 +10,10 @@ import TerminalText as Terminal
 
 
 type Request value
-    = Request ( List (Secrets.Value Pages.StaticHttp.Request.Request), ApplicationType -> RequestsAndPending -> Result Error ( Dict String String, Request value ) )
+    = Request
+        ( List (Secrets.Value Pages.StaticHttp.Request.Request)
+        , ApplicationType -> RequestsAndPending -> Result Error ( Dict String String, Request value )
+        )
     | Done value
 
 

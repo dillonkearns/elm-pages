@@ -102,7 +102,8 @@ startWithHttpCache =
 startLowLevel :
     StaticHttp.Request
         (List
-            (Result String
+            (Result
+                String
                 { path : List String
                 , content : String
                 }
@@ -288,6 +289,12 @@ simulateEffects effect =
         Effect.Continue ->
             SimulatedEffect.Cmd.none
 
+        Effect.ReadFile string ->
+            SimulatedEffect.Cmd.none
+
+        Effect.GetGlob string ->
+            SimulatedEffect.Cmd.none
+
 
 
 --SimulatedEffect.Task.succeed ()
@@ -343,6 +350,12 @@ expectSuccess expectedRequests previous =
                                     Just ( value.route, value.contentJson )
 
                                 ToJsPayload.InitialData record ->
+                                    Nothing
+
+                                ToJsPayload.ReadFile string ->
+                                    Nothing
+
+                                ToJsPayload.Glob string ->
                                     Nothing
                         )
                     |> Dict.fromList

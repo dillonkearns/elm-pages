@@ -58,6 +58,8 @@ type alias Model pathKey metadata =
 
 type Msg
     = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Pages.Http.Error String }
+    | GotStaticFile ( String, Decode.Value )
+    | GotGlob ( String, Decode.Value )
     | Continue
 
 
@@ -99,7 +101,8 @@ type alias Config pathKey userMsg userModel metadata view =
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -152,8 +155,53 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
 
                     _ ->
                         ( model, Cmd.none )
-        , subscriptions = \_ -> Sub.none
+        , subscriptions =
+            \_ ->
+                config.fromJsPort
+                    |> Sub.map
+                        (\jsonValue ->
+                            let
+                                decoder =
+                                    Decode.field "tag" Decode.string
+                                        |> Decode.andThen
+                                            (\tag ->
+                                                -- tag: "GotGlob"
+                                                -- tag: "GotFile"
+                                                case tag of
+                                                    "GotFile" ->
+                                                        gotStaticFileDecoder
+                                                            |> Decode.map GotStaticFile
+
+                                                    "GotGlob" ->
+                                                        Decode.field "data"
+                                                            (Decode.map2 Tuple.pair
+                                                                (Decode.field "pattern" Decode.string)
+                                                                (Decode.field "result" Decode.value)
+                                                            )
+                                                            |> Decode.map GotGlob
+
+                                                    _ ->
+                                                        Decode.fail "Unhandled msg"
+                                            )
+                            in
+                            Decode.decodeValue decoder jsonValue
+                                |> Result.mapError Decode.errorToString
+                                |> Result.withDefault Continue
+                                |> cliMsgConstructor
+                        )
         }
+
+
+
+--gotStaticFileDecoder : Decode.Decoder Msg
+
+
+gotStaticFileDecoder =
+    Decode.field "data"
+        (Decode.map2 Tuple.pair
+            (Decode.field "filePath" Decode.string)
+            Decode.value
+        )
 
 
 viewRenderer : Html msg -> String
@@ -206,40 +254,61 @@ perform config cliMsgConstructor toJsPort effect =
             --     _ =
             --         Debug.log "Fetching" masked.url
             -- in
-            Cmd.batch
-                [ Http.request
-                    { method = unmasked.method
-                    , url = unmasked.url
-                    , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                    , body =
-                        case unmasked.body of
-                            StaticHttpBody.EmptyBody ->
-                                Http.emptyBody
-
-                            StaticHttpBody.StringBody contentType string ->
-                                Http.stringBody contentType string
-
-                            StaticHttpBody.JsonBody value ->
-                                Http.jsonBody value
-                    , expect =
-                        Pages.Http.expectString
-                            (\response ->
-                                (GotStaticHttpResponse >> cliMsgConstructor)
-                                    { request = requests
-                                    , response = response
-                                    }
-                            )
-                    , timeout = Nothing
-                    , tracker = Nothing
-                    }
-                , toJsPort
-                    (Json.Encode.object
-                        [ ( "command", Json.Encode.string "log" )
-                        , ( "value", Json.Encode.string ("Fetching " ++ masked.url) )
-                        ]
-                    )
+            if unmasked.url |> String.startsWith "file://" then
+                let
+                    filePath =
+                        String.dropLeft 7 unmasked.url
+                in
+                ToJsPayload.ReadFile filePath
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                    |> toJsPort
                     |> Cmd.map never
-                ]
+
+            else if unmasked.url |> String.startsWith "glob://" then
+                let
+                    globPattern =
+                        String.dropLeft 7 unmasked.url
+                in
+                ToJsPayload.Glob globPattern
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                    |> toJsPort
+                    |> Cmd.map never
+
+            else
+                Cmd.batch
+                    [ Http.request
+                        { method = unmasked.method
+                        , url = unmasked.url
+                        , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
+                        , body =
+                            case unmasked.body of
+                                StaticHttpBody.EmptyBody ->
+                                    Http.emptyBody
+
+                                StaticHttpBody.StringBody contentType string ->
+                                    Http.stringBody contentType string
+
+                                StaticHttpBody.JsonBody value ->
+                                    Http.jsonBody value
+                        , expect =
+                            Pages.Http.expectString
+                                (\response ->
+                                    (GotStaticHttpResponse >> cliMsgConstructor)
+                                        { request = requests
+                                        , response = response
+                                        }
+                                )
+                        , timeout = Nothing
+                        , tracker = Nothing
+                        }
+                    , toJsPort
+                        (Json.Encode.object
+                            [ ( "command", Json.Encode.string "log" )
+                            , ( "value", Json.Encode.string ("Fetching " ++ masked.url) )
+                            ]
+                        )
+                        |> Cmd.map never
+                    ]
 
         Effect.SendSinglePage info ->
             let
@@ -264,11 +333,17 @@ perform config cliMsgConstructor toJsPort effect =
         Effect.Continue ->
             Cmd.none
 
+        Effect.ReadFile filePath ->
+            ToJsPayload.ReadFile filePath
+                |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                |> toJsPort
+                |> Cmd.map never
 
-
---Task.succeed ()
---    |> Task.perform (\_ -> Continue)
---    |> Cmd.map cliMsgConstructor
+        Effect.GetGlob globPattern ->
+            ToJsPayload.Glob globPattern
+                |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                |> toJsPort
+                |> Cmd.map never
 
 
 flagsDecoder :
@@ -525,6 +600,55 @@ update contentCache siteMetadata config msg model =
                 updatedModel.staticResponses
                 |> nextStepToEffect contentCache config updatedModel
 
+        GotStaticFile ( filePath, fileContent ) ->
+            let
+                --_ =
+                --    Debug.log "GotStaticFile"
+                --        { filePath = filePath
+                --        , pendingRequests = model.pendingRequests
+                --        }
+                nextToProcess =
+                    drop1 updatedModel
+
+                updatedModel =
+                    { model
+                        | pendingRequests =
+                            model.pendingRequests
+                                |> List.filter
+                                    (\pending ->
+                                        pending.unmasked.url
+                                            == ("file://" ++ filePath)
+                                    )
+                    }
+                        |> StaticResponses.update
+                            -- TODO for hash pass in RequestDetails here
+                            { request =
+                                { masked =
+                                    { url = "file://" ++ filePath
+                                    , method = "GET"
+                                    , headers = []
+                                    , body = StaticHttpBody.EmptyBody
+                                    }
+                                , unmasked =
+                                    { url = "file://" ++ filePath
+                                    , method = "GET"
+                                    , headers = []
+                                    , body = StaticHttpBody.EmptyBody
+                                    }
+                                }
+                            , response = Ok (Json.Encode.encode 0 fileContent)
+                            }
+            in
+            StaticResponses.nextStep config
+                siteMetadata
+                (Ok nextToProcess)
+                updatedModel.mode
+                updatedModel.secrets
+                updatedModel.allRawResponses
+                updatedModel.errors
+                updatedModel.staticResponses
+                |> nextStepToEffect contentCache config updatedModel
+
         Continue ->
             -- TODO
             let
@@ -536,6 +660,52 @@ update contentCache siteMetadata config msg model =
                 --|> popProcessedRequest
                 nextToProcess =
                     drop1 model
+            in
+            StaticResponses.nextStep config
+                siteMetadata
+                (Ok nextToProcess)
+                updatedModel.mode
+                updatedModel.secrets
+                updatedModel.allRawResponses
+                updatedModel.errors
+                updatedModel.staticResponses
+                |> nextStepToEffect contentCache config updatedModel
+
+        GotGlob ( globPattern, globResult ) ->
+            let
+                --_ =
+                --    Debug.log "GotStaticFile"
+                --        { filePath = filePath
+                --        , pendingRequests = model.pendingRequests
+                --        }
+                nextToProcess =
+                    drop1 updatedModel
+
+                updatedModel =
+                    { model
+                        | pendingRequests =
+                            model.pendingRequests
+                                |> List.filter
+                                    (\pending -> pending.unmasked.url == ("glob://" ++ globPattern))
+                    }
+                        |> StaticResponses.update
+                            -- TODO for hash pass in RequestDetails here
+                            { request =
+                                { masked =
+                                    { url = "glob://" ++ globPattern
+                                    , method = "GET"
+                                    , headers = []
+                                    , body = StaticHttpBody.EmptyBody
+                                    }
+                                , unmasked =
+                                    { url = "glob://" ++ globPattern
+                                    , method = "GET"
+                                    , headers = []
+                                    , body = StaticHttpBody.EmptyBody
+                                    }
+                                }
+                            , response = Ok (Json.Encode.encode 0 globResult)
+                            }
             in
             StaticResponses.nextStep config
                 siteMetadata
@@ -820,7 +990,8 @@ staticResponseForPage :
                 }
         )
     ->
-        Result (List BuildError)
+        Result
+            (List BuildError)
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request

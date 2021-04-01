@@ -1,11 +1,17 @@
 module Template.BlogIndex exposing (Model, Msg, template)
 
+import Article
+import Cloudinary
+import Date exposing (Date)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Index
+import OptimizedDecoder
 import Pages exposing (images)
+import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
@@ -28,7 +34,10 @@ template =
         |> Template.buildWithLocalState
             { view = view
             , init = init
-            , update = update
+            , update =
+                update
+
+            --\_ _ _ model -> ( model, Cmd.none )
             , subscriptions = \_ _ _ -> Sub.none
             }
 
@@ -37,11 +46,12 @@ staticData :
     List ( PagePath Pages.PathKey, TemplateType )
     -> StaticHttp.Request StaticData
 staticData siteMetadata =
-    Showcase.staticRequest
+    --StaticFile.glob "content/blog/*.md"
+    Article.allMetadata
 
 
 type alias StaticData =
-    List Showcase.Entry
+    List ( PagePath Pages.PathKey, Article.ArticleMetadata )
 
 
 init : BlogIndex -> ( Model, Cmd Msg )
@@ -50,11 +60,12 @@ init metadata =
 
 
 update :
-    BlogIndex
+    Shared.Model
+    -> BlogIndex
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update metadata msg model =
+update sharedModel metadata msg model =
     ( model, Cmd.none )
 
 
@@ -64,16 +75,21 @@ type alias Model =
 
 view :
     Model
+    -> Shared.Model
     -> List ( PagePath Pages.PathKey, TemplateType )
     -> StaticPayload BlogIndex StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view model allMetadata staticPayload rendered =
+view thing model allMetadata staticPayload rendered =
     { title = "elm-pages blog"
     , body =
         [ Element.column [ Element.width Element.fill ]
             [ Element.column [ Element.padding 20, Element.centerX ]
-                [ Index.view allMetadata
+                [ --Element.text
+                  --    (staticPayload.static
+                  --        |> String.join ", "
+                  --    )
+                  Index.view staticPayload.static
                 ]
             ]
         ]
@@ -96,3 +112,64 @@ head staticPayload =
         , title = "elm-pages blog"
         }
         |> Seo.website
+
+
+
+--fileRequest : StaticHttp.Request DataFromFile
+--fileRequest =
+--    StaticFile.request
+--        "content/blog/extensible-markdown-parsing-in-elm.md"
+--        (OptimizedDecoder.map2 DataFromFile
+--            (StaticFile.body
+--                |> OptimizedDecoder.andThen
+--                    (\rawBody ->
+--                        case rawBody |> MarkdownRenderer.view |> Result.map Tuple.second of
+--                            Ok renderedBody ->
+--                                OptimizedDecoder.succeed renderedBody
+--
+--                            Err error ->
+--                                OptimizedDecoder.fail error
+--                    )
+--            )
+--            (StaticFile.frontmatter frontmatterDecoder)
+--        )
+
+
+type alias ArticleMetadata =
+    { title : String
+    , description : String
+    , published : Date
+    , image : ImagePath Pages.PathKey
+    , draft : Bool
+    }
+
+
+frontmatterDecoder : OptimizedDecoder.Decoder ArticleMetadata
+frontmatterDecoder =
+    OptimizedDecoder.map5 ArticleMetadata
+        (OptimizedDecoder.field "title" OptimizedDecoder.string)
+        (OptimizedDecoder.field "description" OptimizedDecoder.string)
+        (OptimizedDecoder.field "published"
+            (OptimizedDecoder.string
+                |> OptimizedDecoder.andThen
+                    (\isoString ->
+                        case Date.fromIsoString isoString of
+                            Ok date ->
+                                OptimizedDecoder.succeed date
+
+                            Err error ->
+                                OptimizedDecoder.fail error
+                    )
+            )
+        )
+        (OptimizedDecoder.field "image" imageDecoder)
+        (OptimizedDecoder.field "draft" OptimizedDecoder.bool
+            |> OptimizedDecoder.maybe
+            |> OptimizedDecoder.map (Maybe.withDefault False)
+        )
+
+
+imageDecoder : OptimizedDecoder.Decoder (ImagePath Pages.PathKey)
+imageDecoder =
+    OptimizedDecoder.string
+        |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
