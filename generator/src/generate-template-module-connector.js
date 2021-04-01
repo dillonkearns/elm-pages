@@ -11,6 +11,7 @@ function generateTemplateModuleConnector() {
 import Browser
 import Pages.Manifest as Manifest
 import Shared
+import NoMetadata exposing (NoMetadata(..))
 import TemplateType as M exposing (TemplateType)
 import Head
 import Html exposing (Html)
@@ -31,7 +32,7 @@ type alias Model =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : TemplateType
+            , metadata : NoMetadata
             }
     }
 
@@ -50,7 +51,7 @@ type Msg
         { path : PagePath Pages.PathKey
         , query : Maybe String
         , fragment : Maybe String
-        , metadata : TemplateType
+        , metadata : NoMetadata
         }
     | ${templates
       .map((name) => `Msg${name} Template.${name}.Msg\n`)
@@ -58,10 +59,10 @@ type Msg
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
+    List ( PagePath Pages.PathKey, NoMetadata )
     ->
         { path : PagePath Pages.PathKey
-        , frontmatter : TemplateType
+        , frontmatter : NoMetadata
         }
     ->
         StaticHttp.Request
@@ -70,10 +71,10 @@ view :
             }
 view siteMetadata page =
     case page.frontmatter of
-        ${templates
+        ${[templates[0]]
           .map(
             (name) =>
-              `M.${name} metadata ->
+              `NoMetadata ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
@@ -83,10 +84,8 @@ view siteMetadata page =
                                     Template.${name}.template.view
                                         subModel
                                         model.global
-                                        siteMetadata
                                         { static = data
                                         , sharedStatic = globalData
-                                        , metadata = metadata
                                         , path = page.path
                                         }
                                         rendered
@@ -106,13 +105,12 @@ view siteMetadata page =
                     , head = Template.${name}.template.head
                         { static = data
                         , sharedStatic = globalData
-                        , metadata = metadata
                         , path = page.path
                         }
                     }
                 )
-                (Template.${name}.template.staticData siteMetadata)
-                (Shared.template.staticData siteMetadata)
+                (Template.${name}.template.staticData)
+                (Shared.template.staticData)
 `
           )
           .join("\n\n        ")}
@@ -127,7 +125,7 @@ init :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : TemplateType
+            , metadata : NoMetadata
             }
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
@@ -140,17 +138,17 @@ init currentGlobalModel maybePagePath =
                 Nothing ->
                     ( NotFound, Cmd.none )
 
-                Just meta ->
-                    case meta of
-                        ${templates
-                          .map(
-                            (name) => `M.${name} metadata ->
-                            Template.${name}.template.init metadata
-                                |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
+                Just NoMetadata ->
+                    ${[templates[0]]
+
+                      .map(
+                        (name) => `
+                    Template.${name}.template.init NoMetadata
+                        |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
 
 `
-                          )
-                          .join("\n                        ")}
+                      )
+                      .join("\n                        ")}
     in
     ( { global = sharedModel
       , page = templateModel
@@ -219,9 +217,9 @@ update msg model =
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( Model${name} pageModel, Just (M.${name} metadata) ) ->
+                        ( Model${name} pageModel, Just NoMetadata ) ->
                             Template.${name}.template.update
-                                metadata
+                                NoMetadata
                                 msg_
                                 pageModel
                                 model.global
@@ -251,24 +249,19 @@ type alias SiteConfig =
     , manifest : Manifest.Config Pages.PathKey
     }
 
-templateSubscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
+templateSubscriptions : NoMetadata -> PagePath Pages.PathKey -> Model -> Sub Msg
 templateSubscriptions metadata path model =
     case model.page of
         ${templates
           .map(
             (name) => `
         Model${name} templateModel ->
-            case metadata of
-                M.${name} templateMetadata ->
-                    Template.${name}.template.subscriptions
-                        templateMetadata
-                        path
-                        templateModel
-                        model.global
-                        |> Sub.map Msg${name}
-
-                _ ->
-                    Sub.none
+            Template.${name}.template.subscriptions
+                NoMetadata
+                path
+                templateModel
+                model.global
+                |> Sub.map Msg${name}
 `
           )
           .join("\n        ")}
@@ -286,8 +279,8 @@ mainTemplate { documents, site } =
         , subscriptions =
             \\metadata path model ->
                 Sub.batch
-                    [ Shared.template.subscriptions metadata path model.global |> Sub.map MsgGlobal
-                    , templateSubscriptions metadata path model
+                    [ Shared.template.subscriptions NoMetadata path model.global |> Sub.map MsgGlobal
+                    , templateSubscriptions NoMetadata path model
                     ]
         , documents = documents
         , onPageChange = Just OnPageChange

@@ -18,6 +18,7 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import NoMetadata exposing (NoMetadata)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Http
@@ -45,14 +46,14 @@ type alias Flags =
     Decode.Value
 
 
-type alias Model pathKey metadata =
+type alias Model pathKey =
     { staticResponses : StaticResponses
     , secrets : SecretsDict
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
-    , unprocessedPages : List ( PagePath pathKey, metadata )
+    , unprocessedPages : List ( PagePath pathKey, NoMetadata )
     }
 
 
@@ -63,7 +64,7 @@ type Msg
     | Continue
 
 
-type alias Config pathKey userMsg userModel metadata view =
+type alias Config pathKey userMsg userModel view =
     { init :
         Maybe
             { path :
@@ -71,23 +72,23 @@ type alias Config pathKey userMsg userModel metadata view =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : metadata
+            , metadata : NoMetadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
+    , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
-        List ( PagePath pathKey, metadata )
+        List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
         ->
             StaticHttp.Request
                 { view : userModel -> view -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , document : Pages.Document.Document metadata view
+    , document : Pages.Document.Document NoMetadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -95,7 +96,7 @@ type alias Config pathKey userMsg userModel metadata view =
     , generateFiles :
         List
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             , body : String
             }
         ->
@@ -115,7 +116,7 @@ type alias Config pathKey userMsg userModel metadata view =
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : metadata
+             , metadata : NoMetadata
              }
              -> userMsg
             )
@@ -125,9 +126,9 @@ type alias Config pathKey userMsg userModel metadata view =
 cliApplication :
     (Msg -> msg)
     -> (msg -> Maybe Msg)
-    -> (Model pathKey metadata -> model)
-    -> (model -> Maybe (Model pathKey metadata))
-    -> Config pathKey userMsg userModel metadata view
+    -> (Model pathKey -> model)
+    -> (model -> Maybe (Model pathKey))
+    -> Config pathKey userMsg userModel view
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -232,7 +233,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Config pathKey userMsg userModel metadata view -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform : Config pathKey userMsg userModel view -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -372,10 +373,10 @@ flagsDecoder =
 
 
 init :
-    (Model pathKey metadata -> model)
-    -> ContentCache.ContentCache metadata view
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Config pathKey userMsg userModel metadata view
+    (Model pathKey -> model)
+    -> ContentCache.ContentCache NoMetadata view
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    -> Config pathKey userMsg userModel view
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
@@ -490,11 +491,11 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
 
 
 updateAndSendPortIfDone :
-    ContentCache.ContentCache metadata view
-    -> Config pathKey userMsg userModel metadata view
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Model pathKey metadata
-    -> (Model pathKey metadata -> model)
+    ContentCache.ContentCache NoMetadata view
+    -> Config pathKey userMsg userModel view
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    -> Model pathKey
+    -> (Model pathKey -> model)
     -> ( model, Effect pathKey )
 updateAndSendPortIfDone contentCache config siteMetadata model toModel =
     let
@@ -523,12 +524,12 @@ drop1 model =
 
 
 update :
-    ContentCache.ContentCache metadata view
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Config pathKey userMsg userModel metadata view
+    ContentCache.ContentCache NoMetadata view
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    -> Config pathKey userMsg userModel view
     -> Msg
-    -> Model pathKey metadata
-    -> ( Model pathKey metadata, Effect pathKey )
+    -> Model pathKey
+    -> ( Model pathKey, Effect pathKey )
 update contentCache siteMetadata config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
@@ -719,11 +720,11 @@ update contentCache siteMetadata config msg model =
 
 
 nextStepToEffect :
-    ContentCache.ContentCache metadata view
-    -> Config pathKey userMsg userModel metadata view
-    -> Model pathKey metadata
+    ContentCache.ContentCache NoMetadata view
+    -> Config pathKey userMsg userModel view
+    -> Model pathKey
     -> StaticResponses.NextStep pathKey
-    -> ( Model pathKey metadata, Effect pathKey )
+    -> ( Model pathKey, Effect pathKey )
 nextStepToEffect contentCache config model nextStep =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests ->
@@ -828,14 +829,14 @@ nextStepToEffect contentCache config model nextStep =
 
 sendSinglePageProgress :
     ToJsSuccessPayload pathKey
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Config pathKey userMsg userModel metadata view
-    -> ContentCache metadata view
-    -> Model pathKey metadata
-    -> ( PagePath pathKey, metadata )
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    -> Config pathKey userMsg userModel view
+    -> ContentCache NoMetadata view
+    -> Model pathKey
+    -> ( PagePath pathKey, NoMetadata )
     -> Effect pathKey
 sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
-    \( page, metadata ) ->
+    \( page, _ ) ->
         let
             makeItWork : StaticHttpRequest.Request staticData -> Result BuildError staticData
             makeItWork request =
@@ -871,9 +872,9 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     urls
                     { body = "", staticData = model.allRawResponses }
 
-            currentPage : { path : PagePath pathKey, frontmatter : metadata }
+            currentPage : { path : PagePath pathKey, frontmatter : NoMetadata }
             currentPage =
-                { path = page, frontmatter = metadata }
+                { path = page, frontmatter = NoMetadata.NoMetadata }
 
             pageModel : userModel
             pageModel =
@@ -884,7 +885,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                             , query = Nothing
                             , fragment = Nothing
                             }
-                        , metadata = metadata
+                        , metadata = NoMetadata.NoMetadata
                         }
                     )
                     |> Tuple.first
@@ -976,12 +977,12 @@ sendProgress singlePage =
 
 
 staticResponseForPage :
-    List ( PagePath pathKey, metadata )
+    List ( PagePath pathKey, NoMetadata )
     ->
-        (List ( PagePath pathKey, metadata )
+        (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
          ->
             StaticHttpRequest.Request

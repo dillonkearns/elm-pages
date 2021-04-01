@@ -1,4 +1,4 @@
-module Template.Page exposing (Model, Msg, decoder, template)
+module Template.Page exposing (Model, Msg, template)
 
 import Element exposing (Element)
 import Element.Region
@@ -10,8 +10,6 @@ import Pages.PagePath exposing (PagePath)
 import Shared
 import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
-import TemplateMetadata exposing (Page)
-import TemplateType exposing (TemplateType)
 
 
 type alias Model =
@@ -22,22 +20,16 @@ type alias Msg =
     Never
 
 
-template : Template Page ()
+template : Template ()
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }
 
 
-decoder : Decode.Decoder Page
-decoder =
-    Decode.map Page
-        (Decode.field "title" Decode.string)
-
-
 head :
-    StaticPayload Page ()
+    StaticPayload ()
     -> List (Head.Tag Pages.PathKey)
-head { metadata } =
+head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -49,18 +41,21 @@ head { metadata } =
             }
         , description = Site.tagline
         , locale = Nothing
-        , title = metadata.title
+        , title = "TODO title" -- metadata.title -- TODO
         }
         |> Seo.website
 
 
+type alias StaticData =
+    ()
+
+
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload Page ()
+    StaticPayload StaticData
     -> Shared.RenderedBody
     -> Shared.PageView msg
-view allMetadata { metadata } rendered =
-    { title = metadata.title
+view static rendered =
+    { title = "TODO title" -- metadata.title -- TODO
     , body =
         [ [ Element.column
                 [ Element.padding 50

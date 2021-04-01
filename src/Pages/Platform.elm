@@ -66,6 +66,7 @@ which case there is no pre-rendering).
 import Head
 import Html exposing (Html)
 import Json.Decode
+import NoMetadata exposing (NoMetadata)
 import Pages.Document as Document
 import Pages.Internal
 import Pages.Internal.Platform
@@ -88,34 +89,35 @@ type Builder pathKey model msg metadata view
                     , query : Maybe String
                     , fragment : Maybe String
                     }
-                , metadata : metadata
+                , metadata : NoMetadata
                 }
             -> ( model, Cmd msg )
         , update : msg -> model -> ( model, Cmd msg )
-        , subscriptions : metadata -> PagePath pathKey -> model -> Sub msg
+        , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
         , view :
-            List ( PagePath pathKey, metadata )
+            List ( PagePath pathKey, NoMetadata )
             ->
                 { path : PagePath pathKey
-                , frontmatter : metadata
+                , frontmatter : NoMetadata
                 }
             ->
                 StaticHttp.Request
                     { view : model -> view -> { title : String, body : Html msg }
                     , head : List (Head.Tag pathKey)
                     }
-        , documents : List ( String, Document.DocumentHandler metadata view )
+        , documents : List ( String, Document.DocumentHandler NoMetadata view )
         , manifest : Pages.Manifest.Config pathKey
         , generateFiles :
             List
                 { path : PagePath pathKey
-                , frontmatter : metadata
+                , frontmatter : NoMetadata
                 , body : String
                 }
             ->
                 StaticHttp.Request
                     (List
-                        (Result String
+                        (Result
+                            String
                             { path : List String
                             , content : String
                             }
@@ -126,7 +128,7 @@ type Builder pathKey model msg metadata view
                 ({ path : PagePath pathKey
                  , query : Maybe String
                  , fragment : Maybe String
-                 , metadata : metadata
+                 , metadata : NoMetadata
                  }
                  -> msg
                 )
@@ -170,26 +172,26 @@ init :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : metadata
+            , metadata : NoMetadata
             }
         -> ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )
     , view :
-        List ( PagePath pathKey, metadata )
+        List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
         ->
             StaticHttp.Request
                 { view : model -> view -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
-    , subscriptions : metadata -> PagePath pathKey -> model -> Sub msg
+    , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
     , documents :
         List
             { extension : String
-            , metadata : Json.Decode.Decoder metadata
+            , metadata : Json.Decode.Decoder NoMetadata
             , body : String -> Result String view
             }
     , onPageChange :
@@ -197,7 +199,7 @@ init :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : metadata
+             , metadata : NoMetadata
              }
              -> msg
             )
@@ -205,7 +207,7 @@ init :
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Builder pathKey model msg metadata view
+    -> Builder pathKey model msg NoMetadata view
 init config =
     Builder
         { init = config.init
@@ -225,8 +227,8 @@ init config =
 -}
 withGlobalHeadTags :
     List (Head.Tag pathKey)
-    -> Builder pathKey model msg metadata view
-    -> Builder pathKey model msg metadata view
+    -> Builder pathKey model msg NoMetadata view
+    -> Builder pathKey model msg NoMetadata view
 withGlobalHeadTags globalHeadTags (Builder config) =
     Builder
         { config
@@ -276,19 +278,20 @@ Disallow: /cgi-bin/
 
 -}
 withFileGenerator :
-    (List { path : PagePath pathKey, frontmatter : metadata, body : String }
+    (List { path : PagePath pathKey, frontmatter : NoMetadata, body : String }
      ->
         StaticHttp.Request
             (List
-                (Result String
+                (Result
+                    String
                     { path : List String
                     , content : String
                     }
                 )
             )
     )
-    -> Builder pathKey model msg metadata view
-    -> Builder pathKey model msg metadata view
+    -> Builder pathKey model msg NoMetadata view
+    -> Builder pathKey model msg NoMetadata view
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
@@ -302,7 +305,7 @@ withFileGenerator generateFiles (Builder config) =
 
 {-| When you're done with your builder pipeline, you complete it with `Pages.Platform.toProgram`.
 -}
-toProgram : Builder pathKey model msg metadata view -> Program model msg metadata view pathKey
+toProgram : Builder pathKey model msg NoMetadata view -> Program model msg NoMetadata view pathKey
 toProgram (Builder config) =
     application
         { init = config.init
@@ -326,34 +329,35 @@ application :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : metadata
+            , metadata : NoMetadata
             }
         -> ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )
-    , subscriptions : metadata -> PagePath pathKey -> model -> Sub msg
+    , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
     , view :
-        List ( PagePath pathKey, metadata )
+        List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
         ->
             StaticHttp.Request
                 { view : model -> view -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
-    , documents : List ( String, Document.DocumentHandler metadata view )
+    , documents : List ( String, Document.DocumentHandler NoMetadata view )
     , manifest : Pages.Manifest.Config pathKey
     , generateFiles :
         List
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             , body : String
             }
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -364,14 +368,14 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : metadata
+             , metadata : NoMetadata
              }
              -> msg
             )
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Program model msg metadata view pathKey
+    -> Program model msg NoMetadata view pathKey
 application config =
     (case config.internals.applicationType of
         Pages.Internal.Browser ->

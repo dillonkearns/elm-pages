@@ -11,6 +11,7 @@ import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MarkdownRenderer
+import NoMetadata exposing (NoMetadata(..))
 import OptimizedDecoder as D
 import Pages exposing (pages)
 import Pages.Directory as Directory exposing (Directory)
@@ -19,7 +20,6 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
-import TemplateType exposing (TemplateType)
 
 
 type alias SharedTemplate templateDemuxMsg msg1 msg2 =
@@ -30,7 +30,7 @@ type alias SharedTemplate templateDemuxMsg msg1 msg2 =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : TemplateType
+            , metadata : NoMetadata
             }
         -> ( Model, Cmd Msg )
     , update : Msg -> Model -> ( Model, Cmd Msg )
@@ -38,15 +38,15 @@ type alias SharedTemplate templateDemuxMsg msg1 msg2 =
         StaticData
         ->
             { path : PagePath Pages.PathKey
-            , frontmatter : TemplateType
+            , frontmatter : NoMetadata
             }
         -> Model
         -> (Msg -> templateDemuxMsg)
         -> PageView templateDemuxMsg
         -> { body : Html templateDemuxMsg, title : String }
     , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
-    , staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request StaticData
-    , subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
+    , staticData : StaticHttp.Request StaticData
+    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> Model -> Sub Msg
     , onPageChange :
         Maybe
             ({ path : PagePath Pages.PathKey
@@ -117,7 +117,7 @@ init :
             , query : Maybe String
             , fragment : Maybe String
             }
-        , metadata : TemplateType
+        , metadata : NoMetadata
         }
     -> ( Model, Cmd Msg )
 init maybePagePath =
@@ -146,13 +146,13 @@ update msg model =
                     ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
-subscriptions : TemplateType -> PagePath Pages.PathKey -> Model -> Sub Msg
+subscriptions : NoMetadata -> PagePath Pages.PathKey -> Model -> Sub Msg
 subscriptions _ _ _ =
     Sub.none
 
 
-staticData : a -> StaticHttp.Request StaticData
-staticData siteMetadata =
+staticData : StaticHttp.Request StaticData
+staticData =
     StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (D.field "stargazers_count" D.int)
 
@@ -161,7 +161,7 @@ view :
     StaticData
     ->
         { path : PagePath Pages.PathKey
-        , frontmatter : TemplateType
+        , frontmatter : NoMetadata
         }
     -> Model
     -> (Msg -> msg)

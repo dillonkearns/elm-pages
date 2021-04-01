@@ -7,6 +7,7 @@ import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Index
+import NoMetadata exposing (NoMetadata)
 import OptimizedDecoder
 import Pages exposing (images)
 import Pages.ImagePath exposing (ImagePath)
@@ -17,15 +18,13 @@ import Shared
 import Showcase
 import Site
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateMetadata exposing (BlogIndex)
-import TemplateType exposing (TemplateType)
 
 
 type Msg
     = Msg
 
 
-template : TemplateWithState BlogIndex StaticData Model Msg
+template : TemplateWithState StaticData Model Msg
 template =
     Template.withStaticData
         { head = head
@@ -34,18 +33,15 @@ template =
         |> Template.buildWithLocalState
             { view = view
             , init = init
-            , update =
-                update
+            , update = update
 
             --\_ _ _ model -> ( model, Cmd.none )
             , subscriptions = \_ _ _ -> Sub.none
             }
 
 
-staticData :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticHttp.Request StaticData
-staticData siteMetadata =
+staticData : StaticHttp.Request StaticData
+staticData =
     --StaticFile.glob "content/blog/*.md"
     Article.allMetadata
 
@@ -54,14 +50,14 @@ type alias StaticData =
     List ( PagePath Pages.PathKey, Article.ArticleMetadata )
 
 
-init : BlogIndex -> ( Model, Cmd Msg )
-init metadata =
+init : NoMetadata -> ( Model, Cmd Msg )
+init _ =
     ( Model, Cmd.none )
 
 
 update :
     Shared.Model
-    -> BlogIndex
+    -> NoMetadata
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
@@ -76,11 +72,10 @@ type alias Model =
 view :
     Model
     -> Shared.Model
-    -> List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload BlogIndex StaticData
+    -> StaticPayload StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view thing model allMetadata staticPayload rendered =
+view thing model staticPayload rendered =
     { title = "elm-pages blog"
     , body =
         [ Element.column [ Element.width Element.fill ]
@@ -96,7 +91,7 @@ view thing model allMetadata staticPayload rendered =
     }
 
 
-head : StaticPayload BlogIndex StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData -> List (Head.Tag Pages.PathKey)
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

@@ -1,4 +1,4 @@
-module Template.Documentation exposing (Model, Msg, decoder, template)
+module Template.Documentation exposing (Model, Msg, template)
 
 import DocSidebar
 import Element exposing (Element)
@@ -9,6 +9,7 @@ import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import MarkdownRenderer
+import NoMetadata exposing (NoMetadata(..))
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -16,8 +17,11 @@ import Palette
 import Shared
 import Site
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateMetadata exposing (Documentation)
 import TemplateType exposing (TemplateType)
+
+
+type alias Documentation =
+    { title : String }
 
 
 type alias StaticData =
@@ -32,7 +36,7 @@ type Msg
     = Increment
 
 
-template : TemplateWithState Documentation StaticData Model Msg
+template : TemplateWithState StaticData Model Msg
 template =
     Template.noStaticData { head = head }
         |> Template.buildWithSharedState
@@ -43,13 +47,13 @@ template =
             }
 
 
-init : Documentation -> ( Model, Cmd Msg )
-init metadata =
+init : NoMetadata -> ( Model, Cmd Msg )
+init _ =
     ( {}, Cmd.none )
 
 
-update : Documentation -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
-update metadata msg model sharedModel =
+update : NoMetadata -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
+update _ msg model sharedModel =
     case msg of
         Increment ->
             ( model, Cmd.none, Just Shared.IncrementFromChild )
@@ -68,7 +72,7 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : StaticPayload Documentation StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData -> List (Head.Tag Pages.PathKey)
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
@@ -81,7 +85,7 @@ head staticPayload =
             }
         , description = Site.tagline
         , locale = Nothing
-        , title = staticPayload.metadata.title
+        , title = "TODO title" -- staticPayload.metadata.title -- TODO
         }
         |> Seo.website
 
@@ -89,21 +93,23 @@ head staticPayload =
 view :
     Model
     -> Shared.Model
-    -> List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload Documentation StaticData
+    -> StaticPayload StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view model sharedModel allMetadata staticPayload rendered =
-    { title = staticPayload.metadata.title
+view model sharedModel staticPayload rendered =
+    { title = "TODO title" -- staticPayload.metadata.title -- TODO
     , body =
         [ [ Element.row []
                 [ --counterView sharedModel,
                   DocSidebar.view
                     staticPayload.path
-                    allMetadata
+                    []
+                    -- allMetadata -- TODO
                     |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                 , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]
-                    [ Palette.heading 1 [ Element.text staticPayload.metadata.title ]
+                    [ Palette.heading 1
+                        [ Element.text "TODO title" --  Element.text staticPayload.metadata.title -- TODO
+                        ]
                     , Element.column [ Element.spacing 20 ]
                         [ tocView staticPayload.path (Tuple.first rendered)
                         , Element.column

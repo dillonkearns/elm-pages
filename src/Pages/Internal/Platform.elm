@@ -10,6 +10,7 @@ import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import NoMetadata exposing (NoMetadata(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Internal.ApplicationType as ApplicationType
@@ -36,10 +37,10 @@ type alias Program userModel userMsg metadata view pathKey =
 mainView :
     pathKey
     ->
-        (List ( PagePath pathKey, metadata )
+        (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
          ->
             StaticHttp.Request
@@ -53,7 +54,7 @@ mainView :
                 , head : List (Head.Tag pathKey)
                 }
         )
-    -> ModelDetails userModel metadata view
+    -> ModelDetails userModel view
     -> { title : String, body : Html userMsg }
 mainView pathKey pageView model =
     case model.contentCache of
@@ -85,10 +86,10 @@ normalizeUrl baseUrl url =
 pageViewOrError :
     pathKey
     ->
-        (List ( PagePath pathKey, metadata )
+        (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
          ->
             StaticHttp.Request
@@ -96,8 +97,8 @@ pageViewOrError :
                 , head : List (Head.Tag pathKey)
                 }
         )
-    -> ModelDetails userModel metadata view
-    -> ContentCache metadata view
+    -> ModelDetails userModel view
+    -> ContentCache NoMetadata view
     -> { title : String, body : Html userMsg }
 pageViewOrError pathKey viewFn model cache =
     let
@@ -109,10 +110,10 @@ pageViewOrError pathKey viewFn model cache =
     case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
-                ContentCache.Parsed metadata body viewResult ->
+                ContentCache.Parsed NoMetadata body viewResult ->
                     let
                         viewFnResult =
-                            { path = pagePath, frontmatter = metadata }
+                            { path = pagePath, frontmatter = NoMetadata }
                                 |> viewFn
                                     (cache
                                         |> Result.map (ContentCache.extractMetadata pathKey)
@@ -180,10 +181,10 @@ view :
     pathKey
     -> Content
     ->
-        (List ( PagePath pathKey, metadata )
+        (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
          ->
             StaticHttp.Request
@@ -191,8 +192,8 @@ view :
                 , head : List (Head.Tag pathKey)
                 }
         )
-    -> ModelDetails userModel metadata view
-    -> Browser.Document (Msg userMsg metadata view)
+    -> ModelDetails userModel view
+    -> Browser.Document (Msg userMsg NoMetadata view)
 view pathKey content viewFn model =
     let
         { title, body } =
@@ -256,13 +257,13 @@ contentJsonDecoder =
 init :
     pathKey
     -> String
-    -> Pages.Document.Document metadata view
+    -> Pages.Document.Document NoMetadata view
     -> (Json.Encode.Value -> Cmd Never)
     ->
-        (List ( PagePath pathKey, metadata )
+        (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
          ->
             StaticHttp.Request
@@ -279,7 +280,7 @@ init :
     -> Content
     ->
         (Maybe
-            { metadata : metadata
+            { metadata : NoMetadata
             , path :
                 { path : PagePath pathKey
                 , query : Maybe String
@@ -291,7 +292,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
+    -> ( ModelDetails userModel view, Cmd (AppMsg userMsg NoMetadata view) )
 init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
@@ -351,13 +352,13 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
 
                 ( userModel, userCmd ) =
                     Maybe.map2
-                        (\pagePath metadata ->
+                        (\pagePath NoMetadata ->
                             { path =
                                 { path = pagePath
                                 , query = url.query
                                 , fragment = url.fragment
                                 }
-                            , metadata = metadata
+                            , metadata = NoMetadata
                             }
                         )
                         maybePagePath
@@ -383,8 +384,8 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
 
                 ( maybePagePath, maybeMetadata ) =
                     case ContentCache.lookupMetadata pathKey (Ok okCache) urls of
-                        Just ( pagePath, metadata ) ->
-                            ( Just pagePath, Just metadata )
+                        Just ( pagePath, NoMetadata ) ->
+                            ( Just pagePath, Just NoMetadata )
 
                         Nothing ->
                             ( Nothing, Nothing )
@@ -437,23 +438,23 @@ type AppMsg userMsg metadata view
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | UserMsg userMsg
-    | UpdateCache (Result Http.Error (ContentCache metadata view))
-    | UpdateCacheAndUrl Url (Result Http.Error (ContentCache metadata view))
+    | UpdateCache (Result Http.Error (ContentCache NoMetadata view))
+    | UpdateCacheAndUrl Url (Result Http.Error (ContentCache NoMetadata view))
     | PageScrollComplete
     | HotReloadComplete ContentJson
     | StartingHotReload
 
 
 type Model userModel userMsg metadata view pathKey
-    = Model (ModelDetails userModel metadata view)
-    | CliModel (Pages.Internal.Platform.Cli.Model pathKey metadata)
+    = Model (ModelDetails userModel view)
+    | CliModel (Pages.Internal.Platform.Cli.Model pathKey)
 
 
-type alias ModelDetails userModel metadata view =
+type alias ModelDetails userModel view =
     { key : Browser.Navigation.Key
     , url : Url
     , baseUrl : Url
-    , contentCache : ContentCache metadata view
+    , contentCache : ContentCache NoMetadata view
     , userModel : userModel
     , phase : Phase
     , hmrStatus : HmrStatus
@@ -471,10 +472,10 @@ update :
     -> List String
     -> String
     ->
-        (List ( PagePath pathKey, metadata )
+        (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
          ->
             StaticHttp.Request
@@ -488,16 +489,16 @@ update :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : metadata
+             , metadata : NoMetadata
              }
              -> userMsg
             )
     -> (Json.Encode.Value -> Cmd Never)
-    -> Pages.Document.Document metadata view
+    -> Pages.Document.Document NoMetadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
-    -> Msg userMsg metadata view
-    -> ModelDetails userModel metadata view
-    -> ( ModelDetails userModel metadata view, Cmd (AppMsg userMsg metadata view) )
+    -> Msg userMsg NoMetadata view
+    -> ModelDetails userModel view
+    -> ( ModelDetails userModel view, Cmd (AppMsg userMsg NoMetadata view) )
 update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
@@ -574,10 +575,10 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                                         |> Maybe.map (encodeHeads allRoutes canonicalSiteUrl model.url.path)
                                                         |> Maybe.map toJsPort
 
-                                                ContentCache.NeedContent string metadata ->
+                                                ContentCache.NeedContent string NoMetadata ->
                                                     Nothing
 
-                                                ContentCache.Unparsed string metadata contentJson ->
+                                                ContentCache.Unparsed string NoMetadata contentJson ->
                                                     Nothing
 
                                         Nothing ->
@@ -623,13 +624,13 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                                     case ContentCache.lookup pathKey updatedCache urls of
                                                         Just ( pagePath, entry ) ->
                                                             case entry of
-                                                                ContentCache.Parsed metadata rawBody viewResult ->
-                                                                    Just metadata
+                                                                ContentCache.Parsed NoMetadata rawBody viewResult ->
+                                                                    Just NoMetadata
 
-                                                                ContentCache.NeedContent string metadata ->
+                                                                ContentCache.NeedContent string NoMetadata ->
                                                                     Nothing
 
-                                                                ContentCache.Unparsed string metadata contentJson ->
+                                                                ContentCache.Unparsed string NoMetadata contentJson ->
                                                                     Nothing
 
                                                         Nothing ->
@@ -637,13 +638,13 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                             in
                                             maybeMetadata
                                                 |> Maybe.map
-                                                    (\metadata ->
+                                                    (\NoMetadata ->
                                                         userUpdate
                                                             (onPageChangeMsg
                                                                 { path = urlToPagePath pathKey url model.baseUrl
                                                                 , query = url.query
                                                                 , fragment = url.fragment
-                                                                , metadata = metadata
+                                                                , metadata = NoMetadata
                                                                 }
                                                             )
                                                             model.userModel
@@ -699,23 +700,23 @@ application :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : metadata
+            , metadata : NoMetadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
+    , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
-        List ( PagePath pathKey, metadata )
+        List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
         ->
             StaticHttp.Request
                 { view : userModel -> view -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , document : Pages.Document.Document metadata view
+    , document : Pages.Document.Document NoMetadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -723,13 +724,14 @@ application :
     , generateFiles :
         List
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             , body : String
             }
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -742,13 +744,13 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : metadata
+             , metadata : NoMetadata
              }
              -> userMsg
             )
     }
     --    -> Program userModel userMsg metadata view
-    -> Platform.Program Flags (Model userModel userMsg metadata view pathKey) (Msg userMsg metadata view)
+    -> Platform.Program Flags (Model userModel userMsg NoMetadata view pathKey) (Msg userMsg NoMetadata view)
 application config =
     Browser.application
         { init =
@@ -806,20 +808,19 @@ application config =
 
                             ( maybePagePath, maybeMetadata ) =
                                 case ContentCache.lookupMetadata config.pathKey model.contentCache urls of
-                                    Just ( pagePath, metadata ) ->
-                                        ( Just pagePath, Just metadata )
+                                    Just ( pagePath, NoMetadata ) ->
+                                        ( Just pagePath, Just NoMetadata )
 
                                     Nothing ->
                                         ( Nothing, Nothing )
 
                             userSub =
-                                Maybe.map2
-                                    (\metadata path ->
-                                        config.subscriptions metadata path model.userModel
+                                Maybe.map
+                                    (\path ->
+                                        config.subscriptions NoMetadata path model.userModel
                                             |> Sub.map UserMsg
                                             |> Sub.map AppMsg
                                     )
-                                    maybeMetadata
                                     maybePagePath
                                     |> Maybe.withDefault Sub.none
                         in
@@ -858,23 +859,23 @@ cliApplication :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : metadata
+            , metadata : NoMetadata
             }
         -> ( userModel, Cmd userMsg )
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : metadata -> PagePath pathKey -> userModel -> Sub userMsg
+    , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
-        List ( PagePath pathKey, metadata )
+        List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             }
         ->
             StaticHttp.Request
                 { view : userModel -> view -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , document : Pages.Document.Document metadata view
+    , document : Pages.Document.Document NoMetadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -882,13 +883,14 @@ cliApplication :
     , generateFiles :
         List
             { path : PagePath pathKey
-            , frontmatter : metadata
+            , frontmatter : NoMetadata
             , body : String
             }
         ->
             StaticHttp.Request
                 (List
-                    (Result String
+                    (Result
+                        String
                         { path : List String
                         , content : String
                         }
@@ -901,12 +903,12 @@ cliApplication :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : metadata
+             , metadata : NoMetadata
              }
              -> userMsg
             )
     }
-    -> Program userModel userMsg metadata view pathKey
+    -> Program userModel userMsg NoMetadata view pathKey
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
         (\msg ->

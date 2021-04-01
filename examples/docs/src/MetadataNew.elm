@@ -41,17 +41,9 @@ decoder =
                         Decode.field "title" Decode.string
                             |> Decode.map (\title -> TemplateType.Documentation { title = title })
 
-                    "page" ->
-                        Template.Page.decoder
-                            |> Decode.map TemplateType.Page
-
                     "blog-index" ->
                         Decode.succeed {}
                             |> Decode.map TemplateType.BlogIndex
-
-                    "showcase" ->
-                        Template.Showcase.decoder
-                            |> Decode.map TemplateType.Showcase
 
                     "blog" ->
                         Decode.map6 ArticleMetadata

@@ -1,6 +1,7 @@
 module RssPlugin exposing (generate)
 
 import Head
+import NoMetadata exposing (NoMetadata)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Builder)
 import Pages.StaticHttp as StaticHttp
@@ -17,13 +18,13 @@ generate :
     }
     ->
         ({ path : PagePath pathKey
-         , frontmatter : metadata
+         , frontmatter : NoMetadata
          , body : String
          }
          -> Maybe Rss.Item
         )
-    -> Builder pathKey userModel userMsg metadata view
-    -> Builder pathKey userModel userMsg metadata view
+    -> Builder pathKey userModel userMsg NoMetadata view
+    -> Builder pathKey userModel userMsg NoMetadata view
 generate options metadataToRssItem builder =
     let
         feedFilePath =

@@ -45,6 +45,7 @@ But before the user even requests the page, we have the following data:
 -}
 
 import Head
+import NoMetadata exposing (NoMetadata(..))
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -53,36 +54,32 @@ import TemplateType exposing (TemplateType)
 
 
 {-| -}
-type alias TemplateWithState templateMetadata templateStaticData templateModel templateMsg =
-    { staticData :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticHttp.Request templateStaticData
+type alias TemplateWithState templateStaticData templateModel templateMsg =
+    { staticData : StaticHttp.Request templateStaticData
     , view :
         templateModel
         -> Shared.Model
-        -> List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
+        -> StaticPayload templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
     , head :
-        StaticPayload templateMetadata templateStaticData
+        StaticPayload templateStaticData
         -> List (Head.Tag Pages.PathKey)
-    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : NoMetadata -> ( templateModel, Cmd templateMsg )
+    , update : NoMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
 
 {-| -}
-type alias Template templateMetadata staticData =
-    TemplateWithState templateMetadata staticData () Never
+type alias Template staticData =
+    TemplateWithState staticData () Never
 
 
 {-| -}
-type alias StaticPayload metadata staticData =
+type alias StaticPayload staticData =
     { static : staticData -- local
     , sharedStatic : Shared.StaticData -- share
-    , metadata : metadata
     , path : PagePath Pages.PathKey
     }
 
@@ -90,11 +87,9 @@ type alias StaticPayload metadata staticData =
 {-| -}
 type Builder templateMetadata templateStaticData
     = WithStaticData
-        { staticData :
-            List ( PagePath Pages.PathKey, TemplateType )
-            -> StaticHttp.Request templateStaticData
+        { staticData : StaticHttp.Request templateStaticData
         , head :
-            StaticPayload templateMetadata templateStaticData
+            StaticPayload templateStaticData
             -> List (Head.Tag Pages.PathKey)
         }
 
@@ -102,13 +97,12 @@ type Builder templateMetadata templateStaticData
 {-| -}
 buildNoState :
     { view :
-        List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
+        StaticPayload templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView Never
     }
-    -> Builder templateMetadata templateStaticData
-    -> TemplateWithState templateMetadata templateStaticData () Never
+    -> Builder NoMetadata templateStaticData
+    -> TemplateWithState templateStaticData () Never
 buildNoState { view } builderState =
     case builderState of
         WithStaticData record ->
@@ -126,22 +120,21 @@ buildWithLocalState :
     { view :
         templateModel
         -> Shared.Model
-        -> List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
+        -> StaticPayload templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
-    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : Shared.Model -> templateMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
+    , init : NoMetadata -> ( templateModel, Cmd templateMsg )
+    , update : Shared.Model -> NoMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
     }
-    -> Builder templateMetadata templateStaticData
-    -> TemplateWithState templateMetadata templateStaticData templateModel templateMsg
+    -> Builder NoMetadata templateStaticData
+    -> TemplateWithState templateStaticData templateModel templateMsg
 buildWithLocalState config builderState =
     case builderState of
         WithStaticData record ->
             { view =
-                \model sharedModel allMetadata staticPayload rendered ->
-                    config.view model sharedModel allMetadata staticPayload rendered
+                \model sharedModel staticPayload rendered ->
+                    config.view model sharedModel staticPayload rendered
             , head = record.head
             , staticData = record.staticData
             , init = config.init
@@ -153,8 +146,8 @@ buildWithLocalState config builderState =
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
-                \templateMetadata path templateModel sharedModel ->
-                    config.subscriptions templateMetadata path templateModel
+                \_ path templateModel sharedModel ->
+                    config.subscriptions NoMetadata path templateModel
             }
 
 
@@ -163,16 +156,15 @@ buildWithSharedState :
     { view :
         templateModel
         -> Shared.Model
-        -> List ( PagePath Pages.PathKey, TemplateType )
-        -> StaticPayload templateMetadata templateStaticData
+        -> StaticPayload templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
-    , init : templateMetadata -> ( templateModel, Cmd templateMsg )
-    , update : templateMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : templateMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : NoMetadata -> ( templateModel, Cmd templateMsg )
+    , update : NoMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
-    -> Builder templateMetadata templateStaticData
-    -> TemplateWithState templateMetadata templateStaticData templateModel templateMsg
+    -> Builder NoMetadata templateStaticData
+    -> TemplateWithState templateStaticData templateModel templateMsg
 buildWithSharedState config builderState =
     case builderState of
         WithStaticData record ->
@@ -187,10 +179,10 @@ buildWithSharedState config builderState =
 
 {-| -}
 withStaticData :
-    { staticData : List ( PagePath Pages.PathKey, TemplateType ) -> StaticHttp.Request templateStaticData
-    , head : StaticPayload templateMetadata templateStaticData -> List (Head.Tag Pages.PathKey)
+    { staticData : StaticHttp.Request templateStaticData
+    , head : StaticPayload templateStaticData -> List (Head.Tag Pages.PathKey)
     }
-    -> Builder templateMetadata templateStaticData
+    -> Builder NoMetadata templateStaticData
 withStaticData { staticData, head } =
     WithStaticData
         { staticData = staticData
@@ -200,10 +192,10 @@ withStaticData { staticData, head } =
 
 {-| -}
 noStaticData :
-    { head : StaticPayload templateMetadata () -> List (Head.Tag Pages.PathKey) }
-    -> Builder templateMetadata ()
+    { head : StaticPayload () -> List (Head.Tag Pages.PathKey) }
+    -> Builder NoMetadata ()
 noStaticData { head } =
     WithStaticData
-        { staticData = \_ -> StaticHttp.succeed ()
+        { staticData = StaticHttp.succeed ()
         , head = head
         }

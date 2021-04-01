@@ -20,6 +20,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
+import NoMetadata exposing (NoMetadata)
 import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -46,10 +47,10 @@ type alias ContentCacheInner metadata view =
 
 
 type Entry metadata view
-    = NeedContent String metadata
-    | Unparsed String metadata (ContentJson String)
+    = NeedContent String NoMetadata
+    | Unparsed String NoMetadata (ContentJson String)
       -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed metadata String (ContentJson (Result ParseError view))
+    | Parsed NoMetadata String (ContentJson (Result ParseError view))
 
 
 type alias ParseError =
@@ -60,14 +61,14 @@ type alias Path =
     List String
 
 
-extractMetadata : pathKey -> ContentCacheInner metadata view -> List ( PagePath pathKey, metadata )
+extractMetadata : pathKey -> ContentCacheInner NoMetadata view -> List ( PagePath pathKey, NoMetadata )
 extractMetadata pathKey cache =
     cache
         |> Dict.toList
         |> List.map (\( path, entry ) -> ( PagePath.build pathKey path, getMetadata entry ))
 
 
-getMetadata : Entry metadata view -> metadata
+getMetadata : Entry NoMetadata view -> NoMetadata
 getMetadata entry =
     case entry of
         NeedContent extension metadata ->
@@ -80,7 +81,7 @@ getMetadata entry =
             metadata
 
 
-pagesWithErrors : ContentCache metadata view -> List BuildError
+pagesWithErrors : ContentCache NoMetadata view -> List BuildError
 pagesWithErrors cache =
     cache
         |> Result.map
@@ -105,10 +106,10 @@ pagesWithErrors cache =
 
 
 init :
-    Document metadata view
+    Document NoMetadata view
     -> Content
     -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
-    -> ContentCache metadata view
+    -> ContentCache NoMetadata view
 init document content maybeInitialPageContent =
     content
         |> parseMetadata maybeInitialPageContent document
@@ -143,9 +144,9 @@ createBuildError path decodeError =
 
 parseMetadata :
     Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
-    -> Document metadata view
+    -> Document NoMetadata view
     -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
-    -> List ( List String, Result String (Entry metadata view) )
+    -> List ( List String, Result String (Entry NoMetadata view) )
 parseMetadata maybeInitialPageContent document content =
     List.map
         (\( path, { frontMatter, extension, body } ) ->
@@ -230,7 +231,7 @@ normalizePath pathString =
 parseContent :
     String
     -> String
-    -> Document metadata view
+    -> Document NoMetadata view
     -> Result String view
 parseContent extension body document =
     let
@@ -274,7 +275,7 @@ routes record =
         |> List.map (String.join "/")
 
 
-routesForCache : ContentCache metadata view -> List String
+routesForCache : ContentCache NoMetadata view -> List String
 routesForCache cacheResult =
     case cacheResult of
         Ok cache ->
@@ -333,10 +334,10 @@ resultFolder current soFarResult =
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    Document metadata view
+    Document NoMetadata view
     -> { currentUrl : Url, baseUrl : Url }
-    -> ContentCache metadata view
-    -> Task Http.Error (ContentCache metadata view)
+    -> ContentCache NoMetadata view
+    -> Task Http.Error (ContentCache NoMetadata view)
 lazyLoad document urls cacheResult =
     case cacheResult of
         Err _ ->
@@ -430,11 +431,11 @@ contentJsonDecoder =
 
 
 update :
-    ContentCache metadata view
+    ContentCache NoMetadata view
     -> (String -> Result ParseError view)
     -> { currentUrl : Url, baseUrl : Url }
     -> ContentJson String
-    -> ContentCache metadata view
+    -> ContentCache NoMetadata view
 update cacheResult renderer urls rawContent =
     case cacheResult of
         Ok cache ->
@@ -485,9 +486,9 @@ pathForUrl { currentUrl, baseUrl } =
 
 lookup :
     pathKey
-    -> ContentCache metadata view
+    -> ContentCache NoMetadata view
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, Entry metadata view )
+    -> Maybe ( PagePath pathKey, Entry NoMetadata view )
 lookup pathKey content urls =
     case content of
         Ok dict ->
@@ -508,9 +509,9 @@ lookup pathKey content urls =
 
 lookupMetadata :
     pathKey
-    -> ContentCache metadata view
+    -> ContentCache NoMetadata view
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, metadata )
+    -> Maybe ( PagePath pathKey, NoMetadata )
 lookupMetadata pathKey content urls =
     urls
         |> lookup pathKey content

@@ -4,10 +4,12 @@ import Cloudinary
 import Color
 import Data.Author
 import Head
+import Json.Decode
 import MarkdownRenderer
 import MetadataNew
 import MimeType
 import MySitemap
+import NoMetadata exposing (NoMetadata(..))
 import Pages exposing (images, pages)
 import Pages.ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
@@ -56,12 +58,12 @@ socialIcon =
 --main : Pages.Platform.Program Model Msg Metadata View Pages.PathKey
 
 
-main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg TemplateType Shared.RenderedBody Pages.PathKey
+main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg NoMetadata Shared.RenderedBody Pages.PathKey
 main =
     TemplateModulesBeta.mainTemplate
         { documents =
             [ { extension = "md"
-              , metadata = MetadataNew.decoder -- metadata parser/decoder?
+              , metadata = Json.Decode.succeed NoMetadata --  MetadataNew.decoder -- metadata parser/decoder?
               , body = MarkdownRenderer.view -- body parser?
               }
             ]
@@ -87,27 +89,27 @@ main =
 
 metadataToRssItem :
     { path : PagePath Pages.PathKey
-    , frontmatter : TemplateType
+    , frontmatter : NoMetadata
     , body : String
     }
     -> Maybe Rss.Item
 metadataToRssItem page =
     case page.frontmatter of
-        TemplateType.BlogPost blogPost ->
-            if blogPost.draft then
-                Nothing
-
-            else
-                Just
-                    { title = blogPost.title
-                    , description = blogPost.description
-                    , url = PagePath.toString page.path
-                    , categories = []
-                    , author = blogPost.author.name
-                    , pubDate = Rss.Date blogPost.published
-                    , content = Nothing
-                    }
-
+        --TemplateType.BlogPost blogPost ->
+        --    if blogPost.draft then
+        --        Nothing
+        --
+        --    else
+        --        Just
+        --            { title = blogPost.title
+        --            , description = blogPost.description
+        --            , url = PagePath.toString page.path
+        --            , categories = []
+        --            , author = blogPost.author.name
+        --            , pubDate = Rss.Date blogPost.published
+        --            , content = Nothing
+        --            }
+        --
         _ ->
             Nothing
 
@@ -115,7 +117,7 @@ metadataToRssItem page =
 metadataToSitemapEntry :
     List
         { path : PagePath Pages.PathKey
-        , frontmatter : TemplateType
+        , frontmatter : NoMetadata
         , body : String
         }
     -> List { path : String, lastMod : Maybe String }
@@ -124,9 +126,9 @@ metadataToSitemapEntry siteMetadata =
         |> List.filter
             (\page ->
                 case page.frontmatter of
-                    TemplateType.BlogPost blogPost ->
-                        not blogPost.draft
-
+                    --    TemplateType.BlogPost blogPost ->
+                    --        not blogPost.draft
+                    --
                     _ ->
                         True
             )

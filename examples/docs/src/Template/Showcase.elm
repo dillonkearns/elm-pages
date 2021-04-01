@@ -1,4 +1,4 @@
-module Template.Showcase exposing (Model, Msg, decoder, template)
+module Template.Showcase exposing (Model, Msg, template)
 
 import Element exposing (Element)
 import Head
@@ -14,7 +14,6 @@ import Secrets
 import Shared
 import Showcase
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateMetadata exposing (Showcase)
 import TemplateType exposing (TemplateType)
 
 
@@ -26,7 +25,7 @@ type alias Msg =
     Never
 
 
-template : TemplateWithState Showcase StaticData () Msg
+template : TemplateWithState StaticData () Msg
 template =
     Template.withStaticData
         { head = head
@@ -35,15 +34,8 @@ template =
         |> Template.buildNoState { view = view }
 
 
-decoder : Decoder Showcase
-decoder =
-    Decode.succeed Showcase
-
-
-staticData :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticHttp.Request StaticData
-staticData siteMetadata =
+staticData : StaticHttp.Request StaticData
+staticData =
     StaticHttp.map2 Tuple.pair
         Showcase.staticRequest
         fileRequest
@@ -85,11 +77,10 @@ type alias StaticData =
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload Showcase StaticData
+    StaticPayload StaticData
     -> Shared.RenderedBody
     -> Shared.PageView Msg
-view allMetadata static rendered =
+view static rendered =
     { title = "elm-pages blog"
     , body =
         let
@@ -106,7 +97,7 @@ view allMetadata static rendered =
     }
 
 
-head : StaticPayload Showcase StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData -> List (Head.Tag Pages.PathKey)
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

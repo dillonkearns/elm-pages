@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Model, Msg, template)
+module Page.BlogPost exposing (Model, Msg, template)
 
 import Cloudinary
 import Data.Author as Author exposing (Author)
@@ -23,6 +23,8 @@ import Shared
 import Site
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
+import TemplateMetadata exposing (BlogPost)
+import TemplateType exposing (TemplateType)
 
 
 type alias Model =
@@ -46,20 +48,10 @@ routes =
         |> Glob.toStaticHttp
 
 
-type alias BlogPost =
-    { title : String
-    , description : String
-    , published : Date
-    , author : Author
-    , image : ImagePath Pages.PathKey
-    , draft : Bool
-    }
-
-
-template : Template DataFromFile
+template : Template BlogPost DataFromFile
 template =
     Template.withStaticData
-        { staticData = fileRequest
+        { staticData = \_ -> fileRequest
         , head = head
 
         --, route = route
@@ -73,10 +65,11 @@ findMatchingImage imageAssetPath =
 
 
 view :
-    StaticPayload DataFromFile
+    List ( PagePath Pages.PathKey, TemplateType )
+    -> StaticPayload BlogPost DataFromFile
     -> Shared.RenderedBody
     -> Shared.PageView msg
-view { static } rendered =
+view allMetadata { static } rendered =
     { title = static.frontmatter.title
     , body =
         let
@@ -116,19 +109,15 @@ view { static } rendered =
 
 
 head :
-    StaticPayload DataFromFile
+    StaticPayload BlogPost DataFromFile
     -> List (Head.Tag Pages.PathKey)
-head { path, static } =
-    let
-        metadata =
-            static.frontmatter
-    in
+head { metadata, path } =
     Head.structuredData
         (StructuredData.article
             { title = metadata.title
             , description = metadata.description
-            , author = StructuredData.person { name = Author.dillon.name }
-            , publisher = StructuredData.person { name = Author.dillon.name }
+            , author = StructuredData.person { name = metadata.author.name }
+            , publisher = StructuredData.person { name = "Dillon Kearns" }
             , url = Site.canonicalUrl ++ "/" ++ PagePath.toString path
             , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
             , datePublished = Date.toIsoString metadata.published
