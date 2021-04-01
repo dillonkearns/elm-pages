@@ -181,7 +181,10 @@ expect :
     -> Expect.Expectation
 expect { captures, expectedMatch, expectedPattern } glob =
     glob
-        |> Glob.run captures
+        |> Glob.run
+            { fullPath = "full-path"
+            , captures = captures
+            }
         |> Expect.equal
             { pattern = expectedPattern
             , match = expectedMatch

@@ -7,28 +7,38 @@ import Secrets
 
 
 type Glob a
-    = Glob String (List String -> ( a, List String ))
+    = Glob String (String -> List String -> ( a, List String ))
 
 
 map : (a -> b) -> Glob a -> Glob b
 map mapFn (Glob pattern applyCapture) =
     Glob pattern
-        (\captures ->
+        (\fullPath captures ->
             captures
-                |> applyCapture
+                |> applyCapture fullPath
                 |> Tuple.mapFirst mapFn
         )
 
 
 succeed : constructor -> Glob constructor
 succeed constructor =
-    Glob "" (\captures -> ( constructor, captures ))
+    Glob "" (\fullPath captures -> ( constructor, captures ))
+
+
+fullFilePath : Glob String
+fullFilePath =
+    --Glob "" (\fullPath captures -> ( constructor, captures ))
+    --Glob pattern applyCaptures
+    Glob ""
+        (\fullPath captures ->
+            ( fullPath, captures )
+        )
 
 
 wildcard : Glob String
 wildcard =
     Glob "*"
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -41,7 +51,7 @@ wildcard =
 recursiveWildcard : Glob String
 recursiveWildcard =
     Glob "**"
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -58,7 +68,7 @@ zeroOrMore matchers =
             ++ (matchers |> String.join "|")
             ++ ")"
         )
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 first :: rest ->
                     ( if first == "" then
@@ -76,13 +86,13 @@ zeroOrMore matchers =
 
 literal : String -> Glob String
 literal string =
-    Glob string (\captures -> ( string, captures ))
+    Glob string (\fullPath captures -> ( string, captures ))
 
 
 not : String -> Glob String
 not string =
     Glob ("!(" ++ string ++ ")")
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -103,7 +113,7 @@ notOneOf ( firstPattern, otherPatterns ) =
             ++ (allPatterns |> String.join "|")
             ++ ")"
         )
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -113,12 +123,12 @@ notOneOf ( firstPattern, otherPatterns ) =
         )
 
 
-run : List String -> Glob a -> { match : a, pattern : String }
-run captures (Glob pattern applyCapture) =
+run : RawGlob -> Glob a -> { match : a, pattern : String }
+run { captures, fullPath } (Glob pattern applyCapture) =
     { match =
         captures
             |> List.reverse
-            |> applyCapture
+            |> applyCapture fullPath
             |> Tuple.first
     , pattern = pattern
     }
@@ -140,15 +150,15 @@ keep : Glob a -> Glob (a -> value) -> Glob value
 keep (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (\captures ->
+        (\fullPath captures ->
             let
                 ( applied1, captured1 ) =
                     captures
-                        |> apply1
+                        |> apply1 fullPath
 
                 ( applied2, captured2 ) =
                     captured1
-                        |> apply2
+                        |> apply2 fullPath
             in
             ( applied1 |> applied2
             , captured2
@@ -167,7 +177,7 @@ oneOf ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
         )
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 match :: rest ->
                     ( allMatchers
@@ -199,7 +209,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
         )
-        (\captures ->
+        (\fullPath captures ->
             case captures of
                 match :: rest ->
                     ( --( allMatchers
@@ -257,12 +267,19 @@ extractMatches defaultValue list string =
             :: extractMatches defaultValue list updatedString
 
 
+type alias RawGlob =
+    { captures : List String
+    , fullPath : String
+    }
+
+
 toStaticHttp : Glob a -> StaticHttp.Request (List a)
 toStaticHttp glob =
     StaticHttp.get (Secrets.succeed <| "glob://" ++ toPattern glob)
-        (OptimizedDecoder.string
-            |> OptimizedDecoder.list
+        (OptimizedDecoder.map2 RawGlob
+            (OptimizedDecoder.string |> OptimizedDecoder.list |> OptimizedDecoder.field "captures")
+            (OptimizedDecoder.field "fullPath" OptimizedDecoder.string)
             |> OptimizedDecoder.list
             |> OptimizedDecoder.map
-                (\appliedList -> appliedList |> List.map (\inner -> run inner glob |> .match))
+                (\rawGlob -> rawGlob |> List.map (\inner -> run inner glob |> .match))
         )
