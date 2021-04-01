@@ -18,7 +18,10 @@ import Html exposing (Html)
 import Pages
 import Pages.PagePath exposing (PagePath)
 import Pages.Platform
+import Url
+import Url.Parser as Parser exposing ((</>), Parser)
 import Pages.StaticHttp as StaticHttp
+
 ${templates.map((name) => `import Template.${name}`).join("\n")}
 
 
@@ -44,6 +47,19 @@ type TemplateModel
     | NotFound
 
 
+type Route
+    = ${templates.map((name) => `Route${name} {}\n`).join("    | ")}
+
+urlToRoute : Url.Url -> Maybe Route
+urlToRoute =
+    Parser.parse (Parser.oneOf routes)
+
+
+routes : List (Parser (Route -> a) a)
+routes =
+    [ ${templates.map((name) => `${nameToParser(name)}\n`).join("    , ")}
+    ]
+
 
 type Msg
     = MsgGlobal Shared.Msg
@@ -59,17 +75,15 @@ type Msg
 
 
 view :
-    List ( PagePath Pages.PathKey, NoMetadata )
-    ->
-        { path : PagePath Pages.PathKey
-        , frontmatter : NoMetadata
-        }
+    { path : PagePath Pages.PathKey
+    , frontmatter : NoMetadata
+    }
     ->
         StaticHttp.Request
             { view : Model -> Shared.RenderedBody -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
-view siteMetadata page =
+view page =
     case page.frontmatter of
         ${[templates[0]]
           .map(
@@ -274,7 +288,7 @@ templateSubscriptions metadata path model =
 mainTemplate { documents, site } =
     Pages.Platform.init
         { init = init Nothing
-        , view = view
+        , view = \\_ -> view
         , update = update
         , subscriptions =
             \\metadata path model ->
@@ -301,6 +315,13 @@ mapDocument document =
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `;
+}
+
+/**
+ * @param {string} name
+ */
+function nameToParser(name) {
+  return `Parser.map (Route${name} {}) (Parser.s "${name.toLowerCase()}")`;
 }
 
 module.exports = { generateTemplateModuleConnector };
