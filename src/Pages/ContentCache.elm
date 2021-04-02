@@ -22,7 +22,6 @@ import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
 import RequestsAndPending exposing (RequestsAndPending)
 import Task exposing (Task)
-import TerminalText as Terminal
 import Url exposing (Url)
 
 
@@ -44,9 +43,9 @@ type alias ContentCacheInner metadata view =
 
 type Entry metadata view
     = NeedContent String NoMetadata
-    | Unparsed String NoMetadata (ContentJson String)
+    | Unparsed String NoMetadata ContentJson
       -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed NoMetadata String (ContentJson (Result ParseError view))
+    | Parsed NoMetadata ContentJson
 
 
 type alias ParseError =
@@ -73,40 +72,21 @@ getMetadata entry =
         Unparsed extension metadata _ ->
             metadata
 
-        Parsed metadata body _ ->
+        Parsed metadata _ ->
             metadata
 
 
 pagesWithErrors : ContentCache NoMetadata view -> List BuildError
 pagesWithErrors cache =
-    cache
-        |> Result.map
-            (\okCache ->
-                List.filterMap
-                    (\( path, value ) ->
-                        case value of
-                            Parsed metadata rawBody { body } ->
-                                case body of
-                                    Err parseError ->
-                                        createBuildError path parseError |> Just
-
-                                    _ ->
-                                        Nothing
-
-                            _ ->
-                                Nothing
-                    )
-                    (Dict.toList okCache)
-            )
-        |> Result.withDefault []
+    []
 
 
 init :
     Document NoMetadata view
     -> Content
-    -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
+    -> Maybe { contentJson : ContentJson, initialUrl : { url | path : String } }
     -> ContentCache NoMetadata view
-init document content maybeInitialPageContent =
+init _ _ maybeInitialPageContent =
     Ok <|
         Dict.fromList
             [ ( [], NeedContent "" NoMetadata.NoMetadata )
@@ -131,19 +111,6 @@ init document content maybeInitialPageContent =
 --        )
 --    |> combineTupleResults
 --    |> Result.map Dict.fromList
-
-
-createBuildError : List String -> String -> BuildError
-createBuildError path decodeError =
-    { title = "Metadata Decode Error"
-    , message =
-        [ Terminal.text "I ran into a problem when parsing the metadata for the page with this path: "
-        , Terminal.text ("/" ++ String.join "/" path)
-        , Terminal.text "\n\n"
-        , Terminal.text decodeError
-        ]
-    , fatal = False
-    }
 
 
 parseContent :
@@ -228,14 +195,14 @@ lazyLoad document urls cacheResult =
                                     urls
                                 |> Task.succeed
 
-                        Parsed _ _ _ ->
+                        Parsed _ _ ->
                             Task.succeed cacheResult
 
                 Nothing ->
                     Task.succeed cacheResult
 
 
-httpTask : Url -> Task Http.Error (ContentJson String)
+httpTask : Url -> Task Http.Error ContentJson
 httpTask url =
     Http.task
         { method = "GET"
@@ -274,16 +241,14 @@ httpTask url =
         }
 
 
-type alias ContentJson body =
-    { body : body
-    , staticData : RequestsAndPending
+type alias ContentJson =
+    { staticData : RequestsAndPending
     }
 
 
-contentJsonDecoder : Decode.Decoder (ContentJson String)
+contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map2 ContentJson
-        (Decode.field "body" Decode.string)
+    Decode.map ContentJson
         (Decode.field "staticData" RequestsAndPending.decoder)
 
 
@@ -291,31 +256,27 @@ update :
     ContentCache NoMetadata view
     -> (String -> Result ParseError view)
     -> { currentUrl : Url, baseUrl : Url }
-    -> ContentJson String
+    -> ContentJson
     -> ContentCache NoMetadata view
-update cacheResult renderer urls rawContent =
+update cacheResult _ urls rawContent =
     case cacheResult of
         Ok cache ->
             Dict.update
                 (pathForUrl urls)
                 (\entry ->
                     case entry of
-                        Just (Parsed metadata rawBody view) ->
+                        Just (Parsed _ _) ->
                             entry
 
-                        Just (Unparsed extension metadata content) ->
-                            Parsed metadata
-                                content.body
-                                { body = renderer content.body
-                                , staticData = content.staticData
+                        Just (Unparsed _ _ content) ->
+                            Parsed NoMetadata
+                                { staticData = content.staticData
                                 }
                                 |> Just
 
-                        Just (NeedContent extension metadata) ->
-                            Parsed metadata
-                                rawContent.body
-                                { body = renderer rawContent.body
-                                , staticData = rawContent.staticData
+                        Just (NeedContent _ _) ->
+                            Parsed NoMetadata
+                                { staticData = rawContent.staticData
                                 }
                                 |> Just
 
@@ -375,12 +336,12 @@ lookupMetadata pathKey content urls =
         |> Maybe.map
             (\( pagePath, entry ) ->
                 case entry of
-                    NeedContent _ metadata ->
-                        ( pagePath, metadata )
+                    NeedContent _ _ ->
+                        ( pagePath, NoMetadata )
 
-                    Unparsed _ metadata _ ->
-                        ( pagePath, metadata )
+                    Unparsed _ _ _ ->
+                        ( pagePath, NoMetadata )
 
-                    Parsed metadata body _ ->
-                        ( pagePath, metadata )
+                    Parsed _ _ ->
+                        ( pagePath, NoMetadata )
             )
