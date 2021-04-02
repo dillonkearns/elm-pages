@@ -20,7 +20,6 @@ import Json.Decode as Decode
 import Json.Encode
 import NoMetadata exposing (NoMetadata, NoView(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
-import Pages.Document
 import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -65,7 +64,7 @@ type Msg
     | Continue
 
 
-type alias Config pathKey userMsg userModel view route =
+type alias Config pathKey userMsg userModel route =
     { init :
         Maybe
             { path :
@@ -90,7 +89,6 @@ type alias Config pathKey userMsg userModel view route =
                 { view : userModel -> NoView -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , document : Pages.Document.Document NoMetadata view
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -130,7 +128,7 @@ cliApplication :
     -> (msg -> Maybe Msg)
     -> (Model pathKey route -> model)
     -> (model -> Maybe (Model pathKey route))
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -237,7 +235,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Config pathKey userMsg userModel view route -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform : Config pathKey userMsg userModel route -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -380,7 +378,7 @@ init :
     (Model pathKey route -> model)
     -> ContentCache
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
@@ -449,7 +447,7 @@ initLegacy :
     -> (Model pathKey route -> model)
     -> ContentCache
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> ( model, Effect pathKey )
 initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config =
     case contentCache of
@@ -490,7 +488,7 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
 
 updateAndSendPortIfDone :
     ContentCache
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> Model pathKey route
     -> (Model pathKey route -> model)
     -> ( model, Effect pathKey )
@@ -512,7 +510,7 @@ updateAndSendPortIfDone contentCache config model toModel =
 
 update :
     ContentCache
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> Msg
     -> Model pathKey route
     -> ( Model pathKey route, Effect pathKey )
@@ -686,7 +684,7 @@ update contentCache config msg model =
 
 nextStepToEffect :
     ContentCache
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> Model pathKey route
     -> StaticResponses.NextStep pathKey
     -> ( Model pathKey route, Effect pathKey )
@@ -755,7 +753,7 @@ nextStepToEffect contentCache config model nextStep =
 
 sendSinglePageProgress :
     ToJsSuccessPayload pathKey
-    -> Config pathKey userMsg userModel NoView route
+    -> Config pathKey userMsg userModel route
     -> ContentCache
     -> Model pathKey route
     -> ( PagePath pathKey, route )

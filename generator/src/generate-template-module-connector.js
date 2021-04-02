@@ -285,7 +285,7 @@ templateSubscriptions route path model =
             Sub.none
 
 
-mainTemplate { documents, site } =
+mainTemplate { site } =
     Pages.Platform.init
         { init = init Nothing
         , urlToRoute = urlToRoute
@@ -297,7 +297,6 @@ mainTemplate { documents, site } =
                     [ Shared.template.subscriptions NoMetadata path model.global |> Sub.map MsgGlobal
                     , templateSubscriptions (RouteBlog {}) path model
                     ]
-        , documents = documents
         , onPageChange = Just OnPageChange
         , manifest = site.manifest
         , canonicalSiteUrl = site.canonicalUrl

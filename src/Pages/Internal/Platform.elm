@@ -12,7 +12,6 @@ import Json.Decode as Decode
 import Json.Encode
 import NoMetadata exposing (NoMetadata(..), NoView(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
-import Pages.Document
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.HotReloadLoadingIndicator as HotReloadLoadingIndicator
 import Pages.Internal.Platform.Cli
@@ -639,7 +638,6 @@ application :
                 { view : userModel -> NoView -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , document : Pages.Document.Document NoMetadata NoView
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -799,7 +797,6 @@ cliApplication :
                 { view : userModel -> NoView -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , document : Pages.Document.Document NoMetadata NoView
     , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value

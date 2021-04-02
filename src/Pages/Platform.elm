@@ -65,9 +65,7 @@ which case there is no pre-rendering).
 
 import Head
 import Html exposing (Html)
-import Json.Decode
 import NoMetadata exposing (NoMetadata, NoView)
-import Pages.Document as Document
 import Pages.Internal
 import Pages.Internal.Platform
 import Pages.Manifest
@@ -107,7 +105,6 @@ type Builder pathKey model msg route
                     { view : model -> NoView -> { title : String, body : Html msg }
                     , head : List (Head.Tag pathKey)
                     }
-        , documents : List ( String, Document.DocumentHandler NoMetadata NoView )
         , manifest : Pages.Manifest.Config pathKey
         , generateFiles :
             List
@@ -152,12 +149,6 @@ Here's a basic example.
             , view = view
             , update = update
             , subscriptions = subscriptions
-            , documents =
-                [ { extension = "md"
-                  , metadata = Metadata.decoder
-                  , body = MarkdownRenderer.view
-                  }
-                ]
             , onPageChange = Just OnPageChange
             , manifest = manifest
             , canonicalSiteUrl = canonicalSiteUrl
@@ -190,12 +181,6 @@ init :
                 , head : List (Head.Tag pathKey)
                 }
     , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
-    , documents :
-        List
-            { extension : String
-            , metadata : Json.Decode.Decoder NoMetadata
-            , body : String -> Result String NoView
-            }
     , onPageChange :
         Maybe
             ({ path : PagePath pathKey
@@ -218,7 +203,6 @@ init config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , documents = config.documents |> List.map Document.parser
         , manifest = config.manifest
         , onPageChange = config.onPageChange
         , generateFiles = \_ -> StaticHttp.succeed []
@@ -317,7 +301,6 @@ toProgram (Builder config) =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , documents = config.documents
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , generateFiles = config.generateFiles
@@ -351,7 +334,6 @@ application :
                 { view : model -> NoView -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
-    , documents : List ( String, Document.DocumentHandler NoMetadata NoView )
     , manifest : Pages.Manifest.Config pathKey
     , generateFiles :
         List
@@ -396,7 +378,6 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , document = Document.fromList config.documents
         , content = config.internals.content
         , generateFiles = config.generateFiles
         , toJsPort = config.internals.toJsPort
