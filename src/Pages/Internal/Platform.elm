@@ -31,7 +31,7 @@ type alias Content =
 
 
 type alias Program userModel userMsg route pathKey =
-    Platform.Program Flags (Model userModel userMsg route pathKey) (Msg userMsg)
+    Platform.Program Flags (Model userModel route pathKey) (Msg userMsg)
 
 
 mainView :
@@ -165,7 +165,6 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
 view :
     (Url -> route)
     -> pathKey
-    -> Content
     ->
         (List ( PagePath pathKey, NoMetadata )
          ->
@@ -180,7 +179,7 @@ view :
         )
     -> ModelDetails userModel
     -> Browser.Document (Msg userMsg)
-view urlToRoute pathKey content viewFn model =
+view urlToRoute pathKey viewFn model =
     let
         { title, body } =
             mainView urlToRoute pathKey viewFn model
@@ -241,28 +240,6 @@ contentJsonDecoder =
 init :
     (Url -> route)
     -> pathKey
-    -> String
-    -> Pages.Document.Document NoMetadata NoView
-    -> (Json.Encode.Value -> Cmd Never)
-    ->
-        (List ( PagePath pathKey, NoMetadata )
-         ->
-            { path : PagePath pathKey
-            , frontmatter : route
-            }
-         ->
-            StaticHttp.Request
-                { view :
-                    userModel
-                    -> NoView
-                    ->
-                        { title : String
-                        , body : Html userMsg
-                        }
-                , head : List (Head.Tag pathKey)
-                }
-        )
-    -> Content
     ->
         (Maybe
             { metadata : route
@@ -278,7 +255,7 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
-init urlToRoute pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
+init urlToRoute pathKey initUserModel flags url key =
     let
         contentCache =
             ContentCache.init
@@ -424,7 +401,7 @@ type AppMsg userMsg
     | StartingHotReload
 
 
-type Model userModel userMsg route pathKey
+type Model userModel route pathKey
     = Model (ModelDetails userModel)
     | CliModel (Pages.Internal.Platform.Cli.Model pathKey route)
 
@@ -448,7 +425,6 @@ type Phase
 
 update :
     (Url -> route)
-    -> Content
     -> List String
     -> String
     ->
@@ -474,12 +450,11 @@ update :
              -> userMsg
             )
     -> (Json.Encode.Value -> Cmd Never)
-    -> Pages.Document.Document NoMetadata NoView
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> ModelDetails userModel
     -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
-update urlToRoute content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChangeMsg toJsPort document userUpdate msg model =
+update urlToRoute allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChangeMsg toJsPort userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -698,19 +673,19 @@ application :
             )
     }
     --    -> Program userModel userMsg metadata view
-    -> Platform.Program Flags (Model userModel userMsg route pathKey) (Msg userMsg)
+    -> Platform.Program Flags (Model userModel route pathKey) (Msg userMsg)
 application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.urlToRoute config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
+                init config.urlToRoute config.pathKey config.init flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        view config.urlToRoute config.pathKey config.content config.view model
+                        view config.urlToRoute config.pathKey config.view model
 
                     CliModel _ ->
                         { title = "Error"
@@ -738,7 +713,7 @@ application config =
                                     |> List.map Tuple.first
                                     |> List.map (String.join "/")
                         in
-                        update config.urlToRoute config.content allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
+                        update config.urlToRoute allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 

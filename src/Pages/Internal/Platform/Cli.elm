@@ -154,7 +154,7 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
                     ( Just cliMsg, Just cliModel ) ->
-                        update contentCache siteMetadata config cliMsg cliModel
+                        update contentCache config cliMsg cliModel
                             |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
                             |> Tuple.mapFirst toModel
 
@@ -406,7 +406,6 @@ init toModel contentCache siteMetadata config flags =
             updateAndSendPortIfDone
                 contentCache
                 config
-                siteMetadata
                 (Model StaticResponses.error
                     SecretsDict.masked
                     [ { title = "Internal Error"
@@ -477,7 +476,6 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
             updateAndSendPortIfDone
                 contentCache
                 config
-                siteMetadata
                 (Model StaticResponses.error
                     secrets
                     (metadataParserErrors |> List.map Tuple.second)
@@ -493,11 +491,10 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
 updateAndSendPortIfDone :
     ContentCache
     -> Config pathKey userMsg userModel NoView route
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Model pathKey route
     -> (Model pathKey route -> model)
     -> ( model, Effect pathKey )
-updateAndSendPortIfDone contentCache config siteMetadata model toModel =
+updateAndSendPortIfDone contentCache config model toModel =
     StaticResponses.nextStep
         config
         model.mode
@@ -515,12 +512,11 @@ updateAndSendPortIfDone contentCache config siteMetadata model toModel =
 
 update :
     ContentCache
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel NoView route
     -> Msg
     -> Model pathKey route
     -> ( Model pathKey route, Effect pathKey )
-update contentCache siteMetadata config msg model =
+update contentCache config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
