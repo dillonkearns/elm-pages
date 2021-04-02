@@ -36,7 +36,7 @@ type Msg
     = Increment
 
 
-template : TemplateWithState StaticData Model Msg
+template : TemplateWithState {} StaticData Model Msg
 template =
     Template.noStaticData { head = head }
         |> Template.buildWithSharedState
@@ -47,12 +47,12 @@ template =
             }
 
 
-init : NoMetadata -> ( Model, Cmd Msg )
+init : {} -> ( Model, Cmd Msg )
 init _ =
     ( {}, Cmd.none )
 
 
-update : NoMetadata -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
+update : {} -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
 update _ msg model sharedModel =
     case msg of
         Increment ->

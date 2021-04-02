@@ -3,6 +3,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticRes
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
+import NoMetadata exposing (NoMetadata)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -50,7 +51,8 @@ init :
                 ->
                     StaticHttp.Request
                         (List
-                            (Result String
+                            (Result
+                                String
                                 { path : List String
                                 , content : String
                                 }
@@ -190,13 +192,14 @@ nextStep :
         , generateFiles :
             List
                 { path : PagePath pathKey
-                , frontmatter : metadata
+                , frontmatter : NoMetadata
                 , body : String
                 }
             ->
                 StaticHttp.Request
                     (List
-                        (Result String
+                        (Result
+                            String
                             { path : List String
                             , content : String
                             }
@@ -214,37 +217,7 @@ nextStep :
 nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
         metadataForGenerateFiles =
-            allSiteMetadata
-                |> Result.withDefault []
-                |> List.map
-                    -- TODO extract helper function that processes next step *for a single page* at a time
-                    (\( pagePath, metadata ) ->
-                        let
-                            contentForPage =
-                                config.content
-                                    |> List.filterMap
-                                        (\( path, { body } ) ->
-                                            let
-                                                pagePathToGenerate =
-                                                    PagePath.toString pagePath
-
-                                                currentContentPath =
-                                                    String.join "/" path
-                                            in
-                                            if pagePathToGenerate == currentContentPath then
-                                                Just body
-
-                                            else
-                                                Nothing
-                                        )
-                                    |> List.head
-                                    |> Maybe.andThen identity
-                        in
-                        { path = pagePath
-                        , frontmatter = metadata
-                        , body = contentForPage |> Maybe.withDefault ""
-                        }
-                    )
+            []
 
         generatedFiles : List (Result String { path : List String, content : String })
         generatedFiles =

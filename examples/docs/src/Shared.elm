@@ -22,7 +22,7 @@ import Palette
 import Secrets
 
 
-type alias SharedTemplate templateDemuxMsg msg1 msg2 =
+type alias SharedTemplate route templateDemuxMsg msg1 msg2 =
     { init :
         Maybe
             { path :
@@ -30,7 +30,7 @@ type alias SharedTemplate templateDemuxMsg msg1 msg2 =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : route
             }
         -> ( Model, Cmd Msg )
     , update : Msg -> Model -> ( Model, Cmd Msg )
@@ -38,7 +38,7 @@ type alias SharedTemplate templateDemuxMsg msg1 msg2 =
         StaticData
         ->
             { path : PagePath Pages.PathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
         -> Model
         -> (Msg -> templateDemuxMsg)
@@ -58,7 +58,7 @@ type alias SharedTemplate templateDemuxMsg msg1 msg2 =
     }
 
 
-template : SharedTemplate msg msg1 msg2
+template : SharedTemplate route msg msg1 msg2
 template =
     { init = init
     , update = update
@@ -117,7 +117,7 @@ init :
             , query : Maybe String
             , fragment : Maybe String
             }
-        , metadata : NoMetadata
+        , metadata : route
         }
     -> ( Model, Cmd Msg )
 init maybePagePath =
@@ -161,7 +161,7 @@ view :
     StaticData
     ->
         { path : PagePath Pages.PathKey
-        , frontmatter : NoMetadata
+        , frontmatter : route
         }
     -> Model
     -> (Msg -> msg)

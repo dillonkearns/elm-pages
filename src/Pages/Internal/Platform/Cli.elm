@@ -64,7 +64,7 @@ type Msg
     | Continue
 
 
-type alias Config pathKey userMsg userModel view =
+type alias Config pathKey userMsg userModel view route =
     { init :
         Maybe
             { path :
@@ -72,16 +72,17 @@ type alias Config pathKey userMsg userModel view =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : route
             }
         -> ( userModel, Cmd userMsg )
+    , urlToRoute : Url.Url -> route
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
         ->
             StaticHttp.Request
@@ -116,7 +117,7 @@ type alias Config pathKey userMsg userModel view =
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : NoMetadata
+             , metadata : route
              }
              -> userMsg
             )
@@ -128,7 +129,7 @@ cliApplication :
     -> (msg -> Maybe Msg)
     -> (Model pathKey -> model)
     -> (model -> Maybe (Model pathKey))
-    -> Config pathKey userMsg userModel view
+    -> Config pathKey userMsg userModel view route
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -233,7 +234,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Config pathKey userMsg userModel view -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform : Config pathKey userMsg userModel view route -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -376,7 +377,7 @@ init :
     (Model pathKey -> model)
     -> ContentCache.ContentCache NoMetadata view
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view
+    -> Config pathKey userMsg userModel view route
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
@@ -413,18 +414,28 @@ init toModel contentCache siteMetadata config flags =
 --)
 
 
+initLegacy :
+    { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
+    -> (Model pathKey -> model)
+    -> ContentCache.ContentCache NoMetadata view
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    -> Config pathKey userMsg userModel view route
+    -> f
+    -> ( model, Effect pathKey )
 initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
+    let
+        staticRoutes : List ( PagePath pathKey, route )
+        staticRoutes =
+            -- TODO need to get the list of static routes here, like getStaticPaths
+            []
+    in
     case contentCache of
         Ok _ ->
             case ContentCache.pagesWithErrors contentCache of
                 [] ->
                     let
                         requests =
-                            Result.andThen
-                                (\metadata ->
-                                    staticResponseForPage metadata config.view
-                                )
-                                siteMetadata
+                            staticResponseForPage staticRoutes config.view
 
                         staticResponses : StaticResponses
                         staticResponses =
@@ -443,11 +454,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                 pageErrors ->
                     let
                         requests =
-                            Result.andThen
-                                (\metadata ->
-                                    staticResponseForPage metadata config.view
-                                )
-                                siteMetadata
+                            staticResponseForPage staticRoutes config.view
 
                         staticResponses : StaticResponses
                         staticResponses =
@@ -492,7 +499,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
 
 updateAndSendPortIfDone :
     ContentCache.ContentCache NoMetadata view
-    -> Config pathKey userMsg userModel view
+    -> Config pathKey userMsg userModel view route
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Model pathKey
     -> (Model pathKey -> model)
@@ -526,7 +533,7 @@ drop1 model =
 update :
     ContentCache.ContentCache NoMetadata view
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view
+    -> Config pathKey userMsg userModel view route
     -> Msg
     -> Model pathKey
     -> ( Model pathKey, Effect pathKey )
@@ -721,7 +728,7 @@ update contentCache siteMetadata config msg model =
 
 nextStepToEffect :
     ContentCache.ContentCache NoMetadata view
-    -> Config pathKey userMsg userModel view
+    -> Config pathKey userMsg userModel view route
     -> Model pathKey
     -> StaticResponses.NextStep pathKey
     -> ( Model pathKey, Effect pathKey )
@@ -830,7 +837,7 @@ nextStepToEffect contentCache config model nextStep =
 sendSinglePageProgress :
     ToJsSuccessPayload pathKey
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view
+    -> Config pathKey userMsg userModel view route
     -> ContentCache NoMetadata view
     -> Model pathKey
     -> ( PagePath pathKey, NoMetadata )
@@ -872,9 +879,9 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     urls
                     { body = "", staticData = model.allRawResponses }
 
-            currentPage : { path : PagePath pathKey, frontmatter : NoMetadata }
+            currentPage : { path : PagePath pathKey, frontmatter : route }
             currentPage =
-                { path = page, frontmatter = NoMetadata.NoMetadata }
+                { path = page, frontmatter = config.urlToRoute currentUrl }
 
             pageModel : userModel
             pageModel =
@@ -885,7 +892,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                             , query = Nothing
                             , fragment = Nothing
                             }
-                        , metadata = NoMetadata.NoMetadata
+                        , metadata = currentPage.frontmatter
                         }
                     )
                     |> Tuple.first
@@ -894,7 +901,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                 { protocol = Url.Https
                 , host = config.canonicalSiteUrl
                 , port_ = Nothing
-                , path = currentPage.path |> PagePath.toString
+                , path = page |> PagePath.toString
                 , query = Nothing
                 , fragment = Nothing
                 }
@@ -977,12 +984,12 @@ sendProgress singlePage =
 
 
 staticResponseForPage :
-    List ( PagePath pathKey, NoMetadata )
+    List ( PagePath pathKey, route )
     ->
         (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
          ->
             StaticHttpRequest.Request
@@ -1002,14 +1009,17 @@ staticResponseForPage :
                 )
             )
 staticResponseForPage siteMetadata viewFn =
+    -- TODO need all Routes here, and their page paths
+    -- need to start with hardcoding the static URLs
+    -- eventually, getStaticPaths equivalent
     siteMetadata
         |> List.map
-            (\( pagePath, frontmatter ) ->
+            (\( pagePath, route ) ->
                 let
                     thing =
-                        viewFn siteMetadata
+                        viewFn []
                             { path = pagePath
-                            , frontmatter = frontmatter
+                            , frontmatter = route
                             }
                 in
                 Ok ( pagePath, thing )

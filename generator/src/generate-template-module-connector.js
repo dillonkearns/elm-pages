@@ -35,7 +35,7 @@ type alias Model =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : Maybe Route
             }
     }
 
@@ -67,7 +67,7 @@ type Msg
         { path : PagePath Pages.PathKey
         , query : Maybe String
         , fragment : Maybe String
-        , metadata : NoMetadata
+        , metadata : Maybe Route
         }
     | ${templates
       .map((name) => `Msg${name} Template.${name}.Msg\n`)
@@ -76,7 +76,7 @@ type Msg
 
 view :
     { path : PagePath Pages.PathKey
-    , frontmatter : NoMetadata
+    , frontmatter : Maybe Route
     }
     ->
         StaticHttp.Request
@@ -85,10 +85,12 @@ view :
             }
 view page =
     case page.frontmatter of
-        ${[templates[0]]
+        Nothing ->
+            StaticHttp.fail "Page not found"
+        ${templates
           .map(
             (name) =>
-              `NoMetadata ->
+              `Just (Route${name} s) ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
@@ -139,7 +141,7 @@ init :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : Maybe Route
             }
     -> ( Model, Cmd Msg )
 init currentGlobalModel maybePagePath =
@@ -148,21 +150,19 @@ init currentGlobalModel maybePagePath =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init maybePagePath)
 
         ( templateModel, templateCmd ) =
-            case maybePagePath |> Maybe.map .metadata of
+            case maybePagePath |> Maybe.andThen .metadata of
                 Nothing ->
                     ( NotFound, Cmd.none )
 
-                Just NoMetadata ->
-                    ${[templates[0]]
-
-                      .map(
-                        (name) => `
-                    Template.${name}.template.init NoMetadata
+                ${templates
+                  .map(
+                    (name) => `Just (Route${name} routeParams) ->
+                    Template.${name}.template.init routeParams
                         |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
 
 `
-                      )
-                      .join("\n                        ")}
+                  )
+                  .join("\n                ")}
     in
     ( { global = sharedModel
       , page = templateModel
@@ -230,10 +230,10 @@ update msg model =
         Msg${name} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
-                    case ( model.page, model.current |> Maybe.map .metadata ) of
-                        ( Model${name} pageModel, Just NoMetadata ) ->
+                    case ( model.page, model.current |> Maybe.andThen .metadata ) of
+                        ( Model${name} pageModel, Just (Route${name} routeParams) ) ->
                             Template.${name}.template.update
-                                NoMetadata
+                                routeParams
                                 msg_
                                 pageModel
                                 model.global
@@ -263,15 +263,15 @@ type alias SiteConfig =
     , manifest : Manifest.Config Pages.PathKey
     }
 
-templateSubscriptions : NoMetadata -> PagePath Pages.PathKey -> Model -> Sub Msg
-templateSubscriptions metadata path model =
-    case model.page of
+templateSubscriptions : Route -> PagePath Pages.PathKey -> Model -> Sub Msg
+templateSubscriptions route path model =
+    case ( model.page, route ) of
         ${templates
           .map(
             (name) => `
-        Model${name} templateModel ->
+        ( Model${name} templateModel, Route${name} routeParams ) ->
             Template.${name}.template.subscriptions
-                NoMetadata
+                routeParams
                 path
                 templateModel
                 model.global
@@ -281,20 +281,21 @@ templateSubscriptions metadata path model =
           .join("\n        ")}
 
 
-        NotFound ->
+        _ ->
             Sub.none
 
 
 mainTemplate { documents, site } =
     Pages.Platform.init
         { init = init Nothing
+        , urlToRoute = urlToRoute
         , view = \\_ -> view
         , update = update
         , subscriptions =
             \\metadata path model ->
                 Sub.batch
                     [ Shared.template.subscriptions NoMetadata path model.global |> Sub.map MsgGlobal
-                    , templateSubscriptions NoMetadata path model
+                    , templateSubscriptions (RouteBlogIndex {}) path model
                     ]
         , documents = documents
         , onPageChange = Just OnPageChange

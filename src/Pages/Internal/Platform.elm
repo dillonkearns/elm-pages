@@ -30,17 +30,18 @@ type alias Content =
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias Program userModel userMsg metadata view pathKey =
-    Platform.Program Flags (Model userModel userMsg metadata view pathKey) (Msg userMsg metadata view)
+type alias Program userModel userMsg route view pathKey =
+    Platform.Program Flags (Model userModel userMsg route view pathKey) (Msg userMsg view)
 
 
 mainView :
-    pathKey
+    (Url -> route)
+    -> pathKey
     ->
         (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
          ->
             StaticHttp.Request
@@ -56,10 +57,10 @@ mainView :
         )
     -> ModelDetails userModel view
     -> { title : String, body : Html userMsg }
-mainView pathKey pageView model =
+mainView urlToRoute pathKey pageView model =
     case model.contentCache of
         Ok site ->
-            pageViewOrError pathKey pageView model model.contentCache
+            pageViewOrError urlToRoute pathKey pageView model model.contentCache
 
         -- TODO these lookup helpers should not need it to be a Result
         Err errors ->
@@ -84,12 +85,13 @@ normalizeUrl baseUrl url =
 
 
 pageViewOrError :
-    pathKey
+    (Url -> route)
+    -> pathKey
     ->
         (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
          ->
             StaticHttp.Request
@@ -100,7 +102,7 @@ pageViewOrError :
     -> ModelDetails userModel view
     -> ContentCache NoMetadata view
     -> { title : String, body : Html userMsg }
-pageViewOrError pathKey viewFn model cache =
+pageViewOrError urlToRoute pathKey viewFn model cache =
     let
         urls =
             { currentUrl = model.url
@@ -113,13 +115,8 @@ pageViewOrError pathKey viewFn model cache =
                 ContentCache.Parsed NoMetadata body viewResult ->
                     let
                         viewFnResult =
-                            { path = pagePath, frontmatter = NoMetadata }
-                                |> viewFn
-                                    (cache
-                                        |> Result.map (ContentCache.extractMetadata pathKey)
-                                        |> Result.withDefault []
-                                     -- TODO handle error better
-                                    )
+                            { path = pagePath, frontmatter = urlToRoute model.url }
+                                |> viewFn []
                                 |> (\request ->
                                         StaticHttpRequest.resolve ApplicationType.Browser request viewResult.staticData
                                    )
@@ -178,13 +175,14 @@ pageViewOrError pathKey viewFn model cache =
 
 
 view :
-    pathKey
+    (Url -> route)
+    -> pathKey
     -> Content
     ->
         (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
          ->
             StaticHttp.Request
@@ -193,11 +191,11 @@ view :
                 }
         )
     -> ModelDetails userModel view
-    -> Browser.Document (Msg userMsg NoMetadata view)
-view pathKey content viewFn model =
+    -> Browser.Document (Msg userMsg view)
+view urlToRoute pathKey content viewFn model =
     let
         { title, body } =
-            mainView pathKey viewFn model
+            mainView urlToRoute pathKey viewFn model
     in
     { title = title
     , body =
@@ -255,7 +253,8 @@ contentJsonDecoder =
 
 
 init :
-    pathKey
+    (Url -> route)
+    -> pathKey
     -> String
     -> Pages.Document.Document NoMetadata view
     -> (Json.Encode.Value -> Cmd Never)
@@ -263,7 +262,7 @@ init :
         (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
          ->
             StaticHttp.Request
@@ -280,7 +279,7 @@ init :
     -> Content
     ->
         (Maybe
-            { metadata : NoMetadata
+            { metadata : route
             , path :
                 { path : PagePath pathKey
                 , query : Maybe String
@@ -292,8 +291,8 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel view, Cmd (AppMsg userMsg NoMetadata view) )
-init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
+    -> ( ModelDetails userModel view, Cmd (AppMsg userMsg view) )
+init urlToRoute pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel flags url key =
     let
         contentCache =
             ContentCache.init
@@ -358,7 +357,7 @@ init pathKey canonicalSiteUrl document toJsPort viewFn content initUserModel fla
                                 , query = url.query
                                 , fragment = url.fragment
                                 }
-                            , metadata = NoMetadata
+                            , metadata = urlToRoute url
                             }
                         )
                         maybePagePath
@@ -429,12 +428,12 @@ encodeHeads allRoutes canonicalSiteUrl currentPagePath head =
         ]
 
 
-type Msg userMsg metadata view
-    = AppMsg (AppMsg userMsg metadata view)
+type Msg userMsg view
+    = AppMsg (AppMsg userMsg view)
     | CliMsg Pages.Internal.Platform.Cli.Msg
 
 
-type AppMsg userMsg metadata view
+type AppMsg userMsg view
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | UserMsg userMsg
@@ -468,14 +467,15 @@ type Phase
 
 
 update :
-    Content
+    (Url.Url -> route)
+    -> Content
     -> List String
     -> String
     ->
         (List ( PagePath pathKey, NoMetadata )
          ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
          ->
             StaticHttp.Request
@@ -489,17 +489,17 @@ update :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : NoMetadata
+             , metadata : route
              }
              -> userMsg
             )
     -> (Json.Encode.Value -> Cmd Never)
     -> Pages.Document.Document NoMetadata view
     -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
-    -> Msg userMsg NoMetadata view
+    -> Msg userMsg view
     -> ModelDetails userModel view
-    -> ( ModelDetails userModel view, Cmd (AppMsg userMsg NoMetadata view) )
-update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChangeMsg toJsPort document userUpdate msg model =
+    -> ( ModelDetails userModel view, Cmd (AppMsg userMsg view) )
+update urlToRoute content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChangeMsg toJsPort document userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -569,7 +569,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                         Just ( pagePath, entry ) ->
                                             case entry of
                                                 ContentCache.Parsed frontmatter body viewResult ->
-                                                    headFn pagePath frontmatter viewResult.staticData
+                                                    headFn pagePath (urlToRoute model.url) viewResult.staticData
                                                         |> Result.map .head
                                                         |> Result.toMaybe
                                                         |> Maybe.map (encodeHeads allRoutes canonicalSiteUrl model.url.path)
@@ -644,7 +644,7 @@ update content allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageChange
                                                                 { path = urlToPagePath pathKey url model.baseUrl
                                                                 , query = url.query
                                                                 , fragment = url.fragment
-                                                                , metadata = NoMetadata
+                                                                , metadata = urlToRoute model.url
                                                                 }
                                                             )
                                                             model.userModel
@@ -700,16 +700,17 @@ application :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : route
             }
         -> ( userModel, Cmd userMsg )
+    , urlToRoute : Url.Url -> route
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
         ->
             StaticHttp.Request
@@ -744,25 +745,25 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : NoMetadata
+             , metadata : route
              }
              -> userMsg
             )
     }
     --    -> Program userModel userMsg metadata view
-    -> Platform.Program Flags (Model userModel userMsg NoMetadata view pathKey) (Msg userMsg NoMetadata view)
+    -> Platform.Program Flags (Model userModel userMsg route view pathKey) (Msg userMsg view)
 application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
+                init config.urlToRoute config.pathKey config.canonicalSiteUrl config.document config.toJsPort config.view config.content config.init flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        view config.pathKey config.content config.view model
+                        view config.urlToRoute config.pathKey config.content config.view model
 
                     CliModel _ ->
                         { title = "Error"
@@ -790,7 +791,7 @@ application config =
                                     |> List.map Tuple.first
                                     |> List.map (String.join "/")
                         in
-                        update config.content allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
+                        update config.urlToRoute config.content allRoutes config.canonicalSiteUrl config.view config.pathKey config.onPageChange config.toJsPort config.document userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
@@ -859,16 +860,17 @@ cliApplication :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : route
             }
         -> ( userModel, Cmd userMsg )
+    , urlToRoute : Url.Url -> route
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
         List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
         ->
             StaticHttp.Request
@@ -903,12 +905,12 @@ cliApplication :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : NoMetadata
+             , metadata : route
              }
              -> userMsg
             )
     }
-    -> Program userModel userMsg NoMetadata view pathKey
+    -> Program userModel userMsg route view pathKey
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
         (\msg ->

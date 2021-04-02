@@ -25,7 +25,7 @@ type alias Msg =
     Never
 
 
-template : TemplateWithState StaticData () Msg
+template : TemplateWithState {} StaticData () Msg
 template =
     Template.withStaticData
         { head = head

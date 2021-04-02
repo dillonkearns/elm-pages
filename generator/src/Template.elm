@@ -54,7 +54,7 @@ import TemplateType exposing (TemplateType)
 
 
 {-| -}
-type alias TemplateWithState templateStaticData templateModel templateMsg =
+type alias TemplateWithState routeParams templateStaticData templateModel templateMsg =
     { staticData : StaticHttp.Request templateStaticData
     , view :
         templateModel
@@ -65,15 +65,15 @@ type alias TemplateWithState templateStaticData templateModel templateMsg =
     , head :
         StaticPayload templateStaticData
         -> List (Head.Tag Pages.PathKey)
-    , init : NoMetadata -> ( templateModel, Cmd templateMsg )
-    , update : NoMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : routeParams -> ( templateModel, Cmd templateMsg )
+    , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
 
 {-| -}
-type alias Template staticData =
-    TemplateWithState staticData () Never
+type alias Template routeParams staticData =
+    TemplateWithState routeParams staticData () Never
 
 
 {-| -}
@@ -102,7 +102,7 @@ buildNoState :
         -> Shared.PageView Never
     }
     -> Builder NoMetadata templateStaticData
-    -> TemplateWithState templateStaticData () Never
+    -> TemplateWithState routeParams templateStaticData () Never
 buildNoState { view } builderState =
     case builderState of
         WithStaticData record ->
@@ -123,12 +123,12 @@ buildWithLocalState :
         -> StaticPayload templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
-    , init : NoMetadata -> ( templateModel, Cmd templateMsg )
-    , update : Shared.Model -> NoMetadata -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
-    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
+    , init : routeParams -> ( templateModel, Cmd templateMsg )
+    , update : Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
     }
-    -> Builder NoMetadata templateStaticData
-    -> TemplateWithState templateStaticData templateModel templateMsg
+    -> Builder routeParams templateStaticData
+    -> TemplateWithState routeParams templateStaticData templateModel templateMsg
 buildWithLocalState config builderState =
     case builderState of
         WithStaticData record ->
@@ -146,8 +146,8 @@ buildWithLocalState config builderState =
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
-                \_ path templateModel sharedModel ->
-                    config.subscriptions NoMetadata path templateModel
+                \routeParams path templateModel sharedModel ->
+                    config.subscriptions routeParams path templateModel
             }
 
 
@@ -159,12 +159,12 @@ buildWithSharedState :
         -> StaticPayload templateStaticData
         -> Shared.RenderedBody
         -> Shared.PageView templateMsg
-    , init : NoMetadata -> ( templateModel, Cmd templateMsg )
-    , update : NoMetadata -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : routeParams -> ( templateModel, Cmd templateMsg )
+    , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
-    -> Builder NoMetadata templateStaticData
-    -> TemplateWithState templateStaticData templateModel templateMsg
+    -> Builder routeParams templateStaticData
+    -> TemplateWithState routeParams templateStaticData templateModel templateMsg
 buildWithSharedState config builderState =
     case builderState of
         WithStaticData record ->
@@ -182,7 +182,7 @@ withStaticData :
     { staticData : StaticHttp.Request templateStaticData
     , head : StaticPayload templateStaticData -> List (Head.Tag Pages.PathKey)
     }
-    -> Builder NoMetadata templateStaticData
+    -> Builder routeParams templateStaticData
 withStaticData { staticData, head } =
     WithStaticData
         { staticData = staticData
@@ -193,7 +193,7 @@ withStaticData { staticData, head } =
 {-| -}
 noStaticData :
     { head : StaticPayload () -> List (Head.Tag Pages.PathKey) }
-    -> Builder NoMetadata ()
+    -> Builder routeParams ()
 noStaticData { head } =
     WithStaticData
         { staticData = StaticHttp.succeed ()

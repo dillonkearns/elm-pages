@@ -56,7 +56,7 @@ type alias BlogPost =
     }
 
 
-template : Template DataFromFile
+template : Template {} DataFromFile
 template =
     Template.withStaticData
         { staticData = fileRequest

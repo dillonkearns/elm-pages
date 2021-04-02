@@ -20,7 +20,7 @@ type alias Msg =
     Never
 
 
-template : Template ()
+template : Template {} ()
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }

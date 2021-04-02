@@ -7,7 +7,6 @@ import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Index
-import NoMetadata exposing (NoMetadata)
 import OptimizedDecoder
 import Pages exposing (images)
 import Pages.ImagePath exposing (ImagePath)
@@ -24,7 +23,7 @@ type Msg
     = Msg
 
 
-template : TemplateWithState StaticData Model Msg
+template : TemplateWithState {} StaticData Model Msg
 template =
     Template.withStaticData
         { head = head
@@ -50,14 +49,14 @@ type alias StaticData =
     List ( PagePath Pages.PathKey, Article.ArticleMetadata )
 
 
-init : NoMetadata -> ( Model, Cmd Msg )
+init : {} -> ( Model, Cmd Msg )
 init _ =
     ( Model, Cmd.none )
 
 
 update :
     Shared.Model
-    -> NoMetadata
+    -> {}
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )

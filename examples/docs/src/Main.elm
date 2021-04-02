@@ -58,32 +58,32 @@ socialIcon =
 --main : Pages.Platform.Program Model Msg Metadata View Pages.PathKey
 
 
-main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg NoMetadata Shared.RenderedBody Pages.PathKey
+main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg (Maybe TemplateModulesBeta.Route) Shared.RenderedBody Pages.PathKey
 main =
     TemplateModulesBeta.mainTemplate
         { documents =
-            [ { extension = "md"
-              , metadata = Json.Decode.succeed NoMetadata --  MetadataNew.decoder -- metadata parser/decoder?
-              , body = MarkdownRenderer.view -- body parser?
-              }
+            [--{ extension = "md"
+             -- , metadata = Json.Decode.succeed NoMetadata --  MetadataNew.decoder -- metadata parser/decoder?
+             -- , body = MarkdownRenderer.view -- body parser?
+             -- }
             ]
         , site = Site.config
         }
-        |> RssPlugin.generate
-            { siteTagline = Site.tagline
-            , siteUrl = Site.canonicalUrl
-            , title = "elm-pages Blog"
-            , builtAt = Pages.builtAt
-            , indexPage = Pages.pages.blog.index
-            }
-            metadataToRssItem
-        |> MySitemap.install { siteUrl = Site.canonicalUrl } metadataToSitemapEntry
-        |> Pages.Platform.withGlobalHeadTags
-            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
-            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
-            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
-            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
-            ]
+        --|> RssPlugin.generate
+        --    { siteTagline = Site.tagline
+        --    , siteUrl = Site.canonicalUrl
+        --    , title = "elm-pages Blog"
+        --    , builtAt = Pages.builtAt
+        --    , indexPage = Pages.pages.blog.index
+        --    }
+        --    metadataToRssItem
+        --|> MySitemap.install { siteUrl = Site.canonicalUrl } metadataToSitemapEntry
+        --|> Pages.Platform.withGlobalHeadTags
+        --    [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+        --    , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+        --    , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+        --    , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+        --    ]
         |> Pages.Platform.toProgram
 
 

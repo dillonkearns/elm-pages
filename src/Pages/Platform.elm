@@ -73,6 +73,7 @@ import Pages.Internal.Platform
 import Pages.Manifest
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import Url
 
 
 {-| You can [`init`](#init) a `Builder`, and then turn it to a [`Program`](#Program) with [`toProgram`](#toProgram).
@@ -80,7 +81,7 @@ import Pages.StaticHttp as StaticHttp
 That gives you the basic options, then you can [include optional configuration](#additional-application-config).
 
 -}
-type Builder pathKey model msg metadata view
+type Builder pathKey model msg route view
     = Builder
         { init :
             Maybe
@@ -89,16 +90,17 @@ type Builder pathKey model msg metadata view
                     , query : Maybe String
                     , fragment : Maybe String
                     }
-                , metadata : NoMetadata
+                , metadata : route
                 }
             -> ( model, Cmd msg )
+        , urlToRoute : Url.Url -> route
         , update : msg -> model -> ( model, Cmd msg )
         , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
         , view :
             List ( PagePath pathKey, NoMetadata )
             ->
                 { path : PagePath pathKey
-                , frontmatter : NoMetadata
+                , frontmatter : route
                 }
             ->
                 StaticHttp.Request
@@ -128,7 +130,7 @@ type Builder pathKey model msg metadata view
                 ({ path : PagePath pathKey
                  , query : Maybe String
                  , fragment : Maybe String
-                 , metadata : NoMetadata
+                 , metadata : route
                  }
                  -> msg
                 )
@@ -172,7 +174,7 @@ init :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : route
             }
         -> ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )
@@ -180,7 +182,7 @@ init :
         List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
         ->
             StaticHttp.Request
@@ -199,18 +201,20 @@ init :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : NoMetadata
+             , metadata : route
              }
              -> msg
             )
     , manifest : Pages.Manifest.Config pathKey
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
+    , urlToRoute : Url.Url -> route
     }
-    -> Builder pathKey model msg NoMetadata view
+    -> Builder pathKey model msg route view
 init config =
     Builder
         { init = config.init
+        , urlToRoute = config.urlToRoute
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
@@ -227,8 +231,8 @@ init config =
 -}
 withGlobalHeadTags :
     List (Head.Tag pathKey)
-    -> Builder pathKey model msg NoMetadata view
-    -> Builder pathKey model msg NoMetadata view
+    -> Builder pathKey model msg route view
+    -> Builder pathKey model msg route view
 withGlobalHeadTags globalHeadTags (Builder config) =
     Builder
         { config
@@ -290,8 +294,8 @@ withFileGenerator :
                 )
             )
     )
-    -> Builder pathKey model msg NoMetadata view
-    -> Builder pathKey model msg NoMetadata view
+    -> Builder pathKey model msg route view
+    -> Builder pathKey model msg route view
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
@@ -305,10 +309,11 @@ withFileGenerator generateFiles (Builder config) =
 
 {-| When you're done with your builder pipeline, you complete it with `Pages.Platform.toProgram`.
 -}
-toProgram : Builder pathKey model msg NoMetadata view -> Program model msg NoMetadata view pathKey
+toProgram : Builder pathKey model msg route view -> Program model msg route view pathKey
 toProgram (Builder config) =
     application
         { init = config.init
+        , urlToRoute = config.urlToRoute
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
@@ -329,16 +334,17 @@ application :
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : NoMetadata
+            , metadata : route
             }
         -> ( model, Cmd msg )
+    , urlToRoute : Url.Url -> route
     , update : msg -> model -> ( model, Cmd msg )
     , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
     , view :
         List ( PagePath pathKey, NoMetadata )
         ->
             { path : PagePath pathKey
-            , frontmatter : NoMetadata
+            , frontmatter : route
             }
         ->
             StaticHttp.Request
@@ -368,14 +374,14 @@ application :
             ({ path : PagePath pathKey
              , query : Maybe String
              , fragment : Maybe String
-             , metadata : NoMetadata
+             , metadata : route
              }
              -> msg
             )
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Program model msg NoMetadata view pathKey
+    -> Program model msg route view pathKey
 application config =
     (case config.internals.applicationType of
         Pages.Internal.Browser ->
@@ -386,6 +392,7 @@ application config =
     )
     <|
         { init = config.init
+        , urlToRoute = config.urlToRoute
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
@@ -403,8 +410,8 @@ application config =
 
 {-| The `Program` type for an `elm-pages` app.
 -}
-type alias Program model msg metadata view pathKey =
-    Pages.Internal.Platform.Program model msg metadata view pathKey
+type alias Program model msg route view pathKey =
+    Pages.Internal.Platform.Program model msg route view pathKey
 
 
 {-| -}
