@@ -1,6 +1,6 @@
 module Pages.Platform exposing
     ( Builder, init, toProgram
-    , Program, Page
+    , Program
     , withGlobalHeadTags, withFileGenerator
     )
 
@@ -54,7 +54,7 @@ which case there is no pre-rendering).
 
 @docs Builder, init, toProgram
 
-@docs Program, Page
+@docs Program
 
 
 ## Additional application config
@@ -377,11 +377,3 @@ application config =
 -}
 type alias Program model msg route pathKey =
     Pages.Internal.Platform.Program model msg route pathKey
-
-
-{-| -}
-type alias Page metadata pathKey =
-    { metadata : metadata
-    , path : PagePath pathKey
-    , view : NoView
-    }
