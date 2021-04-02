@@ -800,7 +800,7 @@ sendSinglePageProgress :
 sendSinglePageProgress toJsPayload config _ _ =
     \( page, _ ) ->
         let
-            makeItWork : StaticHttpRequest.Request staticData -> Result BuildError staticData
+            makeItWork : StaticHttpRequest.RawRequest staticData -> Result BuildError staticData
             makeItWork request =
                 StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\_ v -> Just v))
                     |> Result.mapError (StaticHttpRequest.toBuildError (page |> PagePath.toString))
@@ -902,7 +902,7 @@ staticResponseForPage :
             , frontmatter : route
             }
          ->
-            StaticHttpRequest.Request
+            StaticHttpRequest.RawRequest
                 { view : userModel -> view -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }

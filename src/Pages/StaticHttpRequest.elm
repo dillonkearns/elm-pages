@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), Request(..), Status(..), cacheRequestResolution, resolve, resolveUrls, strippedResponses, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, resolve, resolveUrls, strippedResponses, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -9,31 +9,31 @@ import Secrets
 import TerminalText as Terminal
 
 
-type Request value
+type RawRequest value
     = Request
         ( List (Secrets.Value Pages.StaticHttp.Request.Request)
-        , ApplicationType -> RequestsAndPending -> Result Error ( Dict String String, Request value )
+        , ApplicationType -> RequestsAndPending -> Result Error ( Dict String String, RawRequest value )
         )
     | Done value
 
 
-strippedResponses : ApplicationType -> Request value -> RequestsAndPending -> Dict String String
+strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
 strippedResponses =
     strippedResponsesHelp Dict.empty
 
 
-strippedResponsesHelp : Dict String String -> ApplicationType -> Request value -> RequestsAndPending -> Dict String String
+strippedResponsesHelp : Dict String String -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
 strippedResponsesHelp usedSoFar appType request rawResponses =
     case request of
-        Request ( list, lookupFn ) ->
+        Request ( _, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Err error ->
+                Err _ ->
                     usedSoFar
 
                 Ok ( partiallyStrippedResponses, followupRequest ) ->
                     strippedResponsesHelp (Dict.union usedSoFar partiallyStrippedResponses) appType followupRequest rawResponses
 
-        Done value ->
+        Done _ ->
             usedSoFar
 
 
@@ -77,12 +77,12 @@ toBuildError path error =
             }
 
 
-resolve : ApplicationType -> Request value -> RequestsAndPending -> Result Error value
+resolve : ApplicationType -> RawRequest value -> RequestsAndPending -> Result Error value
 resolve appType request rawResponses =
     case request of
-        Request ( urlList, lookupFn ) ->
+        Request ( _, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Ok ( partiallyStrippedResponses, nextRequest ) ->
+                Ok ( _, nextRequest ) ->
                     resolve appType nextRequest rawResponses
 
                 Err error ->
@@ -92,7 +92,7 @@ resolve appType request rawResponses =
             Ok value
 
 
-resolveUrls : ApplicationType -> Request value -> RequestsAndPending -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
 resolveUrls appType request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
@@ -112,7 +112,7 @@ resolveUrls appType request rawResponses =
 
 cacheRequestResolution :
     ApplicationType
-    -> Request value
+    -> RawRequest value
     -> RequestsAndPending
     -> Status value
 cacheRequestResolution =
@@ -128,25 +128,25 @@ type Status value
 cacheRequestResolutionHelp :
     List (Secrets.Value Pages.StaticHttp.Request.Request)
     -> ApplicationType
-    -> Request value
+    -> RawRequest value
     -> RequestsAndPending
     -> Status value
 cacheRequestResolutionHelp foundUrls appType request rawResponses =
     case request of
         Request ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Ok ( partiallyStrippedResponses, nextRequest ) ->
+                Ok ( _, nextRequest ) ->
                     cacheRequestResolutionHelp urlList appType nextRequest rawResponses
 
                 Err error ->
                     case error of
-                        MissingHttpResponse string ->
+                        MissingHttpResponse _ ->
                             Incomplete (urlList ++ foundUrls)
 
-                        DecoderError string ->
+                        DecoderError _ ->
                             HasPermanentError error
 
-                        UserCalledStaticHttpFail string ->
+                        UserCalledStaticHttpFail _ ->
                             HasPermanentError error
 
         Done value ->

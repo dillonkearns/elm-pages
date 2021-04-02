@@ -1,7 +1,7 @@
 module Pages.Document exposing
     ( Document, DocumentHandler
     , parser
-    , fromList, get
+    , fromList
     )
 
 {-| The `Document` represents all the ways to handle the frontmatter metadata
@@ -108,23 +108,6 @@ type DocumentHandler metadata view
         { frontmatterParser : String -> Result String metadata
         , contentParser : String -> Result String view
         }
-
-
-{-| Used by the generated `Pages.elm` module. There's no need to use this
-outside of the generated code.
--}
-get :
-    String
-    -> Document metadata view
-    ->
-        Maybe
-            { frontmatterParser : String -> Result String metadata
-            , contentParser : String -> Result String view
-            }
-get extension (Document document) =
-    document
-        |> Dict.get extension
-        |> Maybe.map (\(DocumentHandler handler) -> handler)
 
 
 {-| Used by the generated `Pages.elm` module. There's no need to use this

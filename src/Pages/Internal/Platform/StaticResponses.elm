@@ -24,7 +24,7 @@ type StaticResponses
 
 
 type StaticHttpResult
-    = NotFetched (StaticHttpRequest.Request ()) (Dict String (Result () String))
+    = NotFetched (StaticHttpRequest.RawRequest ()) (Dict String (Result () String))
 
 
 type alias Content =

@@ -86,7 +86,7 @@ import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationTy
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
-import Pages.StaticHttpRequest exposing (Request(..))
+import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 
@@ -127,7 +127,7 @@ type alias Body =
 very similar to how you can manipulate values with Json Decoders in Elm.
 -}
 type alias Request value =
-    Pages.StaticHttpRequest.Request value
+    Pages.StaticHttpRequest.RawRequest value
 
 
 {-| Transform a request into an arbitrary value. The same underlying HTTP requests will be performed during the build
@@ -306,12 +306,12 @@ combineReducedDicts dict1 dict2 =
             )
 
 
-lookup : ApplicationType -> Pages.StaticHttpRequest.Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookup : ApplicationType -> Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
 lookup =
     lookupHelp Dict.empty
 
 
-lookupHelp : Dict String String -> ApplicationType -> Pages.StaticHttpRequest.Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookupHelp : Dict String String -> ApplicationType -> Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
 lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -328,7 +328,7 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
             Ok ( strippedSoFar, value )
 
 
-addUrls : List (Pages.Secrets.Value HashRequest.Request) -> Pages.StaticHttpRequest.Request value -> Pages.StaticHttpRequest.Request value
+addUrls : List (Pages.Secrets.Value HashRequest.Request) -> Request value -> Request value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         Request ( initialUrls, function ) ->
@@ -338,13 +338,13 @@ addUrls urlsToAdd requestInfo =
             Done value
 
 
-lookupUrls : Pages.StaticHttpRequest.Request value -> List (Pages.Secrets.Value RequestDetails)
+lookupUrls : Request value -> List (Pages.Secrets.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
-        Request ( urls, lookupFn ) ->
+        Request ( urls, _ ) ->
             urls
 
-        Done value ->
+        Done _ ->
             []
 
 
@@ -412,7 +412,7 @@ succeed : a -> Request a
 succeed value =
     Request
         ( []
-        , \appType rawResponses ->
+        , \_ _ ->
             Ok ( Dict.empty, Done value )
         )
 
@@ -425,7 +425,7 @@ fail : String -> Request a
 fail errorMessage =
     Request
         ( []
-        , \appType rawResponses ->
+        , \_ _ ->
             Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail errorMessage)
         )
 
@@ -619,7 +619,7 @@ unoptimizedRequest requestWithSecrets expect =
                                                                 |> Pages.StaticHttpRequest.DecoderError
                                                                 |> Err
 
-                                                        Json.Decode.Exploration.WithWarnings warnings a ->
+                                                        Json.Decode.Exploration.WithWarnings _ a ->
                                                             Ok a
 
                                                         Json.Decode.Exploration.Success a ->
@@ -677,7 +677,7 @@ unoptimizedRequest requestWithSecrets expect =
         ExpectUnoptimizedJson decoder ->
             Request
                 ( [ requestWithSecrets ]
-                , \appType rawResponseDict ->
+                , \_ rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
@@ -725,7 +725,7 @@ unoptimizedRequest requestWithSecrets expect =
         ExpectString mapStringFn ->
             Request
                 ( [ requestWithSecrets ]
-                , \appType rawResponseDict ->
+                , \_ rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
