@@ -1,7 +1,6 @@
 module Pages.Internal.Platform.Effect exposing (..)
 
-import Pages.Internal.Platform.ToJsPayload exposing (FileToGenerate, ToJsPayload, ToJsSuccessPayloadNew, ToJsSuccessPayloadNewCombined)
-import Pages.Manifest as Manifest
+import Pages.Internal.Platform.ToJsPayload exposing (ToJsPayload, ToJsSuccessPayloadNewCombined)
 import Pages.StaticHttp exposing (RequestDetails)
 
 

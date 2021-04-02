@@ -2,7 +2,6 @@ module RequestsAndPending exposing (..)
 
 import Dict exposing (Dict)
 import Json.Decode as Decode
-import List.Extra as Dict
 
 
 type alias RequestsAndPending =

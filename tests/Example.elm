@@ -1,8 +1,8 @@
 module Example exposing (..)
 
-import Expect exposing (Expectation)
-import Pages.Directory as Directory exposing (Directory)
-import Pages.PagePath as PagePath exposing (PagePath)
+import Expect
+import Pages.Directory as Directory
+import Pages.PagePath as PagePath
 import Test exposing (..)
 
 
