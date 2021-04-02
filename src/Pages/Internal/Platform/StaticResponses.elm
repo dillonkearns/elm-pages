@@ -37,8 +37,7 @@ error =
 
 
 init :
-    Dict String (Maybe String)
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     ->
         { config
             | content : Content
@@ -61,7 +60,7 @@ init :
         }
     -> List ( PagePath pathKey, StaticHttp.Request value )
     -> StaticResponses
-init staticHttpCache siteMetadataResult config list =
+init siteMetadataResult config list =
     let
         generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
         generateFilesRequest =
@@ -206,15 +205,13 @@ nextStep :
                         )
                     )
     }
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Result (List BuildError) (List ( PagePath pathKey, route ))
     -> Mode
     -> SecretsDict
     -> RequestsAndPending
     -> List BuildError
     -> StaticResponses
     -> NextStep pathKey
-nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors (StaticResponses staticResponses) =
+nextStep config mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
         metadataForGenerateFiles =
             []

@@ -400,7 +400,7 @@ init toModel contentCache siteMetadata config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy staticRoutes { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
+                    initLegacy staticRoutes { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config
 
         Err error ->
             updateAndSendPortIfDone
@@ -451,9 +451,8 @@ initLegacy :
     -> ContentCache
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel NoView route
-    -> f
     -> ( model, Effect pathKey )
-initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
+initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config =
     case contentCache of
         Ok _ ->
             let
@@ -464,13 +463,13 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                 staticResponses =
                     case requests of
                         Ok okRequests ->
-                            StaticResponses.init staticHttpCache siteMetadata config okRequests
+                            StaticResponses.init siteMetadata config okRequests
 
                         Err _ ->
                             -- TODO need to handle errors better?
-                            StaticResponses.init staticHttpCache siteMetadata config []
+                            StaticResponses.init siteMetadata config []
             in
-            StaticResponses.nextStep config siteMetadata (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
+            StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses
                 |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] [] staticRoutes)
                 |> Tuple.mapFirst toModel
 
@@ -505,8 +504,6 @@ updateAndSendPortIfDone contentCache config siteMetadata model toModel =
     in
     StaticResponses.nextStep
         config
-        siteMetadata
-        (Ok nextToProcess)
         model.mode
         model.secrets
         model.allRawResponses
@@ -589,13 +586,8 @@ update contentCache siteMetadata config msg model =
                             { request = request
                             , response = Result.mapError (\_ -> ()) response
                             }
-
-                nextToProcess =
-                    drop1 updatedModel
             in
             StaticResponses.nextStep config
-                siteMetadata
-                (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
                 updatedModel.allRawResponses
@@ -643,8 +635,6 @@ update contentCache siteMetadata config msg model =
                             }
             in
             StaticResponses.nextStep config
-                siteMetadata
-                (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
                 updatedModel.allRawResponses
@@ -659,14 +649,8 @@ update contentCache siteMetadata config msg model =
                 --    Debug.log "Continuing..." (List.length model.unprocessedPages)
                 updatedModel =
                     model
-
-                --|> popProcessedRequest
-                nextToProcess =
-                    drop1 model
             in
             StaticResponses.nextStep config
-                siteMetadata
-                (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
                 updatedModel.allRawResponses
@@ -711,8 +695,6 @@ update contentCache siteMetadata config msg model =
                             }
             in
             StaticResponses.nextStep config
-                siteMetadata
-                (Ok nextToProcess)
                 updatedModel.mode
                 updatedModel.secrets
                 updatedModel.allRawResponses
