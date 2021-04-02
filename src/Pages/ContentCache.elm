@@ -2,12 +2,10 @@ module Pages.ContentCache exposing
     ( ContentCache
     , Entry(..)
     , Path
-    , extractMetadata
     , init
     , lazyLoad
     , lookup
     , lookupMetadata
-    , pagesWithErrors
     , routesForCache
     )
 
@@ -16,8 +14,6 @@ import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
 import Json.Decode as Decode
-import NoMetadata exposing (NoMetadata, NoView(..))
-import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
 import RequestsAndPending exposing (RequestsAndPending)
@@ -29,23 +25,21 @@ type alias Content =
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias ContentCache metadata view =
-    Result Errors (Dict Path (Entry metadata view))
+type alias ContentCache =
+    Result Errors (Dict Path Entry)
 
 
 type alias Errors =
     List ( Html Never, BuildError )
 
 
-type alias ContentCacheInner metadata view =
-    Dict Path (Entry metadata view)
+type alias ContentCacheInner =
+    Dict Path Entry
 
 
-type Entry metadata view
-    = NeedContent String NoMetadata
-    | Unparsed String NoMetadata ContentJson
-      -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed NoMetadata ContentJson
+type Entry
+    = NeedContent
+    | Parsed ContentJson
 
 
 type alias ParseError =
@@ -56,42 +50,15 @@ type alias Path =
     List String
 
 
-extractMetadata : pathKey -> ContentCacheInner NoMetadata view -> List ( PagePath pathKey, NoMetadata )
-extractMetadata pathKey cache =
-    cache
-        |> Dict.toList
-        |> List.map (\( path, entry ) -> ( PagePath.build pathKey path, getMetadata entry ))
-
-
-getMetadata : Entry NoMetadata view -> NoMetadata
-getMetadata entry =
-    case entry of
-        NeedContent extension metadata ->
-            metadata
-
-        Unparsed extension metadata _ ->
-            metadata
-
-        Parsed metadata _ ->
-            metadata
-
-
-pagesWithErrors : ContentCache NoMetadata view -> List BuildError
-pagesWithErrors cache =
-    []
-
-
 init :
-    Document NoMetadata view
-    -> Content
-    -> Maybe { contentJson : ContentJson, initialUrl : { url | path : String } }
-    -> ContentCache NoMetadata view
-init _ _ maybeInitialPageContent =
+    Maybe { contentJson : ContentJson, initialUrl : { url | path : String } }
+    -> ContentCache
+init maybeInitialPageContent =
     Ok <|
         Dict.fromList
-            [ ( [], NeedContent "" NoMetadata.NoMetadata )
-            , ( [ "showcase" ], NeedContent "" NoMetadata.NoMetadata )
-            , ( [ "blog" ], NeedContent "" NoMetadata.NoMetadata )
+            [ ( [], NeedContent )
+            , ( [ "showcase" ], NeedContent )
+            , ( [ "blog" ], NeedContent )
 
             --, ( [], NeedContent "/showcase" NoMetadata.NoMetadata )
             ]
@@ -113,28 +80,6 @@ init _ _ maybeInitialPageContent =
 --    |> Result.map Dict.fromList
 
 
-parseContent :
-    String
-    -> String
-    -> Document NoMetadata NoView
-    -> Result String NoView
-parseContent extension body document =
-    let
-        maybeDocumentEntry =
-            Document.get extension document
-    in
-    case maybeDocumentEntry of
-        Just documentEntry ->
-            documentEntry.contentParser body
-
-        Nothing ->
-            Ok NoView
-
-
-
---Err ("Could not find extension '" ++ extension ++ "'")
-
-
 routes : List ( List String, anything ) -> List String
 routes record =
     record
@@ -142,7 +87,7 @@ routes record =
         |> List.map (String.join "/")
 
 
-routesForCache : ContentCache NoMetadata view -> List String
+routesForCache : ContentCache -> List String
 routesForCache cacheResult =
     case cacheResult of
         Ok cache ->
@@ -158,11 +103,10 @@ routesForCache cacheResult =
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    Document NoMetadata NoView
-    -> { currentUrl : Url, baseUrl : Url }
-    -> ContentCache NoMetadata NoView
-    -> Task Http.Error (ContentCache NoMetadata NoView)
-lazyLoad document urls cacheResult =
+    { currentUrl : Url, baseUrl : Url }
+    -> ContentCache
+    -> Task Http.Error ContentCache
+lazyLoad urls cacheResult =
     case cacheResult of
         Err _ ->
             Task.succeed cacheResult
@@ -171,31 +115,18 @@ lazyLoad document urls cacheResult =
             case Dict.get (pathForUrl urls) cache of
                 Just entry ->
                     case entry of
-                        NeedContent extension _ ->
+                        NeedContent ->
                             urls.currentUrl
                                 |> httpTask
                                 |> Task.map
                                     (\downloadedContent ->
                                         update
                                             cacheResult
-                                            (\value ->
-                                                parseContent extension value document
-                                            )
                                             urls
                                             downloadedContent
                                     )
 
-                        Unparsed extension metadata content ->
-                            content
-                                |> update
-                                    cacheResult
-                                    (\thing ->
-                                        parseContent extension thing document
-                                    )
-                                    urls
-                                |> Task.succeed
-
-                        Parsed _ _ ->
+                        Parsed _ ->
                             Task.succeed cacheResult
 
                 Nothing ->
@@ -229,10 +160,10 @@ httpTask url =
                         Http.NetworkError_ ->
                             Err Http.NetworkError
 
-                        Http.BadStatus_ metadata body ->
+                        Http.BadStatus_ metadata _ ->
                             Err (Http.BadStatus metadata.statusCode)
 
-                        Http.GoodStatus_ metadata body ->
+                        Http.GoodStatus_ _ body ->
                             body
                                 |> Decode.decodeString contentJsonDecoder
                                 |> Result.mapError (\err -> Http.BadBody (Decode.errorToString err))
@@ -253,29 +184,22 @@ contentJsonDecoder =
 
 
 update :
-    ContentCache NoMetadata view
-    -> (String -> Result ParseError view)
+    ContentCache
     -> { currentUrl : Url, baseUrl : Url }
     -> ContentJson
-    -> ContentCache NoMetadata view
-update cacheResult _ urls rawContent =
+    -> ContentCache
+update cacheResult urls rawContent =
     case cacheResult of
         Ok cache ->
             Dict.update
                 (pathForUrl urls)
                 (\entry ->
                     case entry of
-                        Just (Parsed _ _) ->
+                        Just (Parsed _) ->
                             entry
 
-                        Just (Unparsed _ _ content) ->
-                            Parsed NoMetadata
-                                { staticData = content.staticData
-                                }
-                                |> Just
-
-                        Just (NeedContent _ _) ->
-                            Parsed NoMetadata
+                        Just NeedContent ->
+                            Parsed
                                 { staticData = rawContent.staticData
                                 }
                                 |> Just
@@ -304,9 +228,9 @@ pathForUrl { currentUrl, baseUrl } =
 
 lookup :
     pathKey
-    -> ContentCache NoMetadata NoView
+    -> ContentCache
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, Entry NoMetadata NoView )
+    -> Maybe ( PagePath pathKey, Entry )
 lookup pathKey content urls =
     case content of
         Ok dict ->
@@ -327,21 +251,18 @@ lookup pathKey content urls =
 
 lookupMetadata :
     pathKey
-    -> ContentCache NoMetadata NoView
+    -> ContentCache
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, NoMetadata )
+    -> Maybe (PagePath pathKey)
 lookupMetadata pathKey content urls =
     urls
         |> lookup pathKey content
         |> Maybe.map
             (\( pagePath, entry ) ->
                 case entry of
-                    NeedContent _ _ ->
-                        ( pagePath, NoMetadata )
+                    NeedContent ->
+                        pagePath
 
-                    Unparsed _ _ _ ->
-                        ( pagePath, NoMetadata )
-
-                    Parsed _ _ ->
-                        ( pagePath, NoMetadata )
+                    Parsed _ ->
+                        pagePath
             )

@@ -10,7 +10,7 @@ import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import NoMetadata exposing (NoMetadata(..), NoView)
+import NoMetadata exposing (NoMetadata(..), NoView(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Internal.ApplicationType as ApplicationType
@@ -92,7 +92,7 @@ pageViewOrError :
                 }
         )
     -> ModelDetails userModel
-    -> ContentCache NoMetadata NoView
+    -> ContentCache
     -> { title : String, body : Html userMsg }
 pageViewOrError urlToRoute pathKey viewFn model cache =
     let
@@ -104,7 +104,7 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
     case ContentCache.lookup pathKey cache urls of
         Just ( pagePath, entry ) ->
             case entry of
-                ContentCache.Parsed NoMetadata body viewResult ->
+                ContentCache.Parsed viewResult ->
                     let
                         viewFnResult =
                             { path = pagePath
@@ -119,46 +119,35 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
                                             )
                                    )
                     in
-                    case viewResult.body of
-                        Ok viewList ->
-                            case viewFnResult of
-                                Ok okViewFn ->
-                                    okViewFn.view model.userModel viewList
-                                        |> Debug.log "viewResult Ok"
-
-                                Err error ->
-                                    { title = "Parsing error"
-                                    , body =
-                                        case error of
-                                            StaticHttpRequest.DecoderError decoderError ->
-                                                Html.div []
-                                                    [ Html.text "Could not parse static data. I encountered this decoder problem."
-                                                    , Html.pre [] [ Html.text decoderError ]
-                                                    ]
-
-                                            StaticHttpRequest.MissingHttpResponse missingKey ->
-                                                Html.div []
-                                                    [ Html.text "I'm missing some StaticHttp data for this page:"
-                                                    , Html.pre [] [ Html.text missingKey ]
-                                                    ]
-
-                                            StaticHttpRequest.UserCalledStaticHttpFail message ->
-                                                Html.div []
-                                                    [ Html.text "I ran into a call to `Pages.StaticHttp.fail` with message:"
-                                                    , Html.pre [] [ Html.text message ]
-                                                    ]
-                                    }
+                    case viewFnResult of
+                        Ok okViewFn ->
+                            okViewFn.view model.userModel NoView
 
                         Err error ->
                             { title = "Parsing error"
-                            , body = Html.text error
+                            , body =
+                                case error of
+                                    StaticHttpRequest.DecoderError decoderError ->
+                                        Html.div []
+                                            [ Html.text "Could not parse static data. I encountered this decoder problem."
+                                            , Html.pre [] [ Html.text decoderError ]
+                                            ]
+
+                                    StaticHttpRequest.MissingHttpResponse missingKey ->
+                                        Html.div []
+                                            [ Html.text "I'm missing some StaticHttp data for this page:"
+                                            , Html.pre [] [ Html.text missingKey ]
+                                            ]
+
+                                    StaticHttpRequest.UserCalledStaticHttpFail message ->
+                                        Html.div []
+                                            [ Html.text "I ran into a call to `Pages.StaticHttp.fail` with message:"
+                                            , Html.pre [] [ Html.text message ]
+                                            ]
                             }
 
-                ContentCache.NeedContent extension a ->
+                ContentCache.NeedContent ->
                     { title = "elm-pages error", body = Html.text "Missing content" }
-
-                ContentCache.Unparsed extension a b ->
-                    { title = "elm-pages error", body = Html.text "Unparsed content" }
 
         Nothing ->
             { title = "Page not found"
@@ -239,15 +228,13 @@ type alias Flags =
 
 
 type alias ContentJson =
-    { body : String
-    , staticData : RequestsAndPending
+    { staticData : RequestsAndPending
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map2 ContentJson
-        (Decode.field "body" Decode.string)
+    Decode.map ContentJson
         (Decode.field "staticData" RequestsAndPending.decoder)
 
 
@@ -295,8 +282,6 @@ init urlToRoute pathKey canonicalSiteUrl document toJsPort viewFn content initUs
     let
         contentCache =
             ContentCache.init
-                document
-                content
                 (Maybe.map
                     (\cj ->
                         { contentJson = cj
@@ -351,7 +336,7 @@ init urlToRoute pathKey canonicalSiteUrl document toJsPort viewFn content initUs
 
                 ( userModel, userCmd ) =
                     Maybe.map2
-                        (\pagePath NoMetadata ->
+                        (\pagePath _ ->
                             { path =
                                 { path = pagePath
                                 , query = url.query
@@ -369,7 +354,7 @@ init urlToRoute pathKey canonicalSiteUrl document toJsPort viewFn content initUs
                         |> Cmd.map UserMsg
                         |> Just
                     , contentCache
-                        |> ContentCache.lazyLoad document urls
+                        |> ContentCache.lazyLoad urls
                         |> Task.attempt UpdateCache
                         |> Just
                     ]
@@ -378,7 +363,7 @@ init urlToRoute pathKey canonicalSiteUrl document toJsPort viewFn content initUs
 
                 ( maybePagePath, maybeMetadata ) =
                     case ContentCache.lookupMetadata pathKey (Ok okCache) urls of
-                        Just ( pagePath, NoMetadata ) ->
+                        Just pagePath ->
                             ( Just pagePath, Just NoMetadata )
 
                         Nothing ->
@@ -430,10 +415,10 @@ type Msg userMsg
 
 type AppMsg userMsg
     = LinkClicked Browser.UrlRequest
-    | UrlChanged Url.Url
+    | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCache (Result Http.Error (ContentCache NoMetadata NoView))
-    | UpdateCacheAndUrl Url (Result Http.Error (ContentCache NoMetadata NoView))
+    | UpdateCache (Result Http.Error ContentCache)
+    | UpdateCacheAndUrl Url (Result Http.Error ContentCache)
     | PageScrollComplete
     | HotReloadComplete ContentJson
     | StartingHotReload
@@ -448,7 +433,7 @@ type alias ModelDetails userModel =
     { key : Browser.Navigation.Key
     , url : Url
     , baseUrl : Url
-    , contentCache : ContentCache NoMetadata NoView
+    , contentCache : ContentCache
     , userModel : userModel
     , phase : Phase
     , hmrStatus : HmrStatus
@@ -462,7 +447,7 @@ type Phase
 
 
 update :
-    (Url.Url -> route)
+    (Url -> route)
     -> Content
     -> List String
     -> String
@@ -537,7 +522,7 @@ update urlToRoute content allRoutes canonicalSiteUrl viewFunction pathKey maybeO
 
                       else
                         model.contentCache
-                            |> ContentCache.lazyLoad document urls
+                            |> ContentCache.lazyLoad urls
                             |> Task.attempt (UpdateCacheAndUrl url)
                     )
 
@@ -563,17 +548,14 @@ update urlToRoute content allRoutes canonicalSiteUrl viewFunction pathKey maybeO
                                     case ContentCache.lookup pathKey updatedCache urls of
                                         Just ( pagePath, entry ) ->
                                             case entry of
-                                                ContentCache.Parsed frontmatter body viewResult ->
+                                                ContentCache.Parsed viewResult ->
                                                     headFn pagePath (urlToRoute model.url) viewResult.staticData
                                                         |> Result.map .head
                                                         |> Result.toMaybe
                                                         |> Maybe.map (encodeHeads allRoutes canonicalSiteUrl model.url.path)
                                                         |> Maybe.map toJsPort
 
-                                                ContentCache.NeedContent string NoMetadata ->
-                                                    Nothing
-
-                                                ContentCache.Unparsed string NoMetadata contentJson ->
+                                                ContentCache.NeedContent ->
                                                     Nothing
 
                                         Nothing ->
@@ -581,10 +563,7 @@ update urlToRoute content allRoutes canonicalSiteUrl viewFunction pathKey maybeO
 
                                 headFn pagePath frontmatter staticDataThing =
                                     viewFunction
-                                        (updatedCache
-                                            |> Result.map (ContentCache.extractMetadata pathKey)
-                                            |> Result.withDefault []
-                                        )
+                                        []
                                         { path = pagePath, frontmatter = frontmatter }
                                         |> (\request ->
                                                 StaticHttpRequest.resolve ApplicationType.Browser request staticDataThing
@@ -642,7 +621,7 @@ update urlToRoute content allRoutes canonicalSiteUrl viewFunction pathKey maybeO
 
                 HotReloadComplete contentJson ->
                     ( { model
-                        | contentCache = ContentCache.init document content (Just { contentJson = contentJson, initialUrl = model.url })
+                        | contentCache = ContentCache.init (Just { contentJson = contentJson, initialUrl = model.url })
                         , hmrStatus = HmrLoaded
                       }
                     , Cmd.none
@@ -671,7 +650,7 @@ application :
             , metadata : route
             }
         -> ( userModel, Cmd userMsg )
-    , urlToRoute : Url.Url -> route
+    , urlToRoute : Url -> route
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
@@ -751,7 +730,7 @@ application config =
                                         config.update
 
                             noOpUpdate =
-                                \userMsg userModel ->
+                                \_ userModel ->
                                     ( userModel, Cmd.none )
 
                             allRoutes =
@@ -775,13 +754,13 @@ application config =
                                 , baseUrl = model.baseUrl
                                 }
 
-                            ( maybePagePath, maybeMetadata ) =
+                            maybePagePath =
                                 case ContentCache.lookupMetadata config.pathKey model.contentCache urls of
-                                    Just ( pagePath, NoMetadata ) ->
-                                        ( Just pagePath, Just NoMetadata )
+                                    Just pagePath ->
+                                        Just pagePath
 
                                     Nothing ->
-                                        ( Nothing, Nothing )
+                                        Nothing
 
                             userSub =
                                 Maybe.map
@@ -807,7 +786,7 @@ application config =
                                                     Ok contentJson ->
                                                         AppMsg (HotReloadComplete contentJson)
 
-                                                    Err error ->
+                                                    Err _ ->
                                                         -- TODO should be no message here
                                                         AppMsg StartingHotReload
                                     )
@@ -831,7 +810,7 @@ cliApplication :
             , metadata : route
             }
         -> ( userModel, Cmd userMsg )
-    , urlToRoute : Url.Url -> route
+    , urlToRoute : Url -> route
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :

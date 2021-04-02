@@ -42,7 +42,7 @@ all =
             \() ->
                 StaticHttp.get (Secrets.succeed "first") (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
-                        (\continueUrl ->
+                        (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
@@ -77,7 +77,7 @@ all =
             \() ->
                 getWithoutSecrets "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
-                        (\continueUrl ->
+                        (\_ ->
                             --                                        StaticHttp.get continueUrl (Decode.succeed ())
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
@@ -97,7 +97,7 @@ all =
             \() ->
                 getWithoutSecrets "first" (Decode.succeed "NEXT")
                     |> StaticHttp.andThen
-                        (\continueUrl ->
+                        (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
@@ -114,7 +114,7 @@ all =
             \() ->
                 getWithoutSecrets "first" Decode.int
                     |> StaticHttp.andThen
-                        (\continueUrl ->
+                        (\_ ->
                             getWithoutSecrets "NEXT" Decode.string
                                 |> StaticHttp.andThen
                                     (\_ ->

@@ -15,7 +15,7 @@ encode body =
         EmptyBody ->
             encodeWithType "empty" []
 
-        StringBody contentType content ->
+        StringBody _ content ->
             encodeWithType "string"
                 [ ( "content", Encode.string content )
                 ]

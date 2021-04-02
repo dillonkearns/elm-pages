@@ -22,7 +22,7 @@ map mapFn (Glob pattern applyCapture) =
 
 succeed : constructor -> Glob constructor
 succeed constructor =
-    Glob "" (\fullPath captures -> ( constructor, captures ))
+    Glob "" (\_ captures -> ( constructor, captures ))
 
 
 fullFilePath : Glob String
@@ -38,7 +38,7 @@ fullFilePath =
 wildcard : Glob String
 wildcard =
     Glob "*"
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -51,7 +51,7 @@ wildcard =
 recursiveWildcard : Glob String
 recursiveWildcard =
     Glob "**"
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -68,7 +68,7 @@ zeroOrMore matchers =
             ++ (matchers |> String.join "|")
             ++ ")"
         )
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 first :: rest ->
                     ( if first == "" then
@@ -86,13 +86,13 @@ zeroOrMore matchers =
 
 literal : String -> Glob String
 literal string =
-    Glob string (\fullPath captures -> ( string, captures ))
+    Glob string (\_ captures -> ( string, captures ))
 
 
 not : String -> Glob String
 not string =
     Glob ("!(" ++ string ++ ")")
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -113,7 +113,7 @@ notOneOf ( firstPattern, otherPatterns ) =
             ++ (allPatterns |> String.join "|")
             ++ ")"
         )
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -177,7 +177,7 @@ oneOf ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
         )
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 match :: rest ->
                     ( allMatchers
@@ -209,7 +209,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
         )
-        (\fullPath captures ->
+        (\_ captures ->
             case captures of
                 match :: rest ->
                     ( --( allMatchers

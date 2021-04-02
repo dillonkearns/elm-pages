@@ -54,6 +54,7 @@ type alias Model pathKey route =
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( PagePath pathKey, route )
+    , staticRoutes : List ( PagePath pathKey, route )
     }
 
 
@@ -134,7 +135,7 @@ cliApplication :
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
         contentCache =
-            ContentCache.init config.document config.content Nothing
+            ContentCache.init Nothing
 
         siteMetadata =
             Ok []
@@ -377,12 +378,21 @@ flagsDecoder =
 
 init :
     (Model pathKey route -> model)
-    -> ContentCache.ContentCache NoMetadata NoView
+    -> ContentCache
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel NoView route
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
+    let
+        staticRoutes : List ( PagePath pathKey, route )
+        staticRoutes =
+            [ -- [],
+              [ "showcase" ]
+            , [ "blog" ]
+            ]
+                |> List.map (urlToRoutePair config)
+    in
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
             case mode of
@@ -390,7 +400,7 @@ init toModel contentCache siteMetadata config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
+                    initLegacy staticRoutes { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -409,7 +419,8 @@ init toModel contentCache siteMetadata config flags =
                     []
                     -- TODO need to get routes here
                     []
-                 --(siteMetadata |> Result.withDefault [])
+                    --(siteMetadata |> Result.withDefault [])
+                    staticRoutes
                 )
                 toModel
 
@@ -434,89 +445,34 @@ urlToRoutePair config path =
 
 
 initLegacy :
-    { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
+    List ( PagePath pathKey, route )
+    -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
-    -> ContentCache.ContentCache NoMetadata NoView
+    -> ContentCache
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel NoView route
     -> f
     -> ( model, Effect pathKey )
-initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
-    let
-        staticRoutes : List ( PagePath pathKey, route )
-        staticRoutes =
-            [ -- [],
-              [ "showcase" ]
-            , [ "blog" ]
-            ]
-                |> List.map (urlToRoutePair config)
-
-        -- TODO need to get the list of static routes here, like getStaticPaths
-        --[ ( PagePath.build config.pathKey [ "showcase" ]
-        --  , config.urlToRoute
-        --        { protocol = Url.Https
-        --        , host = config.canonicalSiteUrl
-        --        , port_ = Nothing
-        --
-        --        --, path = page |> PagePath.toString
-        --        , path = "/showcase"
-        --        , query = Nothing
-        --        , fragment = Nothing
-        --        }
-        --  )
-        --]
-    in
+initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
     case contentCache of
         Ok _ ->
-            case ContentCache.pagesWithErrors contentCache of
-                [] ->
-                    let
-                        requests =
-                            staticResponseForPage staticRoutes config.view
+            let
+                requests =
+                    staticResponseForPage staticRoutes config.view
 
-                        staticResponses : StaticResponses
-                        staticResponses =
-                            case requests of
-                                Ok okRequests ->
-                                    StaticResponses.init staticHttpCache siteMetadata config okRequests
+                staticResponses : StaticResponses
+                staticResponses =
+                    case requests of
+                        Ok okRequests ->
+                            StaticResponses.init staticHttpCache siteMetadata config okRequests
 
-                                Err errors ->
-                                    -- TODO need to handle errors better?
-                                    StaticResponses.init staticHttpCache siteMetadata config []
-                    in
-                    StaticResponses.nextStep config siteMetadata (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
-                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] staticRoutes)
-                        |> Tuple.mapFirst toModel
-
-                pageErrors ->
-                    let
-                        requests =
-                            staticResponseForPage staticRoutes config.view
-
-                        staticResponses : StaticResponses
-                        staticResponses =
-                            case requests of
-                                Ok okRequests ->
-                                    StaticResponses.init staticHttpCache siteMetadata config okRequests
-
-                                Err errors ->
-                                    -- TODO need to handle errors better?
-                                    StaticResponses.init staticHttpCache siteMetadata config []
-                    in
-                    updateAndSendPortIfDone
-                        contentCache
-                        config
-                        siteMetadata
-                        (Model
-                            staticResponses
-                            secrets
-                            pageErrors
-                            staticHttpCache
-                            mode
-                            []
-                            staticRoutes
-                        )
-                        toModel
+                        Err _ ->
+                            -- TODO need to handle errors better?
+                            StaticResponses.init staticHttpCache siteMetadata config []
+            in
+            StaticResponses.nextStep config siteMetadata (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
+                |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] [] staticRoutes)
+                |> Tuple.mapFirst toModel
 
         Err metadataParserErrors ->
             updateAndSendPortIfDone
@@ -529,13 +485,14 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                     staticHttpCache
                     mode
                     []
+                    []
                     staticRoutes
                 )
                 toModel
 
 
 updateAndSendPortIfDone :
-    ContentCache.ContentCache NoMetadata NoView
+    ContentCache
     -> Config pathKey userMsg userModel NoView route
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Model pathKey route
@@ -569,7 +526,7 @@ drop1 model =
 
 
 update :
-    ContentCache.ContentCache NoMetadata NoView
+    ContentCache
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel NoView route
     -> Msg
@@ -584,7 +541,7 @@ update contentCache siteMetadata config msg model =
                 --
                 updatedModel =
                     (case response of
-                        Ok okResponse ->
+                        Ok _ ->
                             { model
                                 | pendingRequests =
                                     model.pendingRequests
@@ -765,7 +722,7 @@ update contentCache siteMetadata config msg model =
 
 
 nextStepToEffect :
-    ContentCache.ContentCache NoMetadata NoView
+    ContentCache
     -> Config pathKey userMsg userModel NoView route
     -> Model pathKey route
     -> StaticResponses.NextStep pathKey
@@ -796,77 +753,38 @@ nextStepToEffect contentCache config model nextStep =
             case model.mode of
                 Mode.ElmToHtmlBeta ->
                     let
-                        siteMetadata =
-                            contentCache
-                                --|> Debug.log "contentCache"
-                                |> Result.map
-                                    (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
-                                |> Result.mapError (List.map Tuple.second)
+                        sendManifestIfNeeded =
+                            if List.length model.unprocessedPages == List.length model.staticRoutes then
+                                case toJsPayload of
+                                    ToJsPayload.Success value ->
+                                        Effect.SendSinglePage
+                                            (ToJsPayload.InitialData
+                                                { manifest = value.manifest
+                                                , filesToGenerate = value.filesToGenerate
+                                                }
+                                            )
 
-                        --viewFnResult =
-                        --    --currentPage
-                        --         config.view siteMetadata currentPage
-                        --            --(contentCache
-                        --            --    |> Result.map (ContentCache.extractMetadata pathKey)
-                        --            --    |> Result.withDefault []
-                        --            -- -- TODO handle error better
-                        --            --)
-                        --        |> (\request ->
-                        --                StaticHttpRequest.resolve ApplicationType.Browser request viewResult.staticData
-                        --           )
-                        --makeItWork :
-                        --    StaticHttp.Request
-                        --        { view :
-                        --            userModel
-                        --            -> view
-                        --            -> { title : String, body : Html userMsg }
-                        --        , head : List (Head.Tag pathKey)
-                        --        }
-                        --    -> { title : String, body : Html userMsg }
+                                    ToJsPayload.Errors _ ->
+                                        Effect.SendJsData toJsPayload
+
+                            else
+                                Effect.NoEffect
                     in
-                    case siteMetadata of
-                        Ok pages ->
-                            let
-                                sendManifestIfNeeded =
-                                    if List.length model.unprocessedPages == List.length pages then
-                                        case toJsPayload of
-                                            ToJsPayload.Success value ->
-                                                Effect.SendSinglePage
-                                                    (ToJsPayload.InitialData
-                                                        { manifest = value.manifest
-                                                        , filesToGenerate = value.filesToGenerate
-                                                        }
-                                                    )
+                    model.unprocessedPages
+                        |> List.take 1
+                        --|> Debug.log "@@@ pages"
+                        |> List.filterMap
+                            (\pageAndMetadata ->
+                                case toJsPayload of
+                                    ToJsPayload.Success value ->
+                                        sendSinglePageProgress value config contentCache model pageAndMetadata
+                                            |> Just
 
-                                            ToJsPayload.Errors errorMessage ->
-                                                Effect.SendJsData toJsPayload
-
-                                    else
-                                        Effect.NoEffect
-                            in
-                            model.unprocessedPages
-                                |> List.take 1
-                                --|> Debug.log "@@@ pages"
-                                |> List.filterMap
-                                    (\pageAndMetadata ->
-                                        case toJsPayload of
-                                            ToJsPayload.Success value ->
-                                                sendSinglePageProgress value siteMetadata config contentCache model pageAndMetadata
-                                                    |> Just
-
-                                            ToJsPayload.Errors errorMessage ->
-                                                Nothing
-                                    )
-                                |> Effect.Batch
-                                |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
-
-                        Err error ->
-                            ( model
-                            , Effect.SendJsData
-                                (ToJsPayload.Errors <|
-                                    BuildError.errorsToString error
-                                )
+                                    ToJsPayload.Errors _ ->
+                                        Nothing
                             )
+                        |> Effect.Batch
+                        |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
 
                 _ ->
                     ( model, Effect.SendJsData toJsPayload )
@@ -874,18 +792,17 @@ nextStepToEffect contentCache config model nextStep =
 
 sendSinglePageProgress :
     ToJsSuccessPayload pathKey
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel NoView route
-    -> ContentCache NoMetadata NoView
+    -> ContentCache
     -> Model pathKey route
     -> ( PagePath pathKey, route )
     -> Effect pathKey
-sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
+sendSinglePageProgress toJsPayload config _ _ =
     \( page, _ ) ->
         let
             makeItWork : StaticHttpRequest.Request staticData -> Result BuildError staticData
             makeItWork request =
-                StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\k v -> Just v))
+                StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\_ v -> Just v))
                     |> Result.mapError (StaticHttpRequest.toBuildError (page |> PagePath.toString))
 
             staticData =
@@ -902,7 +819,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                     , head : List (Head.Tag pathKey)
                     }
             viewRequest =
-                config.view (siteMetadata |> Result.withDefault []) currentPage
+                config.view [] currentPage
 
             twoThings : Result BuildError { view : userModel -> NoView -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
             twoThings =
@@ -1041,7 +958,7 @@ resultFolder current soFarResult =
 
         Err soFarErr ->
             case current of
-                Ok currentOk ->
+                Ok _ ->
                     Err soFarErr
 
                 Err error ->

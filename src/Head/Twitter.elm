@@ -102,8 +102,8 @@ cardValue card =
                 Large ->
                     "summary_large_image"
 
-        App details ->
+        App _ ->
             "app"
 
-        Player details ->
+        Player _ ->
             "player"

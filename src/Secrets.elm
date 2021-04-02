@@ -28,7 +28,7 @@ maskedLookup (Value lookupSecrets) =
         Ok value ->
             value
 
-        Err error ->
+        Err _ ->
             -- crash
             maskedLookup (Value lookupSecrets)
 
@@ -100,7 +100,7 @@ with newSecret (Value lookupSecrets) =
 
                 Err error ->
                     case SecretsDict.get newSecret secrets of
-                        Just newValue ->
+                        Just _ ->
                             Err error
 
                         Nothing ->

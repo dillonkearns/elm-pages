@@ -10,7 +10,7 @@ import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
 import Pages.Document as Document
 import Pages.ImagePath as ImagePath
-import Pages.Internal.Platform.Cli as Main exposing (..)
+import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.StaticHttpBody as StaticHttpBody
@@ -85,7 +85,7 @@ all =
         ]
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Model PathKey ()) Msg (Effect PathKey)
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
@@ -94,7 +94,7 @@ startWithHttpCache :
     Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
+    -> ProgramTest (Model PathKey ()) Msg (Effect PathKey)
 startWithHttpCache =
     startLowLevel (StaticHttp.succeed [])
 
@@ -112,7 +112,7 @@ startLowLevel :
     -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest (Main.Model PathKey ()) Main.Msg (Effect PathKey)
+    -> ProgramTest (Model PathKey ()) Msg (Effect PathKey)
 startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
         document =
@@ -148,7 +148,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ -> ( (), Cmd.none )
             , view =
-                \allFrontmatter page ->
+                \_ page ->
                     let
                         thing =
                             pages
@@ -164,7 +164,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                         Just request ->
                             request
                                 |> StaticHttp.map
-                                    (\staticData -> { view = \model viewForPage -> { title = "Title", body = Html.text "" }, head = [] })
+                                    (\_ -> { view = \_ _ -> { title = "Title", body = Html.text "" }, head = [] })
 
                         Nothing ->
                             Debug.todo "Couldn't find page"
@@ -213,8 +213,8 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
        -> ( model, Effect pathKey )
     -}
     ProgramTest.createDocument
-        { init = Main.init identity contentCache siteMetadata config
-        , update = Main.update contentCache siteMetadata config
+        { init = init identity contentCache siteMetadata config
+        , update = update contentCache siteMetadata config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -235,7 +235,7 @@ flags jsonString =
             Debug.todo "Invalid JSON value."
 
 
-simulateEffects : Effect PathKey -> ProgramTest.SimulatedEffect Main.Msg
+simulateEffects : Effect PathKey -> ProgramTest.SimulatedEffect Msg
 simulateEffects effect =
     case effect of
         Effect.NoEffect ->
@@ -250,7 +250,7 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        Effect.FetchHttp ({ unmasked, masked } as requests) ->
+        Effect.FetchHttp ({ unmasked } as requests) ->
             Http.request
                 { method = unmasked.method
                 , url = unmasked.url
@@ -283,16 +283,16 @@ simulateEffects effect =
                     |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
                     |> SimulatedEffect.Ports.send "toJsPort"
                 , SimulatedEffect.Task.succeed ()
-                    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
+                    |> SimulatedEffect.Task.perform (\_ -> Continue)
                 ]
 
         Effect.Continue ->
             SimulatedEffect.Cmd.none
 
-        Effect.ReadFile string ->
+        Effect.ReadFile _ ->
             SimulatedEffect.Cmd.none
 
-        Effect.GetGlob string ->
+        Effect.GetGlob _ ->
             SimulatedEffect.Cmd.none
 
 
@@ -349,13 +349,13 @@ expectSuccess expectedRequests previous =
                                 ToJsPayload.PageProgress value ->
                                     Just ( value.route, value.contentJson )
 
-                                ToJsPayload.InitialData record ->
+                                ToJsPayload.InitialData _ ->
                                     Nothing
 
-                                ToJsPayload.ReadFile string ->
+                                ToJsPayload.ReadFile _ ->
                                     Nothing
 
-                                ToJsPayload.Glob string ->
+                                ToJsPayload.Glob _ ->
                                     Nothing
                         )
                     |> Dict.fromList

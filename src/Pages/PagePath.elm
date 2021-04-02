@@ -1,7 +1,6 @@
 module Pages.PagePath exposing
-    ( PagePath, toString, external
+    ( PagePath, toString, external, toPath
     , build
-    , toPath
     )
 
 {-| You can get data representing type-safe, guaranteed-available
@@ -136,7 +135,7 @@ toPath path =
         Internal rawPath ->
             rawPath
 
-        External url ->
+        External _ ->
             []
 
 

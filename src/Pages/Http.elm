@@ -27,5 +27,5 @@ expectString toMsg =
                 Http.BadStatus_ metadata body ->
                     Err (BadStatus metadata body)
 
-                Http.GoodStatus_ metadata body ->
+                Http.GoodStatus_ _ body ->
                     Ok body

@@ -156,11 +156,11 @@ encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict Stri
 encode requestsAndPending mode (StaticResponses staticResponses) =
     staticResponses
         |> Dict.filter
-            (\key value ->
+            (\key _ ->
                 key /= cliDictKey
             )
         |> Dict.map
-            (\path result ->
+            (\_ result ->
                 case result of
                     NotFetched request _ ->
                         case mode of
@@ -227,7 +227,7 @@ nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors
         resolvedGenerateFilesResult =
             StaticHttpRequest.resolve ApplicationType.Cli
                 (config.generateFiles metadataForGenerateFiles)
-                (allRawResponses |> Dict.Extra.filterMap (\key value -> Just value))
+                (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
 
         generatedOkayFiles : List { path : List String, content : String }
         generatedOkayFiles =
@@ -238,7 +238,7 @@ nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors
                             Ok ok ->
                                 Just ok
 
-                            Err error_ ->
+                            Err _ ->
                                 --Debug.todo (Debug.toString error_)
                                 Nothing
                     )
@@ -249,7 +249,7 @@ nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors
                 |> List.filterMap
                     (\result ->
                         case result of
-                            Ok ok ->
+                            Ok _ ->
                                 Nothing
 
                             Err error_ ->
@@ -270,7 +270,7 @@ nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors
         pendingRequests =
             staticResponses
                 |> Dict.Extra.any
-                    (\path entry ->
+                    (\_ entry ->
                         case entry of
                             NotFetched request rawResponses ->
                                 let
@@ -398,7 +398,7 @@ nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors
                             |> Dict.Extra.removeMany alreadyPerformed
                             |> Dict.toList
                             |> List.map
-                                (\( maskedUrl, secureUrl ) ->
+                                (\( _, secureUrl ) ->
                                     secureUrl
                                 )
                 in
@@ -426,7 +426,7 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         -- TODO look for performance bottleneck in this double nesting
         |> List.map
-            (\( pagePath, request ) ->
+            (\( _, request ) ->
                 allRawResponses
                     |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
                     |> Tuple.second

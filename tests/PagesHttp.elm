@@ -5,7 +5,7 @@ import Pages.Http exposing (..)
 import SimulatedEffect.Http as Http
 
 
-expectString : (Result Pages.Http.Error String -> msg) -> Http.Expect msg
+expectString : (Result Error String -> msg) -> Http.Expect msg
 expectString toMsg =
     Http.expectStringResponse toMsg <|
         \response ->
@@ -22,5 +22,5 @@ expectString toMsg =
                 BadStatus_ metadata body ->
                     Err (BadStatus metadata body)
 
-                GoodStatus_ metadata body ->
+                GoodStatus_ _ body ->
                     Ok body

@@ -482,14 +482,14 @@ oneOf decoders =
     let
         jds =
             List.map
-                (\(OptimizedDecoder jd jde) ->
+                (\(OptimizedDecoder jd _) ->
                     jd
                 )
                 decoders
 
         jdes =
             List.map
-                (\(OptimizedDecoder jd jde) ->
+                (\(OptimizedDecoder _ jde) ->
                     jde
                 )
                 decoders
@@ -550,7 +550,7 @@ lazy toDecoder =
         jd =
             (\() ->
                 case toDecoder () of
-                    OptimizedDecoder jd_ jde_ ->
+                    OptimizedDecoder jd_ _ ->
                         jd_
             )
                 |> JD.lazy
@@ -559,7 +559,7 @@ lazy toDecoder =
         jde =
             (\() ->
                 case toDecoder () of
-                    OptimizedDecoder jd_ jde_ ->
+                    OptimizedDecoder _ jde_ ->
                         jde_
             )
                 |> JDE.lazy

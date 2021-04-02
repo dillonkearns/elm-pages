@@ -32,9 +32,8 @@ config =
     , NoUnused.Exports.rule
     , NoUnused.Modules.rule
         |> Rule.ignoreErrorsForFiles [ "src/StructuredData.elm" ]
-
-    --, NoUnused.Parameters.rule
-    --, NoUnused.Patterns.rule
+    , NoUnused.Parameters.rule
+    , NoUnused.Patterns.rule
     , NoUnused.Variables.rule
     , NoInconsistentAliases.config
         [--( "Html.Attributes", "Attr" )
@@ -43,6 +42,10 @@ config =
         ]
         |> NoInconsistentAliases.noMissingAliases
         |> NoInconsistentAliases.rule
-
-    --, NoModuleOnExposedNames.rule
+    , NoModuleOnExposedNames.rule
     ]
+        |> List.map
+            (\rule ->
+                rule
+                    |> Rule.ignoreErrorsForFiles [ "src/Pages/Internal/Platform/Effect.elm" ]
+            )
