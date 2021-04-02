@@ -2,9 +2,10 @@ module GlobTests exposing (all)
 
 import Expect
 import Glob
-import Test exposing (describe, test)
+import Test exposing (Test, describe, test)
 
 
+all : Test
 all =
     describe "glob"
         [ test "literal" <|
