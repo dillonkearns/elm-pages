@@ -460,7 +460,7 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                             StaticResponses.init config []
             in
             StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses
-                |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] [] staticRoutes)
+                |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] staticRoutes staticRoutes)
                 |> Tuple.mapFirst toModel
 
         Err metadataParserErrors ->
@@ -473,7 +473,7 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                     staticHttpCache
                     mode
                     []
-                    []
+                    staticRoutes
                     staticRoutes
                 )
                 toModel
