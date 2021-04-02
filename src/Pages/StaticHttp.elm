@@ -127,7 +127,7 @@ type alias Body =
 very similar to how you can manipulate values with Json Decoders in Elm.
 -}
 type alias Request value =
-    Pages.StaticHttpRequest.RawRequest value
+    RawRequest value
 
 
 {-| Transform a request into an arbitrary value. The same underlying HTTP requests will be performed during the build
