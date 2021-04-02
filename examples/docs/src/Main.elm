@@ -74,12 +74,12 @@ main =
         --    }
         --    metadataToRssItem
         --|> MySitemap.install { siteUrl = Site.canonicalUrl } metadataToSitemapEntry
-        --|> Pages.Platform.withGlobalHeadTags
-        --    [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
-        --    , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
-        --    , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
-        --    , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
-        --    ]
+        |> Pages.Platform.withGlobalHeadTags
+            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+            ]
         |> Pages.Platform.toProgram
 
 
