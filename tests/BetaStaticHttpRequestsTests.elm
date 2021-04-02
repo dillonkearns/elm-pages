@@ -301,7 +301,7 @@ simulateEffects effect =
 --    |> SimulatedEffect.Task.perform (\_ -> Main.Continue)
 
 
-toJsPort foo =
+toJsPort _ =
     Cmd.none
 
 

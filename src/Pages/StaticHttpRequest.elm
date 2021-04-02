@@ -122,7 +122,7 @@ cacheRequestResolution =
 type Status value
     = Incomplete (List (Secrets.Value Pages.StaticHttp.Request.Request))
     | HasPermanentError Error
-    | Complete value -- TODO include stripped responses?
+    | Complete
 
 
 cacheRequestResolutionHelp :
@@ -149,5 +149,5 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                         UserCalledStaticHttpFail _ ->
                             HasPermanentError error
 
-        Done value ->
-            Complete value
+        Done _ ->
+            Complete

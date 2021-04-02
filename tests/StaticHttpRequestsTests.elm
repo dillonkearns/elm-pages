@@ -1013,7 +1013,7 @@ normalizeErrorsExpectEqual expectedPlainStrings actualRichTerminalStrings =
         |> Expect.equalLists expectedPlainStrings
 
 
-toJsPort foo =
+toJsPort _ =
     Cmd.none
 
 
