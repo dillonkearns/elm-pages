@@ -9,7 +9,6 @@ import Element.Region
 import Glob
 import Head
 import Head.Seo as Seo
-import Json.Decode as Decode
 import List.Extra
 import MarkdownRenderer
 import OptimizedDecoder
@@ -24,7 +23,6 @@ import Site
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateMetadata exposing (BlogPost)
-import TemplateType exposing (TemplateType)
 
 
 type alias Model =
@@ -51,7 +49,7 @@ routes =
 template : Template BlogPost DataFromFile
 template =
     Template.withStaticData
-        { staticData = \_ -> fileRequest
+        { staticData = fileRequest
         , head = head
 
         --, route = route
@@ -65,11 +63,9 @@ findMatchingImage imageAssetPath =
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload BlogPost DataFromFile
-    -> Shared.RenderedBody
+    StaticPayload DataFromFile
     -> Shared.PageView msg
-view allMetadata { static } rendered =
+view { static } =
     { title = static.frontmatter.title
     , body =
         let
@@ -100,7 +96,7 @@ view allMetadata { static } rendered =
                     :: (publishedDateView static.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
                     :: Palette.blogHeading static.frontmatter.title
                     :: articleImageView static.frontmatter.image
-                    :: Tuple.second rendered
+                    :: []
                     |> List.map (Element.map never)
                 )
             ]
@@ -109,18 +105,18 @@ view allMetadata { static } rendered =
 
 
 head :
-    StaticPayload BlogPost DataFromFile
+    StaticPayload DataFromFile
     -> List (Head.Tag Pages.PathKey)
-head { metadata, path } =
+head { path, static } =
     Head.structuredData
         (StructuredData.article
-            { title = metadata.title
-            , description = metadata.description
-            , author = StructuredData.person { name = metadata.author.name }
-            , publisher = StructuredData.person { name = "Dillon Kearns" }
+            { title = static.frontmatter.title
+            , description = static.frontmatter.description
+            , author = StructuredData.person { name = Author.dillon.name }
+            , publisher = StructuredData.person { name = Author.dillon.name }
             , url = Site.canonicalUrl ++ "/" ++ PagePath.toString path
-            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
-            , datePublished = Date.toIsoString metadata.published
+            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString static.frontmatter.image
+            , datePublished = Date.toIsoString static.frontmatter.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode
                     { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
@@ -134,19 +130,19 @@ head { metadata, path } =
                 { canonicalUrlOverride = Nothing
                 , siteName = "elm-pages"
                 , image =
-                    { url = metadata.image
-                    , alt = metadata.description
+                    { url = static.frontmatter.image
+                    , alt = static.frontmatter.description
                     , dimensions = Nothing
                     , mimeType = Nothing
                     }
-                , description = metadata.description
+                , description = static.frontmatter.description
                 , locale = Nothing
-                , title = metadata.title
+                , title = static.frontmatter.title
                 }
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Just (Date.toIsoString metadata.published)
+                    , publishedTime = Just (Date.toIsoString static.frontmatter.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }

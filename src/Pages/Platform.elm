@@ -102,7 +102,7 @@ type Builder pathKey model msg route
                 }
             ->
                 StaticHttp.Request
-                    { view : model -> NoView -> { title : String, body : Html msg }
+                    { view : model -> { title : String, body : Html msg }
                     , head : List (Head.Tag pathKey)
                     }
         , manifest : Pages.Manifest.Config pathKey
@@ -177,7 +177,7 @@ init :
             }
         ->
             StaticHttp.Request
-                { view : model -> NoView -> { title : String, body : Html msg }
+                { view : model -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
     , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
@@ -331,7 +331,7 @@ application :
             }
         ->
             StaticHttp.Request
-                { view : model -> NoView -> { title : String, body : Html msg }
+                { view : model -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
     , manifest : Pages.Manifest.Config pathKey

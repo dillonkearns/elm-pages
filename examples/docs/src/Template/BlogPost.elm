@@ -9,10 +9,8 @@ import Element.Region
 import Glob
 import Head
 import Head.Seo as Seo
-import Json.Decode as Decode
 import List.Extra
 import MarkdownRenderer
-import NoMetadata exposing (NoView)
 import OptimizedDecoder
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
@@ -75,9 +73,8 @@ findMatchingImage imageAssetPath =
 
 view :
     StaticPayload DataFromFile
-    -> NoView
     -> Shared.PageView msg
-view { static } rendered =
+view { static } =
     { title = static.frontmatter.title
     , body =
         let

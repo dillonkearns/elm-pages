@@ -94,9 +94,8 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload StaticData
-    -> NoView
     -> Shared.PageView Msg
-view model sharedModel staticPayload rendered =
+view model sharedModel staticPayload =
     { title = "TODO title" -- staticPayload.metadata.title -- TODO
     , body =
         [ [ Element.row []

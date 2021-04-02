@@ -46,7 +46,6 @@ mainView :
             StaticHttp.Request
                 { view :
                     userModel
-                    -> NoView
                     ->
                         { title : String
                         , body : Html userMsg
@@ -86,7 +85,7 @@ pageViewOrError :
             }
          ->
             StaticHttp.Request
-                { view : userModel -> NoView -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
         )
@@ -120,7 +119,7 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
                     in
                     case viewFnResult of
                         Ok okViewFn ->
-                            okViewFn.view model.userModel NoView
+                            okViewFn.view model.userModel
 
                         Err error ->
                             { title = "Parsing error"
@@ -172,7 +171,7 @@ view :
             }
          ->
             StaticHttp.Request
-                { view : userModel -> NoView -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
         )
@@ -434,7 +433,7 @@ update :
             }
          ->
             StaticHttp.Request
-                { view : userModel -> NoView -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
         )
@@ -635,7 +634,7 @@ application :
             }
         ->
             StaticHttp.Request
-                { view : userModel -> NoView -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
     , content : Content
@@ -794,7 +793,7 @@ cliApplication :
             }
         ->
             StaticHttp.Request
-                { view : userModel -> NoView -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
     , content : Content

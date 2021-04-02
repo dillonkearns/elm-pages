@@ -78,9 +78,8 @@ type alias StaticData =
 
 view :
     StaticPayload StaticData
-    -> Shared.RenderedBody
     -> Shared.PageView Msg
-view static rendered =
+view static =
     { title = "elm-pages blog"
     , body =
         let

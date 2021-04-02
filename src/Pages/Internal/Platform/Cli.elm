@@ -86,7 +86,7 @@ type alias Config pathKey userMsg userModel route =
             }
         ->
             StaticHttp.Request
-                { view : userModel -> NoView -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
     , content : Content
@@ -775,14 +775,13 @@ sendSinglePageProgress toJsPayload config _ _ =
                 StaticHttp.Request
                     { view :
                         userModel
-                        -> NoView
                         -> { title : String, body : Html userMsg }
                     , head : List (Head.Tag pathKey)
                     }
             viewRequest =
                 config.view [] currentPage
 
-            twoThings : Result BuildError { view : userModel -> NoView -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
+            twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
             twoThings =
                 viewRequest |> makeItWork
 
@@ -817,9 +816,7 @@ sendSinglePageProgress toJsPayload config _ _ =
             Ok success ->
                 let
                     viewValue =
-                        success.view pageModel NoView
-
-                    -- lookedUp.body
+                        success.view pageModel
                 in
                 { route = page |> PagePath.toString
                 , contentJson =
@@ -864,7 +861,7 @@ staticResponseForPage :
             }
          ->
             StaticHttpRequest.RawRequest
-                { view : userModel -> view -> { title : String, body : Html userMsg }
+                { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
         )
@@ -874,7 +871,7 @@ staticResponseForPage :
             (List
                 ( PagePath pathKey
                 , StaticHttp.Request
-                    { view : userModel -> view -> { title : String, body : Html userMsg }
+                    { view : userModel -> { title : String, body : Html userMsg }
                     , head : List (Head.Tag pathKey)
                     }
                 )

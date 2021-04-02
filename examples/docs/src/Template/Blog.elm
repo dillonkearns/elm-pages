@@ -72,9 +72,8 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload StaticData
-    -> Shared.RenderedBody
     -> Shared.PageView Msg
-view thing model staticPayload rendered =
+view thing model staticPayload =
     { title = "elm-pages blog"
     , body =
         [ Element.column [ Element.width Element.fill ]

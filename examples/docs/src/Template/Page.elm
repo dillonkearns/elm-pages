@@ -4,7 +4,6 @@ import Element exposing (Element)
 import Element.Region
 import Head
 import Head.Seo as Seo
-import Json.Decode as Decode
 import Pages exposing (images)
 import Pages.PagePath exposing (PagePath)
 import Shared
@@ -52,9 +51,8 @@ type alias StaticData =
 
 view :
     StaticPayload StaticData
-    -> Shared.RenderedBody
     -> Shared.PageView msg
-view static rendered =
+view static =
     { title = "TODO title" -- metadata.title -- TODO
     , body =
         [ [ Element.column

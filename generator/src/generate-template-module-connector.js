@@ -80,7 +80,7 @@ view :
     }
     ->
         StaticHttp.Request
-            { view : Model -> Shared.RenderedBody -> { title : String, body : Html Msg }
+            { view : Model -> { title : String, body : Html Msg }
             , head : List (Head.Tag Pages.PathKey)
             }
 view page =
@@ -94,7 +94,7 @@ view page =
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
-                        \\model rendered ->
+                        \\model ->
                             case model.page of
                                 Model${name} subModel ->
                                     Template.${name}.template.view
@@ -104,7 +104,6 @@ view page =
                                         , sharedStatic = globalData
                                         , path = page.path
                                         }
-                                        rendered
                                         |> (\\{ title, body } ->
                                                 Shared.template.view
                                                     globalData
