@@ -12,6 +12,7 @@ import Head.Seo as Seo
 import Json.Decode as Decode
 import List.Extra
 import MarkdownRenderer
+import NoMetadata exposing (NoView)
 import OptimizedDecoder
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
@@ -74,7 +75,7 @@ findMatchingImage imageAssetPath =
 
 view :
     StaticPayload DataFromFile
-    -> Shared.RenderedBody
+    -> NoView
     -> Shared.PageView msg
 view { static } rendered =
     { title = static.frontmatter.title
@@ -107,7 +108,9 @@ view { static } rendered =
                     :: (publishedDateView static.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
                     :: Palette.blogHeading static.frontmatter.title
                     :: articleImageView static.frontmatter.image
-                    :: Tuple.second rendered
+                    :: []
+                    -- TODO render with StaticHttp
+                    --:: Tuple.second rendered
                     |> List.map (Element.map never)
                 )
             ]

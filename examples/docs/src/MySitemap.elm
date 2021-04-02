@@ -19,8 +19,8 @@ install :
             }
          -> List { path : String, lastMod : Maybe String }
         )
-    -> Builder pathKey userModel userMsg NoMetadata view
-    -> Builder pathKey userModel userMsg NoMetadata view
+    -> Builder pathKey userModel userMsg NoMetadata
+    -> Builder pathKey userModel userMsg NoMetadata
 install config toSitemapEntry builder =
     builder
         |> Pages.Platform.withGlobalHeadTags [ Head.sitemapLink "/sitemap.xml" ]

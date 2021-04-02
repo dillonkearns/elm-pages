@@ -20,7 +20,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
-import NoMetadata exposing (NoMetadata)
+import NoMetadata exposing (NoMetadata, NoView(..))
 import Pages.Document as Document exposing (Document)
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -111,18 +111,30 @@ init :
     -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
     -> ContentCache NoMetadata view
 init document content maybeInitialPageContent =
-    content
-        |> parseMetadata maybeInitialPageContent document
-        |> List.map
-            (\tuple ->
-                tuple
-                    |> Tuple.first
-                    |> createErrors
-                    |> Result.mapError
-                    |> (\f -> Tuple.mapSecond f tuple)
-            )
-        |> combineTupleResults
-        |> Result.map Dict.fromList
+    Ok <|
+        Dict.fromList
+            [ ( [], NeedContent "" NoMetadata.NoMetadata )
+            , ( [ "showcase" ], NeedContent "" NoMetadata.NoMetadata )
+            , ( [ "blog" ], NeedContent "" NoMetadata.NoMetadata )
+
+            --, ( [], NeedContent "/showcase" NoMetadata.NoMetadata )
+            ]
+
+
+
+--content
+--    --[]
+--    |> parseMetadata maybeInitialPageContent document
+--    |> List.map
+--        (\tuple ->
+--            tuple
+--                |> Tuple.first
+--                |> createErrors
+--                |> Result.mapError
+--                |> (\f -> Tuple.mapSecond f tuple)
+--        )
+--    |> combineTupleResults
+--    |> Result.map Dict.fromList
 
 
 createErrors path decodeError =
@@ -140,65 +152,6 @@ createBuildError path decodeError =
         ]
     , fatal = False
     }
-
-
-parseMetadata :
-    Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
-    -> Document NoMetadata view
-    -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
-    -> List ( List String, Result String (Entry NoMetadata view) )
-parseMetadata maybeInitialPageContent document content =
-    List.map
-        (\( path, { frontMatter, extension, body } ) ->
-            let
-                maybeDocumentEntry =
-                    Document.get extension document
-            in
-            case maybeDocumentEntry of
-                Just documentEntry ->
-                    frontMatter
-                        |> documentEntry.frontmatterParser
-                        |> Result.map
-                            (\metadata ->
-                                let
-                                    renderer value =
-                                        parseContent extension value document
-                                in
-                                case maybeInitialPageContent of
-                                    Just { contentJson, initialUrl } ->
-                                        if normalizePath initialUrl.path == (String.join "/" path |> normalizePath) then
-                                            Parsed metadata
-                                                contentJson.body
-                                                { body = renderer contentJson.body
-                                                , staticData = contentJson.staticData
-                                                }
-
-                                        else
-                                            NeedContent extension metadata
-
-                                    Nothing ->
-                                        case body of
-                                            -- the CLI generated content includes the body
-                                            -- the generated content for the dev and production browser mode does not
-                                            -- so we can ignore the StaticData here
-                                            -- TODO use types to make this more semantic
-                                            Just bodyFromCli ->
-                                                Parsed metadata
-                                                    bodyFromCli
-                                                    { body = renderer bodyFromCli
-                                                    , staticData = Dict.empty
-                                                    }
-
-                                            Nothing ->
-                                                NeedContent extension metadata
-                            )
-                        |> Tuple.pair path
-
-                Nothing ->
-                    Err ("Could not find extension '" ++ extension ++ "'")
-                        |> Tuple.pair path
-        )
-        content
 
 
 normalizePath : String -> String
@@ -231,8 +184,8 @@ normalizePath pathString =
 parseContent :
     String
     -> String
-    -> Document NoMetadata view
-    -> Result String view
+    -> Document NoMetadata NoView
+    -> Result String NoView
 parseContent extension body document =
     let
         maybeDocumentEntry =
@@ -243,7 +196,11 @@ parseContent extension body document =
             documentEntry.contentParser body
 
         Nothing ->
-            Err ("Could not find extension '" ++ extension ++ "'")
+            Ok NoView
+
+
+
+--Err ("Could not find extension '" ++ extension ++ "'")
 
 
 errorView : Errors -> Html msg
@@ -334,10 +291,10 @@ resultFolder current soFarResult =
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    Document NoMetadata view
+    Document NoMetadata NoView
     -> { currentUrl : Url, baseUrl : Url }
-    -> ContentCache NoMetadata view
-    -> Task Http.Error (ContentCache NoMetadata view)
+    -> ContentCache NoMetadata NoView
+    -> Task Http.Error (ContentCache NoMetadata NoView)
 lazyLoad document urls cacheResult =
     case cacheResult of
         Err _ ->
@@ -486,9 +443,9 @@ pathForUrl { currentUrl, baseUrl } =
 
 lookup :
     pathKey
-    -> ContentCache NoMetadata view
+    -> ContentCache NoMetadata NoView
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, Entry NoMetadata view )
+    -> Maybe ( PagePath pathKey, Entry NoMetadata NoView )
 lookup pathKey content urls =
     case content of
         Ok dict ->
@@ -509,7 +466,7 @@ lookup pathKey content urls =
 
 lookupMetadata :
     pathKey
-    -> ContentCache NoMetadata view
+    -> ContentCache NoMetadata NoView
     -> { currentUrl : Url, baseUrl : Url }
     -> Maybe ( PagePath pathKey, NoMetadata )
 lookupMetadata pathKey content urls =

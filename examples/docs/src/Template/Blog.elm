@@ -1,4 +1,4 @@
-module Template.BlogIndex exposing (Model, Msg, template)
+module Template.Blog exposing (Model, Msg, template)
 
 import Article
 import Cloudinary

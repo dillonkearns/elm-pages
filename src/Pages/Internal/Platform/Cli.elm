@@ -18,7 +18,7 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import NoMetadata exposing (NoMetadata)
+import NoMetadata exposing (NoMetadata, NoView(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Document
 import Pages.Http
@@ -86,7 +86,7 @@ type alias Config pathKey userMsg userModel view route =
             }
         ->
             StaticHttp.Request
-                { view : userModel -> view -> { title : String, body : Html userMsg }
+                { view : userModel -> NoView -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
     , document : Pages.Document.Document NoMetadata view
@@ -129,7 +129,7 @@ cliApplication :
     -> (msg -> Maybe Msg)
     -> (Model pathKey route -> model)
     -> (model -> Maybe (Model pathKey route))
-    -> Config pathKey userMsg userModel view route
+    -> Config pathKey userMsg userModel NoView route
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -377,9 +377,9 @@ flagsDecoder =
 
 init :
     (Model pathKey route -> model)
-    -> ContentCache.ContentCache NoMetadata view
+    -> ContentCache.ContentCache NoMetadata NoView
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view route
+    -> Config pathKey userMsg userModel NoView route
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache siteMetadata config flags =
@@ -418,32 +418,53 @@ init toModel contentCache siteMetadata config flags =
 --)
 
 
+urlToRoutePair config path =
+    ( PagePath.build config.pathKey path
+    , config.urlToRoute
+        { protocol = Url.Https
+        , host = config.canonicalSiteUrl
+        , port_ = Nothing
+
+        --, path = page |> PagePath.toString
+        , path = "/" ++ (path |> String.join "/")
+        , query = Nothing
+        , fragment = Nothing
+        }
+    )
+
+
 initLegacy :
     { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
-    -> ContentCache.ContentCache NoMetadata view
+    -> ContentCache.ContentCache NoMetadata NoView
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view route
+    -> Config pathKey userMsg userModel NoView route
     -> f
     -> ( model, Effect pathKey )
 initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config flags =
     let
         staticRoutes : List ( PagePath pathKey, route )
         staticRoutes =
-            -- TODO need to get the list of static routes here, like getStaticPaths
-            [ ( PagePath.build config.pathKey [ "showcase" ]
-              , config.urlToRoute
-                    { protocol = Url.Https
-                    , host = config.canonicalSiteUrl
-                    , port_ = Nothing
-
-                    --, path = page |> PagePath.toString
-                    , path = "/showcase"
-                    , query = Nothing
-                    , fragment = Nothing
-                    }
-              )
+            [ -- [],
+              [ "showcase" ]
+            , [ "blog" ]
             ]
+                |> List.map (urlToRoutePair config)
+
+        -- TODO need to get the list of static routes here, like getStaticPaths
+        --[ ( PagePath.build config.pathKey [ "showcase" ]
+        --  , config.urlToRoute
+        --        { protocol = Url.Https
+        --        , host = config.canonicalSiteUrl
+        --        , port_ = Nothing
+        --
+        --        --, path = page |> PagePath.toString
+        --        , path = "/showcase"
+        --        , query = Nothing
+        --        , fragment = Nothing
+        --        }
+        --  )
+        --]
     in
     case contentCache of
         Ok _ ->
@@ -514,8 +535,8 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
 
 
 updateAndSendPortIfDone :
-    ContentCache.ContentCache NoMetadata view
-    -> Config pathKey userMsg userModel view route
+    ContentCache.ContentCache NoMetadata NoView
+    -> Config pathKey userMsg userModel NoView route
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Model pathKey route
     -> (Model pathKey route -> model)
@@ -548,9 +569,9 @@ drop1 model =
 
 
 update :
-    ContentCache.ContentCache NoMetadata view
+    ContentCache.ContentCache NoMetadata NoView
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view route
+    -> Config pathKey userMsg userModel NoView route
     -> Msg
     -> Model pathKey route
     -> ( Model pathKey route, Effect pathKey )
@@ -744,8 +765,8 @@ update contentCache siteMetadata config msg model =
 
 
 nextStepToEffect :
-    ContentCache.ContentCache NoMetadata view
-    -> Config pathKey userMsg userModel view route
+    ContentCache.ContentCache NoMetadata NoView
+    -> Config pathKey userMsg userModel NoView route
     -> Model pathKey route
     -> StaticResponses.NextStep pathKey
     -> ( Model pathKey route, Effect pathKey )
@@ -854,8 +875,8 @@ nextStepToEffect contentCache config model nextStep =
 sendSinglePageProgress :
     ToJsSuccessPayload pathKey
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Config pathKey userMsg userModel view route
-    -> ContentCache NoMetadata view
+    -> Config pathKey userMsg userModel NoView route
+    -> ContentCache NoMetadata NoView
     -> Model pathKey route
     -> ( PagePath pathKey, route )
     -> Effect pathKey
@@ -876,19 +897,20 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                 StaticHttp.Request
                     { view :
                         userModel
-                        -> view
+                        -> NoView
                         -> { title : String, body : Html userMsg }
                     , head : List (Head.Tag pathKey)
                     }
             viewRequest =
                 config.view (siteMetadata |> Result.withDefault []) currentPage
 
-            twoThings : Result BuildError { view : userModel -> view -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
+            twoThings : Result BuildError { view : userModel -> NoView -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
             twoThings =
                 viewRequest |> makeItWork
 
             renderer value =
-                ContentCache.parseContent "md" value config.document
+                --ContentCache.parseContent "md" value config.document
+                Ok NoView
 
             updatedCache =
                 ContentCache.update contentCache
@@ -961,11 +983,13 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                             , fatal = True
                             }
         in
-        case Result.map2 Tuple.pair twoThings value2 of
-            Ok ( success, lookedUp ) ->
+        case twoThings of
+            Ok success ->
                 let
                     viewValue =
-                        success.view pageModel lookedUp.body
+                        success.view pageModel NoView
+
+                    -- lookedUp.body
                 in
                 { route = page |> PagePath.toString
                 , contentJson =
@@ -976,7 +1000,7 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                 , errors = []
                 , head = success.head
                 , title = viewValue.title
-                , body = lookedUp.unparsedBody
+                , body = "" --lookedUp.unparsedBody
                 }
                     |> sendProgress
 

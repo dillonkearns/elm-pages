@@ -23,8 +23,8 @@ generate :
          }
          -> Maybe Rss.Item
         )
-    -> Builder pathKey userModel userMsg NoMetadata view
-    -> Builder pathKey userModel userMsg NoMetadata view
+    -> Builder pathKey userModel userMsg NoMetadata
+    -> Builder pathKey userModel userMsg NoMetadata
 generate options metadataToRssItem builder =
     let
         feedFilePath =

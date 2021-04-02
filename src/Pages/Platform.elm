@@ -66,7 +66,7 @@ which case there is no pre-rendering).
 import Head
 import Html exposing (Html)
 import Json.Decode
-import NoMetadata exposing (NoMetadata)
+import NoMetadata exposing (NoMetadata, NoView)
 import Pages.Document as Document
 import Pages.Internal
 import Pages.Internal.Platform
@@ -81,7 +81,7 @@ import Url
 That gives you the basic options, then you can [include optional configuration](#additional-application-config).
 
 -}
-type Builder pathKey model msg route view
+type Builder pathKey model msg route
     = Builder
         { init :
             Maybe
@@ -104,10 +104,10 @@ type Builder pathKey model msg route view
                 }
             ->
                 StaticHttp.Request
-                    { view : model -> view -> { title : String, body : Html msg }
+                    { view : model -> NoView -> { title : String, body : Html msg }
                     , head : List (Head.Tag pathKey)
                     }
-        , documents : List ( String, Document.DocumentHandler NoMetadata view )
+        , documents : List ( String, Document.DocumentHandler NoMetadata NoView )
         , manifest : Pages.Manifest.Config pathKey
         , generateFiles :
             List
@@ -186,7 +186,7 @@ init :
             }
         ->
             StaticHttp.Request
-                { view : model -> view -> { title : String, body : Html msg }
+                { view : model -> NoView -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
     , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
@@ -194,7 +194,7 @@ init :
         List
             { extension : String
             , metadata : Json.Decode.Decoder NoMetadata
-            , body : String -> Result String view
+            , body : String -> Result String NoView
             }
     , onPageChange :
         Maybe
@@ -210,7 +210,7 @@ init :
     , internals : Pages.Internal.Internal pathKey
     , urlToRoute : Url.Url -> route
     }
-    -> Builder pathKey model msg route view
+    -> Builder pathKey model msg route
 init config =
     Builder
         { init = config.init
@@ -231,8 +231,8 @@ init config =
 -}
 withGlobalHeadTags :
     List (Head.Tag pathKey)
-    -> Builder pathKey model msg route view
-    -> Builder pathKey model msg route view
+    -> Builder pathKey model msg route
+    -> Builder pathKey model msg route
 withGlobalHeadTags globalHeadTags (Builder config) =
     Builder
         { config
@@ -294,8 +294,8 @@ withFileGenerator :
                 )
             )
     )
-    -> Builder pathKey model msg route view
-    -> Builder pathKey model msg route view
+    -> Builder pathKey model msg route
+    -> Builder pathKey model msg route
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
@@ -309,7 +309,7 @@ withFileGenerator generateFiles (Builder config) =
 
 {-| When you're done with your builder pipeline, you complete it with `Pages.Platform.toProgram`.
 -}
-toProgram : Builder pathKey model msg route view -> Program model msg route view pathKey
+toProgram : Builder pathKey model msg route -> Program model msg route pathKey
 toProgram (Builder config) =
     application
         { init = config.init
@@ -348,10 +348,10 @@ application :
             }
         ->
             StaticHttp.Request
-                { view : model -> view -> { title : String, body : Html msg }
+                { view : model -> NoView -> { title : String, body : Html msg }
                 , head : List (Head.Tag pathKey)
                 }
-    , documents : List ( String, Document.DocumentHandler NoMetadata view )
+    , documents : List ( String, Document.DocumentHandler NoMetadata NoView )
     , manifest : Pages.Manifest.Config pathKey
     , generateFiles :
         List
@@ -381,7 +381,7 @@ application :
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     }
-    -> Program model msg route view pathKey
+    -> Program model msg route pathKey
 application config =
     (case config.internals.applicationType of
         Pages.Internal.Browser ->
@@ -410,13 +410,13 @@ application config =
 
 {-| The `Program` type for an `elm-pages` app.
 -}
-type alias Program model msg route view pathKey =
-    Pages.Internal.Platform.Program model msg route view pathKey
+type alias Program model msg route pathKey =
+    Pages.Internal.Platform.Program model msg route pathKey
 
 
 {-| -}
-type alias Page metadata view pathKey =
+type alias Page metadata pathKey =
     { metadata : metadata
     , path : PagePath pathKey
-    , view : view
+    , view : NoView
     }

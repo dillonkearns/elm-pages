@@ -62,7 +62,10 @@ view static rendered =
                 , Element.spacing 60
                 , Element.Region.mainContent
                 ]
-                (Tuple.second rendered |> List.map (Element.map never))
+                []
+
+          -- TODO render view with StaticHttp
+          --(Tuple.second rendered |> List.map (Element.map never))
           ]
             |> Element.textColumn
                 [ Element.width Element.fill

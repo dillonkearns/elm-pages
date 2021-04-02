@@ -58,7 +58,7 @@ socialIcon =
 --main : Pages.Platform.Program Model Msg Metadata View Pages.PathKey
 
 
-main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg (Maybe TemplateModulesBeta.Route) Shared.RenderedBody Pages.PathKey
+main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg (Maybe TemplateModulesBeta.Route) Pages.PathKey
 main =
     TemplateModulesBeta.mainTemplate
         { documents =

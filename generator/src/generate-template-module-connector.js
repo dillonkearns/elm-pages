@@ -86,7 +86,7 @@ view :
 view page =
     case page.frontmatter of
         Nothing ->
-            StaticHttp.fail "Page not found"
+            StaticHttp.fail <| "Page not found: " ++ Pages.PagePath.toString page.path
         ${templates
           .map(
             (name) =>
@@ -117,7 +117,7 @@ view page =
                                            )
 
                                 _ ->
-                                    { title = "", body = Html.text "" }
+                                    { title = "Model mismatch", body = Html.text <| "Model mismatch" }
                     , head = Template.${name}.template.head
                         { static = data
                         , sharedStatic = globalData
@@ -150,7 +150,7 @@ init currentGlobalModel maybePagePath =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init maybePagePath)
 
         ( templateModel, templateCmd ) =
-            case maybePagePath |> Maybe.andThen .metadata of
+            case maybePagePath  |> Maybe.andThen .metadata of
                 Nothing ->
                     ( NotFound, Cmd.none )
 
@@ -295,7 +295,7 @@ mainTemplate { documents, site } =
             \\metadata path model ->
                 Sub.batch
                     [ Shared.template.subscriptions NoMetadata path model.global |> Sub.map MsgGlobal
-                    , templateSubscriptions (RouteBlogIndex {}) path model
+                    , templateSubscriptions (RouteBlog {}) path model
                     ]
         , documents = documents
         , onPageChange = Just OnPageChange

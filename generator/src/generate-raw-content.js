@@ -3,8 +3,7 @@ const path = require("path");
 module.exports = function (markdown, includeBody) {
   return `content : List ( List String, { extension: String, frontMatter : String, body : Maybe String } )
 content =
-    [ ${markdown.map(entry => toEntry(entry, includeBody))}
-    ]`;
+    []`;
 };
 
 function toEntry(entry, includeBody) {
@@ -13,8 +12,8 @@ function toEntry(entry, includeBody) {
   let fullPath = entry.path
     .replace(/(index)?\.[^/.]+$/, "")
     .split("/")
-    .filter(item => item !== "")
-    .map(fragment => `"${fragment}"`);
+    .filter((item) => item !== "")
+    .map((fragment) => `"${fragment}"`);
   fullPath.splice(0, 1);
 
   return `

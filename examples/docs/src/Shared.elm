@@ -11,7 +11,7 @@ import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MarkdownRenderer
-import NoMetadata exposing (NoMetadata(..))
+import NoMetadata exposing (NoMetadata(..), NoView)
 import OptimizedDecoder as D
 import Pages exposing (pages)
 import Pages.Directory as Directory exposing (Directory)
@@ -71,7 +71,7 @@ template =
 
 
 type alias RenderedBody =
-    ( MarkdownRenderer.TableOfContents, List (Element Never) )
+    NoView
 
 
 type alias PageView msg =

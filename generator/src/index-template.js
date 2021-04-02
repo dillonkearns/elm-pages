@@ -26,6 +26,17 @@ function pagesInit(
   });
 }
 
+function getContentJsonPromise(path) {
+  return new Promise((resolve, reject) => {
+    if (window.__elmPagesContentJson__) {
+      console.log("GOT content.json from window");
+      resolve(window.__elmPagesContentJson__);
+    } else {
+      return httpGet(\`\${window.location.origin}\${path}content.json\`);
+    }
+  });
+}
+
 function loadContentAndInitializeApp(
   /** @type { init: any  } */ mainElmModule
 ) {
@@ -36,7 +47,7 @@ function loadContentAndInitializeApp(
 
 
   return Promise.all([
-    httpGet(\`\${window.location.origin}\${path}content.json\`),
+    getContentJsonPromise(path),
   ]).then(function (/** @type {[JSON]} */ [contentJson]) {
     const app = mainElmModule.init({
       flags: {
