@@ -165,5 +165,5 @@ external url =
 {-| This is not useful except for the internal generated code to construct a PagePath.
 -}
 build : key -> List String -> PagePath key
-build key path =
+build _ path =
     Internal path
