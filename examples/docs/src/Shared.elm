@@ -1,4 +1,4 @@
-module Shared exposing (Model, Msg(..), PageView, RenderedBody, SharedMsg(..), StaticData, template)
+module Shared exposing (Model, Msg(..), PageView, SharedMsg(..), StaticData, template)
 
 import DocumentSvg
 import Element exposing (Element)
@@ -68,10 +68,6 @@ template =
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
     }
-
-
-type alias RenderedBody =
-    NoView
 
 
 type alias PageView msg =
