@@ -32,9 +32,7 @@ template =
 
 staticData : StaticHttp.Request StaticData
 staticData =
-    StaticHttp.map2 Tuple.pair
-        Showcase.staticRequest
-        fileRequest
+    Showcase.staticRequest
 
 
 
@@ -69,7 +67,7 @@ fileRequest =
 
 
 type alias StaticData =
-    ( List Showcase.Entry, DataFromFile )
+    List Showcase.Entry
 
 
 view :
@@ -79,14 +77,11 @@ view static =
     { title = "elm-pages blog"
     , body =
         let
-            ( showcaseEntries, dataFromFile ) =
+            showcaseEntries =
                 static.static
         in
         [ Element.column [ Element.width Element.fill ]
-            [ Element.text <| dataFromFile.title
-            , Element.column [] dataFromFile.body
-
-            --, Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseEntries ]
+            [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseEntries ]
             ]
         ]
     }
