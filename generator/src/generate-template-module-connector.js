@@ -12,7 +12,6 @@ import Browser
 import Pages.Manifest as Manifest
 import Shared
 import NoMetadata exposing (NoMetadata(..))
-import TemplateType as M exposing (TemplateType)
 import Head
 import Html exposing (Html)
 import Pages

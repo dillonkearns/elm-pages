@@ -1,7 +1,5 @@
 module Index exposing (view)
 
---import Pages.Metadata as Metadata exposing (Metadata)
-
 import Article
 import Data.Author
 import Date
@@ -11,8 +9,6 @@ import Element.Font
 import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import TemplateMetadata exposing (BlogPost)
-import TemplateType exposing (TemplateType)
 
 
 view :

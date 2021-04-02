@@ -3,18 +3,15 @@ module DocSidebar exposing (view)
 import Element exposing (Element)
 import Element.Border as Border
 import Element.Font
-import Metadata exposing (Metadata)
 import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
-import TemplateType exposing (TemplateType)
 
 
 view :
     PagePath Pages.PathKey
-    -> List ( PagePath Pages.PathKey, TemplateType )
     -> Element msg
-view currentPage posts =
+view currentPage =
     Element.column
         [ Element.spacing 10
         , Border.widthEach { bottom = 0, left = 0, right = 1, top = 0 }
@@ -22,18 +19,22 @@ view currentPage posts =
         , Element.padding 12
         , Element.height Element.fill
         ]
-        (posts
-            |> List.filterMap
-                (\( path, metadata ) ->
-                    case metadata of
-                        TemplateType.Documentation meta ->
-                            Just ( currentPage == path, path, meta )
+        []
 
-                        _ ->
-                            Nothing
-                )
-            |> List.map postSummary
-        )
+
+
+--(posts
+--    |> List.filterMap
+--        (\( path, metadata ) ->
+--            case metadata of
+--                TemplateType.Documentation meta ->
+--                    Just ( currentPage == path, path, meta )
+--
+--                _ ->
+--                    Nothing
+--        )
+--    |> List.map postSummary
+--)
 
 
 postSummary :

@@ -17,7 +17,6 @@ import Palette
 import Shared
 import Site
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateType exposing (TemplateType)
 
 
 type alias Documentation =
@@ -59,13 +58,6 @@ update _ msg model sharedModel =
             ( model, Cmd.none, Just Shared.IncrementFromChild )
 
 
-staticData :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticHttp.Request StaticData
-staticData siteMetadata =
-    StaticHttp.succeed ()
-
-
 decoder : Decode.Decoder Documentation
 decoder =
     Decode.map Documentation
@@ -102,7 +94,6 @@ view model sharedModel staticPayload =
                 [ --counterView sharedModel,
                   DocSidebar.view
                     staticPayload.path
-                    []
                     -- allMetadata -- TODO
                     |> Element.el [ Element.width (Element.fillPortion 2), Element.alignTop, Element.height Element.fill ]
                 , Element.column [ Element.width (Element.fillPortion 8), Element.padding 35, Element.spacing 15 ]

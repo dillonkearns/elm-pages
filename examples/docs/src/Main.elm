@@ -4,9 +4,6 @@ import Cloudinary
 import Color
 import Data.Author
 import Head
-import Json.Decode
-import MarkdownRenderer
-import MetadataNew
 import MimeType
 import MySitemap
 import NoMetadata exposing (NoMetadata(..))
@@ -21,7 +18,6 @@ import RssPlugin
 import Shared
 import Site
 import TemplateModulesBeta
-import TemplateType exposing (TemplateType)
 
 
 webp : MimeType.MimeImage

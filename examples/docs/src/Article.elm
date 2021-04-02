@@ -11,7 +11,6 @@ import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
-import TemplateType exposing (TemplateType)
 
 
 type alias BlogPost =

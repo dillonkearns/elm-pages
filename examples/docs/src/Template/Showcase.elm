@@ -3,18 +3,14 @@ module Template.Showcase exposing (Model, Msg, template)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
-import Json.Decode as Decode exposing (Decoder)
 import MarkdownRenderer
 import OptimizedDecoder
 import Pages exposing (images)
-import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
-import Secrets
 import Shared
 import Showcase
 import Template exposing (StaticPayload, TemplateWithState)
-import TemplateType exposing (TemplateType)
 
 
 type alias Model =
