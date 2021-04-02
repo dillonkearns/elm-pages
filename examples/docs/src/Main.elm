@@ -50,10 +50,6 @@ socialIcon =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" Nothing 250
 
 
-
---main : Pages.Platform.Program Model Msg Metadata View Pages.PathKey
-
-
 main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg (Maybe TemplateModulesBeta.Route) Pages.PathKey
 main =
     TemplateModulesBeta.mainTemplate
