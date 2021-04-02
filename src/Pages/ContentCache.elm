@@ -59,6 +59,7 @@ init maybeInitialPageContent =
             [ ( [], NeedContent )
             , ( [ "showcase" ], NeedContent )
             , ( [ "blog" ], NeedContent )
+            , ( [ "page" ], NeedContent )
 
             --, ( [], NeedContent "/showcase" NoMetadata.NoMetadata )
             ]

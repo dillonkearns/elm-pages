@@ -381,6 +381,7 @@ init toModel contentCache siteMetadata config flags =
         staticRoutes =
             [ -- [],
               [ "showcase" ]
+            , [ "page" ]
             , [ "blog" ]
             ]
                 |> List.map (urlToRoutePair config)
