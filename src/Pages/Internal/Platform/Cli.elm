@@ -908,16 +908,6 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
             twoThings =
                 viewRequest |> makeItWork
 
-            renderer value =
-                --ContentCache.parseContent "md" value config.document
-                Ok NoView
-
-            updatedCache =
-                ContentCache.update contentCache
-                    renderer
-                    urls
-                    { body = "", staticData = model.allRawResponses }
-
             currentPage : { path : PagePath pathKey, frontmatter : route }
             currentPage =
                 { path = page, frontmatter = config.urlToRoute currentUrl }
@@ -944,44 +934,6 @@ sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
                 , query = Nothing
                 , fragment = Nothing
                 }
-
-            urls =
-                { currentUrl = currentUrl
-                , baseUrl =
-                    { protocol = Url.Https
-                    , host = config.canonicalSiteUrl
-                    , port_ = Nothing
-                    , path = ""
-                    , query = Nothing
-                    , fragment = Nothing
-                    }
-                }
-
-            value2 =
-                case ContentCache.lookup config.pathKey updatedCache urls of
-                    Just ( path, ContentCache.Parsed frontmatter unparsedBody viewResult ) ->
-                        viewResult.body
-                            |> Result.map
-                                (\body ->
-                                    { body = body
-                                    , viewResult = viewResult
-                                    , unparsedBody = unparsedBody
-                                    }
-                                )
-                            |> Result.mapError
-                                (\parseError ->
-                                    { title = "Internal Error"
-                                    , message = [ Terminal.text parseError ]
-                                    , fatal = True
-                                    }
-                                )
-
-                    _ ->
-                        Err
-                            { title = "Internal Error"
-                            , message = [ Terminal.text "Unable to lookup value in ContentCache." ]
-                            , fatal = True
-                            }
         in
         case twoThings of
             Ok success ->

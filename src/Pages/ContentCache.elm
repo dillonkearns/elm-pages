@@ -2,22 +2,18 @@ module Pages.ContentCache exposing
     ( ContentCache
     , Entry(..)
     , Path
-    , errorView
     , extractMetadata
     , init
     , lazyLoad
     , lookup
     , lookupMetadata
     , pagesWithErrors
-    , parseContent
     , routesForCache
-    , update
     )
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Html exposing (Html)
-import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import NoMetadata exposing (NoMetadata, NoView(..))
@@ -137,10 +133,6 @@ init document content maybeInitialPageContent =
 --    |> Result.map Dict.fromList
 
 
-createErrors path decodeError =
-    ( createHtmlError path decodeError, createBuildError path decodeError )
-
-
 createBuildError : List String -> String -> BuildError
 createBuildError path decodeError =
     { title = "Metadata Decode Error"
@@ -152,33 +144,6 @@ createBuildError path decodeError =
         ]
     , fatal = False
     }
-
-
-normalizePath : String -> String
-normalizePath pathString =
-    let
-        hasPrefix =
-            String.startsWith "/" pathString
-
-        hasSuffix =
-            String.endsWith "/" pathString
-    in
-    if pathString == "" then
-        pathString
-
-    else
-        String.concat
-            [ if hasPrefix then
-                String.dropLeft 1 pathString
-
-              else
-                pathString
-            , if hasSuffix then
-                ""
-
-              else
-                "/"
-            ]
 
 
 parseContent :
@@ -203,28 +168,6 @@ parseContent extension body document =
 --Err ("Could not find extension '" ++ extension ++ "'")
 
 
-errorView : Errors -> Html msg
-errorView errors =
-    errors
-        --        |> Dict.toList
-        |> List.map Tuple.first
-        |> List.map (Html.map never)
-        |> Html.div
-            [ Attr.style "padding" "20px 100px"
-            ]
-
-
-createHtmlError : List String -> String -> Html msg
-createHtmlError path error =
-    Html.div []
-        [ Html.h2 []
-            [ Html.text (String.join "/" path)
-            ]
-        , Html.p [] [ Html.text "I couldn't parse the frontmatter in this page. I ran into this error with your JSON decoder:" ]
-        , Html.pre [] [ Html.text error ]
-        ]
-
-
 routes : List ( List String, anything ) -> List String
 routes record =
     record
@@ -242,49 +185,6 @@ routesForCache cacheResult =
 
         Err _ ->
             []
-
-
-combineTupleResults :
-    List ( List String, Result error success )
-    -> Result (List error) (List ( List String, success ))
-combineTupleResults input =
-    input
-        |> List.map
-            (\( path, result ) ->
-                result
-                    |> Result.map (\success -> ( path, success ))
-            )
-        |> combine
-
-
-combine : List (Result error ( List String, success )) -> Result (List error) (List ( List String, success ))
-combine list =
-    list
-        |> List.foldr resultFolder (Ok [])
-
-
-resultFolder : Result error a -> Result (List error) (List a) -> Result (List error) (List a)
-resultFolder current soFarResult =
-    case soFarResult of
-        Ok soFarOk ->
-            case current of
-                Ok currentOk ->
-                    currentOk
-                        :: soFarOk
-                        |> Ok
-
-                Err error ->
-                    Err [ error ]
-
-        Err soFarErr ->
-            case current of
-                Ok currentOk ->
-                    Err soFarErr
-
-                Err error ->
-                    error
-                        :: soFarErr
-                        |> Err
 
 
 {-| Get from the Cache... if it's not already parsed, it will
