@@ -498,10 +498,6 @@ updateAndSendPortIfDone :
     -> (Model pathKey route -> model)
     -> ( model, Effect pathKey )
 updateAndSendPortIfDone contentCache config siteMetadata model toModel =
-    let
-        nextToProcess =
-            drop1 model
-    in
     StaticResponses.nextStep
         config
         model.mode
@@ -511,11 +507,6 @@ updateAndSendPortIfDone contentCache config siteMetadata model toModel =
         model.staticResponses
         |> nextStepToEffect contentCache config model
         |> Tuple.mapFirst toModel
-
-
-drop1 : { a | unprocessedPages : List ( PagePath pathKey, route ) } -> List ( PagePath pathKey, route )
-drop1 model =
-    List.take 1 model.unprocessedPages
 
 
 
@@ -602,9 +593,6 @@ update contentCache siteMetadata config msg model =
                 --        { filePath = filePath
                 --        , pendingRequests = model.pendingRequests
                 --        }
-                nextToProcess =
-                    drop1 updatedModel
-
                 updatedModel =
                     { model
                         | pendingRequests =
@@ -665,9 +653,6 @@ update contentCache siteMetadata config msg model =
                 --        { filePath = filePath
                 --        , pendingRequests = model.pendingRequests
                 --        }
-                nextToProcess =
-                    drop1 updatedModel
-
                 updatedModel =
                     { model
                         | pendingRequests =
