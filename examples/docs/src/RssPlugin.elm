@@ -16,16 +16,11 @@ generate :
     , builtAt : Time.Posix
     , indexPage : PagePath pathKey
     }
-    ->
-        ({ path : PagePath pathKey
-         , frontmatter : NoMetadata
-         , body : String
-         }
-         -> Maybe Rss.Item
-        )
-    -> Builder pathKey userModel userMsg NoMetadata
-    -> Builder pathKey userModel userMsg NoMetadata
-generate options metadataToRssItem builder =
+    -> (item -> Maybe Rss.Item)
+    -> StaticHttp.Request (List item)
+    -> Builder pathKey userModel userMsg route
+    -> Builder pathKey userModel userMsg route
+generate options metadataToRssItem itemsRequest builder =
     let
         feedFilePath =
             (options.indexPage
@@ -35,23 +30,25 @@ generate options metadataToRssItem builder =
     in
     builder
         |> Pages.Platform.withFileGenerator
-            (\siteMetadata ->
-                { path = feedFilePath
-                , content =
-                    Rss.generate
-                        { title = options.title
-                        , description = options.siteTagline
+            (itemsRequest
+                |> StaticHttp.map
+                    (\items ->
+                        { path = feedFilePath
+                        , content =
+                            Rss.generate
+                                { title = options.title
+                                , description = options.siteTagline
 
-                        -- TODO make sure you don't add an extra "/"
-                        , url = options.siteUrl ++ "/" ++ PagePath.toString options.indexPage
-                        , lastBuildTime = options.builtAt
-                        , generator = Just "elm-pages"
-                        , items = siteMetadata |> List.filterMap metadataToRssItem
-                        , siteUrl = options.siteUrl
+                                -- TODO make sure you don't add an extra "/"
+                                , url = options.siteUrl ++ "/" ++ PagePath.toString options.indexPage
+                                , lastBuildTime = options.builtAt
+                                , generator = Just "elm-pages"
+                                , items = items |> List.filterMap metadataToRssItem
+                                , siteUrl = options.siteUrl
+                                }
                         }
-                }
-                    |> Ok
-                    |> List.singleton
-                    |> StaticHttp.succeed
+                            |> Ok
+                            |> List.singleton
+                    )
             )
         |> Pages.Platform.withGlobalHeadTags [ Head.rssLink (feedFilePath |> String.join "/") ]

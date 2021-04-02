@@ -107,21 +107,15 @@ type Builder pathKey model msg route
                     }
         , manifest : Pages.Manifest.Config pathKey
         , generateFiles :
-            List
-                { path : PagePath pathKey
-                , frontmatter : NoMetadata
-                , body : String
-                }
-            ->
-                StaticHttp.Request
-                    (List
-                        (Result
-                            String
-                            { path : List String
-                            , content : String
-                            }
-                        )
+            StaticHttp.Request
+                (List
+                    (Result
+                        String
+                        { path : List String
+                        , content : String
+                        }
                     )
+                )
         , onPageChange :
             Maybe
                 ({ path : PagePath pathKey
@@ -205,7 +199,7 @@ init config =
         , subscriptions = config.subscriptions
         , manifest = config.manifest
         , onPageChange = config.onPageChange
-        , generateFiles = \_ -> StaticHttp.succeed []
+        , generateFiles = StaticHttp.succeed []
         , canonicalSiteUrl = config.canonicalSiteUrl
         , internals = config.internals
         }
@@ -266,28 +260,24 @@ Disallow: /cgi-bin/
 
 -}
 withFileGenerator :
-    (List { path : PagePath pathKey, frontmatter : NoMetadata, body : String }
-     ->
-        StaticHttp.Request
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
+    StaticHttp.Request
+        (List
+            (Result
+                String
+                { path : List String
+                , content : String
+                }
             )
-    )
+        )
     -> Builder pathKey model msg route
     -> Builder pathKey model msg route
 withFileGenerator generateFiles (Builder config) =
     Builder
         { config
             | generateFiles =
-                \data ->
-                    StaticHttp.map2 (++)
-                        (generateFiles data)
-                        (config.generateFiles data)
+                StaticHttp.map2 (++)
+                    generateFiles
+                    config.generateFiles
         }
 
 
@@ -336,21 +326,15 @@ application :
                 }
     , manifest : Pages.Manifest.Config pathKey
     , generateFiles :
-        List
-            { path : PagePath pathKey
-            , frontmatter : NoMetadata
-            , body : String
-            }
-        ->
-            StaticHttp.Request
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
+        StaticHttp.Request
+            (List
+                (Result
+                    String
+                    { path : List String
+                    , content : String
+                    }
                 )
+            )
     , onPageChange :
         Maybe
             ({ path : PagePath pathKey

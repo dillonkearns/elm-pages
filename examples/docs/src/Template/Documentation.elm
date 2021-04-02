@@ -9,7 +9,6 @@ import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import MarkdownRenderer
-import NoMetadata exposing (NoMetadata(..), NoView)
 import Pages exposing (images)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp

@@ -642,21 +642,15 @@ application :
     , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
-        List
-            { path : PagePath pathKey
-            , frontmatter : NoMetadata
-            , body : String
-            }
-        ->
-            StaticHttp.Request
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
+        StaticHttp.Request
+            (List
+                (Result
+                    String
+                    { path : List String
+                    , content : String
+                    }
                 )
+            )
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange :
@@ -801,21 +795,15 @@ cliApplication :
     , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
-        List
-            { path : PagePath pathKey
-            , frontmatter : NoMetadata
-            , body : String
-            }
-        ->
-            StaticHttp.Request
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
+        StaticHttp.Request
+            (List
+                (Result
+                    String
+                    { path : List String
+                    , content : String
+                    }
                 )
+            )
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange :

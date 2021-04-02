@@ -37,74 +37,30 @@ error =
 
 
 init :
-    Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    ->
-        { config
-            | content : Content
-            , generateFiles :
-                List
-                    { path : PagePath pathKey
-                    , frontmatter : NoMetadata
-                    , body : String
-                    }
-                ->
-                    StaticHttp.Request
-                        (List
-                            (Result
-                                String
-                                { path : List String
-                                , content : String
-                                }
-                            )
-                        )
-        }
+    { config
+        | content : Content
+        , generateFiles :
+            StaticHttp.Request
+                (List
+                    (Result
+                        String
+                        { path : List String
+                        , content : String
+                        }
+                    )
+                )
+    }
     -> List ( PagePath pathKey, StaticHttp.Request value )
     -> StaticResponses
-init siteMetadataResult config list =
+init config list =
     let
-        generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
-        generateFilesRequest =
-            config.generateFiles siteMetadataWithContent
-
         generateFilesStaticRequest =
             ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
               -- since that data is only needed to run these functions during the build step
               -- in the future, this could be refactored to have a type to represent this more clearly
               cliDictKey
-            , NotFetched (generateFilesRequest |> StaticHttp.map (\_ -> ())) Dict.empty
+            , NotFetched (config.generateFiles |> StaticHttp.map (\_ -> ())) Dict.empty
             )
-
-        siteMetadataWithContent =
-            siteMetadataResult
-                |> Result.withDefault []
-                |> List.map
-                    (\( pagePath, metadata ) ->
-                        let
-                            contentForPage =
-                                config.content
-                                    |> List.filterMap
-                                        (\( path, { body } ) ->
-                                            let
-                                                pagePathToGenerate =
-                                                    PagePath.toString pagePath
-
-                                                currentContentPath =
-                                                    "/" ++ (path |> String.join "/")
-                                            in
-                                            if pagePathToGenerate == currentContentPath then
-                                                Just body
-
-                                            else
-                                                Nothing
-                                        )
-                                    |> List.head
-                                    |> Maybe.andThen identity
-                        in
-                        { path = pagePath
-                        , frontmatter = metadata
-                        , body = contentForPage |> Maybe.withDefault ""
-                        }
-                    )
     in
     list
         |> List.map
@@ -189,21 +145,15 @@ nextStep :
         | content : Content
         , manifest : Manifest.Config pathKey
         , generateFiles :
-            List
-                { path : PagePath pathKey
-                , frontmatter : NoMetadata
-                , body : String
-                }
-            ->
-                StaticHttp.Request
-                    (List
-                        (Result
-                            String
-                            { path : List String
-                            , content : String
-                            }
-                        )
+            StaticHttp.Request
+                (List
+                    (Result
+                        String
+                        { path : List String
+                        , content : String
+                        }
                     )
+                )
     }
     -> Mode
     -> SecretsDict
@@ -213,9 +163,6 @@ nextStep :
     -> NextStep pathKey
 nextStep config mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
-        metadataForGenerateFiles =
-            []
-
         generatedFiles : List (Result String { path : List String, content : String })
         generatedFiles =
             resolvedGenerateFilesResult |> Result.withDefault []
@@ -223,7 +170,7 @@ nextStep config mode secrets allRawResponses errors (StaticResponses staticRespo
         resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
         resolvedGenerateFilesResult =
             StaticHttpRequest.resolve ApplicationType.Cli
-                (config.generateFiles metadataForGenerateFiles)
+                config.generateFiles
                 (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
 
         generatedOkayFiles : List { path : List String, content : String }

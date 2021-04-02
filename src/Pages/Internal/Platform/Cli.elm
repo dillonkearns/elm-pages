@@ -94,21 +94,15 @@ type alias Config pathKey userMsg userModel route =
     , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
     , generateFiles :
-        List
-            { path : PagePath pathKey
-            , frontmatter : NoMetadata
-            , body : String
-            }
-        ->
-            StaticHttp.Request
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
+        StaticHttp.Request
+            (List
+                (Result
+                    String
+                    { path : List String
+                    , content : String
+                    }
                 )
+            )
     , canonicalSiteUrl : String
     , pathKey : pathKey
     , onPageChange :
@@ -398,7 +392,7 @@ init toModel contentCache siteMetadata config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy staticRoutes { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config
+                    initLegacy staticRoutes { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config
 
         Err error ->
             updateAndSendPortIfDone
@@ -446,10 +440,9 @@ initLegacy :
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
     -> ContentCache
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel route
     -> ( model, Effect pathKey )
-initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache siteMetadata config =
+initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache config =
     case contentCache of
         Ok _ ->
             let
@@ -460,11 +453,11 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                 staticResponses =
                     case requests of
                         Ok okRequests ->
-                            StaticResponses.init siteMetadata config okRequests
+                            StaticResponses.init config okRequests
 
                         Err _ ->
                             -- TODO need to handle errors better?
-                            StaticResponses.init siteMetadata config []
+                            StaticResponses.init config []
             in
             StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses
                 |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] [] staticRoutes)
