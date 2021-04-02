@@ -57,13 +57,7 @@ socialIcon =
 main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg (Maybe TemplateModulesBeta.Route) Pages.PathKey
 main =
     TemplateModulesBeta.mainTemplate
-        { documents =
-            [--{ extension = "md"
-             -- , metadata = Json.Decode.succeed NoMetadata --  MetadataNew.decoder -- metadata parser/decoder?
-             -- , body = MarkdownRenderer.view -- body parser?
-             -- }
-            ]
-        , site = Site.config
+        { site = Site.config
         }
         --|> RssPlugin.generate
         --    { siteTagline = Site.tagline
