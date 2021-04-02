@@ -10,7 +10,7 @@ import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import NoMetadata exposing (NoMetadata(..), NoView(..))
+import NoMetadata exposing (NoMetadata(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.HotReloadLoadingIndicator as HotReloadLoadingIndicator

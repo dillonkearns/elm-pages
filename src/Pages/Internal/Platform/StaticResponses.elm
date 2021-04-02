@@ -3,7 +3,6 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticRes
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
-import NoMetadata exposing (NoMetadata)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
