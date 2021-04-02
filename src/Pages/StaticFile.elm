@@ -1,12 +1,8 @@
-module Pages.StaticFile exposing (..)
+module Pages.StaticFile exposing (body, frontmatter, glob, rawFile, request)
 
 import OptimizedDecoder exposing (Decoder)
 import Pages.StaticHttp as StaticHttp
 import Secrets
-
-
-type Field value
-    = Field (Decoder value)
 
 
 frontmatter : Decoder frontmatter -> Decoder frontmatter

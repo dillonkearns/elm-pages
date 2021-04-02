@@ -1,6 +1,6 @@
 module PagesHttp exposing (..)
 
-import Http as H exposing (Response(..))
+import Http exposing (Response(..))
 import Pages.Http exposing (..)
 import SimulatedEffect.Http as Http
 
