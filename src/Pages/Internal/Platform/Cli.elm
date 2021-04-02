@@ -46,14 +46,14 @@ type alias Flags =
     Decode.Value
 
 
-type alias Model pathKey =
+type alias Model pathKey route =
     { staticResponses : StaticResponses
     , secrets : SecretsDict
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
-    , unprocessedPages : List ( PagePath pathKey, NoMetadata )
+    , unprocessedPages : List ( PagePath pathKey, route )
     }
 
 
@@ -127,8 +127,8 @@ type alias Config pathKey userMsg userModel view route =
 cliApplication :
     (Msg -> msg)
     -> (msg -> Maybe Msg)
-    -> (Model pathKey -> model)
-    -> (model -> Maybe (Model pathKey))
+    -> (Model pathKey route -> model)
+    -> (model -> Maybe (Model pathKey route))
     -> Config pathKey userMsg userModel view route
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
@@ -137,10 +137,12 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
             ContentCache.init config.document config.content Nothing
 
         siteMetadata =
-            contentCache
-                |> Result.map
-                    (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
-                |> Result.mapError (List.map Tuple.second)
+            Ok []
+
+        --contentCache
+        --    |> Result.map
+        --        (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
+        --    |> Result.mapError (List.map Tuple.second)
     in
     Platform.worker
         { init =
@@ -374,7 +376,7 @@ flagsDecoder =
 
 
 init :
-    (Model pathKey -> model)
+    (Model pathKey route -> model)
     -> ContentCache.ContentCache NoMetadata view
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel view route
@@ -405,7 +407,9 @@ init toModel contentCache siteMetadata config flags =
                     Dict.empty
                     Mode.Dev
                     []
-                    (siteMetadata |> Result.withDefault [])
+                    -- TODO need to get routes here
+                    []
+                 --(siteMetadata |> Result.withDefault [])
                 )
                 toModel
 
@@ -416,7 +420,7 @@ init toModel contentCache siteMetadata config flags =
 
 initLegacy :
     { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
-    -> (Model pathKey -> model)
+    -> (Model pathKey route -> model)
     -> ContentCache.ContentCache NoMetadata view
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel view route
@@ -427,7 +431,19 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
         staticRoutes : List ( PagePath pathKey, route )
         staticRoutes =
             -- TODO need to get the list of static routes here, like getStaticPaths
-            []
+            [ ( PagePath.build config.pathKey [ "showcase" ]
+              , config.urlToRoute
+                    { protocol = Url.Https
+                    , host = config.canonicalSiteUrl
+                    , port_ = Nothing
+
+                    --, path = page |> PagePath.toString
+                    , path = "/showcase"
+                    , query = Nothing
+                    , fragment = Nothing
+                    }
+              )
+            ]
     in
     case contentCache of
         Ok _ ->
@@ -448,7 +464,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                                     StaticResponses.init staticHttpCache siteMetadata config []
                     in
                     StaticResponses.nextStep config siteMetadata (siteMetadata |> Result.map (List.take 1)) mode secrets staticHttpCache [] staticResponses
-                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] (siteMetadata |> Result.withDefault []))
+                        |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] staticRoutes)
                         |> Tuple.mapFirst toModel
 
                 pageErrors ->
@@ -477,7 +493,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                             staticHttpCache
                             mode
                             []
-                            (siteMetadata |> Result.withDefault [])
+                            staticRoutes
                         )
                         toModel
 
@@ -492,7 +508,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache siteMetadata 
                     staticHttpCache
                     mode
                     []
-                    (siteMetadata |> Result.withDefault [])
+                    staticRoutes
                 )
                 toModel
 
@@ -501,8 +517,8 @@ updateAndSendPortIfDone :
     ContentCache.ContentCache NoMetadata view
     -> Config pathKey userMsg userModel view route
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
-    -> Model pathKey
-    -> (Model pathKey -> model)
+    -> Model pathKey route
+    -> (Model pathKey route -> model)
     -> ( model, Effect pathKey )
 updateAndSendPortIfDone contentCache config siteMetadata model toModel =
     let
@@ -522,6 +538,7 @@ updateAndSendPortIfDone contentCache config siteMetadata model toModel =
         |> Tuple.mapFirst toModel
 
 
+drop1 : { a | unprocessedPages : List ( PagePath pathKey, route ) } -> List ( PagePath pathKey, route )
 drop1 model =
     List.take 1 model.unprocessedPages
 
@@ -535,8 +552,8 @@ update :
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel view route
     -> Msg
-    -> Model pathKey
-    -> ( Model pathKey, Effect pathKey )
+    -> Model pathKey route
+    -> ( Model pathKey route, Effect pathKey )
 update contentCache siteMetadata config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
@@ -729,9 +746,9 @@ update contentCache siteMetadata config msg model =
 nextStepToEffect :
     ContentCache.ContentCache NoMetadata view
     -> Config pathKey userMsg userModel view route
-    -> Model pathKey
+    -> Model pathKey route
     -> StaticResponses.NextStep pathKey
-    -> ( Model pathKey, Effect pathKey )
+    -> ( Model pathKey route, Effect pathKey )
 nextStepToEffect contentCache config model nextStep =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests ->
@@ -839,8 +856,8 @@ sendSinglePageProgress :
     -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel view route
     -> ContentCache NoMetadata view
-    -> Model pathKey
-    -> ( PagePath pathKey, NoMetadata )
+    -> Model pathKey route
+    -> ( PagePath pathKey, route )
     -> Effect pathKey
 sendSinglePageProgress toJsPayload siteMetadata config contentCache model =
     \( page, _ ) ->

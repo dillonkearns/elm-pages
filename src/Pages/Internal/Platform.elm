@@ -444,9 +444,9 @@ type AppMsg userMsg view
     | StartingHotReload
 
 
-type Model userModel userMsg metadata view pathKey
+type Model userModel userMsg route view pathKey
     = Model (ModelDetails userModel view)
-    | CliModel (Pages.Internal.Platform.Cli.Model pathKey)
+    | CliModel (Pages.Internal.Platform.Cli.Model pathKey route)
 
 
 type alias ModelDetails userModel view =

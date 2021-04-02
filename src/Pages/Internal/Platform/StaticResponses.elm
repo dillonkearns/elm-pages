@@ -38,14 +38,14 @@ error =
 
 init :
     Dict String (Maybe String)
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     ->
         { config
             | content : Content
             , generateFiles :
                 List
                     { path : PagePath pathKey
-                    , frontmatter : metadata
+                    , frontmatter : NoMetadata
                     , body : String
                     }
                 ->
@@ -206,15 +206,15 @@ nextStep :
                         )
                     )
     }
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
+    -> Result (List BuildError) (List ( PagePath pathKey, route ))
     -> Mode
     -> SecretsDict
     -> RequestsAndPending
     -> List BuildError
     -> StaticResponses
     -> NextStep pathKey
-nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
+nextStep config allSiteMetadata staticRoutes mode secrets allRawResponses errors (StaticResponses staticResponses) =
     let
         metadataForGenerateFiles =
             []
