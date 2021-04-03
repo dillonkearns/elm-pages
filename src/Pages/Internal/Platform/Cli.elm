@@ -384,21 +384,20 @@ init toModel contentCache config flags =
             updateAndSendPortIfDone
                 contentCache
                 config
-                (Model StaticResponses.error
-                    SecretsDict.masked
+                { staticResponses = StaticResponses.error
+                , secrets = SecretsDict.masked
+                , errors =
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
                       , fatal = True
                       }
                     ]
-                    Dict.empty
-                    Mode.Dev
-                    []
-                    -- TODO need to get routes here
-                    []
-                    --(siteMetadata |> Result.withDefault [])
-                    staticRoutes
-                )
+                , allRawResponses = Dict.empty
+                , mode = Mode.Dev
+                , pendingRequests = []
+                , unprocessedPages = []
+                , staticRoutes = staticRoutes
+                }
                 toModel
 
 
@@ -446,22 +445,32 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                             StaticResponses.init config []
             in
             StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses
-                |> nextStepToEffect contentCache config (Model staticResponses secrets [] staticHttpCache mode [] staticRoutes staticRoutes)
+                |> nextStepToEffect contentCache
+                    config
+                    { staticResponses = staticResponses
+                    , secrets = secrets
+                    , errors = []
+                    , allRawResponses = staticHttpCache
+                    , mode = mode
+                    , pendingRequests = []
+                    , unprocessedPages = staticRoutes
+                    , staticRoutes = staticRoutes
+                    }
                 |> Tuple.mapFirst toModel
 
         Err metadataParserErrors ->
             updateAndSendPortIfDone
                 contentCache
                 config
-                (Model StaticResponses.error
-                    secrets
-                    (metadataParserErrors |> List.map Tuple.second)
-                    staticHttpCache
-                    mode
-                    []
-                    staticRoutes
-                    staticRoutes
-                )
+                { staticResponses = StaticResponses.error
+                , secrets = secrets
+                , errors = metadataParserErrors |> List.map Tuple.second
+                , allRawResponses = staticHttpCache
+                , mode = mode
+                , pendingRequests = []
+                , unprocessedPages = staticRoutes
+                , staticRoutes = staticRoutes
+                }
                 toModel
 
 
@@ -497,9 +506,6 @@ update contentCache config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
-                -- _ =
-                --     Debug.log "Got response" request.masked.url
-                --
                 updatedModel =
                     (case response of
                         Ok _ ->
