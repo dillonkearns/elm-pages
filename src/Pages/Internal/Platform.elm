@@ -259,9 +259,10 @@ init urlToRoute pathKey initUserModel flags url key =
             ContentCache.init
                 (Maybe.map
                     (\cj ->
-                        { contentJson = cj
-                        , initialUrl = url |> normalizeUrl baseUrl
-                        }
+                        -- TODO parse the page path to a list here
+                        ( urls
+                        , cj
+                        )
                     )
                     contentJson
                 )
@@ -593,8 +594,13 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageCha
                     ( model, Cmd.none )
 
                 HotReloadComplete contentJson ->
+                    let
+                        urls =
+                            { currentUrl = model.url, baseUrl = model.baseUrl }
+                    in
                     ( { model
-                        | contentCache = ContentCache.init (Just { contentJson = contentJson, initialUrl = model.url })
+                        | contentCache =
+                            ContentCache.init (Just ( urls, contentJson ))
                         , hmrStatus = HmrLoaded
                       }
                     , Cmd.none
@@ -716,9 +722,7 @@ application config =
                     Model model ->
                         let
                             urls =
-                                { currentUrl = model.url
-                                , baseUrl = model.baseUrl
-                                }
+                                { currentUrl = model.url, baseUrl = model.baseUrl }
 
                             maybePagePath =
                                 case ContentCache.lookupMetadata config.pathKey model.contentCache urls of

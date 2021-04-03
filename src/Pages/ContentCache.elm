@@ -51,11 +51,11 @@ type alias Path =
 
 
 init :
-    Maybe { contentJson : ContentJson, initialUrl : { url | path : String } }
+    Maybe ( { currentUrl : Url, baseUrl : Url }, ContentJson )
     -> ContentCache
 init maybeInitialPageContent =
     Ok <|
-        Dict.fromList
+        (Dict.fromList
             [ ( [], NeedContent )
             , ( [ "showcase" ], NeedContent )
             , ( [ "blog" ], NeedContent )
@@ -63,6 +63,16 @@ init maybeInitialPageContent =
 
             --, ( [], NeedContent "/showcase" NoMetadata.NoMetadata )
             ]
+            |> (\dict ->
+                    case maybeInitialPageContent of
+                        Nothing ->
+                            dict
+
+                        Just ( urls, contentJson ) ->
+                            dict
+                                |> Dict.insert (pathForUrl urls) (Parsed contentJson)
+               )
+        )
 
 
 
