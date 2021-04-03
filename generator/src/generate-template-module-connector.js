@@ -53,6 +53,18 @@ urlToRoute : Url.Url -> Maybe Route
 urlToRoute =
     Parser.parse (Parser.oneOf routes)
 
+routeToPath : Maybe Route -> List String
+routeToPath maybeRoute =
+    case maybeRoute of
+        Nothing ->
+            []
+        ${templates
+          .map(
+            (name) =>
+              `Just (Route${name} params) ->\n            [ "${name.toLowerCase()}" ]`
+          )
+          .join("\n        ")}
+
 
 routes : List (Parser (Route -> a) a)
 routes =
@@ -287,6 +299,7 @@ mainTemplate { site } =
     Pages.Platform.init
         { init = init Nothing
         , urlToRoute = urlToRoute
+        , routeToPath = routeToPath
         , getStaticRoutes =
             StaticHttp.succeed
                 [ ${templates

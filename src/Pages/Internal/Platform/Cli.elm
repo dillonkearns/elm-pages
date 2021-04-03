@@ -73,6 +73,7 @@ type alias Config pathKey userMsg userModel route =
         -> ( userModel, Cmd userMsg )
     , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url.Url -> route
+    , routeToPath : route -> List String
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
@@ -674,9 +675,9 @@ nextStepToEffect :
     ContentCache
     -> Config pathKey userMsg userModel route
     -> Model pathKey route
-    -> StaticResponses.NextStep pathKey
+    -> ( StaticResponses.StaticResponses, StaticResponses.NextStep pathKey )
     -> ( Model pathKey route, Effect pathKey )
-nextStepToEffect contentCache config model nextStep =
+nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests ->
             let
@@ -692,6 +693,7 @@ nextStepToEffect contentCache config model nextStep =
             ( { model
                 | allRawResponses = updatedAllRawResponses
                 , pendingRequests = pending
+                , staticResponses = updatedStaticResponsesModel
               }
             , doNow
                 |> List.map Effect.FetchHttp

@@ -621,6 +621,7 @@ application :
             }
         -> ( userModel, Cmd userMsg )
     , urlToRoute : Url -> route
+    , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
@@ -773,6 +774,7 @@ cliApplication :
             }
         -> ( userModel, Cmd userMsg )
     , urlToRoute : Url -> route
+    , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg

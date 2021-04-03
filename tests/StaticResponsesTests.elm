@@ -36,4 +36,6 @@ config =
     , manifest = ToJsPayload.stubManifest
     , view = \_ _ -> StaticHttp.succeed ()
     , getStaticRoutes = StaticHttp.succeed []
+    , routeToPath = \_ -> []
+    , pathKey = ()
     }

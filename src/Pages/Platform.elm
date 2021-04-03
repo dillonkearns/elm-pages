@@ -92,6 +92,7 @@ type Builder pathKey model msg route
                 }
             -> ( model, Cmd msg )
         , urlToRoute : Url.Url -> route
+        , routeToPath : route -> List String
         , getStaticRoutes : StaticHttp.Request (List route)
         , update : msg -> model -> ( model, Cmd msg )
         , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
@@ -189,6 +190,7 @@ init :
     , canonicalSiteUrl : String
     , internals : Pages.Internal.Internal pathKey
     , urlToRoute : Url.Url -> route
+    , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     }
     -> Builder pathKey model msg route
@@ -196,6 +198,7 @@ init config =
     Builder
         { init = config.init
         , urlToRoute = config.urlToRoute
+        , routeToPath = config.routeToPath
         , getStaticRoutes = config.getStaticRoutes
         , view = config.view
         , update = config.update
@@ -291,6 +294,7 @@ toProgram (Builder config) =
     application
         { init = config.init
         , urlToRoute = config.urlToRoute
+        , routeToPath = config.routeToPath
         , getStaticRoutes = config.getStaticRoutes
         , view = config.view
         , update = config.update
@@ -315,6 +319,7 @@ application :
             }
         -> ( model, Cmd msg )
     , urlToRoute : Url.Url -> route
+    , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : msg -> model -> ( model, Cmd msg )
     , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
@@ -365,6 +370,7 @@ application config =
         { init = config.init
         , urlToRoute = config.urlToRoute
         , getStaticRoutes = config.getStaticRoutes
+        , routeToPath = config.routeToPath
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions

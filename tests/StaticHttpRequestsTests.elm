@@ -866,6 +866,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , subscriptions = \_ _ _ -> Sub.none
             , canonicalSiteUrl = canonicalSiteUrl
             , pathKey = PathKey
+            , routeToPath = \route -> route |> String.split "/"
 
             --, onPageChange = Just (\_ -> ())
             , onPageChange = Nothing
@@ -1094,8 +1095,8 @@ expectSuccessNew expectedRequests expectations previous =
                                     :: expectations
                                 )
 
-                    [ _ ] ->
-                        Expect.fail "Expected success port."
+                    [ errorPort ] ->
+                        Expect.fail <| "Expected success port. Got:\n" ++ Debug.toString errorPort
 
                     _ ->
                         Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")

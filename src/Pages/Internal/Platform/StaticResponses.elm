@@ -3,7 +3,6 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticRes
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
-import OptimizedDecoder
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -20,7 +19,8 @@ import TerminalText as Terminal
 
 
 type StaticResponses
-    = StaticResponses (Dict String StaticHttpResult)
+    = GettingInitialData StaticHttpResult
+    | StaticResponses (Dict String StaticHttpResult)
 
 
 type StaticHttpResult
@@ -88,9 +88,11 @@ init config list =
             , NotFetched fetchAllPages Dict.empty
             )
     in
-    [ generateFilesStaticRequest, getStaticRoutesRequest ]
-        |> Dict.fromList
-        |> StaticResponses
+    --[ generateFilesStaticRequest, getStaticRoutesRequest ]
+    --    |> Dict.fromList
+    --    |> StaticResponses
+    NotFetched (config.getStaticRoutes |> StaticHttp.map (\_ -> ())) Dict.empty
+        |> GettingInitialData
 
 
 update :
@@ -122,8 +124,8 @@ update newEntry model =
     }
 
 
-encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict String String)
-encode requestsAndPending mode (StaticResponses staticResponses) =
+encode : RequestsAndPending -> Mode -> Dict String StaticHttpResult -> Dict String (Dict String String)
+encode requestsAndPending mode staticResponses =
     staticResponses
         |> Dict.filter
             (\key _ ->
@@ -158,6 +160,10 @@ type NextStep pathKey
 nextStep :
     { config
         | manifest : Manifest.Config pathKey
+        , getStaticRoutes : StaticHttp.Request (List route)
+        , routeToPath : route -> List String
+        , view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
+        , pathKey : pathKey
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -174,9 +180,17 @@ nextStep :
     -> RequestsAndPending
     -> List BuildError
     -> StaticResponses
-    -> NextStep pathKey
-nextStep config mode secrets allRawResponses errors (StaticResponses staticResponses) =
+    -> ( StaticResponses, NextStep pathKey )
+nextStep config mode secrets allRawResponses errors staticResponses_ =
     let
+        staticResponses =
+            case staticResponses_ of
+                StaticResponses s ->
+                    s
+
+                GettingInitialData initialData ->
+                    Dict.singleton cliDictKey (initialData |> Debug.log "initialData")
+
         generatedFiles : List (Result String { path : List String, content : String })
         generatedFiles =
             resolvedGenerateFilesResult |> Result.withDefault []
@@ -360,19 +374,74 @@ nextStep config mode secrets allRawResponses errors (StaticResponses staticRespo
                                     secureUrl
                                 )
                 in
-                Continue newAllRawResponses newThing
+                ( staticResponses_, Continue newAllRawResponses newThing )
 
             Err error_ ->
-                Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors))
+                ( staticResponses_, Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors)) )
 
     else
-        ToJsPayload.toJsPayload
-            (encode allRawResponses mode (StaticResponses staticResponses))
-            config.manifest
-            generatedOkayFiles
-            allRawResponses
-            allErrors
-            |> Finish
+        case staticResponses_ of
+            GettingInitialData (NotFetched _ _) ->
+                let
+                    resolvedRoutes : Result StaticHttpRequest.Error (List route)
+                    resolvedRoutes =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            config.getStaticRoutes
+                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                in
+                case resolvedRoutes of
+                    Ok staticRoutes ->
+                        let
+                            newState =
+                                staticRoutes
+                                    |> List.map
+                                        (\route ->
+                                            let
+                                                entry =
+                                                    NotFetched
+                                                        (config.view []
+                                                            { path = PagePath.build config.pathKey (config.routeToPath route)
+                                                            , frontmatter = route
+                                                            }
+                                                            |> StaticHttp.map (\_ -> ())
+                                                        )
+                                                        Dict.empty
+                                            in
+                                            ( config.routeToPath route |> String.join "/"
+                                            , entry
+                                            )
+                                        )
+                                    |> Dict.fromList
+                                    |> StaticResponses
+                        in
+                        nextStep config mode secrets allRawResponses errors newState
+
+                    Err error_ ->
+                        ( staticResponses_
+                        , Finish
+                            (ToJsPayload.Errors <|
+                                BuildError.errorsToString
+                                    ([ StaticHttpRequest.toBuildError
+                                        -- TODO give more fine-grained error reference
+                                        "get static routes"
+                                        error_
+                                     ]
+                                        ++ failedRequests
+                                        ++ errors
+                                    )
+                            )
+                        )
+
+            StaticResponses r ->
+                ( staticResponses_
+                , ToJsPayload.toJsPayload
+                    (encode allRawResponses mode staticResponses)
+                    config.manifest
+                    generatedOkayFiles
+                    allRawResponses
+                    allErrors
+                    |> Finish
+                )
 
 
 performStaticHttpRequests :
