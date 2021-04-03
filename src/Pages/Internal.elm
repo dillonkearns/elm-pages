@@ -15,7 +15,6 @@ that is in the generated `Pages` module (see <Pages.Platform>).
 
 import Json.Decode
 import Json.Encode
-import Pages.Internal.Platform
 
 
 {-| Internal detail to track whether to run the CLI step or the runtime step in the browser.

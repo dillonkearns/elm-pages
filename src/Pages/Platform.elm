@@ -65,7 +65,7 @@ which case there is no pre-rendering).
 
 import Head
 import Html exposing (Html)
-import NoMetadata exposing (NoMetadata, NoView)
+import NoMetadata exposing (NoMetadata)
 import Pages.Internal
 import Pages.Internal.Platform
 import Pages.Manifest

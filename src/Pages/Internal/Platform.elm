@@ -65,11 +65,6 @@ urlToPagePath pathKey url baseUrl =
         |> PagePath.build pathKey
 
 
-normalizeUrl : Url -> Url -> Url
-normalizeUrl baseUrl url =
-    { url | path = url.path |> String.dropLeft (String.length baseUrl.path) |> String.chopForwardSlashes }
-
-
 pageViewOrError :
     (Url -> route)
     -> pathKey
