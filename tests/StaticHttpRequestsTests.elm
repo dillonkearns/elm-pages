@@ -25,7 +25,7 @@ import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, only, test)
 import Test.Http
 
 
@@ -51,6 +51,31 @@ all =
                             ]
                           )
                         ]
+        , only <|
+            test "StaticHttp request for initial are resolved" <|
+                \() ->
+                    start
+                        [ ( [ "post-1" ]
+                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                            --, StaticHttp.succeed 86
+                          )
+                        ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://my-cms.com/posts"
+                            """{ "posts": ["post-1"] }"""
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> expectSuccess
+                            [ ( "post-1"
+                              , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                                  , """{"stargazer_count":86}"""
+                                  )
+                                ]
+                              )
+                            ]
         , test "andThen" <|
             \() ->
                 start
@@ -810,6 +835,9 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , manifest = manifest
             , generateFiles = generateFiles
             , init = \_ -> ( (), Cmd.none )
+            , getStaticRoutes =
+                StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
+                    (Decode.field "posts" (Decode.list Decode.string))
             , urlToRoute = .path
             , update = \_ _ -> ( (), Cmd.none )
             , view =

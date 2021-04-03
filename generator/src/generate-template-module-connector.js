@@ -287,6 +287,13 @@ mainTemplate { site } =
     Pages.Platform.init
         { init = init Nothing
         , urlToRoute = urlToRoute
+        , getStaticRoutes =
+            StaticHttp.succeed
+                [ ${templates
+                  .map((name) => `Just <| Route${name} {}`)
+                  .join("\n                , ")}
+                ]
+
         , view = \\_ -> view
         , update = update
         , subscriptions =

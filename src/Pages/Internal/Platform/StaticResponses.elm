@@ -3,6 +3,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticRes
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import Dict.Extra
+import OptimizedDecoder
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -23,7 +24,7 @@ type StaticResponses
 
 
 type StaticHttpResult
-    = NotFetched (StaticHttpRequest.RawRequest ()) (Dict String (Result () String))
+    = NotFetched (StaticHttp.Request ()) (Dict String (Result () String))
 
 
 error : StaticResponses
@@ -33,7 +34,9 @@ error =
 
 init :
     { config
-        | generateFiles :
+        | view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
+        , getStaticRoutes : StaticHttp.Request (List route)
+        , generateFiles :
             StaticHttp.Request
                 (List
                     (Result
@@ -55,19 +58,37 @@ init config list =
               cliDictKey
             , NotFetched (config.generateFiles |> StaticHttp.map (\_ -> ())) Dict.empty
             )
-    in
-    list
-        |> List.map
-            (\( path, staticRequest ) ->
-                let
-                    entry =
-                        NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-                in
-                ( PagePath.toString path
-                , entry
-                )
+
+        pathToList pathThing =
+            -- TODO remove hardcoding
+            { path = PagePath.external "post-1"
+            , frontmatter = pathThing
+            }
+
+        getStaticRoutesRequest =
+            let
+                innerThing : List route -> StaticHttp.Request ()
+                innerThing staticRoutes =
+                    staticRoutes
+                        |> List.map pathToList
+                        |> List.map
+                            (\pathList ->
+                                --StaticHttp.fail ""
+                                config.view [] pathList |> StaticHttp.map (\_ -> ())
+                            )
+                        |> StaticHttp.combine
+                        |> StaticHttp.map (\_ -> ())
+
+                fetchAllPages : StaticHttp.Request ()
+                fetchAllPages =
+                    config.getStaticRoutes |> StaticHttp.andThen innerThing
+            in
+            ( --cliDictKey
+              "post-1"
+            , NotFetched fetchAllPages Dict.empty
             )
-        |> List.append [ generateFilesStaticRequest ]
+    in
+    [ generateFilesStaticRequest, getStaticRoutesRequest ]
         |> Dict.fromList
         |> StaticResponses
 

@@ -34,4 +34,6 @@ all =
 config =
     { generateFiles = StaticHttp.succeed []
     , manifest = ToJsPayload.stubManifest
+    , view = \_ _ -> StaticHttp.succeed ()
+    , getStaticRoutes = StaticHttp.succeed []
     }

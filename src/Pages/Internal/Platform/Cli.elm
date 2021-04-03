@@ -71,6 +71,7 @@ type alias Config pathKey userMsg userModel route =
             , metadata : route
             }
         -> ( userModel, Cmd userMsg )
+    , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url.Url -> route
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
@@ -366,9 +367,10 @@ init toModel contentCache config flags =
         staticRoutes : List ( PagePath pathKey, route )
         staticRoutes =
             [ -- [],
-              [ "showcase" ]
-            , [ "page" ]
-            , [ "blog" ]
+              --  [ "showcase" ]
+              --, [ "page" ]
+              --, [ "blog" ]
+              [ "post-1" ]
             ]
                 |> List.map (urlToRoutePair config)
     in
@@ -846,7 +848,7 @@ staticResponseForPage :
             , frontmatter : route
             }
          ->
-            StaticHttpRequest.RawRequest
+            StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
