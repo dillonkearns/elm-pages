@@ -862,21 +862,14 @@ staticResponseForPage :
                     }
                 )
             )
-staticResponseForPage siteMetadata viewFn =
-    -- TODO need all Routes here, and their page paths
-    -- need to start with hardcoding the static URLs
-    -- eventually, getStaticPaths equivalent
-    siteMetadata
+staticResponseForPage staticRoutes viewFn =
+    staticRoutes
         |> List.map
             (\( pagePath, route ) ->
-                let
-                    thing =
-                        viewFn []
-                            { path = pagePath
-                            , frontmatter = route
-                            }
-                in
-                Ok ( pagePath, thing )
+                Ok
+                    ( pagePath
+                    , viewFn [] { path = pagePath, frontmatter = route }
+                    )
             )
         |> combine
 
