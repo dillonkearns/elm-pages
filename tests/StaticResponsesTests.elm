@@ -15,8 +15,8 @@ all =
     describe "Static Http Responses"
         [ test "andThen" <|
             \() ->
-                StaticResponses.init Dict.empty (Ok []) config []
-                    |> StaticResponses.nextStep config (Ok []) (Ok []) Mode.Dev (SecretsDict.unmasked Dict.empty) Dict.empty []
+                StaticResponses.init config []
+                    |> StaticResponses.nextStep config Mode.Dev (SecretsDict.unmasked Dict.empty) Dict.empty []
                     |> Expect.equal
                         (StaticResponses.Finish
                             (ToJsPayload.Success
@@ -32,7 +32,6 @@ all =
 
 
 config =
-    { generateFiles = \_ -> StaticHttp.succeed []
-    , content = []
+    { generateFiles = StaticHttp.succeed []
     , manifest = ToJsPayload.stubManifest
     }

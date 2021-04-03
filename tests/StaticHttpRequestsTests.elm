@@ -8,7 +8,6 @@ import Json.Decode as JD
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
-import Pages.Document as Document
 import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -770,7 +769,7 @@ Found an unhandled HTML tag in markdown doc."""
         ]
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Model PathKey ()) Msg (Effect PathKey)
+start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Model PathKey String) Msg (Effect PathKey)
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
@@ -779,7 +778,7 @@ startWithHttpCache :
     Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest (Model PathKey ()) Msg (Effect PathKey)
+    -> ProgramTest (Model PathKey String) Msg (Effect PathKey)
 startWithHttpCache =
     startLowLevel (StaticHttp.succeed [])
 
@@ -797,40 +796,21 @@ startLowLevel :
     -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, StaticHttp.Request a )
-    -> ProgramTest (Model PathKey ()) Msg (Effect PathKey)
+    -> ProgramTest (Model PathKey String) Msg (Effect PathKey)
 startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
-        document =
-            Document.fromList
-                [ Document.parser
-                    { extension = "md"
-                    , metadata = JD.succeed ()
-                    , body = \_ -> documentBodyResult
-                    }
-                ]
-
-        content =
-            pages
-                |> List.map
-                    (\( path, _ ) ->
-                        ( path, { extension = "md", frontMatter = "null", body = Just "" } )
-                    )
-
         contentCache =
-            ContentCache.init document content Nothing
+            ContentCache.init Nothing
 
-        siteMetadata =
-            contentCache
-                |> Result.map
-                    (\cache -> cache |> ContentCache.extractMetadata PathKey)
-                |> Result.mapError (List.map Tuple.second)
-
+        --config : { toJsPort : a -> Cmd msg, fromJsPort : Sub b, manifest : Manifest.Config PathKey, generateFiles : StaticHttp.Request (List (Result String { path : List String, content : String })), init : c -> ((), Cmd d), urlToRoute : { e | path : f } -> f, update : g -> h -> ((), Cmd i), view : j -> { k | path : PagePath.PagePath key } -> StaticHttp.Request { view : l -> m -> { title : String, body : Html.Html n }, head : List o }, subscriptions : p -> q -> r -> Sub s, canonicalSiteUrl : String, pathKey : PathKey, onPageChange : Maybe (t -> ()) }
+        config : Pages.Internal.Platform.Cli.Config PathKey Msg () String
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
             , manifest = manifest
-            , generateFiles = \_ -> generateFiles
+            , generateFiles = generateFiles
             , init = \_ -> ( (), Cmd.none )
+            , urlToRoute = .path
             , update = \_ _ -> ( (), Cmd.none )
             , view =
                 \_ page ->
@@ -838,8 +818,10 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                         thing =
                             pages
                                 |> Dict.fromList
+                                |> Debug.log "dict"
                                 |> Dict.get
                                     (page.path
+                                        |> Debug.log "page-path"
                                         |> PagePath.toString
                                         |> String.split "/"
                                         |> List.filter (\pathPart -> pathPart /= "")
@@ -849,16 +831,16 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                         Just request ->
                             request
                                 |> StaticHttp.map
-                                    (\_ -> { view = \_ _ -> { title = "Title", body = Html.text "" }, head = [] })
+                                    (\_ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] })
 
                         Nothing ->
                             Debug.todo "Couldn't find page"
             , subscriptions = \_ _ _ -> Sub.none
-            , document = document
-            , content = []
             , canonicalSiteUrl = canonicalSiteUrl
             , pathKey = PathKey
-            , onPageChange = Just (\_ -> ())
+
+            --, onPageChange = Just (\_ -> ())
+            , onPageChange = Nothing
             }
 
         encodedFlags =
@@ -894,8 +876,8 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
        -> ( model, Effect pathKey )
     -}
     ProgramTest.createDocument
-        { init = init identity contentCache siteMetadata config
-        , update = update contentCache siteMetadata config
+        { init = init identity contentCache config
+        , update = update contentCache config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects

@@ -1,5 +1,6 @@
 module Pages.Internal.Platform.Cli exposing
-    ( Flags
+    ( Config
+    , Flags
     , Model
     , Msg(..)
     , cliApplication

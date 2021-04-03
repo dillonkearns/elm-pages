@@ -2,12 +2,12 @@ module PagesHttp exposing (..)
 
 import Http exposing (Response(..))
 import Pages.Http exposing (..)
-import SimulatedEffect.Http as Http
+import SimulatedEffect.Http
 
 
-expectString : (Result Error String -> msg) -> Http.Expect msg
+expectString : (Result Error String -> msg) -> SimulatedEffect.Http.Expect msg
 expectString toMsg =
-    Http.expectStringResponse toMsg <|
+    SimulatedEffect.Http.expectStringResponse toMsg <|
         \response ->
             case response of
                 BadUrl_ url ->
