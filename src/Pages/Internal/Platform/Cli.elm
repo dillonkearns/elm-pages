@@ -364,17 +364,6 @@ init :
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache config flags =
-    let
-        staticRoutes : List ( PagePath pathKey, route )
-        staticRoutes =
-            [ -- [],
-              --  [ "showcase" ]
-              --, [ "page" ]
-              --, [ "blog" ]
-              [ "post-1" ]
-            ]
-                |> List.map (urlToRoutePair config)
-    in
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
             case mode of
@@ -382,7 +371,7 @@ init toModel contentCache config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy staticRoutes { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config
+                    initLegacy { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config
 
         Err error ->
             updateAndSendPortIfDone
@@ -400,7 +389,7 @@ init toModel contentCache config flags =
                 , mode = Mode.Dev
                 , pendingRequests = []
                 , unprocessedPages = []
-                , staticRoutes = staticRoutes
+                , staticRoutes = []
                 }
                 toModel
 
@@ -425,30 +414,20 @@ urlToRoutePair config path =
 
 
 initLegacy :
-    List ( PagePath pathKey, route )
-    -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
+    { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
     -> ContentCache
     -> Config pathKey userMsg userModel route
     -> ( model, Effect pathKey )
-initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache config =
+initLegacy { secrets, mode, staticHttpCache } toModel contentCache config =
     case contentCache of
         Ok _ ->
             let
-                requests =
-                    staticResponseForPage staticRoutes config.view
-
                 staticResponses : StaticResponses
                 staticResponses =
-                    case requests of
-                        Ok okRequests ->
-                            StaticResponses.init config okRequests
-
-                        Err _ ->
-                            -- TODO need to handle errors better?
-                            StaticResponses.init config []
+                    StaticResponses.init config
             in
-            StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses
+            StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses Nothing
                 |> nextStepToEffect contentCache
                     config
                     { staticResponses = staticResponses
@@ -457,8 +436,8 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                     , allRawResponses = staticHttpCache
                     , mode = mode
                     , pendingRequests = []
-                    , unprocessedPages = staticRoutes
-                    , staticRoutes = staticRoutes
+                    , unprocessedPages = []
+                    , staticRoutes = []
                     }
                 |> Tuple.mapFirst toModel
 
@@ -472,8 +451,8 @@ initLegacy staticRoutes { secrets, mode, staticHttpCache } toModel contentCache 
                 , allRawResponses = staticHttpCache
                 , mode = mode
                 , pendingRequests = []
-                , unprocessedPages = staticRoutes
-                , staticRoutes = staticRoutes
+                , unprocessedPages = []
+                , staticRoutes = []
                 }
                 toModel
 
@@ -492,6 +471,7 @@ updateAndSendPortIfDone contentCache config model toModel =
         model.allRawResponses
         model.errors
         model.staticResponses
+        Nothing
         |> nextStepToEffect contentCache config model
         |> Tuple.mapFirst toModel
 
@@ -567,6 +547,7 @@ update contentCache config msg model =
                 updatedModel.allRawResponses
                 updatedModel.errors
                 updatedModel.staticResponses
+                Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
         GotStaticFile ( filePath, fileContent ) ->
@@ -611,6 +592,7 @@ update contentCache config msg model =
                 updatedModel.allRawResponses
                 updatedModel.errors
                 updatedModel.staticResponses
+                Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
         Continue ->
@@ -627,6 +609,7 @@ update contentCache config msg model =
                 updatedModel.allRawResponses
                 updatedModel.errors
                 updatedModel.staticResponses
+                Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
         GotGlob ( globPattern, globResult ) ->
@@ -668,6 +651,7 @@ update contentCache config msg model =
                 updatedModel.allRawResponses
                 updatedModel.errors
                 updatedModel.staticResponses
+                Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
 
@@ -675,11 +659,11 @@ nextStepToEffect :
     ContentCache
     -> Config pathKey userMsg userModel route
     -> Model pathKey route
-    -> ( StaticResponses.StaticResponses, StaticResponses.NextStep pathKey )
+    -> ( StaticResponses.StaticResponses, StaticResponses.NextStep pathKey route )
     -> ( Model pathKey route, Effect pathKey )
 nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue updatedAllRawResponses httpRequests ->
+        StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
             let
                 nextAndPending =
                     model.pendingRequests ++ httpRequests
@@ -689,11 +673,41 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
                 pending =
                     []
+
+                updatedRoutes =
+                    case maybeRoutes of
+                        Just newRoutes ->
+                            newRoutes
+                                |> List.map
+                                    (\route ->
+                                        ( PagePath.build config.pathKey (config.routeToPath route)
+                                        , route
+                                        )
+                                    )
+
+                        Nothing ->
+                            model.staticRoutes
+
+                updatedUnprocessedPages =
+                    case maybeRoutes of
+                        Just newRoutes ->
+                            newRoutes
+                                |> List.map
+                                    (\route ->
+                                        ( PagePath.build config.pathKey (config.routeToPath route)
+                                        , route
+                                        )
+                                    )
+
+                        Nothing ->
+                            model.unprocessedPages
             in
             ( { model
                 | allRawResponses = updatedAllRawResponses
                 , pendingRequests = pending
                 , staticResponses = updatedStaticResponsesModel
+                , staticRoutes = updatedRoutes
+                , unprocessedPages = updatedUnprocessedPages
               }
             , doNow
                 |> List.map Effect.FetchHttp
@@ -723,7 +737,6 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                     in
                     model.unprocessedPages
                         |> List.take 1
-                        --|> Debug.log "@@@ pages"
                         |> List.filterMap
                             (\pageAndMetadata ->
                                 case toJsPayload of

@@ -47,9 +47,8 @@ init :
                     )
                 )
     }
-    -> List ( PagePath pathKey, StaticHttp.Request value )
     -> StaticResponses
-init config list =
+init config =
     let
         generateFilesStaticRequest =
             ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
@@ -152,8 +151,8 @@ cliDictKey =
     "////elm-pages-CLI////"
 
 
-type NextStep pathKey
-    = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails })
+type NextStep pathKey route
+    = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails }) (Maybe (List route))
     | Finish (ToJsPayload pathKey)
 
 
@@ -180,8 +179,9 @@ nextStep :
     -> RequestsAndPending
     -> List BuildError
     -> StaticResponses
-    -> ( StaticResponses, NextStep pathKey )
-nextStep config mode secrets allRawResponses errors staticResponses_ =
+    -> Maybe (List route)
+    -> ( StaticResponses, NextStep pathKey route )
+nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes =
     let
         staticResponses =
             case staticResponses_ of
@@ -374,7 +374,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ =
                                     secureUrl
                                 )
                 in
-                ( staticResponses_, Continue newAllRawResponses newThing )
+                ( staticResponses_, Continue newAllRawResponses newThing maybeRoutes )
 
             Err error_ ->
                 ( staticResponses_, Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors)) )
@@ -414,7 +414,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ =
                                     |> Dict.fromList
                                     |> StaticResponses
                         in
-                        nextStep config mode secrets allRawResponses errors newState
+                        nextStep config mode secrets allRawResponses errors newState (Just staticRoutes)
 
                     Err error_ ->
                         ( staticResponses_
