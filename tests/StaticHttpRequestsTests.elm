@@ -834,7 +834,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                                     (\_ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] })
 
                         Nothing ->
-                            Debug.todo "Couldn't find page"
+                            Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
             , subscriptions = \_ _ _ -> Sub.none
             , canonicalSiteUrl = canonicalSiteUrl
             , pathKey = PathKey
