@@ -1,6 +1,5 @@
 module Pages.Internal.Platform.Cli exposing
-    ( Content
-    , Flags
+    ( Flags
     , Model
     , Msg(..)
     , cliApplication
@@ -35,10 +34,6 @@ import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
 import Url
-
-
-type alias Content =
-    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
 type alias Flags =
@@ -89,7 +84,6 @@ type alias Config pathKey userMsg userModel route =
                 { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
@@ -128,19 +122,11 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
         contentCache =
             ContentCache.init Nothing
-
-        siteMetadata =
-            Ok []
-
-        --contentCache
-        --    |> Result.map
-        --        (\cache -> cache |> ContentCache.extractMetadata config.pathKey)
-        --    |> Result.mapError (List.map Tuple.second)
     in
     Platform.worker
         { init =
             \flags ->
-                init toModel contentCache siteMetadata config flags
+                init toModel contentCache config flags
                     |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
@@ -371,11 +357,10 @@ flagsDecoder =
 init :
     (Model pathKey route -> model)
     -> ContentCache
-    -> Result (List BuildError) (List ( PagePath pathKey, NoMetadata ))
     -> Config pathKey userMsg userModel route
     -> Decode.Value
     -> ( model, Effect pathKey )
-init toModel contentCache siteMetadata config flags =
+init toModel contentCache config flags =
     let
         staticRoutes : List ( PagePath pathKey, route )
         staticRoutes =

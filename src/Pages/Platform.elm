@@ -362,7 +362,6 @@ application config =
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions
-        , content = config.internals.content
         , generateFiles = config.generateFiles
         , toJsPort = config.internals.toJsPort
         , fromJsPort = config.internals.fromJsPort

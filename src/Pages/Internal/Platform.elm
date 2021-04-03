@@ -1,4 +1,4 @@
-module Pages.Internal.Platform exposing (Content, Flags, Model, Msg, Program, application, cliApplication)
+module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application, cliApplication)
 
 import Browser
 import Browser.Dom as Dom
@@ -23,10 +23,6 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 import Task
 import Url exposing (Url)
-
-
-type alias Content =
-    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
 type alias Program userModel userMsg route pathKey =
@@ -643,7 +639,6 @@ application :
                 { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey
@@ -706,7 +701,8 @@ application config =
                                     ( userModel, Cmd.none )
 
                             allRoutes =
-                                config.content
+                                -- TODO wire in staticRoutes here
+                                []
                                     |> List.map Tuple.first
                                     |> List.map (String.join "/")
                         in
@@ -794,7 +790,6 @@ cliApplication :
                 { view : userModel -> { title : String, body : Html userMsg }
                 , head : List (Head.Tag pathKey)
                 }
-    , content : Content
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , manifest : Manifest.Config pathKey

@@ -29,7 +29,6 @@ type ApplicationType
 -}
 type alias Internal pathKey =
     { applicationType : ApplicationType
-    , content : Pages.Internal.Platform.Content
     , pathKey : pathKey
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Json.Decode.Value

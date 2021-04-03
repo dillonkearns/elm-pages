@@ -1,9 +1,8 @@
-const generateRawContent = require("./generate-raw-content.js");
 const exposingList =
-    "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
+  "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
 
 function staticRouteStuff(staticRoutes) {
-    return `
+  return `
 
 
 ${staticRoutes.allRoutes}
@@ -55,7 +54,7 @@ isValidRoute route =
 }[]} markdownContent
  */
 function elmPagesUiFile(staticRoutes, markdownContent) {
-    return `port module Pages exposing ${exposingList}
+  return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
 import Pages.Internal
@@ -75,7 +74,7 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix ${Math.round((global.builtAt).getTime())}
+    Time.millisToPosix ${Math.round(global.builtAt.getTime())}
 
 
 type PathKey
@@ -112,13 +111,10 @@ internals =
     { applicationType = Pages.Internal.Browser
     , toJsPort = toJsPort
     , fromJsPort = fromJsPort identity
-    , content = content
     , pathKey = PathKey
     }
 
 ${staticRouteStuff(staticRoutes)}
-
-${generateRawContent(markdownContent, false)}
 `;
 }
 
@@ -136,7 +132,7 @@ ${generateRawContent(markdownContent, false)}
 }[]} markdownContent
  */
 function elmPagesCliFile(staticRoutes, markdownContent) {
-    return `port module Pages exposing ${exposingList}
+  return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
 import Pages.Internal
@@ -156,7 +152,7 @@ import Time
 
 builtAt : Time.Posix
 builtAt =
-    Time.millisToPosix ${Math.round((global.builtAt).getTime())}
+    Time.millisToPosix ${Math.round(global.builtAt.getTime())}
 
 
 type PathKey
@@ -194,14 +190,11 @@ internals =
     { applicationType = Pages.Internal.Cli
     , toJsPort = toJsPort
     , fromJsPort = fromJsPort identity
-    , content = content
     , pathKey = PathKey
     }
 
 
 ${staticRouteStuff(staticRoutes)}
-
-${generateRawContent(markdownContent, true)}
 `;
 }
 module.exports = { elmPagesUiFile, elmPagesCliFile };

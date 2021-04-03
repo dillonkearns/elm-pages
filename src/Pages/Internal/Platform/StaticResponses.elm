@@ -26,10 +26,6 @@ type StaticHttpResult
     = NotFetched (StaticHttpRequest.RawRequest ()) (Dict String (Result () String))
 
 
-type alias Content =
-    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
-
-
 error : StaticResponses
 error =
     StaticResponses Dict.empty
@@ -37,8 +33,7 @@ error =
 
 init :
     { config
-        | content : Content
-        , generateFiles :
+        | generateFiles :
             StaticHttp.Request
                 (List
                     (Result
@@ -141,8 +136,7 @@ type NextStep pathKey
 
 nextStep :
     { config
-        | content : Content
-        , manifest : Manifest.Config pathKey
+        | manifest : Manifest.Config pathKey
         , generateFiles :
             StaticHttp.Request
                 (List
