@@ -17,16 +17,17 @@ if (process.argv.length === 3) {
 }
 
 function fileContent(templateName) {
-  return `
-module Template.${templateName} exposing (Model, Msg, template)
+  return `module Template.${templateName} exposing (Model, Msg, template)
 
+import Element exposing (Element)
+import Element.Region
 import Head
-import Pages
+import Head.Seo as Seo
+import Pages exposing (images)
 import Pages.PagePath exposing (PagePath)
 import Shared
-import Template exposing (StaticPayload, Template)
-import TemplateMetadata exposing (${templateName})
-import TemplateType exposing (TemplateType)
+import Site
+import Template exposing (StaticPayload, Template, TemplateWithState)
 
 
 type alias Model =
@@ -37,32 +38,42 @@ type alias Msg =
     Never
 
 
-type alias StaticData =
-    ()
-
-
-template : Template ${templateName} StaticData
+template : Template {} ()
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }
 
 
 head :
-    StaticPayload ${templateName} StaticData
+    StaticPayload ()
     -> List (Head.Tag Pages.PathKey)
-head { metadata } =
-    []
+head static =
+    Seo.summary
+        { canonicalUrlOverride = Nothing
+        , siteName = "elm-pages"
+        , image =
+            { url = images.iconPng
+            , alt = "elm-pages logo"
+            , dimensions = Nothing
+            , mimeType = Nothing
+            }
+        , description = Site.tagline
+        , locale = Nothing
+        , title = "TODO title" -- metadata.title -- TODO
+        }
+        |> Seo.website
+
+
+type alias StaticData =
+    ()
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload ${templateName} StaticData
-    -> Shared.RenderedBody
+    StaticPayload StaticData
     -> Shared.PageView msg
-view allMetadata static rendered =
-    { title = Debug.todo "Add title."
-    , body =
-        []
+view static =
+    { title = "TODO title"
+    , body = []
     }
 
 `;
