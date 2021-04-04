@@ -49,24 +49,6 @@ init :
     }
     -> StaticResponses
 init config =
-    let
-        generateFilesStaticRequest =
-            ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
-              -- since that data is only needed to run these functions during the build step
-              -- in the future, this could be refactored to have a type to represent this more clearly
-              cliDictKey
-            , NotFetched (config.generateFiles |> StaticHttp.map (\_ -> ())) Dict.empty
-            )
-
-        pathToList pathThing =
-            -- TODO remove hardcoding
-            { path = PagePath.external "post-1"
-            , frontmatter = pathThing
-            }
-    in
-    --[ generateFilesStaticRequest, getStaticRoutesRequest ]
-    --    |> Dict.fromList
-    --    |> StaticResponses
     NotFetched
         (StaticHttp.map2 (\_ _ -> ())
             config.getStaticRoutes
@@ -414,7 +396,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                             )
                         )
 
-            StaticResponses r ->
+            StaticResponses _ ->
                 ( staticResponses_
                 , ToJsPayload.toJsPayload
                     (encode allRawResponses mode staticResponses)

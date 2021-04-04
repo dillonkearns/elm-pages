@@ -398,21 +398,6 @@ init toModel contentCache config flags =
 --)
 
 
-urlToRoutePair config path =
-    ( PagePath.build config.pathKey path
-    , config.urlToRoute
-        { protocol = Url.Https
-        , host = config.canonicalSiteUrl
-        , port_ = Nothing
-
-        --, path = page |> PagePath.toString
-        , path = "/" ++ (path |> String.join "/")
-        , query = Nothing
-        , fragment = Nothing
-        }
-    )
-
-
 initLegacy :
     { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
@@ -659,7 +644,7 @@ nextStepToEffect :
     ContentCache
     -> Config pathKey userMsg userModel route
     -> Model pathKey route
-    -> ( StaticResponses.StaticResponses, StaticResponses.NextStep pathKey route )
+    -> ( StaticResponses, StaticResponses.NextStep pathKey route )
     -> ( Model pathKey route, Effect pathKey )
 nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
@@ -852,70 +837,3 @@ sendProgress singlePage =
 
         --, Effect.Continue
         ]
-
-
-staticResponseForPage :
-    List ( PagePath pathKey, route )
-    ->
-        (List ( PagePath pathKey, NoMetadata )
-         ->
-            { path : PagePath pathKey
-            , frontmatter : route
-            }
-         ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag pathKey)
-                }
-        )
-    ->
-        Result
-            (List BuildError)
-            (List
-                ( PagePath pathKey
-                , StaticHttp.Request
-                    { view : userModel -> { title : String, body : Html userMsg }
-                    , head : List (Head.Tag pathKey)
-                    }
-                )
-            )
-staticResponseForPage staticRoutes viewFn =
-    staticRoutes
-        |> List.map
-            (\( pagePath, route ) ->
-                Ok
-                    ( pagePath
-                    , viewFn [] { path = pagePath, frontmatter = route }
-                    )
-            )
-        |> combine
-
-
-combine : List (Result error ( key, success )) -> Result (List error) (List ( key, success ))
-combine list =
-    list
-        |> List.foldr resultFolder (Ok [])
-
-
-resultFolder : Result error a -> Result (List error) (List a) -> Result (List error) (List a)
-resultFolder current soFarResult =
-    case soFarResult of
-        Ok soFarOk ->
-            case current of
-                Ok currentOk ->
-                    currentOk
-                        :: soFarOk
-                        |> Ok
-
-                Err error ->
-                    Err [ error ]
-
-        Err soFarErr ->
-            case current of
-                Ok _ ->
-                    Err soFarErr
-
-                Err error ->
-                    error
-                        :: soFarErr
-                        |> Err
