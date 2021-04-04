@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Model, Msg, template)
+module Template.BlogPost exposing (Model, Msg, articlesRequest, template, toRssItem)
 
 import Cloudinary
 import Data.Author as Author exposing (Author)
@@ -18,6 +18,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Palette
+import Rss
 import Shared
 import Site
 import StructuredData
@@ -245,3 +246,43 @@ imageDecoder : OptimizedDecoder.Decoder (ImagePath Pages.PathKey)
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
+
+
+toRssItem :
+    ArticleMetadata
+    -> Maybe Rss.Item
+toRssItem article =
+    if article.draft then
+        Nothing
+
+    else
+        Just
+            { title = article.title
+            , description = article.description
+            , url = "TODO" --PagePath.toString page.path
+            , categories = []
+            , author = Author.dillon.name
+            , pubDate = Rss.Date article.published
+            , content = Nothing
+            }
+
+
+articlesRequest : StaticHttp.Request (List ArticleMetadata)
+articlesRequest =
+    Glob.succeed identity
+        |> Glob.keep Glob.fullFilePath
+        |> Glob.drop (Glob.literal "content/blog/")
+        |> Glob.drop Glob.wildcard
+        |> Glob.drop (Glob.literal ".md")
+        |> Glob.toStaticHttp
+        |> StaticHttp.andThen
+            (\articleFilePaths ->
+                articleFilePaths
+                    |> List.filter (\filePath -> filePath |> String.contains "index" |> not)
+                    |> List.map
+                        (\articleFilePath ->
+                            StaticFile.request articleFilePath
+                                (StaticFile.frontmatter frontmatterDecoder)
+                        )
+                    |> StaticHttp.combine
+            )

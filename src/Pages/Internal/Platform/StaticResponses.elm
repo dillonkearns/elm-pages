@@ -63,34 +63,16 @@ init config =
             { path = PagePath.external "post-1"
             , frontmatter = pathThing
             }
-
-        getStaticRoutesRequest =
-            let
-                innerThing : List route -> StaticHttp.Request ()
-                innerThing staticRoutes =
-                    staticRoutes
-                        |> List.map pathToList
-                        |> List.map
-                            (\pathList ->
-                                --StaticHttp.fail ""
-                                config.view [] pathList |> StaticHttp.map (\_ -> ())
-                            )
-                        |> StaticHttp.combine
-                        |> StaticHttp.map (\_ -> ())
-
-                fetchAllPages : StaticHttp.Request ()
-                fetchAllPages =
-                    config.getStaticRoutes |> StaticHttp.andThen innerThing
-            in
-            ( --cliDictKey
-              "post-1"
-            , NotFetched fetchAllPages Dict.empty
-            )
     in
     --[ generateFilesStaticRequest, getStaticRoutesRequest ]
     --    |> Dict.fromList
     --    |> StaticResponses
-    NotFetched (config.getStaticRoutes |> StaticHttp.map (\_ -> ())) Dict.empty
+    NotFetched
+        (StaticHttp.map2 (\_ _ -> ())
+            config.getStaticRoutes
+            config.generateFiles
+        )
+        Dict.empty
         |> GettingInitialData
 
 

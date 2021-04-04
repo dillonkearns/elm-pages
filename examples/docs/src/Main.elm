@@ -17,6 +17,7 @@ import Rss
 import RssPlugin
 import Shared
 import Site
+import Template.BlogPost
 import TemplateModulesBeta
 
 
@@ -55,15 +56,15 @@ main =
     TemplateModulesBeta.mainTemplate
         { site = Site.config
         }
-        --|> RssPlugin.generate
-        --    { siteTagline = Site.tagline
-        --    , siteUrl = Site.canonicalUrl
-        --    , title = "elm-pages Blog"
-        --    , builtAt = Pages.builtAt
-        --    , indexPage = Pages.pages.blog.index
-        --    }
-        --    metadataToRssItem
-        --|> MySitemap.install { siteUrl = Site.canonicalUrl } metadataToSitemapEntry
+        |> RssPlugin.generate
+            { siteTagline = Site.tagline
+            , siteUrl = Site.canonicalUrl
+            , title = "elm-pages Blog"
+            , builtAt = Pages.builtAt
+            , indexPage = Pages.pages.blog.index
+            }
+            Template.BlogPost.toRssItem
+            Template.BlogPost.articlesRequest
         |> Pages.Platform.withGlobalHeadTags
             [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
             , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
