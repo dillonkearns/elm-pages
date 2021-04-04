@@ -153,7 +153,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                     s
 
                 GettingInitialData initialData ->
-                    Dict.singleton cliDictKey (initialData |> Debug.log "initialData")
+                    Dict.singleton cliDictKey initialData
 
         generatedFiles : List (Result String { path : List String, content : String })
         generatedFiles =
