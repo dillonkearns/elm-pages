@@ -19,7 +19,11 @@ type alias Msg =
     Never
 
 
-template : Template {} ()
+type alias Route =
+    {}
+
+
+template : Template Route StaticData
 template =
     Template.noStaticData { head = head }
         |> Template.buildNoState { view = view }
