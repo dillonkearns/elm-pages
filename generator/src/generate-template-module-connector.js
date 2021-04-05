@@ -28,7 +28,6 @@ import Head
 import Html exposing (Html)
 import Pages
 import Pages.PagePath exposing (PagePath)
-import Pages.Platform
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
 import Pages.StaticHttp as StaticHttp

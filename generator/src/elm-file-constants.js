@@ -62,7 +62,6 @@ import Head
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
-import Pages.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
@@ -140,7 +139,6 @@ import Head
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
-import Pages.Platform
 import Pages.Manifest exposing (DisplayMode, Orientation)
 import Pages.Manifest.Category as Category exposing (Category)
 import Url.Parser as Url exposing ((</>), s)
