@@ -386,11 +386,29 @@ function routeParser(name) {
  * @param {string[]} name
  */
 function routeVariantDefinition(name) {
-  if (name.some((section) => section.includes("_"))) {
-    return `${routeVariant(name)} { slug : String }`;
-  } else {
-    return `${routeVariant(name)} {}`;
-  }
+  return `${routeVariant(name)} { ${routeParams(name).map(
+    (param) => `${param} : String`
+  )} }`;
+}
+
+/**
+ * @param {string[]} name
+ */
+function routeParams(name) {
+  return name
+    .map((section) => {
+      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
+      const maybeParam = routeParamMatch && routeParamMatch[1];
+      return maybeParam && toFieldName(maybeParam);
+    })
+    .filter((maybeParam) => maybeParam !== null);
+}
+
+/**
+ * @param {string } name
+ */
+function toFieldName(name) {
+  return name.toLowerCase();
 }
 
 /**
@@ -404,13 +422,26 @@ function routeVariant(name) {
  * @param {string[]} name
  */
 function routePathList(name) {
-  if (name.some((section) => section.includes("_"))) {
-    return `"blog", params.slug`;
-  } else {
-    return name.map((section) => `"${section.toLowerCase()}"`).join(", ");
-  }
+  return name
+    .map((section) => {
+      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
+      const maybeParam = routeParamMatch && routeParamMatch[1];
+      if (maybeParam) {
+        return `params.${maybeParam.toLowerCase()}`;
+      } else {
+        return `"${camelToKebab(section)}"`;
+      }
+    })
+    .join(", ");
 }
-
+/**
+ * Convert Strings from camelCase to kebab-case
+ * @param {string} input
+ * @returns {string}
+ */
+function camelToKebab(input) {
+  return input.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+}
 /**
  * @param {string[]} name
  */
