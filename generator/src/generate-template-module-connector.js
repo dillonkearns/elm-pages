@@ -343,13 +343,22 @@ main =
         , getStaticRoutes =
             StaticHttp.combine
                 [ StaticHttp.succeed
-                    [ RouteBlog {}
-                    , RouteDocumentation {}
-                    , RoutePage {}
-                    , RouteShowcase {}
+                    [ ${templates
+                      .filter((name) => !isParameterizedRoute(name))
+                      .map((name) => `${routeVariant(name)} {}`)
+                      .join("\n                    , ")}
                     ]
-                , Template.Blog.Slug_.template.staticRoutes |> StaticHttp.map (List.map RouteBlog__Slug_)
-                , Template.Hello.Name_.template.staticRoutes |> StaticHttp.map (List.map RouteHello__Name_)
+                , ${templates
+                  .filter((name) => isParameterizedRoute(name))
+                  .map(
+                    (name) =>
+                      `Template.${moduleName(
+                        name
+                      )}.template.staticRoutes |> StaticHttp.map (List.map Route${pathNormalizedName(
+                        name
+                      )})`
+                  )
+                  .join("\n                , ")}
                 ]
                 |> StaticHttp.map List.concat
                 |> StaticHttp.map (List.map Just)
