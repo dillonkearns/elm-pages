@@ -60,6 +60,7 @@ init maybeInitialPageContent =
             , ( [ "showcase" ], NeedContent )
             , ( [ "blog" ], NeedContent )
             , ( [ "page" ], NeedContent )
+            , ( [ "blog", "static-http" ], NeedContent )
 
             --, ( [], NeedContent "/showcase" NoMetadata.NoMetadata )
             ]
@@ -141,7 +142,15 @@ lazyLoad urls cacheResult =
                             Task.succeed cacheResult
 
                 Nothing ->
-                    Task.succeed cacheResult
+                    urls.currentUrl
+                        |> httpTask
+                        |> Task.map
+                            (\downloadedContent ->
+                                update
+                                    cacheResult
+                                    urls
+                                    downloadedContent
+                            )
 
 
 httpTask : Url -> Task Http.Error ContentJson

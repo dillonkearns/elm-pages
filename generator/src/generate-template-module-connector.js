@@ -1,10 +1,16 @@
 const globby = require("globby");
 const path = require("path");
+const mm = require("micromatch");
 
 function generateTemplateModuleConnector() {
-  const templates = globby
-    .sync(["src/Template/*.elm"], {})
-    .map((file) => path.basename(file, ".elm"));
+  const templates = globby.sync(["src/Template/**/*.elm"], {}).map((file) => {
+    const captures = mm.capture("src/Template/**/*.elm", file);
+    if (captures) {
+      return path.join(captures[0], captures[1]).split("/");
+    } else {
+      return [];
+    }
+  });
 
   return `module TemplateModulesBeta exposing (..)
 
@@ -21,7 +27,7 @@ import Url
 import Url.Parser as Parser exposing ((</>), Parser)
 import Pages.StaticHttp as StaticHttp
 
-${templates.map((name) => `import Template.${name}`).join("\n")}
+${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
 
 
 type alias Model =
@@ -41,17 +47,23 @@ type alias Model =
 
 type TemplateModel
     = ${templates
-      .map((name) => `Model${name} Template.${name}.Model\n`)
+      .map(
+        (name) =>
+          `Model${pathNormalizedName(name)} Template.${moduleName(
+            name
+          )}.Model\n`
+      )
       .join("    | ")}
     | NotFound
 
 
 type Route
-    = ${templates.map((name) => `Route${name} {}\n`).join("    | ")}
+    = ${templates.map(routeVariantDefinition).join("    | ")}
 
 urlToRoute : Url.Url -> Maybe Route
-urlToRoute =
-    Parser.parse (Parser.oneOf routes)
+urlToRoute url =
+    Parser.parse (Parser.oneOf routes) (url |> Debug.log "url")
+
 
 routeToPath : Maybe Route -> List String
 routeToPath maybeRoute =
@@ -61,14 +73,16 @@ routeToPath maybeRoute =
         ${templates
           .map(
             (name) =>
-              `Just (Route${name} params) ->\n            [ "${name.toLowerCase()}" ]`
+              `Just (${routeVariant(
+                name
+              )} params) ->\n            [ ${routePathList(name)} ]`
           )
           .join("\n        ")}
 
 
 routes : List (Parser (Route -> a) a)
 routes =
-    [ ${templates.map((name) => `${nameToParser(name)}\n`).join("    , ")}
+    [ ${templates.map((name) => `${routeParser(name)}\n`).join("    , ")}
     ]
 
 
@@ -81,7 +95,10 @@ type Msg
         , metadata : Maybe Route
         }
     | ${templates
-      .map((name) => `Msg${name} Template.${name}.Msg\n`)
+      .map(
+        (name) =>
+          `Msg${pathNormalizedName(name)} Template.${moduleName(name)}.Msg\n`
+      )
       .join("    | ")}
 
 
@@ -101,14 +118,14 @@ view page =
         ${templates
           .map(
             (name) =>
-              `Just (Route${name} s) ->
+              `Just (${routeVariant(name)} s) ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
                         \\model ->
                             case model.page of
-                                Model${name} subModel ->
-                                    Template.${name}.template.view
+                                Model${pathNormalizedName(name)} subModel ->
+                                    Template.${moduleName(name)}.template.view
                                         subModel
                                         model.global
                                         { static = data
@@ -122,20 +139,22 @@ view page =
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.template.map Msg${name}
+                                                        |> Shared.template.map Msg${pathNormalizedName(
+                                                          name
+                                                        )}
                                                     )
                                            )
 
                                 _ ->
                                     { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-                    , head = Template.${name}.template.head
+                    , head = Template.${moduleName(name)}.template.head
                         { static = data
                         , sharedStatic = globalData
                         , path = page.path
                         }
                     }
                 )
-                (Template.${name}.template.staticData)
+                (Template.${moduleName(name)}.template.staticData)
                 (Shared.template.staticData)
 `
           )
@@ -160,15 +179,17 @@ init currentGlobalModel maybePagePath =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init maybePagePath)
 
         ( templateModel, templateCmd ) =
-            case maybePagePath  |> Maybe.andThen .metadata of
+            case maybePagePath |> Maybe.andThen .metadata of
                 Nothing ->
                     ( NotFound, Cmd.none )
 
                 ${templates
                   .map(
-                    (name) => `Just (Route${name} routeParams) ->
-                    Template.${name}.template.init routeParams
-                        |> Tuple.mapBoth Model${name} (Cmd.map Msg${name})
+                    (name) => `Just (${routeVariant(name)} routeParams) ->
+                    Template.${moduleName(name)}.template.init routeParams
+                        |> Tuple.mapBoth Model${pathNormalizedName(
+                          name
+                        )} (Cmd.map Msg${pathNormalizedName(name)})
 
 `
                   )
@@ -237,17 +258,23 @@ update msg model =
         ${templates
           .map(
             (name) => `
-        Msg${name} msg_ ->
+        Msg${pathNormalizedName(name)} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, model.current |> Maybe.andThen .metadata ) of
-                        ( Model${name} pageModel, Just (Route${name} routeParams) ) ->
-                            Template.${name}.template.update
+                        ( Model${pathNormalizedName(
+                          name
+                        )} pageModel, Just (${routeVariant(
+              name
+            )} routeParams) ) ->
+                            Template.${moduleName(name)}.template.update
                                 routeParams
                                 msg_
                                 pageModel
                                 model.global
-                                |> mapBoth Model${name} (Cmd.map Msg${name})
+                                |> mapBoth Model${pathNormalizedName(
+                                  name
+                                )} (Cmd.map Msg${pathNormalizedName(name)})
                                 |> (\\( a, b, c ) ->
                                         case c of
                                             Just sharedMsg ->
@@ -279,13 +306,15 @@ templateSubscriptions route path model =
         ${templates
           .map(
             (name) => `
-        ( Model${name} templateModel, Route${name} routeParams ) ->
-            Template.${name}.template.subscriptions
+        ( Model${pathNormalizedName(name)} templateModel, ${routeVariant(
+              name
+            )} routeParams ) ->
+            Template.${moduleName(name)}.template.subscriptions
                 routeParams
                 path
                 templateModel
                 model.global
-                |> Sub.map Msg${name}
+                |> Sub.map Msg${pathNormalizedName(name)}
 `
           )
           .join("\n        ")}
@@ -301,12 +330,17 @@ mainTemplate { site } =
         , urlToRoute = urlToRoute
         , routeToPath = routeToPath
         , getStaticRoutes =
-            StaticHttp.succeed
-                [ ${templates
-                  .map((name) => `Just <| Route${name} {}`)
-                  .join("\n                , ")}
+            StaticHttp.combine
+                [ StaticHttp.succeed
+                    [ ${templates
+                      .filter((name) => !isParameterizedRoute(name))
+                      .map((name) => `${routeVariant(name)} {}`)
+                      .join("\n                    , ")}
+                    ]
+                , Template.Blog.Slug_.routes |> StaticHttp.map (List.map RouteBlog__Slug_)
                 ]
-
+                |> StaticHttp.map List.concat
+                |> StaticHttp.map (List.map Just)
         , view = \\_ -> view
         , update = update
         , subscriptions =
@@ -336,10 +370,66 @@ mapBoth fnA fnB ( a, b, c ) =
 }
 
 /**
- * @param {string} name
+ * @param {string[]} name
  */
-function nameToParser(name) {
-  return `Parser.map (Route${name} {}) (Parser.s "${name.toLowerCase()}")`;
+function routeParser(name) {
+  if (name.some((section) => section.includes("_"))) {
+    return `Parser.map (\\slug -> RouteBlog__Slug_ { slug = slug }) (Parser.s "blog" </> Parser.string)`;
+  } else {
+    return `Parser.map (Route${pathNormalizedName(
+      name
+    )} {}) (Parser.s "${name.join("TODO").toLowerCase()}")`;
+  }
+}
+
+/**
+ * @param {string[]} name
+ */
+function routeVariantDefinition(name) {
+  if (name.some((section) => section.includes("_"))) {
+    return `${routeVariant(name)} { slug : String }`;
+  } else {
+    return `${routeVariant(name)} {}`;
+  }
+}
+
+/**
+ * @param {string[]} name
+ */
+function routeVariant(name) {
+  return `Route${name.join("__")}`;
+}
+
+/**
+ * @param {string[]} name
+ */
+function routePathList(name) {
+  if (name.some((section) => section.includes("_"))) {
+    return `"blog", params.slug`;
+  } else {
+    return name.map((section) => `"${section.toLowerCase()}"`).join(", ");
+  }
+}
+
+/**
+ * @param {string[]} name
+ */
+function isParameterizedRoute(name) {
+  return name.some((section) => section.includes("_"));
+}
+
+/**
+ * @param {string[]} name
+ */
+function pathNormalizedName(name) {
+  return name.join("__");
+}
+
+/**
+ * @param {string[]} name
+ */
+function moduleName(name) {
+  return name.join(".");
 }
 
 module.exports = { generateTemplateModuleConnector };

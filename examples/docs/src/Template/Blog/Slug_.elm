@@ -1,4 +1,4 @@
-module Template.BlogPost exposing (Model, Msg, articlesRequest, template, toRssItem)
+module Template.Blog.Slug_ exposing (Model, Msg, articlesRequest, routes, template, toRssItem)
 
 import Cloudinary
 import Data.Author as Author exposing (Author)
@@ -56,7 +56,7 @@ type alias BlogPost =
     }
 
 
-template : Template {} DataFromFile
+template : Template Route DataFromFile
 template =
     Template.withStaticData
         { staticData = fileRequest

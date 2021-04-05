@@ -17,7 +17,7 @@ import Rss
 import RssPlugin
 import Shared
 import Site
-import Template.BlogPost
+import Template.Blog.Slug_
 import TemplateModulesBeta
 
 
@@ -61,10 +61,10 @@ main =
             , siteUrl = Site.canonicalUrl
             , title = "elm-pages Blog"
             , builtAt = Pages.builtAt
-            , indexPage = Pages.pages.blog.index
+            , indexPage = Pages.pages.index
             }
-            Template.BlogPost.toRssItem
-            Template.BlogPost.articlesRequest
+            Template.Blog.Slug_.toRssItem
+            Template.Blog.Slug_.articlesRequest
         |> Pages.Platform.withGlobalHeadTags
             [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
             , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
