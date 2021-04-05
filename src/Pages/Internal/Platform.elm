@@ -98,15 +98,13 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
                     let
                         viewFnResult =
                             { path = pagePath
-                            , frontmatter = urlToRoute model.url |> Debug.log "pageViewOrError route"
+                            , frontmatter = urlToRoute model.url
                             }
                                 |> viewFn []
                                 |> (\request ->
                                         StaticHttpRequest.resolve ApplicationType.Browser
                                             request
-                                            (viewResult.staticData
-                                                |> Debug.log "StaticHttpRequest.resolve staticData"
-                                            )
+                                            viewResult.staticData
                                    )
                     in
                     case viewFnResult of
@@ -174,7 +172,7 @@ view urlToRoute pathKey viewFn model =
         { title, body } =
             mainView urlToRoute pathKey viewFn model
     in
-    { title = title |> Debug.log "title"
+    { title = title
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg |> Html.map AppMsg
@@ -500,7 +498,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageCha
                     ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
 
                 UpdateCache cacheUpdateResult ->
-                    case cacheUpdateResult |> Debug.log "cacheUpdateResult" of
+                    case cacheUpdateResult of
                         -- TODO can there be race conditions here? Might need to set something in the model
                         -- to keep track of the last url change
                         Ok updatedCache ->
@@ -546,7 +544,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageCha
                             ( model, Cmd.none )
 
                 UpdateCacheAndUrl url cacheUpdateResult ->
-                    case cacheUpdateResult |> Debug.log "updateCacheResult" of
+                    case cacheUpdateResult of
                         -- TODO can there be race conditions here? Might need to set something in the model
                         -- to keep track of the last url change
                         Ok updatedCache ->
@@ -568,7 +566,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageCha
                                             ( model.userModel, Cmd.none )
                             in
                             ( { model
-                                | url = url |> Debug.log "@@@ url"
+                                | url = url
                                 , contentCache = updatedCache
                                 , userModel = userModel
                               }
