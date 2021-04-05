@@ -54,6 +54,7 @@ import Shared
 {-| -}
 type alias TemplateWithState routeParams templateStaticData templateModel templateMsg =
     { staticData : routeParams -> StaticHttp.Request templateStaticData
+    , staticRoutes : StaticHttp.Request (List routeParams)
     , view :
         templateModel
         -> Shared.Model
@@ -85,6 +86,7 @@ type alias StaticPayload staticData =
 type Builder routeParams templateStaticData
     = WithStaticData
         { staticData : routeParams -> StaticHttp.Request templateStaticData
+        , staticRoutes : StaticHttp.Request (List routeParams)
         , head :
             StaticPayload templateStaticData
             -> List (Head.Tag Pages.PathKey)
@@ -105,6 +107,7 @@ buildNoState { view } builderState =
             { view = \() _ -> view
             , head = record.head
             , staticData = record.staticData
+            , staticRoutes = record.staticRoutes
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ -> Sub.none
@@ -132,6 +135,7 @@ buildWithLocalState config builderState =
                     config.view model sharedModel staticPayload
             , head = record.head
             , staticData = record.staticData
+            , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
                 \metadata msg templateModel sharedModel ->
@@ -165,6 +169,7 @@ buildWithSharedState config builderState =
             { view = config.view
             , head = record.head
             , staticData = record.staticData
+            , staticRoutes = record.staticRoutes
             , init = config.init
             , update = config.update
             , subscriptions = config.subscriptions
@@ -174,22 +179,27 @@ buildWithSharedState config builderState =
 {-| -}
 withStaticData :
     { staticData : routeParams -> StaticHttp.Request templateStaticData
+    , staticRoutes : StaticHttp.Request (List routeParams)
     , head : StaticPayload templateStaticData -> List (Head.Tag Pages.PathKey)
     }
     -> Builder routeParams templateStaticData
-withStaticData { staticData, head } =
+withStaticData { staticData, head, staticRoutes } =
     WithStaticData
         { staticData = staticData
+        , staticRoutes = staticRoutes
         , head = head
         }
 
 
 {-| -}
 noStaticData :
-    { head : StaticPayload () -> List (Head.Tag Pages.PathKey) }
+    { head : StaticPayload () -> List (Head.Tag Pages.PathKey)
+    , staticRoutes : StaticHttp.Request (List routeParams)
+    }
     -> Builder routeParams ()
-noStaticData { head } =
+noStaticData { head, staticRoutes } =
     WithStaticData
         { staticData = \_ -> StaticHttp.succeed ()
+        , staticRoutes = staticRoutes
         , head = head
         }

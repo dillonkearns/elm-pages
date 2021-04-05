@@ -25,6 +25,7 @@ template : TemplateWithState {} StaticData () Msg
 template =
     Template.withStaticData
         { head = head
+        , staticRoutes = StaticHttp.succeed []
         , staticData = \_ -> staticData
         }
         |> Template.buildNoState { view = view }

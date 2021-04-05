@@ -36,7 +36,10 @@ type Msg
 
 template : TemplateWithState {} StaticData Model Msg
 template =
-    Template.noStaticData { head = head }
+    Template.noStaticData
+        { head = head
+        , staticRoutes = StaticHttp.succeed []
+        }
         |> Template.buildWithSharedState
             { view = view
             , init = init

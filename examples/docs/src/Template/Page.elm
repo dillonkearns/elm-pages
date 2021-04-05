@@ -6,6 +6,7 @@ import Head
 import Head.Seo as Seo
 import Pages exposing (images)
 import Pages.PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
 import Shared
 import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
@@ -25,7 +26,10 @@ type alias Route =
 
 template : Template Route StaticData
 template =
-    Template.noStaticData { head = head }
+    Template.noStaticData
+        { head = head
+        , staticRoutes = StaticHttp.succeed []
+        }
         |> Template.buildNoState { view = view }
 
 

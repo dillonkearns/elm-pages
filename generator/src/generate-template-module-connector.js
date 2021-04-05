@@ -337,7 +337,17 @@ mainTemplate { site } =
                       .map((name) => `${routeVariant(name)} {}`)
                       .join("\n                    , ")}
                     ]
-                , Template.Blog.Slug_.routes |> StaticHttp.map (List.map RouteBlog__Slug_)
+                , ${templates
+                  .filter((name) => isParameterizedRoute(name))
+                  .map(
+                    (name) =>
+                      `Template.${moduleName(
+                        name
+                      )}.template.staticRoutes |> StaticHttp.map (List.map Route${pathNormalizedName(
+                        name
+                      )})`
+                  )
+                  .join("\n                , ")}
                 ]
                 |> StaticHttp.map List.concat
                 |> StaticHttp.map (List.map Just)
@@ -373,12 +383,24 @@ mapBoth fnA fnB ( a, b, c ) =
  * @param {string[]} name
  */
 function routeParser(name) {
-  if (name.some((section) => section.includes("_"))) {
-    return `Parser.map (\\slug -> RouteBlog__Slug_ { slug = slug }) (Parser.s "blog" </> Parser.string)`;
-  } else {
-    return `Parser.map (Route${pathNormalizedName(
+  const params = routeParams(name);
+  const parserCode = name
+    .map((section) => {
+      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
+      const maybeParam = routeParamMatch && routeParamMatch[1];
+      if (maybeParam) {
+        return `Parser.string`;
+      } else {
+        return `Parser.s "${camelToKebab(section)}"`;
+      }
+    })
+    .join(" </> ");
+  if (params.length > 0) {
+    return `Parser.map (\\${params.join(" ")} -> Route${pathNormalizedName(
       name
-    )} {}) (Parser.s "${name.join("TODO").toLowerCase()}")`;
+    )} { ${params.map((param) => `${param} = ${param}`)} }) (${parserCode})`;
+  } else {
+    return `Parser.map (Route${pathNormalizedName(name)} {}) (${parserCode})`;
   }
 }
 

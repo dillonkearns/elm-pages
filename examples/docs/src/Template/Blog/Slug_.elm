@@ -61,6 +61,7 @@ template =
     Template.withStaticData
         { staticData = staticData
         , head = head
+        , staticRoutes = routes
 
         --, route = route
         }

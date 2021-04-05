@@ -28,6 +28,7 @@ template =
     Template.withStaticData
         { head = head
         , staticData = \_ -> staticData
+        , staticRoutes = StaticHttp.succeed []
         }
         |> Template.buildWithLocalState
             { view = view
