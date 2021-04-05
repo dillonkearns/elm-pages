@@ -1,9 +1,9 @@
 module Pages.ImagePath exposing
-    ( ImagePath, toString, toAbsoluteUrl, external, dimensions, Dimensions
+    ( ImagePath, toString, toAbsoluteUrl, external
     , build
     )
 
-{-| This module is analgous to `Pages.PagePath`, except it represents an
+{-| This module is analogous to `Pages.PagePath`, except it represents an
 Image Path rather than a Page Path. Rather than copy-pasting those docs, I'll
 note the differences here. See the `Pages.PagePath` docs for more background.
 
@@ -39,7 +39,7 @@ or
     -- ImagePath.toString helloWorldPostPath
     -- => "images/profile-photos/dillon.jpg"
 
-@docs ImagePath, toString, toAbsoluteUrl, external, dimensions, Dimensions
+@docs ImagePath, toString, toAbsoluteUrl, external
 
 
 ## Functions for code generation only
@@ -63,16 +63,8 @@ external image path (which is not validated so use these carefully!).
 
 -}
 type ImagePath key
-    = Internal (List String) Dimensions
+    = Internal (List String)
     | External String
-
-
-{-| The intrinsic dimensions of the image in pixels.
--}
-type alias Dimensions =
-    { width : Int
-    , height : Int
-    }
 
 
 {-| Gives you the image's relative URL as a String. This is useful for constructing `<img>` tags:
@@ -96,7 +88,7 @@ type alias Dimensions =
 toString : ImagePath key -> String
 toString path =
     case path of
-        Internal rawPath _ ->
+        Internal rawPath ->
             String.join "/" rawPath
 
         External url ->
@@ -108,7 +100,7 @@ toString path =
 toAbsoluteUrl : String -> ImagePath key -> String
 toAbsoluteUrl canonicalSiteUrl path =
     case path of
-        Internal rawPath _ ->
+        Internal rawPath ->
             Path.join
                 canonicalSiteUrl
                 (String.join "/" rawPath)
@@ -119,9 +111,9 @@ toAbsoluteUrl canonicalSiteUrl path =
 
 {-| This is not useful except for the internal generated code to construct an `ImagePath`.
 -}
-build : key -> List String -> Dimensions -> ImagePath key
-build _ path dims =
-    Internal path dims
+build : key -> List String -> ImagePath key
+build _ path =
+    Internal path
 
 
 {-| This allows you to build a URL to an external resource. Avoid using
@@ -148,18 +140,3 @@ this only to point to outside images.
 external : String -> ImagePath key
 external url =
     External url
-
-
-{-| The dimensions of the image at that path.
-
-Since we do not know the dimensions of external images, created with [`external`](#external), we might get `Nothing`!
-
--}
-dimensions : ImagePath key -> Maybe Dimensions
-dimensions imagePath =
-    case imagePath of
-        Internal _ dims ->
-            Just dims
-
-        External _ ->
-            Nothing
