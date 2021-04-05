@@ -404,6 +404,9 @@ function routeParser(name) {
       const maybeParam = routeParamMatch && routeParamMatch[1];
       if (maybeParam) {
         return `Parser.string`;
+      } else if (section === "Index") {
+        // TODO give an error if it isn't the final element
+        return "Parser.top";
       } else {
         return `Parser.s "${camelToKebab(section)}"`;
       }
@@ -458,7 +461,7 @@ function routeVariant(name) {
  * @param {string[]} name
  */
 function routePathList(name) {
-  return name
+  return withoutTrailingIndex(name)
     .map((section) => {
       const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
       const maybeParam = routeParamMatch && routeParamMatch[1];
@@ -469,6 +472,17 @@ function routePathList(name) {
       }
     })
     .join(", ");
+}
+
+/**
+ * @param {string[]} name
+ */
+function withoutTrailingIndex(name) {
+  if (name[name.length - 1] === "Index") {
+    return name.slice(0, -1);
+  } else {
+    return name;
+  }
 }
 /**
  * Convert Strings from camelCase to kebab-case
