@@ -1,5 +1,5 @@
 [build]
   base = "examples/docs/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && npm ci && npm run build"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../.. && npm install) && npm install && npm run build"
   ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
