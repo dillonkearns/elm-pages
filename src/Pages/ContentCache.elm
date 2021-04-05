@@ -55,15 +55,7 @@ init :
     -> ContentCache
 init maybeInitialPageContent =
     Ok <|
-        (Dict.fromList
-            [ ( [], NeedContent )
-            , ( [ "showcase" ], NeedContent )
-            , ( [ "blog" ], NeedContent )
-            , ( [ "page" ], NeedContent )
-            , ( [ "blog", "static-http" ], NeedContent )
-
-            --, ( [], NeedContent "/showcase" NoMetadata.NoMetadata )
-            ]
+        (Dict.fromList []
             |> (\dict ->
                     case maybeInitialPageContent of
                         Nothing ->
@@ -74,22 +66,6 @@ init maybeInitialPageContent =
                                 |> Dict.insert (pathForUrl urls) (Parsed contentJson)
                )
         )
-
-
-
---content
---    --[]
---    |> parseMetadata maybeInitialPageContent document
---    |> List.map
---        (\tuple ->
---            tuple
---                |> Tuple.first
---                |> createErrors
---                |> Result.mapError
---                |> (\f -> Tuple.mapSecond f tuple)
---        )
---    |> combineTupleResults
---    |> Result.map Dict.fromList
 
 
 routes : List ( List String, anything ) -> List String
@@ -225,8 +201,9 @@ update cacheResult urls rawContent =
                                 |> Just
 
                         Nothing ->
-                            -- TODO this should never happen
-                            Nothing
+                            { staticData = rawContent.staticData }
+                                |> Parsed
+                                |> Just
                 )
                 cache
                 |> Ok
