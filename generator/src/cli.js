@@ -60,7 +60,7 @@ function runElmApp() {
   return new Promise((resolve, _) => {
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
-    const app = require(ELM_FILE_PATH).Elm.Main.init({
+    const app = require(ELM_FILE_PATH).Elm.TemplateModulesBeta.init({
       flags: { secrets: process.env, mode, staticHttpCache },
     });
 
@@ -189,7 +189,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
 
 async function compileElm() {
   const outputPath = `dist/elm.js`;
-  await spawnElmMake("src/Main.elm", outputPath);
+  await spawnElmMake("gen/TemplateModulesBeta.elm", outputPath);
 
   const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
   if (debug) {
@@ -306,7 +306,11 @@ async function copyAssets() {
 }
 
 async function compileCliApp() {
-  await spawnElmMake("../../src/Main.elm", "elm.js", "./elm-stuff/elm-pages");
+  await spawnElmMake(
+    "TemplateModulesBeta.elm",
+    "elm.js",
+    "./elm-stuff/elm-pages"
+  );
 
   const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
   await fs.writeFile(

@@ -58,8 +58,6 @@ async function writeFiles(markdownContent) {
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
   const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
-  const templateConnectorFile = generateTemplateModuleConnector();
-
   fs.writeFileSync("./gen/Pages.elm", uiFileContent);
 
   // write `Pages.elm` with cli interface
@@ -69,9 +67,12 @@ async function writeFiles(markdownContent) {
   );
   fs.writeFileSync(
     "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
-    templateConnectorFile
+    generateTemplateModuleConnector("cli")
   );
-  fs.writeFileSync("./gen/TemplateModulesBeta.elm", templateConnectorFile);
+  fs.writeFileSync(
+    "./gen/TemplateModulesBeta.elm",
+    generateTemplateModuleConnector("browser")
+  );
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();

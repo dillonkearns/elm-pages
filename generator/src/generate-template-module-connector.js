@@ -2,7 +2,10 @@ const globby = require("globby");
 const path = require("path");
 const mm = require("micromatch");
 
-function generateTemplateModuleConnector() {
+/**
+ * @param {'browser' | 'cli'} phase
+ */
+function generateTemplateModuleConnector(phase) {
   const templates = globby.sync(["src/Template/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("src/Template/**/*.elm", file);
     if (captures) {
@@ -15,8 +18,11 @@ function generateTemplateModuleConnector() {
   return `module TemplateModulesBeta exposing (..)
 
 import Browser
+import Pages.Internal.Platform
+import Pages.Internal.Platform.ToJsPayload
 import Pages.Manifest as Manifest
 import Shared
+import Site
 import NoMetadata exposing (NoMetadata(..))
 import Head
 import Html exposing (Html)
@@ -326,35 +332,31 @@ templateSubscriptions route path model =
             Sub.none
 
 
-mainTemplate { site } =
-    Pages.Platform.init
+main : Pages.Internal.Platform.Program Model Msg (Maybe Route) Pages.PathKey
+main =
+    Pages.Internal.Platform.${
+      phase === "browser" ? "application" : "cliApplication"
+    }
         { init = init Nothing
         , urlToRoute = urlToRoute
         , routeToPath = routeToPath
+        , site = Site.config
         , getStaticRoutes =
             StaticHttp.combine
                 [ StaticHttp.succeed
-                    [ ${templates
-                      .filter((name) => !isParameterizedRoute(name))
-                      .map((name) => `${routeVariant(name)} {}`)
-                      .join("\n                    , ")}
+                    [ RouteBlog {}
+                    , RouteDocumentation {}
+                    , RoutePage {}
+                    , RouteShowcase {}
                     ]
-                , ${templates
-                  .filter((name) => isParameterizedRoute(name))
-                  .map(
-                    (name) =>
-                      `Template.${moduleName(
-                        name
-                      )}.template.staticRoutes |> StaticHttp.map (List.map Route${pathNormalizedName(
-                        name
-                      )})`
-                  )
-                  .join("\n                , ")}
+                , Template.Blog.Slug_.template.staticRoutes |> StaticHttp.map (List.map RouteBlog__Slug_)
+                , Template.Hello.Name_.template.staticRoutes |> StaticHttp.map (List.map RouteHello__Name_)
                 ]
                 |> StaticHttp.map List.concat
                 |> StaticHttp.map (List.map Just)
         , view = \\_ -> view
         , update = update
+        , manifest = Pages.Internal.Platform.ToJsPayload.stubManifest
         , subscriptions =
             \\metadata path model ->
                 Sub.batch
@@ -362,9 +364,11 @@ mainTemplate { site } =
                     , templateSubscriptions (RouteBlog {}) path model
                     ]
         , onPageChange = Just OnPageChange
-        , manifest = site.manifest
-        , canonicalSiteUrl = site.canonicalUrl
-        , internals = Pages.internals
+        , canonicalSiteUrl = "TODO"
+        , toJsPort = Pages.internals.toJsPort
+        , fromJsPort = Pages.internals.fromJsPort
+        , generateFiles = Site.config.generateFiles
+        , pathKey = Pages.internals.pathKey
         }
 
 

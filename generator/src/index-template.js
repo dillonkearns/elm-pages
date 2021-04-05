@@ -174,7 +174,7 @@ function httpGet(/** @type string */ theUrl) {
 
 userInit(
   pagesInit({
-    mainElmModule: Elm.Main,
+    mainElmModule: Elm.TemplateModulesBeta,
   })
 );
 `;

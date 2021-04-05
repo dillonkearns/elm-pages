@@ -14,6 +14,24 @@ import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 
 
+
+-- TODO wire this in as part of the config
+
+
+generateFiles :
+    StaticHttp.Request
+        (List
+            (Result
+                String
+                { path : List String
+                , content : String
+                }
+            )
+        )
+generateFiles =
+    StaticHttp.succeed []
+
+
 type alias StaticData =
     { siteName : String
     }
@@ -25,6 +43,7 @@ config =
     , canonicalUrl = canonicalUrl
     , manifest = manifest
     , head = head
+    , generateFiles = generateFiles
     }
 
 

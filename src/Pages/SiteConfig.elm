@@ -12,4 +12,14 @@ type alias SiteConfig staticData pathKey =
     , head :
         staticData
         -> List (Head.Tag pathKey)
+    , generateFiles :
+        StaticHttp.Request
+            (List
+                (Result
+                    String
+                    { path : List String
+                    , content : String
+                    }
+                )
+            )
     }
