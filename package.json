@@ -41,8 +41,6 @@
     "typescript": "^4.2.3"
   },
   "files": [
-    "index.js",
-    "generator/node-elm-compiler/",
     "generator/src/"
   ],
   "bin": {
