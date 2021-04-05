@@ -1,19 +1,26 @@
 #!/usr/bin/env node
 
 const fs = require("./dir-helpers.js");
+const path = require("path");
 
-if (process.argv.length === 3) {
-  const moduleName = process.argv[2];
-  if (!moduleName.match(/[A-Z][A-Za-z0-9]*/)) {
-    console.error("Invalid module name.");
+async function run() {
+  if (process.argv.length === 3) {
+    const moduleName = process.argv[2];
+    if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
+      console.error("Invalid module name.");
+      process.exit(1);
+    }
+    const content = fileContent(moduleName);
+    const fullFilePath = path.join(
+      `src/Template/`,
+      moduleName.replace(".", "/") + ".elm"
+    );
+    await fs.tryMkdir(path.dirname(fullFilePath));
+    fs.writeFile(fullFilePath, content);
+  } else {
+    console.error(`Unexpected CLI options: ${process.argv}`);
     process.exit(1);
   }
-  const content = fileContent(moduleName);
-  fs.tryMkdir("src/Template");
-  fs.writeFile(`src/Template/${moduleName}.elm`, content);
-} else {
-  console.error(`Unexpected CLI options: ${process.argv}`);
-  process.exit(1);
 }
 
 function fileContent(templateName) {
@@ -78,3 +85,5 @@ view static =
 
 `;
 }
+
+run();
