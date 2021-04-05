@@ -62,7 +62,7 @@ type Route
 
 urlToRoute : Url.Url -> Maybe Route
 urlToRoute url =
-    Parser.parse (Parser.oneOf routes) (url |> Debug.log "url")
+    Parser.parse (Parser.oneOf routes) url
 
 
 routeToPath : Maybe Route -> List String
