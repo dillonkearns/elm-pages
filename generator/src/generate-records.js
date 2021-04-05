@@ -2,7 +2,6 @@ const path = require("path");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
-const sharp = require("sharp");
 const parseFrontmatter = require("./frontmatter.js");
 
 // Because we use node-glob, we must use `/` as a separator on all platforms. See https://github.com/isaacs/node-glob#windows
