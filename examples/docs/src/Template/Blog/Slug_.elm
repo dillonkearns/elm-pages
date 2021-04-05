@@ -59,7 +59,7 @@ type alias BlogPost =
 template : Template Route DataFromFile
 template =
     Template.withStaticData
-        { staticData = fileRequest
+        { staticData = staticData
         , head = head
 
         --, route = route
@@ -106,9 +106,7 @@ view { static } =
                     :: (publishedDateView static.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
                     :: Palette.blogHeading static.frontmatter.title
                     :: articleImageView static.frontmatter.image
-                    :: []
-                    -- TODO render with StaticHttp
-                    --:: Tuple.second rendered
+                    :: static.body
                     |> List.map (Element.map never)
                 )
             ]
@@ -187,11 +185,11 @@ type alias DataFromFile =
     }
 
 
-fileRequest : StaticHttp.Request DataFromFile
-fileRequest =
+staticData : Route -> StaticHttp.Request DataFromFile
+staticData route =
     StaticFile.request
-        "content/blog/extensible-markdown-parsing-in-elm.md"
-        --"content/blog/" ++ route.slug ++ ".md"
+        --"content/blog/extensible-markdown-parsing-in-elm.md"
+        ("content/blog/" ++ route.slug ++ ".md")
         (OptimizedDecoder.map2 DataFromFile
             (StaticFile.body
                 |> OptimizedDecoder.andThen

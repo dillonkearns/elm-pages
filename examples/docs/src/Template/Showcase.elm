@@ -25,7 +25,7 @@ template : TemplateWithState {} StaticData () Msg
 template =
     Template.withStaticData
         { head = head
-        , staticData = staticData
+        , staticData = \_ -> staticData
         }
         |> Template.buildNoState { view = view }
 

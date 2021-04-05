@@ -53,7 +53,7 @@ import Shared
 
 {-| -}
 type alias TemplateWithState routeParams templateStaticData templateModel templateMsg =
-    { staticData : StaticHttp.Request templateStaticData
+    { staticData : routeParams -> StaticHttp.Request templateStaticData
     , view :
         templateModel
         -> Shared.Model
@@ -82,9 +82,9 @@ type alias StaticPayload staticData =
 
 
 {-| -}
-type Builder templateStaticData
+type Builder routeParams templateStaticData
     = WithStaticData
-        { staticData : StaticHttp.Request templateStaticData
+        { staticData : routeParams -> StaticHttp.Request templateStaticData
         , head :
             StaticPayload templateStaticData
             -> List (Head.Tag Pages.PathKey)
@@ -97,7 +97,7 @@ buildNoState :
         StaticPayload templateStaticData
         -> Shared.PageView Never
     }
-    -> Builder templateStaticData
+    -> Builder routeParams templateStaticData
     -> TemplateWithState routeParams templateStaticData () Never
 buildNoState { view } builderState =
     case builderState of
@@ -122,7 +122,7 @@ buildWithLocalState :
     , update : Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
     }
-    -> Builder templateStaticData
+    -> Builder routeParams templateStaticData
     -> TemplateWithState routeParams templateStaticData templateModel templateMsg
 buildWithLocalState config builderState =
     case builderState of
@@ -157,7 +157,7 @@ buildWithSharedState :
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
     }
-    -> Builder templateStaticData
+    -> Builder routeParams templateStaticData
     -> TemplateWithState routeParams templateStaticData templateModel templateMsg
 buildWithSharedState config builderState =
     case builderState of
@@ -173,10 +173,10 @@ buildWithSharedState config builderState =
 
 {-| -}
 withStaticData :
-    { staticData : StaticHttp.Request templateStaticData
+    { staticData : routeParams -> StaticHttp.Request templateStaticData
     , head : StaticPayload templateStaticData -> List (Head.Tag Pages.PathKey)
     }
-    -> Builder templateStaticData
+    -> Builder routeParams templateStaticData
 withStaticData { staticData, head } =
     WithStaticData
         { staticData = staticData
@@ -187,9 +187,9 @@ withStaticData { staticData, head } =
 {-| -}
 noStaticData :
     { head : StaticPayload () -> List (Head.Tag Pages.PathKey) }
-    -> Builder ()
+    -> Builder routeParams ()
 noStaticData { head } =
     WithStaticData
-        { staticData = StaticHttp.succeed ()
+        { staticData = \_ -> StaticHttp.succeed ()
         , head = head
         }

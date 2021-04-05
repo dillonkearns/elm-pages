@@ -154,7 +154,7 @@ view page =
                         }
                     }
                 )
-                (Template.${moduleName(name)}.template.staticData)
+                (Template.${moduleName(name)}.template.staticData s)
                 (Shared.template.staticData)
 `
           )
