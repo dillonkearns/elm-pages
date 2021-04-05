@@ -66,7 +66,7 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : StaticPayload StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData {} -> List (Head.Tag Pages.PathKey)
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
@@ -87,7 +87,7 @@ head staticPayload =
 view :
     Model
     -> Shared.Model
-    -> StaticPayload StaticData
+    -> StaticPayload StaticData {}
     -> Shared.PageView Msg
 view model sharedModel staticPayload =
     { title = "TODO title" -- staticPayload.metadata.title -- TODO

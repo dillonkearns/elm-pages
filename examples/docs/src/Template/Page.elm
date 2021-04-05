@@ -34,7 +34,7 @@ template =
 
 
 head :
-    StaticPayload ()
+    StaticPayload () Route
     -> List (Head.Tag Pages.PathKey)
 head static =
     Seo.summary
@@ -58,7 +58,7 @@ type alias StaticData =
 
 
 view :
-    StaticPayload StaticData
+    StaticPayload StaticData Route
     -> Shared.PageView msg
 view static =
     { title = "TODO title" -- metadata.title -- TODO

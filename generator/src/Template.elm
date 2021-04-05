@@ -58,10 +58,10 @@ type alias TemplateWithState routeParams templateStaticData templateModel templa
     , view :
         templateModel
         -> Shared.Model
-        -> StaticPayload templateStaticData
+        -> StaticPayload templateStaticData routeParams
         -> Shared.PageView templateMsg
     , head :
-        StaticPayload templateStaticData
+        StaticPayload templateStaticData routeParams
         -> List (Head.Tag Pages.PathKey)
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
@@ -75,9 +75,10 @@ type alias Template routeParams staticData =
 
 
 {-| -}
-type alias StaticPayload staticData =
+type alias StaticPayload staticData routeParams =
     { static : staticData -- local
     , sharedStatic : Shared.StaticData -- share
+    , routeParams : routeParams
     , path : PagePath Pages.PathKey
     }
 
@@ -88,7 +89,7 @@ type Builder routeParams templateStaticData
         { staticData : routeParams -> StaticHttp.Request templateStaticData
         , staticRoutes : StaticHttp.Request (List routeParams)
         , head :
-            StaticPayload templateStaticData
+            StaticPayload templateStaticData routeParams
             -> List (Head.Tag Pages.PathKey)
         }
 
@@ -96,7 +97,7 @@ type Builder routeParams templateStaticData
 {-| -}
 buildNoState :
     { view :
-        StaticPayload templateStaticData
+        StaticPayload templateStaticData routeParams
         -> Shared.PageView Never
     }
     -> Builder routeParams templateStaticData
@@ -119,7 +120,7 @@ buildWithLocalState :
     { view :
         templateModel
         -> Shared.Model
-        -> StaticPayload templateStaticData
+        -> StaticPayload templateStaticData routeParams
         -> Shared.PageView templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
@@ -155,7 +156,7 @@ buildWithSharedState :
     { view :
         templateModel
         -> Shared.Model
-        -> StaticPayload templateStaticData
+        -> StaticPayload templateStaticData routeParams
         -> Shared.PageView templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
@@ -180,7 +181,7 @@ buildWithSharedState config builderState =
 withStaticData :
     { staticData : routeParams -> StaticHttp.Request templateStaticData
     , staticRoutes : StaticHttp.Request (List routeParams)
-    , head : StaticPayload templateStaticData -> List (Head.Tag Pages.PathKey)
+    , head : StaticPayload templateStaticData routeParams -> List (Head.Tag Pages.PathKey)
     }
     -> Builder routeParams templateStaticData
 withStaticData { staticData, head, staticRoutes } =
@@ -193,7 +194,7 @@ withStaticData { staticData, head, staticRoutes } =
 
 {-| -}
 noStaticData :
-    { head : StaticPayload () -> List (Head.Tag Pages.PathKey)
+    { head : StaticPayload () routeParams -> List (Head.Tag Pages.PathKey)
     , staticRoutes : StaticHttp.Request (List routeParams)
     }
     -> Builder routeParams ()

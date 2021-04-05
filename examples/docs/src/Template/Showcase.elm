@@ -72,7 +72,7 @@ type alias StaticData =
 
 
 view :
-    StaticPayload StaticData
+    StaticPayload StaticData {}
     -> Shared.PageView Msg
 view static =
     { title = "elm-pages blog"
@@ -88,7 +88,7 @@ view static =
     }
 
 
-head : StaticPayload StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData {} -> List (Head.Tag Pages.PathKey)
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

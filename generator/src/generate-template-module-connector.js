@@ -130,6 +130,7 @@ view page =
                                         model.global
                                         { static = data
                                         , sharedStatic = globalData
+                                        , routeParams = s
                                         , path = page.path
                                         }
                                         |> (\\{ title, body } ->
@@ -150,6 +151,7 @@ view page =
                     , head = Template.${moduleName(name)}.template.head
                         { static = data
                         , sharedStatic = globalData
+                        , routeParams = s
                         , path = page.path
                         }
                     }

@@ -72,7 +72,7 @@ type alias Model =
 view :
     Model
     -> Shared.Model
-    -> StaticPayload StaticData
+    -> StaticPayload StaticData {}
     -> Shared.PageView Msg
 view thing model staticPayload =
     { title = "elm-pages blog"
@@ -90,7 +90,7 @@ view thing model staticPayload =
     }
 
 
-head : StaticPayload StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData {} -> List (Head.Tag Pages.PathKey)
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

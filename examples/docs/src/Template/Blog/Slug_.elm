@@ -74,7 +74,7 @@ findMatchingImage imageAssetPath =
 
 
 view :
-    StaticPayload DataFromFile
+    StaticPayload DataFromFile Route
     -> Shared.PageView msg
 view { static } =
     { title = static.frontmatter.title
@@ -116,7 +116,7 @@ view { static } =
 
 
 head :
-    StaticPayload DataFromFile
+    StaticPayload DataFromFile Route
     -> List (Head.Tag Pages.PathKey)
 head { path, static } =
     let

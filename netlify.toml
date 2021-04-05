@@ -3,3 +3,13 @@
   publish = "dist/"
   command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
   ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
+
+# /*    /index.html   200
+
+[[redirects]]
+  from = "/*"
+  to = "/blog.html"
+  status = 200
+  force = false
+  # query = {path = ":path"} #  apply this rule for /old-path?path=example
+  # conditions = {Language = ["en","es"], Country = ["US"]}
