@@ -1,4 +1,4 @@
-module Template.Page exposing (Model, Msg, template)
+module Template.Index exposing (Model, Msg, template)
 
 import Element
 import Element.Region
