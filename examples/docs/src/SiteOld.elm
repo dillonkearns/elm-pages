@@ -1,57 +1,45 @@
-module Site exposing (canonicalUrl, config, tagline)
+module SiteOld exposing (canonicalUrl, config, tagline)
 
 import Cloudinary
 import Color
-import Head
 import MimeType
 import Pages exposing (images, pages)
 import Pages.ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath exposing (PagePath)
-import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp
+
+
+type alias SiteConfig =
+    { canonicalUrl : String
+    , manifest : Manifest.Config Pages.PathKey
+    }
+
+
+config : SiteConfig
+config =
+    { canonicalUrl = canonicalUrl
+    , manifest = manifest
+    }
 
 
 type alias StaticData =
     ()
 
 
-config : SiteConfig StaticData Pages.PathKey
-config =
-    { staticData = staticData
-    , canonicalUrl = canonicalUrl
-    , manifest = manifest
-    , head = head
-    }
-
-
-staticData : StaticHttp.Request StaticData
-staticData =
-    StaticHttp.succeed ()
-
-
-head : StaticData -> List (Head.Tag Pages.PathKey)
-head static =
-    [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
-    , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
-    , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
-    , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
-    ]
-
-
-canonicalUrl : StaticData -> String
-canonicalUrl static =
+canonicalUrl : String
+canonicalUrl =
     "https://elm-pages.com"
 
 
-manifest : StaticData -> Manifest.Config Pages.PathKey
-manifest static =
+manifest : Manifest.Config Pages.PathKey
+manifest =
     { backgroundColor = Just Color.white
     , categories = [ Pages.Manifest.Category.education ]
     , displayMode = Manifest.Standalone
     , orientation = Manifest.Portrait
-    , description = "elm-pages - " ++ tagline
+    , description = "elm-pages - A statically typed site generator."
     , iarcRatingId = Nothing
     , name = "elm-pages docs"
     , themeColor = Just Color.white
@@ -69,7 +57,7 @@ manifest static =
 
 tagline : String
 tagline =
-    "A statically typed site generator"
+    "A statically typed site generator - elm-pages"
 
 
 webp : MimeType.MimeImage

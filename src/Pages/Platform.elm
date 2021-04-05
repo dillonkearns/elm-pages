@@ -70,6 +70,7 @@ import Pages.Internal
 import Pages.Internal.Platform
 import Pages.Manifest
 import Pages.PagePath exposing (PagePath)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp
 import Url
 
@@ -289,8 +290,11 @@ withFileGenerator generateFiles (Builder config) =
 
 {-| When you're done with your builder pipeline, you complete it with `Pages.Platform.toProgram`.
 -}
-toProgram : Builder pathKey model msg route -> Program model msg route pathKey
-toProgram (Builder config) =
+toProgram :
+    SiteConfig siteStaticData pathKey
+    -> Builder pathKey model msg route
+    -> Program model msg route pathKey
+toProgram site (Builder config) =
     application
         { init = config.init
         , urlToRoute = config.urlToRoute
@@ -302,6 +306,7 @@ toProgram (Builder config) =
         , manifest = config.manifest
         , canonicalSiteUrl = config.canonicalSiteUrl
         , generateFiles = config.generateFiles
+        , site = site
         , onPageChange = config.onPageChange
         , internals = config.internals
         }
@@ -323,6 +328,7 @@ application :
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : msg -> model -> ( model, Cmd msg )
     , subscriptions : NoMetadata -> PagePath pathKey -> model -> Sub msg
+    , site : SiteConfig staticData pathKey
     , view :
         List ( PagePath pathKey, NoMetadata )
         ->
@@ -371,6 +377,7 @@ application config =
         , urlToRoute = config.urlToRoute
         , getStaticRoutes = config.getStaticRoutes
         , routeToPath = config.routeToPath
+        , site = config.site
         , view = config.view
         , update = config.update
         , subscriptions = config.subscriptions

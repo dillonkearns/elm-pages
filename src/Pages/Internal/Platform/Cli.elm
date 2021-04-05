@@ -29,6 +29,7 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessP
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import SecretsDict exposing (SecretsDict)
@@ -60,7 +61,7 @@ type Msg
     | Continue
 
 
-type alias Config pathKey userMsg userModel route =
+type alias Config pathKey userMsg userModel route siteStaticData =
     { init :
         Maybe
             { path :
@@ -74,6 +75,7 @@ type alias Config pathKey userMsg userModel route =
     , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url.Url -> route
     , routeToPath : route -> List String
+    , site : SiteConfig siteStaticData pathKey
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
@@ -119,7 +121,7 @@ cliApplication :
     -> (msg -> Maybe Msg)
     -> (Model pathKey route -> model)
     -> (model -> Maybe (Model pathKey route))
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -218,7 +220,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Config pathKey userMsg userModel route -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform : Config pathKey userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
 perform config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -360,7 +362,7 @@ flagsDecoder =
 init :
     (Model pathKey route -> model)
     -> ContentCache
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> Decode.Value
     -> ( model, Effect pathKey )
 init toModel contentCache config flags =
@@ -402,7 +404,7 @@ initLegacy :
     { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
     -> ContentCache
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> ( model, Effect pathKey )
 initLegacy { secrets, mode, staticHttpCache } toModel contentCache config =
     case contentCache of
@@ -444,7 +446,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache config =
 
 updateAndSendPortIfDone :
     ContentCache
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> Model pathKey route
     -> (Model pathKey route -> model)
     -> ( model, Effect pathKey )
@@ -467,7 +469,7 @@ updateAndSendPortIfDone contentCache config model toModel =
 
 update :
     ContentCache
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> Msg
     -> Model pathKey route
     -> ( Model pathKey route, Effect pathKey )
@@ -642,7 +644,7 @@ update contentCache config msg model =
 
 nextStepToEffect :
     ContentCache
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> Model pathKey route
     -> ( StaticResponses, StaticResponses.NextStep pathKey route )
     -> ( Model pathKey route, Effect pathKey )
@@ -741,7 +743,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
 sendSinglePageProgress :
     ToJsSuccessPayload pathKey
-    -> Config pathKey userMsg userModel route
+    -> Config pathKey userMsg userModel route siteStaticData
     -> ContentCache
     -> Model pathKey route
     -> ( PagePath pathKey, route )

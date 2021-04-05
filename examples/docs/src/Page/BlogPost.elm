@@ -19,7 +19,7 @@ import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
-import Site
+import SiteOld
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
 import TemplateMetadata exposing (BlogPost)
@@ -114,8 +114,8 @@ head { path, static } =
             , description = static.frontmatter.description
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = Site.canonicalUrl ++ "/" ++ PagePath.toString path
-            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString static.frontmatter.image
+            , url = SiteOld.canonicalUrl ++ "/" ++ PagePath.toString path
+            , imageUrl = SiteOld.canonicalUrl ++ "/" ++ ImagePath.toString static.frontmatter.image
             , datePublished = Date.toIsoString static.frontmatter.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode

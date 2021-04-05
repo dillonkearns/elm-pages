@@ -14,7 +14,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
-import Site
+import SiteOld
 import Template exposing (StaticPayload, TemplateWithState)
 
 
@@ -77,7 +77,7 @@ head staticPayload =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = Site.tagline
+        , description = SiteOld.tagline
         , locale = Nothing
         , title = "TODO title" -- staticPayload.metadata.title -- TODO
         }

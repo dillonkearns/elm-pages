@@ -17,6 +17,7 @@ import Rss
 import RssPlugin
 import Shared
 import Site
+import SiteOld
 import Template.Blog.Slug_
 import TemplateModulesBeta
 
@@ -54,24 +55,18 @@ socialIcon =
 main : Pages.Platform.Program TemplateModulesBeta.Model TemplateModulesBeta.Msg (Maybe TemplateModulesBeta.Route) Pages.PathKey
 main =
     TemplateModulesBeta.mainTemplate
-        { site = Site.config
+        { site = SiteOld.config
         }
         |> RssPlugin.generate
-            { siteTagline = Site.tagline
-            , siteUrl = Site.canonicalUrl
+            { siteTagline = SiteOld.tagline
+            , siteUrl = SiteOld.canonicalUrl
             , title = "elm-pages Blog"
             , builtAt = Pages.builtAt
             , indexPage = Pages.pages.index
             }
             Template.Blog.Slug_.toRssItem
             Template.Blog.Slug_.articlesRequest
-        |> Pages.Platform.withGlobalHeadTags
-            [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
-            , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
-            , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
-            , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
-            ]
-        |> Pages.Platform.toProgram
+        |> Pages.Platform.toProgram Site.config
 
 
 metadataToRssItem :

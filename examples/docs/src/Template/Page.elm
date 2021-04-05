@@ -8,7 +8,7 @@ import Pages exposing (images)
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
-import Site
+import SiteOld
 import Template exposing (StaticPayload, Template, TemplateWithState)
 
 
@@ -46,7 +46,7 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = Site.tagline
+        , description = SiteOld.tagline
         , locale = Nothing
         , title = "TODO title" -- metadata.title -- TODO
         }

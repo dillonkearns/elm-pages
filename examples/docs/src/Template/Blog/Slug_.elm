@@ -20,7 +20,7 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import Rss
 import Shared
-import Site
+import SiteOld
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
 
@@ -129,8 +129,8 @@ head { path, static } =
             , description = metadata.description
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = Site.canonicalUrl ++ "/" ++ PagePath.toString path
-            , imageUrl = Site.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
+            , url = SiteOld.canonicalUrl ++ "/" ++ PagePath.toString path
+            , imageUrl = SiteOld.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
             , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode

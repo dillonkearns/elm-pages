@@ -18,6 +18,7 @@ import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -623,6 +624,7 @@ application :
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
+    , site : SiteConfig staticData pathKey
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
     , view :
@@ -778,6 +780,7 @@ cliApplication :
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
+    , site : SiteConfig staticData pathKey
     , view :
         List ( PagePath pathKey, NoMetadata )
         ->

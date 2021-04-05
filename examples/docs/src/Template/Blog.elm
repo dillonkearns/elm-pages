@@ -15,7 +15,7 @@ import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
-import Site
+import SiteOld
 import Template exposing (StaticPayload, TemplateWithState)
 
 
@@ -101,7 +101,7 @@ head staticPayload =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = Site.tagline
+        , description = SiteOld.tagline
         , locale = Nothing
         , title = "elm-pages blog"
         }
