@@ -41,19 +41,8 @@ isValidRoute route =
 }
 
 /**
- * @param {{
-    allRoutes: string;
-    routeRecord: string;
-    imageAssetsRecord: string;
-    allImages: string[];
-}} staticRoutes
- * @param {{
-    path: any;
-    metadata: string;
-    body: string;
-}[]} markdownContent
- */
-function elmPagesUiFile(staticRoutes, markdownContent) {
+ * @param {{ allRoutes: string; routeRecord: string; imageAssetsRecord: string; allImages: string[]; }} staticRoutes */
+function elmPagesUiFile(staticRoutes) {
   return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
@@ -118,19 +107,9 @@ ${staticRouteStuff(staticRoutes)}
 }
 
 /**
- * @param {{
-    allRoutes: string;
-    routeRecord: string;
-    imageAssetsRecord: string;
-    allImages: string[];
-}} staticRoutes
- * @param {{
-    path: any;
-    metadata: string;
-    body: string;
-}[]} markdownContent
+ * @param {{ allRoutes: string; routeRecord: string; imageAssetsRecord: string; allImages: string[]; }} staticRoutes
  */
-function elmPagesCliFile(staticRoutes, markdownContent) {
+function elmPagesCliFile(staticRoutes) {
   return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)

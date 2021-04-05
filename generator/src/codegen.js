@@ -6,43 +6,16 @@ const {
 } = require("./generate-template-module-connector.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
-const globby = require("globby");
-const matter = require("gray-matter");
 const generateRecords = require("./generate-records.js");
 
 async function generate() {
   global.builtAt = new Date();
   global.staticHttpCache = {};
 
-  const markdownContent = globby
-    .sync(["content/**/*.*"], {})
-    .map(unpackFile)
-    .map(({ path, contents }) => {
-      return parseMarkdown(path, contents);
-    });
-  const routes = toRoutes(markdownContent);
-  await writeFiles(markdownContent);
+  await writeFiles();
 }
 
-function unpackFile(path) {
-  return { path, contents: fs.readFileSync(path).toString() };
-}
-
-function toRoutes(entries) {
-  return entries.map(toRoute);
-}
-
-function toRoute(entry) {
-  let fullPath = entry.path
-    .replace(/(index)?\.[^/.]+$/, "")
-    .split("/")
-    .filter((item) => item !== "")
-    .slice(1);
-
-  return fullPath.join("/");
-}
-
-async function writeFiles(markdownContent) {
+async function writeFiles() {
   const staticRoutes = await generateRecords();
   ensureDirSync("./elm-stuff");
   ensureDirSync("./gen");
@@ -57,13 +30,13 @@ async function writeFiles(markdownContent) {
   deleteIfExists("./elm-stuff/elm-pages/Pages/ContentCache.elm");
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
-  const uiFileContent = elmPagesUiFile(staticRoutes, markdownContent);
+  const uiFileContent = elmPagesUiFile(staticRoutes);
   fs.writeFileSync("./gen/Pages.elm", uiFileContent);
 
   // write `Pages.elm` with cli interface
   fs.writeFileSync(
     "./elm-stuff/elm-pages/Pages.elm",
-    elmPagesCliFile(staticRoutes, markdownContent)
+    elmPagesCliFile(staticRoutes)
   );
   fs.writeFileSync(
     "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
@@ -76,15 +49,6 @@ async function writeFiles(markdownContent) {
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();
-}
-
-function parseMarkdown(path, fileContents) {
-  const { content, data } = matter(fileContents);
-  return {
-    path,
-    metadata: JSON.stringify(data),
-    body: content,
-  };
 }
 
 module.exports = { generate };
