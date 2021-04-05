@@ -2,7 +2,7 @@ const path = require("path");
 const dir = "content/";
 const glob = require("glob");
 const fs = require("fs");
-const parseFrontmatter = require("./frontmatter.js");
+const matter = require("gray-matter");
 
 // Because we use node-glob, we must use `/` as a separator on all platforms. See https://github.com/isaacs/node-glob#windows
 const PATH_SEPARATOR = "/";
@@ -26,10 +26,7 @@ function unpackFile() {
 
     var relative = filepath.slice(dir.length);
 
-    const foundMetadata = parseFrontmatter(
-      fullPath,
-      fs.readFileSync(fullPath).toString()
-    );
+    const foundMetadata = matter(fs.readFileSync(fullPath).toString());
 
     const metadata = {
       path: relative,

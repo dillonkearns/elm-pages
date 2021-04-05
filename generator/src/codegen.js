@@ -7,7 +7,7 @@ const {
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 const globby = require("globby");
-const parseFrontmatter = require("./frontmatter.js");
+const matter = require("gray-matter");
 const generateRecords = require("./generate-records.js");
 
 async function generate() {
@@ -79,7 +79,7 @@ async function writeFiles(markdownContent) {
 }
 
 function parseMarkdown(path, fileContents) {
-  const { content, data } = parseFrontmatter(path, fileContents);
+  const { content, data } = matter(fileContents);
   return {
     path,
     metadata: JSON.stringify(data),
