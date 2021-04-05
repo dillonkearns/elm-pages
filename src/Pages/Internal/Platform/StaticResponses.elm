@@ -8,6 +8,7 @@ import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -36,6 +37,7 @@ init :
     { config
         | view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
         , getStaticRoutes : StaticHttp.Request (List route)
+        , site : SiteConfig siteStaticData pathKey
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -50,9 +52,10 @@ init :
     -> StaticResponses
 init config =
     NotFetched
-        (StaticHttp.map2 (\_ _ -> ())
+        (StaticHttp.map3 (\_ _ _ -> ())
             config.getStaticRoutes
             config.generateFiles
+            config.site.staticData
         )
         Dict.empty
         |> GettingInitialData
@@ -126,6 +129,7 @@ nextStep :
         , getStaticRoutes : StaticHttp.Request (List route)
         , routeToPath : route -> List String
         , view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
+        , site : SiteConfig siteStaticData pathKey
         , pathKey : pathKey
         , generateFiles :
             StaticHttp.Request
@@ -397,15 +401,36 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         )
 
             StaticResponses _ ->
-                ( staticResponses_
-                , ToJsPayload.toJsPayload
-                    (encode allRawResponses mode staticResponses)
-                    config.manifest
-                    generatedOkayFiles
-                    allRawResponses
-                    allErrors
-                    |> Finish
-                )
+                let
+                    siteStaticData =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            config.site.staticData
+                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
+                in
+                case siteStaticData of
+                    Err siteStaticDataError ->
+                        ( staticResponses_
+                        , ToJsPayload.toJsPayload
+                            (encode allRawResponses mode staticResponses)
+                            ToJsPayload.stubManifest
+                            generatedOkayFiles
+                            allRawResponses
+                            (siteStaticDataError :: allErrors)
+                            |> Finish
+                        )
+
+                    Ok okSiteStaticData ->
+                        ( staticResponses_
+                        , ToJsPayload.toJsPayload
+                            (encode allRawResponses mode staticResponses)
+                            (config.site.manifest okSiteStaticData)
+                            generatedOkayFiles
+                            allRawResponses
+                            allErrors
+                            -- TODO send all global head tags on initial call
+                            |> Finish
+                        )
 
 
 performStaticHttpRequests :

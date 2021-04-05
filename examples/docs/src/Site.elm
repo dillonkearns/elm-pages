@@ -10,11 +10,13 @@ import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
+import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 
 
 type alias StaticData =
-    ()
+    { siteName : String
+    }
 
 
 config : SiteConfig StaticData Pages.PathKey
@@ -28,7 +30,8 @@ config =
 
 staticData : StaticHttp.Request StaticData
 staticData =
-    StaticHttp.succeed ()
+    StaticHttp.map StaticData
+        (StaticFile.request "site-name.txt" StaticFile.body)
 
 
 head : StaticData -> List (Head.Tag Pages.PathKey)
@@ -53,7 +56,7 @@ manifest static =
     , orientation = Manifest.Portrait
     , description = "elm-pages - " ++ tagline
     , iarcRatingId = Nothing
-    , name = "elm-pages docs"
+    , name = static.siteName
     , themeColor = Just Color.white
     , startUrl = pages.index
     , shortName = Just "elm-pages"
