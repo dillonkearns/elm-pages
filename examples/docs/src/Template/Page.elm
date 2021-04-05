@@ -1,15 +1,14 @@
 module Template.Page exposing (Model, Msg, template)
 
-import Element exposing (Element)
+import Element
 import Element.Region
 import Head
 import Head.Seo as Seo
 import Pages exposing (images)
-import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
-import Template exposing (StaticPayload, Template, TemplateWithState)
+import Template exposing (StaticPayload, Template)
 
 
 type alias Model =

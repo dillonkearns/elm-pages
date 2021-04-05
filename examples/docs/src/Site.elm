@@ -1,4 +1,4 @@
-module Site exposing (canonicalUrl, config, tagline)
+module Site exposing (config)
 
 import Cloudinary
 import Color
@@ -8,7 +8,6 @@ import Pages exposing (images, pages)
 import Pages.ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
-import Pages.PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
@@ -117,8 +116,3 @@ cloudinaryIcon :
     -> ImagePath pathKey
 cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
-
-
-socialIcon : ImagePath pathKey
-socialIcon =
-    Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" Nothing 250

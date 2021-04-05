@@ -8,7 +8,6 @@ import OptimizedDecoder as Decode
 import Pages.Secrets as Secrets
 import Pages.StaticHttp as StaticHttp
 import Palette
-import Url.Builder
 
 
 view : List Entry -> Element.Element msg

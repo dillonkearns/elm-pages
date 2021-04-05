@@ -7,7 +7,7 @@ import Element exposing (Element)
 import Element.Border
 import Element.Font
 import Pages
-import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
 
 
@@ -32,7 +32,7 @@ view posts =
             --                Nothing
             --    )
             |> List.sortBy
-                (\( path, metadata ) -> -(metadata.published |> Date.toRataDie))
+                (\( _, metadata ) -> -(metadata.published |> Date.toRataDie))
             |> List.map postSummary
         )
 

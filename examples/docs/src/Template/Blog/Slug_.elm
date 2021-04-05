@@ -68,11 +68,6 @@ template =
         |> Template.buildNoState { view = view }
 
 
-findMatchingImage : String -> Maybe (ImagePath Pages.PathKey)
-findMatchingImage imageAssetPath =
-    List.Extra.find (\image -> ImagePath.toString image == imageAssetPath) Pages.allImages
-
-
 view :
     StaticPayload DataFromFile Route
     -> Shared.PageView msg
@@ -164,7 +159,7 @@ head { path, static } =
            )
 
 
-publishedDateView : { a | published : Date.Date } -> Element msg
+publishedDateView : { a | published : Date } -> Element msg
 publishedDateView metadata =
     Element.text
         (metadata.published

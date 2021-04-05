@@ -10,8 +10,7 @@ import Element.Region
 import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
-import MarkdownRenderer
-import NoMetadata exposing (NoMetadata(..), NoView)
+import NoMetadata exposing (NoMetadata)
 import OptimizedDecoder as D
 import Pages exposing (pages)
 import Pages.Directory as Directory exposing (Directory)
@@ -127,7 +126,7 @@ init maybePagePath =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        OnPageChange page ->
+        OnPageChange _ ->
             ( { model | showMobileMenu = False }, Cmd.none )
 
         ToggleMobileMenu ->
@@ -198,11 +197,6 @@ view stars page model toMsg pageView =
                 ]
     , title = pageView.title
     }
-
-
-incrementView : Model -> Element Msg
-incrementView model =
-    Element.el [ Element.Events.onClick Increment ] (Element.text <| "Shared count: " ++ String.fromInt model.counter)
 
 
 logoLinkMobile =

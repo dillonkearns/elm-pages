@@ -3,10 +3,7 @@ module Template.Showcase exposing (Model, Msg, template)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
-import MarkdownRenderer
-import OptimizedDecoder
 import Pages exposing (images)
-import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
@@ -45,26 +42,6 @@ staticData =
 
 type alias DataFromFile =
     { body : List (Element Msg), title : String }
-
-
-fileRequest : StaticHttp.Request DataFromFile
-fileRequest =
-    StaticFile.request
-        "content/blog/static-http.md"
-        (OptimizedDecoder.map2 DataFromFile
-            (StaticFile.body
-                |> OptimizedDecoder.andThen
-                    (\rawBody ->
-                        case rawBody |> MarkdownRenderer.view |> Result.map Tuple.second of
-                            Ok renderedBody ->
-                                OptimizedDecoder.succeed renderedBody
-
-                            Err error ->
-                                OptimizedDecoder.fail error
-                    )
-            )
-            (StaticFile.frontmatter (OptimizedDecoder.field "title" OptimizedDecoder.string))
-        )
 
 
 type alias StaticData =

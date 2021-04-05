@@ -8,9 +8,8 @@ import Element.Font as Font
 import Element.Input
 import Element.Region
 import Ellie
-import Html exposing (Attribute, Html)
-import Html.Attributes exposing (property)
-import Json.Encode as Encode exposing (Value)
+import Html
+import Html.Attributes
 import Markdown.Block as Block exposing (Block, Inline, ListItem(..), Task(..))
 import Markdown.Html
 import Markdown.Parser
@@ -20,7 +19,7 @@ import Palette
 import SyntaxHighlight
 
 
-buildToc : List Block.Block -> TableOfContents
+buildToc : List Block -> TableOfContents
 buildToc blocks =
     let
         headings =
@@ -71,7 +70,7 @@ renderer =
     , emphasis = \content -> Element.paragraph [ Font.italic ] content
     , codeSpan = code
     , link =
-        \{ title, destination } body ->
+        \{ destination } body ->
             Element.newTabLink []
                 { url = destination
                 , label =
@@ -86,7 +85,7 @@ renderer =
     , image =
         \image ->
             case image.title of
-                Just title ->
+                Just _ ->
                     Element.image [ Element.width Element.fill ] { src = image.src, description = image.alt }
 
                 Nothing ->
@@ -143,7 +142,7 @@ renderer =
     , tableBody = Element.column []
     , tableRow = Element.row []
     , tableHeaderCell =
-        \maybeAlignment children ->
+        \_ children ->
             Element.paragraph [] children
     , tableCell = Element.paragraph []
     , html =
@@ -211,7 +210,7 @@ renderer =
                         children
                 )
             , Markdown.Html.tag "oembed"
-                (\url children ->
+                (\url _ ->
                     Oembed.view [] Nothing url
                         |> Maybe.map Element.html
                         |> Maybe.withDefault Element.none
@@ -219,7 +218,7 @@ renderer =
                 )
                 |> Markdown.Html.withAttribute "url"
             , Markdown.Html.tag "ellie-output"
-                (\ellieId children ->
+                (\ellieId _ ->
                     -- Oembed.view [] Nothing url
                     --     |> Maybe.map Element.html
                     --     |> Maybe.withDefault Element.none
@@ -307,11 +306,3 @@ codeBlock details =
             (Html.pre [] [ Html.code [] [ Html.text details.body ] ])
         |> Element.html
         |> Element.el [ Element.width Element.fill ]
-
-
-editorValue : String -> Attribute msg
-editorValue value =
-    value
-        |> String.trim
-        |> Encode.string
-        |> property "editorValue"

@@ -4,7 +4,6 @@ import Cloudinary
 import Date exposing (Date)
 import Element exposing (Element)
 import Glob
-import MarkdownRenderer
 import OptimizedDecoder
 import Pages
 import Pages.ImagePath exposing (ImagePath)

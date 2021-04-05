@@ -1,7 +1,6 @@
 module RssPlugin exposing (generate)
 
 import Head
-import NoMetadata exposing (NoMetadata)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Builder)
 import Pages.StaticHttp as StaticHttp
