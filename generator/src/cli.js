@@ -172,14 +172,10 @@ function baseRoute(route) {
 async function outputString(/** @type { PageProgress } */ fromElm) {
   const args = fromElm.args[0];
   console.log(`Pre-rendered /${args.route}`);
-  let contentJson = {};
-  contentJson["body"] = args.body;
-
-  contentJson["staticData"] = args.contentJson;
   const normalizedRoute = args.route.replace(/index$/, "");
   // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
   await fs.tryMkdir(`./dist/${normalizedRoute}`);
-  const contentJsonString = JSON.stringify(contentJson);
+  const contentJsonString = JSON.stringify({ staticData: args.contentJson });
   fs.writeFile(
     `dist/${normalizedRoute}/index.html`,
     wrapHtml(args, contentJsonString)
