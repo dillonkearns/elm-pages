@@ -184,7 +184,6 @@ type alias DataFromFile =
 staticData : Route -> StaticHttp.Request DataFromFile
 staticData route =
     StaticFile.request
-        --"content/blog/extensible-markdown-parsing-in-elm.md"
         ("content/blog/" ++ route.slug ++ ".md")
         (OptimizedDecoder.map2 DataFromFile
             (StaticFile.body
