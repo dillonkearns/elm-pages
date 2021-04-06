@@ -1,5 +1,4 @@
-module.exports = `import { Elm } from "/elm.js";
-import userInit from "/index.js";
+module.exports = `import userInit from "/index.js";
 
 let prefetchedPages;
 let initialLocationHash;

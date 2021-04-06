@@ -133,21 +133,6 @@ function cleanRoute(route) {
 }
 
 /**
- * @param {string} elmPath
- */
-async function elmToEsm(elmPath) {
-  const elmEs3 = await fs.readFile(elmPath, "utf8");
-
-  return (
-    "\n" +
-    "const scope = {};\n" +
-    elmEs3.replace("}(this));", "}(scope));") +
-    "export const { Elm } = scope;\n" +
-    "\n"
-  );
-}
-
-/**
  * @param {string} cleanedRoute
  */
 function pathToRoot(cleanedRoute) {
@@ -184,14 +169,12 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
 
 async function compileElm() {
   const outputPath = `dist/elm.js`;
+  const fullOutputPath = path.join(process.cwd(), `dist/elm.js`);
   await spawnElmMake("gen/TemplateModulesBeta.elm", outputPath);
 
-  const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
-  if (debug) {
-    await fs.writeFile(path.join(process.cwd(), outputPath), elmEsmContent);
-  } else {
-    const elmFileOutput = await runTerserNew(elmEsmContent);
-    await fs.writeFile(path.join(process.cwd(), outputPath), elmFileOutput);
+  // const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
+  if (!debug) {
+    await runTerser(fullOutputPath);
   }
 }
 
@@ -249,43 +232,45 @@ function runElm(elmEntrypointPath, outputPath, cwd) {
 }
 
 /**
- * @param {string} fileContents
- * @returns string
+ * @param {string} filePath
  */
-async function runTerserNew(fileContents) {
-  const minifiedElm = await terser.minify(fileContents, {
-    ecma: 5,
+async function runTerser(filePath) {
+  console.log("Running terser");
+  const minifiedElm = await terser.minify(
+    fs.readFileSync(filePath).toString(),
+    {
+      ecma: 5,
 
-    module: true,
-    compress: {
-      pure_funcs: [
-        "F2",
-        "F3",
-        "F4",
-        "F5",
-        "F6",
-        "F7",
-        "F8",
-        "F9",
-        "A2",
-        "A3",
-        "A4",
-        "A5",
-        "A6",
-        "A7",
-        "A8",
-        "A9",
-      ],
-      pure_getters: true,
-      keep_fargs: false,
-      unsafe_comps: true,
-      unsafe: true,
-    },
-    mangle: true,
-  });
-  const code = minifiedElm.code;
-  if (code) {
-    return code;
+      module: true,
+      compress: {
+        pure_funcs: [
+          "F2",
+          "F3",
+          "F4",
+          "F5",
+          "F6",
+          "F7",
+          "F8",
+          "F9",
+          "A2",
+          "A3",
+          "A4",
+          "A5",
+          "A6",
+          "A7",
+          "A8",
+          "A9",
+        ],
+        pure_getters: true,
+        keep_fargs: false,
+        unsafe_comps: true,
+        unsafe: true,
+      },
+      mangle: true,
+    }
+  );
+  if (minifiedElm.code) {
+    fs.writeFile(filePath, minifiedElm.code);
   } else {
     throw "Error running terser.";
   }
@@ -342,7 +327,7 @@ function wrapHtml(fromElm, contentJsonString) {
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">
     <link rel="preload" href="/elm.js" as="script">
-    <script defer="defer" src="/elm.js" type="module"></script>
+    <script defer="defer" src="/elm.js"></script>
     <script defer="defer" src="/elm-pages.js" type="module"></script>
     <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
