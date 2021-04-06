@@ -35,7 +35,7 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
-import Url
+import Url exposing (Url)
 
 
 type alias Flags =
@@ -388,7 +388,7 @@ init maybeRequestJson toModel contentCache config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config
+                    initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -416,16 +416,42 @@ init maybeRequestJson toModel contentCache config flags =
 --)
 
 
-type alias RequestPayload =
-    { path : String
+type alias RequestPayload route pathKey =
+    { path : PagePath pathKey
+    , frontmatter : route
     }
 
 
-requestPayloadDecoder : Decode.Decoder (Maybe RequestPayload)
-requestPayloadDecoder =
-    Decode.map RequestPayload
-        (Decode.field "path" Decode.string)
-        |> optionalField "request"
+requestPayloadDecoder :
+    Config pathKey userMsg userModel route siteStaticData
+    -> Decode.Decoder (Maybe (RequestPayload route pathKey))
+requestPayloadDecoder config =
+    optionalField "request"
+        (Decode.field "path"
+            (Decode.string
+                |> Decode.map
+                    (\path ->
+                        let
+                            route =
+                                pathToUrl path |> config.urlToRoute
+                        in
+                        { frontmatter = route
+                        , path = config.routeToPath route |> PagePath.build config.pathKey
+                        }
+                    )
+            )
+        )
+
+
+pathToUrl : String -> Url
+pathToUrl path =
+    { protocol = Url.Https
+    , host = "TODO"
+    , port_ = Nothing
+    , path = path
+    , query = Nothing
+    , fragment = Nothing
+    }
 
 
 optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
@@ -451,79 +477,47 @@ initLegacy :
     -> (Model pathKey route -> model)
     -> ContentCache
     -> Config pathKey userMsg userModel route siteStaticData
+    -> Decode.Value
     -> ( model, Effect pathKey )
-initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config =
+initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config flags =
     let
         maybeRequestPayload =
-            Decode.decodeValue requestPayloadDecoder flags
+            Decode.decodeValue (requestPayloadDecoder config) flags
                 -- TODO handle decoder errors
                 |> Result.withDefault Nothing
-
-        filteredMetadata =
+    in
+    let
+        staticResponses : StaticResponses
+        staticResponses =
             case maybeRequestPayload of
-                Just requestPayload ->
-                    siteMetadata
-                        |> Result.map
-                            (\okMetadata ->
-                                okMetadata
-                                    |> List.filter
-                                        (\( path, metadata ) ->
-                                            ("/" ++ PagePath.toString path) == requestPayload.path
-                                        )
-                            )
+                Just serverRequestPayload ->
+                    StaticResponses.renderSingleRoute config serverRequestPayload
 
                 Nothing ->
-                    siteMetadata
-                        |> Result.map
-                            (\okMetadata ->
-                                okMetadata
-                                    |> List.filter
-                                        (\( path, metadata ) ->
-                                            not (List.member ("/" ++ PagePath.toString path) dynamicRoutes)
-                                        )
-                            )
-
-        dynamicRoutes : List String
-        dynamicRoutes =
-            [-- "/"
-            ]
-    in
-    case contentCache of
-        Ok _ ->
-            let
-                staticResponses : StaticResponses
-                staticResponses =
                     StaticResponses.init config
-            in
-            StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses Nothing
-                |> nextStepToEffect contentCache
-                    config
-                    { staticResponses = staticResponses
-                    , secrets = secrets
-                    , errors = []
-                    , allRawResponses = staticHttpCache
-                    , mode = mode
-                    , pendingRequests = []
-                    , unprocessedPages = [] -- TODO communicate that we're only rendering 1 page to StaticResponses (with filteredMetadata)
-                    , staticRoutes = []
-                    }
-                |> Tuple.mapFirst toModel
 
-        Err metadataParserErrors ->
-            updateAndSendPortIfDone
-                contentCache
-                config
-                { staticResponses = StaticResponses.error
-                , secrets = secrets
-                , errors = metadataParserErrors |> List.map Tuple.second
-                , allRawResponses = staticHttpCache
-                , mode = mode
-                , pendingRequests = []
-                , unprocessedPages = filteredMetadata |> Result.withDefault []
-                , staticRoutes = []
-                , maybeRequestJson = maybeRequestJson
-                }
-                toModel
+        unprocessedPages =
+            case maybeRequestPayload of
+                Just serverRequestPayload ->
+                    [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
+
+                Nothing ->
+                    []
+    in
+    StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses Nothing
+        |> nextStepToEffect contentCache
+            config
+            { staticResponses = staticResponses
+            , secrets = secrets
+            , errors = []
+            , allRawResponses = staticHttpCache
+            , mode = mode
+            , pendingRequests = []
+            , unprocessedPages = unprocessedPages
+            , staticRoutes = unprocessedPages
+            , maybeRequestJson = maybeRequestJson
+            }
+        |> Tuple.mapFirst toModel
 
 
 updateAndSendPortIfDone :

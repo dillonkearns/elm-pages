@@ -38,7 +38,7 @@ function runElmApp(compiledElmPath, path, request) {
     const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
     const staticHttpCache = {};
     const modifiedRequest = { ...request, path: route };
-    const app = require(compiledElmPath).Elm.Main.init({
+    const app = require(compiledElmPath).Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
         mode,

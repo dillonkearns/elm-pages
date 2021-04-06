@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, update)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderSingleRoute, update)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -59,6 +59,30 @@ init config =
         )
         Dict.empty
         |> GettingInitialData
+
+
+renderSingleRoute :
+    { config
+        | view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
+        , routeToPath : route -> List String
+    }
+    -> { path : PagePath pathKey, frontmatter : route }
+    -> StaticResponses
+renderSingleRoute config pathAndRoute =
+    [ pathAndRoute.frontmatter ]
+        |> List.map
+            (\route ->
+                ( config.routeToPath route |> String.join "/"
+                , NotFetched
+                    (StaticHttp.map (\_ -> ())
+                        (config.view [] pathAndRoute)
+                        |> StaticHttp.map (\_ -> ())
+                    )
+                    Dict.empty
+                )
+            )
+        |> Dict.fromList
+        |> StaticResponses
 
 
 update :

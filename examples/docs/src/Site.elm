@@ -49,7 +49,8 @@ config =
 staticData : StaticHttp.Request StaticData
 staticData =
     StaticHttp.map StaticData
-        (StaticFile.request "site-name.txt" StaticFile.body)
+        --(StaticFile.request "site-name.txt" StaticFile.body)
+        (StaticHttp.succeed "site-name")
 
 
 head : StaticData -> List (Head.Tag Pages.PathKey)
