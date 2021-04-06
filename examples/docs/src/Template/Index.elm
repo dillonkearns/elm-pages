@@ -4,7 +4,10 @@ import Element
 import Element.Region
 import Head
 import Head.Seo as Seo
+import MarkdownRenderer
+import OptimizedDecoder
 import Pages exposing (images)
+import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
@@ -23,17 +26,22 @@ type alias Route =
     {}
 
 
+type alias StaticData =
+    List (Element.Element Msg)
+
+
 template : Template Route StaticData
 template =
-    Template.noStaticData
+    Template.withStaticData
         { head = head
         , staticRoutes = StaticHttp.succeed []
+        , staticData = staticData
         }
         |> Template.buildNoState { view = view }
 
 
 head :
-    StaticPayload () Route
+    StaticPayload StaticData Route
     -> List (Head.Tag Pages.PathKey)
 head static =
     Seo.summary
@@ -52,28 +60,38 @@ head static =
         |> Seo.website
 
 
-type alias StaticData =
-    ()
-
-
 view :
     StaticPayload StaticData Route
-    -> Shared.PageView msg
+    -> Shared.PageView Msg
 view static =
-    { title = "TODO title" -- metadata.title -- TODO
+    { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
     , body =
         [ [ Element.column
                 [ Element.padding 50
                 , Element.spacing 60
                 , Element.Region.mainContent
                 ]
-                []
-
-          -- TODO render view with StaticHttp
-          --(Tuple.second rendered |> List.map (Element.map never))
+                static.static
           ]
             |> Element.textColumn
                 [ Element.width Element.fill
                 ]
         ]
     }
+
+
+staticData : Route -> StaticHttp.Request (List (Element.Element msg))
+staticData route =
+    StaticFile.request
+        "content/index.md"
+        (StaticFile.body
+            |> OptimizedDecoder.andThen
+                (\rawBody ->
+                    case rawBody |> MarkdownRenderer.view |> Result.map Tuple.second of
+                        Ok renderedBody ->
+                            OptimizedDecoder.succeed renderedBody
+
+                        Err error ->
+                            OptimizedDecoder.fail error
+                )
+        )
