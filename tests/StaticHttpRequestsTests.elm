@@ -912,7 +912,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
        -> ( model, Effect pathKey )
     -}
     ProgramTest.createDocument
-        { init = init identity contentCache config
+        { init = init Nothing identity contentCache config
         , update = update contentCache config
         , view = \_ -> { title = "", body = [] }
         }

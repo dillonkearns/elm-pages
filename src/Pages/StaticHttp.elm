@@ -46,7 +46,7 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 
 ## Building a StaticHttp Request Body
 
-The way you build a body is analagous to the `elm/http` package. Currently, only `emptyBody` and
+The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
 `stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
 and describe your use case!
 

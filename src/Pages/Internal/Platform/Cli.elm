@@ -51,6 +51,7 @@ type alias Model pathKey route =
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( PagePath pathKey, route )
     , staticRoutes : List ( PagePath pathKey, route )
+    , maybeRequestJson : Maybe Decode.Value
     }
 
 
@@ -131,14 +132,19 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     Platform.worker
         { init =
             \flags ->
-                init toModel contentCache config flags
-                    |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
+                let
+                    maybeRequestJson =
+                        Decode.decodeValue (optionalField "request" Decode.value) flags
+                            |> Result.withDefault Nothing
+                in
+                init maybeRequestJson toModel contentCache config flags
+                    |> Tuple.mapSecond (perform maybeRequestJson config cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
                     ( Just cliMsg, Just cliModel ) ->
                         update contentCache config cliMsg cliModel
-                            |> Tuple.mapSecond (perform config cliMsgConstructor config.toJsPort)
+                            |> Tuple.mapSecond (perform cliModel.maybeRequestJson config cliMsgConstructor config.toJsPort)
                             |> Tuple.mapFirst toModel
 
                     _ ->
@@ -220,8 +226,8 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Config pathKey userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
-perform config cliMsgConstructor toJsPort effect =
+perform : Maybe Decode.Value -> Config pathKey userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform maybeRequest config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
             Cmd.none
@@ -234,15 +240,23 @@ perform config cliMsgConstructor toJsPort effect =
 
         Effect.Batch list ->
             list
-                |> List.map (perform config cliMsgConstructor toJsPort)
+                |> List.map (perform maybeRequest config cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
-            -- let
-            --     _ =
-            --         Debug.log "Fetching" masked.url
-            -- in
-            if unmasked.url |> String.startsWith "file://" then
+            if unmasked.url == "$$elm-pages$$headers" then
+                Cmd.batch
+                    [ Task.succeed
+                        { request = requests
+                        , response =
+                            maybeRequest
+                                |> Maybe.map (Json.Encode.encode 0)
+                                |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
+                        }
+                        |> Task.perform (GotStaticHttpResponse >> cliMsgConstructor)
+                    ]
+
+            else if unmasked.url |> String.startsWith "file://" then
                 let
                     filePath =
                         String.dropLeft 7 unmasked.url
@@ -360,12 +374,13 @@ flagsDecoder =
 
 
 init :
-    (Model pathKey route -> model)
+    Maybe Decode.Value
+    -> (Model pathKey route -> model)
     -> ContentCache
     -> Config pathKey userMsg userModel route siteStaticData
     -> Decode.Value
     -> ( model, Effect pathKey )
-init toModel contentCache config flags =
+init maybeRequestJson toModel contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
             case mode of
@@ -373,7 +388,7 @@ init toModel contentCache config flags =
                 --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
                 --
                 _ ->
-                    initLegacy { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config
+                    initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config
 
         Err error ->
             updateAndSendPortIfDone
@@ -392,6 +407,7 @@ init toModel contentCache config flags =
                 , pendingRequests = []
                 , unprocessedPages = []
                 , staticRoutes = []
+                , maybeRequestJson = maybeRequestJson
                 }
                 toModel
 
@@ -400,13 +416,78 @@ init toModel contentCache config flags =
 --)
 
 
+type alias RequestPayload =
+    { path : String
+    }
+
+
+requestPayloadDecoder : Decode.Decoder (Maybe RequestPayload)
+requestPayloadDecoder =
+    Decode.map RequestPayload
+        (Decode.field "path" Decode.string)
+        |> optionalField "request"
+
+
+optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
+optionalField fieldName decoder =
+    let
+        finishDecoding json =
+            case Decode.decodeValue (Decode.field fieldName Decode.value) json of
+                Ok val ->
+                    -- The field is present, so run the decoder on it.
+                    Decode.map Just (Decode.field fieldName decoder)
+
+                Err _ ->
+                    -- The field was missing, which is fine!
+                    Decode.succeed Nothing
+    in
+    Decode.value
+        |> Decode.andThen finishDecoding
+
+
 initLegacy :
-    { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
+    Maybe Decode.Value
+    -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model pathKey route -> model)
     -> ContentCache
     -> Config pathKey userMsg userModel route siteStaticData
     -> ( model, Effect pathKey )
-initLegacy { secrets, mode, staticHttpCache } toModel contentCache config =
+initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config =
+    let
+        maybeRequestPayload =
+            Decode.decodeValue requestPayloadDecoder flags
+                -- TODO handle decoder errors
+                |> Result.withDefault Nothing
+
+        filteredMetadata =
+            case maybeRequestPayload of
+                Just requestPayload ->
+                    siteMetadata
+                        |> Result.map
+                            (\okMetadata ->
+                                okMetadata
+                                    |> List.filter
+                                        (\( path, metadata ) ->
+                                            ("/" ++ PagePath.toString path) == requestPayload.path
+                                        )
+                            )
+
+                Nothing ->
+                    siteMetadata
+                        |> Result.map
+                            (\okMetadata ->
+                                okMetadata
+                                    |> List.filter
+                                        (\( path, metadata ) ->
+                                            not (List.member ("/" ++ PagePath.toString path) dynamicRoutes)
+                                        )
+                            )
+
+        dynamicRoutes : List String
+        dynamicRoutes =
+            [-- "/"
+            ]
+    in
     case contentCache of
         Ok _ ->
             let
@@ -423,7 +504,7 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache config =
                     , allRawResponses = staticHttpCache
                     , mode = mode
                     , pendingRequests = []
-                    , unprocessedPages = []
+                    , unprocessedPages = [] -- TODO communicate that we're only rendering 1 page to StaticResponses (with filteredMetadata)
                     , staticRoutes = []
                     }
                 |> Tuple.mapFirst toModel
@@ -438,8 +519,9 @@ initLegacy { secrets, mode, staticHttpCache } toModel contentCache config =
                 , allRawResponses = staticHttpCache
                 , mode = mode
                 , pendingRequests = []
-                , unprocessedPages = []
+                , unprocessedPages = filteredMetadata |> Result.withDefault []
                 , staticRoutes = []
+                , maybeRequestJson = maybeRequestJson
                 }
                 toModel
 
