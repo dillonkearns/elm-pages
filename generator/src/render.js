@@ -4,6 +4,9 @@ const cliVersion = require("../../package.json").version;
 const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
+const matter = require("gray-matter");
+const globby = require("globby");
+const mm = require("micromatch");
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -26,16 +29,16 @@ module.exports =
 
 /**
  * @param {string} compiledElmPath
- * @param {string} path
+ * @param {string} pagePath
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
  * @returns {Promise<({ kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string })>}
  */
-function runElmApp(compiledElmPath, path, request) {
+function runElmApp(compiledElmPath, pagePath, request) {
   return new Promise((resolve, reject) => {
-    const isJson = path.match(/content\.json\/?$/);
-    const route = path.replace(/content\.json\/?$/, "");
+    const isJson = pagePath.match(/content\.json\/?$/);
+    const route = pagePath.replace(/content\.json\/?$/, "");
 
-    const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
+    const mode = "elm-to-html-beta";
     const staticHttpCache = {};
     const modifiedRequest = { ...request, path: route };
     const app = require(compiledElmPath).Elm.TemplateModulesBeta.init({
@@ -68,6 +71,36 @@ function runElmApp(compiledElmPath, path, request) {
             resolve(outputString(fromElm));
           }
         }
+      } else if (fromElm.tag === "ReadFile") {
+        const filePath = fromElm.args[0];
+
+        const fileContents = fs
+          .readFileSync(path.join(process.cwd(), filePath))
+          .toString();
+        const parsedFile = matter(fileContents);
+        app.ports.fromJsPort.send({
+          tag: "GotFile",
+          data: {
+            filePath,
+            parsedFrontmatter: parsedFile.data,
+            withoutFrontmatter: parsedFile.content,
+            rawFile: fileContents,
+          },
+        });
+      } else if (fromElm.tag === "Glob") {
+        const globPattern = fromElm.args[0];
+        const globResult = globby.sync(globPattern);
+        const captures = globResult.map((result) => {
+          return {
+            captures: mm.capture(globPattern, result),
+            fullPath: result,
+          };
+        });
+
+        app.ports.fromJsPort.send({
+          tag: "GotGlob",
+          data: { pattern: globPattern, result: captures },
+        });
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         reject(fromElm.args[0]);
@@ -75,18 +108,6 @@ function runElmApp(compiledElmPath, path, request) {
         console.log(fromElm);
       }
     });
-  });
-}
-
-/**
- * @param {{ path: string; content: string; }[]} filesToGenerate
- */
-async function generateFiles(filesToGenerate) {
-  filesToGenerate.forEach(async ({ path: pathToGenerate, content }) => {
-    const fullPath = `dist/${pathToGenerate}`;
-    console.log(`Generating file /${pathToGenerate}`);
-    await fs.tryMkdir(path.dirname(fullPath));
-    fs.writeFile(fullPath, content);
   });
 }
 
