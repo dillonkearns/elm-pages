@@ -51,9 +51,8 @@ async function run() {
 function runElmApp() {
   process.on("beforeExit", (code) => {
     if (foundErrors) {
-      process.exit(1);
+      process.exitCode = 1;
     } else {
-      process.exit(0);
     }
   });
 
