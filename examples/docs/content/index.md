@@ -1,8 +1,3 @@
----
-title: elm-pages - a statically typed site generator
-type: page
----
-
 <Banner>A **statically typed** site generator</Banner>
 
 <Boxes>
