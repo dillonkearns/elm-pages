@@ -37,8 +37,12 @@ template =
 
 
 staticData routeParams =
-    StaticHttp.get (Secrets.succeed "http://worldtimeapi.org/api/timezone/America/Los_Angeles")
-        (OptimizedDecoder.field "datetime" OptimizedDecoder.string)
+    StaticHttp.succeed "TIME RESPONSE"
+
+
+
+--StaticHttp.get (Secrets.succeed "http://worldtimeapi.org/api/timezone/America/Los_Angeles")
+--    (OptimizedDecoder.field "datetime" OptimizedDecoder.string)
 
 
 head :
