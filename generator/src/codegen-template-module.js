@@ -28,6 +28,7 @@ function fileContent(templateName) {
 
 import Element exposing (Element)
 import Element.Region
+import Pages.StaticHttp as StaticHttp
 import Head
 import Head.Seo as Seo
 import Pages exposing (images)
@@ -44,15 +45,21 @@ type alias Model =
 type alias Msg =
     Never
 
+type alias RouteParams =
+    {}
 
-template : Template {} ()
+template : Template RouteParams StaticData
 template =
-    Template.noStaticData { head = head }
+    Template.noStaticData
+        { head = head
+        , staticRoutes = StaticHttp.succeed []
+        }
         |> Template.buildNoState { view = view }
 
 
+
 head :
-    StaticPayload ()
+    StaticPayload StaticData RouteParams
     -> List (Head.Tag Pages.PathKey)
 head static =
     Seo.summary
@@ -64,7 +71,7 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = Site.tagline
+        , description = "TODO"
         , locale = Nothing
         , title = "TODO title" -- metadata.title -- TODO
         }
@@ -76,7 +83,7 @@ type alias StaticData =
 
 
 view :
-    StaticPayload StaticData
+    StaticPayload StaticData RouteParams
     -> Shared.PageView msg
 view static =
     { title = "TODO title"
