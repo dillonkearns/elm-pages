@@ -828,7 +828,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             ContentCache.init Nothing
 
         --config : { toJsPort : a -> Cmd msg, fromJsPort : Sub b, manifest : Manifest.Config PathKey, generateFiles : StaticHttp.Request (List (Result String { path : List String, content : String })), init : c -> ((), Cmd d), urlToRoute : { e | path : f } -> f, update : g -> h -> ((), Cmd i), view : j -> { k | path : PagePath.PagePath key } -> StaticHttp.Request { view : l -> m -> { title : String, body : Html.Html n }, head : List o }, subscriptions : p -> q -> r -> Sub s, canonicalSiteUrl : String, pathKey : PathKey, onPageChange : Maybe (t -> ()) }
-        config : Config PathKey Msg () String
+        config : Config PathKey Msg () String ()
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
@@ -840,6 +840,13 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     (Decode.field "posts" (Decode.list Decode.string))
             , urlToRoute = .path
             , update = \_ _ -> ( (), Cmd.none )
+            , site =
+                { staticData = StaticHttp.succeed ()
+                , canonicalUrl = \_ -> "canonical-site-url"
+                , manifest = \_ -> manifest
+                , head = \staticData -> []
+                , generateFiles = StaticHttp.succeed []
+                }
             , view =
                 \_ page ->
                     let
