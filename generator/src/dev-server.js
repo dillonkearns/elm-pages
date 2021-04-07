@@ -3,11 +3,13 @@ const path = require("path");
 const fs = require("fs");
 const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
+const elmPagesIndexFileContents = require("./index-template.js");
 const renderer = require("../../generator/src/render");
 const app = express();
 const port = 1234;
+const { spawnElmMake } = require("./compile-elm.js");
 
-// const { inject } = require("../src/inject.js");
+const { inject } = require("elm-hot");
 
 // const pathToTestFixtures = path.join(__dirname, "./fixtures");
 // const pathToBuildDir = path.join(pathToTestFixtures, "build");
@@ -17,11 +19,29 @@ const port = 1234;
 // } catch (error) {
 //   if (error.code !== "EEXIST") throw error;
 // }
-// const watcher = chokidar.watch(pathToBuildDir, { persistent: true });
+const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
+// TODO check source-directories for what to watch?
+const watcher = chokidar.watch(path.join(process.cwd(), "src"), {
+  persistent: true,
+});
+spawnElmMake("gen/TemplateModulesBeta.elm", pathToClientElm);
 
-app.get("/client.js", (req, res) =>
-  res.sendFile(path.join(__dirname, "./client.js"))
-);
+app.get("/stream", function (req, res) {
+  res.writeHead(200, {
+    Connection: "keep-alive",
+    "Content-Type": "text/event-stream",
+  });
+
+  watcher.on("change", async function (pathThatChanged, stats) {
+    console.log({ pathThatChanged, stats });
+    if (pathThatChanged.endsWith(".elm")) {
+      await spawnElmMake("gen/TemplateModulesBeta.elm", pathToClientElm);
+      console.log("Pushing HMR event to client");
+      res.write(`data: /elm.js\n\n`);
+    }
+  });
+});
+
 
 app.get("/style.css", (req, res) =>
   res.sendFile(path.join(process.cwd(), "beta-style.css"))
@@ -31,12 +51,16 @@ app.get("/index.js", (req, res) =>
   res.sendFile(path.join(process.cwd(), "beta-index.js"))
 );
 
-app.get("/elm-pages.js", (req, res) =>
-  res.sendFile(path.join(process.cwd(), "dist/elm-pages.js"))
-);
-app.get("/elm.js", (req, res) =>
-  res.sendFile(path.join(process.cwd(), "dist/elm.js"))
-);
+app.get("/elm-pages.js", (req, res) => {
+  res.set("Content-Type", "text/javascript");
+  res.send(elmPagesIndexFileContents);
+});
+
+app.get("/elm.js", (req, res) => {
+  res.send(inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" })));
+  // TODO offer an option to disable hot reloading?
+  // res.sendFile(pathToElmCodeJS);
+});
 
 app.use(express.static(path.join(process.cwd(), "static")));
 app.use("/images", express.static(path.join(process.cwd(), "images")));
@@ -60,35 +84,6 @@ app.get("*", async (req, res) => {
     res.set("Content-Type", "text/html");
     res.status(500).send(`<body><h1>Error</h1><pre>${error}</pre></body>`);
   }
-});
-
-// app.get("/build/:filename.js", function (req, res) {
-//   const filename = req.params.filename + ".js";
-//   const pathToElmCodeJS = path.join(pathToBuildDir, filename);
-//   const originalElmCodeJS = fs.readFileSync(pathToElmCodeJS, {
-//     encoding: "utf8",
-//   });
-//   const fullyInjectedCode = inject(originalElmCodeJS);
-//   res.send(fullyInjectedCode);
-// });
-
-app.get("/stream-:programName", function (req, res) {
-  const programName = req.params.programName;
-  res.writeHead(200, {
-    Connection: "keep-alive",
-    "Content-Type": "text/event-stream",
-  });
-
-  //   watcher.on("change", function (pathThatChanged, stats) {
-  //     if (pathThatChanged.endsWith(programName + ".js")) {
-  //       //console.log("Pushing HMR event to client");
-  //       const relativeLoadPath = path.relative(
-  //         pathToTestFixtures,
-  //         pathThatChanged
-  //       );
-  //       res.write(`data: ${relativeLoadPath}\n\n`);
-  //     }
-  //   });
 });
 
 function startServer(port) {
