@@ -29,6 +29,7 @@ const watcher = chokidar.watch(
   }
 );
 spawnElmMake("gen/TemplateModulesBeta.elm", pathToClientElm);
+spawnElmMake("TemplateModulesBeta.elm", "elm.js", "elm-stuff/elm-pages");
 
 app.get("/stream", function (req, res) {
   res.writeHead(200, {
