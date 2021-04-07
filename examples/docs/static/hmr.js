@@ -1,28 +1,32 @@
 console.log("Loaded HMR");
 var eventSource = null;
 
-function connect() {
+function connect(refetchContentJson) {
   // Listen for the server to tell us that an HMR update is available
   eventSource = new EventSource("stream");
   eventSource.onmessage = function (evt) {
-    var reloadUrl = evt.data;
-    var myRequest = new Request(reloadUrl);
-    myRequest.cache = "no-cache";
-    fetch(myRequest).then(function (response) {
-      if (response.ok) {
-        response.text().then(function (value) {
-          module.hot.apply();
-          delete Elm;
-          eval(value);
-        });
-      } else {
-        console.error(
-          "HMR fetch failed:",
-          response.status,
-          response.statusText
-        );
-      }
-    });
+    if (evt.data === "content.json") {
+      refetchContentJson();
+    } else {
+      var reloadUrl = evt.data;
+      var myRequest = new Request(reloadUrl);
+      myRequest.cache = "no-cache";
+      fetch(myRequest).then(function (response) {
+        if (response.ok) {
+          response.text().then(function (value) {
+            module.hot.apply();
+            delete Elm;
+            eval(value);
+          });
+        } else {
+          console.error(
+            "HMR fetch failed:",
+            response.status,
+            response.statusText
+          );
+        }
+      });
+    }
   };
 }
 
@@ -53,7 +57,3 @@ var module = {
     verbose: true,
   },
 };
-
-connect();
-
-console.log("Called connect() from HMR");

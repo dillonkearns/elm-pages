@@ -51,21 +51,29 @@ function runElmApp(compiledElmPath, pagePath, request) {
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
+      console.log(fromElm);
       if (fromElm.command === "log") {
         console.log(fromElm.value);
+      } else if (fromElm.tag === "InitialData") {
+        const args = fromElm.args[0];
+        console.log("InitialData", { args });
+        // const contentJson = args.pages["blog"];
+        // resolve({
+        //   kind: "json",
+        //   contentJson: JSON.stringify({ staticData: contentJson }),
+        // });
+        // fs.writeFile(
+        //   `dist/manifest.json`,
+        //   JSON.stringify(generateManifest(fromElm.args[0].manifest))
+        // );
+        // generateFiles(fromElm.args[0].filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
         if (isJson) {
-          if ("/" + args.route === route) {
-            let contentJson = {};
-            contentJson["body"] = args.body;
-
-            contentJson["staticData"] = args.contentJson;
-            resolve({
-              kind: "json",
-              contentJson: JSON.stringify(contentJson),
-            });
-          }
+          resolve({
+            kind: "json",
+            contentJson: JSON.stringify({ staticData: args.contentJson }),
+          });
         } else {
           if ("/" + args.route === route) {
             resolve(outputString(fromElm));

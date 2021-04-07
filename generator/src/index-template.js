@@ -171,9 +171,19 @@ function httpGet(/** @type string */ theUrl) {
   });
 }
 
-userInit(
-  pagesInit({
-    mainElmModule: Elm.TemplateModulesBeta,
-  })
-);
+const appPromise = pagesInit({
+    mainElmModule: Elm.TemplateModulesBeta
+});
+userInit(appPromise);
+
+connect(function() {console.log('CONTENT.JSON refresh...')
+appPromise.then(app => {
+  app.ports.fromJsPort.send({ action: 'hmr-check' })
+  let currentPath = window.location.pathname.replace(/(\\w)$/, "$1/")
+  fetch(\`\${window.location.origin}\${currentPath}content.json\`).then(async function (contentJson) {
+    app.ports.fromJsPort.send({ contentJson: await contentJson.json() });
+  });
+})
+
+});
 `;
