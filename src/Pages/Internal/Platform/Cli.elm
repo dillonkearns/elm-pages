@@ -661,8 +661,6 @@ update contentCache config msg model =
         Continue ->
             -- TODO
             let
-                --_ =
-                --    Debug.log "Continuing..." (List.length model.unprocessedPages)
                 updatedModel =
                     model
             in
