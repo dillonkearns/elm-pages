@@ -79,12 +79,9 @@ app.get("*", async (req, res) => {
     res.status(404).end();
   } else {
     try {
-      // const renderResult = await renderer(compiledElmPath, req.path, event);
       const renderResult = await renderer(compiledElmPath, req.path, req);
-
-      console.log({ renderResult });
       if (renderResult.kind === "json") {
-        // res.set("Content-Type", "application/json");
+        res.set("Content-Type", "application/json");
         res.end(renderResult.contentJson);
       } else {
         res.set("Content-Type", "text/html");
