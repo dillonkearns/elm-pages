@@ -808,8 +808,14 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                     ToJsPayload.Errors _ ->
                                         Nothing
                             )
-                        |> Effect.Batch
-                        |> (\cmd -> ( model |> popProcessedRequest, Effect.Batch [ cmd, sendManifestIfNeeded ] ))
+                        |> (\cmds ->
+                                ( model |> popProcessedRequest
+                                , Effect.Batch
+                                    (sendManifestIfNeeded
+                                        :: cmds
+                                    )
+                                )
+                           )
 
                 _ ->
                     ( model, Effect.SendJsData toJsPayload )
