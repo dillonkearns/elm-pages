@@ -12,25 +12,11 @@ import Pages.PagePath as PagePath exposing (PagePath)
 
 
 view :
-    --List ( PagePath Pages.PathKey, TemplateType )
     List ( PagePath Pages.PathKey, Article.ArticleMetadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
         (posts
-            --|> List.filterMap
-            --    (\( path, metadata ) ->
-            --        case metadata of
-            --            TemplateType.BlogPost meta ->
-            --                if meta.draft then
-            --                    Nothing
-            --
-            --                else
-            --                    Just ( path, meta )
-            --
-            --            _ ->
-            --                Nothing
-            --    )
             |> List.sortBy
                 (\( _, metadata ) -> -(metadata.published |> Date.toRataDie))
             |> List.map postSummary
