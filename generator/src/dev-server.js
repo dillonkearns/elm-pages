@@ -1,13 +1,13 @@
-const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const elmPagesIndexFileContents = require("./index-template.js");
 const renderer = require("../../generator/src/render");
-const app = express();
 const port = 1234;
 const { spawnElmMake } = require("./compile-elm.js");
+const http = require("http");
+const fsPromises = fs.promises;
 
 const { inject } = require("elm-hot");
 
@@ -20,18 +20,63 @@ const { inject } = require("elm-hot");
 //   if (error.code !== "EEXIST") throw error;
 // }
 const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
+/** @type {Record<string, string>} */
+const translations = {
+  "/style.css": "/beta-style.css",
+  "/index.js": "/beta-index.js",
+};
+
 // TODO check source-directories for what to watch?
 const watcher = chokidar.watch(
   [path.join(process.cwd(), "src"), path.join(process.cwd(), "content")],
-
-  {
-    persistent: true,
-  }
+  { persistent: true }
 );
 spawnElmMake("gen/TemplateModulesBeta.elm", pathToClientElm);
 spawnElmMake("TemplateModulesBeta.elm", "elm.js", "elm-stuff/elm-pages");
 
-app.get("/stream", function (req, res) {
+http
+  .createServer(async function (request, response) {
+    if (request.url?.startsWith("/elm.js")) {
+      response.writeHead(200, { "Content-Type": "text/javascript" });
+      response.end(
+        inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
+      );
+    } else if (request.url?.startsWith("/stream")) {
+      handleStream(response);
+    } else {
+      const staticFile = await lookupStaticFile(request);
+      if (staticFile) {
+        response.writeHead(200, { "Content-Type": staticFile.contentType });
+        response.end(staticFile.content, "utf-8");
+      } else {
+        handleNavigationRequest(request, response);
+      }
+    }
+  })
+  .listen(port);
+
+console.log(`Server listening at http://localhost:${port}`);
+
+/**
+ * @param {http.IncomingMessage} request
+ * @returns {Promise<{ content: string; contentType: string; } | null>  }
+ */
+async function lookupStaticFile(request) {
+  if (request.url === "/elm-pages.js") {
+    return {
+      content: elmPagesIndexFileContents,
+      contentType: "text/javascript",
+    };
+  }
+  const translated = translations[`${request.url}`];
+  const imageOrStaticPath = request.url?.startsWith("/images/")
+    ? request.url
+    : `/static${request.url}`;
+  const filePath = "." + (translated || imageOrStaticPath);
+  return await fileContentWithType(filePath);
+}
+
+function handleStream(res) {
   res.writeHead(200, {
     Connection: "keep-alive",
     "Content-Type": "text/event-stream",
@@ -48,63 +93,75 @@ app.get("/stream", function (req, res) {
       res.write(`data: content.json\n\n`);
     }
   });
-});
+}
 
-app.get("/style.css", (req, res) =>
-  res.sendFile(path.join(process.cwd(), "beta-style.css"))
-);
-
-app.get("/index.js", (req, res) =>
-  res.sendFile(path.join(process.cwd(), "beta-index.js"))
-);
-
-app.get("/elm-pages.js", (req, res) => {
-  res.set("Content-Type", "text/javascript");
-  res.send(elmPagesIndexFileContents);
-});
-
-app.get("/elm.js", (req, res) => {
-  res.send(inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" })));
-  // TODO offer an option to disable hot reloading?
-  // res.sendFile(pathToElmCodeJS);
-});
-
-app.use(express.static(path.join(process.cwd(), "static")));
-app.use("/images", express.static(path.join(process.cwd(), "images")));
-
-app.get("*", async (req, res) => {
+async function handleNavigationRequest(req, res) {
   //   const filename = req.params.filename + ".html";
   //   res.sendFile(path.join(process.cwd(), filename));
   //   res.sendFile(path.join(pathToTestFixtures, filename));
-  if (req.path.endsWith(".ico") || req.path.endsWith("manifest.json")) {
-    res.status(404).end();
+  // console.log({ req });
+  if (req.url.endsWith(".ico") || req.url.endsWith("manifest.json")) {
+    res.writeHead(404, {
+      "Content-Type": "text/html",
+    });
+    res.end(`Not found.`);
   } else {
     try {
-      const renderResult = await renderer(compiledElmPath, req.path, req);
+      const renderResult = await renderer(compiledElmPath, req.url, req);
       if (renderResult.kind === "json") {
-        res.set("Content-Type", "application/json");
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+        });
         res.end(renderResult.contentJson);
       } else {
-        res.set("Content-Type", "text/html");
-        res.send(renderResult.htmlString);
+        res.writeHead(200, {
+          "Content-Type": "text/html",
+        });
+        res.end(renderResult.htmlString);
       }
     } catch (error) {
-      res.set("Content-Type", "text/html");
-      res.status(500).send(`<body><h1>Error</h1><pre>${error}</pre></body>`);
+      res.writeHead(500, {
+        "Content-Type": "text/html",
+      });
+      res.end(`<body><h1>Error</h1><pre>${error}</pre></body>`);
     }
   }
-});
-
-function startServer(port) {
-  return app.listen(port);
 }
 
-if (require.main === module) {
-  startServer(port);
-  console.log(`Server listening at http://localhost:${port}`);
-}
-
-module.exports = {
-  app,
-  startServer: startServer,
+/** @type {Record<string, string>} */
+const mimeTypes = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".wav": "audio/wav",
+  ".mp4": "video/mp4",
+  ".woff": "application/font-woff",
+  ".ttf": "application/font-ttf",
+  ".eot": "application/vnd.ms-fontobject",
+  ".otf": "application/font-otf",
+  ".wasm": "application/wasm",
 };
+
+/**
+ * @param {string} filePath
+ */
+async function fileContentWithType(filePath) {
+  var extname = String(path.extname(filePath)).toLowerCase();
+  var contentType = mimeTypes[extname] || "application/octet-stream";
+  try {
+    return {
+      content: (
+        await fsPromises.readFile(path.join(process.cwd(), filePath))
+      ).toString(),
+      contentType,
+    };
+  } catch (error) {
+    console.log({ error });
+    return null;
+  }
+}
