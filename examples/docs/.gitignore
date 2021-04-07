@@ -4,3 +4,5 @@ dist/
 .cache/
 gen/
 functions/render/elm-pages-cli.js
+browser-elm.js
+
