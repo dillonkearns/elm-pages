@@ -31,12 +31,16 @@ const watcher = chokidar.watch(
   [path.join(process.cwd(), "src"), path.join(process.cwd(), "content")],
   { persistent: true }
 );
-spawnElmMake("gen/TemplateModulesBeta.elm", pathToClientElm);
+let clientElmMakeProcess = spawnElmMake(
+  "gen/TemplateModulesBeta.elm",
+  pathToClientElm
+);
 spawnElmMake("TemplateModulesBeta.elm", "elm.js", "elm-stuff/elm-pages");
 
 http
   .createServer(async function (request, response) {
     if (request.url?.startsWith("/elm.js")) {
+      await clientElmMakeProcess;
       response.writeHead(200, { "Content-Type": "text/javascript" });
       response.end(
         inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
@@ -85,7 +89,10 @@ function handleStream(res) {
   watcher.on("change", async function (pathThatChanged, stats) {
     console.log({ pathThatChanged, stats });
     if (pathThatChanged.endsWith(".elm")) {
-      await spawnElmMake("gen/TemplateModulesBeta.elm", pathToClientElm);
+      clientElmMakeProcess = spawnElmMake(
+        "gen/TemplateModulesBeta.elm",
+        pathToClientElm
+      );
       console.log("Pushing HMR event to client");
       res.write(`data: /elm.js\n\n`);
     } else {
