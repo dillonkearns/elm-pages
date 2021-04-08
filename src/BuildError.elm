@@ -1,5 +1,6 @@
-module BuildError exposing (BuildError, errorToString, errorsToString)
+module BuildError exposing (BuildError, encode, errorToString, errorsToString)
 
+import Json.Encode as Encode
 import TerminalText as Terminal
 
 
@@ -30,3 +31,26 @@ banner title =
         Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages")
     , Terminal.text "\n\n"
     ]
+
+
+encode : BuildError -> Encode.Value
+encode buildError =
+    Encode.object
+        [ ( "path", Encode.string buildError.title )
+        , ( "name", Encode.string buildError.title )
+        , ( "problems"
+          , Encode.list
+                messagesEncoder
+                [ buildError.message ]
+          )
+        ]
+
+
+messagesEncoder : List Terminal.Text -> Encode.Value
+messagesEncoder messages =
+    Encode.object
+        [ ( "title", Encode.string "NAMING ERROR" )
+        , ( "message"
+          , Encode.list Terminal.encoder messages
+          )
+        ]

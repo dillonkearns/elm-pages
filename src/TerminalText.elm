@@ -1,5 +1,7 @@
 module TerminalText exposing (..)
 
+import Json.Encode as Encode
+
 
 type Text
     = RawText String
@@ -96,3 +98,45 @@ toString_ textValue =
                 , toString_ innerText
                 , resetColors
                 ]
+
+
+encoder : Text -> Encode.Value
+encoder node =
+    Encode.object
+        [ ( "bold", Encode.bool False )
+        , ( "underline", Encode.bool False )
+        , ( "color"
+          , Encode.string <|
+                case node of
+                    RawText _ ->
+                        "WHITE"
+
+                    Style color _ ->
+                        case color of
+                            Red ->
+                                "red"
+
+                            Blue ->
+                                "blue"
+
+                            Green ->
+                                "green"
+
+                            Yellow ->
+                                "yellow"
+
+                            Cyan ->
+                                "cyan"
+          )
+        , ( "string", Encode.string (getString node) )
+        ]
+
+
+getString : Text -> String
+getString node =
+    case node of
+        RawText string ->
+            string
+
+        Style color string ->
+            getString node

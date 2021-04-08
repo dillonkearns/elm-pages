@@ -6,7 +6,18 @@ function connect(refetchContentJson) {
   eventSource = new EventSource("stream");
   eventSource.onmessage = function (evt) {
     if (evt.data === "content.json") {
-      refetchContentJson();
+      refetchContentJson(
+        function (errorJson) {
+          console.error("onContentJsonError", errorJson);
+          showError({
+            type: "compile-errors",
+            errors: errorJson,
+          });
+        },
+        function () {
+          hideError();
+        }
+      );
     } else {
       var reloadUrl = evt.data;
       var myRequest = new Request(reloadUrl);

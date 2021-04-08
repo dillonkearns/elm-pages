@@ -369,7 +369,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                 ( staticResponses_, Continue newAllRawResponses newThing maybeRoutes )
 
             Err error_ ->
-                ( staticResponses_, Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors)) )
+                ( staticResponses_, Finish (ToJsPayload.Errors <| (error_ ++ failedRequests ++ errors)) )
 
     else
         case staticResponses_ of
@@ -412,15 +412,14 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         ( staticResponses_
                         , Finish
                             (ToJsPayload.Errors <|
-                                BuildError.errorsToString
-                                    ([ StaticHttpRequest.toBuildError
-                                        -- TODO give more fine-grained error reference
-                                        "get static routes"
-                                        error_
-                                     ]
-                                        ++ failedRequests
-                                        ++ errors
-                                    )
+                                ([ StaticHttpRequest.toBuildError
+                                    -- TODO give more fine-grained error reference
+                                    "get static routes"
+                                    error_
+                                 ]
+                                    ++ failedRequests
+                                    ++ errors
+                                )
                             )
                         )
 

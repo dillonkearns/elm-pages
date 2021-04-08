@@ -1,6 +1,6 @@
 module Pages.Internal.Platform.ToJsPayload exposing (..)
 
-import BuildError
+import BuildError exposing (BuildError)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
 import Head
@@ -13,7 +13,7 @@ import TerminalText as Terminal
 
 
 type ToJsPayload pathKey
-    = Errors String
+    = Errors (List BuildError)
     | Success (ToJsSuccessPayload pathKey)
 
 
@@ -22,7 +22,7 @@ type alias ToJsSuccessPayload pathKey =
     , manifest : Manifest.Config pathKey
     , filesToGenerate : List FileToGenerate
     , staticHttpCache : Dict String String
-    , errors : List String
+    , errors : List BuildError
     }
 
 
@@ -66,11 +66,11 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
                         )
                     |> Dict.fromList
                 )
-                (List.map BuildError.errorToString allErrors)
+                allErrors
             )
 
     else
-        Errors <| BuildError.errorsToString allErrors
+        Errors <| allErrors
 
 
 toJsCodec : String -> Codec (ToJsPayload pathKey)
@@ -84,9 +84,29 @@ toJsCodec canonicalSiteUrl =
                 Success { pages, manifest, filesToGenerate, errors, staticHttpCache } ->
                     success (ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
         )
-        |> Codec.variant1 "Errors" Errors Codec.string
+        |> Codec.variant1 "Errors" Errors errorCodec
         |> Codec.variant1 "Success" Success (successCodec canonicalSiteUrl)
         |> Codec.buildCustom
+
+
+errorCodec : Codec (List BuildError)
+errorCodec =
+    Codec.object (\thing1 thing2 -> [])
+        |> Codec.field "errorString"
+            identity
+            (Codec.string
+                |> Codec.map
+                    (\_ ->
+                        [ { title = "TODO"
+                          , message = []
+                          , fatal = True
+                          }
+                        ]
+                    )
+                    BuildError.errorsToString
+            )
+        |> Codec.field "errorsJson" identity (Codec.list (Codec.build BuildError.encode (Decode.fail "")))
+        |> Codec.buildObject
 
 
 stubManifest : Manifest.Config pathKey
@@ -138,7 +158,7 @@ successCodec canonicalSiteUrl =
         |> Codec.field "staticHttpCache"
             .staticHttpCache
             (Codec.dict Codec.string)
-        |> Codec.field "errors" .errors (Codec.list Codec.string)
+        |> Codec.field "errors" .errors errorCodec
         |> Codec.buildObject
 
 

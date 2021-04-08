@@ -120,10 +120,8 @@ async function handleNavigationRequest(req, res) {
         res.end(renderResult.htmlString);
       }
     } catch (error) {
-      res.writeHead(500, {
-        "Content-Type": "text/html",
-      });
-      res.end(`<body><h1>Error</h1><pre>${error}</pre></body>`);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(error.errorsJson));
     }
   }
 }

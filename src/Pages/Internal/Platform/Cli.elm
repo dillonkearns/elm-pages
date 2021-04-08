@@ -902,8 +902,7 @@ sendSinglePageProgress toJsPayload config _ _ =
                     |> sendProgress
 
             Err error ->
-                error
-                    |> BuildError.errorToString
+                [ error ]
                     |> ToJsPayload.Errors
                     |> Effect.SendJsData
 

@@ -103,7 +103,7 @@ function runElmApp() {
           data: { pattern: globPattern, result: captures },
         });
       } else if (fromElm.tag === "Errors") {
-        console.error(fromElm.args[0]);
+        console.error(fromElm.args[0].errorString);
         foundErrors = true;
       } else {
         console.log(fromElm);
