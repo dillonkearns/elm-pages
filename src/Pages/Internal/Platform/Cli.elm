@@ -400,6 +400,7 @@ init maybeRequestJson toModel contentCache config flags =
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
                       , fatal = True
+                      , path = ""
                       }
                     ]
                 , allRawResponses = Dict.empty
@@ -594,6 +595,7 @@ update contentCache config msg model =
                                                         Terminal.text "Network error"
                                                 ]
                                           , fatal = True
+                                          , path = "" -- TODO wire in current path here
                                           }
                                         ]
                             }

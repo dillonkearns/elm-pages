@@ -55,6 +55,7 @@ buildError secretName secretsDict =
         , Terminal.text " should be "
         , Terminal.green <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
         ]
+    , path = "" -- TODO wire in path here?
     , fatal = True
     }
 

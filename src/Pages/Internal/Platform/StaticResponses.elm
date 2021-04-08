@@ -207,7 +207,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                 Nothing
                     )
 
-        generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
+        generatedFileErrors : List BuildError
         generatedFileErrors =
             generatedFiles
                 |> List.filterMap
@@ -223,6 +223,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                         [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
                                         , Terminal.text <| "Error: " ++ error_
                                         ]
+                                    , path = "Site.elm"
                                     , fatal = True
                                     }
                     )

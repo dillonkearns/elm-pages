@@ -48,7 +48,7 @@ toJsPayload :
     -> Manifest.Config pathKey
     -> List FileToGenerate
     -> Dict String (Maybe String)
-    -> List { title : String, message : List Terminal.Text, fatal : Bool }
+    -> List BuildError
     -> ToJsPayload pathKey
 toJsPayload encodedStatic manifest generated allRawResponses allErrors =
     if allErrors |> List.filter .fatal |> List.isEmpty then
@@ -100,6 +100,7 @@ errorCodec =
                         [ { title = "TODO"
                           , message = []
                           , fatal = True
+                          , path = ""
                           }
                         ]
                     )

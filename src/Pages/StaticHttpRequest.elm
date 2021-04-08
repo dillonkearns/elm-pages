@@ -49,30 +49,27 @@ toBuildError path error =
         MissingHttpResponse missingKey ->
             { title = "Missing Http Response"
             , message =
-                [ Terminal.text path
-                , Terminal.text "\n\n"
-                , Terminal.text missingKey
+                [ Terminal.text missingKey
                 ]
+            , path = path
             , fatal = True
             }
 
         DecoderError decodeErrorMessage ->
             { title = "Static Http Decoding Error"
             , message =
-                [ Terminal.text path
-                , Terminal.text "\n\n"
-                , Terminal.text decodeErrorMessage
+                [ Terminal.text decodeErrorMessage
                 ]
+            , path = path
             , fatal = True
             }
 
         UserCalledStaticHttpFail decodeErrorMessage ->
             { title = "Called Static Http Fail"
             , message =
-                [ Terminal.text path
-                , Terminal.text "\n\n"
-                , Terminal.text <| "I ran into a call to `Pages.StaticHttp.fail` with message: " ++ decodeErrorMessage
+                [ Terminal.text <| "I ran into a call to `Pages.StaticHttp.fail` with message: " ++ decodeErrorMessage
                 ]
+            , path = path
             , fatal = True
             }
 

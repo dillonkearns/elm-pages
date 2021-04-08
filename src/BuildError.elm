@@ -6,6 +6,7 @@ import TerminalText as Terminal
 
 type alias BuildError =
     { title : String
+    , path : String
     , message : List Terminal.Text
     , fatal : Bool
     }
@@ -36,20 +37,20 @@ banner title =
 encode : BuildError -> Encode.Value
 encode buildError =
     Encode.object
-        [ ( "path", Encode.string buildError.title )
+        [ ( "path", Encode.string buildError.path )
         , ( "name", Encode.string buildError.title )
         , ( "problems"
           , Encode.list
-                messagesEncoder
+                (messagesEncoder buildError.title)
                 [ buildError.message ]
           )
         ]
 
 
-messagesEncoder : List Terminal.Text -> Encode.Value
-messagesEncoder messages =
+messagesEncoder : String -> List Terminal.Text -> Encode.Value
+messagesEncoder title messages =
     Encode.object
-        [ ( "title", Encode.string "NAMING ERROR" )
+        [ ( "title", Encode.string title )
         , ( "message"
           , Encode.list Terminal.encoder messages
           )
