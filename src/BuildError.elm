@@ -39,11 +39,7 @@ encode buildError =
     Encode.object
         [ ( "path", Encode.string buildError.path )
         , ( "name", Encode.string buildError.title )
-        , ( "problems"
-          , Encode.list
-                (messagesEncoder buildError.title)
-                [ buildError.message ]
-          )
+        , ( "problems", Encode.list (messagesEncoder buildError.title) [ buildError.message ] )
         ]
 
 
@@ -51,7 +47,5 @@ messagesEncoder : String -> List Terminal.Text -> Encode.Value
 messagesEncoder title messages =
     Encode.object
         [ ( "title", Encode.string title )
-        , ( "message"
-          , Encode.list Terminal.encoder messages
-          )
+        , ( "message", Encode.list Terminal.encoder messages )
         ]
