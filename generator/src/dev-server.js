@@ -8,6 +8,7 @@ const port = 1234;
 const { spawnElmMake } = require("./compile-elm.js");
 const http = require("http");
 const fsPromises = fs.promises;
+const codegen = require("./codegen.js");
 
 const { inject } = require("elm-hot");
 
@@ -27,7 +28,16 @@ let clientElmMakeProcess = spawnElmMake(
   "gen/TemplateModulesBeta.elm",
   pathToClientElm
 );
-spawnElmMake("TemplateModulesBeta.elm", "elm.js", "elm-stuff/elm-pages");
+let pendingCliCompile = compileCliApp();
+
+async function compileCliApp() {
+  await codegen.generate();
+  await spawnElmMake(
+    "TemplateModulesBeta.elm",
+    "elm.js",
+    "elm-stuff/elm-pages"
+  );
+}
 
 http
   .createServer(async function (request, response) {
@@ -90,7 +100,9 @@ function handleStream(res) {
         "gen/TemplateModulesBeta.elm",
         pathToClientElm
       );
+      pendingCliCompile = compileCliApp();
       console.log("Pushing HMR event to client");
+      res.write(`data: content.json\n\n`);
       res.write(`data: /elm.js\n\n`);
     } else {
       console.log("Pushing HMR event to client");
@@ -107,6 +119,7 @@ async function handleNavigationRequest(req, res) {
     res.end(`Not found.`);
   } else {
     try {
+      await pendingCliCompile;
       const renderResult = await renderer(compiledElmPath, req.url, req);
       if (renderResult.kind === "json") {
         res.writeHead(200, {

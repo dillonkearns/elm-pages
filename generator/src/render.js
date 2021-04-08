@@ -41,7 +41,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
     const mode = "elm-to-html-beta";
     const staticHttpCache = {};
     const modifiedRequest = { ...request, path: route };
-    const app = require(compiledElmPath).Elm.TemplateModulesBeta.init({
+    const app = requireUncached(compiledElmPath).Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
         mode,
@@ -51,12 +51,10 @@ function runElmApp(compiledElmPath, pagePath, request) {
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
-      console.log(fromElm);
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
         const args = fromElm.args[0];
-        console.log("InitialData", { args });
         // const contentJson = args.pages["blog"];
         // resolve({
         //   kind: "json",
@@ -75,9 +73,6 @@ function runElmApp(compiledElmPath, pagePath, request) {
             contentJson: JSON.stringify({ staticData: args.contentJson }),
           });
         } else {
-          if ("/" + args.route === route) {
-            resolve(outputString(fromElm));
-          }
         }
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
@@ -117,6 +112,11 @@ function runElmApp(compiledElmPath, pagePath, request) {
       }
     });
   });
+}
+
+function requireUncached(modulePath) {
+  delete require.cache[require.resolve(modulePath)];
+  return require(modulePath);
 }
 
 /**
