@@ -40,11 +40,16 @@ spawnElmMake("TemplateModulesBeta.elm", "elm.js", "elm-stuff/elm-pages");
 http
   .createServer(async function (request, response) {
     if (request.url?.startsWith("/elm.js")) {
-      await clientElmMakeProcess;
-      response.writeHead(200, { "Content-Type": "text/javascript" });
-      response.end(
-        inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
-      );
+      try {
+        await clientElmMakeProcess;
+        response.writeHead(200, { "Content-Type": "text/javascript" });
+        response.end(
+          inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
+        );
+      } catch (elmCompilerError) {
+        response.writeHead(500, { "Content-Type": "application/json" });
+        response.end(elmCompilerError);
+      }
     } else if (request.url?.startsWith("/stream")) {
       handleStream(response);
     } else {

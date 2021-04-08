@@ -11,7 +11,7 @@ function connect(refetchContentJson) {
       var reloadUrl = evt.data;
       var myRequest = new Request(reloadUrl);
       myRequest.cache = "no-cache";
-      fetch(myRequest).then(function (response) {
+      fetch(myRequest).then(async function (response) {
         if (response.ok) {
           response.text().then(function (value) {
             module.hot.apply();
@@ -19,11 +19,12 @@ function connect(refetchContentJson) {
             eval(value);
           });
         } else {
-          console.error(
-            "HMR fetch failed:",
-            response.status,
-            response.statusText
-          );
+          try {
+            const errorJson = await response.json();
+            console.error("JSON", errorJson);
+          } catch (jsonParsingError) {
+            console.log("Couldn't parse error", jsonParsingError);
+          }
         }
       });
     }
