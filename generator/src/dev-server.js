@@ -11,14 +11,6 @@ const fsPromises = fs.promises;
 
 const { inject } = require("elm-hot");
 
-// const pathToTestFixtures = path.join(__dirname, "./fixtures");
-// const pathToBuildDir = path.join(pathToTestFixtures, "build");
-
-// try {
-//   fs.mkdirSync(pathToBuildDir);
-// } catch (error) {
-//   if (error.code !== "EEXIST") throw error;
-// }
 const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
 /** @type {Record<string, string>} */
 const translations = {
@@ -108,10 +100,6 @@ function handleStream(res) {
 }
 
 async function handleNavigationRequest(req, res) {
-  //   const filename = req.params.filename + ".html";
-  //   res.sendFile(path.join(process.cwd(), filename));
-  //   res.sendFile(path.join(pathToTestFixtures, filename));
-  // console.log({ req });
   if (req.url.endsWith(".ico") || req.url.endsWith("manifest.json")) {
     res.writeHead(404, {
       "Content-Type": "text/html",
