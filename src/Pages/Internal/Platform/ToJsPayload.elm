@@ -9,7 +9,6 @@ import Json.Encode
 import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
-import TerminalText as Terminal
 
 
 type ToJsPayload pathKey
@@ -106,7 +105,12 @@ errorCodec =
                     )
                     BuildError.errorsToString
             )
-        |> Codec.field "errorsJson" identity (Codec.list (Codec.build BuildError.encode (Decode.fail "")))
+        |> Codec.field "errorsJson"
+            identity
+            (Codec.build
+                (Json.Encode.list BuildError.encode)
+                (Decode.succeed [ { title = "TODO", message = [], fatal = True, path = "" } ])
+            )
         |> Codec.buildObject
 
 
