@@ -103,7 +103,6 @@ function handleStream(res) {
       pendingCliCompile = compileCliApp();
       console.log("Pushing HMR event to client");
       res.write(`data: content.json\n\n`);
-      res.write(`data: /elm.js\n\n`);
     } else {
       console.log("Pushing HMR event to client");
       res.write(`data: content.json\n\n`);

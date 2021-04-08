@@ -6,6 +6,7 @@ function connect(refetchContentJson) {
   eventSource = new EventSource("stream");
   eventSource.onmessage = function (evt) {
     if (evt.data === "content.json") {
+      const elmJsRequest = elmJsFetch();
       refetchContentJson(
         function (errorJson) {
           console.error("onContentJsonError", errorJson);
@@ -16,29 +17,11 @@ function connect(refetchContentJson) {
         },
         function () {
           hideError();
+          elmJsRequest.then(thenApplyHmr);
         }
       );
     } else {
-      var reloadUrl = evt.data;
-      var myRequest = new Request(reloadUrl);
-      myRequest.cache = "no-cache";
-      fetch(myRequest).then(async function (response) {
-        if (response.ok) {
-          response.text().then(function (value) {
-            module.hot.apply();
-            delete Elm;
-            eval(value);
-          });
-        } else {
-          try {
-            const errorJson = await response.json();
-            console.error("JSON", errorJson);
-            showError(errorJson);
-          } catch (jsonParsingError) {
-            console.log("Couldn't parse error", jsonParsingError);
-          }
-        }
-      });
+      elmJsFetch().then(thenApplyHmr);
     }
   };
 }
@@ -75,6 +58,30 @@ var module = {
 // https://github.com/wking-io/elm-live/blob/e317b4914c471addea7243c47f28dcebe27a5d36/lib/src/websocket.js
 
 const pipe = (...fns) => (x) => fns.reduce((y, f) => f(y), x);
+
+function elmJsFetch() {
+  var elmJsRequest = new Request("/elm.js");
+  elmJsRequest.cache = "no-cache";
+  return fetch(elmJsRequest);
+}
+
+async function thenApplyHmr(response) {
+  if (response.ok) {
+    response.text().then(function (value) {
+      module.hot.apply();
+      delete Elm;
+      eval(value);
+    });
+  } else {
+    try {
+      const errorJson = await response.json();
+      console.error("JSON", errorJson);
+      showError(errorJson);
+    } catch (jsonParsingError) {
+      console.log("Couldn't parse error", jsonParsingError);
+    }
+  }
+}
 
 function colorConverter(color) {
   return {

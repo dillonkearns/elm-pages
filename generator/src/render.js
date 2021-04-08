@@ -73,6 +73,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
             contentJson: JSON.stringify({ staticData: args.contentJson }),
           });
         } else {
+          resolve(outputString(fromElm));
         }
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];

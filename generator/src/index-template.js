@@ -186,7 +186,9 @@ appPromise.then(app => {
       app.ports.fromJsPort.send({ contentJson: await contentJson.json() });
       onOk()
     } else {
+      try {
       onContentJsonError(await contentJson.json())
+      } catch (error) { console.log('Invalid JSON response for content.json', error); onOk() }
     }
   });
 })
