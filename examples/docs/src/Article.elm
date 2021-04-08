@@ -35,7 +35,6 @@ allMetadata =
         |> StaticHttp.map
             (\paths ->
                 paths
-                    |> List.filter (\{ slug } -> slug /= "index")
                     |> List.map
                         (\{ filePath, slug } ->
                             StaticHttp.map2 Tuple.pair

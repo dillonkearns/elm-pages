@@ -1,5 +1,6 @@
 module Template.Blog.Slug_ exposing (Model, Msg, articlesRequest, routes, template, toRssItem)
 
+import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -39,11 +40,8 @@ type alias Route =
 
 routes : StaticHttp.Request (List Route)
 routes =
-    Glob.succeed Route
-        |> Glob.drop (Glob.literal "content/blog/")
-        |> Glob.keep Glob.wildcard
-        |> Glob.drop (Glob.literal ".md")
-        |> Glob.toStaticHttp
+    Article.blogPostsGlob
+        |> StaticHttp.map (List.map (.slug >> Route))
 
 
 type alias BlogPost =
