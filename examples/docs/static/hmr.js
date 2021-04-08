@@ -236,6 +236,7 @@ function showError_(error) {
   <pre
     id="elm-live:elmError"
     style="
+      white-space: pre-wrap;
       transform: rotateX(0deg);
       transition: transform 400ms;
       transform-style: preserve-3d;
