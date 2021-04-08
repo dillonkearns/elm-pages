@@ -3,7 +3,7 @@ module TerminalText exposing (..)
 
 type Text
     = RawText String
-    | Style String Text
+    | Style Color Text
 
 
 type Color
@@ -21,27 +21,27 @@ text value =
 
 cyan : Text -> Text
 cyan inner =
-    Style (colorToString Cyan) inner
+    Style Cyan inner
 
 
 green : Text -> Text
 green inner =
-    Style (colorToString Green) inner
+    Style Green inner
 
 
 yellow : Text -> Text
 yellow inner =
-    Style (colorToString Yellow) inner
+    Style Yellow inner
 
 
 red : Text -> Text
 red inner =
-    Style (colorToString Red) inner
+    Style Red inner
 
 
 blue : Text -> Text
 blue inner =
-    Style (colorToString Blue) inner
+    Style Blue inner
 
 
 resetColors : String
@@ -90,6 +90,9 @@ toString_ textValue =
         RawText content ->
             content
 
-        Style code innerText ->
+        Style color innerText ->
             String.concat
-                [ code, toString_ innerText, resetColors ]
+                [ colorToString color
+                , toString_ innerText
+                , resetColors
+                ]
