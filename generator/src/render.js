@@ -35,6 +35,7 @@ module.exports =
  */
 function runElmApp(compiledElmPath, pagePath, request) {
   return new Promise((resolve, reject) => {
+    console.time(`renderer-${pagePath}`);
     const isJson = pagePath.match(/content\.json\/?$/);
     const route = pagePath.replace(/content\.json\/?$/, "");
 
@@ -67,6 +68,8 @@ function runElmApp(compiledElmPath, pagePath, request) {
         // generateFiles(fromElm.args[0].filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
+
+        console.timeEnd(`renderer-${pagePath}`);
         if (isJson) {
           resolve({
             kind: "json",
