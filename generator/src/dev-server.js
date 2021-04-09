@@ -10,8 +10,18 @@ const http = require("http");
 const fsPromises = fs.promises;
 const codegen = require("./codegen.js");
 const kleur = require("kleur");
+const serveStatic = require("serve-static");
+const connect = require("connect");
 
 const { inject } = require("elm-hot");
+const serve = serveStatic("static/", { index: false });
+const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {
+  index: false,
+});
+const staticFilesDir = path.join(
+  process.cwd(),
+  "elm-stuff/elm-pages/static-files"
+);
 
 const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
 /** @type {Record<string, string>} */
@@ -40,14 +50,14 @@ async function compileCliApp() {
   );
 }
 
-http
-  .createServer(function (request, response) {
-    timeMiddleware(request, response);
-    processRequest(request, response);
-  })
-  .listen(port);
+const app = connect()
+  .use(timeMiddleware())
+  .use(processRequest)
+  .use(serveStaticCode)
+  .use(serve);
+http.createServer(app).listen(port);
 
-async function processRequest(request, response) {
+async function processRequest(request, response, next) {
   if (request.url?.startsWith("/elm.js")) {
     try {
       await clientElmMakeProcess;
@@ -61,23 +71,13 @@ async function processRequest(request, response) {
     }
   } else if (request.url?.startsWith("/stream")) {
     handleStream(response);
+  } else if (
+    request.url.includes("content.json") ||
+    request.headers["sec-fetch-mode"] === "navigate"
+  ) {
+    handleNavigationRequest(request, response);
   } else {
-    // console.log(request.headers);
-    if (
-      request.url.includes("content.json") ||
-      request.headers["sec-fetch-mode"] === "navigate"
-    ) {
-      handleNavigationRequest(request, response);
-    } else {
-      const staticFile = await lookupStaticFile(request);
-      if (staticFile) {
-        response.writeHead(200, { "Content-Type": staticFile.contentType });
-        response.end(staticFile.content, "utf-8");
-      } else {
-        response.writeHead(404);
-        response.end();
-      }
-    }
+    next();
   }
 }
 
@@ -196,16 +196,16 @@ async function fileContentWithType(filePath) {
   }
 }
 
-/**
- *
- * @param {*} root
- */
-function timeMiddleware(req, res) {
-  const start = Date.now();
-  const end = res.end;
-  res.end = (...args) => {
-    logTime(`${timeFrom(start)} ${prettifyUrl(req.url)}`);
-    return end.call(res, ...args);
+function timeMiddleware() {
+  return (req, res, next) => {
+    const start = Date.now();
+    const end = res.end;
+    res.end = (...args) => {
+      logTime(`${timeFrom(start)} ${prettifyUrl(req.url)}`);
+      return end.call(res, ...args);
+    };
+
+    next();
   };
 }
 
