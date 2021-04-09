@@ -13,7 +13,6 @@ import Json.Encode
 import NoMetadata exposing (NoMetadata(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.Internal.HotReloadLoadingIndicator as HotReloadLoadingIndicator
 import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
 import Pages.Manifest as Manifest
@@ -176,26 +175,8 @@ view urlToRoute pathKey viewFn model =
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg |> Html.map AppMsg
-        , Html.Lazy.lazy2 loadingView model.phase model.hmrStatus
         ]
     }
-
-
-loadingView : Phase -> HmrStatus -> Html msg
-loadingView phase hmrStatus =
-    case phase of
-        DevClient isDebugMode ->
-            (case hmrStatus of
-                HmrLoading ->
-                    True
-
-                _ ->
-                    False
-            )
-                |> HotReloadLoadingIndicator.view isDebugMode
-
-        _ ->
-            Html.text ""
 
 
 onViewChangeElement currentUrl =

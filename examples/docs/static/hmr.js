@@ -23,6 +23,7 @@ function connect(refetchContentJson) {
     } else {
       elmJsFetch().then(thenApplyHmr);
     }
+    showCompiling("");
   };
 }
 
@@ -290,6 +291,199 @@ function hideError(velocity) {
         "rotateX(90deg)";
       setTimeout(function () {
         document.getElementById("elm-live:elmErrorContainer").remove();
+      }, speed);
+    }
+  }
+}
+
+function showCompiling(message) {
+  hideError("fast");
+  setTimeout(function () {
+    showCompiling_(message);
+  }, delay);
+}
+
+function showCompiling_(message) {
+  var nodeContainer = document.getElementById("elm-live:elmCompilingContainer");
+
+  if (!nodeContainer) {
+    nodeContainer = document.createElement("div");
+    nodeContainer.id = "__elm-pages-loading";
+    nodeContainer.class = "lds-default"
+    nodeContainer.style = `
+                              position: fixed;
+                              bottom: 10px;
+                              right: 110px;
+                              width: 80px;
+                              height: 80px;
+                              background-color: white;
+                              display: block;
+                              box-shadow: rgba(0, 0, 0, 0.25) 0px 8px 15px 0px,
+                                rgba(0, 0, 0, 0.12) 0px 2px 10px 0px;
+                            `
+    document.body.appendChild(nodeContainer);
+  }
+
+  nodeContainer.innerHTML = `
+  <div
+    style="
+      animation: 1.2s linear 0s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 37px;
+      left: 66px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.1s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 22px;
+      left: 62px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.2s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 11px;
+      left: 52px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.3s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 7px;
+      left: 37px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.4s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 11px;
+      left: 22px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.5s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 22px;
+      left: 11px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.6s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 37px;
+      left: 7px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.7s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 52px;
+      left: 11px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.8s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 62px;
+      left: 22px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -0.9s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 66px;
+      left: 37px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -1s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 62px;
+      left: 52px;
+    "
+  ></div>
+  <div
+    style="
+      animation: 1.2s linear -1.1s infinite normal none running lds-default;
+      background: rgb(0, 0, 0);
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      top: 52px;
+      left: 62px;
+    "
+  ></div>
+`;
+  setTimeout(function () {
+    document.getElementById("__elm-pages-loading").style.opacity = 1;
+  }, delay);
+}
+
+function hideCompiling(velocity) {
+  const node = document.getElementById("elm-live:elmCompilingContainer");
+  if (node) {
+    if (velocity === "fast") {
+      node.remove();
+    } else {
+      document.getElementById("__elm-pages-loading").style.opacity = 0;
+      setTimeout(function () {
+        node.remove();
       }, speed);
     }
   }

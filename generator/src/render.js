@@ -188,6 +188,16 @@ function wrapHtml(fromElm, contentJsonString) {
   <html lang="en">
   <head>
     <link rel="stylesheet" href="/style.css"></link>
+    <style>
+@keyframes lds-default {
+    0%, 20%, 80%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.5);
+    }
+  }
+    </style>
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">
     <link rel="preload" href="/elm.js" as="script">
