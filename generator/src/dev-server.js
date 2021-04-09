@@ -9,6 +9,7 @@ const { spawnElmMake } = require("./compile-elm.js");
 const http = require("http");
 const fsPromises = fs.promises;
 const codegen = require("./codegen.js");
+const kleur = require("kleur");
 
 const { inject } = require("elm-hot");
 
@@ -40,31 +41,45 @@ async function compileCliApp() {
 }
 
 http
-  .createServer(async function (request, response) {
-    if (request.url?.startsWith("/elm.js")) {
-      try {
-        await clientElmMakeProcess;
-        response.writeHead(200, { "Content-Type": "text/javascript" });
-        response.end(
-          inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
-        );
-      } catch (elmCompilerError) {
-        response.writeHead(500, { "Content-Type": "application/json" });
-        response.end(elmCompilerError);
-      }
-    } else if (request.url?.startsWith("/stream")) {
-      handleStream(response);
+  .createServer(function (request, response) {
+    timeMiddleware(request, response);
+    processRequest(request, response);
+  })
+  .listen(port);
+
+async function processRequest(request, response) {
+  if (request.url?.startsWith("/elm.js")) {
+    try {
+      await clientElmMakeProcess;
+      response.writeHead(200, { "Content-Type": "text/javascript" });
+      response.end(
+        inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
+      );
+    } catch (elmCompilerError) {
+      response.writeHead(500, { "Content-Type": "application/json" });
+      response.end(elmCompilerError);
+    }
+  } else if (request.url?.startsWith("/stream")) {
+    handleStream(response);
+  } else {
+    // console.log(request.headers);
+    if (
+      request.url.includes("content.json") ||
+      request.headers["sec-fetch-mode"] === "navigate"
+    ) {
+      handleNavigationRequest(request, response);
     } else {
       const staticFile = await lookupStaticFile(request);
       if (staticFile) {
         response.writeHead(200, { "Content-Type": staticFile.contentType });
         response.end(staticFile.content, "utf-8");
       } else {
-        handleNavigationRequest(request, response);
+        response.writeHead(404);
+        response.end();
       }
     }
-  })
-  .listen(port);
+  }
+}
 
 console.log(`Server listening at http://localhost:${port}`);
 
@@ -161,17 +176,62 @@ const mimeTypes = {
  * @param {string} filePath
  */
 async function fileContentWithType(filePath) {
-  var extname = String(path.extname(filePath)).toLowerCase();
-  var contentType = mimeTypes[extname] || "application/octet-stream";
-  try {
-    return {
-      content: (
-        await fsPromises.readFile(path.join(process.cwd(), filePath))
-      ).toString(),
-      contentType,
-    };
-  } catch (error) {
-    console.log({ error });
+  if (!fs.existsSync(path.join(process.cwd(), filePath))) {
+    console.log(`Short circuiting ${filePath}`);
     return null;
+  } else {
+    var extname = String(path.extname(filePath)).toLowerCase();
+    var contentType = mimeTypes[extname] || "application/octet-stream";
+    try {
+      return {
+        content: (
+          await fsPromises.readFile(path.join(process.cwd(), filePath))
+        ).toString(),
+        contentType,
+      };
+    } catch (error) {
+      console.log({ error });
+      return null;
+    }
+  }
+}
+
+/**
+ *
+ * @param {*} root
+ */
+function timeMiddleware(req, res) {
+  const start = Date.now();
+  const end = res.end;
+  res.end = (...args) => {
+    logTime(`${timeFrom(start)} ${prettifyUrl(req.url)}`);
+    return end.call(res, ...args);
+  };
+}
+
+function prettifyUrl(url, root) {
+  return url;
+}
+
+/**
+ * @param {string} string
+ */
+function logTime(string) {
+  console.log("Ran in " + string);
+}
+
+/**
+ * @param {number} start
+ * @param {number} subtract
+ */
+function timeFrom(start, subtract = 0) {
+  const time = Date.now() - start - subtract;
+  const timeString = (time + `ms`).padEnd(5, " ");
+  if (time < 10) {
+    return kleur.green(timeString);
+  } else if (time < 50) {
+    return kleur.yellow(timeString);
+  } else {
+    return kleur.red(timeString);
   }
 }

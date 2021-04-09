@@ -25,6 +25,7 @@
     "elm-optimize-level-2": "^0.1.5",
     "globby": "^11.0.3",
     "gray-matter": "^4.0.2",
+    "kleur": "^3.0.3",
     "micromatch": "^4.0.2",
     "terser": "^5.6.1",
     "xhr2": "^0.2.1"
