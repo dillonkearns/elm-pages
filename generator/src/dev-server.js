@@ -2,12 +2,10 @@ const path = require("path");
 const fs = require("fs");
 const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
-const elmPagesIndexFileContents = require("./index-template.js");
 const renderer = require("../../generator/src/render");
 const port = 1234;
 const { spawnElmMake } = require("./compile-elm.js");
 const http = require("http");
-const fsPromises = fs.promises;
 const codegen = require("./codegen.js");
 const kleur = require("kleur");
 const serveStatic = require("serve-static");
@@ -83,25 +81,6 @@ async function processRequest(request, response, next) {
 
 console.log(`Server listening at http://localhost:${port}`);
 
-/**
- * @param {http.IncomingMessage} request
- * @returns {Promise<{ content: string; contentType: string; } | null>  }
- */
-async function lookupStaticFile(request) {
-  if (request.url === "/elm-pages.js") {
-    return {
-      content: elmPagesIndexFileContents,
-      contentType: "text/javascript",
-    };
-  }
-  const translated = translations[`${request.url}`];
-  const imageOrStaticPath = request.url?.startsWith("/images/")
-    ? request.url
-    : `/static${request.url}`;
-  const filePath = "." + (translated || imageOrStaticPath);
-  return await fileContentWithType(filePath);
-}
-
 function handleStream(res) {
   res.writeHead(200, {
     Connection: "keep-alive",
@@ -149,49 +128,6 @@ async function handleNavigationRequest(req, res) {
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify(error.errorsJson));
-    }
-  }
-}
-
-/** @type {Record<string, string>} */
-const mimeTypes = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpg",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".wav": "audio/wav",
-  ".mp4": "video/mp4",
-  ".woff": "application/font-woff",
-  ".ttf": "application/font-ttf",
-  ".eot": "application/vnd.ms-fontobject",
-  ".otf": "application/font-otf",
-  ".wasm": "application/wasm",
-};
-
-/**
- * @param {string} filePath
- */
-async function fileContentWithType(filePath) {
-  if (!fs.existsSync(path.join(process.cwd(), filePath))) {
-    console.log(`Short circuiting ${filePath}`);
-    return null;
-  } else {
-    var extname = String(path.extname(filePath)).toLowerCase();
-    var contentType = mimeTypes[extname] || "application/octet-stream";
-    try {
-      return {
-        content: (
-          await fsPromises.readFile(path.join(process.cwd(), filePath))
-        ).toString(),
-        contentType,
-      };
-    } catch (error) {
-      console.log({ error });
-      return null;
     }
   }
 }
