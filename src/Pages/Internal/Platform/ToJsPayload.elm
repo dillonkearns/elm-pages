@@ -33,6 +33,7 @@ type alias ToJsSuccessPayloadNew pathKey =
     , head : List (Head.Tag pathKey)
     , body : String
     , title : String
+    , staticHttpCache : Dict String String
     }
 
 
@@ -183,6 +184,9 @@ successCodecNew canonicalSiteUrl currentPagePath =
         |> Codec.field "head" .head (Codec.list (headCodec canonicalSiteUrl currentPagePath))
         |> Codec.field "body" .body Codec.string
         |> Codec.field "title" .title Codec.string
+        |> Codec.field "staticHttpCache"
+            .staticHttpCache
+            (Codec.dict Codec.string)
         |> Codec.buildObject
 
 

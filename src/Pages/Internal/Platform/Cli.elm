@@ -11,6 +11,7 @@ module Pages.Internal.Platform.Cli exposing
 import BuildError exposing (BuildError)
 import Codec
 import Dict exposing (Dict)
+import Dict.Extra
 import ElmHtml.InternalTypes exposing (decodeElmHtml)
 import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
 import Head
@@ -830,7 +831,7 @@ sendSinglePageProgress :
     -> Model pathKey route
     -> ( PagePath pathKey, route )
     -> Effect pathKey
-sendSinglePageProgress toJsPayload config _ _ =
+sendSinglePageProgress toJsPayload config _ model =
     \( page, _ ) ->
         let
             makeItWork : StaticHttpRequest.RawRequest staticData -> Result BuildError staticData
@@ -900,6 +901,7 @@ sendSinglePageProgress toJsPayload config _ _ =
                 , head = success.head
                 , title = viewValue.title
                 , body = "" --lookedUp.unparsedBody
+                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\k v -> v)
                 }
                     |> sendProgress
 

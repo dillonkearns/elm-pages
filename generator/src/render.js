@@ -40,13 +40,12 @@ function runElmApp(compiledElmPath, pagePath, request) {
     const route = pagePath.replace(/content\.json\/?$/, "");
 
     const mode = "elm-to-html-beta";
-    const staticHttpCache = {};
     const modifiedRequest = { ...request, path: route };
     const app = requireUncached(compiledElmPath).Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
         mode,
-        staticHttpCache,
+        staticHttpCache: global.staticHttpCache,
         request: modifiedRequest,
       },
     });
@@ -68,6 +67,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
         // generateFiles(fromElm.args[0].filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
+        global.staticHttpCache = args.staticHttpCache;
 
         console.timeEnd(`renderer-${pagePath}`);
         if (isJson) {

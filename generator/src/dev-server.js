@@ -11,6 +11,8 @@ const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
 
+global.staticHttpCache = {};
+
 const { inject } = require("elm-hot");
 const serve = serveStatic("static/", { index: false });
 const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {
