@@ -26,7 +26,6 @@ import Pages.Internal.Platform.ToJsPayload
 import Pages.Manifest as Manifest
 import Shared
 import Site
-import NoMetadata exposing (NoMetadata(..))
 import Head
 import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
@@ -368,9 +367,9 @@ main =
         , update = update
         , manifest = Pages.Internal.Platform.ToJsPayload.stubManifest
         , subscriptions =
-            \\metadata path model ->
+            \\path model ->
                 Sub.batch
-                    [ Shared.template.subscriptions NoMetadata path model.global |> Sub.map MsgGlobal
+                    [ Shared.template.subscriptions path model.global |> Sub.map MsgGlobal
                     , templateSubscriptions (RouteBlog {}) path model
                     ]
         , onPageChange = Just OnPageChange

@@ -10,7 +10,6 @@ import Element.Region
 import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
-import NoMetadata exposing (NoMetadata)
 import OptimizedDecoder as D
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -42,7 +41,7 @@ type alias SharedTemplate route templateDemuxMsg msg1 msg2 =
         -> { body : Html templateDemuxMsg, title : String }
     , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
     , staticData : StaticHttp.Request StaticData
-    , subscriptions : NoMetadata -> PagePath -> Model -> Sub Msg
+    , subscriptions : PagePath -> Model -> Sub Msg
     , onPageChange :
         Maybe
             ({ path : PagePath
@@ -138,8 +137,8 @@ update msg model =
                     ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
-subscriptions : NoMetadata -> PagePath -> Model -> Sub Msg
-subscriptions _ _ _ =
+subscriptions : PagePath -> Model -> Sub Msg
+subscriptions _ _ =
     Sub.none
 
 

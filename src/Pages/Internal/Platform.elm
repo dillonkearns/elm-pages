@@ -595,7 +595,7 @@ application :
     , getStaticRoutes : StaticHttp.Request (List route)
     , site : SiteConfig staticData
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : NoMetadata -> PagePath -> userModel -> Sub userMsg
+    , subscriptions : PagePath -> userModel -> Sub userMsg
     , view :
         List ( PagePath, NoMetadata )
         ->
@@ -698,7 +698,7 @@ application config =
                             userSub =
                                 Maybe.map
                                     (\path ->
-                                        config.subscriptions NoMetadata path model.userModel
+                                        config.subscriptions path model.userModel
                                             |> Sub.map UserMsg
                                             |> Sub.map AppMsg
                                     )
@@ -747,7 +747,7 @@ cliApplication :
     , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : NoMetadata -> PagePath -> userModel -> Sub userMsg
+    , subscriptions : PagePath -> userModel -> Sub userMsg
     , site : SiteConfig staticData
     , view :
         List ( PagePath, NoMetadata )
