@@ -278,8 +278,6 @@ async function runTerser(filePath) {
 
 async function copyAssets() {
   fs.writeFile("dist/elm-pages.js", indexTemplate);
-  fs.copyFile("beta-index.js", "dist/index.js");
-  fs.copyFile("beta-style.css", "dist/style.css");
   fs.copyDirFlat("static", "dist");
   fs.tryMkdir("dist/images");
   fs.copyDirNested("images", "dist/images");
