@@ -1,6 +1,5 @@
 ---
 {
-  "type": "blog",
   "author": "Dillon Kearns",
   "title": "Types Over Conventions",
   "description": "How elm-pages approaches configuration, using type-safe Elm.",

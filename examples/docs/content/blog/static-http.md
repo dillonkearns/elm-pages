@@ -1,6 +1,5 @@
 ---
 {
-  "type": "blog",
   "author": "Dillon Kearns",
   "title": "A is for API - Introducing Static HTTP Requests",
   "description": "The new StaticHttp API lets you fetch data when your site is built. That lets you remove loading spinners, and even access environment variables.",
