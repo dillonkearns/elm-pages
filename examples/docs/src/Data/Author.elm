@@ -5,13 +5,12 @@ import Element exposing (Element)
 import Html.Attributes as Attr
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
-import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 
 
 type alias Author =
     { name : String
-    , avatar : ImagePath Pages.PathKey
+    , avatar : ImagePath ()
     , bio : String
     }
 

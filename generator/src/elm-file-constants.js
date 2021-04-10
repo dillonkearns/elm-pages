@@ -1,5 +1,5 @@
 const exposingList =
-  "(PathKey, allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
+  "(allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
 
 function staticRouteStuff(staticRoutes) {
   return `
@@ -12,7 +12,7 @@ ${staticRoutes.routeRecord}
 ${staticRoutes.imageAssetsRecord}
 
 
-allImages : List (ImagePath PathKey)
+allImages : List (ImagePath ())
 allImages =
     [${staticRoutes.allImages.join("\n    , ")}
     ]
@@ -65,10 +65,6 @@ builtAt =
     Time.millisToPosix ${Math.round(global.builtAt.getTime())}
 
 
-type alias PathKey
-    = ()
-
-
 buildImage : List String -> ImagePath ()
 buildImage path =
     ImagePath.build ("images" :: path)
@@ -79,12 +75,12 @@ buildPage path =
     PagePath.build path
 
 
-directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
+directoryWithIndex : List String -> Directory () Directory.WithIndex
 directoryWithIndex path =
     Directory.withIndex () allPages path
 
 
-directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
+directoryWithoutIndex : List String -> Directory () Directory.WithoutIndex
 directoryWithoutIndex path =
     Directory.withoutIndex () allPages path
 
@@ -94,7 +90,7 @@ port toJsPort : Json.Encode.Value -> Cmd msg
 port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
 
-internals : Pages.Internal.Internal PathKey
+internals : Pages.Internal.Internal ()
 internals =
     { applicationType = Pages.Internal.Browser
     , toJsPort = toJsPort
@@ -132,10 +128,6 @@ builtAt =
     Time.millisToPosix ${Math.round(global.builtAt.getTime())}
 
 
-type alias PathKey
-    = ()
-
-
 buildImage : List String -> ImagePath ()
 buildImage path =
     ImagePath.build ("images" :: path)
@@ -146,12 +138,12 @@ buildPage path =
     PagePath.build path
 
 
-directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
+directoryWithIndex : List String -> Directory () Directory.WithIndex
 directoryWithIndex path =
     Directory.withIndex () allPages path
 
 
-directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
+directoryWithoutIndex : List String -> Directory () Directory.WithoutIndex
 directoryWithoutIndex path =
     Directory.withoutIndex () allPages path
 
@@ -162,7 +154,7 @@ port toJsPort : Json.Encode.Value -> Cmd msg
 port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
 
-internals : Pages.Internal.Internal PathKey
+internals : Pages.Internal.Internal ()
 internals =
     { applicationType = Pages.Internal.Cli
     , toJsPort = toJsPort
