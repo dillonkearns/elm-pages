@@ -46,43 +46,14 @@ mainView :
         )
     -> ModelDetails userModel
     -> { title : String, body : Html userMsg }
-mainView urlToRoute pageView model =
-    pageViewOrError urlToRoute pageView model model.contentCache
-
-
-urlToPagePath : Url -> Url -> PagePath
-urlToPagePath url baseUrl =
-    url.path
-        |> String.dropLeft (String.length baseUrl.path)
-        |> String.chopForwardSlashes
-        |> String.split "/"
-        |> List.filter ((/=) "")
-        |> PagePath.build
-
-
-pageViewOrError :
-    (Url -> route)
-    ->
-        ({ path : PagePath
-         , frontmatter : route
-         }
-         ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
-        )
-    -> ModelDetails userModel
-    -> ContentCache
-    -> { title : String, body : Html userMsg }
-pageViewOrError urlToRoute viewFn model cache =
+mainView urlToRoute viewFn model =
     let
         urls =
             { currentUrl = model.url
             , baseUrl = model.baseUrl
             }
     in
-    case ContentCache.lookup cache urls of
+    case ContentCache.lookup model.contentCache urls of
         Just ( pagePath, entry ) ->
             case entry of
                 ContentCache.Parsed viewResult ->
@@ -133,6 +104,16 @@ pageViewOrError urlToRoute viewFn model cache =
             , body =
                 Html.div [] [ Html.text "Page not found." ]
             }
+
+
+urlToPagePath : Url -> Url -> PagePath
+urlToPagePath url baseUrl =
+    url.path
+        |> String.dropLeft (String.length baseUrl.path)
+        |> String.chopForwardSlashes
+        |> String.split "/"
+        |> List.filter ((/=) "")
+        |> PagePath.build
 
 
 view :
