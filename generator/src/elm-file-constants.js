@@ -1,48 +1,6 @@
-const exposingList =
-  "(allPages, allImages, internals, images, isValidRoute, pages, builtAt)";
+const exposingList = "(internals, builtAt)";
 
-function staticRouteStuff(staticRoutes) {
-  return `
-
-
-${staticRoutes.allRoutes}
-
-${staticRoutes.routeRecord}
-
-${staticRoutes.imageAssetsRecord}
-
-
-allImages : List (ImagePath ())
-allImages =
-    [${staticRoutes.allImages.join("\n    , ")}
-    ]
-
-
-isValidRoute : String -> Result String ()
-isValidRoute route =
-    let
-        validRoutes =
-            List.map PagePath.toString allPages
-    in
-    if
-        (route |> String.startsWith "http://")
-            || (route |> String.startsWith "https://")
-            || (route |> String.startsWith "#")
-            || (validRoutes |> List.member route)
-    then
-        Ok ()
-
-    else
-        ("Valid routes:\\n"
-            ++ String.join "\\n\\n" validRoutes
-        )
-            |> Err
-`;
-}
-
-/**
- * @param {{ allRoutes: string; routeRecord: string; imageAssetsRecord: string; allImages: string[]; }} staticRoutes */
-function elmPagesUiFile(staticRoutes) {
+function elmPagesUiFile() {
   return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
@@ -63,26 +21,6 @@ import Time
 builtAt : Time.Posix
 builtAt =
     Time.millisToPosix ${Math.round(global.builtAt.getTime())}
-
-
-buildImage : List String -> ImagePath ()
-buildImage path =
-    ImagePath.build ("images" :: path)
-
-
-buildPage : List String -> PagePath
-buildPage path =
-    PagePath.build path
-
-
-directoryWithIndex : List String -> Directory () Directory.WithIndex
-directoryWithIndex path =
-    Directory.withIndex () allPages path
-
-
-directoryWithoutIndex : List String -> Directory () Directory.WithoutIndex
-directoryWithoutIndex path =
-    Directory.withoutIndex () allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -97,15 +35,10 @@ internals =
     , fromJsPort = fromJsPort identity
     , pathKey = ()
     }
-
-${staticRouteStuff(staticRoutes)}
 `;
 }
 
-/**
- * @param {{ allRoutes: string; routeRecord: string; imageAssetsRecord: string; allImages: string[]; }} staticRoutes
- */
-function elmPagesCliFile(staticRoutes) {
+function elmPagesCliFile() {
   return `port module Pages exposing ${exposingList}
 
 import Color exposing (Color)
@@ -126,26 +59,6 @@ import Time
 builtAt : Time.Posix
 builtAt =
     Time.millisToPosix ${Math.round(global.builtAt.getTime())}
-
-
-buildImage : List String -> ImagePath ()
-buildImage path =
-    ImagePath.build ("images" :: path)
-
-
-buildPage : List String -> PagePath
-buildPage path =
-    PagePath.build path
-
-
-directoryWithIndex : List String -> Directory () Directory.WithIndex
-directoryWithIndex path =
-    Directory.withIndex () allPages path
-
-
-directoryWithoutIndex : List String -> Directory () Directory.WithoutIndex
-directoryWithoutIndex path =
-    Directory.withoutIndex () allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -161,9 +74,6 @@ internals =
     , fromJsPort = fromJsPort identity
     , pathKey = ()
     }
-
-
-${staticRouteStuff(staticRoutes)}
 `;
 }
 module.exports = { elmPagesUiFile, elmPagesCliFile };

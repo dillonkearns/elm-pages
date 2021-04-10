@@ -6,7 +6,6 @@ const {
 } = require("./generate-template-module-connector.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
-const generateRecords = require("./generate-records.js");
 
 async function generate() {
   global.builtAt = new Date();
@@ -16,7 +15,6 @@ async function generate() {
 }
 
 async function writeFiles() {
-  const staticRoutes = await generateRecords();
   ensureDirSync("./elm-stuff");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages");
@@ -30,14 +28,11 @@ async function writeFiles() {
   deleteIfExists("./elm-stuff/elm-pages/Pages/ContentCache.elm");
   deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
-  const uiFileContent = elmPagesUiFile(staticRoutes);
+  const uiFileContent = elmPagesUiFile();
   fs.writeFileSync("./gen/Pages.elm", uiFileContent);
 
   // write `Pages.elm` with cli interface
-  fs.writeFileSync(
-    "./elm-stuff/elm-pages/Pages.elm",
-    elmPagesCliFile(staticRoutes)
-  );
+  fs.writeFileSync("./elm-stuff/elm-pages/Pages.elm", elmPagesCliFile());
   const cliCode = generateTemplateModuleConnector("cli");
   fs.writeFileSync(
     "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
