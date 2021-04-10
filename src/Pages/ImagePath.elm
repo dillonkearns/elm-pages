@@ -111,8 +111,8 @@ toAbsoluteUrl canonicalSiteUrl path =
 
 {-| This is not useful except for the internal generated code to construct an `ImagePath`.
 -}
-build : key -> List String -> ImagePath key
-build _ path =
+build : List String -> ImagePath key
+build path =
     Internal path
 
 

@@ -71,7 +71,7 @@ type alias PathKey
 
 buildImage : List String -> ImagePath ()
 buildImage path =
-    ImagePath.build () ("images" :: path)
+    ImagePath.build ("images" :: path)
 
 
 buildPage : List String -> PagePath
@@ -138,7 +138,7 @@ type alias PathKey
 
 buildImage : List String -> ImagePath ()
 buildImage path =
-    ImagePath.build () ("images" :: path)
+    ImagePath.build ("images" :: path)
 
 
 buildPage : List String -> PagePath

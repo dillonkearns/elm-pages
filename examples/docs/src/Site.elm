@@ -4,12 +4,11 @@ import Cloudinary
 import Color
 import Head
 import MimeType
-import Pages exposing (images, pages)
-import Pages.ImagePath exposing (ImagePath)
+import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
+import Pages.PagePath as PagePath
 import Pages.SiteConfig exposing (SiteConfig)
-import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 
 
@@ -53,7 +52,7 @@ staticData =
         (StaticHttp.succeed "site-name")
 
 
-head : StaticData -> List (Head.Tag Pages.PathKey)
+head : StaticData -> List (Head.Tag ())
 head static =
     [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
@@ -77,9 +76,9 @@ manifest static =
     , iarcRatingId = Nothing
     , name = static.siteName
     , themeColor = Just Color.white
-    , startUrl = pages.index
+    , startUrl = PagePath.build []
     , shortName = Just "elm-pages"
-    , sourceIcon = images.iconPng
+    , sourceIcon = ImagePath.build [ "images", "icon-png.png" ]
     , icons =
         [ icon webp 192
         , icon webp 512
