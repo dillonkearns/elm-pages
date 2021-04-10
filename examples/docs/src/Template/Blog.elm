@@ -5,7 +5,7 @@ import Element
 import Head
 import Head.Seo as Seo
 import Index
-import Pages exposing (images)
+import Pages.ImagePath as ImagePath
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
@@ -84,13 +84,13 @@ view thing model staticPayload =
     }
 
 
-head : StaticPayload StaticData {} -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData {} -> List (Head.Tag ())
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "images", "icon-png.png" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

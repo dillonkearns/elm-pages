@@ -4,12 +4,11 @@ import DocSidebar
 import Element exposing (Element)
 import Element.Events
 import Element.Font as Font
-import Element.Region
 import Head
 import Head.Seo as Seo
 import Json.Decode as Decode
 import MarkdownRenderer
-import Pages exposing (images)
+import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
@@ -66,13 +65,13 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : StaticPayload StaticData {} -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData {} -> List (Head.Tag ())
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "images", "icon-png.png" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

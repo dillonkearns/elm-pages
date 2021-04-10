@@ -3,7 +3,7 @@ module Template.Hello.Name_ exposing (Model, Msg, template)
 import Element
 import Head
 import Head.Seo as Seo
-import Pages exposing (images)
+import Pages.ImagePath as ImagePath
 import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
@@ -34,13 +34,13 @@ template =
 
 head :
     StaticPayload () Route
-    -> List (Head.Tag Pages.PathKey)
+    -> List (Head.Tag ())
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "images", "icon-png.png" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

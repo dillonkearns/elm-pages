@@ -10,10 +10,8 @@ import Element.Region
 import Glob
 import Head
 import Head.Seo as Seo
-import List.Extra
 import MarkdownRenderer
 import OptimizedDecoder
-import Pages
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
@@ -49,7 +47,7 @@ type alias BlogPost =
     , description : String
     , published : Date
     , author : Author
-    , image : ImagePath Pages.PathKey
+    , image : ImagePath ()
     , draft : Bool
     }
 
@@ -110,7 +108,7 @@ view { static } =
 
 head :
     StaticPayload DataFromFile Route
-    -> List (Head.Tag Pages.PathKey)
+    -> List (Head.Tag ())
 head { path, static } =
     let
         metadata =
@@ -165,7 +163,7 @@ publishedDateView metadata =
         )
 
 
-articleImageView : ImagePath Pages.PathKey -> Element msg
+articleImageView : ImagePath () -> Element msg
 articleImageView articleImage =
     Element.image [ Element.width Element.fill ]
         { src = ImagePath.toString articleImage
@@ -203,7 +201,7 @@ type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , image : ImagePath Pages.PathKey
+    , image : ImagePath ()
     , draft : Bool
     }
 
@@ -233,7 +231,7 @@ frontmatterDecoder =
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder (ImagePath Pages.PathKey)
+imageDecoder : OptimizedDecoder.Decoder (ImagePath ())
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

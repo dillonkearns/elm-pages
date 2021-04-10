@@ -1,16 +1,11 @@
 module Template.Time exposing (Model, Msg, template)
 
 import Element exposing (Element)
-import Element.Region
 import Head
 import Head.Seo as Seo
-import OptimizedDecoder
-import Pages exposing (images)
-import Pages.PagePath exposing (PagePath)
+import Pages.ImagePath as ImagePath
 import Pages.StaticHttp as StaticHttp
-import Secrets
 import Shared
-import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
 
 
@@ -47,13 +42,13 @@ staticData routeParams =
 
 head :
     StaticPayload StaticData {}
-    -> List (Head.Tag Pages.PathKey)
+    -> List (Head.Tag ())
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "images", "icon-png.png" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

@@ -3,7 +3,7 @@ module Template.Showcase exposing (Model, Msg, template)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
-import Pages exposing (images)
+import Pages.ImagePath as ImagePath
 import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
@@ -65,13 +65,13 @@ view static =
     }
 
 
-head : StaticPayload StaticData {} -> List (Head.Tag Pages.PathKey)
+head : StaticPayload StaticData {} -> List (Head.Tag ())
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "images", "icon-png.png" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

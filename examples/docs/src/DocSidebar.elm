@@ -3,7 +3,6 @@ module DocSidebar exposing (view)
 import Element exposing (Element)
 import Element.Border as Border
 import Element.Font
-import Pages
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 

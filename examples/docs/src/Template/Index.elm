@@ -6,7 +6,7 @@ import Head
 import Head.Seo as Seo
 import MarkdownRenderer
 import OptimizedDecoder
-import Pages exposing (images)
+import Pages.ImagePath as ImagePath
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Shared
@@ -42,13 +42,13 @@ template =
 
 head :
     StaticPayload StaticData Route
-    -> List (Head.Tag Pages.PathKey)
+    -> List (Head.Tag ())
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "images", "icon-png.png" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

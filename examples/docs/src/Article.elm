@@ -5,7 +5,6 @@ import Date exposing (Date)
 import Element exposing (Element)
 import Glob
 import OptimizedDecoder
-import Pages
 import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
@@ -102,7 +101,7 @@ type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , image : ImagePath Pages.PathKey
+    , image : ImagePath ()
     , draft : Bool
     }
 
@@ -132,7 +131,7 @@ frontmatterDecoder =
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder (ImagePath Pages.PathKey)
+imageDecoder : OptimizedDecoder.Decoder (ImagePath ())
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
