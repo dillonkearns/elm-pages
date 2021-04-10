@@ -35,7 +35,7 @@ error =
 
 init :
     { config
-        | view : List a -> { path : PagePath, frontmatter : route } -> StaticHttp.Request b
+        | view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , getStaticRoutes : StaticHttp.Request (List route)
         , site : SiteConfig siteStaticData
         , generateFiles :
@@ -63,7 +63,7 @@ init config =
 
 renderSingleRoute :
     { config
-        | view : List a -> { path : PagePath, frontmatter : route } -> StaticHttp.Request b
+        | view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , routeToPath : route -> List String
     }
     -> { path : PagePath, frontmatter : route }
@@ -75,7 +75,7 @@ renderSingleRoute config pathAndRoute =
                 ( config.routeToPath route |> String.join "/"
                 , NotFetched
                     (StaticHttp.map (\_ -> ())
-                        (config.view [] pathAndRoute)
+                        (config.view pathAndRoute)
                         |> StaticHttp.map (\_ -> ())
                     )
                     Dict.empty
@@ -152,7 +152,7 @@ nextStep :
         | manifest : Manifest.Config
         , getStaticRoutes : StaticHttp.Request (List route)
         , routeToPath : route -> List String
-        , view : List a -> { path : PagePath, frontmatter : route } -> StaticHttp.Request b
+        , view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , site : SiteConfig siteStaticData
         , generateFiles :
             StaticHttp.Request
@@ -391,7 +391,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                             let
                                                 entry =
                                                     NotFetched
-                                                        (config.view []
+                                                        (config.view
                                                             { path = PagePath.build (config.routeToPath route)
                                                             , frontmatter = route
                                                             }

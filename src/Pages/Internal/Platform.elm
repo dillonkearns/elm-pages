@@ -9,7 +9,6 @@ import Html.Attributes
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import NoMetadata exposing (NoMetadata(..))
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Cli
@@ -32,11 +31,9 @@ mainView :
     (Url -> route)
     -> pathKey
     ->
-        (List ( PagePath, NoMetadata )
-         ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        ({ path : PagePath
+         , frontmatter : route
+         }
          ->
             StaticHttp.Request
                 { view :
@@ -68,11 +65,9 @@ pageViewOrError :
     (Url -> route)
     -> pathKey
     ->
-        (List ( PagePath, NoMetadata )
-         ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        ({ path : PagePath
+         , frontmatter : route
+         }
          ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
@@ -98,7 +93,7 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
                             { path = pagePath
                             , frontmatter = urlToRoute model.url
                             }
-                                |> viewFn []
+                                |> viewFn
                                 |> (\request ->
                                         StaticHttpRequest.resolve ApplicationType.Browser
                                             request
@@ -152,11 +147,9 @@ view :
     (Url -> route)
     -> pathKey
     ->
-        (List ( PagePath, NoMetadata )
-         ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        ({ path : PagePath
+         , frontmatter : route
+         }
          ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
@@ -393,11 +386,9 @@ update :
     -> List String
     -> String
     ->
-        (List ( PagePath, NoMetadata )
-         ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        ({ path : PagePath
+         , frontmatter : route
+         }
          ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
@@ -503,7 +494,6 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction _ maybeOnPageChangeMsg
 
                                 headFn pagePath frontmatter staticDataThing =
                                     viewFunction
-                                        []
                                         { path = pagePath, frontmatter = frontmatter }
                                         |> (\request ->
                                                 StaticHttpRequest.resolve ApplicationType.Browser request staticDataThing
@@ -596,11 +586,9 @@ application :
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : PagePath -> userModel -> Sub userMsg
     , view :
-        List ( PagePath, NoMetadata )
-        ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        { path : PagePath
+        , frontmatter : route
+        }
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
@@ -630,7 +618,6 @@ application :
              -> userMsg
             )
     }
-    --    -> Program userModel userMsg metadata view
     -> Platform.Program Flags (Model userModel route) (Msg userMsg)
 application config =
     Browser.application
@@ -749,11 +736,9 @@ cliApplication :
     , subscriptions : PagePath -> userModel -> Sub userMsg
     , site : SiteConfig staticData
     , view :
-        List ( PagePath, NoMetadata )
-        ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        { path : PagePath
+        , frontmatter : route
+        }
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }

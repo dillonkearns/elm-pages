@@ -19,7 +19,6 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import NoMetadata exposing (NoMetadata)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
@@ -81,11 +80,9 @@ type alias Config userMsg userModel route siteStaticData =
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : PagePath -> userModel -> Sub userMsg
     , view :
-        List ( PagePath, NoMetadata )
-        ->
-            { path : PagePath
-            , frontmatter : route
-            }
+        { path : PagePath
+        , frontmatter : route
+        }
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
@@ -851,7 +848,7 @@ sendSinglePageProgress toJsPayload config _ model =
                     , head : List (Head.Tag ())
                     }
             viewRequest =
-                config.view [] currentPage
+                config.view currentPage
 
             twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List (Head.Tag ()) }
             twoThings =

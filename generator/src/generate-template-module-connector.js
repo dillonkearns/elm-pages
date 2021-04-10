@@ -363,7 +363,7 @@ main =
                 ]
                 |> StaticHttp.map List.concat
                 |> StaticHttp.map (List.map Just)
-        , view = \\_ -> view
+        , view = view
         , update = update
         , manifest = Pages.Internal.Platform.ToJsPayload.stubManifest
         , subscriptions =
