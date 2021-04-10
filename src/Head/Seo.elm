@@ -22,7 +22,7 @@ with the `head` function that you pass to your Pages config (`Pages.application`
         , author : Data.Author.Author
         }
 
-    head : ArticleMetadata -> List (Head.Tag Pages.PathKey)
+    head : ArticleMetadata -> List Head.Tag
     head articleMetadata =
         Seo.summaryLarge
             { canonicalUrlOverride = Nothing

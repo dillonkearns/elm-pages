@@ -8,7 +8,7 @@ module Pages.Directory exposing
 
 {-| The `Directory` type can be used to get the children of a given directory,
 check if a `PagePath` is within a `Directory`, or get the index page corresponding
-to the directory (if it is a `Directory pathKey WithIndex`).
+to the directory (if it is a `Directory WithIndex`).
 
 @docs Directory
 

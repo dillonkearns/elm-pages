@@ -391,7 +391,6 @@ update :
                 , head : List Head.Tag
                 }
         )
-    -> pathKey
     ->
         Maybe
             ({ path : PagePath
@@ -406,7 +405,7 @@ update :
     -> Msg userMsg
     -> ModelDetails userModel
     -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
-update urlToRoute allRoutes canonicalSiteUrl viewFunction _ maybeOnPageChangeMsg toJsPort userUpdate msg model =
+update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg toJsPort userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -655,7 +654,7 @@ application config =
                                     |> List.map Tuple.first
                                     |> List.map (String.join "/")
                         in
-                        update config.urlToRoute allRoutes config.canonicalSiteUrl config.view () config.onPageChange config.toJsPort userUpdate msg model
+                        update config.urlToRoute allRoutes config.canonicalSiteUrl config.view config.onPageChange config.toJsPort userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
