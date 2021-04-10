@@ -29,7 +29,6 @@ type alias Program userModel userMsg route =
 
 mainView :
     (Url -> route)
-    -> pathKey
     ->
         ({ path : PagePath
          , frontmatter : route
@@ -47,8 +46,8 @@ mainView :
         )
     -> ModelDetails userModel
     -> { title : String, body : Html userMsg }
-mainView urlToRoute pathKey pageView model =
-    pageViewOrError urlToRoute pathKey pageView model model.contentCache
+mainView urlToRoute pageView model =
+    pageViewOrError urlToRoute pageView model model.contentCache
 
 
 urlToPagePath : Url -> Url -> PagePath
@@ -63,7 +62,6 @@ urlToPagePath url baseUrl =
 
 pageViewOrError :
     (Url -> route)
-    -> pathKey
     ->
         ({ path : PagePath
          , frontmatter : route
@@ -77,14 +75,14 @@ pageViewOrError :
     -> ModelDetails userModel
     -> ContentCache
     -> { title : String, body : Html userMsg }
-pageViewOrError urlToRoute pathKey viewFn model cache =
+pageViewOrError urlToRoute viewFn model cache =
     let
         urls =
             { currentUrl = model.url
             , baseUrl = model.baseUrl
             }
     in
-    case ContentCache.lookup pathKey cache urls of
+    case ContentCache.lookup cache urls of
         Just ( pagePath, entry ) ->
             case entry of
                 ContentCache.Parsed viewResult ->
@@ -145,7 +143,6 @@ pageViewOrError urlToRoute pathKey viewFn model cache =
 
 view :
     (Url -> route)
-    -> pathKey
     ->
         ({ path : PagePath
          , frontmatter : route
@@ -158,10 +155,10 @@ view :
         )
     -> ModelDetails userModel
     -> Browser.Document (Msg userMsg)
-view urlToRoute pathKey viewFn model =
+view urlToRoute viewFn model =
     let
         { title, body } =
-            mainView urlToRoute pathKey viewFn model
+            mainView urlToRoute viewFn model
     in
     { title = title
     , body =
@@ -200,7 +197,6 @@ contentJsonDecoder =
 
 init :
     (Url -> route)
-    -> pathKey
     ->
         (Maybe
             { metadata : route
@@ -216,7 +212,7 @@ init :
     -> Url
     -> Browser.Navigation.Key
     -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
-init urlToRoute pathKey initUserModel flags url key =
+init urlToRoute initUserModel flags url key =
     let
         contentCache =
             ContentCache.init
@@ -300,7 +296,7 @@ init urlToRoute pathKey initUserModel flags url key =
                         |> Cmd.batch
 
                 maybePagePath =
-                    case ContentCache.lookupMetadata pathKey (Ok okCache) urls of
+                    case ContentCache.lookupMetadata (Ok okCache) urls of
                         Just pagePath ->
                             Just pagePath
 
@@ -476,7 +472,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction _ maybeOnPageChangeMsg
                                     }
 
                                 maybeCmd =
-                                    case ContentCache.lookup () updatedCache urls of
+                                    case ContentCache.lookup updatedCache urls of
                                         Just ( pagePath, entry ) ->
                                             case entry of
                                                 ContentCache.Parsed viewResult ->
@@ -623,14 +619,14 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.urlToRoute () config.init flags url key
+                init config.urlToRoute config.init flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        view config.urlToRoute () config.view model
+                        view config.urlToRoute config.view model
 
                     CliModel _ ->
                         { title = "Error"
@@ -674,7 +670,7 @@ application config =
                                 { currentUrl = model.url, baseUrl = model.baseUrl }
 
                             maybePagePath =
-                                case ContentCache.lookupMetadata () model.contentCache urls of
+                                case ContentCache.lookupMetadata model.contentCache urls of
                                     Just pagePath ->
                                         Just pagePath
 

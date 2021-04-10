@@ -224,11 +224,10 @@ pathForUrl { currentUrl, baseUrl } =
 
 
 lookup :
-    pathKey
-    -> ContentCache
+    ContentCache
     -> { currentUrl : Url, baseUrl : Url }
     -> Maybe ( PagePath, Entry )
-lookup _ content urls =
+lookup content urls =
     case content of
         Ok dict ->
             let
@@ -247,13 +246,12 @@ lookup _ content urls =
 
 
 lookupMetadata :
-    pathKey
-    -> ContentCache
+    ContentCache
     -> { currentUrl : Url, baseUrl : Url }
     -> Maybe PagePath
-lookupMetadata pathKey content urls =
+lookupMetadata content urls =
     urls
-        |> lookup pathKey content
+        |> lookup content
         |> Maybe.map
             (\( pagePath, entry ) ->
                 case entry of
