@@ -439,40 +439,8 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg t
                         -- TODO can there be race conditions here? Might need to set something in the model
                         -- to keep track of the last url change
                         Ok updatedCache ->
-                            let
-                                urls =
-                                    { currentUrl = model.url
-                                    , baseUrl = model.baseUrl
-                                    }
-
-                                maybeCmd =
-                                    case ContentCache.lookup updatedCache urls of
-                                        Just ( pagePath, entry ) ->
-                                            case entry of
-                                                ContentCache.Parsed viewResult ->
-                                                    headFn pagePath (urlToRoute model.url) viewResult.staticData
-                                                        |> Result.map .head
-                                                        |> Result.toMaybe
-                                                        |> Maybe.map (encodeHeads allRoutes canonicalSiteUrl model.url.path)
-                                                        |> Maybe.map toJsPort
-
-                                                ContentCache.NeedContent ->
-                                                    Nothing
-
-                                        Nothing ->
-                                            Nothing
-
-                                headFn pagePath frontmatter staticDataThing =
-                                    viewFunction
-                                        { path = pagePath, frontmatter = frontmatter }
-                                        |> (\request ->
-                                                StaticHttpRequest.resolve ApplicationType.Browser request staticDataThing
-                                           )
-                            in
                             ( { model | contentCache = updatedCache }
-                            , maybeCmd
-                                |> Maybe.map (Cmd.map never)
-                                |> Maybe.withDefault Cmd.none
+                            , Cmd.none
                             )
 
                         Err _ ->
