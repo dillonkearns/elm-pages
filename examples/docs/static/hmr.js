@@ -66,7 +66,14 @@ function elmJsFetch() {
   return fetch(elmJsRequest);
 }
 
+async function waitFor(millis) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, millis);
+  });
+}
+
 async function thenApplyHmr(response) {
+  await waitFor(800);
   if (response.ok) {
     response.text().then(function (value) {
       module.hot.apply();
@@ -309,7 +316,7 @@ function showCompiling_(message) {
   if (!nodeContainer) {
     nodeContainer = document.createElement("div");
     nodeContainer.id = "__elm-pages-loading";
-    nodeContainer.class = "lds-default"
+    nodeContainer.class = "lds-default";
     nodeContainer.style = `
                               position: fixed;
                               bottom: 10px;
@@ -320,7 +327,7 @@ function showCompiling_(message) {
                               display: block;
                               box-shadow: rgba(0, 0, 0, 0.25) 0px 8px 15px 0px,
                                 rgba(0, 0, 0, 0.12) 0px 2px 10px 0px;
-                            `
+                            `;
     document.body.appendChild(nodeContainer);
   }
 
