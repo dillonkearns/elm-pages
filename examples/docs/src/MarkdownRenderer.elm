@@ -300,9 +300,14 @@ code snippet =
 
 codeBlock : { body : String, language : Maybe String } -> Element msg
 codeBlock details =
-    SyntaxHighlight.elm details.body
-        |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
-        |> Result.withDefault
-            (Html.pre [] [ Html.code [] [ Html.text details.body ] ])
-        |> Element.html
-        |> Element.el [ Element.width Element.fill ]
+    Element.paragraph [] [ Element.text details.body ]
+
+
+
+-- TODO turn this back on - it's off for now to get more accurate performance benchmarks
+--SyntaxHighlight.elm details.body
+--    |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
+--    |> Result.withDefault
+--        (Html.pre [] [ Html.code [] [ Html.text details.body ] ])
+--    |> Element.html
+--    |> Element.el [ Element.width Element.fill ]
