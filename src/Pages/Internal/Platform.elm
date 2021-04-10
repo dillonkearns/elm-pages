@@ -131,13 +131,7 @@ pageViewOrError urlToRoute viewFn model cache =
         Nothing ->
             { title = "Page not found"
             , body =
-                Html.div []
-                    [ Html.text "Page not found. Valid routes:\n\n"
-                    , cache
-                        |> ContentCache.routesForCache
-                        |> String.join ", "
-                        |> Html.text
-                    ]
+                Html.div [] [ Html.text "Page not found." ]
             }
 
 

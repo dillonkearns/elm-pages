@@ -6,7 +6,6 @@ module Pages.ContentCache exposing
     , lazyLoad
     , lookup
     , lookupMetadata
-    , routesForCache
     )
 
 import BuildError exposing (BuildError)
@@ -73,18 +72,6 @@ routes record =
     record
         |> List.map Tuple.first
         |> List.map (String.join "/")
-
-
-routesForCache : ContentCache -> List String
-routesForCache cacheResult =
-    case cacheResult of
-        Ok cache ->
-            cache
-                |> Dict.toList
-                |> routes
-
-        Err _ ->
-            []
 
 
 {-| Get from the Cache... if it's not already parsed, it will
