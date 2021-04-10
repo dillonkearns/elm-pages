@@ -6,7 +6,6 @@ import Browser.Navigation
 import Head
 import Html exposing (Html)
 import Html.Attributes
-import Html.Lazy
 import Http
 import Json.Decode as Decode
 import Json.Encode
@@ -322,7 +321,6 @@ init urlToRoute pathKey initUserModel flags url key =
               , userModel = userModel
               , contentCache = contentCache
               , phase = phase
-              , hmrStatus = HmrLoaded
               }
             , cmd
             )
@@ -338,7 +336,6 @@ init urlToRoute pathKey initUserModel flags url key =
               , userModel = userModel
               , contentCache = contentCache
               , phase = DevClient False
-              , hmrStatus = HmrLoaded
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -383,7 +380,6 @@ type alias ModelDetails userModel =
     , contentCache : ContentCache
     , userModel : userModel
     , phase : Phase
-    , hmrStatus : HmrStatus
     }
 
 
@@ -572,21 +568,15 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction pathKey maybeOnPageCha
                     ( { model
                         | contentCache =
                             ContentCache.init (Just ( urls, contentJson ))
-                        , hmrStatus = HmrLoaded
                       }
                     , Cmd.none
                     )
 
                 StartingHotReload ->
-                    ( { model | hmrStatus = HmrLoading }, Cmd.none )
+                    ( model, Cmd.none )
 
         CliMsg _ ->
             ( model, Cmd.none )
-
-
-type HmrStatus
-    = HmrLoading
-    | HmrLoaded
 
 
 application :
