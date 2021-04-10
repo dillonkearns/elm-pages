@@ -12,9 +12,6 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import NoMetadata exposing (NoMetadata)
 import OptimizedDecoder as D
-import Pages exposing (pages)
-import Pages.Directory as Directory exposing (Directory)
-import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
@@ -216,8 +213,8 @@ logoLinkMobile =
 navbarLinks stars currentPath =
     [ elmDocsLink
     , githubRepoLink stars
-    , highlightableLink currentPath pages.docs.directory "Docs"
-    , highlightableLink currentPath pages.showcase.directory "Showcase"
+    , highlightableLink currentPath [ "docs" ] "Docs"
+    , highlightableLink currentPath [ "showcase" ] "Showcase"
 
     --, highlightableLink currentPath pages.blog.directory "Blog"
     ]
@@ -296,7 +293,7 @@ githubRepoLink starCount =
                     [ Element.width (Element.px 22)
                     , Font.color Palette.color.primary
                     ]
-                    { src = ImagePath.toString Pages.images.github, description = "Github repo" }
+                    { src = "/images/github.svg", description = "Github repo" }
                 , Element.text <| String.fromInt starCount
                 ]
         }
@@ -311,19 +308,27 @@ elmDocsLink =
                 [ Element.width (Element.px 22)
                 , Font.color Palette.color.primary
                 ]
-                { src = ImagePath.toString Pages.images.elmLogo, description = "Elm Package Docs" }
+                { src = "/images/elm-logo.svg", description = "Elm Package Docs" }
         }
 
 
 highlightableLink :
     PagePath
-    -> Directory Pages.PathKey Directory.WithIndex
+    -> List String
     -> String
     -> Element msg
 highlightableLink currentPath linkDirectory displayName =
     let
         isHighlighted =
-            currentPath |> Directory.includes linkDirectory
+            (currentPath |> PagePath.toPath)
+                == linkDirectory
+                || (currentPath
+                        |> PagePath.toPath
+                        |> List.reverse
+                        |> List.drop 1
+                        |> List.reverse
+                   )
+                == linkDirectory
     in
     Element.link
         (if isHighlighted then
@@ -334,6 +339,6 @@ highlightableLink currentPath linkDirectory displayName =
          else
             []
         )
-        { url = linkDirectory |> Directory.indexPath |> PagePath.toString
+        { url = linkDirectory |> String.join "/"
         , label = Element.text displayName
         }
