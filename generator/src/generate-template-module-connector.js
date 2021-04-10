@@ -16,9 +16,11 @@ function generateTemplateModuleConnector(phase) {
   });
 
   return {
-    mainModule: `module TemplateModulesBeta exposing (..)
+    mainModule: `port module TemplateModulesBeta exposing (..)
 
 import Browser
+import Json.Decode
+import Json.Encode
 import Pages.Internal.Platform
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Manifest as Manifest
@@ -27,7 +29,6 @@ import Site
 import NoMetadata exposing (NoMetadata(..))
 import Head
 import Html exposing (Html)
-import Pages
 import Pages.PagePath exposing (PagePath)
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
@@ -374,11 +375,14 @@ main =
                     ]
         , onPageChange = Just OnPageChange
         , canonicalSiteUrl = "TODO"
-        , toJsPort = Pages.internals.toJsPort
-        , fromJsPort = Pages.internals.fromJsPort
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
         , generateFiles = Site.config.generateFiles
         }
 
+port toJsPort : Json.Encode.Value -> Cmd msg
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
 
 mapDocument : Browser.Document Never -> Browser.Document mapped
