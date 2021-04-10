@@ -6,11 +6,9 @@ const {
 } = require("./generate-template-module-connector.js");
 const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
+global.builtAt = new Date();
 
 async function generate() {
-  global.builtAt = new Date();
-  global.staticHttpCache = {};
-
   await writeFiles();
 }
 
