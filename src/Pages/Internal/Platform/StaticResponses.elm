@@ -393,7 +393,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                                 entry =
                                                     NotFetched
                                                         (config.view []
-                                                            { path = PagePath.build config.pathKey (config.routeToPath route)
+                                                            { path = PagePath.build (config.routeToPath route)
                                                             , frontmatter = route
                                                             }
                                                             |> StaticHttp.map (\_ -> ())

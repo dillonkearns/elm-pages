@@ -65,28 +65,28 @@ builtAt =
     Time.millisToPosix ${Math.round(global.builtAt.getTime())}
 
 
-type PathKey
-    = PathKey
+type alias PathKey
+    = ()
 
 
 buildImage : List String -> ImagePath PathKey
 buildImage path =
-    ImagePath.build PathKey ("images" :: path)
+    ImagePath.build () ("images" :: path)
 
 
 buildPage : List String -> PagePath PathKey
 buildPage path =
-    PagePath.build PathKey path
+    PagePath.build path
 
 
 directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
 directoryWithIndex path =
-    Directory.withIndex PathKey allPages path
+    Directory.withIndex () allPages path
 
 
 directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
 directoryWithoutIndex path =
-    Directory.withoutIndex PathKey allPages path
+    Directory.withoutIndex () allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -99,7 +99,7 @@ internals =
     { applicationType = Pages.Internal.Browser
     , toJsPort = toJsPort
     , fromJsPort = fromJsPort identity
-    , pathKey = PathKey
+    , pathKey = ()
     }
 
 ${staticRouteStuff(staticRoutes)}
@@ -132,28 +132,28 @@ builtAt =
     Time.millisToPosix ${Math.round(global.builtAt.getTime())}
 
 
-type PathKey
-    = PathKey
+type alias PathKey
+    = ()
 
 
 buildImage : List String -> ImagePath PathKey
 buildImage path =
-    ImagePath.build PathKey ("images" :: path)
+    ImagePath.build () ("images" :: path)
 
 
 buildPage : List String -> PagePath PathKey
 buildPage path =
-    PagePath.build PathKey path
+    PagePath.build path
 
 
 directoryWithIndex : List String -> Directory PathKey Directory.WithIndex
 directoryWithIndex path =
-    Directory.withIndex PathKey allPages path
+    Directory.withIndex () allPages path
 
 
 directoryWithoutIndex : List String -> Directory PathKey Directory.WithoutIndex
 directoryWithoutIndex path =
-    Directory.withoutIndex PathKey allPages path
+    Directory.withoutIndex () allPages path
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
@@ -167,7 +167,7 @@ internals =
     { applicationType = Pages.Internal.Cli
     , toJsPort = toJsPort
     , fromJsPort = fromJsPort identity
-    , pathKey = PathKey
+    , pathKey = ()
     }
 
 

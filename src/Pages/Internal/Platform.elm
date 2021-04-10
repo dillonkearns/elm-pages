@@ -61,7 +61,7 @@ urlToPagePath pathKey url baseUrl =
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
-        |> PagePath.build pathKey
+        |> PagePath.build
 
 
 pageViewOrError :

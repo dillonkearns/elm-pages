@@ -123,7 +123,7 @@ See `Directory.includes` for an example of this in action.
 -}
 indexPath : Directory key WithIndex -> PagePath key
 indexPath (Directory key allPagePaths directoryPath) =
-    PagePath.build key directoryPath
+    PagePath.build directoryPath
 
 
 {-| Get the path of the directory as a String. Same as `directory |> Directory.basePath |> String.join "/"`.

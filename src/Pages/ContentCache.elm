@@ -228,7 +228,7 @@ lookup :
     -> ContentCache
     -> { currentUrl : Url, baseUrl : Url }
     -> Maybe ( PagePath pathKey, Entry )
-lookup pathKey content urls =
+lookup _ content urls =
     case content of
         Ok dict ->
             let
@@ -239,7 +239,7 @@ lookup pathKey content urls =
                 |> Dict.get path
                 |> Maybe.map
                     (\entry ->
-                        ( PagePath.build pathKey path, entry )
+                        ( PagePath.build path, entry )
                     )
 
         Err _ ->

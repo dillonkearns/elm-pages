@@ -438,7 +438,7 @@ requestPayloadDecoder config =
                                 pathToUrl path |> config.urlToRoute
                         in
                         { frontmatter = route
-                        , path = config.routeToPath route |> PagePath.build config.pathKey
+                        , path = config.routeToPath route |> PagePath.build
                         }
                     )
             )
@@ -744,7 +744,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                             newRoutes
                                 |> List.map
                                     (\route ->
-                                        ( PagePath.build config.pathKey (config.routeToPath route)
+                                        ( PagePath.build (config.routeToPath route)
                                         , route
                                         )
                                     )
@@ -758,7 +758,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                             newRoutes
                                 |> List.map
                                     (\route ->
-                                        ( PagePath.build config.pathKey (config.routeToPath route)
+                                        ( PagePath.build (config.routeToPath route)
                                         , route
                                         )
                                     )
