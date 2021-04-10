@@ -489,7 +489,7 @@ optionalField fieldName decoder_ =
     let
         finishDecoding json =
             case decodeValue (field fieldName value) json of
-                Ok val ->
+                Ok _ ->
                     -- The field is present, so run the decoder on it.
                     map Just (field fieldName decoder_)
 

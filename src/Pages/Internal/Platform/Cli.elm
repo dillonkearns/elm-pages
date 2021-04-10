@@ -75,7 +75,7 @@ type alias Config pathKey userMsg userModel route siteStaticData =
             }
         -> ( userModel, Cmd userMsg )
     , getStaticRoutes : StaticHttp.Request (List route)
-    , urlToRoute : Url.Url -> route
+    , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : SiteConfig siteStaticData pathKey
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
@@ -461,7 +461,7 @@ optionalField fieldName decoder =
     let
         finishDecoding json =
             case Decode.decodeValue (Decode.field fieldName Decode.value) json of
-                Ok val ->
+                Ok _ ->
                     -- The field is present, so run the decoder on it.
                     Decode.map Just (Decode.field fieldName decoder)
 
@@ -901,7 +901,7 @@ sendSinglePageProgress toJsPayload config _ model =
                 , head = success.head
                 , title = viewValue.title
                 , body = "" --lookedUp.unparsedBody
-                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\k v -> v)
+                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                 }
                     |> sendProgress
 

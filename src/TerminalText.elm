@@ -138,5 +138,5 @@ getString node =
         RawText string ->
             string
 
-        Style color innerNode ->
+        Style _ innerNode ->
             getString innerNode

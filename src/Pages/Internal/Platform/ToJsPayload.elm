@@ -91,7 +91,7 @@ toJsCodec canonicalSiteUrl =
 
 errorCodec : Codec (List BuildError)
 errorCodec =
-    Codec.object (\thing1 thing2 -> [])
+    Codec.object (\_ _ -> [])
         |> Codec.field "errorString"
             identity
             (Codec.string

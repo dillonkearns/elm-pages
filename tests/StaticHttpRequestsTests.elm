@@ -844,7 +844,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                 { staticData = StaticHttp.succeed ()
                 , canonicalUrl = \_ -> "canonical-site-url"
                 , manifest = \_ -> manifest
-                , head = \staticData -> []
+                , head = \_ -> []
                 , generateFiles = StaticHttp.succeed []
                 }
             , view =
