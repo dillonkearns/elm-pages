@@ -28,7 +28,7 @@ blogPostsGlob =
         |> Glob.toStaticHttp
 
 
-allMetadata : StaticHttp.Request (List ( PagePath Pages.PathKey, ArticleMetadata ))
+allMetadata : StaticHttp.Request (List ( PagePath, ArticleMetadata ))
 allMetadata =
     --StaticFile.glob "content/blog/*.md"
     blogPostsGlob

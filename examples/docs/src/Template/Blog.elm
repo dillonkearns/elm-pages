@@ -41,7 +41,7 @@ staticData =
 
 
 type alias StaticData =
-    List ( PagePath Pages.PathKey, Article.ArticleMetadata )
+    List ( PagePath, Article.ArticleMetadata )
 
 
 init : {} -> ( Model, Cmd Msg )

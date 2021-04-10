@@ -210,7 +210,7 @@ function captureRouteRecord(pieces, elmType, record) {
 function formatAsElmList(name, items) {
   var formatted = items.join("\n    , ");
 
-  var signature = name + " : List (PagePath PathKey)\n";
+  var signature = name + " : List PagePath\n";
 
   return signature + name + " =\n    [ " + formatted + "\n    ]";
 }

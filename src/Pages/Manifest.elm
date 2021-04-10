@@ -144,7 +144,7 @@ known static resources for any internal image or page paths.
     are present (not broken images).
 
 -}
-type alias Config pathKey =
+type alias Config =
     { backgroundColor : Maybe Color
     , categories : List Category
     , displayMode : DisplayMode
@@ -155,12 +155,12 @@ type alias Config pathKey =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : PagePath pathKey
+    , startUrl : PagePath
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : ImagePath pathKey
-    , icons : List (Icon pathKey)
+    , sourceIcon : ImagePath ()
+    , icons : List (Icon ())
     }
 
 
@@ -247,7 +247,7 @@ nonEmptyList list =
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated
 code will run this for you to generate your `manifest.json` file automatically!
 -}
-toJson : String -> Config pathKey -> Encode.Value
+toJson : String -> Config -> Encode.Value
 toJson canonicalSiteUrl config =
     [ ( "sourceIcon"
       , config.sourceIcon

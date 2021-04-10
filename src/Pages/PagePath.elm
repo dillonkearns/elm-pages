@@ -21,7 +21,7 @@ two ways:
 
 You will find a list of all the pages in your app in this generated code:
 
-    Pages.allPages : List (PagePath Pages.PathKey)
+    Pages.allPages : List (PagePath)
 
 This is handy for creating an index page, for example showing all
 the blog posts in your site.
@@ -38,7 +38,7 @@ This gives you a record, based on your local `content` directory, that lets you 
     import Pages
     import Pages.PagePath as PagePath exposing (PagePath)
 
-    homePath : PagePath Pages.PathKey
+    homePath : PagePath
     homePath =
         Pages.pages.index
 
@@ -50,7 +50,7 @@ or
     import Pages
     import Pages.PagePath as PagePath exposing (PagePath)
 
-    helloWorldPostPath : PagePath Pages.PathKey
+    helloWorldPostPath : PagePath
     helloWorldPostPath =
         Pages.pages.blog.helloWorld
 
@@ -87,7 +87,7 @@ So `PagePath` represents either a 1) known, static page path, or 2) an
 external page path (which is not validated so use these carefully!).
 
 -}
-type PagePath key
+type PagePath
     = Internal (List String)
     | External String
 
@@ -101,7 +101,7 @@ type PagePath key
 
 
     -- `Pages` is a generated module
-    homePath : PagePath Pages.PathKey
+    homePath : PagePath
     homePath =
         Pages.pages.index
 
@@ -110,7 +110,7 @@ type PagePath key
         a [ href (PagePath.toString homePath) ] [ text "🏡 Home" ]
 
 -}
-toString : PagePath key -> String
+toString : PagePath -> String
 toString path =
     case path of
         Internal rawPath ->
@@ -129,7 +129,7 @@ toString path =
         PagePath.toPath Pages.pages.blog.hello == [ "blog", "hello" ]
 
 -}
-toPath : PagePath key -> List String
+toPath : PagePath -> List String
 toPath path =
     case path of
         Internal rawPath ->
@@ -152,18 +152,18 @@ this only to point to outside pages.
     -- with `Pages.PathKey`, since external links are always valid
     -- (unlike internal routes, which are guaranteed to be present
     -- if your code compiles).
-    googlePath : PagePath Pages.PathKey
+    googlePath : PagePath
     googlePath =
         PagePath.external "https://google.com"
 
 -}
-external : String -> PagePath key
+external : String -> PagePath
 external url =
     External url
 
 
 {-| This is not useful except for the internal generated code to construct a PagePath.
 -}
-build : List String -> PagePath key
+build : List String -> PagePath
 build path =
     Internal path

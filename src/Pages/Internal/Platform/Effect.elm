@@ -4,12 +4,12 @@ import Pages.Internal.Platform.ToJsPayload exposing (ToJsPayload, ToJsSuccessPay
 import Pages.StaticHttp exposing (RequestDetails)
 
 
-type Effect pathKey
+type Effect
     = NoEffect
-    | SendJsData (ToJsPayload pathKey)
+    | SendJsData ToJsPayload
     | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
     | ReadFile String
     | GetGlob String
-    | Batch (List (Effect pathKey))
-    | SendSinglePage (ToJsSuccessPayloadNewCombined pathKey)
+    | Batch (List Effect)
+    | SendSinglePage ToJsSuccessPayloadNewCombined
     | Continue

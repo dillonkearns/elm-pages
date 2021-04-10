@@ -12,7 +12,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 
 
 view :
-    List ( PagePath Pages.PathKey, Article.ArticleMetadata )
+    List ( PagePath, Article.ArticleMetadata )
     -> Element msg
 view posts =
     Element.column [ Element.spacing 20 ]
@@ -24,7 +24,7 @@ view posts =
 
 
 postSummary :
-    ( PagePath Pages.PathKey, Article.ArticleMetadata )
+    ( PagePath, Article.ArticleMetadata )
     -> Element msg
 postSummary ( path, post ) =
     articleIndex post |> linkToPost path
@@ -34,7 +34,7 @@ postSummary ( path, post ) =
 -- postPath
 
 
-linkToPost : PagePath Pages.PathKey -> Element msg -> Element msg
+linkToPost : PagePath -> Element msg -> Element msg
 linkToPost postPath content =
     Element.link [ Element.width Element.fill ]
         { url = PagePath.toString postPath, label = content }

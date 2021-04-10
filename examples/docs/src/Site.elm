@@ -36,7 +36,7 @@ type alias StaticData =
     }
 
 
-config : SiteConfig StaticData Pages.PathKey
+config : SiteConfig StaticData
 config =
     { staticData = staticData
     , canonicalUrl = canonicalUrl
@@ -67,7 +67,7 @@ canonicalUrl static =
     "https://elm-pages.com"
 
 
-manifest : StaticData -> Manifest.Config Pages.PathKey
+manifest : StaticData -> Manifest.Config
 manifest static =
     { backgroundColor = Just Color.white
     , categories = [ Pages.Manifest.Category.education ]

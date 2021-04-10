@@ -41,7 +41,7 @@ type alias Model =
     , current :
         Maybe
             { path :
-                { path : PagePath Pages.PathKey
+                { path : PagePath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -94,7 +94,7 @@ routes =
 type Msg
     = MsgGlobal Shared.Msg
     | OnPageChange
-        { path : PagePath Pages.PathKey
+        { path : PagePath
         , query : Maybe String
         , fragment : Maybe String
         , metadata : Maybe Route
@@ -108,13 +108,13 @@ type Msg
 
 
 view :
-    { path : PagePath Pages.PathKey
+    { path : PagePath
     , frontmatter : Maybe Route
     }
     ->
         StaticHttp.Request
             { view : Model -> { title : String, body : Html Msg }
-            , head : List (Head.Tag Pages.PathKey)
+            , head : List (Head.Tag ())
             }
 view page =
     case page.frontmatter of
@@ -173,7 +173,7 @@ init :
     ->
         Maybe
             { path :
-                { path : PagePath Pages.PathKey
+                { path : PagePath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -304,10 +304,10 @@ update msg model =
 
 type alias SiteConfig =
     { canonicalUrl : String
-    , manifest : Manifest.Config Pages.PathKey
+    , manifest : Manifest.Config
     }
 
-templateSubscriptions : Route -> PagePath Pages.PathKey -> Model -> Sub Msg
+templateSubscriptions : Route -> PagePath -> Model -> Sub Msg
 templateSubscriptions route path model =
     case ( model.page, route ) of
         ${templates
@@ -331,7 +331,7 @@ templateSubscriptions route path model =
             Sub.none
 
 
-main : Pages.Internal.Platform.Program Model Msg (Maybe Route) Pages.PathKey
+main : Pages.Internal.Platform.Program Model Msg (Maybe Route)
 main =
     Pages.Internal.Platform.${
       phase === "browser" ? "application" : "cliApplication"
@@ -376,7 +376,7 @@ main =
         , toJsPort = Pages.internals.toJsPort
         , fromJsPort = Pages.internals.fromJsPort
         , generateFiles = Site.config.generateFiles
-        , pathKey = Pages.internals.pathKey
+        , pathKey = ()
         }
 
 

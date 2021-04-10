@@ -35,9 +35,9 @@ error =
 
 init :
     { config
-        | view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
+        | view : List a -> { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , getStaticRoutes : StaticHttp.Request (List route)
-        , site : SiteConfig siteStaticData pathKey
+        , site : SiteConfig siteStaticData
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -63,10 +63,10 @@ init config =
 
 renderSingleRoute :
     { config
-        | view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
+        | view : List a -> { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , routeToPath : route -> List String
     }
-    -> { path : PagePath pathKey, frontmatter : route }
+    -> { path : PagePath, frontmatter : route }
     -> StaticResponses
 renderSingleRoute config pathAndRoute =
     [ pathAndRoute.frontmatter ]
@@ -142,19 +142,18 @@ cliDictKey =
     "////elm-pages-CLI////"
 
 
-type NextStep pathKey route
+type NextStep route
     = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails }) (Maybe (List route))
-    | Finish (ToJsPayload pathKey)
+    | Finish ToJsPayload
 
 
 nextStep :
     { config
-        | manifest : Manifest.Config pathKey
+        | manifest : Manifest.Config
         , getStaticRoutes : StaticHttp.Request (List route)
         , routeToPath : route -> List String
-        , view : List a -> { path : PagePath pathKey, frontmatter : route } -> StaticHttp.Request b
-        , site : SiteConfig siteStaticData pathKey
-        , pathKey : pathKey
+        , view : List a -> { path : PagePath, frontmatter : route } -> StaticHttp.Request b
+        , site : SiteConfig siteStaticData
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -172,7 +171,7 @@ nextStep :
     -> List BuildError
     -> StaticResponses
     -> Maybe (List route)
-    -> ( StaticResponses, NextStep pathKey route )
+    -> ( StaticResponses, NextStep route )
 nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes =
     let
         staticResponses =

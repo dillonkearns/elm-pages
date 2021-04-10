@@ -65,7 +65,7 @@ type alias TemplateWithState routeParams templateStaticData templateModel templa
         -> List (Head.Tag Pages.PathKey)
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
 
@@ -79,7 +79,7 @@ type alias StaticPayload staticData routeParams =
     { static : staticData -- local
     , sharedStatic : Shared.StaticData -- share
     , routeParams : routeParams
-    , path : PagePath Pages.PathKey
+    , path : PagePath
     }
 
 
@@ -124,7 +124,7 @@ buildWithLocalState :
         -> Shared.PageView templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
-    , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Sub templateMsg
+    , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
     -> TemplateWithState routeParams templateStaticData templateModel templateMsg
@@ -160,7 +160,7 @@ buildWithSharedState :
         -> Shared.PageView templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : routeParams -> PagePath Pages.PathKey -> templateModel -> Shared.Model -> Sub templateMsg
+    , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
     -> TemplateWithState routeParams templateStaticData templateModel templateMsg

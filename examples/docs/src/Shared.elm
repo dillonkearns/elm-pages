@@ -25,7 +25,7 @@ type alias SharedTemplate route templateDemuxMsg msg1 msg2 =
     { init :
         Maybe
             { path :
-                { path : PagePath Pages.PathKey
+                { path : PagePath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -36,7 +36,7 @@ type alias SharedTemplate route templateDemuxMsg msg1 msg2 =
     , view :
         StaticData
         ->
-            { path : PagePath Pages.PathKey
+            { path : PagePath
             , frontmatter : route
             }
         -> Model
@@ -45,10 +45,10 @@ type alias SharedTemplate route templateDemuxMsg msg1 msg2 =
         -> { body : Html templateDemuxMsg, title : String }
     , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
     , staticData : StaticHttp.Request StaticData
-    , subscriptions : NoMetadata -> PagePath Pages.PathKey -> Model -> Sub Msg
+    , subscriptions : NoMetadata -> PagePath -> Model -> Sub Msg
     , onPageChange :
         Maybe
-            ({ path : PagePath Pages.PathKey
+            ({ path : PagePath
              , query : Maybe String
              , fragment : Maybe String
              }
@@ -75,7 +75,7 @@ type alias PageView msg =
 
 type Msg
     = OnPageChange
-        { path : PagePath Pages.PathKey
+        { path : PagePath
         , query : Maybe String
         , fragment : Maybe String
         }
@@ -108,7 +108,7 @@ map fn doc =
 init :
     Maybe
         { path :
-            { path : PagePath Pages.PathKey
+            { path : PagePath
             , query : Maybe String
             , fragment : Maybe String
             }
@@ -141,7 +141,7 @@ update msg model =
                     ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
-subscriptions : NoMetadata -> PagePath Pages.PathKey -> Model -> Sub Msg
+subscriptions : NoMetadata -> PagePath -> Model -> Sub Msg
 subscriptions _ _ _ =
     Sub.none
 
@@ -155,7 +155,7 @@ staticData =
 view :
     StaticData
     ->
-        { path : PagePath Pages.PathKey
+        { path : PagePath
         , frontmatter : route
         }
     -> Model
@@ -223,7 +223,7 @@ navbarLinks stars currentPath =
     ]
 
 
-header : Int -> PagePath Pages.PathKey -> Element Msg
+header : Int -> PagePath -> Element Msg
 header stars currentPath =
     Element.column [ Element.width Element.fill ]
         [ responsiveHeader
@@ -316,7 +316,7 @@ elmDocsLink =
 
 
 highlightableLink :
-    PagePath Pages.PathKey
+    PagePath
     -> Directory Pages.PathKey Directory.WithIndex
     -> String
     -> Element msg

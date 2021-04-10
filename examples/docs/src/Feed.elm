@@ -12,7 +12,7 @@ fileToGenerate :
     }
     ->
         List
-            { path : PagePath Pages.PathKey
+            { path : PagePath
             , frontmatter : Metadata
             , body : String
             }
@@ -32,7 +32,7 @@ generate :
     }
     ->
         List
-            { path : PagePath Pages.PathKey
+            { path : PagePath
             , frontmatter : Metadata
             , body : String
             }
@@ -50,7 +50,7 @@ generate { siteTagline, siteUrl } siteMetadata =
 
 
 metadataToRssItem :
-    { path : PagePath Pages.PathKey
+    { path : PagePath
     , frontmatter : Metadata
     , body : String
     }

@@ -906,7 +906,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     {-
        (Model -> model)
        -> ContentCache.ContentCache metadata view
-       -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
+       -> Result (List BuildError) (List ( PagePath, metadata ))
        -> Config pathKey userMsg userModel metadata view
        -> Decode.Value
        -> ( model, Effect pathKey )

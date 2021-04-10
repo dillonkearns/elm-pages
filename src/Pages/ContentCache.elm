@@ -227,7 +227,7 @@ lookup :
     pathKey
     -> ContentCache
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, Entry )
+    -> Maybe ( PagePath, Entry )
 lookup _ content urls =
     case content of
         Ok dict ->
@@ -250,7 +250,7 @@ lookupMetadata :
     pathKey
     -> ContentCache
     -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe (PagePath pathKey)
+    -> Maybe PagePath
 lookupMetadata pathKey content urls =
     urls
         |> lookup pathKey content

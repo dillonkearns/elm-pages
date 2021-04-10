@@ -13,7 +13,7 @@ generate :
     , siteUrl : String
     , title : String
     , builtAt : Time.Posix
-    , indexPage : PagePath pathKey
+    , indexPage : PagePath
     }
     -> (item -> Maybe Rss.Item)
     -> StaticHttp.Request (List item)

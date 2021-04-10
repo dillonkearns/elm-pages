@@ -38,7 +38,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 of your `elm-pages` site.
 -}
 type Directory key hasIndex
-    = Directory key (List (PagePath key)) (List String)
+    = Directory key (List PagePath) (List String)
 
 
 {-| Used for a `Directory` that has an index path directly at that path. See
@@ -64,7 +64,7 @@ your generated `Pages.elm` module).
     import Element.Font as Font
     import Pages.Directory as Directory exposing (Directory)
 
-    navbar : PagePath Pages.PathKey -> Element msg
+    navbar : PagePath -> Element msg
     navbar currentPage =
         Element.row [ Element.spacing 15 ]
             [ navbarLink currentPath pages.docs.directory "Docs"
@@ -72,7 +72,7 @@ your generated `Pages.elm` module).
             ]
 
     navbarLink :
-        PagePath Pages.PathKey
+        PagePath
         -> Directory Pages.PathKey Directory.WithIndex
         -> String
         -> Element msg
@@ -95,8 +95,8 @@ your generated `Pages.elm` module).
             }
 
 -}
-includes : Directory key hasIndex -> PagePath key -> Bool
-includes (Directory key allPagePaths directoryPath) pagePath =
+includes : Directory key hasIndex -> PagePath -> Bool
+includes (Directory _ allPagePaths directoryPath) pagePath =
     allPagePaths
         |> List.filter
             (\path ->
@@ -121,22 +121,22 @@ includes (Directory key allPagePaths directoryPath) pagePath =
 See `Directory.includes` for an example of this in action.
 
 -}
-indexPath : Directory key WithIndex -> PagePath key
-indexPath (Directory key allPagePaths directoryPath) =
+indexPath : Directory key WithIndex -> PagePath
+indexPath (Directory _ _ directoryPath) =
     PagePath.build directoryPath
 
 
 {-| Get the path of the directory as a String. Same as `directory |> Directory.basePath |> String.join "/"`.
 -}
 basePathToString : Directory key hasIndex -> String
-basePathToString (Directory key allPagePaths directoryPath) =
+basePathToString (Directory _ _ directoryPath) =
     toString directoryPath
 
 
 {-| Gives you the parts of the path of the directory.
 -}
 basePath : Directory key hasIndex -> List String
-basePath (Directory key allPagePaths directoryPath) =
+basePath (Directory _ _ directoryPath) =
     directoryPath
 
 
@@ -148,7 +148,7 @@ toString =
 {-| Used by the generated `Pages.elm` module. There's no need to use this
 outside of the generated code.
 -}
-withIndex : key -> List (PagePath key) -> List String -> Directory key WithIndex
+withIndex : key -> List PagePath -> List String -> Directory key WithIndex
 withIndex key allPagePaths path =
     Directory key allPagePaths path
 
@@ -156,6 +156,6 @@ withIndex key allPagePaths path =
 {-| Used by the generated `Pages.elm` module. There's no need to use this
 outside of the generated code.
 -}
-withoutIndex : key -> List (PagePath key) -> List String -> Directory key WithoutIndex
+withoutIndex : key -> List PagePath -> List String -> Directory key WithoutIndex
 withoutIndex key allPagePaths path =
     Directory key allPagePaths path

@@ -65,7 +65,7 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summaryLarge :
-    { canonicalUrlOverride : Maybe (PagePath pathKey)
+    { canonicalUrlOverride : Maybe PagePath
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -87,7 +87,7 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summary :
-    { canonicalUrlOverride : Maybe (PagePath pathKey)
+    { canonicalUrlOverride : Maybe PagePath
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -107,7 +107,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 audioPlayer :
-    { canonicalUrlOverride : Maybe (PagePath pathKey)
+    { canonicalUrlOverride : Maybe PagePath
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -150,7 +150,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 videoPlayer :
-    { canonicalUrlOverride : Maybe (PagePath pathKey)
+    { canonicalUrlOverride : Maybe PagePath
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -186,7 +186,7 @@ videoPlayer { title, image, canonicalUrlOverride, description, siteName, video, 
 
 
 buildSummary :
-    { canonicalUrlOverride : Maybe (PagePath pathKey)
+    { canonicalUrlOverride : Maybe PagePath
     , siteName : String
     , image : Image pathKey
     , description : String
@@ -297,7 +297,7 @@ Skipping this for now, if there's a use case I can add it in:
 type alias Common pathKey =
     { title : String
     , image : Image pathKey
-    , canonicalUrlOverride : Maybe (PagePath pathKey)
+    , canonicalUrlOverride : Maybe PagePath
     , description : String
     , siteName : String
     , audio : Maybe Audio

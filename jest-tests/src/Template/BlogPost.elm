@@ -98,7 +98,7 @@ type alias StaticData =
     Int
 
 
-view : List ( PagePath Pages.PathKey, TemplateType.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : List ( PagePath, TemplateType.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view allMetadata static model blogPost rendered =
     { title = blogPost.title
     , body =
@@ -131,7 +131,7 @@ view allMetadata static model blogPost rendered =
     }
 
 
-head : StaticData -> PagePath.PagePath Pages.PathKey -> BlogPost -> List (Head.Tag Pages.PathKey)
+head : StaticData -> PagePath.PagePath -> BlogPost -> List (Head.Tag Pages.PathKey)
 head static currentPath meta =
     Head.structuredData
         (StructuredData.article

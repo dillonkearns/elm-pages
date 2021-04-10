@@ -9,10 +9,10 @@ import TemplateType
 
 template :
     { staticData :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath, TemplateType.Metadata )
         -> StaticHttp.Request staticData
     , view :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath, TemplateType.Metadata )
         -> staticData
         -> model
         -> metadata
@@ -20,7 +20,7 @@ template :
         -> view
     , head :
         staticData
-        -> PagePath Pages.PathKey
+        -> PagePath
         -> metadata
         -> List (Head.Tag Pages.PathKey)
     , init : metadata -> ( model, Cmd templateMsg )
@@ -33,10 +33,10 @@ template config =
 
 type alias Template metadata renderedTemplate staticData model view templateMsg =
     { staticData :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath, TemplateType.Metadata )
         -> StaticHttp.Request staticData
     , view :
-        List ( PagePath Pages.PathKey, TemplateType.Metadata )
+        List ( PagePath, TemplateType.Metadata )
         -> staticData
         -> model
         -> metadata
@@ -44,7 +44,7 @@ type alias Template metadata renderedTemplate staticData model view templateMsg 
         -> view
     , head :
         staticData
-        -> PagePath Pages.PathKey
+        -> PagePath
         -> metadata
         -> List (Head.Tag Pages.PathKey)
     , init : metadata -> ( model, Cmd templateMsg )

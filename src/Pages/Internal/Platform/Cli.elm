@@ -43,15 +43,15 @@ type alias Flags =
     Decode.Value
 
 
-type alias Model pathKey route =
+type alias Model route =
     { staticResponses : StaticResponses
     , secrets : SecretsDict
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
-    , unprocessedPages : List ( PagePath pathKey, route )
-    , staticRoutes : List ( PagePath pathKey, route )
+    , unprocessedPages : List ( PagePath, route )
+    , staticRoutes : List ( PagePath, route )
     , maybeRequestJson : Maybe Decode.Value
     }
 
@@ -63,11 +63,11 @@ type Msg
     | Continue
 
 
-type alias Config pathKey userMsg userModel route siteStaticData =
+type alias Config userMsg userModel route siteStaticData =
     { init :
         Maybe
             { path :
-                { path : PagePath pathKey
+                { path : PagePath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -77,23 +77,23 @@ type alias Config pathKey userMsg userModel route siteStaticData =
     , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
-    , site : SiteConfig siteStaticData pathKey
+    , site : SiteConfig siteStaticData
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : NoMetadata -> PagePath pathKey -> userModel -> Sub userMsg
+    , subscriptions : NoMetadata -> PagePath -> userModel -> Sub userMsg
     , view :
-        List ( PagePath pathKey, NoMetadata )
+        List ( PagePath, NoMetadata )
         ->
-            { path : PagePath pathKey
+            { path : PagePath
             , frontmatter : route
             }
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag pathKey)
+                , head : List (Head.Tag ())
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
-    , manifest : Manifest.Config pathKey
+    , manifest : Manifest.Config
     , generateFiles :
         StaticHttp.Request
             (List
@@ -105,10 +105,10 @@ type alias Config pathKey userMsg userModel route siteStaticData =
                 )
             )
     , canonicalSiteUrl : String
-    , pathKey : pathKey
+    , pathKey : ()
     , onPageChange :
         Maybe
-            ({ path : PagePath pathKey
+            ({ path : PagePath
              , query : Maybe String
              , fragment : Maybe String
              , metadata : route
@@ -121,9 +121,9 @@ type alias Config pathKey userMsg userModel route siteStaticData =
 cliApplication :
     (Msg -> msg)
     -> (msg -> Maybe Msg)
-    -> (Model pathKey route -> model)
-    -> (model -> Maybe (Model pathKey route))
-    -> Config pathKey userMsg userModel route siteStaticData
+    -> (Model route -> model)
+    -> (model -> Maybe (Model route))
+    -> Config userMsg userModel route siteStaticData
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -227,7 +227,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Maybe Decode.Value -> Config pathKey userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect pathKey -> Cmd msg
+perform : Maybe Decode.Value -> Config userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
 perform maybeRequest config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -376,11 +376,11 @@ flagsDecoder =
 
 init :
     Maybe Decode.Value
-    -> (Model pathKey route -> model)
+    -> (Model route -> model)
     -> ContentCache
-    -> Config pathKey userMsg userModel route siteStaticData
+    -> Config userMsg userModel route siteStaticData
     -> Decode.Value
-    -> ( model, Effect pathKey )
+    -> ( model, Effect )
 init maybeRequestJson toModel contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
@@ -418,15 +418,15 @@ init maybeRequestJson toModel contentCache config flags =
 --)
 
 
-type alias RequestPayload route pathKey =
-    { path : PagePath pathKey
+type alias RequestPayload route =
+    { path : PagePath
     , frontmatter : route
     }
 
 
 requestPayloadDecoder :
-    Config pathKey userMsg userModel route siteStaticData
-    -> Decode.Decoder (Maybe (RequestPayload route pathKey))
+    Config userMsg userModel route siteStaticData
+    -> Decode.Decoder (Maybe (RequestPayload route))
 requestPayloadDecoder config =
     optionalField "request"
         (Decode.field "path"
@@ -476,11 +476,11 @@ optionalField fieldName decoder =
 initLegacy :
     Maybe Decode.Value
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
-    -> (Model pathKey route -> model)
+    -> (Model route -> model)
     -> ContentCache
-    -> Config pathKey userMsg userModel route siteStaticData
+    -> Config userMsg userModel route siteStaticData
     -> Decode.Value
-    -> ( model, Effect pathKey )
+    -> ( model, Effect )
 initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config flags =
     let
         maybeRequestPayload =
@@ -524,10 +524,10 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
 
 updateAndSendPortIfDone :
     ContentCache
-    -> Config pathKey userMsg userModel route siteStaticData
-    -> Model pathKey route
-    -> (Model pathKey route -> model)
-    -> ( model, Effect pathKey )
+    -> Config userMsg userModel route siteStaticData
+    -> Model route
+    -> (Model route -> model)
+    -> ( model, Effect )
 updateAndSendPortIfDone contentCache config model toModel =
     StaticResponses.nextStep
         config
@@ -547,10 +547,10 @@ updateAndSendPortIfDone contentCache config model toModel =
 
 update :
     ContentCache
-    -> Config pathKey userMsg userModel route siteStaticData
+    -> Config userMsg userModel route siteStaticData
     -> Msg
-    -> Model pathKey route
-    -> ( Model pathKey route, Effect pathKey )
+    -> Model route
+    -> ( Model route, Effect )
 update contentCache config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
@@ -721,10 +721,10 @@ update contentCache config msg model =
 
 nextStepToEffect :
     ContentCache
-    -> Config pathKey userMsg userModel route siteStaticData
-    -> Model pathKey route
-    -> ( StaticResponses, StaticResponses.NextStep pathKey route )
-    -> ( Model pathKey route, Effect pathKey )
+    -> Config userMsg userModel route siteStaticData
+    -> Model route
+    -> ( StaticResponses, StaticResponses.NextStep route )
+    -> ( Model route, Effect )
 nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
@@ -825,12 +825,12 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
 
 sendSinglePageProgress :
-    ToJsSuccessPayload pathKey
-    -> Config pathKey userMsg userModel route siteStaticData
+    ToJsSuccessPayload
+    -> Config userMsg userModel route siteStaticData
     -> ContentCache
-    -> Model pathKey route
-    -> ( PagePath pathKey, route )
-    -> Effect pathKey
+    -> Model route
+    -> ( PagePath, route )
+    -> Effect
 sendSinglePageProgress toJsPayload config _ model =
     \( page, _ ) ->
         let
@@ -849,16 +849,16 @@ sendSinglePageProgress toJsPayload config _ model =
                     { view :
                         userModel
                         -> { title : String, body : Html userMsg }
-                    , head : List (Head.Tag pathKey)
+                    , head : List (Head.Tag ())
                     }
             viewRequest =
                 config.view [] currentPage
 
-            twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List (Head.Tag pathKey) }
+            twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List (Head.Tag ()) }
             twoThings =
                 viewRequest |> makeItWork
 
-            currentPage : { path : PagePath pathKey, frontmatter : route }
+            currentPage : { path : PagePath, frontmatter : route }
             currentPage =
                 { path = page, frontmatter = config.urlToRoute currentUrl }
 
@@ -915,7 +915,7 @@ popProcessedRequest model =
     { model | unprocessedPages = List.drop 1 model.unprocessedPages }
 
 
-sendProgress : ToJsPayload.ToJsSuccessPayloadNew pathKey -> Effect pathKey
+sendProgress : ToJsPayload.ToJsSuccessPayloadNew -> Effect
 sendProgress singlePage =
     Effect.Batch
         [ singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage

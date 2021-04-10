@@ -174,7 +174,7 @@ fullImageUrl value =
 
 {-| Create an `AttributeValue` from a `PagePath`.
 -}
-fullPageUrl : PagePath pathKey -> AttributeValue pathKey
+fullPageUrl : PagePath -> AttributeValue pathKey
 fullPageUrl value =
     FullUrl (PagePath.toString value)
 
@@ -208,7 +208,7 @@ Example:
     Head.canonicalLink "https://elm-pages.com"
 
 -}
-canonicalLink : Maybe (PagePath pathKey) -> Tag pathKey
+canonicalLink : Maybe PagePath -> Tag pathKey
 canonicalLink maybePath =
     node "link"
         [ ( "rel", raw "canonical" )

@@ -127,7 +127,7 @@ counterView sharedModel =
     Element.el [ Element.Events.onClick Increment ] (Element.text <| "Docs count: " ++ String.fromInt sharedModel.counter)
 
 
-tocView : PagePath Pages.PathKey -> MarkdownRenderer.TableOfContents -> Element msg
+tocView : PagePath -> MarkdownRenderer.TableOfContents -> Element msg
 tocView path toc =
     Element.column [ Element.alignTop, Element.spacing 20 ]
         [ Element.el [ Font.bold, Font.size 22 ] (Element.text "Table of Contents")

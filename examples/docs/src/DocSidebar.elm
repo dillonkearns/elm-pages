@@ -9,7 +9,7 @@ import Palette
 
 
 view :
-    PagePath Pages.PathKey
+    PagePath
     -> Element msg
 view currentPage =
     Element.column
@@ -38,7 +38,7 @@ view currentPage =
 
 
 postSummary :
-    ( Bool, PagePath Pages.PathKey, { title : String } )
+    ( Bool, PagePath, { title : String } )
     -> Element msg
 postSummary ( isCurrentPage, postPath, post ) =
     [ Element.text post.title ]
@@ -60,7 +60,7 @@ postSummary ( isCurrentPage, postPath, post ) =
         |> linkToPost postPath
 
 
-linkToPost : PagePath Pages.PathKey -> Element msg -> Element msg
+linkToPost : PagePath -> Element msg -> Element msg
 linkToPost postPath content =
     Element.link [ Element.width Element.fill ]
         { url = PagePath.toString postPath, label = content }

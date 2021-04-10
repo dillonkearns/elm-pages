@@ -389,9 +389,9 @@ andThen fn requestInfo =
     import Pages.StaticHttp as StaticHttp
 
     view :
-        List ( PagePath Pages.PathKey, Metadata )
+        List ( PagePath, Metadata )
         ->
-            { path : PagePath Pages.PathKey
+            { path : PagePath
             , frontmatter : Metadata
             }
         ->
