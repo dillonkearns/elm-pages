@@ -8,7 +8,7 @@ url :
     String
     -> Maybe MimeType.MimeImage
     -> Int
-    -> ImagePath pathKey
+    -> ImagePath
 url asset format width =
     let
         base =
@@ -43,7 +43,7 @@ urlSquare :
     String
     -> Maybe MimeType.MimeImage
     -> Int
-    -> ImagePath pathKey
+    -> ImagePath
 urlSquare asset format width =
     let
         base =

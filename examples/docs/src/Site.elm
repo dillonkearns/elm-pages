@@ -52,7 +52,7 @@ staticData =
         (StaticHttp.succeed "site-name")
 
 
-head : StaticData -> List (Head.Tag ())
+head : StaticData -> List Head.Tag
 head static =
     [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
@@ -101,7 +101,7 @@ webp =
 icon :
     MimeType.MimeImage
     -> Int
-    -> Manifest.Icon pathKey
+    -> Manifest.Icon
 icon format width =
     { src = cloudinaryIcon format width
     , sizes = [ ( width, width ) ]
@@ -113,6 +113,6 @@ icon format width =
 cloudinaryIcon :
     MimeType.MimeImage
     -> Int
-    -> ImagePath pathKey
+    -> ImagePath
 cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width

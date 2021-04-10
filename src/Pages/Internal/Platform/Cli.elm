@@ -86,7 +86,7 @@ type alias Config userMsg userModel route siteStaticData =
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag ())
+                , head : List Head.Tag
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -845,12 +845,12 @@ sendSinglePageProgress toJsPayload config _ model =
                     { view :
                         userModel
                         -> { title : String, body : Html userMsg }
-                    , head : List (Head.Tag ())
+                    , head : List Head.Tag
                     }
             viewRequest =
                 config.view currentPage
 
-            twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List (Head.Tag ()) }
+            twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List Head.Tag }
             twoThings =
                 viewRequest |> makeItWork
 

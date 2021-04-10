@@ -132,17 +132,6 @@ icons of the appropriate sizes (512x512, etc) for Android, iOS, etc. So you just
 point at a single image asset and you will have optimized images following all
 the best practices!
 
-
-## Type-safe static paths
-
-The `pathKey` in this type is used to ensure that you are using
-known static resources for any internal image or page paths.
-
-  - The `startUrl` is a type-safe `PagePath`, ensuring that any internal links
-    are present (not broken links).
-  - The `sourceIcon` is a type-safe `ImagePath`, ensuring that any internal images
-    are present (not broken images).
-
 -}
 type alias Config =
     { backgroundColor : Maybe Color
@@ -159,15 +148,15 @@ type alias Config =
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : ImagePath ()
-    , icons : List (Icon ())
+    , sourceIcon : ImagePath
+    , icons : List Icon
     }
 
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/Manifest/icons>
 -}
-type alias Icon pathKey =
-    { src : ImagePath pathKey
+type alias Icon =
+    { src : ImagePath
     , sizes : List ( Int, Int )
     , mimeType : Maybe MimeType.MimeImage
     , purposes : List IconPurpose
@@ -198,7 +187,7 @@ displayModeToAttribute displayMode =
             "browser"
 
 
-encodeIcon : String -> Icon pathKey -> Encode.Value
+encodeIcon : String -> Icon -> Encode.Value
 encodeIcon canonicalSiteUrl icon =
     encodeMaybeObject
         [ ( "src", icon.src |> ImagePath.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )

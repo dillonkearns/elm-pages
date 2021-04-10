@@ -62,7 +62,7 @@ So `ImagePath` represents either a 1) known, static image asset path, or 2) an
 external image path (which is not validated so use these carefully!).
 
 -}
-type ImagePath key
+type ImagePath
     = Internal (List String)
     | External String
 
@@ -85,7 +85,7 @@ type ImagePath key
         img [ src (ImagePath.toString logoImagePath) ] []
 
 -}
-toString : ImagePath key -> String
+toString : ImagePath -> String
 toString path =
     case path of
         Internal rawPath ->
@@ -97,7 +97,7 @@ toString path =
 
 {-| Gives you the image's absolute URL as a String. This is useful for constructing `<img>` tags:
 -}
-toAbsoluteUrl : String -> ImagePath key -> String
+toAbsoluteUrl : String -> ImagePath -> String
 toAbsoluteUrl canonicalSiteUrl path =
     case path of
         Internal rawPath ->
@@ -111,7 +111,7 @@ toAbsoluteUrl canonicalSiteUrl path =
 
 {-| This is not useful except for the internal generated code to construct an `ImagePath`.
 -}
-build : List String -> ImagePath key
+build : List String -> ImagePath
 build path =
     Internal path
 
@@ -137,6 +137,6 @@ this only to point to outside images.
     -- => "https://elm-lang.org/assets/home/benchmark.png"
 
 -}
-external : String -> ImagePath key
+external : String -> ImagePath
 external url =
     External url

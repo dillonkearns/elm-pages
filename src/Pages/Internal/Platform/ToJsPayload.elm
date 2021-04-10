@@ -30,7 +30,7 @@ type alias ToJsSuccessPayloadNew =
     , html : String
     , contentJson : Dict String String
     , errors : List String
-    , head : List (Head.Tag ())
+    , head : List Head.Tag
     , body : String
     , title : String
     , staticHttpCache : Dict String String
@@ -190,7 +190,7 @@ successCodecNew canonicalSiteUrl currentPagePath =
         |> Codec.buildObject
 
 
-headCodec : String -> String -> Codec (Head.Tag pathKey)
+headCodec : String -> String -> Codec Head.Tag
 headCodec canonicalSiteUrl currentPagePath =
     Codec.build (Head.toJson canonicalSiteUrl currentPagePath)
         (Decode.succeed (Head.canonicalLink Nothing))

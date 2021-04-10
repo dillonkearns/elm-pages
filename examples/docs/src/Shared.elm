@@ -214,8 +214,7 @@ navbarLinks stars currentPath =
     , githubRepoLink stars
     , highlightableLink currentPath [ "docs" ] "Docs"
     , highlightableLink currentPath [ "showcase" ] "Showcase"
-
-    --, highlightableLink currentPath pages.blog.directory "Blog"
+    , highlightableLink currentPath [ "blog" ] "Blog"
     ]
 
 

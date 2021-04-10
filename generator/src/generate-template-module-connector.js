@@ -115,7 +115,7 @@ view :
     ->
         StaticHttp.Request
             { view : Model -> { title : String, body : Html Msg }
-            , head : List (Head.Tag ())
+            , head : List Head.Tag
             }
 view page =
     case page.frontmatter of

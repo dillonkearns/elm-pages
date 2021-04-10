@@ -42,7 +42,7 @@ mainView :
                         { title : String
                         , body : Html userMsg
                         }
-                , head : List (Head.Tag pathKey)
+                , head : List Head.Tag
                 }
         )
     -> ModelDetails userModel
@@ -71,7 +71,7 @@ pageViewOrError :
          ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag pathKey)
+                , head : List Head.Tag
                 }
         )
     -> ModelDetails userModel
@@ -153,7 +153,7 @@ view :
          ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag pathKey)
+                , head : List Head.Tag
                 }
         )
     -> ModelDetails userModel
@@ -336,7 +336,7 @@ init urlToRoute pathKey initUserModel flags url key =
             )
 
 
-encodeHeads : List String -> String -> String -> List (Head.Tag pathKey) -> Json.Encode.Value
+encodeHeads : List String -> String -> String -> List Head.Tag -> Json.Encode.Value
 encodeHeads allRoutes canonicalSiteUrl currentPagePath head =
     Json.Encode.object
         [ ( "head", Json.Encode.list (Head.toJson canonicalSiteUrl currentPagePath) head )
@@ -392,7 +392,7 @@ update :
          ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag pathKey)
+                , head : List Head.Tag
                 }
         )
     -> pathKey
@@ -592,7 +592,7 @@ application :
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag ())
+                , head : List Head.Tag
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
@@ -742,7 +742,7 @@ cliApplication :
         ->
             StaticHttp.Request
                 { view : userModel -> { title : String, body : Html userMsg }
-                , head : List (Head.Tag ())
+                , head : List Head.Tag
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value

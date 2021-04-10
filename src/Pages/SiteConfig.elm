@@ -11,7 +11,7 @@ type alias SiteConfig staticData =
     , manifest : staticData -> Pages.Manifest.Config
     , head :
         staticData
-        -> List (Head.Tag ())
+        -> List Head.Tag
     , generateFiles :
         StaticHttp.Request
             (List

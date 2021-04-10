@@ -53,14 +53,14 @@ import Pages.PagePath as PagePath exposing (PagePath)
 {-| Values that can be passed to the generated `Pages.application` config
 through the `head` function.
 -}
-type Tag pathKey
-    = Tag (Details pathKey)
+type Tag
+    = Tag Details
     | StructuredData Json.Encode.Value
 
 
-type alias Details pathKey =
+type alias Details =
     { name : String
-    , attributes : List ( String, AttributeValue pathKey )
+    , attributes : List ( String, AttributeValue )
     }
 
 
@@ -119,7 +119,7 @@ To get that data, you would write this in your `elm-pages` head tags:
         , datePublished : String
         , mainEntityOfPage : Encode.Value
         }
-        -> Head.Tag pathKey
+        -> Head.Tag
     encodeArticle info =
         Encode.object
             [ ( "@context", Encode.string "http://schema.org/" )
@@ -153,35 +153,35 @@ And there are multiple sources of information on the possible and recommended st
 for the right API design to evolve. In the meantime, this allows you to make use of this for SEO purposes.
 
 -}
-structuredData : Json.Encode.Value -> Tag pathKey
+structuredData : Json.Encode.Value -> Tag
 structuredData value =
     StructuredData value
 
 
 {-| Create a raw `AttributeValue` (as opposed to some kind of absolute URL).
 -}
-raw : String -> AttributeValue pathKey
+raw : String -> AttributeValue
 raw value =
     Raw value
 
 
 {-| Create an `AttributeValue` from an `ImagePath`.
 -}
-fullImageUrl : ImagePath pathKey -> AttributeValue pathKey
+fullImageUrl : ImagePath -> AttributeValue
 fullImageUrl value =
     FullImageUrl value
 
 
 {-| Create an `AttributeValue` from a `PagePath`.
 -}
-fullPageUrl : PagePath -> AttributeValue pathKey
+fullPageUrl : PagePath -> AttributeValue
 fullPageUrl value =
     FullUrl (PagePath.toString value)
 
 
 {-| Create an `AttributeValue` representing the current page's full url.
 -}
-currentPageFullUrl : AttributeValue pathKey
+currentPageFullUrl : AttributeValue
 currentPageFullUrl =
     FullUrlToCurrentPage
 
@@ -193,10 +193,10 @@ currentPageFullUrl =
 ```
 
 -}
-type AttributeValue pathKey
+type AttributeValue
     = Raw String
     | FullUrl String
-    | FullImageUrl (ImagePath pathKey)
+    | FullImageUrl ImagePath
     | FullUrlToCurrentPage
 
 
@@ -208,7 +208,7 @@ Example:
     Head.canonicalLink "https://elm-pages.com"
 
 -}
-canonicalLink : Maybe PagePath -> Tag pathKey
+canonicalLink : Maybe PagePath -> Tag
 canonicalLink maybePath =
     node "link"
         [ ( "rel", raw "canonical" )
@@ -229,7 +229,7 @@ Example:
 ```
 
 -}
-rssLink : String -> Tag pathKey
+rssLink : String -> Tag
 rssLink url =
     node "link"
         [ ( "rel", raw "alternate" )
@@ -239,7 +239,7 @@ rssLink url =
 
 
 {-| -}
-icon : List ( Int, Int ) -> MimeType.MimeImage -> ImagePath pathKey -> Tag pathKey
+icon : List ( Int, Int ) -> MimeType.MimeImage -> ImagePath -> Tag
 icon sizes imageMimeType image =
     -- TODO allow "any" for sizes value
     [ ( "rel", raw "icon" |> Just )
@@ -273,7 +273,7 @@ If a size is provided, it will be turned into square dimensions as per the recom
 Images must be png's, and non-transparent images are recommended. Current recommended dimensions are 180px and 192px.
 
 -}
-appleTouchIcon : Maybe Int -> ImagePath pathKey -> Tag pathKey
+appleTouchIcon : Maybe Int -> ImagePath -> Tag
 appleTouchIcon maybeSize image =
     [ ( "rel", raw "apple-touch-icon" |> Just )
     , ( "sizes"
@@ -319,7 +319,7 @@ Example:
 ```
 
 -}
-sitemapLink : String -> Tag pathKey
+sitemapLink : String -> Tag
 sitemapLink url =
     node "link"
         [ ( "rel", raw "sitemap" )
@@ -335,7 +335,7 @@ sitemapLink url =
 Results in `<meta property="fb:app_id" content="123456789" />`
 
 -}
-metaProperty : String -> AttributeValue pathKey -> Tag pathKey
+metaProperty : String -> AttributeValue -> Tag
 metaProperty property content =
     node "meta"
         [ ( "property", raw property )
@@ -353,7 +353,7 @@ metaProperty property content =
 Results in `<meta name="twitter:card" content="summary_large_image" />`
 
 -}
-metaName : String -> AttributeValue pathKey -> Tag pathKey
+metaName : String -> AttributeValue -> Tag
 metaName name content =
     node "meta"
         [ ( "name", Raw name )
@@ -363,7 +363,7 @@ metaName name content =
 
 {-| Low-level function for creating a tag for the HTML document's `<head>`.
 -}
-node : String -> List ( String, AttributeValue pathKey ) -> Tag pathKey
+node : String -> List ( String, AttributeValue ) -> Tag
 node name attributes =
     Tag
         { name = name
@@ -374,7 +374,7 @@ node name attributes =
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated
 code will run this for you to generate your `manifest.json` file automatically!
 -}
-toJson : String -> String -> Tag pathKey -> Json.Encode.Value
+toJson : String -> String -> Tag -> Json.Encode.Value
 toJson canonicalSiteUrl currentPagePath tag =
     case tag of
         Tag headTag ->
@@ -391,7 +391,7 @@ toJson canonicalSiteUrl currentPagePath tag =
                 ]
 
 
-encodeProperty : String -> String -> ( String, AttributeValue pathKey ) -> Json.Encode.Value
+encodeProperty : String -> String -> ( String, AttributeValue ) -> Json.Encode.Value
 encodeProperty canonicalSiteUrl currentPagePath ( name, value ) =
     case value of
         Raw rawValue ->

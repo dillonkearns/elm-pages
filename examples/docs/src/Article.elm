@@ -101,7 +101,7 @@ type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , image : ImagePath ()
+    , image : ImagePath
     , draft : Bool
     }
 
@@ -131,7 +131,7 @@ frontmatterDecoder =
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder (ImagePath ())
+imageDecoder : OptimizedDecoder.Decoder ImagePath
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

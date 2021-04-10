@@ -9,25 +9,25 @@ type SummarySize
     | Large
 
 
-type alias Image pathKey =
-    { url : ImagePath pathKey
+type alias Image =
+    { url : ImagePath
     , alt : String
     }
 
 
-type TwitterCard pathKey
+type TwitterCard
     = Summary
         { title : String
         , description : Maybe String
         , siteUser : Maybe String
-        , image : Maybe (Image pathKey)
+        , image : Maybe Image
         , size : SummarySize
         }
     | App
         { title : String
         , description : Maybe String
         , siteUser : String
-        , image : Maybe (Image pathKey)
+        , image : Maybe Image
         , appIdIphone : Maybe Int
         , appIdIpad : Maybe Int
         , appIdGooglePlay : Maybe String
@@ -44,14 +44,14 @@ type TwitterCard pathKey
         { title : String
         , description : Maybe String
         , siteUser : String
-        , image : Image pathKey
+        , image : Image
         , player : String
         , width : Int
         , height : Int
         }
 
 
-rawTags : TwitterCard pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
+rawTags : TwitterCard -> List ( String, Maybe Head.AttributeValue )
 rawTags card =
     ( "twitter:card", cardValue card |> Head.raw |> Just )
         :: (case card of
@@ -91,7 +91,7 @@ rawTags card =
            )
 
 
-cardValue : TwitterCard pathKey -> String
+cardValue : TwitterCard -> String
 cardValue card =
     case card of
         Summary details ->

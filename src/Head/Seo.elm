@@ -67,12 +67,12 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 summaryLarge :
     { canonicalUrlOverride : Maybe PagePath
     , siteName : String
-    , image : Image pathKey
+    , image : Image
     , description : String
     , title : String
     , locale : Maybe Locale
     }
-    -> Common pathKey
+    -> Common
 summaryLarge config =
     buildSummary config Twitter.Large
 
@@ -89,12 +89,12 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 summary :
     { canonicalUrlOverride : Maybe PagePath
     , siteName : String
-    , image : Image pathKey
+    , image : Image
     , description : String
     , title : String
     , locale : Maybe Locale
     }
-    -> Common pathKey
+    -> Common
 summary config =
     buildSummary config Twitter.Regular
 
@@ -109,13 +109,13 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 audioPlayer :
     { canonicalUrlOverride : Maybe PagePath
     , siteName : String
-    , image : Image pathKey
+    , image : Image
     , description : String
     , title : String
     , audio : Audio
     , locale : Maybe Locale
     }
-    -> Common pathKey
+    -> Common
 audioPlayer { title, image, canonicalUrlOverride, description, siteName, audio, locale } =
     { title = title
     , image = image
@@ -152,13 +152,13 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 videoPlayer :
     { canonicalUrlOverride : Maybe PagePath
     , siteName : String
-    , image : Image pathKey
+    , image : Image
     , description : String
     , title : String
     , video : Video
     , locale : Maybe Locale
     }
-    -> Common pathKey
+    -> Common
 videoPlayer { title, image, canonicalUrlOverride, description, siteName, video, locale } =
     { title = title
     , image = image
@@ -188,13 +188,13 @@ videoPlayer { title, image, canonicalUrlOverride, description, siteName, video, 
 buildSummary :
     { canonicalUrlOverride : Maybe PagePath
     , siteName : String
-    , image : Image pathKey
+    , image : Image
     , description : String
     , title : String
     , locale : Maybe Locale
     }
     -> Twitter.SummarySize
-    -> Common pathKey
+    -> Common
 buildSummary { title, image, canonicalUrlOverride, description, siteName, locale } summarySize =
     { title = title
     , image = image
@@ -223,8 +223,8 @@ buildSummary { title, image, canonicalUrlOverride, description, siteName, locale
 {-| <https://ogp.me/#type_website>
 -}
 website :
-    Common pathKey
-    -> List (Head.Tag pathKey)
+    Common
+    -> List Head.Tag
 website common =
     Website |> Content common |> tags
 
@@ -238,8 +238,8 @@ article :
     , modifiedTime : Maybe Iso8601DateTime
     , expirationTime : Maybe Iso8601DateTime
     }
-    -> Common pathKey
-    -> List (Head.Tag pathKey)
+    -> Common
+    -> List Head.Tag
 article details common =
     Article details |> Content common |> tags
 
@@ -247,13 +247,13 @@ article details common =
 {-| See <https://ogp.me/#type_book>
 -}
 book :
-    Common pathKey
+    Common
     ->
         { tags : List String
         , isbn : Maybe String
         , releaseDate : Maybe Iso8601DateTime
         }
-    -> List (Head.Tag pathKey)
+    -> List Head.Tag
 book common details =
     Book details |> Content common |> tags
 
@@ -265,8 +265,8 @@ profile :
     , lastName : String
     , username : Maybe String
     }
-    -> Common pathKey
-    -> List (Head.Tag pathKey)
+    -> Common
+    -> List Head.Tag
 profile details common =
     Profile details |> Content common |> tags
 
@@ -274,14 +274,14 @@ profile details common =
 {-| See <https://ogp.me/#type_music.song>
 -}
 song :
-    Common pathKey
+    Common
     ->
         { duration : Maybe Int
         , album : Maybe Int
         , disc : Maybe Int
         , track : Maybe Int
         }
-    -> List (Head.Tag pathKey)
+    -> List Head.Tag
 song common details =
     Song details |> Content common |> tags
 
@@ -294,9 +294,9 @@ Skipping this for now, if there's a use case I can add it in:
   - og:determiner - The word that appears before this object's title in a sentence. An enum of (a, an, the, "", auto). If auto is chosen, the consumer of your data should chose between "a" or "an". Default is "" (blank).
 
 -}
-type alias Common pathKey =
+type alias Common =
     { title : String
-    , image : Image pathKey
+    , image : Image
     , canonicalUrlOverride : Maybe PagePath
     , description : String
     , siteName : String
@@ -304,11 +304,11 @@ type alias Common pathKey =
     , video : Maybe Video
     , locale : Maybe Locale
     , alternateLocales : List Locale
-    , twitterCard : Twitter.TwitterCard pathKey
+    , twitterCard : Twitter.TwitterCard
     }
 
 
-tagsForCommon : Common pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
+tagsForCommon : Common -> List ( String, Maybe Head.AttributeValue )
 tagsForCommon common =
     tagsForImage common.image
         ++ (common.audio |> Maybe.map tagsForAudio |> Maybe.withDefault [])
@@ -342,7 +342,7 @@ type alias Audio =
     }
 
 
-tagsForAudio : Audio -> List ( String, Maybe (Head.AttributeValue pathKey) )
+tagsForAudio : Audio -> List ( String, Maybe Head.AttributeValue )
 tagsForAudio audio =
     [ ( "og:audio", audio.url |> Head.raw |> Just )
     , ( "og:audio:secure_url", audio.url |> Head.raw |> Just )
@@ -355,8 +355,8 @@ type alias Locale =
     String
 
 
-type Content pathKey
-    = Content (Common pathKey) ContentDetails
+type Content
+    = Content Common ContentDetails
 
 
 type ContentDetails
@@ -408,15 +408,15 @@ type alias MimeType =
 
 {-| See <https://ogp.me/#structured>
 -}
-type alias Image pathKey =
-    { url : ImagePath pathKey
+type alias Image =
+    { url : ImagePath
     , alt : String
     , dimensions : Maybe { width : Int, height : Int }
     , mimeType : Maybe MimeType
     }
 
 
-tagsForImage : Image pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
+tagsForImage : Image -> List ( String, Maybe Head.AttributeValue )
 tagsForImage image =
     [ ( "og:image", Just (Head.fullImageUrl image.url) )
     , ( "og:image:secure_url", Just (Head.fullImageUrl image.url) )
@@ -435,7 +435,7 @@ type alias Video =
     }
 
 
-tagsForVideo : Video -> List ( String, Maybe (Head.AttributeValue pathKey) )
+tagsForVideo : Video -> List ( String, Maybe Head.AttributeValue )
 tagsForVideo video =
     [ ( "og:video", video.url |> Head.raw |> Just )
     , ( "og:video:secure_url", video.url |> Head.raw |> Just )
@@ -444,7 +444,7 @@ tagsForVideo video =
     ]
 
 
-tags : Content pathKey -> List (Head.Tag pathKey)
+tags : Content -> List Head.Tag
 tags (Content common details) =
     tagsForCommon common
         ++ (case details of

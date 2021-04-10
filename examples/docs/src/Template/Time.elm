@@ -42,7 +42,7 @@ staticData routeParams =
 
 head :
     StaticPayload StaticData {}
-    -> List (Head.Tag ())
+    -> List Head.Tag
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing

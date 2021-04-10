@@ -10,7 +10,7 @@ import Pages.ImagePath as ImagePath exposing (ImagePath)
 
 type alias Author =
     { name : String
-    , avatar : ImagePath ()
+    , avatar : ImagePath
     , bio : String
     }
 

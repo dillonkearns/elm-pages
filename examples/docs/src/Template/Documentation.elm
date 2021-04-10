@@ -65,7 +65,7 @@ decoder =
         (Decode.field "title" Decode.string)
 
 
-head : StaticPayload StaticData {} -> List (Head.Tag ())
+head : StaticPayload StaticData {} -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

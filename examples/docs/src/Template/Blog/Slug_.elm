@@ -47,7 +47,7 @@ type alias BlogPost =
     , description : String
     , published : Date
     , author : Author
-    , image : ImagePath ()
+    , image : ImagePath
     , draft : Bool
     }
 
@@ -108,7 +108,7 @@ view { static } =
 
 head :
     StaticPayload DataFromFile Route
-    -> List (Head.Tag ())
+    -> List Head.Tag
 head { path, static } =
     let
         metadata =
@@ -163,7 +163,7 @@ publishedDateView metadata =
         )
 
 
-articleImageView : ImagePath () -> Element msg
+articleImageView : ImagePath -> Element msg
 articleImageView articleImage =
     Element.image [ Element.width Element.fill ]
         { src = ImagePath.toString articleImage
@@ -201,7 +201,7 @@ type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , image : ImagePath ()
+    , image : ImagePath
     , draft : Bool
     }
 
@@ -231,7 +231,7 @@ frontmatterDecoder =
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder (ImagePath ())
+imageDecoder : OptimizedDecoder.Decoder ImagePath
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

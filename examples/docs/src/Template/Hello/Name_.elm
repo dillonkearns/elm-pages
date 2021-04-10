@@ -34,7 +34,7 @@ template =
 
 head :
     StaticPayload () Route
-    -> List (Head.Tag ())
+    -> List Head.Tag
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing

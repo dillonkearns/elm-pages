@@ -65,7 +65,7 @@ view static =
     }
 
 
-head : StaticPayload StaticData {} -> List (Head.Tag ())
+head : StaticPayload StaticData {} -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
