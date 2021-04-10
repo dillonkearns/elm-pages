@@ -376,7 +376,6 @@ main =
         , toJsPort = Pages.internals.toJsPort
         , fromJsPort = Pages.internals.fromJsPort
         , generateFiles = Site.config.generateFiles
-        , pathKey = ()
         }
 
 

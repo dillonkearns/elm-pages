@@ -621,7 +621,6 @@ application :
                 )
             )
     , canonicalSiteUrl : String
-    , pathKey : pathKey
     , onPageChange :
         Maybe
             ({ path : PagePath
@@ -638,7 +637,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.urlToRoute config.pathKey config.init flags url key
+                init config.urlToRoute () config.init flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
@@ -689,7 +688,7 @@ application config =
                                 { currentUrl = model.url, baseUrl = model.baseUrl }
 
                             maybePagePath =
-                                case ContentCache.lookupMetadata config.pathKey model.contentCache urls of
+                                case ContentCache.lookupMetadata () model.contentCache urls of
                                     Just pagePath ->
                                         Just pagePath
 
@@ -775,7 +774,6 @@ cliApplication :
                 )
             )
     , canonicalSiteUrl : String
-    , pathKey : ()
     , onPageChange :
         Maybe
             ({ path : PagePath

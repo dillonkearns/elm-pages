@@ -105,7 +105,6 @@ type alias Config userMsg userModel route siteStaticData =
                 )
             )
     , canonicalSiteUrl : String
-    , pathKey : ()
     , onPageChange :
         Maybe
             ({ path : PagePath
