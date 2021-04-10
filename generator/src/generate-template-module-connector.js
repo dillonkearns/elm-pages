@@ -15,7 +15,8 @@ function generateTemplateModuleConnector(phase) {
     }
   });
 
-  return `module TemplateModulesBeta exposing (..)
+  return {
+    mainModule: `module TemplateModulesBeta exposing (..)
 
 import Browser
 import Pages.Internal.Platform
@@ -389,7 +390,9 @@ mapDocument document =
 
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
-`;
+`,
+    routesModule: ``,
+  };
 }
 
 /**

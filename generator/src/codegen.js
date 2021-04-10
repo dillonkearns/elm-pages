@@ -38,14 +38,13 @@ async function writeFiles() {
     "./elm-stuff/elm-pages/Pages.elm",
     elmPagesCliFile(staticRoutes)
   );
+  const cliCode = generateTemplateModuleConnector("cli");
   fs.writeFileSync(
     "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
-    generateTemplateModuleConnector("cli")
+    cliCode.mainModule
   );
-  fs.writeFileSync(
-    "./gen/TemplateModulesBeta.elm",
-    generateTemplateModuleConnector("browser")
-  );
+  const browserCode = generateTemplateModuleConnector("browser");
+  fs.writeFileSync("./gen/TemplateModulesBeta.elm", browserCode.mainModule);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();
