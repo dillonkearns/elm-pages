@@ -281,8 +281,8 @@ init urlToRoute pathKey initUserModel flags url key =
                             DevClient False
 
                 ( userModel, userCmd ) =
-                    Maybe.map2
-                        (\pagePath _ ->
+                    Maybe.map
+                        (\pagePath ->
                             { path =
                                 { path = pagePath
                                 , query = url.query
@@ -292,7 +292,6 @@ init urlToRoute pathKey initUserModel flags url key =
                             }
                         )
                         maybePagePath
-                        maybeMetadata
                         |> initUserModel
 
                 cmd =
@@ -307,13 +306,13 @@ init urlToRoute pathKey initUserModel flags url key =
                         |> List.filterMap identity
                         |> Cmd.batch
 
-                ( maybePagePath, maybeMetadata ) =
+                maybePagePath =
                     case ContentCache.lookupMetadata pathKey (Ok okCache) urls of
                         Just pagePath ->
-                            ( Just pagePath, Just NoMetadata )
+                            Just pagePath
 
                         Nothing ->
-                            ( Nothing, Nothing )
+                            Nothing
             in
             ( { key = key
               , url = url
