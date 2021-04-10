@@ -17,7 +17,6 @@
         "Pages.Secrets",
         "Pages.Directory",
         "Pages.Platform",
-        "Pages.Internal",
         "Pages.Manifest",
         "Pages.Manifest.Category"
     ],
