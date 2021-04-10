@@ -279,8 +279,6 @@ async function runTerser(filePath) {
 async function copyAssets() {
   fs.writeFile("dist/elm-pages.js", indexTemplate);
   fs.copyDirFlat("static", "dist");
-  fs.tryMkdir("dist/images");
-  fs.copyDirNested("images", "dist/images");
 }
 
 async function compileCliApp() {
