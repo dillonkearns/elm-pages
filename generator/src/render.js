@@ -1,12 +1,12 @@
 // @ts-check
 
 const cliVersion = require("../../package.json").version;
-const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
 const matter = require("gray-matter");
 const globby = require("globby");
 const mm = require("micromatch");
+const fsPromises = require("fs").promises;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -50,7 +50,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
       },
     });
 
-    app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
+    app.ports.toJsPort.subscribe(async (/** @type { FromElm }  */ fromElm) => {
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
@@ -81,9 +81,9 @@ function runElmApp(compiledElmPath, pagePath, request) {
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
 
-        const fileContents = fs
-          .readFileSync(path.join(process.cwd(), filePath))
-          .toString();
+        const fileContents = (
+          await fsPromises.readFile(path.join(process.cwd(), filePath))
+        ).toString();
         const parsedFile = matter(fileContents);
         app.ports.fromJsPort.send({
           tag: "GotFile",
@@ -96,7 +96,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
         });
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
-        const globResult = globby.sync(globPattern);
+        const globResult = await globby(globPattern);
         const captures = globResult.map((result) => {
           return {
             captures: mm.capture(globPattern, result),
