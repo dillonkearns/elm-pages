@@ -1,6 +1,7 @@
 const spawnCallback = require("cross-spawn").spawn;
 const fs = require("fs");
 const path = require("path");
+const kleur = require("kleur");
 const debug = true;
 
 async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
@@ -24,7 +25,8 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
  * @param {string} [ cwd ]
  */
 async function runElm(elmEntrypointPath, outputPath, cwd) {
-  console.log("Running elm make");
+  const startTime = Date.now();
+  console.log(`elm make ${elmEntrypointPath}`);
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
       `elm`,
@@ -54,6 +56,7 @@ async function runElm(elmEntrypointPath, outputPath, cwd) {
 
     child.on("close", function (code) {
       if (code === 0) {
+        console.log(`Ran elm make in ${timeFrom(startTime)}`);
         resolve();
       } else {
         reject(scriptOutput);
@@ -65,3 +68,19 @@ async function runElm(elmEntrypointPath, outputPath, cwd) {
 module.exports = {
   spawnElmMake,
 };
+
+/**
+ * @param {number} start
+ * @param {number} subtract
+ */
+function timeFrom(start, subtract = 0) {
+  const time = Date.now() - start - subtract;
+  const timeString = (time + `ms`).padEnd(5, " ");
+  if (time < 10) {
+    return kleur.green(timeString);
+  } else if (time < 50) {
+    return kleur.yellow(timeString);
+  } else {
+    return kleur.red(timeString);
+  }
+}
