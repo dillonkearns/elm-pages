@@ -175,25 +175,8 @@ const appPromise = pagesInit({
 });
 userInit(appPromise);
 
-connect(function (onContentJsonError, onOk) {
+connect(function (newContentJson) {
   appPromise.then((app) => {
-    app.ports.fromJsPort.send({ action: "hmr-check" });
-    let currentPath = window.location.pathname.replace(/(\w)$/, "$1/");
-    fetch(`${window.location.origin}${currentPath}content.json`).then(
-      async function (contentJson) {
-        console.log("ok?", contentJson.ok);
-        if (contentJson.ok) {
-          app.ports.fromJsPort.send({ contentJson: await contentJson.json() });
-          onOk();
-        } else {
-          try {
-            onContentJsonError(await contentJson.json());
-          } catch (error) {
-            console.log("Invalid JSON response for content.json", error);
-            onOk();
-          }
-        }
-      }
-    );
+    app.ports.fromJsPort.send({ contentJson: newContentJson });
   });
 });

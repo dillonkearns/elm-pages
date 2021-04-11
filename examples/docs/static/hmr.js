@@ -1,30 +1,67 @@
 console.log("Loaded HMR");
 var eventSource = null;
 
-function connect(refetchContentJson) {
+/** @type {Promise<() => void>} */
+let updateAppContentJson = new Promise((resolve, reject) => resolve(() => {}));
+
+function connect(sendContentJsonPort) {
   // Listen for the server to tell us that an HMR update is available
   eventSource = new EventSource("stream");
   eventSource.onmessage = function (evt) {
     if (evt.data === "content.json") {
       const elmJsRequest = elmJsFetch();
-      refetchContentJson(
-        function (errorJson) {
-          console.error("onContentJsonError", errorJson);
-          showError({
-            type: "compile-errors",
-            errors: errorJson,
-          });
-        },
-        function () {
-          hideError();
-          elmJsRequest.then(thenApplyHmr);
-        }
+      updateAppContentJson = updateContentJsonWith(
+        fetchContentJsonForCurrentPage(),
+        sendContentJsonPort
       );
+      elmJsRequest.then(thenApplyHmr);
     } else {
       elmJsFetch().then(thenApplyHmr);
     }
     showCompiling("");
   };
+}
+
+/**
+ *
+ * @param {*} fetchContentJsonPromise
+ * @param {*} sendContentJsonPort
+ * @returns {Promise<() => void>}
+ */
+async function updateContentJsonWith(
+  fetchContentJsonPromise,
+  sendContentJsonPort
+) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const newContentJson = await fetchContentJsonPromise;
+      hideError();
+
+      resolve(() => {
+        sendContentJsonPort(newContentJson);
+      });
+    } catch (errorJson) {
+      showError({
+        type: "compile-errors",
+        errors: errorJson,
+      });
+    }
+  });
+}
+
+function fetchContentJsonForCurrentPage() {
+  return new Promise(async (resolve, reject) => {
+    let currentPath = window.location.pathname.replace(/(\w)$/, "$1/");
+
+    const contentJsonForPage = await fetch(
+      `${window.location.origin}${currentPath}content.json`
+    );
+    if (contentJsonForPage.ok) {
+      resolve(await contentJsonForPage.json());
+    } else {
+      reject(await contentJsonForPage.json());
+    }
+  });
 }
 
 // Expose the Webpack HMR API
@@ -37,7 +74,10 @@ var myDisposeCallback = function () {
 // simulate the HMR api exposed by webpack
 var module = {
   hot: {
-    accept: function () {},
+    accept: async function () {
+      const sendInUpdatedContentJson = await updateAppContentJson;
+      sendInUpdatedContentJson();
+    },
 
     dispose: function (callback) {
       myDisposeCallback = callback;
@@ -73,7 +113,6 @@ async function waitFor(millis) {
 }
 
 async function thenApplyHmr(response) {
-  await waitFor(800);
   if (response.ok) {
     response.text().then(function (value) {
       module.hot.apply();
