@@ -7,13 +7,15 @@ let updateAppContentJson = new Promise((resolve, reject) => resolve(() => {}));
 function connect(sendContentJsonPort) {
   // Listen for the server to tell us that an HMR update is available
   eventSource = new EventSource("stream");
-  eventSource.onmessage = function (evt) {
+  eventSource.onmessage = async function (evt) {
     if (evt.data === "content.json") {
       const elmJsRequest = elmJsFetch();
+      const fetchContentJson = fetchContentJsonForCurrentPage();
       updateAppContentJson = updateContentJsonWith(
-        fetchContentJsonForCurrentPage(),
+        fetchContentJson,
         sendContentJsonPort
       );
+      await fetchContentJson;
       elmJsRequest.then(thenApplyHmr);
     } else {
       elmJsFetch().then(thenApplyHmr);
