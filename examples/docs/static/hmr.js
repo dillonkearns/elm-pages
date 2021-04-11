@@ -8,6 +8,7 @@ function connect(sendContentJsonPort) {
   // Listen for the server to tell us that an HMR update is available
   eventSource = new EventSource("stream");
   eventSource.onmessage = async function (evt) {
+    showCompiling("");
     if (evt.data === "content.json") {
       const elmJsRequest = elmJsFetch();
       const fetchContentJson = fetchContentJsonForCurrentPage();
@@ -20,7 +21,6 @@ function connect(sendContentJsonPort) {
     } else {
       elmJsFetch().then(thenApplyHmr);
     }
-    showCompiling("");
   };
 }
 
@@ -41,6 +41,7 @@ async function updateContentJsonWith(
 
       resolve(() => {
         sendContentJsonPort(newContentJson);
+        hideCompiling("fast");
       });
     } catch (errorJson) {
       showError({
@@ -256,7 +257,7 @@ function showError(error) {
   restoreColorConsole(error).forEach((error) => {
     console.log.apply(this, error);
   });
-  // hideCompiling("fast");
+  hideCompiling("fast");
   setTimeout(function () {
     showError_(restoreColorHtml(error));
   }, delay);
@@ -352,7 +353,7 @@ function showCompiling(message) {
 }
 
 function showCompiling_(message) {
-  var nodeContainer = document.getElementById("elm-live:elmCompilingContainer");
+  var nodeContainer = document.getElementById("__elm-pages-loading");
 
   if (!nodeContainer) {
     nodeContainer = document.createElement("div");
@@ -524,7 +525,7 @@ function showCompiling_(message) {
 }
 
 function hideCompiling(velocity) {
-  const node = document.getElementById("elm-live:elmCompilingContainer");
+  const node = document.getElementById("__elm-pages-loading");
   if (node) {
     if (velocity === "fast") {
       node.remove();
