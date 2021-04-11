@@ -33,6 +33,7 @@
     "xhr2": "^0.2.1"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.2",
     "@types/jest": "^25.2.2",
     "@types/micromatch": "^4.0.1",
     "@types/node": "^12.7.7",
