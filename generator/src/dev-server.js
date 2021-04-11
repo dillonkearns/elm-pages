@@ -12,28 +12,18 @@ const serveStatic = require("serve-static");
 const connect = require("connect");
 
 global.staticHttpCache = {};
+let elmMakeRunning = false;
 
 const { inject } = require("elm-hot");
 const serve = serveStatic("static/", { index: false });
-const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {
-  index: false,
-});
-const staticFilesDir = path.join(
-  process.cwd(),
-  "elm-stuff/elm-pages/static-files"
-);
+const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {});
 
 const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
-/** @type {Record<string, string>} */
-const translations = {
-  "/style.css": "/beta-style.css",
-  "/index.js": "/beta-index.js",
-};
 
 // TODO check source-directories for what to watch?
 const watcher = chokidar.watch(
   [path.join(process.cwd(), "src"), path.join(process.cwd(), "content")],
-  { persistent: true }
+  { persistent: true, ignored: [/\.swp$/] }
 );
 let clientElmMakeProcess = spawnElmMake(
   "gen/TemplateModulesBeta.elm",
@@ -42,7 +32,6 @@ let clientElmMakeProcess = spawnElmMake(
 let pendingCliCompile = compileCliApp();
 
 async function compileCliApp() {
-  await codegen.generate();
   await spawnElmMake(
     "TemplateModulesBeta.elm",
     "elm.js",
@@ -88,22 +77,49 @@ function handleStream(res) {
     Connection: "keep-alive",
     "Content-Type": "text/event-stream",
   });
-
-  watcher.on("change", async function (pathThatChanged, stats) {
-    console.log({ pathThatChanged, stats });
+  watcher.on("all", async function (eventName, pathThatChanged, stats) {
+    console.log({ pathThatChanged, eventName });
     if (pathThatChanged.endsWith(".elm")) {
-      clientElmMakeProcess = spawnElmMake(
-        "gen/TemplateModulesBeta.elm",
-        pathToClientElm
-      );
-      pendingCliCompile = compileCliApp();
-      console.log("Pushing HMR event to client");
-      res.write(`data: content.json\n\n`);
+      if (elmMakeRunning) {
+        console.log("@@@ ignoring because elmMakeRunning");
+      } else {
+        if (needToRerunCodegen(eventName, pathThatChanged)) {
+          console.log("@@@ codegen");
+          await codegen.generate();
+        }
+        clientElmMakeProcess = spawnElmMake(
+          "gen/TemplateModulesBeta.elm",
+          pathToClientElm
+        );
+        pendingCliCompile = compileCliApp();
+        elmMakeRunning = true;
+        Promise.all([clientElmMakeProcess, pendingCliCompile])
+          .then(() => {
+            console.log("@@@ Done with both compilations");
+            elmMakeRunning = false;
+          })
+          .catch(() => {
+            elmMakeRunning = false;
+          });
+        console.log("Pushing HMR event to client");
+        res.write(`data: content.json\n\n`);
+      }
     } else {
       console.log("Pushing HMR event to client");
       res.write(`data: content.json\n\n`);
     }
   });
+}
+
+/**
+ * @param {string} pathThatChanged
+ * @param {'add' | 'unlink' | 'addDir' | 'unlinkDir' | 'change'} eventName
+ */
+function needToRerunCodegen(eventName, pathThatChanged) {
+  return (
+    (eventName === "add" || eventName === "unlink") &&
+    pathThatChanged.match(/src\/Template\/.*\.elm/)
+  );
 }
 
 async function handleNavigationRequest(req, res) {

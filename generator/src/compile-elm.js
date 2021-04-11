@@ -8,9 +8,9 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
   const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
   await runElm(elmEntrypointPath, outputPath, cwd);
 
-  const elmFileContent = fs.readFileSync(fullOutputPath, "utf-8");
+  const elmFileContent = await fs.promises.readFile(fullOutputPath, "utf-8");
 
-  fs.writeFileSync(
+  await fs.promises.writeFile(
     fullOutputPath,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
@@ -56,7 +56,9 @@ async function runElm(elmEntrypointPath, outputPath, cwd) {
 
     child.on("close", function (code) {
       if (code === 0) {
-        console.log(`Ran elm make in ${timeFrom(startTime)}`);
+        console.log(
+          `Ran elm make ${elmEntrypointPath} in ${timeFrom(startTime)}`
+        );
         resolve();
       } else {
         reject(scriptOutput);
