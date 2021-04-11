@@ -4,7 +4,7 @@ const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const renderer = require("../../generator/src/render");
 const port = 1234;
-const { spawnElmMake } = require("./compile-elm.js");
+const { spawnElmMake, compileElmForBrowser } = require("./compile-elm.js");
 const http = require("http");
 const codegen = require("./codegen.js");
 const kleur = require("kleur");
@@ -25,11 +25,17 @@ const watcher = chokidar.watch(
   [path.join(process.cwd(), "src"), path.join(process.cwd(), "content")],
   { persistent: true, ignored: [/\.swp$/] }
 );
-let clientElmMakeProcess = spawnElmMake(
-  "gen/TemplateModulesBeta.elm",
-  pathToClientElm
-);
+let clientElmMakeProcess = compileElmForBrowser();
 let pendingCliCompile = compileCliApp();
+
+Promise.all([clientElmMakeProcess, pendingCliCompile])
+  .then(() => {
+    console.log("@@@ Done with both initial compilations");
+    elmMakeRunning = false;
+  })
+  .catch(() => {
+    elmMakeRunning = false;
+  });
 
 async function compileCliApp() {
   await spawnElmMake(
@@ -49,11 +55,9 @@ http.createServer(app).listen(port);
 async function processRequest(request, response, next) {
   if (request.url?.startsWith("/elm.js")) {
     try {
-      await clientElmMakeProcess;
+      const clientElmJs = await clientElmMakeProcess;
       response.writeHead(200, { "Content-Type": "text/javascript" });
-      response.end(
-        inject(fs.readFileSync(pathToClientElm, { encoding: "utf8" }))
-      );
+      response.end(clientElmJs);
     } catch (elmCompilerError) {
       response.writeHead(500, { "Content-Type": "application/json" });
       response.end(elmCompilerError);
@@ -87,12 +91,9 @@ function handleStream(res) {
           console.log("@@@ codegen");
           await codegen.generate();
         }
-        clientElmMakeProcess = spawnElmMake(
-          "gen/TemplateModulesBeta.elm",
-          pathToClientElm
-        );
-        pendingCliCompile = compileCliApp();
         elmMakeRunning = true;
+        clientElmMakeProcess = compileElmForBrowser();
+        pendingCliCompile = compileCliApp();
         Promise.all([clientElmMakeProcess, pendingCliCompile])
           .then(() => {
             console.log("@@@ Done with both compilations");

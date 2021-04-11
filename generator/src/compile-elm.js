@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const kleur = require("kleur");
 const debug = true;
+const { inject } = require("elm-hot");
+const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
 
 async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
   const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
@@ -17,6 +19,11 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
       "return " + (debug ? "_Json_wrap(x)" : "x")
     )
   );
+}
+
+async function compileElmForBrowser() {
+  await runElm("gen/TemplateModulesBeta.elm", pathToClientElm);
+  return inject(await fs.promises.readFile(pathToClientElm, "utf-8"));
 }
 
 /**
@@ -69,6 +76,7 @@ async function runElm(elmEntrypointPath, outputPath, cwd) {
 
 module.exports = {
   spawnElmMake,
+  compileElmForBrowser,
 };
 
 /**
