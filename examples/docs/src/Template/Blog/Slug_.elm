@@ -32,14 +32,19 @@ type alias Msg =
     Never
 
 
-type alias Route =
+type alias RouteParams =
     { slug : String }
 
 
-routes : StaticHttp.Request (List Route)
+routes : StaticHttp.Request (List RouteParams)
 routes =
     Article.blogPostsGlob
-        |> StaticHttp.map (List.map (.slug >> Route))
+        |> StaticHttp.map
+            (List.map
+                (\globData ->
+                    { slug = globData.slug }
+                )
+            )
 
 
 type alias BlogPost =
@@ -52,7 +57,7 @@ type alias BlogPost =
     }
 
 
-template : Template Route DataFromFile
+template : Template RouteParams DataFromFile
 template =
     Template.withStaticData
         { staticData = staticData
@@ -65,7 +70,7 @@ template =
 
 
 view :
-    StaticPayload DataFromFile Route
+    StaticPayload DataFromFile RouteParams
     -> Shared.PageView msg
 view { static } =
     { title = static.frontmatter.title
@@ -107,7 +112,7 @@ view { static } =
 
 
 head :
-    StaticPayload DataFromFile Route
+    StaticPayload DataFromFile RouteParams
     -> List Head.Tag
 head { path, static } =
     let
@@ -177,7 +182,7 @@ type alias DataFromFile =
     }
 
 
-staticData : Route -> StaticHttp.Request DataFromFile
+staticData : RouteParams -> StaticHttp.Request DataFromFile
 staticData route =
     StaticFile.request
         ("content/blog/" ++ route.slug ++ ".md")
