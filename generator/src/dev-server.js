@@ -108,6 +108,13 @@ watcher.on("all", async function (eventName, pathThatChanged) {
       });
     }
   } else {
+    const changedPathRelative = path.relative(process.cwd(), pathThatChanged);
+
+    Object.keys(global.staticHttpCache).forEach((dataSourceKey) => {
+      if (dataSourceKey.includes(`file://${changedPathRelative}`)) {
+        delete global.staticHttpCache[dataSourceKey];
+      }
+    });
     console.log("Pushing HMR event to client");
     clients.forEach((client) => {
       client.response.write(`data: content.json\n\n`);
