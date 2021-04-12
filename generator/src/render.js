@@ -153,10 +153,7 @@ function baseRoute(route) {
 
 async function outputString(/** @type { PageProgress } */ fromElm) {
   const args = fromElm.args[0];
-  console.log(`Pre-rendered /${args.route}`);
   let contentJson = {};
-  contentJson["body"] = args.body;
-
   contentJson["staticData"] = args.contentJson;
   const normalizedRoute = args.route.replace(/index$/, "");
   const contentJsonString = JSON.stringify(contentJson);
@@ -168,14 +165,14 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   };
 }
 
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
+/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 /** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
 
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
 
-/** @typedef {     { body: string; head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
+/** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
 /**
  * @param {Arg} fromElm

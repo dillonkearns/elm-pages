@@ -33,7 +33,6 @@ async function compileElmForBrowser() {
  */
 async function runElm(elmEntrypointPath, outputPath, cwd) {
   const startTime = Date.now();
-  console.log(`elm make ${elmEntrypointPath}`);
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
       `elm`,

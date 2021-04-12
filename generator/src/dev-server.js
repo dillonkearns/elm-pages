@@ -29,7 +29,7 @@ let pendingCliCompile = compileCliApp();
 
 Promise.all([clientElmMakeProcess, pendingCliCompile])
   .then(() => {
-    console.log("@@@ Done with both initial compilations");
+    console.log("Dev server ready");
     elmMakeRunning = false;
   })
   .catch(() => {
@@ -53,7 +53,7 @@ http.createServer(app).listen(port);
 /**
  * @param {http.IncomingMessage} request
  * @param {http.ServerResponse} response
- * @param {() => void} next
+ * @param {connect.NextHandleFunction} next
  */
 async function processRequest(request, response, next) {
   if (request.url?.startsWith("/elm.js")) {
@@ -77,16 +77,13 @@ async function processRequest(request, response, next) {
   }
 }
 
-console.log(`Server listening at http://localhost:${port}`);
+console.log(`elm-pages dev server running at http://localhost:${port}`);
 
 watcher.on("all", async function (eventName, pathThatChanged) {
-  console.log({ pathThatChanged, eventName });
   if (pathThatChanged.endsWith(".elm")) {
     if (elmMakeRunning) {
-      console.log("@@@ ignoring because elmMakeRunning");
     } else {
       if (needToRerunCodegen(eventName, pathThatChanged)) {
-        console.log("@@@ codegen");
         await codegen.generate();
       }
       elmMakeRunning = true;
@@ -96,13 +93,11 @@ watcher.on("all", async function (eventName, pathThatChanged) {
 
       Promise.all([clientElmMakeProcess, pendingCliCompile])
         .then(() => {
-          console.log("@@@ Done with both compilations", timestamp);
           elmMakeRunning = false;
         })
         .catch(() => {
           elmMakeRunning = false;
         });
-      console.log("Pushing HMR event to client");
       clients.forEach((client) => {
         client.response.write(`data: content.json\n\n`);
       });
@@ -115,7 +110,6 @@ watcher.on("all", async function (eventName, pathThatChanged) {
         delete global.staticHttpCache[dataSourceKey];
       }
     });
-    console.log("Pushing HMR event to client");
     clients.forEach((client) => {
       client.response.write(`data: content.json\n\n`);
     });
@@ -134,7 +128,6 @@ function handleStream(request, response) {
   const clientId = Date.now();
   clients.push({ id: clientId, response });
   request.on("close", () => {
-    console.log(`${clientId} Connection closed`);
     clients = clients.filter((client) => client.id !== clientId);
   });
 }
@@ -192,7 +185,7 @@ function timeMiddleware() {
 }
 
 function prettifyUrl(url, root) {
-  return url;
+  return kleur.dim(url);
 }
 
 /**
