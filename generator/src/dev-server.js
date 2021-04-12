@@ -50,7 +50,11 @@ const app = connect()
   .use(serveStaticCode)
   .use(serve);
 http.createServer(app).listen(port);
-
+/**
+ * @param {http.IncomingMessage} request
+ * @param {http.ServerResponse} response
+ * @param {() => void} next
+ */
 async function processRequest(request, response, next) {
   if (request.url?.startsWith("/elm.js")) {
     try {
@@ -75,6 +79,9 @@ async function processRequest(request, response, next) {
 
 console.log(`Server listening at http://localhost:${port}`);
 
+/**
+ * @param {http.ServerResponse} res
+ */
 function handleStream(res) {
   res.writeHead(200, {
     Connection: "keep-alive",
