@@ -72,7 +72,11 @@ function fetchContentJsonForCurrentPage() {
     if (contentJsonForPage.ok) {
       resolve(await contentJsonForPage.json());
     } else {
-      resolve(null);
+      try {
+        reject(await contentJsonForPage.json());
+      } catch (error) {
+        resolve(null);
+      }
     }
   });
 }
