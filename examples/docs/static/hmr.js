@@ -16,8 +16,18 @@ function connect(sendContentJsonPort) {
         fetchContentJson,
         sendContentJsonPort
       );
-      await fetchContentJson;
-      elmJsRequest.then(thenApplyHmr);
+
+      try {
+        await fetchContentJson;
+        const elmJsResponse = await elmJsRequest;
+        thenApplyHmr(elmJsResponse);
+      } catch (errorJson) {
+        console.log({ errorJson });
+        showError({
+          type: "compile-errors",
+          errors: errorJson,
+        });
+      }
     } else {
       elmJsFetch().then(thenApplyHmr);
     }
@@ -62,7 +72,7 @@ function fetchContentJsonForCurrentPage() {
     if (contentJsonForPage.ok) {
       resolve(await contentJsonForPage.json());
     } else {
-      reject(await contentJsonForPage.json());
+      resolve(null);
     }
   });
 }
