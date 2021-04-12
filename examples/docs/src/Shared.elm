@@ -18,12 +18,11 @@ import Secrets
 import SharedTemplate exposing (SharedTemplate)
 
 
-template : SharedTemplate Msg Model StaticData route msg msg1 msg2
+template : SharedTemplate Msg Model StaticData route msg
 template =
     { init = init
     , update = update
     , view = view
-    , map = map
     , staticData = staticData
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
@@ -56,13 +55,6 @@ type SharedMsg
 type alias Model =
     { showMobileMenu : Bool
     , counter : Int
-    }
-
-
-map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
-map fn doc =
-    { title = doc.title
-    , body = List.map (Element.map fn) doc.body
     }
 
 

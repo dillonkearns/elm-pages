@@ -20,6 +20,7 @@ function generateTemplateModuleConnector(phase) {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
 import Browser
+import Document
 import Json.Decode
 import Json.Encode
 import Pages.Internal.Platform
@@ -147,7 +148,7 @@ view page =
                                                     model.global
                                                     MsgGlobal
                                                     ({ title = title, body = body }
-                                                        |> Shared.template.map Msg${pathNormalizedName(
+                                                        |> Document.map Msg${pathNormalizedName(
                                                           name
                                                         )}
                                                     )

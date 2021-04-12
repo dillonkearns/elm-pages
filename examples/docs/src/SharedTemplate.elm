@@ -6,7 +6,7 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 
 
-type alias SharedTemplate sharedMsg sharedModel sharedStaticData route templateDemuxMsg msg1 msg2 =
+type alias SharedTemplate sharedMsg sharedModel sharedStaticData route mappedMsg =
     { init :
         Maybe
             { path :
@@ -25,10 +25,9 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData route templateD
             , frontmatter : route
             }
         -> sharedModel
-        -> (sharedMsg -> templateDemuxMsg)
-        -> Document templateDemuxMsg
-        -> { body : Html templateDemuxMsg, title : String }
-    , map : (msg1 -> msg2) -> Document msg1 -> Document msg2
+        -> (sharedMsg -> mappedMsg)
+        -> Document mappedMsg
+        -> { body : Html mappedMsg, title : String }
     , staticData : StaticHttp.Request sharedStaticData
     , subscriptions : PagePath -> sharedModel -> Sub sharedMsg
     , onPageChange :
