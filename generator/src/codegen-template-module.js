@@ -2,6 +2,7 @@
 
 const fs = require("./dir-helpers.js");
 const path = require("path");
+const routeHelpers = require("./route-codegen-helpers");
 
 async function run() {
   if (process.argv.length === 3) {
@@ -27,14 +28,11 @@ function fileContent(templateName) {
   return `module Template.${templateName} exposing (Model, Msg, template)
 
 import Element exposing (Element)
-import Element.Region
-import Pages.StaticHttp as StaticHttp
+import Pages.ImagePath as ImagePath
 import Head
 import Head.Seo as Seo
-import Pages exposing (images)
-import Pages.PagePath exposing (PagePath)
+import Pages.StaticHttp as StaticHttp
 import Shared
-import Site
 import Template exposing (StaticPayload, Template, TemplateWithState)
 
 
@@ -46,7 +44,7 @@ type alias Msg =
     Never
 
 type alias RouteParams =
-    {}
+    ${routeHelpers.paramsRecord(templateName.split("."))}
 
 template : Template RouteParams StaticData
 template =
@@ -60,13 +58,13 @@ template =
 
 head :
     StaticPayload StaticData RouteParams
-    -> List (Head.Tag Pages.PathKey)
+    -> List Head.Tag
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = images.iconPng
+            { url = ImagePath.build [ "TODO" ]
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

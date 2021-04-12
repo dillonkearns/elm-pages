@@ -1,6 +1,7 @@
 const globby = require("globby");
 const path = require("path");
 const mm = require("micromatch");
+const routeHelpers = require("./route-codegen-helpers");
 
 /**
  * @param {'browser' | 'cli'} phase
@@ -64,7 +65,7 @@ type TemplateModel
 
 
 type Route
-    = ${templates.map(routeVariantDefinition).join("    | ")}
+    = ${templates.map(routeHelpers.routeVariantDefinition).join("    | ")}
 
 urlToRoute : Url.Url -> Maybe Route
 urlToRoute url =
@@ -79,7 +80,7 @@ routeToPath maybeRoute =
         ${templates
           .map(
             (name) =>
-              `Just (${routeVariant(
+              `Just (${routeHelpers.routeVariant(
                 name
               )} params) ->\n            [ ${routePathList(name)} ]`
           )
@@ -124,7 +125,7 @@ view page =
         ${templates
           .map(
             (name) =>
-              `Just (${routeVariant(name)} s) ->
+              `Just (${routeHelpers.routeVariant(name)} s) ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
@@ -193,7 +194,9 @@ init currentGlobalModel maybePagePath =
 
                 ${templates
                   .map(
-                    (name) => `Just (${routeVariant(name)} routeParams) ->
+                    (name) => `Just (${routeHelpers.routeVariant(
+                      name
+                    )} routeParams) ->
                     Template.${moduleName(name)}.template.init routeParams
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
@@ -272,7 +275,7 @@ update msg model =
                     case ( model.page, model.current |> Maybe.andThen .metadata ) of
                         ( Model${pathNormalizedName(
                           name
-                        )} pageModel, Just (${routeVariant(
+                        )} pageModel, Just (${routeHelpers.routeVariant(
               name
             )} routeParams) ) ->
                             Template.${moduleName(name)}.template.update
@@ -314,9 +317,9 @@ templateSubscriptions route path model =
         ${templates
           .map(
             (name) => `
-        ( Model${pathNormalizedName(name)} templateModel, ${routeVariant(
-              name
-            )} routeParams ) ->
+        ( Model${pathNormalizedName(
+          name
+        )} templateModel, ${routeHelpers.routeVariant(name)} routeParams ) ->
             Template.${moduleName(name)}.template.subscriptions
                 routeParams
                 path
@@ -346,7 +349,7 @@ main =
                 [ StaticHttp.succeed
                     [ ${templates
                       .filter((name) => !isParameterizedRoute(name))
-                      .map((name) => `${routeVariant(name)} {}`)
+                      .map((name) => `${routeHelpers.routeVariant(name)} {}`)
                       .join("\n                    , ")}
                     ]
                 , ${templates
@@ -402,7 +405,7 @@ mapBoth fnA fnB ( a, b, c ) =
  * @param {string[]} name
  */
 function routeParser(name) {
-  const params = routeParams(name);
+  const params = routeHelpers.routeParams(name);
   const parserCode = name
     .map((section) => {
       const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
@@ -424,42 +427,6 @@ function routeParser(name) {
   } else {
     return `Parser.map (Route${pathNormalizedName(name)} {}) (${parserCode})`;
   }
-}
-
-/**
- * @param {string[]} name
- */
-function routeVariantDefinition(name) {
-  return `${routeVariant(name)} { ${routeParams(name).map(
-    (param) => `${param} : String`
-  )} }`;
-}
-
-/**
- * @param {string[]} name
- */
-function routeParams(name) {
-  return name
-    .map((section) => {
-      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
-      const maybeParam = routeParamMatch && routeParamMatch[1];
-      return maybeParam && toFieldName(maybeParam);
-    })
-    .filter((maybeParam) => maybeParam !== null);
-}
-
-/**
- * @param {string } name
- */
-function toFieldName(name) {
-  return name.toLowerCase();
-}
-
-/**
- * @param {string[]} name
- */
-function routeVariant(name) {
-  return `Route${name.join("__")}`;
 }
 
 /**
