@@ -4,6 +4,7 @@ import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
+import Document exposing (Document)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
@@ -71,7 +72,7 @@ template =
 
 view :
     StaticPayload DataFromFile RouteParams
-    -> Shared.PageView msg
+    -> Document msg
 view { static } =
     { title = static.frontmatter.title
     , body =

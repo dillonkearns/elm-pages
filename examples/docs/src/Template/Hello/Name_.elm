@@ -1,5 +1,6 @@
 module Template.Hello.Name_ exposing (Model, Msg, template)
 
+import Document exposing (Document)
 import Element
 import Head
 import Head.Seo as Seo
@@ -58,7 +59,7 @@ type alias StaticData =
 
 view :
     StaticPayload StaticData Route
-    -> Shared.PageView msg
+    -> Document msg
 view static =
     { title = "TODO title"
     , body =

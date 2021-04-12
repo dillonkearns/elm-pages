@@ -1,6 +1,7 @@
 module Template.Documentation exposing (Model, Msg, template)
 
 import DocSidebar
+import Document exposing (Document)
 import Element exposing (Element)
 import Element.Events
 import Element.Font as Font
@@ -87,7 +88,7 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload StaticData {}
-    -> Shared.PageView Msg
+    -> Document Msg
 view model sharedModel staticPayload =
     { title = "TODO title" -- staticPayload.metadata.title -- TODO
     , body =

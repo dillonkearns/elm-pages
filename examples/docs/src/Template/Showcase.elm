@@ -1,5 +1,6 @@
 module Template.Showcase exposing (Model, Msg, template)
 
+import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
@@ -50,7 +51,7 @@ type alias StaticData =
 
 view :
     StaticPayload StaticData {}
-    -> Shared.PageView Msg
+    -> Document Msg
 view static =
     { title = "elm-pages blog"
     , body =

@@ -1,5 +1,6 @@
 module Template.Time exposing (Model, Msg, template)
 
+import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
@@ -62,7 +63,7 @@ head static =
 
 view :
     StaticPayload StaticData {}
-    -> Shared.PageView msg
+    -> Document msg
 view static =
     { title = "TODO title"
     , body =

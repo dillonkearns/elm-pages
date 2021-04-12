@@ -44,6 +44,7 @@ But before the user even requests the page, we have the following data:
 
 -}
 
+import Document exposing (Document)
 import Head
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -58,10 +59,10 @@ type alias TemplateWithState routeParams templateStaticData templateModel templa
         templateModel
         -> Shared.Model
         -> StaticPayload templateStaticData routeParams
-        -> Shared.PageView templateMsg
+        -> Document templateMsg
     , head :
         StaticPayload templateStaticData routeParams
-        -> List (Head.Tag)
+        -> List Head.Tag
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
@@ -89,7 +90,7 @@ type Builder routeParams templateStaticData
         , staticRoutes : StaticHttp.Request (List routeParams)
         , head :
             StaticPayload templateStaticData routeParams
-            -> List (Head.Tag)
+            -> List Head.Tag
         }
 
 
@@ -97,7 +98,7 @@ type Builder routeParams templateStaticData
 buildNoState :
     { view :
         StaticPayload templateStaticData routeParams
-        -> Shared.PageView Never
+        -> Document Never
     }
     -> Builder routeParams templateStaticData
     -> TemplateWithState routeParams templateStaticData () Never
@@ -120,7 +121,7 @@ buildWithLocalState :
         templateModel
         -> Shared.Model
         -> StaticPayload templateStaticData routeParams
-        -> Shared.PageView templateMsg
+        -> Document templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
@@ -156,7 +157,7 @@ buildWithSharedState :
         templateModel
         -> Shared.Model
         -> StaticPayload templateStaticData routeParams
-        -> Shared.PageView templateMsg
+        -> Document templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
     , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
@@ -180,7 +181,7 @@ buildWithSharedState config builderState =
 withStaticData :
     { staticData : routeParams -> StaticHttp.Request templateStaticData
     , staticRoutes : StaticHttp.Request (List routeParams)
-    , head : StaticPayload templateStaticData routeParams -> List (Head.Tag)
+    , head : StaticPayload templateStaticData routeParams -> List Head.Tag
     }
     -> Builder routeParams templateStaticData
 withStaticData { staticData, head, staticRoutes } =
@@ -193,7 +194,7 @@ withStaticData { staticData, head, staticRoutes } =
 
 {-| -}
 noStaticData :
-    { head : StaticPayload () routeParams -> List (Head.Tag)
+    { head : StaticPayload () routeParams -> List Head.Tag
     , staticRoutes : StaticHttp.Request (List routeParams)
     }
     -> Builder routeParams ()

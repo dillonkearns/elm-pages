@@ -1,5 +1,6 @@
-module Shared exposing (Model, Msg(..), PageView, SharedMsg(..), StaticData, template)
+module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
 
+import Document exposing (Document)
 import DocumentSvg
 import Element exposing (Element)
 import Element.Background
@@ -27,10 +28,6 @@ template =
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
     }
-
-
-type alias PageView msg =
-    { title : String, body : List (Element msg) }
 
 
 type Msg
@@ -113,7 +110,7 @@ view :
         }
     -> Model
     -> (Msg -> msg)
-    -> PageView msg
+    -> Document msg
     -> { body : Html msg, title : String }
 view stars page model toMsg pageView =
     { body =

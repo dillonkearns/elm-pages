@@ -1,6 +1,7 @@
 module Template.Blog exposing (Model, Msg, template)
 
 import Article
+import Document exposing (Document)
 import Element
 import Head
 import Head.Seo as Seo
@@ -67,7 +68,7 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload StaticData {}
-    -> Shared.PageView Msg
+    -> Document Msg
 view thing model staticPayload =
     { title = "elm-pages blog"
     , body =

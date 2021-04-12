@@ -1,5 +1,6 @@
 module Template.Index exposing (Model, Msg, template)
 
+import Document exposing (Document)
 import Element
 import Element.Region
 import Head
@@ -62,7 +63,7 @@ head static =
 
 view :
     StaticPayload StaticData Route
-    -> Shared.PageView Msg
+    -> Document Msg
 view static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
     , body =
