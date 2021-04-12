@@ -16,8 +16,8 @@ let elmMakeRunning = true;
 
 const serve = serveStatic("static/", { index: false });
 const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {});
-
-const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
+/** @type {{ id: number, response: http.ServerResponse }[]} */
+let clients = [];
 
 // TODO check source-directories for what to watch?
 const watcher = chokidar.watch(
@@ -66,7 +66,7 @@ async function processRequest(request, response, next) {
       response.end(elmCompilerError);
     }
   } else if (request.url?.startsWith("/stream")) {
-    handleStream(response);
+    handleStream(request, response);
   } else if (
     request.url.includes("content.json") ||
     request.headers["sec-fetch-mode"] === "navigate"
@@ -79,43 +79,56 @@ async function processRequest(request, response, next) {
 
 console.log(`Server listening at http://localhost:${port}`);
 
+watcher.on("all", async function (eventName, pathThatChanged) {
+  console.log({ pathThatChanged, eventName });
+  if (pathThatChanged.endsWith(".elm")) {
+    if (elmMakeRunning) {
+      console.log("@@@ ignoring because elmMakeRunning");
+    } else {
+      if (needToRerunCodegen(eventName, pathThatChanged)) {
+        console.log("@@@ codegen");
+        await codegen.generate();
+      }
+      elmMakeRunning = true;
+      clientElmMakeProcess = compileElmForBrowser();
+      pendingCliCompile = compileCliApp();
+      let timestamp = Date.now();
+
+      Promise.all([clientElmMakeProcess, pendingCliCompile])
+        .then(() => {
+          console.log("@@@ Done with both compilations", timestamp);
+          elmMakeRunning = false;
+        })
+        .catch(() => {
+          elmMakeRunning = false;
+        });
+      console.log("Pushing HMR event to client");
+      clients.forEach((client) => {
+        client.response.write(`data: content.json\n\n`);
+      });
+    }
+  } else {
+    console.log("Pushing HMR event to client");
+    clients.forEach((client) => {
+      client.response.write(`data: content.json\n\n`);
+    });
+  }
+});
+
 /**
- * @param {http.ServerResponse} res
+ * @param {http.IncomingMessage} request
+ * @param {http.ServerResponse} response
  */
-function handleStream(res) {
-  res.writeHead(200, {
+function handleStream(request, response) {
+  response.writeHead(200, {
     Connection: "keep-alive",
     "Content-Type": "text/event-stream",
   });
-  watcher.on("all", async function (eventName, pathThatChanged, stats) {
-    console.log({ pathThatChanged, eventName });
-    if (pathThatChanged.endsWith(".elm")) {
-      if (elmMakeRunning) {
-        console.log("@@@ ignoring because elmMakeRunning");
-        return;
-      } else {
-        if (needToRerunCodegen(eventName, pathThatChanged)) {
-          console.log("@@@ codegen");
-          await codegen.generate();
-        }
-        elmMakeRunning = true;
-        clientElmMakeProcess = compileElmForBrowser();
-        pendingCliCompile = compileCliApp();
-        Promise.all([clientElmMakeProcess, pendingCliCompile])
-          .then(() => {
-            console.log("@@@ Done with both compilations");
-            elmMakeRunning = false;
-          })
-          .catch(() => {
-            elmMakeRunning = false;
-          });
-        console.log("Pushing HMR event to client");
-        res.write(`data: content.json\n\n`);
-      }
-    } else {
-      console.log("Pushing HMR event to client");
-      res.write(`data: content.json\n\n`);
-    }
+  const clientId = Date.now();
+  clients.push({ id: clientId, response });
+  request.on("close", () => {
+    console.log(`${clientId} Connection closed`);
+    clients = clients.filter((client) => client.id !== clientId);
   });
 }
 
