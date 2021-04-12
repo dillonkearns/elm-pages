@@ -15,45 +15,10 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Palette
 import Secrets
+import SharedTemplate exposing (SharedTemplate)
 
 
-type alias SharedTemplate route templateDemuxMsg msg1 msg2 =
-    { init :
-        Maybe
-            { path :
-                { path : PagePath
-                , query : Maybe String
-                , fragment : Maybe String
-                }
-            , metadata : route
-            }
-        -> ( Model, Cmd Msg )
-    , update : Msg -> Model -> ( Model, Cmd Msg )
-    , view :
-        StaticData
-        ->
-            { path : PagePath
-            , frontmatter : route
-            }
-        -> Model
-        -> (Msg -> templateDemuxMsg)
-        -> PageView templateDemuxMsg
-        -> { body : Html templateDemuxMsg, title : String }
-    , map : (msg1 -> msg2) -> PageView msg1 -> PageView msg2
-    , staticData : StaticHttp.Request StaticData
-    , subscriptions : PagePath -> Model -> Sub Msg
-    , onPageChange :
-        Maybe
-            ({ path : PagePath
-             , query : Maybe String
-             , fragment : Maybe String
-             }
-             -> Msg
-            )
-    }
-
-
-template : SharedTemplate route msg msg1 msg2
+template : SharedTemplate Msg Model StaticData route msg msg1 msg2
 template =
     { init = init
     , update = update
