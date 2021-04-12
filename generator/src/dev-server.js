@@ -14,7 +14,6 @@ const connect = require("connect");
 global.staticHttpCache = {};
 let elmMakeRunning = true;
 
-const { inject } = require("elm-hot");
 const serve = serveStatic("static/", { index: false });
 const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {});
 
