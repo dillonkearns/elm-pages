@@ -85,6 +85,7 @@ function handleStream(res) {
     if (pathThatChanged.endsWith(".elm")) {
       if (elmMakeRunning) {
         console.log("@@@ ignoring because elmMakeRunning");
+        return;
       } else {
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           console.log("@@@ codegen");
