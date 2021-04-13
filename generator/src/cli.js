@@ -16,7 +16,7 @@ const mm = require("micromatch");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
-const debug = false;
+const debug = true;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -64,6 +64,7 @@ function runElmApp() {
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
+      console.log({ fromElm });
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
