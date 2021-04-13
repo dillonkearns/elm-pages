@@ -20,10 +20,12 @@ const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {});
 let clients = [];
 
 // TODO check source-directories for what to watch?
-const watcher = chokidar.watch(
-  [path.join(process.cwd(), "src"), path.join(process.cwd(), "content")],
-  { persistent: true, ignored: [/\.swp$/] }
-);
+const watcher = chokidar.watch(["elm.json"], {
+  persistent: true,
+  ignored: [/\.swp$/],
+  ignoreInitial: true,
+});
+watchElmSourceDirs();
 let clientElmMakeProcess = compileElmForBrowser();
 let pendingCliCompile = compileCliApp();
 
@@ -35,6 +37,16 @@ Promise.all([clientElmMakeProcess, pendingCliCompile])
   .catch(() => {
     elmMakeRunning = false;
   });
+
+function watchElmSourceDirs() {
+  console.log("elm.json changed - reloading watchers");
+  watcher.removeAllListeners();
+  const sourceDirs = JSON.parse(fs.readFileSync("./elm.json").toString())[
+    "source-directories"
+  ];
+  console.log("Watching...", { sourceDirs });
+  watcher.add(sourceDirs);
+}
 
 async function compileCliApp() {
   await spawnElmMake(
@@ -80,7 +92,10 @@ async function processRequest(request, response, next) {
 console.log(`elm-pages dev server running at http://localhost:${port}`);
 
 watcher.on("all", async function (eventName, pathThatChanged) {
-  if (pathThatChanged.endsWith(".elm")) {
+  console.log({ pathThatChanged });
+  if (pathThatChanged === "elm.json") {
+    watchElmSourceDirs();
+  } else if (pathThatChanged.endsWith(".elm")) {
     if (elmMakeRunning) {
     } else {
       if (needToRerunCodegen(eventName, pathThatChanged)) {
