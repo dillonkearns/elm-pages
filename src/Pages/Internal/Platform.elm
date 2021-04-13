@@ -534,7 +534,6 @@ application :
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
-    , manifest : Manifest.Config
     , generateFiles :
         StaticHttp.Request
             (List
@@ -684,7 +683,6 @@ cliApplication :
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
-    , manifest : Manifest.Config
     , generateFiles :
         StaticHttp.Request
             (List

@@ -347,7 +347,6 @@ main =
                 |> StaticHttp.map (List.map Just)
         , view = view
         , update = update
-        , manifest = Pages.Internal.Platform.ToJsPayload.stubManifest
         , subscriptions =
             \\path model ->
                 Sub.batch

@@ -149,8 +149,7 @@ type NextStep route
 
 nextStep :
     { config
-        | manifest : Manifest.Config
-        , getStaticRoutes : StaticHttp.Request (List route)
+        | getStaticRoutes : StaticHttp.Request (List route)
         , routeToPath : route -> List String
         , view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , site : SiteConfig siteStaticData
@@ -436,7 +435,6 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         ( staticResponses_
                         , ToJsPayload.toJsPayload
                             (encode allRawResponses mode staticResponses)
-                            ToJsPayload.stubManifest
                             generatedOkayFiles
                             allRawResponses
                             (siteStaticDataError :: allErrors)
@@ -447,7 +445,6 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         ( staticResponses_
                         , ToJsPayload.toJsPayload
                             (encode allRawResponses mode staticResponses)
-                            (config.site.manifest okSiteStaticData)
                             generatedOkayFiles
                             allRawResponses
                             allErrors

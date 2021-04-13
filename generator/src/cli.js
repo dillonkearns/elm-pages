@@ -8,7 +8,6 @@ const path = require("path");
 const seo = require("./seo-renderer.js");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
-const generateManifest = require("./generate-manifest.js");
 const terser = require("terser");
 const matter = require("gray-matter");
 const globby = require("globby");
@@ -68,10 +67,6 @@ function runElmApp() {
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
-        fs.writeFile(
-          `dist/manifest.json`,
-          JSON.stringify(generateManifest(fromElm.args[0].manifest))
-        );
         generateFiles(fromElm.args[0].filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         outputString(fromElm);

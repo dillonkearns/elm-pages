@@ -27,7 +27,6 @@ import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
-import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
@@ -90,7 +89,6 @@ type alias Config userMsg userModel route siteStaticData =
                 }
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
-    , manifest : Manifest.Config
     , generateFiles :
         StaticHttp.Request
             (List
@@ -231,7 +229,7 @@ perform maybeRequest config cliMsgConstructor toJsPort effect =
 
         Effect.SendJsData value ->
             value
-                |> Codec.encoder (ToJsPayload.toJsCodec config.canonicalSiteUrl)
+                |> Codec.encoder ToJsPayload.toJsCodec
                 |> toJsPort
                 |> Cmd.map never
 
@@ -784,8 +782,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                     ToJsPayload.Success value ->
                                         Effect.SendSinglePage
                                             (ToJsPayload.InitialData
-                                                { manifest = value.manifest
-                                                , filesToGenerate = value.filesToGenerate
+                                                { filesToGenerate = value.filesToGenerate
                                                 }
                                             )
 

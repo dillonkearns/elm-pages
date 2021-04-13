@@ -244,6 +244,8 @@ toJson canonicalSiteUrl config =
             |> Encode.string
             |> Just
       )
+    , ( "dir", Encode.string "auto" |> Just )
+    , ( "lang", Encode.string "en-US" |> Just )
     , ( "icons"
       , config.icons
             |> Encode.list (encodeIcon canonicalSiteUrl)
@@ -302,22 +304,15 @@ toJson canonicalSiteUrl config =
             |> Maybe.map Encode.string
       )
     , ( "start_url"
-      , config.startUrl
-            |> PagePath.toString
+      , ("/" ++ PagePath.toString config.startUrl)
             |> Encode.string
             |> Just
       )
     , ( "short_name"
       , config.shortName |> Maybe.map Encode.string
       )
-    , ( "serviceworker"
-      , Encode.object
-            [ ( "src", Encode.string "../service-worker.js" )
-            , ( "scope", Encode.string "/" )
-            , ( "type", Encode.string "" )
-            , ( "update_via_cache", Encode.string "none" )
-            ]
-            |> Just
+    , ( "scope"
+      , Encode.string "/" |> Just
       )
     ]
         |> encodeMaybeObject

@@ -18,7 +18,6 @@ type ToJsPayload
 
 type alias ToJsSuccessPayload =
     { pages : Dict String (Dict String String)
-    , manifest : Manifest.Config
     , filesToGenerate : List FileToGenerate
     , staticHttpCache : Dict String String
     , errors : List BuildError
@@ -45,17 +44,15 @@ type alias FileToGenerate =
 
 toJsPayload :
     Dict String (Dict String String)
-    -> Manifest.Config
     -> List FileToGenerate
     -> Dict String (Maybe String)
     -> List BuildError
     -> ToJsPayload
-toJsPayload encodedStatic manifest generated allRawResponses allErrors =
+toJsPayload encodedStatic generated allRawResponses allErrors =
     if allErrors |> List.filter .fatal |> List.isEmpty then
         Success
             (ToJsSuccessPayload
                 encodedStatic
-                manifest
                 generated
                 (allRawResponses
                     |> Dict.toList
@@ -73,19 +70,19 @@ toJsPayload encodedStatic manifest generated allRawResponses allErrors =
         Errors <| allErrors
 
 
-toJsCodec : String -> Codec ToJsPayload
-toJsCodec canonicalSiteUrl =
+toJsCodec : Codec ToJsPayload
+toJsCodec =
     Codec.custom
         (\errorsTag success value ->
             case value of
                 Errors errorList ->
                     errorsTag errorList
 
-                Success { pages, manifest, filesToGenerate, errors, staticHttpCache } ->
-                    success (ToJsSuccessPayload pages manifest filesToGenerate staticHttpCache errors)
+                Success { pages, filesToGenerate, errors, staticHttpCache } ->
+                    success (ToJsSuccessPayload pages filesToGenerate staticHttpCache errors)
         )
         |> Codec.variant1 "Errors" Errors errorCodec
-        |> Codec.variant1 "Success" Success (successCodec canonicalSiteUrl)
+        |> Codec.variant1 "Success" Success successCodec
         |> Codec.buildCustom
 
 
@@ -132,15 +129,12 @@ stubManifest =
     }
 
 
-successCodec : String -> Codec ToJsSuccessPayload
-successCodec canonicalSiteUrl =
+successCodec : Codec ToJsSuccessPayload
+successCodec =
     Codec.object ToJsSuccessPayload
         |> Codec.field "pages"
             .pages
             (Codec.dict (Codec.dict Codec.string))
-        |> Codec.field "manifest"
-            .manifest
-            (Codec.build (Manifest.toJson canonicalSiteUrl) (Decode.succeed stubManifest))
         |> Codec.field "filesToGenerate"
             .filesToGenerate
             (Codec.build
@@ -205,7 +199,6 @@ type ToJsSuccessPayloadNewCombined
 
 type alias InitialDataRecord =
     { filesToGenerate : List FileToGenerate
-    , manifest : Manifest.Config
     }
 
 
@@ -227,15 +220,10 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                     vGlob globPattern
         )
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
-        |> Codec.variant1 "InitialData" InitialData (initialDataCodec canonicalSiteUrl)
+        |> Codec.variant1 "InitialData" InitialData initialDataCodec
         |> Codec.variant1 "ReadFile" ReadFile Codec.string
         |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.buildCustom
-
-
-manifestCodec : String -> Codec Manifest.Config
-manifestCodec canonicalSiteUrl =
-    Codec.build (Manifest.toJson canonicalSiteUrl) (Decode.succeed stubManifest)
 
 
 filesToGenerateCodec : Codec (List { path : List String, content : String })
@@ -259,13 +247,10 @@ filesToGenerateCodec =
         )
 
 
-initialDataCodec : String -> Codec InitialDataRecord
-initialDataCodec canonicalSiteUrl =
+initialDataCodec : Codec InitialDataRecord
+initialDataCodec =
     Codec.object InitialDataRecord
         |> Codec.field "filesToGenerate"
             .filesToGenerate
             filesToGenerateCodec
-        |> Codec.field "manifest"
-            .manifest
-            (manifestCodec canonicalSiteUrl)
         |> Codec.buildObject
