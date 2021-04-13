@@ -167,7 +167,15 @@ async function handleNavigationRequest(req, res) {
   } else {
     try {
       await pendingCliCompile;
-      const renderResult = await renderer(compiledElmPath, req.url, req);
+      const renderResult = await renderer(
+        compiledElmPath,
+        req.url,
+        req,
+        function (pattern) {
+          console.log(`Watching data source ${pattern}`);
+          watcher.add(pattern);
+        }
+      );
       if (renderResult.kind === "json") {
         res.writeHead(200, {
           "Content-Type": "application/json",

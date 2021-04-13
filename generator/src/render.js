@@ -19,11 +19,17 @@ module.exports =
    * @param {string} compiledElmPath
    * @param {string} path
    * @param {import('aws-lambda').APIGatewayProxyEvent} request
+   * @param {(pattern: string) => void} addDataSourceWatcher
    * @returns
    */
-  async function run(compiledElmPath, path, request) {
+  async function run(compiledElmPath, path, request, addDataSourceWatcher) {
     XMLHttpRequest = require("xhr2");
-    const result = await runElmApp(compiledElmPath, path, request);
+    const result = await runElmApp(
+      compiledElmPath,
+      path,
+      request,
+      addDataSourceWatcher
+    );
     return result;
   };
 
@@ -31,9 +37,10 @@ module.exports =
  * @param {string} compiledElmPath
  * @param {string} pagePath
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
+ * @param {(pattern: string) => void} addDataSourceWatcher
  * @returns {Promise<({ kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string })>}
  */
-function runElmApp(compiledElmPath, pagePath, request) {
+function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
   return new Promise((resolve, reject) => {
     console.time(`renderer-${pagePath}`);
     const isJson = pagePath.match(/content\.json\/?$/);
@@ -82,6 +89,8 @@ function runElmApp(compiledElmPath, pagePath, request) {
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
 
+        addDataSourceWatcher(filePath);
+
         const fileContents = (
           await fsPromises.readFile(path.join(process.cwd(), filePath))
         ).toString();
@@ -97,6 +106,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
         });
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
+        addDataSourceWatcher(globPattern);
         const globResult = await globby(globPattern);
         const captures = globResult.map((result) => {
           return {
