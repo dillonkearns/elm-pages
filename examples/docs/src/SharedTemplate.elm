@@ -15,7 +15,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : Route
+            , metadata : Maybe Route
             }
         -> ( sharedModel, Cmd sharedMsg )
     , update : sharedMsg -> sharedModel -> ( sharedModel, Cmd sharedMsg )
@@ -23,7 +23,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
         sharedStaticData
         ->
             { path : PagePath
-            , frontmatter : Route
+            , frontmatter : Maybe Route
             }
         -> sharedModel
         -> (sharedMsg -> mappedMsg)
