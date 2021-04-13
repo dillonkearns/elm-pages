@@ -24,6 +24,9 @@ async function run() {
   }
 }
 
+/**
+ * @param {string} templateName
+ */
 function fileContent(templateName) {
   return `module Template.${templateName} exposing (Model, Msg, template)
 

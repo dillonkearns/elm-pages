@@ -31,7 +31,7 @@ function paramsRecord(name) {
  * @param {string[]} name
  */
 function routeVariant(name) {
-  return `Route${name.join("__")}`;
+  return `${name.join("__")}`;
 }
 
 /**

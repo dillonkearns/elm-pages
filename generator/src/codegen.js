@@ -36,8 +36,10 @@ async function writeFiles() {
     "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
     cliCode.mainModule
   );
+  fs.writeFileSync("./elm-stuff/elm-pages/Route.elm", cliCode.routesModule);
   const browserCode = generateTemplateModuleConnector("browser");
   fs.writeFileSync("./gen/TemplateModulesBeta.elm", browserCode.mainModule);
+  fs.writeFileSync("./gen/Route.elm", browserCode.routesModule);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();

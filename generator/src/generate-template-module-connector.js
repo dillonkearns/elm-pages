@@ -20,6 +20,7 @@ function generateTemplateModuleConnector(phase) {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
 import Browser
+import Route exposing (Route)
 import Document
 import Json.Decode
 import Json.Encode
@@ -65,33 +66,6 @@ type TemplateModel
     | NotFound
 
 
-type Route
-    = ${templates.map(routeHelpers.routeVariantDefinition).join("    | ")}
-
-urlToRoute : Url.Url -> Maybe Route
-urlToRoute url =
-    Parser.parse (Parser.oneOf routes) url
-
-
-routeToPath : Maybe Route -> List String
-routeToPath maybeRoute =
-    case maybeRoute of
-        Nothing ->
-            []
-        ${templates
-          .map(
-            (name) =>
-              `Just (${routeHelpers.routeVariant(
-                name
-              )} params) ->\n            [ ${routePathList(name)} ]`
-          )
-          .join("\n        ")}
-
-
-routes : List (Parser (Route -> a) a)
-routes =
-    [ ${templates.map((name) => `${routeParser(name)}\n`).join("    , ")}
-    ]
 
 
 type Msg
@@ -126,7 +100,7 @@ view page =
         ${templates
           .map(
             (name) =>
-              `Just (${routeHelpers.routeVariant(name)} s) ->
+              `Just (Route.${routeHelpers.routeVariant(name)} s) ->
             StaticHttp.map2
                 (\\data globalData ->
                     { view =
@@ -195,7 +169,7 @@ init currentGlobalModel maybePagePath =
 
                 ${templates
                   .map(
-                    (name) => `Just (${routeHelpers.routeVariant(
+                    (name) => `Just (Route.${routeHelpers.routeVariant(
                       name
                     )} routeParams) ->
                     Template.${moduleName(name)}.template.init routeParams
@@ -276,7 +250,7 @@ update msg model =
                     case ( model.page, model.current |> Maybe.andThen .metadata ) of
                         ( Model${pathNormalizedName(
                           name
-                        )} pageModel, Just (${routeHelpers.routeVariant(
+                        )} pageModel, Just (Route.${routeHelpers.routeVariant(
               name
             )} routeParams) ) ->
                             Template.${moduleName(name)}.template.update
@@ -320,7 +294,9 @@ templateSubscriptions route path model =
             (name) => `
         ( Model${pathNormalizedName(
           name
-        )} templateModel, ${routeHelpers.routeVariant(name)} routeParams ) ->
+        )} templateModel, Route.${routeHelpers.routeVariant(
+              name
+            )} routeParams ) ->
             Template.${moduleName(name)}.template.subscriptions
                 routeParams
                 path
@@ -342,15 +318,17 @@ main =
       phase === "browser" ? "application" : "cliApplication"
     }
         { init = init Nothing
-        , urlToRoute = urlToRoute
-        , routeToPath = routeToPath
+        , urlToRoute = Route.urlToRoute
+        , routeToPath = Route.routeToPath
         , site = Site.config
         , getStaticRoutes =
             StaticHttp.combine
                 [ StaticHttp.succeed
                     [ ${templates
                       .filter((name) => !isParameterizedRoute(name))
-                      .map((name) => `${routeHelpers.routeVariant(name)} {}`)
+                      .map(
+                        (name) => `Route.${routeHelpers.routeVariant(name)} {}`
+                      )
                       .join("\n                    , ")}
                     ]
                 , ${templates
@@ -359,7 +337,7 @@ main =
                     (name) =>
                       `Template.${moduleName(
                         name
-                      )}.template.staticRoutes |> StaticHttp.map (List.map Route${pathNormalizedName(
+                      )}.template.staticRoutes |> StaticHttp.map (List.map Route.${pathNormalizedName(
                         name
                       )})`
                   )
@@ -374,7 +352,7 @@ main =
             \\path model ->
                 Sub.batch
                     [ Shared.template.subscriptions path model.global |> Sub.map MsgGlobal
-                    , templateSubscriptions (RouteBlog {}) path model
+                    , templateSubscriptions (Route.Blog {}) path model
                     ]
         , onPageChange = Just OnPageChange
         , canonicalSiteUrl = "TODO"
@@ -398,7 +376,41 @@ mapDocument document =
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `,
-    routesModule: ``,
+    routesModule: `module Route exposing (..)
+
+import Url
+import Url.Parser as Parser exposing ((</>), Parser)
+
+
+type Route
+    = ${templates.map(routeHelpers.routeVariantDefinition).join("\n    | ")}
+
+
+urlToRoute : Url.Url -> Maybe Route
+urlToRoute url =
+    Parser.parse (Parser.oneOf routes) url
+
+
+routes : List (Parser (Route -> a) a)
+routes =
+    [ ${templates.map((name) => `${routeParser(name)}\n`).join("    , ")}
+    ]
+
+
+routeToPath : Maybe Route -> List String
+routeToPath maybeRoute =
+    case maybeRoute of
+        Nothing ->
+            []
+        ${templates
+          .map(
+            (name) =>
+              `Just (${routeHelpers.routeVariant(
+                name
+              )} params) ->\n            [ ${routePathList(name)} ]`
+          )
+          .join("\n        ")}
+`,
   };
 }
 
@@ -422,11 +434,11 @@ function routeParser(name) {
     })
     .join(" </> ");
   if (params.length > 0) {
-    return `Parser.map (\\${params.join(" ")} -> Route${pathNormalizedName(
+    return `Parser.map (\\${params.join(" ")} -> ${pathNormalizedName(
       name
     )} { ${params.map((param) => `${param} = ${param}`)} }) (${parserCode})`;
   } else {
-    return `Parser.map (Route${pathNormalizedName(name)} {}) (${parserCode})`;
+    return `Parser.map (${pathNormalizedName(name)} {}) (${parserCode})`;
   }
 }
 
