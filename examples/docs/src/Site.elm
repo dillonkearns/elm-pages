@@ -12,6 +12,16 @@ import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp
 
 
+config : SiteConfig StaticData
+config =
+    { staticData = staticData
+    , canonicalUrl = canonicalUrl
+    , manifest = manifest
+    , head = head
+    , generateFiles = generateFiles
+    }
+
+
 
 -- TODO wire this in as part of the config
 
@@ -32,16 +42,6 @@ generateFiles =
 
 type alias StaticData =
     { siteName : String
-    }
-
-
-config : SiteConfig StaticData
-config =
-    { staticData = staticData
-    , canonicalUrl = canonicalUrl
-    , manifest = manifest
-    , head = head
-    , generateFiles = generateFiles
     }
 
 
