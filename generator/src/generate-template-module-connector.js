@@ -358,8 +358,31 @@ main =
         , canonicalSiteUrl = "TODO"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
-        , generateFiles = Site.config.generateFiles
+        , generateFiles = StaticHttp.map2 (::) manifestGenerator Site.config.generateFiles
         }
+
+
+manifestGenerator : StaticHttp.Request (Result anyError { path : List String, content : String })
+manifestGenerator =
+    Site.config.staticData
+        |> StaticHttp.map
+            (\\data ->
+                Site.config.manifest data
+                    |> manifestToFile (Site.config.canonicalUrl data)
+            )
+
+
+manifestToFile : String -> Manifest.Config -> Result anyError { path : List String, content : String }
+manifestToFile resolvedCanonicalUrl manifestConfig =
+    manifestConfig
+        |> Manifest.toJson resolvedCanonicalUrl
+        |> (\\manifestJsonValue ->
+                Ok
+                    { path = [ "manifest.json" ]
+                    , content = Json.Encode.encode 0 manifestJsonValue
+                    }
+           )
+
 
 port toJsPort : Json.Encode.Value -> Cmd msg
 
