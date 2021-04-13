@@ -63,16 +63,8 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
         const args = fromElm.args[0];
-        // const contentJson = args.pages["blog"];
-        // resolve({
-        //   kind: "json",
-        //   contentJson: JSON.stringify({ staticData: contentJson }),
-        // });
-        // fs.writeFile(
-        //   `dist/manifest.json`,
-        //   JSON.stringify(generateManifest(fromElm.args[0].manifest))
-        // );
-        // generateFiles(fromElm.args[0].filesToGenerate);
+        console.log(`InitialData`, args);
+        writeGeneratedFiles(args.filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;
@@ -243,4 +235,21 @@ function wrapHtml(fromElm, contentJsonString) {
     </body>
   </html>
   `;
+}
+
+/**
+ * @param {{ path: string; content: string; }[]} filesToGenerate
+ */
+async function writeGeneratedFiles(filesToGenerate) {
+  await fsPromises.mkdir("elm-stuff/elm-pages/generated-files", {
+    recursive: true,
+  });
+  await Promise.all(
+    filesToGenerate.map((fileToGenerate) => {
+      fsPromises.writeFile(
+        path.join("elm-stuff/elm-pages/generated-files", fileToGenerate.path),
+        fileToGenerate.content
+      );
+    })
+  );
 }

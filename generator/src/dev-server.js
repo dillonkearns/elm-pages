@@ -15,6 +15,11 @@ global.staticHttpCache = {};
 let elmMakeRunning = true;
 
 const serve = serveStatic("static/", { index: false });
+const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
+fs.mkdirSync(generatedFilesDirectory, { recursive: true });
+const serveGeneratedFiles = serveStatic(generatedFilesDirectory, {
+  index: false,
+});
 const serveStaticCode = serveStatic(path.join(__dirname, "../static-code"), {});
 /** @type {{ id: number, response: http.ServerResponse }[]} */
 let clients = [];
@@ -60,6 +65,7 @@ const app = connect()
   .use(timeMiddleware())
   .use(processRequest)
   .use(serveStaticCode)
+  .use(serveGeneratedFiles)
   .use(serve);
 http.createServer(app).listen(port);
 /**
