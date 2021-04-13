@@ -14,7 +14,7 @@ async function run() {
     const content = fileContent(moduleName);
     const fullFilePath = path.join(
       `src/Template/`,
-      moduleName.replace(".", "/") + ".elm"
+      moduleName.replaceAll(".", "/") + ".elm"
     );
     await fs.tryMkdir(path.dirname(fullFilePath));
     fs.writeFile(fullFilePath, content);

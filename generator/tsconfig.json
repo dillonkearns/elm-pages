@@ -8,7 +8,7 @@
     "strict": true,
     "sourceMap": false,
     "resolveJsonModule": true,
-    "lib": ["es2015", "es2017.object"]
+    "lib": ["es2015", "es2017.object", "esnext"]
   },
   "exclude": ["node_modules", "generated"]
 }
