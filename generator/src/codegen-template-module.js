@@ -31,6 +31,7 @@ function fileContent(templateName) {
   return `module Template.${templateName} exposing (Model, Msg, template)
 
 import Element exposing (Element)
+import Document exposing (Document)
 import Pages.ImagePath as ImagePath
 import Head
 import Head.Seo as Seo
@@ -85,7 +86,7 @@ type alias StaticData =
 
 view :
     StaticPayload StaticData RouteParams
-    -> Shared.PageView msg
+    -> Document Msg
 view static =
     { title = "TODO title"
     , body = []
