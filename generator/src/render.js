@@ -41,6 +41,7 @@ function runElmApp(compiledElmPath, pagePath, request) {
 
     const mode = "elm-to-html-beta";
     const modifiedRequest = { ...request, path: route };
+    console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
     const app = requireUncached(compiledElmPath).Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
