@@ -4,9 +4,10 @@ import Document exposing (Document)
 import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
+import Route exposing (Route)
 
 
-type alias SharedTemplate sharedMsg sharedModel sharedStaticData route mappedMsg =
+type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
     { init :
         Maybe
             { path :
@@ -14,7 +15,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData route mappedMsg
                 , query : Maybe String
                 , fragment : Maybe String
                 }
-            , metadata : route
+            , metadata : Route
             }
         -> ( sharedModel, Cmd sharedMsg )
     , update : sharedMsg -> sharedModel -> ( sharedModel, Cmd sharedMsg )
@@ -22,7 +23,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData route mappedMsg
         sharedStaticData
         ->
             { path : PagePath
-            , frontmatter : route
+            , frontmatter : Route
             }
         -> sharedModel
         -> (sharedMsg -> mappedMsg)

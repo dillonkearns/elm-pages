@@ -19,7 +19,7 @@ import Secrets
 import SharedTemplate exposing (SharedTemplate)
 
 
-template : SharedTemplate Msg Model StaticData route msg
+template : SharedTemplate Msg Model StaticData msg
 template =
     { init = init
     , update = update
