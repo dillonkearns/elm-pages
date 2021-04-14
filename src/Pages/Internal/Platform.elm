@@ -522,7 +522,7 @@ application :
     , getStaticRoutes : StaticHttp.Request (List route)
     , site : SiteConfig route staticData
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : PagePath -> userModel -> Sub userMsg
+    , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , view :
         { path : PagePath
         , frontmatter : route
@@ -621,7 +621,7 @@ application config =
                             userSub =
                                 Maybe.map
                                     (\path ->
-                                        config.subscriptions path model.userModel
+                                        config.subscriptions (path |> pathToUrl |> config.urlToRoute) path model.userModel
                                             |> Sub.map UserMsg
                                             |> Sub.map AppMsg
                                     )
@@ -724,3 +724,14 @@ cliApplication =
                 _ ->
                     Nothing
         )
+
+
+pathToUrl : PagePath -> Url
+pathToUrl path =
+    { protocol = Url.Https
+    , host = "TODO"
+    , port_ = Nothing
+    , path = path |> PagePath.toString
+    , query = Nothing
+    , fragment = Nothing
+    }

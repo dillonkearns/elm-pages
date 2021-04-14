@@ -286,7 +286,7 @@ type alias SiteConfig =
     , manifest : Manifest.Config
     }
 
-templateSubscriptions : Route -> PagePath -> Model -> Sub Msg
+templateSubscriptions : Maybe Route -> PagePath -> Model -> Sub Msg
 templateSubscriptions route path model =
     case ( model.page, route ) of
         ${templates
@@ -294,9 +294,9 @@ templateSubscriptions route path model =
             (name) => `
         ( Model${pathNormalizedName(
           name
-        )} templateModel, Route.${routeHelpers.routeVariant(
+        )} templateModel, Just (Route.${routeHelpers.routeVariant(
               name
-            )} routeParams ) ->
+            )} routeParams) ) ->
             Template.${moduleName(name)}.template.subscriptions
                 routeParams
                 path
@@ -325,10 +325,10 @@ main =
         , view = view
         , update = update
         , subscriptions =
-            \\path model ->
+            \\route path model ->
                 Sub.batch
                     [ Shared.template.subscriptions path model.global |> Sub.map MsgGlobal
-                    -- , templateSubscriptions (Route.Blog {}) path model
+                    , templateSubscriptions route path model
                     ]
         , onPageChange = Just OnPageChange
         , canonicalSiteUrl = "TODO"
