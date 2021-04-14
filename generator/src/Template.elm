@@ -44,6 +44,7 @@ But before the user even requests the page, we have the following data:
 
 -}
 
+import Browser.Navigation
 import Document exposing (Document)
 import Head
 import Pages.PagePath exposing (PagePath)
@@ -64,7 +65,7 @@ type alias TemplateWithState routeParams templateStaticData templateModel templa
         StaticPayload templateStaticData routeParams
         -> List Head.Tag
     , init : routeParams -> ( templateModel, Cmd templateMsg )
-    , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , update : Maybe Browser.Navigation.Key -> routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
@@ -110,7 +111,7 @@ buildNoState { view } builderState =
             , staticData = record.staticData
             , staticRoutes = record.staticRoutes
             , init = \_ -> ( (), Cmd.none )
-            , update = \_ _ _ _ -> ( (), Cmd.none, Nothing )
+            , update = \_ _ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ -> Sub.none
             }
 
@@ -123,7 +124,7 @@ buildWithLocalState :
         -> StaticPayload templateStaticData routeParams
         -> Document templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
-    , update : Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , update : DynamicContext Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
@@ -139,16 +140,28 @@ buildWithLocalState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \metadata msg templateModel sharedModel ->
+                \navigationKey routeParams msg templateModel sharedModel ->
                     let
                         ( updatedModel, cmd ) =
-                            config.update sharedModel metadata msg templateModel
+                            config.update
+                                { navigationKey = navigationKey
+                                , sharedModel = sharedModel
+                                }
+                                routeParams
+                                msg
+                                templateModel
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
                 \routeParams path templateModel sharedModel ->
                     config.subscriptions routeParams path templateModel
             }
+
+
+type alias DynamicContext shared =
+    { navigationKey : Maybe Browser.Navigation.Key
+    , sharedModel : shared
+    }
 
 
 {-| -}
@@ -159,7 +172,7 @@ buildWithSharedState :
         -> StaticPayload templateStaticData routeParams
         -> Document templateMsg
     , init : routeParams -> ( templateModel, Cmd templateMsg )
-    , update : routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , update : DynamicContext Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
@@ -172,7 +185,15 @@ buildWithSharedState config builderState =
             , staticData = record.staticData
             , staticRoutes = record.staticRoutes
             , init = config.init
-            , update = config.update
+            , update =
+                \navigationKey routeParams msg templateModel sharedModel ->
+                    config.update
+                        { navigationKey = navigationKey
+                        , sharedModel = sharedModel
+                        }
+                        routeParams
+                        msg
+                        templateModel
             , subscriptions = config.subscriptions
             }
 

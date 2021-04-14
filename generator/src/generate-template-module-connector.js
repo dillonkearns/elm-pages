@@ -258,6 +258,7 @@ update msg model =
               name
             )} routeParams) ) ->
                             Template.${moduleName(name)}.template.update
+                                model.navigationKey
                                 routeParams
                                 msg_
                                 pageModel

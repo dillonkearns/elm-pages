@@ -5,7 +5,7 @@ import Browser.Navigation
 import Document exposing (Document)
 import Head
 import Head.Seo as Seo
-import Html.Styled
+import Html.Styled as Html
 import Json.Decode as Decode
 import Markdown.Block
 import Markdown.Parser
@@ -181,7 +181,7 @@ head static =
 
 
 type alias StaticData =
-    List (Html.Styled.Html Msg)
+    List (Html.Html Msg)
 
 
 view :
@@ -191,5 +191,5 @@ view :
     -> Document Msg
 view model sharedModel static =
     { title = "TODO title"
-    , body = static.static
+    , body = static.static ++ [ Html.text static.routeParams.number ]
     }

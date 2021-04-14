@@ -41,7 +41,6 @@ type SharedMsg
 
 type alias Model =
     { showMobileMenu : Bool
-    , navigationKey : Maybe Browser.Navigation.Key
     }
 
 
@@ -57,10 +56,8 @@ init :
             , metadata : route
             }
     -> ( Model, Cmd Msg )
-init navigationKey maybePagePath =
-    ( { showMobileMenu = False
-      , navigationKey = navigationKey
-      }
+init _ maybePagePath =
+    ( { showMobileMenu = False }
     , Cmd.none
     )
 
