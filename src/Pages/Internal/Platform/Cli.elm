@@ -8,6 +8,7 @@ module Pages.Internal.Platform.Cli exposing
     , update
     )
 
+import Browser.Navigation
 import BuildError exposing (BuildError)
 import Codec
 import Dict exposing (Dict)
@@ -63,21 +64,23 @@ type Msg
 
 type alias Config userMsg userModel route siteStaticData =
     { init :
-        Maybe
-            { path :
-                { path : PagePath
-                , query : Maybe String
-                , fragment : Maybe String
+        Maybe Browser.Navigation.Key
+        ->
+            Maybe
+                { path :
+                    { path : PagePath
+                    , query : Maybe String
+                    , fragment : Maybe String
+                    }
+                , metadata : route
                 }
-            , metadata : route
-            }
         -> ( userModel, Cmd userMsg )
     , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : SiteConfig route siteStaticData
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : PagePath -> userModel -> Sub userMsg
+    , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , view :
         { path : PagePath
         , frontmatter : route
@@ -857,7 +860,7 @@ sendSinglePageProgress toJsPayload config _ model =
 
             pageModel : userModel
             pageModel =
-                config.init
+                config.init Nothing
                     (Just
                         { path =
                             { path = currentPage.path

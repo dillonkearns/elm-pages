@@ -20,6 +20,7 @@ function generateTemplateModuleConnector(phase) {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
 import Browser
+import Browser.Navigation
 import Route exposing (Route)
 import Document
 import Json.Decode
@@ -42,6 +43,7 @@ ${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
 type alias Model =
     { global : Shared.Model
     , page : TemplateModel
+    , navigationKey : Maybe Browser.Navigation.Key
     , current :
         Maybe
             { path :
@@ -147,6 +149,7 @@ view page =
 
 init :
     Maybe Shared.Model
+    -> Maybe Browser.Navigation.Key
     ->
         Maybe
             { path :
@@ -157,10 +160,10 @@ init :
             , metadata : Maybe Route
             }
     -> ( Model, Cmd Msg )
-init currentGlobalModel maybePagePath =
+init currentGlobalModel navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey maybePagePath)
 
         ( templateModel, templateCmd ) =
             case maybePagePath |> Maybe.andThen .metadata of
@@ -184,6 +187,7 @@ init currentGlobalModel maybePagePath =
     ( { global = sharedModel
       , page = templateModel
       , current = maybePagePath
+      , navigationKey = navigationKey
       }
     , Cmd.batch
         [ templateCmd
@@ -206,7 +210,7 @@ update msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) <|
+            (init (Just model.global) model.navigationKey <|
                 Just
                     { path =
                         { path = record.path

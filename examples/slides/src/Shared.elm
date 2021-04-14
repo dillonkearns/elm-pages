@@ -1,5 +1,6 @@
 module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
 
+import Browser.Navigation
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
@@ -40,21 +41,25 @@ type SharedMsg
 
 type alias Model =
     { showMobileMenu : Bool
+    , navigationKey : Maybe Browser.Navigation.Key
     }
 
 
 init :
-    Maybe
-        { path :
-            { path : PagePath
-            , query : Maybe String
-            , fragment : Maybe String
+    Maybe Browser.Navigation.Key
+    ->
+        Maybe
+            { path :
+                { path : PagePath
+                , query : Maybe String
+                , fragment : Maybe String
+                }
+            , metadata : route
             }
-        , metadata : route
-        }
     -> ( Model, Cmd Msg )
-init maybePagePath =
+init navigationKey maybePagePath =
     ( { showMobileMenu = False
+      , navigationKey = navigationKey
       }
     , Cmd.none
     )

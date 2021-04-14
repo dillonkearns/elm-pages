@@ -1,8 +1,8 @@
 module Template.Slide.Number_ exposing (Model, Msg, template)
 
 import Browser.Events
+import Browser.Navigation
 import Document exposing (Document)
-import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled
@@ -46,11 +46,28 @@ template =
                     case msg of
                         OnKeyPress (Just direction) ->
                             let
-                                _ =
-                                    Debug.log "OnKeyPress" direction
+                                currentSlide =
+                                    String.toInt routeParams.number |> Maybe.withDefault 0
+
+                                nextSlide =
+                                    case direction of
+                                        Right ->
+                                            currentSlide + 1
+
+                                        Left ->
+                                            currentSlide - 1
                             in
                             ( model
-                            , Cmd.none
+                            , sharedModel.navigationKey
+                                |> Maybe.map
+                                    (\navKey ->
+                                        Browser.Navigation.pushUrl navKey
+                                            ("/slide/"
+                                                ++ String.fromInt
+                                                    nextSlide
+                                            )
+                                    )
+                                |> Maybe.withDefault Cmd.none
                             )
 
                         _ ->
@@ -68,12 +85,7 @@ type Direction
 
 keyDecoder : Decode.Decoder (Maybe Direction)
 keyDecoder =
-    Decode.map toDirection
-        (Decode.field "key"
-            (Decode.string
-                |> Decode.map (Debug.log "key")
-            )
-        )
+    Decode.map toDirection (Decode.field "key" Decode.string)
 
 
 toDirection : String -> Maybe Direction

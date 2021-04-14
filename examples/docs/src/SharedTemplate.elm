@@ -1,5 +1,6 @@
 module SharedTemplate exposing (..)
 
+import Browser.Navigation
 import Document exposing (Document)
 import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
@@ -9,14 +10,16 @@ import Route exposing (Route)
 
 type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
     { init :
-        Maybe
-            { path :
-                { path : PagePath
-                , query : Maybe String
-                , fragment : Maybe String
+        Maybe Browser.Navigation.Key
+        ->
+            Maybe
+                { path :
+                    { path : PagePath
+                    , query : Maybe String
+                    , fragment : Maybe String
+                    }
+                , metadata : Maybe Route
                 }
-            , metadata : Maybe Route
-            }
         -> ( sharedModel, Cmd sharedMsg )
     , update : sharedMsg -> sharedModel -> ( sharedModel, Cmd sharedMsg )
     , view :

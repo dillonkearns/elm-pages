@@ -508,14 +508,16 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg t
 
 application :
     { init :
-        Maybe
-            { path :
-                { path : PagePath
-                , query : Maybe String
-                , fragment : Maybe String
+        Maybe Browser.Navigation.Key
+        ->
+            Maybe
+                { path :
+                    { path : PagePath
+                    , query : Maybe String
+                    , fragment : Maybe String
+                    }
+                , metadata : route
                 }
-            , metadata : route
-            }
         -> ( userModel, Cmd userMsg )
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
@@ -560,7 +562,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.urlToRoute config.init flags url key
+                init config.urlToRoute (config.init (Just key)) flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
@@ -657,20 +659,22 @@ application config =
 
 cliApplication :
     { init :
-        Maybe
-            { path :
-                { path : PagePath
-                , query : Maybe String
-                , fragment : Maybe String
+        Maybe Browser.Navigation.Key
+        ->
+            Maybe
+                { path :
+                    { path : PagePath
+                    , query : Maybe String
+                    , fragment : Maybe String
+                    }
+                , metadata : route
                 }
-            , metadata : route
-            }
         -> ( userModel, Cmd userMsg )
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : PagePath -> userModel -> Sub userMsg
+    , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , site : SiteConfig route staticData
     , view :
         { path : PagePath
