@@ -13,6 +13,7 @@ import OptimizedDecoder
 import Pages.ImagePath as ImagePath
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
+import Shared
 import Template exposing (StaticPayload, Template)
 
 
@@ -35,7 +36,12 @@ template =
         , staticRoutes = StaticHttp.succeed [ { number = "1" } ]
         , staticData = staticData
         }
-        |> Template.buildNoState { view = view }
+        |> Template.buildWithLocalState
+            { view = view
+            , init = \routeParams -> ( (), Cmd.none )
+            , update = \sharedModel routeParams msg model -> ( model, Cmd.none )
+            , subscriptions = \routeParams path model -> Sub.none
+            }
 
 
 staticData : RouteParams -> StaticHttp.Request StaticData
@@ -122,9 +128,11 @@ type alias StaticData =
 
 
 view :
-    StaticPayload StaticData RouteParams
+    Model
+    -> Shared.Model
+    -> StaticPayload StaticData RouteParams
     -> Document Msg
-view static =
+view model sharedModel static =
     { title = "TODO title"
     , body = static.static
     }
