@@ -4,6 +4,7 @@ import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
+import Html.Styled
 import Markdown.Block
 import Markdown.Parser
 import Markdown.Renderer
@@ -117,7 +118,7 @@ head static =
 
 
 type alias StaticData =
-    List (Element Msg)
+    List (Html.Styled.Html Msg)
 
 
 view :
@@ -125,13 +126,5 @@ view :
     -> Document Msg
 view static =
     { title = "TODO title"
-    , body =
-        [ Element.column
-            [ Element.padding 40
-            ]
-            [ Element.text static.routeParams.number
-            , Element.column []
-                static.static
-            ]
-        ]
+    , body = static.static
     }

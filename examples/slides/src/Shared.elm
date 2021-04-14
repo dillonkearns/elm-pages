@@ -2,6 +2,7 @@ module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
 
 import Document exposing (Document)
 import Html exposing (Html)
+import Html.Styled
 import OptimizedDecoder as D
 import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
@@ -92,6 +93,7 @@ view :
     -> { body : Html msg, title : String }
 view stars page model toMsg pageView =
     { body =
-        Html.text "Hi"
+        Html.Styled.div [] pageView.body
+            |> Html.Styled.toUnstyled
     , title = pageView.title
     }
