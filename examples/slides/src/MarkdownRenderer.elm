@@ -25,6 +25,9 @@ renderer =
         \{ destination } body ->
             Html.a
                 [ Attr.href destination
+                , css
+                    [ Tw.underline
+                    ]
                 ]
                 body
     , hardLineBreak = Html.br [] []
