@@ -328,7 +328,7 @@ main =
             \\path model ->
                 Sub.batch
                     [ Shared.template.subscriptions path model.global |> Sub.map MsgGlobal
-                    , templateSubscriptions (Route.Blog {}) path model
+                    -- , templateSubscriptions (Route.Blog {}) path model
                     ]
         , onPageChange = Just OnPageChange
         , canonicalSiteUrl = "TODO"
