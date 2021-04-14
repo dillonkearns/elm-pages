@@ -5,6 +5,7 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block as Block exposing (ListItem(..), Task(..))
 import Markdown.Html
 import Markdown.Renderer
+import SyntaxHighlight
 import Tailwind.Utilities as Tw
 
 
@@ -90,23 +91,24 @@ renderer =
                         )
                 )
     , html = Markdown.Html.oneOf []
-    , codeBlock =
-        \{ body, language } ->
-            let
-                classes =
-                    -- Only the first word is used in the class
-                    case Maybe.map String.words language of
-                        Just (actualLanguage :: _) ->
-                            [ Attr.class <| "language-" ++ actualLanguage ]
+    , codeBlock = codeBlock
 
-                        _ ->
-                            []
-            in
-            Html.pre []
-                [ Html.code classes
-                    [ Html.text body
-                    ]
-                ]
+    --\{ body, language } ->
+    --    let
+    --        classes =
+    --            -- Only the first word is used in the class
+    --            case Maybe.map String.words language of
+    --                Just (actualLanguage :: _) ->
+    --                    [ Attr.class <| "language-" ++ actualLanguage ]
+    --
+    --                _ ->
+    --                    []
+    --    in
+    --    Html.pre []
+    --        [ Html.code classes
+    --            [ Html.text body
+    --            ]
+    --        ]
     , table = Html.table []
     , tableHeader = Html.thead []
     , tableBody = Html.tbody []
@@ -191,7 +193,10 @@ heading { level, rawText, children } =
     )
         [ Attr.id (rawTextToId rawText)
         , Attr.attribute "name" (rawTextToId rawText)
-        , css [ Tw.font_bold ]
+        , css
+            [ Tw.font_bold
+            , Tw.text_2xl
+            ]
         ]
         children
 
@@ -209,13 +214,13 @@ heading { level, rawText, children } =
 --        (Element.text snippet)
 --
 --
---codeBlock : { body : String, language : Maybe String } -> Element msg
---codeBlock details =
---    Element.paragraph [] [ Element.text details.body ]
--- TODO turn this back on - it's off for now to get more accurate performance benchmarks
---SyntaxHighlight.elm details.body
---    |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
---    |> Result.withDefault
---        (Html.pre [] [ Html.code [] [ Html.text details.body ] ])
---    |> Element.html
---    |> Element.el [ Element.width Element.fill ]
+
+
+codeBlock : { body : String, language : Maybe String } -> Html.Html msg
+codeBlock details =
+    --    Element.paragraph [] [ Element.text details.body ]
+    -- TODO turn this back on - it's off for now to get more accurate performance benchmarks
+    SyntaxHighlight.elm details.body
+        |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
+        |> Result.map Html.fromUnstyled
+        |> Result.withDefault (Html.pre [] [ Html.code [] [ Html.text details.body ] ])
