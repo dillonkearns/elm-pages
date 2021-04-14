@@ -12,16 +12,17 @@ import Pages.PagePath as PagePath
 import Pages.StaticHttp as StaticHttp
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
+import Sitemap
 
 
 config : SiteConfig StaticData
 config =
     \routes ->
         { staticData = staticData
-        , canonicalUrl = canonicalUrl
+        , canonicalUrl = \_ -> canonicalUrl
         , manifest = manifest
         , head = head
-        , generateFiles = generateFiles
+        , generateFiles = generateFiles routes
         }
 
 
@@ -30,17 +31,21 @@ config =
 
 
 generateFiles :
-    StaticHttp.Request
-        (List
-            (Result
-                String
-                { path : List String
-                , content : String
-                }
+    List (Maybe Route)
+    ->
+        StaticHttp.Request
+            (List
+                (Result
+                    String
+                    { path : List String
+                    , content : String
+                    }
+                )
             )
-        )
-generateFiles =
-    StaticHttp.succeed []
+generateFiles allRoutes =
+    StaticHttp.succeed
+        [ siteMap allRoutes |> Ok
+        ]
 
 
 type alias StaticData =
@@ -61,11 +66,12 @@ head static =
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
     , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+    , Head.sitemapLink "/sitemap.xml"
     ]
 
 
-canonicalUrl : StaticData -> String
-canonicalUrl static =
+canonicalUrl : String
+canonicalUrl =
     "https://elm-pages.com"
 
 
@@ -119,3 +125,19 @@ cloudinaryIcon :
     -> ImagePath
 cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
+
+
+siteMap :
+    List (Maybe Route)
+    -> { path : List String, content : String }
+siteMap allRoutes =
+    allRoutes
+        |> List.filterMap identity
+        |> List.map
+            (\route ->
+                { path = Route.routeToPath (Just route) |> String.join "/"
+                , lastMod = Nothing
+                }
+            )
+        |> Sitemap.build { siteUrl = "https://elm-pages.com" }
+        |> (\sitemapXmlString -> { path = [ "sitemap.xml" ], content = sitemapXmlString })
