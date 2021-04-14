@@ -1,6 +1,5 @@
 module MarkdownRenderer exposing (TableOfContents, renderer, view)
 
-import Dotted
 import Element exposing (Element)
 import Element.Background
 import Element.Border
@@ -154,39 +153,6 @@ renderer =
                         , Font.size 47
                         , Font.family [ Font.typeface "Montserrat" ]
                         , Font.color Palette.color.primary
-                        ]
-                        children
-                )
-            , Markdown.Html.tag "boxes"
-                (\children ->
-                    children
-                        |> List.indexedMap
-                            (\index aBox ->
-                                let
-                                    isLast =
-                                        index == (List.length children - 1)
-                                in
-                                [ Just aBox
-                                , if isLast then
-                                    Nothing
-
-                                  else
-                                    Just Dotted.lines
-                                ]
-                                    |> List.filterMap identity
-                            )
-                        |> List.concat
-                        |> List.reverse
-                        |> Element.column [ Element.centerX ]
-                )
-            , Markdown.Html.tag "box"
-                (\children ->
-                    Element.textColumn
-                        [ Element.centerX
-                        , Font.center
-                        , Element.padding 30
-                        , Element.Border.shadow { offset = ( 2, 2 ), size = 3, blur = 3, color = Element.rgba255 40 80 80 0.1 }
-                        , Element.spacing 15
                         ]
                         children
                 )
