@@ -34,14 +34,19 @@ watchElmSourceDirs();
 let clientElmMakeProcess = compileElmForBrowser();
 let pendingCliCompile = compileCliApp();
 
-Promise.all([clientElmMakeProcess, pendingCliCompile])
-  .then(() => {
-    console.log("Dev server ready");
-    elmMakeRunning = false;
-  })
-  .catch(() => {
-    elmMakeRunning = false;
-  });
+async function setup() {
+  await codegen.generate();
+  await Promise.all([clientElmMakeProcess, pendingCliCompile])
+    .then(() => {
+      console.log("Dev server ready");
+      elmMakeRunning = false;
+    })
+    .catch(() => {
+      elmMakeRunning = false;
+    });
+}
+
+setup();
 
 function watchElmSourceDirs() {
   console.log("elm.json changed - reloading watchers");
