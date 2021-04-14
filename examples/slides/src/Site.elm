@@ -3,7 +3,6 @@ module Site exposing (config)
 import Cloudinary
 import Color
 import Head
-import Json.Encode
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest

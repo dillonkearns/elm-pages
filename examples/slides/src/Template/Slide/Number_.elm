@@ -12,8 +12,7 @@ import OptimizedDecoder
 import Pages.ImagePath as ImagePath
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
-import Shared
-import Template exposing (StaticPayload, Template, TemplateWithState)
+import Template exposing (StaticPayload, Template)
 
 
 type alias Model =
