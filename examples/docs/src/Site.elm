@@ -9,18 +9,20 @@ import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath
-import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp
+import Route exposing (Route)
+import SiteConfig exposing (SiteConfig)
 
 
 config : SiteConfig StaticData
 config =
-    { staticData = staticData
-    , canonicalUrl = canonicalUrl
-    , manifest = manifest
-    , head = head
-    , generateFiles = generateFiles
-    }
+    \routes ->
+        { staticData = staticData
+        , canonicalUrl = canonicalUrl
+        , manifest = manifest
+        , head = head
+        , generateFiles = generateFiles
+        }
 
 
 

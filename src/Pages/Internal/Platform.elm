@@ -520,7 +520,7 @@ application :
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
-    , site : SiteConfig staticData
+    , site : SiteConfig route staticData
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : PagePath -> userModel -> Sub userMsg
     , view :
@@ -671,7 +671,7 @@ cliApplication :
     , getStaticRoutes : StaticHttp.Request (List route)
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : PagePath -> userModel -> Sub userMsg
-    , site : SiteConfig staticData
+    , site : SiteConfig route staticData
     , view :
         { path : PagePath
         , frontmatter : route

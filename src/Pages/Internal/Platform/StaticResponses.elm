@@ -37,7 +37,7 @@ init :
     { config
         | view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
         , getStaticRoutes : StaticHttp.Request (List route)
-        , site : SiteConfig siteStaticData
+        , site : SiteConfig route siteStaticData
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -52,10 +52,14 @@ init :
     -> StaticResponses
 init config =
     NotFetched
-        (StaticHttp.map3 (\_ _ _ -> ())
-            config.getStaticRoutes
+        (StaticHttp.map2 (\_ _ -> ())
+            (config.getStaticRoutes
+                |> StaticHttp.andThen
+                    (\resolvedRoutes ->
+                        config.site resolvedRoutes |> .staticData
+                    )
+            )
             config.generateFiles
-            config.site.staticData
         )
         Dict.empty
         |> GettingInitialData
@@ -152,7 +156,7 @@ nextStep :
         | getStaticRoutes : StaticHttp.Request (List route)
         , routeToPath : route -> List String
         , view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
-        , site : SiteConfig siteStaticData
+        , site : SiteConfig route siteStaticData
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -423,34 +427,34 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         )
 
             StaticResponses _ ->
-                let
-                    siteStaticData =
-                        StaticHttpRequest.resolve ApplicationType.Cli
-                            config.site.staticData
-                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
-                            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
-                in
-                case siteStaticData of
-                    Err siteStaticDataError ->
-                        ( staticResponses_
-                        , ToJsPayload.toJsPayload
-                            (encode allRawResponses mode staticResponses)
-                            generatedOkayFiles
-                            allRawResponses
-                            (siteStaticDataError :: allErrors)
-                            |> Finish
-                        )
-
-                    Ok okSiteStaticData ->
-                        ( staticResponses_
-                        , ToJsPayload.toJsPayload
-                            (encode allRawResponses mode staticResponses)
-                            generatedOkayFiles
-                            allRawResponses
-                            allErrors
-                            -- TODO send all global head tags on initial call
-                            |> Finish
-                        )
+                --let
+                --    siteStaticData =
+                --        StaticHttpRequest.resolve ApplicationType.Cli
+                --            config.site.staticData
+                --            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                --            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
+                --in
+                --case siteStaticData of
+                --    Err siteStaticDataError ->
+                --        ( staticResponses_
+                --        , ToJsPayload.toJsPayload
+                --            (encode allRawResponses mode staticResponses)
+                --            generatedOkayFiles
+                --            allRawResponses
+                --            (siteStaticDataError :: allErrors)
+                --            |> Finish
+                --        )
+                --
+                --    Ok okSiteStaticData ->
+                ( staticResponses_
+                , ToJsPayload.toJsPayload
+                    (encode allRawResponses mode staticResponses)
+                    generatedOkayFiles
+                    allRawResponses
+                    allErrors
+                    -- TODO send all global head tags on initial call
+                    |> Finish
+                )
 
 
 performStaticHttpRequests :

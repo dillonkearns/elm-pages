@@ -321,30 +321,7 @@ main =
         , urlToRoute = Route.urlToRoute
         , routeToPath = Route.routeToPath
         , site = Site.config
-        , getStaticRoutes =
-            StaticHttp.combine
-                [ StaticHttp.succeed
-                    [ ${templates
-                      .filter((name) => !isParameterizedRoute(name))
-                      .map(
-                        (name) => `Route.${routeHelpers.routeVariant(name)} {}`
-                      )
-                      .join("\n                    , ")}
-                    ]
-                , ${templates
-                  .filter((name) => isParameterizedRoute(name))
-                  .map(
-                    (name) =>
-                      `Template.${moduleName(
-                        name
-                      )}.template.staticRoutes |> StaticHttp.map (List.map Route.${pathNormalizedName(
-                        name
-                      )})`
-                  )
-                  .join("\n                , ")}
-                ]
-                |> StaticHttp.map List.concat
-                |> StaticHttp.map (List.map Just)
+        , getStaticRoutes = getStaticRoutes
         , view = view
         , update = update
         , subscriptions =
@@ -357,17 +334,54 @@ main =
         , canonicalSiteUrl = "TODO"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
-        , generateFiles = StaticHttp.map2 (::) manifestGenerator Site.config.generateFiles
+        , generateFiles =
+            getStaticRoutes
+                |> StaticHttp.andThen
+                    (\\resolvedStaticRoutes ->
+                        StaticHttp.map2 (::)
+                            (manifestGenerator
+                                resolvedStaticRoutes
+                            )
+                            (Site.config
+                                resolvedStaticRoutes
+                                |> .generateFiles
+                            )
+                    )
         }
 
 
-manifestGenerator : StaticHttp.Request (Result anyError { path : List String, content : String })
-manifestGenerator =
-    Site.config.staticData
+getStaticRoutes =
+    StaticHttp.combine
+        [ StaticHttp.succeed
+            [ ${templates
+              .filter((name) => !isParameterizedRoute(name))
+              .map((name) => `Route.${routeHelpers.routeVariant(name)} {}`)
+              .join("\n                    , ")}
+            ]
+        , ${templates
+          .filter((name) => isParameterizedRoute(name))
+          .map(
+            (name) =>
+              `Template.${moduleName(
+                name
+              )}.template.staticRoutes |> StaticHttp.map (List.map Route.${pathNormalizedName(
+                name
+              )})`
+          )
+          .join("\n                , ")}
+        ]
+        |> StaticHttp.map List.concat
+        |> StaticHttp.map (List.map Just)
+
+
+manifestGenerator : List ( Maybe Route ) -> StaticHttp.Request (Result anyError { path : List String, content : String })
+manifestGenerator resolvedRoutes =
+    Site.config resolvedRoutes
+        |> .staticData
         |> StaticHttp.map
             (\\data ->
-                Site.config.manifest data
-                    |> manifestToFile (Site.config.canonicalUrl data)
+                (Site.config resolvedRoutes |> .manifest) data
+                    |> manifestToFile ((Site.config resolvedRoutes |> .canonicalUrl) data)
             )
 
 
@@ -381,6 +395,7 @@ manifestToFile resolvedCanonicalUrl manifestConfig =
                     , content = Json.Encode.encode 0 manifestJsonValue
                     }
            )
+
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg

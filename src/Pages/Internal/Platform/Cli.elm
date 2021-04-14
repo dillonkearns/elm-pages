@@ -75,7 +75,7 @@ type alias Config userMsg userModel route siteStaticData =
     , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
-    , site : SiteConfig siteStaticData
+    , site : SiteConfig route siteStaticData
     , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : PagePath -> userModel -> Sub userMsg
     , view :
