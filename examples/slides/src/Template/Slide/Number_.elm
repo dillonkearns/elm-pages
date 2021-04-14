@@ -1,10 +1,12 @@
 module Template.Slide.Number_ exposing (Model, Msg, template)
 
+import Browser.Events
 import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled
+import Json.Decode as Decode
 import Markdown.Block
 import Markdown.Parser
 import Markdown.Renderer
@@ -21,15 +23,15 @@ type alias Model =
     ()
 
 
-type alias Msg =
-    Never
+type Msg
+    = OnKeyPress (Maybe Direction)
 
 
 type alias RouteParams =
     { number : String }
 
 
-template : Template RouteParams StaticData
+template : Template.TemplateWithState RouteParams StaticData Model Msg
 template =
     Template.withStaticData
         { head = head
@@ -39,9 +41,52 @@ template =
         |> Template.buildWithLocalState
             { view = view
             , init = \routeParams -> ( (), Cmd.none )
-            , update = \sharedModel routeParams msg model -> ( model, Cmd.none )
-            , subscriptions = \routeParams path model -> Sub.none
+            , update =
+                \sharedModel routeParams msg model ->
+                    case msg of
+                        OnKeyPress (Just direction) ->
+                            let
+                                _ =
+                                    Debug.log "OnKeyPress" direction
+                            in
+                            ( model
+                            , Cmd.none
+                            )
+
+                        _ ->
+                            ( model, Cmd.none )
+            , subscriptions =
+                \routeParams path model ->
+                    Browser.Events.onKeyDown keyDecoder |> Sub.map OnKeyPress
             }
+
+
+type Direction
+    = Left
+    | Right
+
+
+keyDecoder : Decode.Decoder (Maybe Direction)
+keyDecoder =
+    Decode.map toDirection
+        (Decode.field "key"
+            (Decode.string
+                |> Decode.map (Debug.log "key")
+            )
+        )
+
+
+toDirection : String -> Maybe Direction
+toDirection string =
+    case string of
+        "ArrowLeft" ->
+            Just Left
+
+        "ArrowRight" ->
+            Just Right
+
+        _ ->
+            Nothing
 
 
 staticData : RouteParams -> StaticHttp.Request StaticData
