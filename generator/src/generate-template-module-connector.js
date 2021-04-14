@@ -43,7 +43,6 @@ ${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
 type alias Model =
     { global : Shared.Model
     , page : TemplateModel
-    , navigationKey : Maybe Browser.Navigation.Key
     , current :
         Maybe
             { path :
@@ -187,7 +186,6 @@ init currentGlobalModel navigationKey maybePagePath =
     ( { global = sharedModel
       , page = templateModel
       , current = maybePagePath
-      , navigationKey = navigationKey
       }
     , Cmd.batch
         [ templateCmd
@@ -197,8 +195,8 @@ init currentGlobalModel navigationKey maybePagePath =
 
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
+update navigationKey msg model =
     case msg of
         MsgGlobal msg_ ->
             let
@@ -210,7 +208,7 @@ update msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) model.navigationKey <|
+            (init (Just model.global) navigationKey <|
                 Just
                     { path =
                         { path = record.path
@@ -258,7 +256,7 @@ update msg model =
               name
             )} routeParams) ) ->
                             Template.${moduleName(name)}.template.update
-                                model.navigationKey
+                                navigationKey
                                 routeParams
                                 msg_
                                 pageModel

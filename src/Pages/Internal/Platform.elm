@@ -376,7 +376,7 @@ update :
              -> userMsg
             )
     -> (Json.Encode.Value -> Cmd Never)
-    -> (userMsg -> userModel -> ( userModel, Cmd userMsg ))
+    -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> ModelDetails userModel
     -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
@@ -430,7 +430,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg t
                 UserMsg userMsg ->
                     let
                         ( userModel, userCmd ) =
-                            userUpdate userMsg model.userModel
+                            userUpdate (Just model.key) userMsg model.userModel
                     in
                     ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
 
@@ -456,7 +456,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg t
                                 ( userModel, userCmd ) =
                                     case maybeOnPageChangeMsg of
                                         Just onPageChangeMsg ->
-                                            userUpdate
+                                            userUpdate (Just model.key)
                                                 (onPageChangeMsg
                                                     { path = urlToPagePath url model.baseUrl
                                                     , query = url.query
@@ -523,7 +523,7 @@ application :
     , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
     , site : SiteConfig route staticData
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , view :
         { path : PagePath
@@ -589,7 +589,7 @@ application config =
                                         config.update
 
                             noOpUpdate =
-                                \_ userModel ->
+                                \_ _ userModel ->
                                     ( userModel, Cmd.none )
 
                             allRoutes =
@@ -673,7 +673,7 @@ cliApplication :
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , getStaticRoutes : StaticHttp.Request (List route)
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , site : SiteConfig route staticData
     , view :

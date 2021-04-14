@@ -79,7 +79,7 @@ type alias Config userMsg userModel route siteStaticData =
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : SiteConfig route siteStaticData
-    , update : userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , view :
         { path : PagePath
