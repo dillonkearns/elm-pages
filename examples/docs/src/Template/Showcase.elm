@@ -1,4 +1,4 @@
-module Template.Showcase exposing (Model, Msg, template)
+module Template.Showcase exposing (Model, Msg, StaticData, template)
 
 import Document exposing (Document)
 import Element exposing (Element)

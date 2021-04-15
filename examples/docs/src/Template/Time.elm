@@ -1,4 +1,4 @@
-module Template.Time exposing (Model, Msg, template)
+module Template.Time exposing (Model, Msg, StaticData, template)
 
 import Document exposing (Document)
 import Element exposing (Element)

@@ -1,4 +1,4 @@
-module Template.Documentation exposing (Model, Msg, template)
+module Template.Documentation exposing (Model, Msg, StaticData, template)
 
 import DocSidebar
 import Document exposing (Document)
@@ -15,7 +15,7 @@ import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
 import SiteOld
-import Template exposing (StaticPayload, TemplateWithState)
+import Template exposing (DynamicContext, StaticPayload, TemplateWithState)
 
 
 type alias Documentation =
@@ -53,8 +53,17 @@ init _ =
     ( {}, Cmd.none )
 
 
-update : {} -> Msg -> Model -> Shared.Model -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
-update _ msg model sharedModel =
+type alias RouteParams =
+    {}
+
+
+update :
+    DynamicContext Shared.Model
+    -> RouteParams
+    -> Msg
+    -> Model
+    -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )
+update dynamic routeParams msg model =
     case msg of
         Increment ->
             ( model, Cmd.none, Just Shared.IncrementFromChild )

@@ -4,7 +4,7 @@ module Template exposing
     , withStaticData, noStaticData
     , Template, buildNoState
     , TemplateWithState, buildWithLocalState, buildWithSharedState
-    )
+    , DynamicContext)
 
 {-|
 

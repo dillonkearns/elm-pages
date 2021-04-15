@@ -1,4 +1,4 @@
-module Template.Index exposing (Model, Msg, template)
+module Template.Index exposing (Model, Msg, StaticData, template)
 
 import Document exposing (Document)
 import Element

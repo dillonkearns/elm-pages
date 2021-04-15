@@ -1,4 +1,4 @@
-module Template.Hello.Name_ exposing (Model, Msg, template)
+module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
 
 import Document exposing (Document)
 import Element

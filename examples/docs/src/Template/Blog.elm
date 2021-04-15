@@ -1,6 +1,7 @@
-module Template.Blog exposing (Model, Msg, template)
+module Template.Blog exposing (Model, Msg, StaticData, template)
 
 import Article
+import Browser.Navigation
 import Document exposing (Document)
 import Element
 import Head
@@ -11,7 +12,7 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
-import Template exposing (StaticPayload, TemplateWithState)
+import Template exposing (DynamicContext, StaticPayload, TemplateWithState)
 
 
 type Msg
@@ -50,13 +51,18 @@ init _ =
     ( Model, Cmd.none )
 
 
+type alias RouteParams =
+    {}
+
+
 update :
-    Shared.Model
-    -> {}
+    DynamicContext Shared.Model
+    -> StaticData
+    -> RouteParams
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update sharedModel metadata msg model =
+update dynamic sharedModel routeParams msg model =
     ( model, Cmd.none )
 
 
