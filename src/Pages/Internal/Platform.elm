@@ -3,6 +3,7 @@ module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
+import BuildError exposing (BuildError)
 import Html exposing (Html)
 import Html.Attributes
 import Http
@@ -19,13 +20,13 @@ import Task
 import Url exposing (Url)
 
 
-type alias Program userModel userMsg route =
-    Platform.Program Flags (Model userModel route) (Msg userMsg)
+type alias Program userModel userMsg route pageStaticData =
+    Platform.Program Flags (Model userModel route pageStaticData) (Msg userMsg)
 
 
 mainView :
-    ProgramConfig userMsg userModel route siteStaticData
-    -> ModelDetails userModel
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData
+    -> ModelDetails userModel pageStaticData
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
@@ -98,8 +99,8 @@ urlToPagePath url baseUrl =
 
 
 view :
-    ProgramConfig userMsg userModel route siteStaticData
-    -> ModelDetails userModel
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData
+    -> ModelDetails userModel pageStaticData
     -> Browser.Document (Msg userMsg)
 view config model =
     let
@@ -143,23 +144,12 @@ contentJsonDecoder =
 
 
 init :
-    (Url -> route)
-    ->
-        (Maybe
-            { metadata : route
-            , path :
-                { path : PagePath
-                , query : Maybe String
-                , fragment : Maybe String
-                }
-            }
-         -> ( userModel, Cmd userMsg )
-        )
+    ProgramConfig userMsg userModel route staticData pageStaticData
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
-init urlToRoute initUserModel flags url key =
+    -> ( ModelDetails userModel pageStaticData, Cmd (AppMsg userMsg) )
+init config flags url key =
     let
         contentCache =
             ContentCache.init
@@ -216,6 +206,31 @@ init urlToRoute initUserModel flags url key =
                         Err _ ->
                             DevClient False
 
+                justContentJson : RequestsAndPending
+                justContentJson =
+                    case contentJson of
+                        Nothing ->
+                            Debug.todo "Expected content.json"
+
+                        Just justValue ->
+                            justValue.staticData
+
+                pageStaticDataResult : Result BuildError pageStaticData
+                pageStaticDataResult =
+                    StaticHttpRequest.resolve ApplicationType.Browser
+                        (config.staticData (config.urlToRoute url))
+                        justContentJson
+                        |> Result.mapError (StaticHttpRequest.toBuildError url.path)
+
+                pageStaticData : pageStaticData
+                pageStaticData =
+                    case pageStaticDataResult of
+                        Ok okPageStaticData ->
+                            okPageStaticData
+
+                        Err error ->
+                            Debug.todo (BuildError.errorToString error)
+
                 ( userModel, userCmd ) =
                     Maybe.map
                         (\pagePath ->
@@ -224,11 +239,11 @@ init urlToRoute initUserModel flags url key =
                                 , query = url.query
                                 , fragment = url.fragment
                                 }
-                            , metadata = urlToRoute url
+                            , metadata = config.urlToRoute url
                             }
                         )
                         maybePagePath
-                        |> initUserModel
+                        |> config.init pageStaticData (Just key)
 
                 cmd =
                     [ userCmd
@@ -256,14 +271,18 @@ init urlToRoute initUserModel flags url key =
               , userModel = userModel
               , contentCache = contentCache
               , phase = phase
+              , pageStaticData = pageStaticData
               }
             , cmd
             )
 
         Err _ ->
             let
+                pageStaticData =
+                    Debug.todo ""
+
                 ( userModel, userCmd ) =
-                    initUserModel Nothing
+                    config.init pageStaticData (Just key) Nothing
             in
             ( { key = key
               , url = url
@@ -271,6 +290,7 @@ init urlToRoute initUserModel flags url key =
               , userModel = userModel
               , contentCache = contentCache
               , phase = DevClient False
+              , pageStaticData = pageStaticData
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -295,18 +315,19 @@ type AppMsg userMsg
     | StartingHotReload
 
 
-type Model userModel route
-    = Model (ModelDetails userModel)
+type Model userModel route pageStaticData
+    = Model (ModelDetails userModel pageStaticData)
     | CliModel (Pages.Internal.Platform.Cli.Model route)
 
 
-type alias ModelDetails userModel =
+type alias ModelDetails userModel pageStaticData =
     { key : Browser.Navigation.Key
     , url : Url
     , baseUrl : Url
     , contentCache : ContentCache
     , userModel : userModel
     , phase : Phase
+    , pageStaticData : pageStaticData
     }
 
 
@@ -317,11 +338,11 @@ type Phase
 
 
 update :
-    ProgramConfig userMsg userModel route siteStaticData
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
-    -> ModelDetails userModel
-    -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
+    -> ModelDetails userModel pageStaticData
+    -> ( ModelDetails userModel pageStaticData, Cmd (AppMsg userMsg) )
 update config userUpdate msg model =
     case msg of
         AppMsg appMsg ->
@@ -449,13 +470,13 @@ update config userUpdate msg model =
 
 
 application :
-    ProgramConfig userMsg userModel route staticData
-    -> Platform.Program Flags (Model userModel route) (Msg userMsg)
+    ProgramConfig userMsg userModel route staticData pageStaticData
+    -> Platform.Program Flags (Model userModel route pageStaticData) (Msg userMsg)
 application config =
     Browser.application
         { init =
             \flags url key ->
-                init config.urlToRoute (config.init (Just key)) flags url key
+                init config flags url key
                     |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
         , view =
@@ -479,7 +500,7 @@ application config =
                                         noOpUpdate
 
                                     _ ->
-                                        config.update
+                                        config.update model.pageStaticData
 
                             noOpUpdate =
                                 \_ _ userModel ->
@@ -545,8 +566,8 @@ application config =
 
 
 cliApplication :
-    ProgramConfig userMsg userModel route staticData
-    -> Program userModel userMsg route
+    ProgramConfig userMsg userModel route staticData pageStaticData
+    -> Program userModel userMsg route pageStaticData
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
         (\msg ->

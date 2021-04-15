@@ -85,6 +85,10 @@ type Msg
       .join("    | ")}
 
 
+type PageStaticData
+    = DataSlide__Number_ Template.Slide.Number_.StaticData
+
+
 view :
     { path : PagePath
     , frontmatter : Maybe Route
@@ -148,6 +152,7 @@ view page =
 
 init :
     Maybe Shared.Model
+    -> PageStaticData
     -> Maybe Browser.Navigation.Key
     ->
         Maybe
@@ -159,7 +164,7 @@ init :
             , metadata : Maybe Route
             }
     -> ( Model, Cmd Msg )
-init currentGlobalModel navigationKey maybePagePath =
+init currentGlobalModel pageStaticData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey maybePagePath)
@@ -195,8 +200,8 @@ init currentGlobalModel navigationKey maybePagePath =
 
 
 
-update : Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
-update navigationKey msg model =
+update : PageStaticData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
+update pageStaticData navigationKey msg model =
     case msg of
         MsgGlobal msg_ ->
             let
@@ -208,7 +213,7 @@ update navigationKey msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) navigationKey <|
+            (init (Just model.global) pageStaticData navigationKey <|
                 Just
                     { path =
                         { path = record.path
@@ -249,13 +254,16 @@ update navigationKey msg model =
         Msg${pathNormalizedName(name)} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
-                    case ( model.page, model.current |> Maybe.andThen .metadata ) of
+                    case ( model.page, pageStaticData, model.current |> Maybe.andThen .metadata ) of
                         ( Model${pathNormalizedName(
                           name
-                        )} pageModel, Just (Route.${routeHelpers.routeVariant(
+                        )} pageModel, Data${pathNormalizedName(
+              name
+            )} thisPageData, Just (Route.${routeHelpers.routeVariant(
               name
             )} routeParams) ) ->
                             Template.${moduleName(name)}.template.update
+                                thisPageData
                                 navigationKey
                                 routeParams
                                 msg_
@@ -315,7 +323,7 @@ templateSubscriptions route path model =
             Sub.none
 
 
-main : Pages.Internal.Platform.Program Model Msg (Maybe Route)
+main : Pages.Internal.Platform.Program Model Msg (Maybe Route) PageStaticData
 main =
     Pages.Internal.Platform.${
       phase === "browser" ? "application" : "cliApplication"
@@ -337,6 +345,7 @@ main =
         , canonicalSiteUrl = "TODO"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
+        , staticData = staticDataForRoute
         , generateFiles =
             getStaticRoutes
                 |> StaticHttp.andThen
@@ -352,7 +361,17 @@ main =
                     )
         }
 
+staticDataForRoute : Maybe Route -> StaticHttp.Request PageStaticData
+staticDataForRoute route =
+    case route of
+        Just (Route.Slide__Number_ routeParams) ->
+            Template.Slide.Number_.template.staticData routeParams
+                |> StaticHttp.map DataSlide__Number_
 
+        Nothing ->
+            StaticHttp.fail ""
+
+getStaticRoutes : StaticHttp.Request (List (Maybe Route))
 getStaticRoutes =
     StaticHttp.combine
         [ StaticHttp.succeed

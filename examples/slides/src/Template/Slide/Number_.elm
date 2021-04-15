@@ -1,4 +1,4 @@
-module Template.Slide.Number_ exposing (Model, Msg, template)
+module Template.Slide.Number_ exposing (Model, Msg, StaticData, template)
 
 import Browser.Events
 import Browser.Navigation
@@ -51,7 +51,7 @@ template =
             { view = view
             , init = \routeParams -> ( (), Cmd.none )
             , update =
-                \sharedModel routeParams msg model ->
+                \sharedModel pageStaticData routeParams msg model ->
                     case msg of
                         OnKeyPress (Just direction) ->
                             let
@@ -59,12 +59,16 @@ template =
                                     String.toInt routeParams.number |> Maybe.withDefault 0
 
                                 nextSlide =
-                                    case direction of
-                                        Right ->
-                                            currentSlide + 1
+                                    clamp
+                                        1
+                                        (pageStaticData.totalCount - 1)
+                                        (case direction of
+                                            Right ->
+                                                currentSlide + 1
 
-                                        Left ->
-                                            currentSlide - 1
+                                            Left ->
+                                                currentSlide - 1
+                                        )
                             in
                             ( model
                             , sharedModel.navigationKey

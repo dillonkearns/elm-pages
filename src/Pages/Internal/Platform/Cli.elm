@@ -7,7 +7,6 @@ module Pages.Internal.Platform.Cli exposing
     , update
     )
 
-import Browser.Navigation
 import BuildError exposing (BuildError)
 import Codec
 import Dict exposing (Dict)
@@ -29,7 +28,6 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessP
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
-import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import SecretsDict exposing (SecretsDict)
@@ -67,7 +65,7 @@ cliApplication :
     -> (msg -> Maybe Msg)
     -> (Model route -> model)
     -> (model -> Maybe (Model route))
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -171,7 +169,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Maybe Decode.Value -> ProgramConfig userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
+perform : Maybe Decode.Value -> ProgramConfig userMsg userModel route siteStaticData pageStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
 perform maybeRequest config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -322,7 +320,7 @@ init :
     Maybe Decode.Value
     -> (Model route -> model)
     -> ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Decode.Value
     -> ( model, Effect )
 init maybeRequestJson toModel contentCache config flags =
@@ -369,7 +367,7 @@ type alias RequestPayload route =
 
 
 requestPayloadDecoder :
-    ProgramConfig userMsg userModel route siteStaticData
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Decode.Decoder (Maybe (RequestPayload route))
 requestPayloadDecoder config =
     optionalField "request"
@@ -422,7 +420,7 @@ initLegacy :
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model route -> model)
     -> ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Decode.Value
     -> ( model, Effect )
 initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config flags =
@@ -468,7 +466,7 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
 
 updateAndSendPortIfDone :
     ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Model route
     -> (Model route -> model)
     -> ( model, Effect )
@@ -491,7 +489,7 @@ updateAndSendPortIfDone contentCache config model toModel =
 
 update :
     ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Msg
     -> Model route
     -> ( Model route, Effect )
@@ -665,7 +663,7 @@ update contentCache config msg model =
 
 nextStepToEffect :
     ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
@@ -769,7 +767,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
 sendSinglePageProgress :
     ToJsSuccessPayload
-    -> ProgramConfig userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData
     -> ContentCache
     -> Model route
     -> ( PagePath, route )
@@ -805,9 +803,27 @@ sendSinglePageProgress toJsPayload config _ model =
             currentPage =
                 { path = page, frontmatter = config.urlToRoute currentUrl }
 
+            pageStaticDataResult : Result BuildError pageStaticData
+            pageStaticDataResult =
+                StaticHttpRequest.resolve ApplicationType.Browser
+                    (config.staticData (config.urlToRoute currentUrl))
+                    (staticData |> Dict.map (\_ v -> Just v))
+                    |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
+
+            pageStaticData : pageStaticData
+            pageStaticData =
+                case pageStaticDataResult of
+                    Ok okPageStaticData ->
+                        okPageStaticData
+
+                    Err error ->
+                        Debug.todo (BuildError.errorToString error)
+
             pageModel : userModel
             pageModel =
-                config.init Nothing
+                config.init
+                    pageStaticData
+                    Nothing
                     (Just
                         { path =
                             { path = currentPage.path
