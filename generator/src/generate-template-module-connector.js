@@ -372,12 +372,21 @@ main =
 staticDataForRoute : Maybe Route -> StaticHttp.Request PageStaticData
 staticDataForRoute route =
     case route of
-        Just (Route.Slide__Number_ routeParams) ->
-            Template.Slide.Number_.template.staticData routeParams
-                |> StaticHttp.map DataSlide__Number_
-
         Nothing ->
             StaticHttp.fail ""
+        ${templates
+          .map(
+            (name) =>
+              `Just (Route.${routeHelpers.routeVariant(
+                name
+              )} routeParams) ->\n            Template.${name.join(
+                "."
+              )}.template.staticData routeParams |> StaticHttp.map Data${routeHelpers.routeVariant(
+                name
+              )}`
+          )
+          .join("\n        ")}
+
 
 getStaticRoutes : StaticHttp.Request (List (Maybe Route))
 getStaticRoutes =
