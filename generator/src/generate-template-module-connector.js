@@ -86,7 +86,15 @@ type Msg
 
 
 type PageStaticData
-    = DataSlide__Number_ Template.Slide.Number_.StaticData
+    = ${templates
+      .map(
+        (name) =>
+          `Data${pathNormalizedName(name)} Template.${moduleName(
+            name
+          )}.StaticData\n`
+      )
+      .join("    | ")}
+
 
 
 view :
