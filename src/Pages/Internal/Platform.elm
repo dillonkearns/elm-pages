@@ -15,6 +15,7 @@ import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -507,56 +508,7 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg t
 
 
 application :
-    { init :
-        Maybe Browser.Navigation.Key
-        ->
-            Maybe
-                { path :
-                    { path : PagePath
-                    , query : Maybe String
-                    , fragment : Maybe String
-                    }
-                , metadata : route
-                }
-        -> ( userModel, Cmd userMsg )
-    , urlToRoute : Url -> route
-    , routeToPath : route -> List String
-    , getStaticRoutes : StaticHttp.Request (List route)
-    , site : SiteConfig route staticData
-    , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : route -> PagePath -> userModel -> Sub userMsg
-    , view :
-        { path : PagePath
-        , frontmatter : route
-        }
-        ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
-    , toJsPort : Json.Encode.Value -> Cmd Never
-    , fromJsPort : Sub Decode.Value
-    , generateFiles :
-        StaticHttp.Request
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
-            )
-    , canonicalSiteUrl : String
-    , onPageChange :
-        Maybe
-            ({ path : PagePath
-             , query : Maybe String
-             , fragment : Maybe String
-             , metadata : route
-             }
-             -> userMsg
-            )
-    }
+    ProgramConfig userMsg userModel route staticData
     -> Platform.Program Flags (Model userModel route) (Msg userMsg)
 application config =
     Browser.application
@@ -658,56 +610,7 @@ application config =
 
 
 cliApplication :
-    { init :
-        Maybe Browser.Navigation.Key
-        ->
-            Maybe
-                { path :
-                    { path : PagePath
-                    , query : Maybe String
-                    , fragment : Maybe String
-                    }
-                , metadata : route
-                }
-        -> ( userModel, Cmd userMsg )
-    , urlToRoute : Url -> route
-    , routeToPath : route -> List String
-    , getStaticRoutes : StaticHttp.Request (List route)
-    , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : route -> PagePath -> userModel -> Sub userMsg
-    , site : SiteConfig route staticData
-    , view :
-        { path : PagePath
-        , frontmatter : route
-        }
-        ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
-    , toJsPort : Json.Encode.Value -> Cmd Never
-    , fromJsPort : Sub Decode.Value
-    , generateFiles :
-        StaticHttp.Request
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
-            )
-    , canonicalSiteUrl : String
-    , onPageChange :
-        Maybe
-            ({ path : PagePath
-             , query : Maybe String
-             , fragment : Maybe String
-             , metadata : route
-             }
-             -> userMsg
-            )
-    }
+    ProgramConfig userMsg userModel route staticData
     -> Program userModel userMsg route
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
