@@ -19,7 +19,14 @@ renderer =
     , emphasis = \content -> Html.em [ css [ Tw.italic ] ] content
     , blockQuote = Html.blockquote []
     , codeSpan =
-        \content -> Html.code [] [ Html.text content ]
+        \content ->
+            Html.code
+                [ css
+                    [ Tw.font_semibold
+                    , Tw.font_medium
+                    ]
+                ]
+                [ Html.text content ]
 
     --, codeSpan = code
     , link =
@@ -196,6 +203,8 @@ heading { level, rawText, children } =
         , css
             [ Tw.font_bold
             , Tw.text_2xl
+            , Tw.mt_8
+            , Tw.mb_4
             ]
         ]
         children

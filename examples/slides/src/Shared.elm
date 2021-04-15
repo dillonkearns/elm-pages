@@ -1,6 +1,7 @@
 module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
 
 import Browser.Navigation
+import Css.Global
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
@@ -9,6 +10,7 @@ import Pages.PagePath exposing (PagePath)
 import Pages.StaticHttp as StaticHttp
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
+import Tailwind.Utilities
 
 
 template : SharedTemplate Msg Model StaticData msg
@@ -95,7 +97,10 @@ view :
     -> { body : Html msg, title : String }
 view stars page model toMsg pageView =
     { body =
-        Html.Styled.div [] pageView.body
+        Html.Styled.div []
+            (Css.Global.global Tailwind.Utilities.globalStyles
+                :: pageView.body
+            )
             |> Html.Styled.toUnstyled
     , title = pageView.title
     }

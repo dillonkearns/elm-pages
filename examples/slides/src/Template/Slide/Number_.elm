@@ -6,6 +6,7 @@ import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
+import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode
 import Markdown.Block
 import Markdown.Parser
@@ -16,6 +17,7 @@ import Pages.ImagePath as ImagePath
 import Pages.StaticFile as StaticFile
 import Pages.StaticHttp as StaticHttp
 import Shared
+import Tailwind.Utilities as Tw
 import Template exposing (StaticPayload, Template)
 
 
@@ -35,7 +37,14 @@ template : Template.TemplateWithState RouteParams StaticData Model Msg
 template =
     Template.withStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed [ { number = "1" } ]
+        , staticRoutes =
+            slideCount
+                |> StaticHttp.map
+                    (\count ->
+                        List.range 1 count
+                            |> List.map String.fromInt
+                            |> List.map RouteParams
+                    )
         , staticData = staticData
         }
         |> Template.buildWithLocalState
@@ -102,7 +111,14 @@ toDirection string =
 
 
 staticData : RouteParams -> StaticHttp.Request StaticData
-staticData route =
+staticData routeParams =
+    StaticHttp.map2 StaticData
+        (slideBody routeParams)
+        slideCount
+
+
+slideBody : RouteParams -> StaticHttp.Request (List (Html.Html Msg))
+slideBody route =
     StaticFile.request
         "slides.md"
         (StaticFile.body
@@ -120,6 +136,33 @@ staticData route =
 
                                 Err error ->
                                     OptimizedDecoder.fail error
+
+                        Err _ ->
+                            OptimizedDecoder.fail ""
+                )
+        )
+
+
+slideCount : StaticHttp.Request Int
+slideCount =
+    StaticFile.request "slides.md"
+        (StaticFile.body
+            |> OptimizedDecoder.andThen
+                (\rawBody ->
+                    case rawBody |> Markdown.Parser.parse of
+                        Ok okBlocks ->
+                            okBlocks
+                                |> Markdown.Block.foldl
+                                    (\block h2CountSoFar ->
+                                        case block of
+                                            Markdown.Block.Heading Markdown.Block.H2 _ ->
+                                                h2CountSoFar + 1
+
+                                            _ ->
+                                                h2CountSoFar
+                                    )
+                                    0
+                                |> OptimizedDecoder.succeed
 
                         Err _ ->
                             OptimizedDecoder.fail ""
@@ -181,7 +224,9 @@ head static =
 
 
 type alias StaticData =
-    List (Html.Html Msg)
+    { body : List (Html.Html Msg)
+    , totalCount : Int
+    }
 
 
 view :
@@ -191,5 +236,17 @@ view :
     -> Document Msg
 view model sharedModel static =
     { title = "TODO title"
-    , body = static.static ++ [ Html.text static.routeParams.number ]
+    , body =
+        [ Html.div
+            [ css
+                [ Tw.prose
+                , Tw.max_w_lg
+                , Tw.px_8
+                , Tw.py_6
+                ]
+            ]
+            (static.static.body
+                ++ [ Html.text static.routeParams.number ]
+            )
+        ]
     }
