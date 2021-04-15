@@ -354,34 +354,12 @@ type Phase
 
 
 update :
-    (Url -> route)
-    -> List String
-    -> String
-    ->
-        ({ path : PagePath
-         , frontmatter : route
-         }
-         ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
-        )
-    ->
-        Maybe
-            ({ path : PagePath
-             , query : Maybe String
-             , fragment : Maybe String
-             , metadata : route
-             }
-             -> userMsg
-            )
-    -> (Json.Encode.Value -> Cmd Never)
+    ProgramConfig userMsg userModel route siteStaticData
     -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> ModelDetails userModel
     -> ( ModelDetails userModel, Cmd (AppMsg userMsg) )
-update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg toJsPort userUpdate msg model =
+update config userUpdate msg model =
     case msg of
         AppMsg appMsg ->
             case appMsg of
@@ -455,14 +433,14 @@ update urlToRoute allRoutes canonicalSiteUrl viewFunction maybeOnPageChangeMsg t
                         Ok updatedCache ->
                             let
                                 ( userModel, userCmd ) =
-                                    case maybeOnPageChangeMsg of
+                                    case config.onPageChange of
                                         Just onPageChangeMsg ->
                                             userUpdate (Just model.key)
                                                 (onPageChangeMsg
                                                     { path = urlToPagePath url model.baseUrl
                                                     , query = url.query
                                                     , fragment = url.fragment
-                                                    , metadata = urlToRoute url
+                                                    , metadata = config.urlToRoute url
                                                     }
                                                 )
                                                 model.userModel
@@ -543,14 +521,8 @@ application config =
                             noOpUpdate =
                                 \_ _ userModel ->
                                     ( userModel, Cmd.none )
-
-                            allRoutes =
-                                -- TODO wire in staticRoutes here
-                                []
-                                    |> List.map Tuple.first
-                                    |> List.map (String.join "/")
                         in
-                        update config.urlToRoute allRoutes config.canonicalSiteUrl config.view config.onPageChange config.toJsPort userUpdate msg model
+                        update config userUpdate msg model
                             |> Tuple.mapFirst Model
                             |> Tuple.mapSecond (Cmd.map AppMsg)
 
