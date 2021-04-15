@@ -144,6 +144,7 @@ view urlToRoute viewFn model =
     }
 
 
+onViewChangeElement : Url -> Html msg
 onViewChangeElement currentUrl =
     -- this is a hidden tag
     -- it is used from the JS-side to reliably
