@@ -24,10 +24,6 @@ type alias ProgramConfig userMsg userModel route siteStaticData =
                 , metadata : route
                 }
         -> ( userModel, Cmd userMsg )
-    , getStaticRoutes : StaticHttp.Request (List route)
-    , urlToRoute : Url -> route
-    , routeToPath : route -> List String
-    , site : SiteConfig route siteStaticData
     , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , view :
@@ -39,6 +35,10 @@ type alias ProgramConfig userMsg userModel route siteStaticData =
                 { view : userModel -> { title : String, body : Html userMsg }
                 , head : List Head.Tag
                 }
+    , getStaticRoutes : StaticHttp.Request (List route)
+    , urlToRoute : Url -> route
+    , routeToPath : route -> List String
+    , site : SiteConfig route siteStaticData
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , generateFiles :
