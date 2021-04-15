@@ -1,7 +1,5 @@
 ## elm-pages 2.0
 
-Here's some content
-
 ```
 elm-pages generate Projects.Username_.Repo_
 ```

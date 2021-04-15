@@ -227,8 +227,6 @@ heading { level, rawText, children } =
 
 codeBlock : { body : String, language : Maybe String } -> Html.Html msg
 codeBlock details =
-    --    Element.paragraph [] [ Element.text details.body ]
-    -- TODO turn this back on - it's off for now to get more accurate performance benchmarks
     SyntaxHighlight.elm details.body
         |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
         |> Result.map Html.fromUnstyled
