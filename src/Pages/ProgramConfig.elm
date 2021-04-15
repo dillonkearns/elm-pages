@@ -11,7 +11,7 @@ import Pages.StaticHttp as StaticHttp
 import Url exposing (Url)
 
 
-type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData =
+type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData =
     { init :
         pageStaticData
         -> Maybe Browser.Navigation.Key
@@ -27,6 +27,7 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData =
         -> ( userModel, Cmd userMsg )
     , update : pageStaticData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
+    , sharedStaticData : StaticHttp.Request sharedStaticData
     , staticData : route -> StaticHttp.Request pageStaticData
     , view :
         { path : PagePath

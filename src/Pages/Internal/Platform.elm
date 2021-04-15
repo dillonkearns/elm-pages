@@ -25,7 +25,7 @@ type alias Program userModel userMsg route pageStaticData =
 
 
 mainView :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> ModelDetails userModel pageStaticData
     -> { title : String, body : Html userMsg }
 mainView config model =
@@ -99,7 +99,7 @@ urlToPagePath url baseUrl =
 
 
 view :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> ModelDetails userModel pageStaticData
     -> Browser.Document (Msg userMsg)
 view config model =
@@ -144,7 +144,7 @@ contentJsonDecoder =
 
 
 init :
-    ProgramConfig userMsg userModel route staticData pageStaticData
+    ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
     -> Flags
     -> Url
     -> Browser.Navigation.Key
@@ -338,7 +338,7 @@ type Phase
 
 
 update :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> ModelDetails userModel pageStaticData
@@ -470,7 +470,7 @@ update config userUpdate msg model =
 
 
 application :
-    ProgramConfig userMsg userModel route staticData pageStaticData
+    ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
     -> Platform.Program Flags (Model userModel route pageStaticData) (Msg userMsg)
 application config =
     Browser.application
@@ -566,7 +566,7 @@ application config =
 
 
 cliApplication :
-    ProgramConfig userMsg userModel route staticData pageStaticData
+    ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
     -> Program userModel userMsg route pageStaticData
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg

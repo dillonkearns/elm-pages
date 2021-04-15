@@ -354,6 +354,7 @@ main =
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , staticData = staticDataForRoute
+        , sharedStaticData = Shared.template.staticData
         , generateFiles =
             getStaticRoutes
                 |> StaticHttp.andThen
