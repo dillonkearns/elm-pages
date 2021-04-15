@@ -1,6 +1,5 @@
 module Pages.Internal.Platform.Cli exposing
-    ( Config
-    , Flags
+    ( Flags
     , Model
     , Msg(..)
     , cliApplication
@@ -29,6 +28,7 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (Stat
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -62,65 +62,12 @@ type Msg
     | Continue
 
 
-type alias Config userMsg userModel route siteStaticData =
-    { init :
-        Maybe Browser.Navigation.Key
-        ->
-            Maybe
-                { path :
-                    { path : PagePath
-                    , query : Maybe String
-                    , fragment : Maybe String
-                    }
-                , metadata : route
-                }
-        -> ( userModel, Cmd userMsg )
-    , getStaticRoutes : StaticHttp.Request (List route)
-    , urlToRoute : Url -> route
-    , routeToPath : route -> List String
-    , site : SiteConfig route siteStaticData
-    , update : Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
-    , subscriptions : route -> PagePath -> userModel -> Sub userMsg
-    , view :
-        { path : PagePath
-        , frontmatter : route
-        }
-        ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
-    , toJsPort : Json.Encode.Value -> Cmd Never
-    , fromJsPort : Sub Decode.Value
-    , generateFiles :
-        StaticHttp.Request
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
-            )
-    , canonicalSiteUrl : String
-    , onPageChange :
-        Maybe
-            ({ path : PagePath
-             , query : Maybe String
-             , fragment : Maybe String
-             , metadata : route
-             }
-             -> userMsg
-            )
-    }
-
-
 cliApplication :
     (Msg -> msg)
     -> (msg -> Maybe Msg)
     -> (Model route -> model)
     -> (model -> Maybe (Model route))
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> Platform.Program Flags model msg
 cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
     let
@@ -224,7 +171,7 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Maybe Decode.Value -> Config userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
+perform : Maybe Decode.Value -> ProgramConfig userMsg userModel route siteStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
 perform maybeRequest config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
@@ -375,7 +322,7 @@ init :
     Maybe Decode.Value
     -> (Model route -> model)
     -> ContentCache
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> Decode.Value
     -> ( model, Effect )
 init maybeRequestJson toModel contentCache config flags =
@@ -422,7 +369,7 @@ type alias RequestPayload route =
 
 
 requestPayloadDecoder :
-    Config userMsg userModel route siteStaticData
+    ProgramConfig userMsg userModel route siteStaticData
     -> Decode.Decoder (Maybe (RequestPayload route))
 requestPayloadDecoder config =
     optionalField "request"
@@ -475,7 +422,7 @@ initLegacy :
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model route -> model)
     -> ContentCache
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> Decode.Value
     -> ( model, Effect )
 initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config flags =
@@ -521,7 +468,7 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
 
 updateAndSendPortIfDone :
     ContentCache
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> Model route
     -> (Model route -> model)
     -> ( model, Effect )
@@ -544,7 +491,7 @@ updateAndSendPortIfDone contentCache config model toModel =
 
 update :
     ContentCache
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> Msg
     -> Model route
     -> ( Model route, Effect )
@@ -718,7 +665,7 @@ update contentCache config msg model =
 
 nextStepToEffect :
     ContentCache
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
@@ -822,7 +769,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
 sendSinglePageProgress :
     ToJsSuccessPayload
-    -> Config userMsg userModel route siteStaticData
+    -> ProgramConfig userMsg userModel route siteStaticData
     -> ContentCache
     -> Model route
     -> ( PagePath, route )
