@@ -3,21 +3,16 @@ module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
-import Head
 import Html exposing (Html)
 import Html.Attributes
 import Http
 import Json.Decode as Decode
-import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
-import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
-import Pages.SiteConfig exposing (SiteConfig)
-import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 import Task
@@ -29,25 +24,10 @@ type alias Program userModel userMsg route =
 
 
 mainView :
-    (Url -> route)
-    ->
-        ({ path : PagePath
-         , frontmatter : route
-         }
-         ->
-            StaticHttp.Request
-                { view :
-                    userModel
-                    ->
-                        { title : String
-                        , body : Html userMsg
-                        }
-                , head : List Head.Tag
-                }
-        )
+    ProgramConfig userMsg userModel route siteStaticData
     -> ModelDetails userModel
     -> { title : String, body : Html userMsg }
-mainView urlToRoute viewFn model =
+mainView config model =
     let
         urls =
             { currentUrl = model.url
@@ -61,9 +41,9 @@ mainView urlToRoute viewFn model =
                     let
                         viewFnResult =
                             { path = pagePath
-                            , frontmatter = urlToRoute model.url
+                            , frontmatter = config.urlToRoute model.url
                             }
-                                |> viewFn
+                                |> config.view
                                 |> (\request ->
                                         StaticHttpRequest.resolve ApplicationType.Browser
                                             request
@@ -118,23 +98,13 @@ urlToPagePath url baseUrl =
 
 
 view :
-    (Url -> route)
-    ->
-        ({ path : PagePath
-         , frontmatter : route
-         }
-         ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
-        )
+    ProgramConfig userMsg userModel route siteStaticData
     -> ModelDetails userModel
     -> Browser.Document (Msg userMsg)
-view urlToRoute viewFn model =
+view config model =
     let
         { title, body } =
-            mainView urlToRoute viewFn model
+            mainView config model
     in
     { title = title
     , body =
@@ -307,14 +277,6 @@ init urlToRoute initUserModel flags url key =
                 ]
               -- TODO handle errors better
             )
-
-
-encodeHeads : List String -> String -> String -> List Head.Tag -> Json.Encode.Value
-encodeHeads allRoutes canonicalSiteUrl currentPagePath head =
-    Json.Encode.object
-        [ ( "head", Json.Encode.list (Head.toJson canonicalSiteUrl currentPagePath) head )
-        , ( "allRoutes", Json.Encode.list Json.Encode.string allRoutes )
-        ]
 
 
 type Msg userMsg
@@ -500,7 +462,7 @@ application config =
             \outerModel ->
                 case outerModel of
                     Model model ->
-                        view config.urlToRoute config.view model
+                        view config model
 
                     CliModel _ ->
                         { title = "Error"
