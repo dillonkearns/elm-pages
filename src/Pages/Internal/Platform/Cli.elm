@@ -326,12 +326,7 @@ init :
 init maybeRequestJson toModel contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
-            case mode of
-                --Mode.ElmToHtmlBeta ->
-                --    elmToHtmlBetaInit { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache siteMetadata config flags
-                --
-                _ ->
-                    initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config flags
+            initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -354,10 +349,6 @@ init maybeRequestJson toModel contentCache config flags =
                 , maybeRequestJson = maybeRequestJson
                 }
                 toModel
-
-
-
---)
 
 
 type alias RequestPayload route =
