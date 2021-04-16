@@ -54,7 +54,11 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         secrets: process.env,
         mode,
         staticHttpCache: global.staticHttpCache,
-        request: modifiedRequest,
+        request: {
+          payload: modifiedRequest,
+          kind: "single-page",
+          jsonOnly: isJson,
+        },
       },
     });
 

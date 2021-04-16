@@ -38,20 +38,7 @@ decoder :
     -> Decode.Decoder (RenderRequest route)
 decoder config =
     optionalField "request"
-        (Decode.field "path"
-            (Decode.string
-                |> Decode.map
-                    (\path ->
-                        let
-                            route =
-                                pathToUrl path |> config.urlToRoute
-                        in
-                        { frontmatter = route
-                        , path = config.routeToPath route |> PagePath.build
-                        }
-                    )
-            )
-        )
+        (requestPayloadDecoder config)
         |> Decode.map
             (\maybeRequest ->
                 case maybeRequest of
@@ -61,6 +48,34 @@ decoder config =
                     Nothing ->
                         FullBuild
             )
+
+
+
+{-
+   payload: modifiedRequest,
+   kind: "single-page",
+   jsonOnly: isJson,
+-}
+
+
+requestPayloadDecoder :
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> Decode.Decoder (RequestPayload route)
+requestPayloadDecoder config =
+    (Decode.string
+        |> Decode.map
+            (\path ->
+                let
+                    route =
+                        pathToUrl path |> config.urlToRoute
+                in
+                { frontmatter = route
+                , path = config.routeToPath route |> PagePath.build
+                }
+            )
+    )
+        |> Decode.field "path"
+        |> Decode.field "payload"
 
 
 pathToUrl : String -> Url
