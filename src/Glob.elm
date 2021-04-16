@@ -1,4 +1,10 @@
-module Glob exposing (..)
+module Glob exposing (Glob, atLeastOne, drop, extractMatches, fullFilePath, keep, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore)
+
+{-|
+
+@docs Glob, atLeastOne, drop, extractMatches, fullFilePath, keep, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore
+
+-}
 
 import List.Extra
 import OptimizedDecoder
@@ -6,10 +12,12 @@ import Pages.StaticHttp as StaticHttp
 import Secrets
 
 
+{-| -}
 type Glob a
     = Glob String (String -> List String -> ( a, List String ))
 
 
+{-| -}
 map : (a -> b) -> Glob a -> Glob b
 map mapFn (Glob pattern applyCapture) =
     Glob pattern
@@ -20,11 +28,13 @@ map mapFn (Glob pattern applyCapture) =
         )
 
 
+{-| -}
 succeed : constructor -> Glob constructor
 succeed constructor =
     Glob "" (\_ captures -> ( constructor, captures ))
 
 
+{-| -}
 fullFilePath : Glob String
 fullFilePath =
     --Glob "" (\fullPath captures -> ( constructor, captures ))
@@ -35,6 +45,7 @@ fullFilePath =
         )
 
 
+{-| -}
 wildcard : Glob String
 wildcard =
     Glob "*"
@@ -48,6 +59,7 @@ wildcard =
         )
 
 
+{-| -}
 recursiveWildcard : Glob String
 recursiveWildcard =
     Glob "**"
@@ -61,6 +73,7 @@ recursiveWildcard =
         )
 
 
+{-| -}
 zeroOrMore : List String -> Glob (Maybe String)
 zeroOrMore matchers =
     Glob
@@ -84,11 +97,13 @@ zeroOrMore matchers =
         )
 
 
+{-| -}
 literal : String -> Glob String
 literal string =
     Glob string (\_ captures -> ( string, captures ))
 
 
+{-| -}
 not : String -> Glob String
 not string =
     Glob ("!(" ++ string ++ ")")
@@ -102,6 +117,7 @@ not string =
         )
 
 
+{-| -}
 notOneOf : ( String, List String ) -> Glob String
 notOneOf ( firstPattern, otherPatterns ) =
     let
@@ -123,6 +139,7 @@ notOneOf ( firstPattern, otherPatterns ) =
         )
 
 
+{-| -}
 run : RawGlob -> Glob a -> { match : a, pattern : String }
 run { captures, fullPath } (Glob pattern applyCapture) =
     { match =
@@ -134,11 +151,13 @@ run { captures, fullPath } (Glob pattern applyCapture) =
     }
 
 
+{-| -}
 toPattern : Glob a -> String
 toPattern (Glob pattern applyCapture) =
     pattern
 
 
+{-| -}
 drop : Glob a -> Glob value -> Glob value
 drop (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
@@ -146,6 +165,7 @@ drop (Glob matcherPattern apply1) (Glob pattern apply2) =
         apply2
 
 
+{-| -}
 keep : Glob a -> Glob (a -> value) -> Glob value
 keep (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
@@ -166,6 +186,7 @@ keep (Glob matcherPattern apply1) (Glob pattern apply2) =
         )
 
 
+{-| -}
 oneOf : ( ( String, a ), List ( String, a ) ) -> Glob a
 oneOf ( defaultMatch, otherMatchers ) =
     let
@@ -198,6 +219,7 @@ oneOf ( defaultMatch, otherMatchers ) =
         )
 
 
+{-| -}
 atLeastOne : ( ( String, a ), List ( String, a ) ) -> Glob ( a, List a )
 atLeastOne ( defaultMatch, otherMatchers ) =
     let
@@ -234,6 +256,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
         )
 
 
+{-| -}
 toNonEmptyWithDefault : a -> List a -> ( a, List a )
 toNonEmptyWithDefault default list =
     case list of
@@ -244,6 +267,7 @@ toNonEmptyWithDefault default list =
             ( default, [] )
 
 
+{-| -}
 extractMatches : a -> List ( String, a ) -> String -> List a
 extractMatches defaultValue list string =
     if string == "" then
@@ -273,6 +297,7 @@ type alias RawGlob =
     }
 
 
+{-| -}
 toStaticHttp : Glob a -> StaticHttp.Request (List a)
 toStaticHttp glob =
     StaticHttp.get (Secrets.succeed <| "glob://" ++ toPattern glob)
@@ -285,6 +310,7 @@ toStaticHttp glob =
         )
 
 
+{-| -}
 singleFile : String -> StaticHttp.Request (Maybe String)
 singleFile filePath =
     succeed identity
