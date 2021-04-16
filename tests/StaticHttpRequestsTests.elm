@@ -53,31 +53,30 @@ all =
                             ]
                           )
                         ]
-        , only <|
-            test "StaticHttp request for initial are resolved" <|
-                \() ->
-                    start
-                        [ ( [ "post-1" ]
-                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                            --, StaticHttp.succeed 86
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://my-cms.com/posts"
-                            """{ "posts": ["post-1"] }"""
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
-                            """{ "stargazer_count": 86 }"""
-                        |> expectSuccess
-                            [ ( "post-1"
-                              , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                                  , """{"stargazer_count":86}"""
-                                  )
-                                ]
+        , test "StaticHttp request for initial are resolved" <|
+            \() ->
+                start
+                    [ ( [ "post-1" ]
+                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                        --, StaticHttp.succeed 86
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://my-cms.com/posts"
+                        """{ "posts": ["post-1"] }"""
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86 }"""
+                    |> expectSuccess
+                        [ ( "post-1"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":86}"""
                               )
                             ]
+                          )
+                        ]
         , test "andThen" <|
             \() ->
                 start
@@ -840,8 +839,13 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , generateFiles = generateFiles
             , init = \_ _ _ -> ( (), Cmd.none )
             , getStaticRoutes =
-                StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
-                    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
+                --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
+                --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
+                pages
+                    |> List.map Tuple.first
+                    |> List.map (String.join "/")
+                    |> List.map Route
+                    |> StaticHttp.succeed
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ -> ( (), Cmd.none )
             , staticData = \route -> StaticHttp.succeed ()
