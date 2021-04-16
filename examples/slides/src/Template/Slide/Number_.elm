@@ -41,7 +41,7 @@ template =
             slideCount
                 |> StaticHttp.map
                     (\count ->
-                        List.range 1 count
+                        List.range 1 (count - 1)
                             |> List.map String.fromInt
                             |> List.map RouteParams
                     )
