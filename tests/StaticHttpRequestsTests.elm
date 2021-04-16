@@ -688,23 +688,6 @@ Payload sent back invalid JSON""")
                               )
                             ]
             ]
-        , describe "document parsing errors"
-            [ test "fails the build when there is an error" <|
-                \() ->
-                    startWithHttpCache (Err "Found an unhandled HTML tag in markdown doc.")
-                        []
-                        [ ( []
-                          , StaticHttp.succeed ()
-                          )
-                        ]
-                        |> expectError
-                            [ """-- METADATA DECODE ERROR ----------------------------------------------------- elm-pages
-
-I ran into a problem when parsing the metadata for the page with this path: /
-
-Found an unhandled HTML tag in markdown doc."""
-                            ]
-            ]
         , describe "generateFiles"
             [ test "initial requests are sent out" <|
                 \() ->
