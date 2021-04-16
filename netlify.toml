@@ -2,7 +2,7 @@
   base = "examples/docs/"
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install && npx --no-install elm-tooling install) && npm install && npm run build && find dist -name \"*.html\" -type f -delete && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && find dist -name \"*.html\" -type f -delete && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js"
   ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
 
 [[redirects]]
