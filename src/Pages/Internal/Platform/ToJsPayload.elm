@@ -9,6 +9,7 @@ import Json.Encode
 import Pages.ImagePath as ImagePath
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
+import TerminalText
 
 
 type ToJsPayload
@@ -88,20 +89,13 @@ toJsCodec =
 
 errorCodec : Codec (List BuildError)
 errorCodec =
-    Codec.object (\_ _ -> [])
+    Codec.object (\errorString _ -> errorString)
         |> Codec.field "errorString"
             identity
-            (Codec.string
-                |> Codec.map
-                    (\_ ->
-                        [ { title = "TODO"
-                          , message = []
-                          , fatal = True
-                          , path = ""
-                          }
-                        ]
-                    )
-                    BuildError.errorsToString
+            (Codec.build (BuildError.errorsToString >> Json.Encode.string)
+                (Decode.string
+                    |> Decode.map (\value -> [ { title = value, path = "Intentionally empty", message = [], fatal = False } ])
+                )
             )
         |> Codec.field "errorsJson"
             identity
@@ -110,23 +104,6 @@ errorCodec =
                 (Decode.succeed [ { title = "TODO", message = [], fatal = True, path = "" } ])
             )
         |> Codec.buildObject
-
-
-stubManifest : Manifest.Config
-stubManifest =
-    { backgroundColor = Nothing
-    , categories = []
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
-    , iarcRatingId = Nothing
-    , name = "elm-pages docs"
-    , themeColor = Nothing
-    , startUrl = PagePath.external ""
-    , shortName = Just "elm-pages"
-    , sourceIcon = ImagePath.external ""
-    , icons = []
-    }
 
 
 successCodec : Codec ToJsSuccessPayload

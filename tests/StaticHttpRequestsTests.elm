@@ -61,10 +61,10 @@ all =
                         --, StaticHttp.succeed 86
                       )
                     ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://my-cms.com/posts"
-                        """{ "posts": ["post-1"] }"""
+                    --|> ProgramTest.simulateHttpOk
+                    --    "GET"
+                    --    "https://my-cms.com/posts"
+                    --    """{ "posts": ["post-1"] }"""
                     |> ProgramTest.simulateHttpOk
                         "GET"
                         "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -1008,7 +1008,8 @@ expectErrorsPort expectedPlainString actualPorts =
     case actualPorts of
         [ ToJsPayload.Errors actualRichTerminalString ] ->
             actualRichTerminalString
-                |> BuildError.errorsToString
+                |> List.map .title
+                |> String.join "\n"
                 |> normalizeErrorExpectEqual expectedPlainString
 
         [] ->
@@ -1026,7 +1027,17 @@ normalizeErrorExpectEqual expectedPlainString actualRichTerminalString =
                 |> Maybe.withDefault Regex.never
             )
             (\_ -> "")
-        |> Expect.equal expectedPlainString
+        |> normalizeNewlines
+        |> Expect.equal
+            (expectedPlainString |> normalizeNewlines)
+
+
+normalizeNewlines : String -> String
+normalizeNewlines string =
+    string
+        |> Regex.replace
+            (Regex.fromString "(\n)+" |> Maybe.withDefault Regex.never)
+            (\_ -> "\n")
 
 
 normalizeErrorsExpectEqual : List String -> List String -> Expect.Expectation
