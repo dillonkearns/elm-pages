@@ -15,7 +15,6 @@
         "Pages.StaticHttp",
         "Pages.StaticFile",
         "Pages.Secrets",
-        "Pages.Platform",
         "Pages.Manifest",
         "Pages.Manifest.Category"
     ],
