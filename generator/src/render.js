@@ -57,7 +57,7 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         request: {
           payload: modifiedRequest,
           kind: "single-page",
-          jsonOnly: isJson,
+          jsonOnly: !!isJson,
         },
       },
     });

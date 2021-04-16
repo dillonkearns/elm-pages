@@ -30,7 +30,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
-import RenderRequest
+import RenderRequest exposing (RenderRequest)
 import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
@@ -50,7 +50,7 @@ type alias Model route =
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( PagePath, route )
     , staticRoutes : List ( PagePath, route )
-    , maybeRequestJson : Maybe Decode.Value
+    , maybeRequestJson : RenderRequest.RenderRequest route
     }
 
 
@@ -77,12 +77,12 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
         { init =
             \flags ->
                 let
-                    maybeRequestJson =
-                        Decode.decodeValue (optionalField "request" Decode.value) flags
-                            |> Result.withDefault Nothing
+                    renderRequest =
+                        Decode.decodeValue (RenderRequest.decoder config) flags
+                            |> Result.withDefault RenderRequest.FullBuild
                 in
-                init maybeRequestJson toModel contentCache config flags
-                    |> Tuple.mapSecond (perform maybeRequestJson config cliMsgConstructor config.toJsPort)
+                init renderRequest toModel contentCache config flags
+                    |> Tuple.mapSecond (perform renderRequest config cliMsgConstructor config.toJsPort)
         , update =
             \msg model ->
                 case ( narrowMsg msg, fromModel model ) of
@@ -170,8 +170,8 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : Maybe Decode.Value -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
-perform maybeRequest config cliMsgConstructor toJsPort effect =
+perform : RenderRequest route -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
+perform renderRequest config cliMsgConstructor toJsPort effect =
     case effect of
         Effect.NoEffect ->
             Cmd.none
@@ -184,7 +184,7 @@ perform maybeRequest config cliMsgConstructor toJsPort effect =
 
         Effect.Batch list ->
             list
-                |> List.map (perform maybeRequest config cliMsgConstructor toJsPort)
+                |> List.map (perform renderRequest config cliMsgConstructor toJsPort)
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
@@ -193,7 +193,8 @@ perform maybeRequest config cliMsgConstructor toJsPort effect =
                     [ Task.succeed
                         { request = requests
                         , response =
-                            maybeRequest
+                            renderRequest
+                                |> RenderRequest.maybeRequestPayload
                                 |> Maybe.map (Json.Encode.encode 0)
                                 |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
                         }
@@ -318,16 +319,16 @@ flagsDecoder =
 
 
 init :
-    Maybe Decode.Value
+    RenderRequest route
     -> (Model route -> model)
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> Decode.Value
     -> ( model, Effect )
-init maybeRequestJson toModel contentCache config flags =
+init renderRequest toModel contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
-            initLegacy maybeRequestJson { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config flags
+            initLegacy renderRequest { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -347,7 +348,7 @@ init maybeRequestJson toModel contentCache config flags =
                 , pendingRequests = []
                 , unprocessedPages = []
                 , staticRoutes = []
-                , maybeRequestJson = maybeRequestJson
+                , maybeRequestJson = renderRequest
                 }
                 toModel
 
@@ -408,25 +409,19 @@ optionalField fieldName decoder =
 
 
 initLegacy :
-    Maybe Decode.Value
+    RenderRequest route
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> (Model route -> model)
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> Decode.Value
     -> ( model, Effect )
-initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config flags =
-    let
-        renderRequest =
-            Decode.decodeValue (RenderRequest.decoder config) flags
-                -- TODO handle decoder errors
-                |> Result.withDefault RenderRequest.FullBuild
-    in
+initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
-                RenderRequest.SinglePage RenderRequest.HtmlAndJson serverRequestPayload ->
+                RenderRequest.SinglePage includeHtml serverRequestPayload _ ->
                     StaticResponses.renderSingleRoute config
                         serverRequestPayload
                         (StaticHttp.map2 (\_ _ -> ())
@@ -439,7 +434,7 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
 
         unprocessedPages =
             case renderRequest of
-                RenderRequest.SinglePage RenderRequest.HtmlAndJson serverRequestPayload ->
+                RenderRequest.SinglePage includeHtml serverRequestPayload _ ->
                     [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
 
                 RenderRequest.FullBuild ->
@@ -456,7 +451,7 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
             , pendingRequests = []
             , unprocessedPages = unprocessedPages
             , staticRoutes = unprocessedPages
-            , maybeRequestJson = maybeRequestJson
+            , maybeRequestJson = renderRequest
             }
         |> Tuple.mapFirst toModel
 

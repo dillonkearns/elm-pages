@@ -13,19 +13,26 @@ type alias RequestPayload route =
 
 
 type RenderRequest route
-    = SinglePage IncludeHtml (RequestPayload route)
+    = SinglePage IncludeHtml (RequestPayload route) Decode.Value
       --ServerOrBuild
       --| SharedData
       --| GenerateFiles
     | FullBuild
 
 
+maybeRequestPayload : RenderRequest route -> Maybe Decode.Value
+maybeRequestPayload renderRequest =
+    case renderRequest of
+        FullBuild ->
+            Nothing
+
+        SinglePage _ payload rawJson ->
+            Just rawJson
+
+
 type IncludeHtml
     = HtmlAndJson
-
-
-
---| OnlyJson
+    | OnlyJson
 
 
 type ServerOrBuild
@@ -38,12 +45,37 @@ decoder :
     -> Decode.Decoder (RenderRequest route)
 decoder config =
     optionalField "request"
-        (requestPayloadDecoder config)
+        (Decode.map3
+            (\includeHtml requestThing payload ->
+                SinglePage includeHtml requestThing payload
+            )
+            (Decode.field "kind" Decode.string
+                |> Decode.andThen
+                    (\kind ->
+                        case kind of
+                            "single-page" ->
+                                Decode.field "jsonOnly" Decode.bool
+                                    |> Decode.map
+                                        (\jsonOnly ->
+                                            if jsonOnly then
+                                                OnlyJson
+
+                                            else
+                                                HtmlAndJson
+                                        )
+
+                            _ ->
+                                Decode.fail "Unhandled"
+                    )
+            )
+            (requestPayloadDecoder config)
+            (Decode.field "payload" Decode.value)
+        )
         |> Decode.map
             (\maybeRequest ->
                 case maybeRequest of
                     Just request ->
-                        SinglePage HtmlAndJson request
+                        request
 
                     Nothing ->
                         FullBuild
