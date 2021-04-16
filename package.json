@@ -6,7 +6,7 @@
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
   "main": "index.js",
   "scripts": {
-    "test": "elm-test && jest --rootDir jest-tests",
+    "test": "elm-test",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
