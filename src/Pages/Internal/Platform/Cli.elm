@@ -435,7 +435,12 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
         staticResponses =
             case maybeRequestPayload of
                 Just serverRequestPayload ->
-                    StaticResponses.renderSingleRoute config serverRequestPayload
+                    StaticResponses.renderSingleRoute config
+                        serverRequestPayload
+                        (StaticHttp.map2 (\_ _ -> ())
+                            (config.staticData serverRequestPayload.frontmatter)
+                            config.sharedStaticData
+                        )
 
                 Nothing ->
                     StaticResponses.init config

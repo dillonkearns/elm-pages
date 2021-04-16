@@ -67,21 +67,18 @@ init config =
 
 renderSingleRoute :
     { config
-        | view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
-        , routeToPath : route -> List String
+        | routeToPath : route -> List String
     }
     -> { path : PagePath, frontmatter : route }
+    -> StaticHttp.Request a
     -> StaticResponses
-renderSingleRoute config pathAndRoute =
+renderSingleRoute config pathAndRoute request =
     [ pathAndRoute.frontmatter ]
         |> List.map
             (\route ->
                 ( config.routeToPath route |> String.join "/"
                 , NotFetched
-                    (StaticHttp.map (\_ -> ())
-                        (config.view pathAndRoute)
-                        |> StaticHttp.map (\_ -> ())
-                    )
+                    (request |> StaticHttp.map (\_ -> ()))
                     Dict.empty
                 )
             )
