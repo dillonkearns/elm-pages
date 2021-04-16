@@ -83,7 +83,8 @@ person :
     { name : String
     }
     ->
-        StructuredData { personOrOrganization : () }
+        StructuredData
+            { personOrOrganization : () }
             { additionalName : ()
             , address : ()
             , affiliation : ()
