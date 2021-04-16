@@ -844,10 +844,8 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                         thing =
                             pages
                                 |> Dict.fromList
-                                |> Debug.log "dict"
                                 |> Dict.get
                                     (page.path
-                                        |> Debug.log "page-path"
                                         |> PagePath.toString
                                         |> String.split "/"
                                         |> List.filter (\pathPart -> pathPart /= "")
