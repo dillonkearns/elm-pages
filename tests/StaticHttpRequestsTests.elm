@@ -506,8 +506,6 @@ String was not uppercased"""
                         (expectErrorsPort
                             """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
-elm-pages
-
 I encountered some errors while decoding this JSON:
 
   The user should get this message from the CLI.
@@ -1037,7 +1035,10 @@ normalizeNewlines string =
     string
         |> Regex.replace
             (Regex.fromString "(\n)+" |> Maybe.withDefault Regex.never)
-            (\_ -> "\n")
+            (\_ -> "")
+        |> Regex.replace
+            (Regex.fromString "( )+" |> Maybe.withDefault Regex.never)
+            (\_ -> " ")
 
 
 normalizeErrorsExpectEqual : List String -> List String -> Expect.Expectation
