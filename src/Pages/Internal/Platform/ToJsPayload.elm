@@ -6,10 +6,6 @@ import Dict exposing (Dict)
 import Head
 import Json.Decode as Decode
 import Json.Encode
-import Pages.ImagePath as ImagePath
-import Pages.Manifest as Manifest
-import Pages.PagePath as PagePath
-import TerminalText
 
 
 type ToJsPayload

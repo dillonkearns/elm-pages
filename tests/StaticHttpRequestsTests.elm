@@ -1,6 +1,5 @@
 module StaticHttpRequestsTests exposing (all)
 
-import BuildError
 import Codec
 import Dict
 import Expect
@@ -27,7 +26,7 @@ import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 import Test.Http
 
 
@@ -829,9 +828,9 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     |> StaticHttp.succeed
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ -> ( (), Cmd.none )
-            , staticData = \route -> StaticHttp.succeed ()
+            , staticData = \_ -> StaticHttp.succeed ()
             , site =
-                \routes ->
+                \_ ->
                     { staticData = StaticHttp.succeed ()
                     , canonicalUrl = \_ -> "canonical-site-url"
                     , manifest = \_ -> manifest
@@ -1022,19 +1021,6 @@ normalizeNewlines string =
             (\_ -> " ")
 
 
-normalizeErrorsExpectEqual : List String -> List String -> Expect.Expectation
-normalizeErrorsExpectEqual expectedPlainStrings actualRichTerminalStrings =
-    actualRichTerminalStrings
-        |> List.map
-            (Regex.replace
-                (Regex.fromString "\u{001B}\\[[0-9;]+m"
-                    |> Maybe.withDefault Regex.never
-                )
-                (\_ -> "")
-            )
-        |> Expect.equalLists expectedPlainStrings
-
-
 toJsPort _ =
     Cmd.none
 
@@ -1104,27 +1090,6 @@ expectSuccessNew expectedRequests expectations previous =
 
                     [ errorPort ] ->
                         Expect.fail <| "Expected success port. Got:\n" ++ Debug.toString errorPort
-
-                    _ ->
-                        Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
-            )
-
-
-expectError : List String -> ProgramTest model msg effect -> Expect.Expectation
-expectError expectedErrors previous =
-    previous
-        |> ProgramTest.expectOutgoingPortValues
-            "toJsPort"
-            (Codec.decoder ToJsPayload.toJsCodec)
-            (\value ->
-                case value of
-                    [ ToJsPayload.Success portPayload ] ->
-                        portPayload.errors
-                            |> List.map BuildError.errorToString
-                            |> normalizeErrorsExpectEqual expectedErrors
-
-                    [ _ ] ->
-                        Expect.fail "Expected success port."
 
                     _ ->
                         Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
