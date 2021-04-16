@@ -738,7 +738,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                             (\pageAndMetadata ->
                                 case toJsPayload of
                                     ToJsPayload.Success value ->
-                                        sendSinglePageProgress value config contentCache model pageAndMetadata
+                                        sendSinglePageProgress value config model pageAndMetadata
                                             |> Just
 
                                     ToJsPayload.Errors _ ->
@@ -760,106 +760,122 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 sendSinglePageProgress :
     ToJsSuccessPayload
     -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> ContentCache
     -> Model route
     -> ( PagePath, route )
     -> Effect
-sendSinglePageProgress toJsPayload config _ model =
-    \( page, _ ) ->
-        let
-            makeItWork : StaticHttpRequest.RawRequest staticData -> Result BuildError staticData
-            makeItWork request =
-                StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\_ v -> Just v))
-                    |> Result.mapError (StaticHttpRequest.toBuildError (page |> PagePath.toString))
-
-            staticData =
-                toJsPayload.pages
-                    |> Dict.get (PagePath.toString page)
-                    |> Maybe.withDefault Dict.empty
-
-            viewRequest :
-                StaticHttp.Request
-                    { view :
-                        userModel
-                        -> { title : String, body : Html userMsg }
-                    , head : List Head.Tag
-                    }
-            viewRequest =
-                config.view currentPage
-
-            twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List Head.Tag }
-            twoThings =
-                viewRequest |> makeItWork
-
-            currentPage : { path : PagePath, frontmatter : route }
-            currentPage =
-                { path = page, frontmatter = config.urlToRoute currentUrl }
-
-            pageStaticDataResult : Result BuildError pageStaticData
-            pageStaticDataResult =
-                StaticHttpRequest.resolve ApplicationType.Browser
-                    (config.staticData (config.urlToRoute currentUrl))
-                    (staticData |> Dict.map (\_ v -> Just v))
-                    |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
-
-            pageStaticData : pageStaticData
-            pageStaticData =
-                case pageStaticDataResult of
-                    Ok okPageStaticData ->
-                        okPageStaticData
-
-                    Err error ->
-                        Debug.todo (BuildError.errorToString error)
-
-            pageModel : userModel
-            pageModel =
-                config.init
-                    pageStaticData
-                    Nothing
-                    (Just
-                        { path =
-                            { path = currentPage.path
-                            , query = Nothing
-                            , fragment = Nothing
-                            }
-                        , metadata = currentPage.frontmatter
-                        }
-                    )
-                    |> Tuple.first
-
-            currentUrl =
-                { protocol = Url.Https
-                , host = config.canonicalSiteUrl
-                , port_ = Nothing
-                , path = page |> PagePath.toString
-                , query = Nothing
-                , fragment = Nothing
-                }
-        in
-        case twoThings of
-            Ok success ->
-                let
-                    viewValue =
-                        success.view pageModel
-                in
+sendSinglePageProgress toJsPayload config model =
+    \( page, route ) ->
+        case model.maybeRequestJson of
+            RenderRequest.SinglePage _ _ _ ->
                 { route = page |> PagePath.toString
                 , contentJson =
                     toJsPayload.pages
                         |> Dict.get (PagePath.toString page)
                         |> Maybe.withDefault Dict.empty
-                , html = viewValue.body |> viewRenderer
+                , html = "No HTML rendered"
                 , errors = []
-                , head = success.head
-                , title = viewValue.title
+                , head = []
+                , title = "No HTML rendered"
                 , body = "" --lookedUp.unparsedBody
                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                 }
                     |> sendProgress
 
-            Err error ->
-                [ error ]
-                    |> ToJsPayload.Errors
-                    |> Effect.SendJsData
+            RenderRequest.FullBuild ->
+                let
+                    makeItWork : StaticHttpRequest.RawRequest staticData -> Result BuildError staticData
+                    makeItWork request =
+                        StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\_ v -> Just v))
+                            |> Result.mapError (StaticHttpRequest.toBuildError (page |> PagePath.toString))
+
+                    staticData =
+                        toJsPayload.pages
+                            |> Dict.get (PagePath.toString page)
+                            |> Maybe.withDefault Dict.empty
+
+                    viewRequest :
+                        StaticHttp.Request
+                            { view :
+                                userModel
+                                -> { title : String, body : Html userMsg }
+                            , head : List Head.Tag
+                            }
+                    viewRequest =
+                        config.view currentPage
+
+                    twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List Head.Tag }
+                    twoThings =
+                        viewRequest |> makeItWork
+
+                    currentPage : { path : PagePath, frontmatter : route }
+                    currentPage =
+                        { path = page, frontmatter = config.urlToRoute currentUrl }
+
+                    pageStaticDataResult : Result BuildError pageStaticData
+                    pageStaticDataResult =
+                        StaticHttpRequest.resolve ApplicationType.Browser
+                            (config.staticData (config.urlToRoute currentUrl))
+                            (staticData |> Dict.map (\_ v -> Just v))
+                            |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
+
+                    pageStaticData : pageStaticData
+                    pageStaticData =
+                        case pageStaticDataResult of
+                            Ok okPageStaticData ->
+                                okPageStaticData
+
+                            Err error ->
+                                Debug.todo (BuildError.errorToString error)
+
+                    pageModel : userModel
+                    pageModel =
+                        config.init
+                            pageStaticData
+                            Nothing
+                            (Just
+                                { path =
+                                    { path = currentPage.path
+                                    , query = Nothing
+                                    , fragment = Nothing
+                                    }
+                                , metadata = currentPage.frontmatter
+                                }
+                            )
+                            |> Tuple.first
+
+                    currentUrl =
+                        { protocol = Url.Https
+                        , host = config.canonicalSiteUrl
+                        , port_ = Nothing
+                        , path = page |> PagePath.toString
+                        , query = Nothing
+                        , fragment = Nothing
+                        }
+                in
+                case twoThings of
+                    Ok success ->
+                        let
+                            viewValue =
+                                success.view pageModel
+                        in
+                        { route = page |> PagePath.toString
+                        , contentJson =
+                            toJsPayload.pages
+                                |> Dict.get (PagePath.toString page)
+                                |> Maybe.withDefault Dict.empty
+                        , html = viewValue.body |> viewRenderer
+                        , errors = []
+                        , head = success.head
+                        , title = viewValue.title
+                        , body = "" --lookedUp.unparsedBody
+                        , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                        }
+                            |> sendProgress
+
+                    Err error ->
+                        [ error ]
+                            |> ToJsPayload.Errors
+                            |> Effect.SendJsData
 
 
 popProcessedRequest model =
