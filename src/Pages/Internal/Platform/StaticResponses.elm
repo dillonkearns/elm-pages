@@ -34,9 +34,10 @@ error =
 
 init :
     { config
-        | view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
-        , getStaticRoutes : StaticHttp.Request (List route)
+        | getStaticRoutes : StaticHttp.Request (List route)
         , site : SiteConfig route siteStaticData
+        , staticData : route -> StaticHttp.Request pageStaticData
+        , sharedStaticData : StaticHttp.Request sharedStaticData
         , generateFiles :
             StaticHttp.Request
                 (List
@@ -51,7 +52,7 @@ init :
     -> StaticResponses
 init config =
     NotFetched
-        (StaticHttp.map2 (\_ _ -> ())
+        (StaticHttp.map3 (\_ _ _ -> ())
             (config.getStaticRoutes
                 |> StaticHttp.andThen
                     (\resolvedRoutes ->
@@ -59,6 +60,7 @@ init config =
                     )
             )
             config.generateFiles
+            config.sharedStaticData
         )
         Dict.empty
         |> GettingInitialData
@@ -151,7 +153,8 @@ nextStep :
     { config
         | getStaticRoutes : StaticHttp.Request (List route)
         , routeToPath : route -> List String
-        , view : { path : PagePath, frontmatter : route } -> StaticHttp.Request b
+        , staticData : route -> StaticHttp.Request pageStaticData
+        , sharedStaticData : StaticHttp.Request sharedStaticData
         , site : SiteConfig route siteStaticData
         , generateFiles :
             StaticHttp.Request
@@ -314,7 +317,10 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         decoderErrors
                     )
     in
-    if pendingRequests then
+    if
+        pendingRequests
+            |> Debug.log "pendingRequests"
+    then
         let
             requestContinuations : List ( String, StaticHttp.Request () )
             requestContinuations =
@@ -377,7 +383,14 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                     resolvedRoutes : Result StaticHttpRequest.Error (List route)
                     resolvedRoutes =
                         StaticHttpRequest.resolve ApplicationType.Cli
-                            config.getStaticRoutes
+                            (StaticHttp.map3
+                                (\routes _ _ ->
+                                    routes
+                                )
+                                config.getStaticRoutes
+                                config.generateFiles
+                                config.sharedStaticData
+                            )
                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
                 in
                 case resolvedRoutes of
@@ -390,11 +403,9 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                             let
                                                 entry =
                                                     NotFetched
-                                                        (config.view
-                                                            { path = PagePath.build (config.routeToPath route)
-                                                            , frontmatter = route
-                                                            }
-                                                            |> StaticHttp.map (\_ -> ())
+                                                        (StaticHttp.map2 (\_ _ -> ())
+                                                            config.sharedStaticData
+                                                            (config.staticData route)
                                                         )
                                                         Dict.empty
                                             in

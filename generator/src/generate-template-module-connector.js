@@ -101,61 +101,61 @@ view :
     { path : PagePath
     , frontmatter : Maybe Route
     }
+    -> Shared.StaticData
+    -> PageStaticData
     ->
-        StaticHttp.Request
-            { view : Model -> { title : String, body : Html Msg }
-            , head : List Head.Tag
-            }
-view page =
-    case page.frontmatter of
-        Nothing ->
-            StaticHttp.fail <| "Page not found: " ++ Pages.PagePath.toString page.path
+        { view : Model -> { title : String, body : Html Msg }
+        , head : List Head.Tag
+        }
+view page globalData staticData =
+    case ( page.frontmatter, staticData ) of
         ${templates
           .map(
             (name) =>
-              `Just (Route.${routeHelpers.routeVariant(name)} s) ->
-            StaticHttp.map2
-                (\\data globalData ->
-                    { view =
-                        \\model ->
-                            case model.page of
-                                Model${pathNormalizedName(name)} subModel ->
-                                    Template.${moduleName(name)}.template.view
-                                        subModel
-                                        model.global
-                                        { static = data
-                                        , sharedStatic = globalData
-                                        , routeParams = s
-                                        , path = page.path
-                                        }
-                                        |> (\\{ title, body } ->
-                                                Shared.template.view
-                                                    globalData
-                                                    page
-                                                    model.global
-                                                    MsgGlobal
-                                                    ({ title = title, body = body }
-                                                        |> Document.map Msg${pathNormalizedName(
-                                                          name
-                                                        )}
-                                                    )
-                                           )
+              `( Just (Route.${routeHelpers.routeVariant(
+                name
+              )} s), Data${routeHelpers.routeVariant(name)} data ) ->
+                  { view =
+                      \\model ->
+                          case model.page of
+                              Model${pathNormalizedName(name)} subModel ->
+                                  Template.${moduleName(name)}.template.view
+                                      subModel
+                                      model.global
+                                      { static = data
+                                      , sharedStatic = globalData
+                                      , routeParams = s
+                                      , path = page.path
+                                      }
+                                      |> (\\{ title, body } ->
+                                              Shared.template.view
+                                                  globalData
+                                                  page
+                                                  model.global
+                                                  MsgGlobal
+                                                  ({ title = title, body = body }
+                                                      |> Document.map Msg${pathNormalizedName(
+                                                        name
+                                                      )}
+                                                  )
+                                          )
 
-                                _ ->
-                                    { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-                    , head = Template.${moduleName(name)}.template.head
-                        { static = data
-                        , sharedStatic = globalData
-                        , routeParams = s
-                        , path = page.path
-                        }
-                    }
-                )
-                (Template.${moduleName(name)}.template.staticData s)
-                (Shared.template.staticData)
+                              _ ->
+                                  { title = "Model mismatch", body = Html.text <| "Model mismatch" }
+                  , head = Template.${moduleName(name)}.template.head
+                      { static = data
+                      , sharedStatic = globalData
+                      , routeParams = s
+                      , path = page.path
+                      }
+                  }
 `
           )
           .join("\n\n        ")}
+        _ ->
+            --StaticHttp.fail <| "Page not found: " ++ Pages.PagePath.toString page.path
+            Debug.todo ""
+
 
 
 init :
@@ -331,7 +331,7 @@ templateSubscriptions route path model =
             Sub.none
 
 
-main : Pages.Internal.Platform.Program Model Msg (Maybe Route) PageStaticData
+main : Pages.Internal.Platform.Program Model Msg (Maybe Route) PageStaticData Shared.StaticData
 main =
     Pages.Internal.Platform.${
       phase === "browser" ? "application" : "cliApplication"

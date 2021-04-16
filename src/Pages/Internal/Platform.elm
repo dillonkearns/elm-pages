@@ -20,13 +20,13 @@ import Task
 import Url exposing (Url)
 
 
-type alias Program userModel userMsg route pageStaticData =
-    Platform.Program Flags (Model userModel route pageStaticData) (Msg userMsg)
+type alias Program userModel userMsg route pageStaticData sharedStaticData =
+    Platform.Program Flags (Model userModel route pageStaticData sharedStaticData) (Msg userMsg)
 
 
 mainView :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> ModelDetails userModel pageStaticData
+    -> ModelDetails userModel pageStaticData sharedStaticData
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
@@ -37,49 +37,15 @@ mainView config model =
     in
     case ContentCache.lookup model.contentCache urls of
         Just ( pagePath, entry ) ->
-            case entry of
-                ContentCache.Parsed viewResult ->
-                    let
-                        viewFnResult =
-                            { path = pagePath
-                            , frontmatter = config.urlToRoute model.url
-                            }
-                                |> config.view
-                                |> (\request ->
-                                        StaticHttpRequest.resolve ApplicationType.Browser
-                                            request
-                                            viewResult.staticData
-                                   )
-                    in
-                    case viewFnResult of
-                        Ok okViewFn ->
-                            okViewFn.view model.userModel
-
-                        Err error ->
-                            { title = "Parsing error"
-                            , body =
-                                case error of
-                                    StaticHttpRequest.DecoderError decoderError ->
-                                        Html.div []
-                                            [ Html.text "Could not parse static data. I encountered this decoder problem."
-                                            , Html.pre [] [ Html.text decoderError ]
-                                            ]
-
-                                    StaticHttpRequest.MissingHttpResponse missingKey ->
-                                        Html.div []
-                                            [ Html.text "I'm missing some StaticHttp data for this page:"
-                                            , Html.pre [] [ Html.text missingKey ]
-                                            ]
-
-                                    StaticHttpRequest.UserCalledStaticHttpFail message ->
-                                        Html.div []
-                                            [ Html.text "I ran into a call to `Pages.StaticHttp.fail` with message:"
-                                            , Html.pre [] [ Html.text message ]
-                                            ]
-                            }
-
-                ContentCache.NeedContent ->
-                    { title = "elm-pages error", body = Html.text "Missing content" }
+            (config.view
+                { path = pagePath
+                , frontmatter = config.urlToRoute model.url
+                }
+                model.sharedStaticData
+                model.pageStaticData
+                |> .view
+            )
+                model.userModel
 
         Nothing ->
             { title = "Page not found"
@@ -100,7 +66,7 @@ urlToPagePath url baseUrl =
 
 view :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> ModelDetails userModel pageStaticData
+    -> ModelDetails userModel pageStaticData sharedStaticData
     -> Browser.Document (Msg userMsg)
 view config model =
     let
@@ -148,7 +114,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel pageStaticData, Cmd (AppMsg userMsg) )
+    -> ( ModelDetails userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
 init config flags url key =
     let
         contentCache =
@@ -231,6 +197,22 @@ init config flags url key =
                         Err error ->
                             Debug.todo (BuildError.errorToString error)
 
+                sharedStaticDataResult : Result BuildError sharedStaticData
+                sharedStaticDataResult =
+                    StaticHttpRequest.resolve ApplicationType.Browser
+                        config.sharedStaticData
+                        justContentJson
+                        |> Result.mapError (StaticHttpRequest.toBuildError url.path)
+
+                sharedStaticData : sharedStaticData
+                sharedStaticData =
+                    case sharedStaticDataResult of
+                        Ok okSharedStaticData ->
+                            okSharedStaticData
+
+                        Err error ->
+                            Debug.todo (BuildError.errorToString error)
+
                 ( userModel, userCmd ) =
                     Maybe.map
                         (\pagePath ->
@@ -272,6 +254,7 @@ init config flags url key =
               , contentCache = contentCache
               , phase = phase
               , pageStaticData = pageStaticData
+              , sharedStaticData = sharedStaticData
               }
             , cmd
             )
@@ -279,6 +262,9 @@ init config flags url key =
         Err _ ->
             let
                 pageStaticData =
+                    Debug.todo ""
+
+                sharedStaticData =
                     Debug.todo ""
 
                 ( userModel, userCmd ) =
@@ -291,6 +277,7 @@ init config flags url key =
               , contentCache = contentCache
               , phase = DevClient False
               , pageStaticData = pageStaticData
+              , sharedStaticData = sharedStaticData
               }
             , Cmd.batch
                 [ userCmd |> Cmd.map UserMsg
@@ -315,12 +302,12 @@ type AppMsg userMsg
     | StartingHotReload
 
 
-type Model userModel route pageStaticData
-    = Model (ModelDetails userModel pageStaticData)
+type Model userModel route pageStaticData sharedStaticData
+    = Model (ModelDetails userModel pageStaticData sharedStaticData)
     | CliModel (Pages.Internal.Platform.Cli.Model route)
 
 
-type alias ModelDetails userModel pageStaticData =
+type alias ModelDetails userModel pageStaticData sharedStaticData =
     { key : Browser.Navigation.Key
     , url : Url
     , baseUrl : Url
@@ -328,6 +315,7 @@ type alias ModelDetails userModel pageStaticData =
     , userModel : userModel
     , phase : Phase
     , pageStaticData : pageStaticData
+    , sharedStaticData : sharedStaticData
     }
 
 
@@ -341,8 +329,8 @@ update :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
-    -> ModelDetails userModel pageStaticData
-    -> ( ModelDetails userModel pageStaticData, Cmd (AppMsg userMsg) )
+    -> ModelDetails userModel pageStaticData sharedStaticData
+    -> ( ModelDetails userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
 update config userUpdate msg model =
     case msg of
         AppMsg appMsg ->
@@ -431,11 +419,27 @@ update config userUpdate msg model =
 
                                         _ ->
                                             ( model.userModel, Cmd.none )
+
+                                urls =
+                                    { currentUrl = model.url, baseUrl = model.baseUrl }
                             in
                             ( { model
                                 | url = url
                                 , contentCache = updatedCache
                                 , userModel = userModel
+                                , pageStaticData =
+                                    ContentCache.lookupContentJson updatedCache urls
+                                        |> Maybe.andThen
+                                            (\requests ->
+                                                StaticHttpRequest.resolve ApplicationType.Browser
+                                                    (config.staticData (config.urlToRoute url))
+                                                    requests
+                                                    |> Result.toMaybe
+                                             -- TODO handle Maybe/Err cases
+                                            )
+                                        |> Maybe.withDefault model.pageStaticData
+
+                                -- TODO update pageStaticData here?
                               }
                             , Cmd.batch
                                 [ userCmd |> Cmd.map UserMsg
@@ -471,7 +475,7 @@ update config userUpdate msg model =
 
 application :
     ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
-    -> Platform.Program Flags (Model userModel route pageStaticData) (Msg userMsg)
+    -> Platform.Program Flags (Model userModel route pageStaticData sharedStaticData) (Msg userMsg)
 application config =
     Browser.application
         { init =
@@ -567,7 +571,7 @@ application config =
 
 cliApplication :
     ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
-    -> Program userModel userMsg route pageStaticData
+    -> Program userModel userMsg route pageStaticData sharedStaticData
 cliApplication =
     Pages.Internal.Platform.Cli.cliApplication CliMsg
         (\msg ->

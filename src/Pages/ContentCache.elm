@@ -5,6 +5,7 @@ module Pages.ContentCache exposing
     , init
     , lazyLoad
     , lookup
+    , lookupContentJson
     , lookupMetadata
     )
 
@@ -247,4 +248,22 @@ lookupMetadata content urls =
 
                     Parsed _ ->
                         pagePath
+            )
+
+
+lookupContentJson :
+    ContentCache
+    -> { currentUrl : Url, baseUrl : Url }
+    -> Maybe RequestsAndPending
+lookupContentJson content urls =
+    urls
+        |> lookup content
+        |> Maybe.andThen
+            (\( pagePath, entry ) ->
+                case entry of
+                    NeedContent ->
+                        Nothing
+
+                    Parsed contentJson ->
+                        Just contentJson.staticData
             )

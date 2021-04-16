@@ -33,11 +33,12 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
         { path : PagePath
         , frontmatter : route
         }
+        -> sharedStaticData
+        -> pageStaticData
         ->
-            StaticHttp.Request
-                { view : userModel -> { title : String, body : Html userMsg }
-                , head : List Head.Tag
-                }
+            { view : userModel -> { title : String, body : Html userMsg }
+            , head : List Head.Tag
+            }
     , getStaticRoutes : StaticHttp.Request (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String

@@ -801,7 +801,10 @@ sendSinglePageProgress toJsPayload config model =
                             , head : List Head.Tag
                             }
                     viewRequest =
-                        config.view currentPage
+                        StaticHttp.map2
+                            (\data sharedData -> config.view currentPage sharedData data)
+                            (config.staticData currentPage.frontmatter)
+                            config.sharedStaticData
 
                     twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List Head.Tag }
                     twoThings =

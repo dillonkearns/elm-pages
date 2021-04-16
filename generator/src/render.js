@@ -67,7 +67,7 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
         const args = fromElm.args[0];
-        console.log(`InitialData`, args);
+        // console.log(`InitialData`, args);
         writeGeneratedFiles(args.filesToGenerate);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
