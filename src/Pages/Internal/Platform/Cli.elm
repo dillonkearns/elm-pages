@@ -30,6 +30,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
+import RenderRequest
 import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
@@ -416,16 +417,16 @@ initLegacy :
     -> ( model, Effect )
 initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCache config flags =
     let
-        maybeRequestPayload =
-            Decode.decodeValue (requestPayloadDecoder config) flags
+        renderRequest =
+            Decode.decodeValue (RenderRequest.decoder config) flags
                 -- TODO handle decoder errors
-                |> Result.withDefault Nothing
+                |> Result.withDefault RenderRequest.FullBuild
     in
     let
         staticResponses : StaticResponses
         staticResponses =
-            case maybeRequestPayload of
-                Just serverRequestPayload ->
+            case renderRequest of
+                RenderRequest.SinglePage RenderRequest.HtmlAndJson serverRequestPayload ->
                     StaticResponses.renderSingleRoute config
                         serverRequestPayload
                         (StaticHttp.map2 (\_ _ -> ())
@@ -433,15 +434,15 @@ initLegacy maybeRequestJson { secrets, mode, staticHttpCache } toModel contentCa
                             config.sharedStaticData
                         )
 
-                Nothing ->
+                RenderRequest.FullBuild ->
                     StaticResponses.init config
 
         unprocessedPages =
-            case maybeRequestPayload of
-                Just serverRequestPayload ->
+            case renderRequest of
+                RenderRequest.SinglePage RenderRequest.HtmlAndJson serverRequestPayload ->
                     [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
 
-                Nothing ->
+                RenderRequest.FullBuild ->
                     []
     in
     StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses Nothing
