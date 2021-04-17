@@ -914,6 +914,7 @@ sendSinglePageProgress toJsPayload config model =
                             |> Effect.SendJsData
 
 
+popProcessedRequest : Model route -> Model route
 popProcessedRequest model =
     { model | unprocessedPages = List.drop 1 model.unprocessedPages }
 
