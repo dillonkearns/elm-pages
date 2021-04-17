@@ -790,31 +790,6 @@ sendSinglePageProgress toJsPayload config model =
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                    pageStaticData : pageStaticData
-                    pageStaticData =
-                        case pageStaticDataResult of
-                            Ok okPageStaticData ->
-                                okPageStaticData
-
-                            Err error ->
-                                Debug.todo (BuildError.errorToString error)
-
-                    pageModel : userModel
-                    pageModel =
-                        config.init
-                            pageStaticData
-                            Nothing
-                            (Just
-                                { path =
-                                    { path = currentPage.path
-                                    , query = Nothing
-                                    , fragment = Nothing
-                                    }
-                                , metadata = currentPage.frontmatter
-                                }
-                            )
-                            |> Tuple.first
-
                     currentUrl =
                         { protocol = Url.Https
                         , host = config.canonicalSiteUrl
@@ -824,9 +799,26 @@ sendSinglePageProgress toJsPayload config model =
                         , fragment = Nothing
                         }
                 in
-                case twoThings of
-                    Ok success ->
+                case Result.map2 Tuple.pair twoThings pageStaticDataResult of
+                    Ok ( success, pageStaticData ) ->
                         let
+                            pageModel : userModel
+                            pageModel =
+                                config.init
+                                    pageStaticData
+                                    Nothing
+                                    (Just
+                                        { path =
+                                            { path = currentPage.path
+                                            , query = Nothing
+                                            , fragment = Nothing
+                                            }
+                                        , metadata = currentPage.frontmatter
+                                        }
+                                    )
+                                    |> Tuple.first
+
+                            viewValue : { title : String, body : Html userMsg }
                             viewValue =
                                 success.view pageModel
                         in
