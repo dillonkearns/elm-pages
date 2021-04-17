@@ -406,13 +406,54 @@ update config appMsg model =
             let
                 urls =
                     { currentUrl = model.url, baseUrl = model.baseUrl }
+
+                pageStaticDataResult : Result BuildError pageStaticData
+                pageStaticDataResult =
+                    StaticHttpRequest.resolve ApplicationType.Browser
+                        (config.staticData (config.urlToRoute model.url))
+                        contentJson.staticData
+                        |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
+
+                sharedStaticDataResult : Result BuildError sharedStaticData
+                sharedStaticDataResult =
+                    StaticHttpRequest.resolve ApplicationType.Browser
+                        config.sharedStaticData
+                        contentJson.staticData
+                        |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
+
+                maybePagePath =
+                    case ContentCache.lookupMetadata model.contentCache urls of
+                        Just pagePath ->
+                            Just pagePath
+
+                        Nothing ->
+                            Nothing
             in
-            ( { model
-                | contentCache =
-                    ContentCache.init (Just ( urls, contentJson ))
-              }
-            , Cmd.none
-            )
+            case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
+                Ok ( sharedStaticData, pageStaticData ) ->
+                    ( { model
+                        | contentCache =
+                            ContentCache.init (Just ( urls, contentJson ))
+                        , pageData =
+                            model.pageData
+                                |> Result.map
+                                    (\previousPageData ->
+                                        { pageStaticData = pageStaticData
+                                        , sharedStaticData = sharedStaticData
+                                        , userModel = previousPageData.userModel
+                                        }
+                                    )
+                      }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    ( { model
+                        | contentCache =
+                            ContentCache.init (Just ( urls, contentJson ))
+                      }
+                    , Cmd.none
+                    )
 
         StartingHotReload ->
             ( model, Cmd.none )
@@ -444,13 +485,26 @@ application config =
                 in
                 case model.pageData of
                     Ok pageData ->
-                        Maybe.map
-                            (\path ->
-                                config.subscriptions (path |> pathToUrl |> config.urlToRoute) path pageData.userModel
-                                    |> Sub.map UserMsg
-                            )
-                            maybePagePath
-                            |> Maybe.withDefault Sub.none
+                        Sub.batch
+                            [ Maybe.map
+                                (\path ->
+                                    config.subscriptions (path |> pathToUrl |> config.urlToRoute) path pageData.userModel
+                                        |> Sub.map UserMsg
+                                )
+                                maybePagePath
+                                |> Maybe.withDefault Sub.none
+                            , config.fromJsPort
+                                |> Sub.map
+                                    (\decodeValue ->
+                                        case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
+                                            Ok contentJson ->
+                                                HotReloadComplete contentJson
+
+                                            Err _ ->
+                                                -- TODO should be no message here
+                                                StartingHotReload
+                                    )
+                            ]
 
                     Err _ ->
                         Sub.none
