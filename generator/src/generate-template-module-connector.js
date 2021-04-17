@@ -25,7 +25,11 @@ import Route exposing (Route)
 import Document
 import Json.Decode
 import Json.Encode
-import Pages.Internal.Platform
+import ${
+      phase === "browser"
+        ? "Pages.Internal.Platform"
+        : "Pages.Internal.Platform.Cli"
+    }
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Manifest as Manifest
 import Shared
@@ -335,10 +339,16 @@ templateSubscriptions route path model =
             Sub.none
 
 
-main : Pages.Internal.Platform.Program Model Msg (Maybe Route) PageStaticData Shared.StaticData
+main : ${
+      phase === "browser"
+        ? "Pages.Internal.Platform.Program Model Msg (Maybe Route) PageStaticData Shared.StaticData"
+        : "Pages.Internal.Platform.Cli.Program (Maybe Route)"
+    }
 main =
-    Pages.Internal.Platform.${
-      phase === "browser" ? "application" : "cliApplication"
+    ${
+      phase === "browser"
+        ? "Pages.Internal.Platform.application"
+        : "Pages.Internal.Platform.Cli.cliApplication"
     }
         { init = init Nothing
         , urlToRoute = Route.urlToRoute

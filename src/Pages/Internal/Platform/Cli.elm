@@ -2,6 +2,7 @@ module Pages.Internal.Platform.Cli exposing
     ( Flags
     , Model
     , Msg(..)
+    , Program
     , cliApplication
     , init
     , update
@@ -61,14 +62,14 @@ type Msg
     | Continue
 
 
+type alias Program route =
+    Platform.Program Flags (Model route) Msg
+
+
 cliApplication :
-    (Msg -> msg)
-    -> (msg -> Maybe Msg)
-    -> (Model route -> model)
-    -> (model -> Maybe (Model route))
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> Platform.Program Flags model msg
-cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
+    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> Program route
+cliApplication config =
     let
         contentCache =
             ContentCache.init Nothing
@@ -81,18 +82,14 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
                         Decode.decodeValue (RenderRequest.decoder config) flags
                             |> Result.withDefault RenderRequest.FullBuild
                 in
-                init renderRequest toModel contentCache config flags
-                    |> Tuple.mapSecond (perform renderRequest config cliMsgConstructor config.toJsPort)
+                init renderRequest contentCache config flags
+                    |> Tuple.mapSecond (perform renderRequest config config.toJsPort)
         , update =
             \msg model ->
-                case ( narrowMsg msg, fromModel model ) of
-                    ( Just cliMsg, Just cliModel ) ->
+                case ( msg, model ) of
+                    ( cliMsg, cliModel ) ->
                         update contentCache config cliMsg cliModel
-                            |> Tuple.mapSecond (perform cliModel.maybeRequestJson config cliMsgConstructor config.toJsPort)
-                            |> Tuple.mapFirst toModel
-
-                    _ ->
-                        ( model, Cmd.none )
+                            |> Tuple.mapSecond (perform cliModel.maybeRequestJson config config.toJsPort)
         , subscriptions =
             \_ ->
                 config.fromJsPort
@@ -125,7 +122,6 @@ cliApplication cliMsgConstructor narrowMsg toModel fromModel config =
                             Decode.decodeValue decoder jsonValue
                                 |> Result.mapError Decode.errorToString
                                 |> Result.withDefault Continue
-                                |> cliMsgConstructor
                         )
         }
 
@@ -170,8 +166,11 @@ asJsonView x =
     Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
 
 
-perform : RenderRequest route -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData -> (Msg -> msg) -> (Json.Encode.Value -> Cmd Never) -> Effect -> Cmd msg
-perform renderRequest config cliMsgConstructor toJsPort effect =
+
+--perform : RenderRequest route -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData -> (Json.Encode.Value -> Cmd Msg) -> Effect -> Cmd Msg
+
+
+perform renderRequest config toJsPort effect =
     case effect of
         Effect.NoEffect ->
             Cmd.none
@@ -184,7 +183,7 @@ perform renderRequest config cliMsgConstructor toJsPort effect =
 
         Effect.Batch list ->
             list
-                |> List.map (perform renderRequest config cliMsgConstructor toJsPort)
+                |> List.map (perform renderRequest config toJsPort)
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
@@ -198,7 +197,7 @@ perform renderRequest config cliMsgConstructor toJsPort effect =
                                 |> Maybe.map (Json.Encode.encode 0)
                                 |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
                         }
-                        |> Task.perform (GotStaticHttpResponse >> cliMsgConstructor)
+                        |> Task.perform GotStaticHttpResponse
                     ]
 
             else if unmasked.url |> String.startsWith "file://" then
@@ -240,7 +239,7 @@ perform renderRequest config cliMsgConstructor toJsPort effect =
                         , expect =
                             Pages.Http.expectString
                                 (\response ->
-                                    (GotStaticHttpResponse >> cliMsgConstructor)
+                                    GotStaticHttpResponse
                                         { request = requests
                                         , response = response
                                         }
@@ -274,7 +273,6 @@ perform renderRequest config cliMsgConstructor toJsPort effect =
                     |> Cmd.map never
                 , Task.succeed ()
                     |> Task.perform (\_ -> Continue)
-                    |> Cmd.map cliMsgConstructor
                 ]
 
         Effect.Continue ->
@@ -320,15 +318,14 @@ flagsDecoder =
 
 init :
     RenderRequest route
-    -> (Model route -> model)
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> Decode.Value
-    -> ( model, Effect )
-init renderRequest toModel contentCache config flags =
+    -> ( Model route, Effect )
+init renderRequest contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, mode, staticHttpCache } ->
-            initLegacy renderRequest { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } toModel contentCache config flags
+            initLegacy renderRequest { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -350,18 +347,16 @@ init renderRequest toModel contentCache config flags =
                 , staticRoutes = Just []
                 , maybeRequestJson = renderRequest
                 }
-                toModel
 
 
 initLegacy :
     RenderRequest route
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
-    -> (Model route -> model)
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> Decode.Value
-    -> ( model, Effect )
-initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache config flags =
+    -> ( Model route, Effect )
+initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -406,16 +401,14 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache
             , staticRoutes = unprocessedPagesState
             , maybeRequestJson = renderRequest
             }
-        |> Tuple.mapFirst toModel
 
 
 updateAndSendPortIfDone :
     ContentCache
     -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> Model route
-    -> (Model route -> model)
-    -> ( model, Effect )
-updateAndSendPortIfDone contentCache config model toModel =
+    -> ( Model route, Effect )
+updateAndSendPortIfDone contentCache config model =
     StaticResponses.nextStep
         config
         model.mode
@@ -425,7 +418,6 @@ updateAndSendPortIfDone contentCache config model toModel =
         model.staticResponses
         Nothing
         |> nextStepToEffect contentCache config model
-        |> Tuple.mapFirst toModel
 
 
 

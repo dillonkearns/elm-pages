@@ -15,7 +15,7 @@ const mm = require("micromatch");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
-const debug = false;
+const debug = true;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {

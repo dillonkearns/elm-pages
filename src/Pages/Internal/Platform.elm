@@ -1,4 +1,4 @@
-module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application, cliApplication)
+module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application)
 
 import Browser
 import Browser.Dom as Dom
@@ -558,30 +558,6 @@ application config =
         , onUrlChange = UrlChanged >> AppMsg
         , onUrlRequest = LinkClicked >> AppMsg
         }
-
-
-cliApplication :
-    ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
-    -> Program userModel userMsg route pageStaticData sharedStaticData
-cliApplication =
-    Pages.Internal.Platform.Cli.cliApplication CliMsg
-        (\msg ->
-            case msg of
-                CliMsg cliMsg ->
-                    Just cliMsg
-
-                _ ->
-                    Nothing
-        )
-        CliModel
-        (\model ->
-            case model of
-                CliModel cliModel ->
-                    Just cliModel
-
-                _ ->
-                    Nothing
-        )
 
 
 pathToUrl : PagePath -> Url
