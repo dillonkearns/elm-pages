@@ -353,33 +353,6 @@ init renderRequest toModel contentCache config flags =
                 toModel
 
 
-type alias RequestPayload route =
-    { path : PagePath
-    , frontmatter : route
-    }
-
-
-requestPayloadDecoder :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> Decode.Decoder (Maybe (RequestPayload route))
-requestPayloadDecoder config =
-    optionalField "request"
-        (Decode.field "path"
-            (Decode.string
-                |> Decode.map
-                    (\path ->
-                        let
-                            route =
-                                pathToUrl path |> config.urlToRoute
-                        in
-                        { frontmatter = route
-                        , path = config.routeToPath route |> PagePath.build
-                        }
-                    )
-            )
-        )
-
-
 pathToUrl : String -> Url
 pathToUrl path =
     { protocol = Url.Https
