@@ -1,34 +1,26 @@
-#!/usr/bin/env node
-
 const fs = require("./dir-helpers.js");
 const path = require("path");
 const routeHelpers = require("./route-codegen-helpers");
 
-async function run() {
-  if (process.argv.length === 3) {
-    const moduleName = process.argv[2];
-    if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
-      console.error("Invalid module name.");
-      process.exit(1);
-    }
-    const content = fileContent(moduleName);
-    const fullFilePath = path.join(
-      `src/Template/`,
-      moduleName.replaceAll(".", "/") + ".elm"
-    );
-    await fs.tryMkdir(path.dirname(fullFilePath));
-    fs.writeFile(fullFilePath, content);
-  } else {
-    console.error(`Unexpected CLI options: ${process.argv}`);
+async function run({ moduleName }) {
+  if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
+    console.error("Invalid module name.");
     process.exit(1);
   }
+  const content = fileContent(moduleName);
+  const fullFilePath = path.join(
+    `src/Template/`,
+    moduleName.replaceAll(".", "/") + ".elm"
+  );
+  await fs.tryMkdir(path.dirname(fullFilePath));
+  fs.writeFile(fullFilePath, content);
 }
 
 /**
  * @param {string} templateName
  */
 function fileContent(templateName) {
-  return `module Template.${templateName} exposing (Model, Msg, template)
+  return `module Template.${templateName} exposing (Model, Msg, StaticData, template)
 
 import Element exposing (Element)
 import Document exposing (Document)
@@ -95,4 +87,4 @@ view static =
 `;
 }
 
-run();
+module.exports = { run };

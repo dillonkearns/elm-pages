@@ -2,6 +2,7 @@
 
 const build = require("./build.js");
 const dev = require("./dev-server.js");
+const generate = require("./codegen-template-module.js");
 
 const commander = require("commander");
 
@@ -27,6 +28,13 @@ async function main() {
     .action(async (options) => {
       console.log({ options });
       await dev.start(options);
+    });
+
+  program
+    .command("add <moduleName>")
+    .description("create a new Page Template module")
+    .action(async (moduleName) => {
+      await generate.run({ moduleName });
     });
 
   program.parse(process.argv);
