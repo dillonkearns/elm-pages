@@ -699,18 +699,36 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
                         Nothing ->
                             model.unprocessedPages
+
+                updatedModel =
+                    { model
+                        | allRawResponses = updatedAllRawResponses
+                        , pendingRequests = pending
+                        , staticResponses = updatedStaticResponsesModel
+                        , staticRoutes = updatedRoutes
+                        , unprocessedPages = updatedUnprocessedPages
+                    }
             in
-            ( { model
-                | allRawResponses = updatedAllRawResponses
-                , pendingRequests = pending
-                , staticResponses = updatedStaticResponsesModel
-                , staticRoutes = updatedRoutes
-                , unprocessedPages = updatedUnprocessedPages
-              }
-            , doNow
-                |> List.map Effect.FetchHttp
-                |> Effect.Batch
-            )
+            if List.isEmpty doNow && updatedRoutes /= model.staticRoutes then
+                nextStepToEffect contentCache
+                    config
+                    updatedModel
+                    (StaticResponses.nextStep config
+                        updatedModel.mode
+                        updatedModel.secrets
+                        updatedModel.allRawResponses
+                        updatedModel.errors
+                        updatedModel.staticResponses
+                        Nothing
+                    )
+
+            else
+                ( updatedModel
+                , (doNow
+                    |> List.map Effect.FetchHttp
+                  )
+                    |> Effect.Batch
+                )
 
         StaticResponses.Finish toJsPayload ->
             case model.mode of

@@ -21,6 +21,7 @@ import Pages.StaticHttp.Request as Request
 import PagesHttp
 import ProgramTest exposing (ProgramTest)
 import Regex
+import RenderRequest
 import Secrets
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
@@ -828,7 +829,25 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     |> StaticHttp.succeed
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ -> ( (), Cmd.none )
-            , staticData = \_ -> StaticHttp.succeed ()
+            , staticData =
+                \(Route pageRoute) ->
+                    let
+                        thing =
+                            pages
+                                |> Dict.fromList
+                                |> Dict.get
+                                    (pageRoute
+                                        |> String.split "/"
+                                        |> List.filter (\pathPart -> pathPart /= "")
+                                    )
+                    in
+                    case thing of
+                        Just request ->
+                            --\_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
+                            request |> StaticHttp.map (\_ -> ())
+
+                        Nothing ->
+                            Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
             , site =
                 \_ ->
                     { staticData = StaticHttp.succeed ()
@@ -852,9 +871,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            request
-                                |> StaticHttp.map
-                                    (\_ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] })
+                            \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
 
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
@@ -900,7 +917,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
        -> ( model, Effect pathKey )
     -}
     ProgramTest.createDocument
-        { init = init Nothing identity contentCache config
+        { init = init RenderRequest.FullBuild identity contentCache config
         , update = update contentCache config
         , view = \_ -> { title = "", body = [] }
         }

@@ -415,8 +415,13 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                         )
                                     |> Dict.fromList
                                     |> StaticResponses
+
+                            newThing =
+                                []
                         in
-                        nextStep config mode secrets allRawResponses errors newState (Just staticRoutes)
+                        ( newState
+                        , Continue allRawResponses newThing (Just staticRoutes)
+                        )
 
                     Err error_ ->
                         ( staticResponses_
