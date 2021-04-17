@@ -317,10 +317,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         decoderErrors
                     )
     in
-    if
-        pendingRequests
-            |> Debug.log "pendingRequests"
-    then
+    if pendingRequests then
         let
             requestContinuations : List ( String, StaticHttp.Request () )
             requestContinuations =
