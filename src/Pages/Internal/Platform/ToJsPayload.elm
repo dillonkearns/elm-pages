@@ -27,7 +27,6 @@ type alias ToJsSuccessPayloadNew =
     , contentJson : Dict String String
     , errors : List String
     , head : List Head.Tag
-    , body : String
     , title : String
     , staticHttpCache : Dict String String
     }
@@ -149,7 +148,6 @@ successCodecNew canonicalSiteUrl currentPagePath =
             (Codec.dict Codec.string)
         |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.field "head" .head (Codec.list (headCodec canonicalSiteUrl currentPagePath))
-        |> Codec.field "body" .body Codec.string
         |> Codec.field "title" .title Codec.string
         |> Codec.field "staticHttpCache"
             .staticHttpCache

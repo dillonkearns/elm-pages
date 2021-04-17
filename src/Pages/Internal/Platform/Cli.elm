@@ -809,7 +809,6 @@ sendSinglePageProgress toJsPayload config model =
                 , errors = []
                 , head = []
                 , title = "No HTML rendered"
-                , body = "" --lookedUp.unparsedBody
                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                 }
                     |> sendProgress
@@ -903,7 +902,6 @@ sendSinglePageProgress toJsPayload config model =
                         , errors = []
                         , head = success.head
                         , title = viewValue.title
-                        , body = "" --lookedUp.unparsedBody
                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                         }
                             |> sendProgress
@@ -921,8 +919,4 @@ popProcessedRequest model =
 
 sendProgress : ToJsPayload.ToJsSuccessPayloadNew -> Effect
 sendProgress singlePage =
-    Effect.Batch
-        [ singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage
-
-        --, Effect.Continue
-        ]
+    singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage
