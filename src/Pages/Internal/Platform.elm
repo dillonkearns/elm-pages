@@ -147,8 +147,8 @@ init config flags url key =
             , baseUrl = baseUrl
             }
     in
-    case Ok contentCache of
-        Ok okCache ->
+    case contentJson |> Maybe.map .staticData of
+        Just justContentJson ->
             let
                 phase =
                     case
@@ -171,15 +171,6 @@ init config flags url key =
 
                         Err _ ->
                             DevClient False
-
-                justContentJson : RequestsAndPending
-                justContentJson =
-                    case contentJson of
-                        Nothing ->
-                            Debug.todo "Expected content.json"
-
-                        Just justValue ->
-                            justValue.staticData
 
                 pageStaticDataResult : Result BuildError pageStaticData
                 pageStaticDataResult =
@@ -240,7 +231,7 @@ init config flags url key =
                         |> Cmd.batch
 
                 maybePagePath =
-                    case ContentCache.lookupMetadata okCache urls of
+                    case ContentCache.lookupMetadata contentCache urls of
                         Just pagePath ->
                             Just pagePath
 
@@ -259,7 +250,7 @@ init config flags url key =
             , cmd
             )
 
-        Err _ ->
+        Nothing ->
             let
                 pageStaticData =
                     Debug.todo ""
