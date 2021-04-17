@@ -20,6 +20,7 @@
   "author": "Dillon Kearns",
   "license": "BSD-3-Clause",
   "dependencies": {
+    "commander": "^7.2.0",
     "connect": "^3.7.0",
     "cross-spawn": "7.0.3",
     "elm-hot": "^1.1.6",
@@ -47,6 +48,6 @@
     "generator/src/"
   ],
   "bin": {
-    "elm-pages": "generator/src/build.js"
+    "elm-pages": "generator/src/cli.js"
   }
 }

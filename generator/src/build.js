@@ -1,6 +1,3 @@
-#!/usr/bin/env node
-// @ts-check
-
 const cliVersion = require("../../package.json").version;
 const indexTemplate = require("./index-template.js");
 const fs = require("./dir-helpers.js");
@@ -15,12 +12,11 @@ const mm = require("micromatch");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
-const debug = false;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
   console.error(error);
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 const ELM_FILE_PATH = path.join(
@@ -33,16 +29,16 @@ async function ensureRequiredDirs() {
   fs.tryMkdir(`dist`);
 }
 
-async function run() {
+async function run(options) {
   await ensureRequiredDirs();
   XMLHttpRequest = require("xhr2");
 
   await codegen.generate();
 
-  await compileCliApp();
+  await compileCliApp(options);
 
-  copyAssets();
-  compileElm();
+  await copyAssets();
+  await compileElm(options);
 
   runElmApp();
 }
@@ -163,18 +159,18 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   fs.writeFile(`dist/${normalizedRoute}/content.json`, contentJsonString);
 }
 
-async function compileElm() {
+async function compileElm(options) {
   const outputPath = `dist/elm.js`;
   const fullOutputPath = path.join(process.cwd(), `dist/elm.js`);
-  await spawnElmMake("gen/TemplateModulesBeta.elm", outputPath);
+  await spawnElmMake(options, "gen/TemplateModulesBeta.elm", outputPath);
 
   // const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
-  if (!debug) {
+  if (!options.debug) {
     await runTerser(fullOutputPath);
   }
 }
 
-function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
+function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
     if (fs.existsSync(fullOutputPath)) {
@@ -182,7 +178,7 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
-    const subprocess = runElm(elmEntrypointPath, outputPath, cwd);
+    const subprocess = runElm(options, elmEntrypointPath, outputPath, cwd);
 
     subprocess.on("close", (code) => {
       const fileOutputExists = fs.existsSync(fullOutputPath);
@@ -201,8 +197,8 @@ function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
  * @param {string} outputPath
  * @param {string} cwd
  */
-function runElm(elmEntrypointPath, outputPath, cwd) {
-  if (debug) {
+function runElm(options, elmEntrypointPath, outputPath, cwd) {
+  if (options.debug) {
     console.log("Running elm make");
     return spawnCallback(
       `elm`,
@@ -277,8 +273,9 @@ async function copyAssets() {
   fs.copyDirFlat("static", "dist");
 }
 
-async function compileCliApp() {
+async function compileCliApp(options) {
   await spawnElmMake(
+    options,
     "TemplateModulesBeta.elm",
     "elm.js",
     "./elm-stuff/elm-pages"
@@ -289,12 +286,10 @@ async function compileCliApp() {
     ELM_FILE_PATH,
     elmFileContent.replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return " + (debug ? "_Json_wrap(x)" : "x")
+      "return " + (options.debug ? "_Json_wrap(x)" : "x")
     )
   );
 }
-
-run();
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
@@ -353,3 +348,5 @@ function wrapHtml(fromElm, contentJsonString) {
   </html>
   `;
 }
+
+module.exports = { run };
