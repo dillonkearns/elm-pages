@@ -34,7 +34,7 @@ import RenderRequest exposing (RenderRequest)
 import SecretsDict exposing (SecretsDict)
 import Task
 import TerminalText as Terminal
-import Url exposing (Url)
+import Url
 
 
 type alias Flags =
@@ -50,7 +50,7 @@ type alias Model route =
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( PagePath, route )
     , staticRoutes : Maybe (List ( PagePath, route ))
-    , maybeRequestJson : RenderRequest.RenderRequest route
+    , maybeRequestJson : RenderRequest route
     }
 
 
@@ -353,34 +353,6 @@ init renderRequest toModel contentCache config flags =
                 toModel
 
 
-pathToUrl : String -> Url
-pathToUrl path =
-    { protocol = Url.Https
-    , host = "TODO"
-    , port_ = Nothing
-    , path = path
-    , query = Nothing
-    , fragment = Nothing
-    }
-
-
-optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
-optionalField fieldName decoder =
-    let
-        finishDecoding json =
-            case Decode.decodeValue (Decode.field fieldName Decode.value) json of
-                Ok _ ->
-                    -- The field is present, so run the decoder on it.
-                    Decode.map Just (Decode.field fieldName decoder)
-
-                Err _ ->
-                    -- The field was missing, which is fine!
-                    Decode.succeed Nothing
-    in
-    Decode.value
-        |> Decode.andThen finishDecoding
-
-
 initLegacy :
     RenderRequest route
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
@@ -394,7 +366,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
-                RenderRequest.SinglePage includeHtml serverRequestPayload _ ->
+                RenderRequest.SinglePage _ serverRequestPayload _ ->
                     StaticResponses.renderSingleRoute config
                         serverRequestPayload
                         (StaticHttp.map2 (\_ _ -> ())
@@ -407,7 +379,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache
 
         unprocessedPages =
             case renderRequest of
-                RenderRequest.SinglePage includeHtml serverRequestPayload _ ->
+                RenderRequest.SinglePage _ serverRequestPayload _ ->
                     [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
 
                 RenderRequest.FullBuild ->
@@ -415,7 +387,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache
 
         unprocessedPagesState =
             case renderRequest of
-                RenderRequest.SinglePage includeHtml serverRequestPayload _ ->
+                RenderRequest.SinglePage _ serverRequestPayload _ ->
                     Just [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
 
                 RenderRequest.FullBuild ->
@@ -770,7 +742,7 @@ sendSinglePageProgress :
     -> ( PagePath, route )
     -> Effect
 sendSinglePageProgress toJsPayload config model =
-    \( page, route ) ->
+    \( page, _ ) ->
         case model.maybeRequestJson of
             RenderRequest.SinglePage _ _ _ ->
                 { route = page |> PagePath.toString

@@ -870,7 +870,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                                     )
                     in
                     case thing of
-                        Just request ->
+                        Just _ ->
                             \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
 
                         Nothing ->

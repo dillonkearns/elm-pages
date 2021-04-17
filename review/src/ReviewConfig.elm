@@ -47,5 +47,8 @@ config =
         |> List.map
             (\rule ->
                 rule
-                    |> Rule.ignoreErrorsForFiles [ "src/Pages/Internal/Platform/Effect.elm" ]
+                    |> Rule.ignoreErrorsForFiles
+                        [ "src/Pages/Internal/Platform/Effect.elm"
+                        , "src/Pages/Internal/Platform.elm"
+                        ]
             )

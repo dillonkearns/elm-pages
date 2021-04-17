@@ -6,7 +6,7 @@ import Dict.Extra
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
-import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttp.Request as HashRequest

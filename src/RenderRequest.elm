@@ -26,7 +26,7 @@ maybeRequestPayload renderRequest =
         FullBuild ->
             Nothing
 
-        SinglePage _ payload rawJson ->
+        SinglePage _ _ rawJson ->
             Just rawJson
 
 

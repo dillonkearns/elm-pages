@@ -68,13 +68,6 @@ init maybeInitialPageContent =
         )
 
 
-routes : List ( List String, anything ) -> List String
-routes record =
-    record
-        |> List.map Tuple.first
-        |> List.map (String.join "/")
-
-
 {-| Get from the Cache... if it's not already parsed, it will
 parse it before returning it and store the parsed version in the Cache
 -}
@@ -259,7 +252,7 @@ lookupContentJson content urls =
     urls
         |> lookup content
         |> Maybe.andThen
-            (\( pagePath, entry ) ->
+            (\( _, entry ) ->
                 case entry of
                     NeedContent ->
                         Nothing
