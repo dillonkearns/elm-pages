@@ -20,13 +20,13 @@ import Task
 import Url exposing (Url)
 
 
-type alias Program userModel userMsg route pageStaticData sharedStaticData =
-    Platform.Program Flags (Model userModel route pageStaticData sharedStaticData) (Msg userMsg)
+type alias Program userModel userMsg pageStaticData sharedStaticData =
+    Platform.Program Flags (Model userModel pageStaticData sharedStaticData) (Msg userMsg)
 
 
 mainView :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> ModelDetails userModel pageStaticData sharedStaticData
+    -> Model userModel pageStaticData sharedStaticData
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
@@ -66,7 +66,7 @@ urlToPagePath url baseUrl =
 
 view :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> ModelDetails userModel pageStaticData sharedStaticData
+    -> Model userModel pageStaticData sharedStaticData
     -> Browser.Document (Msg userMsg)
 view config model =
     let
@@ -114,7 +114,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( ModelDetails userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
+    -> ( Model userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
 init config flags url key =
     let
         contentCache =
@@ -293,12 +293,7 @@ type AppMsg userMsg
     | StartingHotReload
 
 
-type Model userModel route pageStaticData sharedStaticData
-    = Model (ModelDetails userModel pageStaticData sharedStaticData)
-    | CliModel (Pages.Internal.Platform.Cli.Model route)
-
-
-type alias ModelDetails userModel pageStaticData sharedStaticData =
+type alias Model userModel pageStaticData sharedStaticData =
     { key : Browser.Navigation.Key
     , url : Url
     , baseUrl : Url
@@ -320,8 +315,8 @@ update :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
-    -> ModelDetails userModel pageStaticData sharedStaticData
-    -> ( ModelDetails userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
+    -> Model userModel pageStaticData sharedStaticData
+    -> ( Model userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
 update config userUpdate msg model =
     case msg of
         AppMsg appMsg ->
@@ -466,95 +461,74 @@ update config userUpdate msg model =
 
 application :
     ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
-    -> Platform.Program Flags (Model userModel route pageStaticData sharedStaticData) (Msg userMsg)
+    -> Platform.Program Flags (Model userModel pageStaticData sharedStaticData) (Msg userMsg)
 application config =
     Browser.application
         { init =
             \flags url key ->
                 init config flags url key
-                    |> Tuple.mapFirst Model
                     |> Tuple.mapSecond (Cmd.map AppMsg)
-        , view =
-            \outerModel ->
-                case outerModel of
-                    Model model ->
-                        view config model
-
-                    CliModel _ ->
-                        { title = "Error"
-                        , body = [ Html.text "Unexpected state" ]
-                        }
+        , view = view config
         , update =
-            \msg outerModel ->
-                case outerModel of
-                    Model model ->
-                        let
-                            userUpdate =
-                                case model.phase of
-                                    Prerender ->
-                                        noOpUpdate
+            \msg model ->
+                let
+                    userUpdate =
+                        case model.phase of
+                            Prerender ->
+                                noOpUpdate
+
+                            _ ->
+                                config.update model.pageStaticData
+
+                    noOpUpdate =
+                        \_ _ userModel ->
+                            ( userModel, Cmd.none )
+                in
+                update config userUpdate msg model
+                    |> Tuple.mapSecond (Cmd.map AppMsg)
+        , subscriptions =
+            \model ->
+                let
+                    urls =
+                        { currentUrl = model.url, baseUrl = model.baseUrl }
+
+                    maybePagePath =
+                        case ContentCache.lookupMetadata model.contentCache urls of
+                            Just pagePath ->
+                                Just pagePath
+
+                            Nothing ->
+                                Nothing
+
+                    userSub =
+                        Maybe.map
+                            (\path ->
+                                config.subscriptions (path |> pathToUrl |> config.urlToRoute) path model.userModel
+                                    |> Sub.map UserMsg
+                                    |> Sub.map AppMsg
+                            )
+                            maybePagePath
+                            |> Maybe.withDefault Sub.none
+                in
+                Sub.batch
+                    [ userSub
+                    , config.fromJsPort
+                        |> Sub.map
+                            (\decodeValue ->
+                                case decodeValue |> Decode.decodeValue (Decode.field "action" Decode.string) of
+                                    Ok "hmr-check" ->
+                                        AppMsg StartingHotReload
 
                                     _ ->
-                                        config.update model.pageStaticData
+                                        case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
+                                            Ok contentJson ->
+                                                AppMsg (HotReloadComplete contentJson)
 
-                            noOpUpdate =
-                                \_ _ userModel ->
-                                    ( userModel, Cmd.none )
-                        in
-                        update config userUpdate msg model
-                            |> Tuple.mapFirst Model
-                            |> Tuple.mapSecond (Cmd.map AppMsg)
-
-                    CliModel _ ->
-                        ( outerModel, Cmd.none )
-        , subscriptions =
-            \outerModel ->
-                case outerModel of
-                    Model model ->
-                        let
-                            urls =
-                                { currentUrl = model.url, baseUrl = model.baseUrl }
-
-                            maybePagePath =
-                                case ContentCache.lookupMetadata model.contentCache urls of
-                                    Just pagePath ->
-                                        Just pagePath
-
-                                    Nothing ->
-                                        Nothing
-
-                            userSub =
-                                Maybe.map
-                                    (\path ->
-                                        config.subscriptions (path |> pathToUrl |> config.urlToRoute) path model.userModel
-                                            |> Sub.map UserMsg
-                                            |> Sub.map AppMsg
-                                    )
-                                    maybePagePath
-                                    |> Maybe.withDefault Sub.none
-                        in
-                        Sub.batch
-                            [ userSub
-                            , config.fromJsPort
-                                |> Sub.map
-                                    (\decodeValue ->
-                                        case decodeValue |> Decode.decodeValue (Decode.field "action" Decode.string) of
-                                            Ok "hmr-check" ->
+                                            Err _ ->
+                                                -- TODO should be no message here
                                                 AppMsg StartingHotReload
-
-                                            _ ->
-                                                case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
-                                                    Ok contentJson ->
-                                                        AppMsg (HotReloadComplete contentJson)
-
-                                                    Err _ ->
-                                                        -- TODO should be no message here
-                                                        AppMsg StartingHotReload
-                                    )
-                            ]
-
-                    CliModel _ ->
-                        Sub.none
+                            )
+                    ]
         , onUrlChange = UrlChanged >> AppMsg
         , onUrlRequest = LinkClicked >> AppMsg
         }

@@ -341,7 +341,7 @@ templateSubscriptions route path model =
 
 main : ${
       phase === "browser"
-        ? "Pages.Internal.Platform.Program Model Msg (Maybe Route) PageStaticData Shared.StaticData"
+        ? "Pages.Internal.Platform.Program Model Msg PageStaticData Shared.StaticData"
         : "Pages.Internal.Platform.Cli.Program (Maybe Route)"
     }
 main =
