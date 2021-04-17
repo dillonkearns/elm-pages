@@ -15,7 +15,7 @@ const mm = require("micromatch");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
-const debug = true;
+const debug = false;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -319,7 +319,6 @@ function wrapHtml(fromElm, contentJsonString) {
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">
     <link rel="preload" href="/elm.js" as="script">
-    <script defer="defer" src="/hmr.js" type="text/javascript"></script>
     <script defer="defer" src="/elm.js" type="text/javascript"></script>
     <script defer="defer" src="/elm-pages.js" type="module"></script>
     <base href="${baseRoute(fromElm.route)}">
