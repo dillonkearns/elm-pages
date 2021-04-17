@@ -10,7 +10,6 @@ import Http
 import Json.Decode as Decode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.Internal.Platform.Cli
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
@@ -76,7 +75,7 @@ view config model =
     { title = title
     , body =
         [ onViewChangeElement model.url
-        , body |> Html.map UserMsg |> Html.map AppMsg
+        , body |> Html.map UserMsg
         ]
     }
 
@@ -114,7 +113,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( Model userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
+    -> ( Model userModel pageStaticData sharedStaticData, Cmd (Msg userMsg) )
 init config flags url key =
     let
         contentCache =
@@ -278,11 +277,6 @@ init config flags url key =
 
 
 type Msg userMsg
-    = AppMsg (AppMsg userMsg)
-    | CliMsg Pages.Internal.Platform.Cli.Msg
-
-
-type AppMsg userMsg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
@@ -316,146 +310,141 @@ update :
     -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> Model userModel pageStaticData sharedStaticData
-    -> ( Model userModel pageStaticData sharedStaticData, Cmd (AppMsg userMsg) )
-update config userUpdate msg model =
-    case msg of
-        AppMsg appMsg ->
-            case appMsg of
-                LinkClicked urlRequest ->
-                    case urlRequest of
-                        Browser.Internal url ->
-                            let
-                                navigatingToSamePage =
-                                    (url.path == model.url.path) && (url /= model.url)
-                            in
-                            if navigatingToSamePage then
-                                -- this is a workaround for an issue with anchor fragment navigation
-                                -- see https://github.com/elm/browser/issues/39
-                                ( model, Browser.Navigation.load (Url.toString url) )
-
-                            else
-                                ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
-
-                        Browser.External href ->
-                            ( model, Browser.Navigation.load href )
-
-                UrlChanged url ->
+    -> ( Model userModel pageStaticData sharedStaticData, Cmd (Msg userMsg) )
+update config userUpdate appMsg model =
+    case appMsg of
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
                     let
                         navigatingToSamePage =
                             (url.path == model.url.path) && (url /= model.url)
-
-                        urls =
-                            { currentUrl = url
-                            , baseUrl = model.baseUrl
-                            }
                     in
-                    ( model
-                    , if navigatingToSamePage then
-                        -- this saves a few CPU cycles, but also
-                        -- makes sure we don't send an UpdateCacheAndUrl
-                        -- which scrolls to the top after page changes.
-                        -- This is important because we may have just scrolled
-                        -- to a specific page location for an anchor link.
-                        Cmd.none
+                    if navigatingToSamePage then
+                        -- this is a workaround for an issue with anchor fragment navigation
+                        -- see https://github.com/elm/browser/issues/39
+                        ( model, Browser.Navigation.load (Url.toString url) )
 
-                      else
-                        model.contentCache
-                            |> ContentCache.lazyLoad urls
-                            |> Task.attempt (UpdateCacheAndUrl url)
+                    else
+                        ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Browser.Navigation.load href )
+
+        UrlChanged url ->
+            let
+                navigatingToSamePage =
+                    (url.path == model.url.path) && (url /= model.url)
+
+                urls =
+                    { currentUrl = url
+                    , baseUrl = model.baseUrl
+                    }
+            in
+            ( model
+            , if navigatingToSamePage then
+                -- this saves a few CPU cycles, but also
+                -- makes sure we don't send an UpdateCacheAndUrl
+                -- which scrolls to the top after page changes.
+                -- This is important because we may have just scrolled
+                -- to a specific page location for an anchor link.
+                Cmd.none
+
+              else
+                model.contentCache
+                    |> ContentCache.lazyLoad urls
+                    |> Task.attempt (UpdateCacheAndUrl url)
+            )
+
+        UserMsg userMsg ->
+            let
+                ( userModel, userCmd ) =
+                    userUpdate (Just model.key) userMsg model.userModel
+            in
+            ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
+
+        UpdateCache cacheUpdateResult ->
+            case cacheUpdateResult of
+                -- TODO can there be race conditions here? Might need to set something in the model
+                -- to keep track of the last url change
+                Ok updatedCache ->
+                    ( { model | contentCache = updatedCache }
+                    , Cmd.none
                     )
 
-                UserMsg userMsg ->
-                    let
-                        ( userModel, userCmd ) =
-                            userUpdate (Just model.key) userMsg model.userModel
-                    in
-                    ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
-
-                UpdateCache cacheUpdateResult ->
-                    case cacheUpdateResult of
-                        -- TODO can there be race conditions here? Might need to set something in the model
-                        -- to keep track of the last url change
-                        Ok updatedCache ->
-                            ( { model | contentCache = updatedCache }
-                            , Cmd.none
-                            )
-
-                        Err _ ->
-                            -- TODO handle error
-                            ( model, Cmd.none )
-
-                UpdateCacheAndUrl url cacheUpdateResult ->
-                    case cacheUpdateResult of
-                        -- TODO can there be race conditions here? Might need to set something in the model
-                        -- to keep track of the last url change
-                        Ok updatedCache ->
-                            let
-                                ( userModel, userCmd ) =
-                                    case config.onPageChange of
-                                        Just onPageChangeMsg ->
-                                            userUpdate (Just model.key)
-                                                (onPageChangeMsg
-                                                    { path = urlToPagePath url model.baseUrl
-                                                    , query = url.query
-                                                    , fragment = url.fragment
-                                                    , metadata = config.urlToRoute url
-                                                    }
-                                                )
-                                                model.userModel
-
-                                        _ ->
-                                            ( model.userModel, Cmd.none )
-
-                                urls =
-                                    { currentUrl = model.url, baseUrl = model.baseUrl }
-                            in
-                            ( { model
-                                | url = url
-                                , contentCache = updatedCache
-                                , userModel = userModel
-                                , pageStaticData =
-                                    ContentCache.lookupContentJson updatedCache urls
-                                        |> Maybe.andThen
-                                            (\requests ->
-                                                StaticHttpRequest.resolve ApplicationType.Browser
-                                                    (config.staticData (config.urlToRoute url))
-                                                    requests
-                                                    |> Result.toMaybe
-                                             -- TODO handle Maybe/Err cases
-                                            )
-                                        |> Maybe.withDefault model.pageStaticData
-
-                                -- TODO update pageStaticData here?
-                              }
-                            , Cmd.batch
-                                [ userCmd |> Cmd.map UserMsg
-                                , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
-                                ]
-                            )
-
-                        Err _ ->
-                            -- TODO handle error
-                            ( { model | url = url }, Cmd.none )
-
-                PageScrollComplete ->
+                Err _ ->
+                    -- TODO handle error
                     ( model, Cmd.none )
 
-                HotReloadComplete contentJson ->
+        UpdateCacheAndUrl url cacheUpdateResult ->
+            case cacheUpdateResult of
+                -- TODO can there be race conditions here? Might need to set something in the model
+                -- to keep track of the last url change
+                Ok updatedCache ->
                     let
+                        ( userModel, userCmd ) =
+                            case config.onPageChange of
+                                Just onPageChangeMsg ->
+                                    userUpdate (Just model.key)
+                                        (onPageChangeMsg
+                                            { path = urlToPagePath url model.baseUrl
+                                            , query = url.query
+                                            , fragment = url.fragment
+                                            , metadata = config.urlToRoute url
+                                            }
+                                        )
+                                        model.userModel
+
+                                _ ->
+                                    ( model.userModel, Cmd.none )
+
                         urls =
                             { currentUrl = model.url, baseUrl = model.baseUrl }
                     in
                     ( { model
-                        | contentCache =
-                            ContentCache.init (Just ( urls, contentJson ))
+                        | url = url
+                        , contentCache = updatedCache
+                        , userModel = userModel
+                        , pageStaticData =
+                            ContentCache.lookupContentJson updatedCache urls
+                                |> Maybe.andThen
+                                    (\requests ->
+                                        StaticHttpRequest.resolve ApplicationType.Browser
+                                            (config.staticData (config.urlToRoute url))
+                                            requests
+                                            |> Result.toMaybe
+                                     -- TODO handle Maybe/Err cases
+                                    )
+                                |> Maybe.withDefault model.pageStaticData
+
+                        -- TODO update pageStaticData here?
                       }
-                    , Cmd.none
+                    , Cmd.batch
+                        [ userCmd |> Cmd.map UserMsg
+                        , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+                        ]
                     )
 
-                StartingHotReload ->
-                    ( model, Cmd.none )
+                Err _ ->
+                    -- TODO handle error
+                    ( { model | url = url }, Cmd.none )
 
-        CliMsg _ ->
+        PageScrollComplete ->
+            ( model, Cmd.none )
+
+        HotReloadComplete contentJson ->
+            let
+                urls =
+                    { currentUrl = model.url, baseUrl = model.baseUrl }
+            in
+            ( { model
+                | contentCache =
+                    ContentCache.init (Just ( urls, contentJson ))
+              }
+            , Cmd.none
+            )
+
+        StartingHotReload ->
             ( model, Cmd.none )
 
 
@@ -467,7 +456,6 @@ application config =
         { init =
             \flags url key ->
                 init config flags url key
-                    |> Tuple.mapSecond (Cmd.map AppMsg)
         , view = view config
         , update =
             \msg model ->
@@ -485,7 +473,6 @@ application config =
                             ( userModel, Cmd.none )
                 in
                 update config userUpdate msg model
-                    |> Tuple.mapSecond (Cmd.map AppMsg)
         , subscriptions =
             \model ->
                 let
@@ -505,7 +492,6 @@ application config =
                             (\path ->
                                 config.subscriptions (path |> pathToUrl |> config.urlToRoute) path model.userModel
                                     |> Sub.map UserMsg
-                                    |> Sub.map AppMsg
                             )
                             maybePagePath
                             |> Maybe.withDefault Sub.none
@@ -517,20 +503,20 @@ application config =
                             (\decodeValue ->
                                 case decodeValue |> Decode.decodeValue (Decode.field "action" Decode.string) of
                                     Ok "hmr-check" ->
-                                        AppMsg StartingHotReload
+                                        StartingHotReload
 
                                     _ ->
                                         case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
                                             Ok contentJson ->
-                                                AppMsg (HotReloadComplete contentJson)
+                                                HotReloadComplete contentJson
 
                                             Err _ ->
                                                 -- TODO should be no message here
-                                                AppMsg StartingHotReload
+                                                StartingHotReload
                             )
                     ]
-        , onUrlChange = UrlChanged >> AppMsg
-        , onUrlRequest = LinkClicked >> AppMsg
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
 
 
