@@ -149,28 +149,6 @@ init config flags url key =
     case contentJson |> Maybe.map .staticData of
         Just justContentJson ->
             let
-                phase =
-                    case
-                        Decode.decodeValue
-                            (Decode.map3 (\a b c -> ( a, b, c ))
-                                (Decode.field "isPrerendering" Decode.bool)
-                                (Decode.field "isDevServer" Decode.bool)
-                                (Decode.field "isElmDebugMode" Decode.bool)
-                            )
-                            flags
-                    of
-                        Ok ( True, _, _ ) ->
-                            Prerender
-
-                        Ok ( False, True, isElmDebugMode ) ->
-                            DevClient isElmDebugMode
-
-                        Ok ( False, False, _ ) ->
-                            ProdClient
-
-                        Err _ ->
-                            DevClient False
-
                 pageStaticDataResult : Result BuildError pageStaticData
                 pageStaticDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
@@ -242,7 +220,6 @@ init config flags url key =
               , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
-              , phase = phase
               , pageStaticData = pageStaticData
               , sharedStaticData = sharedStaticData
               }
@@ -265,7 +242,6 @@ init config flags url key =
               , baseUrl = baseUrl
               , userModel = userModel
               , contentCache = contentCache
-              , phase = DevClient False
               , pageStaticData = pageStaticData
               , sharedStaticData = sharedStaticData
               }
@@ -293,25 +269,17 @@ type alias Model userModel pageStaticData sharedStaticData =
     , baseUrl : Url
     , contentCache : ContentCache
     , userModel : userModel
-    , phase : Phase
     , pageStaticData : pageStaticData
     , sharedStaticData : sharedStaticData
     }
 
 
-type Phase
-    = Prerender
-    | DevClient Bool
-    | ProdClient
-
-
 update :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> (Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg ))
     -> Msg userMsg
     -> Model userModel pageStaticData sharedStaticData
     -> ( Model userModel pageStaticData sharedStaticData, Cmd (Msg userMsg) )
-update config userUpdate appMsg model =
+update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -359,7 +327,7 @@ update config userUpdate appMsg model =
         UserMsg userMsg ->
             let
                 ( userModel, userCmd ) =
-                    userUpdate (Just model.key) userMsg model.userModel
+                    config.update model.pageStaticData (Just model.key) userMsg model.userModel
             in
             ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
 
@@ -385,7 +353,9 @@ update config userUpdate appMsg model =
                         ( userModel, userCmd ) =
                             case config.onPageChange of
                                 Just onPageChangeMsg ->
-                                    userUpdate (Just model.key)
+                                    config.update
+                                        model.pageStaticData
+                                        (Just model.key)
                                         (onPageChangeMsg
                                             { path = urlToPagePath url model.baseUrl
                                             , query = url.query
@@ -457,22 +427,7 @@ application config =
             \flags url key ->
                 init config flags url key
         , view = view config
-        , update =
-            \msg model ->
-                let
-                    userUpdate =
-                        case model.phase of
-                            Prerender ->
-                                noOpUpdate
-
-                            _ ->
-                                config.update model.pageStaticData
-
-                    noOpUpdate =
-                        \_ _ userModel ->
-                            ( userModel, Cmd.none )
-                in
-                update config userUpdate msg model
+        , update = update config
         , subscriptions =
             \model ->
                 let
