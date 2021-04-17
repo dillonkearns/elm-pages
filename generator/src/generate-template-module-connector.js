@@ -165,9 +165,7 @@ view page globalData staticData =
                         Html.pre []
                             [ Html.text <|
                                 "Not found - "
-                                    ++ Debug.toString page
-                                    ++ "\\n\\n"
-                                    ++ Debug.toString staticData
+                                    ++ String.join "/" (Route.routeToPath page.frontmatter)
                             ]
                     }
 
