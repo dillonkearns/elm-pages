@@ -247,8 +247,8 @@ type Msg userMsg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCache (Result Http.Error ContentCache)
-    | UpdateCacheAndUrl Url (Result Http.Error ContentCache)
+    | UpdateCache (Result Http.Error ( Url, ContentJson, ContentCache ))
+    | UpdateCacheAndUrl Url (Result Http.Error ( Url, ContentJson, ContentCache ))
     | PageScrollComplete
     | HotReloadComplete ContentJson
     | StartingHotReload
@@ -338,7 +338,7 @@ update config appMsg model =
             case cacheUpdateResult of
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
-                Ok updatedCache ->
+                Ok ( url, contentJson, updatedCache ) ->
                     ( { model | contentCache = updatedCache }
                     , Cmd.none
                     )
@@ -353,7 +353,7 @@ update config appMsg model =
             of
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
-                Ok ( updatedCache, pageData ) ->
+                Ok ( ( _, contentJson, updatedCache ), pageData ) ->
                     let
                         ( userModel, userCmd ) =
                             case config.onPageChange of
@@ -372,31 +372,22 @@ update config appMsg model =
 
                                 _ ->
                                     ( pageData.userModel, Cmd.none )
-
-                        urls =
-                            { currentUrl = model.url, baseUrl = model.baseUrl }
                     in
                     ( { model
                         | url = url
                         , contentCache = updatedCache
                         , pageData =
-                            Ok
-                                { userModel = userModel
-                                , sharedStaticData = pageData.sharedStaticData
-                                , pageStaticData =
-                                    ContentCache.lookupContentJson updatedCache urls
-                                        |> Maybe.andThen
-                                            (\requests ->
-                                                StaticHttpRequest.resolve ApplicationType.Browser
-                                                    (config.staticData (config.urlToRoute url))
-                                                    requests
-                                                    |> Result.toMaybe
-                                             -- TODO handle Maybe/Err cases
-                                            )
-                                        |> Maybe.withDefault pageData.pageStaticData
-
-                                -- TODO update pageStaticData here?
-                                }
+                            StaticHttpRequest.resolve ApplicationType.Browser
+                                (config.staticData (config.urlToRoute url))
+                                contentJson.staticData
+                                |> Result.mapError (\_ -> "Http error")
+                                |> Result.map
+                                    (\pageStaticData ->
+                                        { userModel = userModel
+                                        , sharedStaticData = pageData.sharedStaticData
+                                        , pageStaticData = pageStaticData
+                                        }
+                                    )
                       }
                     , Cmd.batch
                         [ userCmd |> Cmd.map UserMsg

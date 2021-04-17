@@ -72,7 +72,7 @@ parse it before returning it and store the parsed version in the Cache
 lazyLoad :
     { currentUrl : Url, baseUrl : Url }
     -> ContentCache
-    -> Task Http.Error ContentCache
+    -> Task Http.Error ( Url, ContentJson, ContentCache )
 lazyLoad urls cache =
     case Dict.get (pathForUrl urls) cache of
         Just entry ->
@@ -82,24 +82,34 @@ lazyLoad urls cache =
                         |> httpTask
                         |> Task.map
                             (\downloadedContent ->
-                                update
+                                ( urls.currentUrl
+                                , downloadedContent
+                                , update
                                     cache
                                     urls
                                     downloadedContent
+                                )
                             )
 
-                Parsed _ ->
-                    Task.succeed cache
+                Parsed contentJson ->
+                    Task.succeed
+                        ( urls.currentUrl
+                        , contentJson
+                        , cache
+                        )
 
         Nothing ->
             urls.currentUrl
                 |> httpTask
                 |> Task.map
                     (\downloadedContent ->
-                        update
+                        ( urls.currentUrl
+                        , downloadedContent
+                        , update
                             cache
                             urls
                             downloadedContent
+                        )
                     )
 
 
