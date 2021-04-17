@@ -153,9 +153,13 @@ view page globalData staticData =
           )
           .join("\n\n        ")}
         _ ->
-            --StaticHttp.fail <| "Page not found: " ++ Pages.PagePath.toString page.path
-            Debug.todo ""
-
+            { head = []
+            , view =
+                \\_ ->
+                    { title = "Not found"
+                    , body = Html.text "Not found"
+                    }
+            }
 
 
 init :
