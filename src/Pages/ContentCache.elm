@@ -26,7 +26,7 @@ type alias Content =
 
 
 type alias ContentCache =
-    Result Errors (Dict Path Entry)
+    Dict Path Entry
 
 
 type alias Errors =
@@ -54,18 +54,16 @@ init :
     Maybe ( { currentUrl : Url, baseUrl : Url }, ContentJson )
     -> ContentCache
 init maybeInitialPageContent =
-    Ok <|
-        (Dict.fromList []
-            |> (\dict ->
-                    case maybeInitialPageContent of
-                        Nothing ->
-                            dict
+    Dict.fromList []
+        |> (\dict ->
+                case maybeInitialPageContent of
+                    Nothing ->
+                        dict
 
-                        Just ( urls, contentJson ) ->
-                            dict
-                                |> Dict.insert (pathForUrl urls) (Parsed contentJson)
-               )
-        )
+                    Just ( urls, contentJson ) ->
+                        dict
+                            |> Dict.insert (pathForUrl urls) (Parsed contentJson)
+           )
 
 
 {-| Get from the Cache... if it's not already parsed, it will
@@ -75,39 +73,34 @@ lazyLoad :
     { currentUrl : Url, baseUrl : Url }
     -> ContentCache
     -> Task Http.Error ContentCache
-lazyLoad urls cacheResult =
-    case cacheResult of
-        Err _ ->
-            Task.succeed cacheResult
-
-        Ok cache ->
-            case Dict.get (pathForUrl urls) cache of
-                Just entry ->
-                    case entry of
-                        NeedContent ->
-                            urls.currentUrl
-                                |> httpTask
-                                |> Task.map
-                                    (\downloadedContent ->
-                                        update
-                                            cacheResult
-                                            urls
-                                            downloadedContent
-                                    )
-
-                        Parsed _ ->
-                            Task.succeed cacheResult
-
-                Nothing ->
+lazyLoad urls cache =
+    case Dict.get (pathForUrl urls) cache of
+        Just entry ->
+            case entry of
+                NeedContent ->
                     urls.currentUrl
                         |> httpTask
                         |> Task.map
                             (\downloadedContent ->
                                 update
-                                    cacheResult
+                                    cache
                                     urls
                                     downloadedContent
                             )
+
+                Parsed _ ->
+                    Task.succeed cache
+
+        Nothing ->
+            urls.currentUrl
+                |> httpTask
+                |> Task.map
+                    (\downloadedContent ->
+                        update
+                            cache
+                            urls
+                            downloadedContent
+                    )
 
 
 httpTask : Url -> Task Http.Error ContentJson
@@ -165,34 +158,26 @@ update :
     -> { currentUrl : Url, baseUrl : Url }
     -> ContentJson
     -> ContentCache
-update cacheResult urls rawContent =
-    case cacheResult of
-        Ok cache ->
-            Dict.update
-                (pathForUrl urls)
-                (\entry ->
-                    case entry of
-                        Just (Parsed _) ->
-                            entry
+update cache urls rawContent =
+    Dict.update
+        (pathForUrl urls)
+        (\entry ->
+            case entry of
+                Just (Parsed _) ->
+                    entry
 
-                        Just NeedContent ->
-                            Parsed
-                                { staticData = rawContent.staticData
-                                }
-                                |> Just
+                Just NeedContent ->
+                    Parsed
+                        { staticData = rawContent.staticData
+                        }
+                        |> Just
 
-                        Nothing ->
-                            { staticData = rawContent.staticData }
-                                |> Parsed
-                                |> Just
-                )
-                cache
-                |> Ok
-
-        Err error ->
-            -- TODO update this ever???
-            -- Should this be something other than the raw HTML, or just concat the error HTML?
-            Err error
+                Nothing ->
+                    { staticData = rawContent.staticData }
+                        |> Parsed
+                        |> Just
+        )
+        cache
 
 
 pathForUrl : { currentUrl : Url, baseUrl : Url } -> Path
@@ -208,22 +193,17 @@ lookup :
     ContentCache
     -> { currentUrl : Url, baseUrl : Url }
     -> Maybe ( PagePath, Entry )
-lookup content urls =
-    case content of
-        Ok dict ->
-            let
-                path =
-                    pathForUrl urls
-            in
-            dict
-                |> Dict.get path
-                |> Maybe.map
-                    (\entry ->
-                        ( PagePath.build path, entry )
-                    )
-
-        Err _ ->
-            Nothing
+lookup dict urls =
+    let
+        path =
+            pathForUrl urls
+    in
+    dict
+        |> Dict.get path
+        |> Maybe.map
+            (\entry ->
+                ( PagePath.build path, entry )
+            )
 
 
 lookupMetadata :

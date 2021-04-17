@@ -147,7 +147,7 @@ init config flags url key =
             , baseUrl = baseUrl
             }
     in
-    case contentCache of
+    case Ok contentCache of
         Ok okCache ->
             let
                 phase =
@@ -240,7 +240,7 @@ init config flags url key =
                         |> Cmd.batch
 
                 maybePagePath =
-                    case ContentCache.lookupMetadata (Ok okCache) urls of
+                    case ContentCache.lookupMetadata okCache urls of
                         Just pagePath ->
                             Just pagePath
 
