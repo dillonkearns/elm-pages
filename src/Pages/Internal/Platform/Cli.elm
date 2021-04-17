@@ -752,32 +752,11 @@ sendSinglePageProgress toJsPayload config model =
 
             RenderRequest.FullBuild ->
                 let
-                    makeItWork : StaticHttpRequest.RawRequest staticData -> Result BuildError staticData
-                    makeItWork request =
-                        StaticHttpRequest.resolve ApplicationType.Browser request (staticData |> Dict.map (\_ v -> Just v))
-                            |> Result.mapError (StaticHttpRequest.toBuildError (page |> PagePath.toString))
-
+                    staticData : Dict String String
                     staticData =
                         toJsPayload.pages
                             |> Dict.get (PagePath.toString page)
                             |> Maybe.withDefault Dict.empty
-
-                    viewRequest :
-                        StaticHttp.Request
-                            { view :
-                                userModel
-                                -> { title : String, body : Html userMsg }
-                            , head : List Head.Tag
-                            }
-                    viewRequest =
-                        StaticHttp.map2
-                            (\data sharedData -> config.view currentPage sharedData data)
-                            (config.staticData currentPage.frontmatter)
-                            config.sharedStaticData
-
-                    twoThings : Result BuildError { view : userModel -> { title : String, body : Html userMsg }, head : List Head.Tag }
-                    twoThings =
-                        viewRequest |> makeItWork
 
                     currentPage : { path : PagePath, frontmatter : route }
                     currentPage =
@@ -790,6 +769,13 @@ sendSinglePageProgress toJsPayload config model =
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
+                    sharedStaticDataResult : Result BuildError sharedStaticData
+                    sharedStaticDataResult =
+                        StaticHttpRequest.resolve ApplicationType.Browser
+                            config.sharedStaticData
+                            (staticData |> Dict.map (\_ v -> Just v))
+                            |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
+
                     currentUrl =
                         { protocol = Url.Https
                         , host = config.canonicalSiteUrl
@@ -799,8 +785,8 @@ sendSinglePageProgress toJsPayload config model =
                         , fragment = Nothing
                         }
                 in
-                case Result.map2 Tuple.pair twoThings pageStaticDataResult of
-                    Ok ( success, pageStaticData ) ->
+                case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
+                    Ok ( sharedStaticData, pageStaticData ) ->
                         let
                             pageModel : userModel
                             pageModel =
@@ -820,7 +806,11 @@ sendSinglePageProgress toJsPayload config model =
 
                             viewValue : { title : String, body : Html userMsg }
                             viewValue =
-                                success.view pageModel
+                                (config.view currentPage sharedStaticData pageStaticData |> .view) pageModel
+
+                            headTags : List Head.Tag
+                            headTags =
+                                config.view currentPage sharedStaticData pageStaticData |> .head
                         in
                         { route = page |> PagePath.toString
                         , contentJson =
@@ -829,7 +819,7 @@ sendSinglePageProgress toJsPayload config model =
                                 |> Maybe.withDefault Dict.empty
                         , html = viewValue.body |> viewRenderer
                         , errors = []
-                        , head = success.head
+                        , head = headTags
                         , title = viewValue.title
                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                         }
