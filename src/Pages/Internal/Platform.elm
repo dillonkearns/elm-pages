@@ -36,15 +36,23 @@ mainView config model =
     in
     case ContentCache.lookup model.contentCache urls of
         Just ( pagePath, entry ) ->
-            (config.view
-                { path = pagePath
-                , frontmatter = config.urlToRoute model.url
-                }
-                model.sharedStaticData
-                model.pageStaticData
-                |> .view
-            )
-                model.userModel
+            case model.pageData of
+                Ok pageData ->
+                    (config.view
+                        { path = pagePath
+                        , frontmatter = config.urlToRoute model.url
+                        }
+                        pageData.sharedStaticData
+                        pageData.pageStaticData
+                        |> .view
+                    )
+                        pageData.userModel
+
+                Err error ->
+                    { title = "Page Data Error"
+                    , body =
+                        Html.div [] [ Html.text error ]
+                    }
 
         Nothing ->
             { title = "Page not found"
@@ -156,56 +164,12 @@ init config flags url key =
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
 
-                pageStaticData : pageStaticData
-                pageStaticData =
-                    case pageStaticDataResult of
-                        Ok okPageStaticData ->
-                            okPageStaticData
-
-                        Err error ->
-                            Debug.todo (BuildError.errorToString error)
-
                 sharedStaticDataResult : Result BuildError sharedStaticData
                 sharedStaticDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
                         config.sharedStaticData
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
-
-                sharedStaticData : sharedStaticData
-                sharedStaticData =
-                    case sharedStaticDataResult of
-                        Ok okSharedStaticData ->
-                            okSharedStaticData
-
-                        Err error ->
-                            Debug.todo (BuildError.errorToString error)
-
-                ( userModel, userCmd ) =
-                    Maybe.map
-                        (\pagePath ->
-                            { path =
-                                { path = pagePath
-                                , query = url.query
-                                , fragment = url.fragment
-                                }
-                            , metadata = config.urlToRoute url
-                            }
-                        )
-                        maybePagePath
-                        |> config.init pageStaticData (Just key)
-
-                cmd =
-                    [ userCmd
-                        |> Cmd.map UserMsg
-                        |> Just
-                    , contentCache
-                        |> ContentCache.lazyLoad urls
-                        |> Task.attempt UpdateCache
-                        |> Just
-                    ]
-                        |> List.filterMap identity
-                        |> Cmd.batch
 
                 maybePagePath =
                     case ContentCache.lookupMetadata contentCache urls of
@@ -215,40 +179,67 @@ init config flags url key =
                         Nothing ->
                             Nothing
             in
-            ( { key = key
-              , url = url
-              , baseUrl = baseUrl
-              , userModel = userModel
-              , contentCache = contentCache
-              , pageStaticData = pageStaticData
-              , sharedStaticData = sharedStaticData
-              }
-            , cmd
-            )
+            case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
+                Ok ( sharedStaticData, pageStaticData ) ->
+                    let
+                        ( userModel, userCmd ) =
+                            Maybe.map
+                                (\pagePath ->
+                                    { path =
+                                        { path = pagePath
+                                        , query = url.query
+                                        , fragment = url.fragment
+                                        }
+                                    , metadata = config.urlToRoute url
+                                    }
+                                )
+                                maybePagePath
+                                |> config.init pageStaticData (Just key)
+
+                        cmd =
+                            [ userCmd
+                                |> Cmd.map UserMsg
+                                |> Just
+                            , contentCache
+                                |> ContentCache.lazyLoad urls
+                                |> Task.attempt UpdateCache
+                                |> Just
+                            ]
+                                |> List.filterMap identity
+                                |> Cmd.batch
+                    in
+                    ( { key = key
+                      , url = url
+                      , baseUrl = baseUrl
+                      , contentCache = contentCache
+                      , pageData =
+                            Ok
+                                { pageStaticData = pageStaticData
+                                , sharedStaticData = sharedStaticData
+                                , userModel = userModel
+                                }
+                      }
+                    , cmd
+                    )
+
+                Err error ->
+                    ( { key = key
+                      , url = url
+                      , baseUrl = baseUrl
+                      , contentCache = contentCache
+                      , pageData = BuildError.errorToString error |> Err
+                      }
+                    , Cmd.none
+                    )
 
         Nothing ->
-            let
-                pageStaticData =
-                    Debug.todo ""
-
-                sharedStaticData =
-                    Debug.todo ""
-
-                ( userModel, userCmd ) =
-                    config.init pageStaticData (Just key) Nothing
-            in
             ( { key = key
               , url = url
               , baseUrl = baseUrl
-              , userModel = userModel
               , contentCache = contentCache
-              , pageStaticData = pageStaticData
-              , sharedStaticData = sharedStaticData
+              , pageData = Err "TODO"
               }
-            , Cmd.batch
-                [ userCmd |> Cmd.map UserMsg
-                ]
-              -- TODO handle errors better
+            , Cmd.none
             )
 
 
@@ -268,9 +259,13 @@ type alias Model userModel pageStaticData sharedStaticData =
     , url : Url
     , baseUrl : Url
     , contentCache : ContentCache
-    , userModel : userModel
-    , pageStaticData : pageStaticData
-    , sharedStaticData : sharedStaticData
+    , pageData :
+        Result
+            String
+            { userModel : userModel
+            , pageStaticData : pageStaticData
+            , sharedStaticData : sharedStaticData
+            }
     }
 
 
@@ -325,11 +320,19 @@ update config appMsg model =
             )
 
         UserMsg userMsg ->
-            let
-                ( userModel, userCmd ) =
-                    config.update model.pageStaticData (Just model.key) userMsg model.userModel
-            in
-            ( { model | userModel = userModel }, userCmd |> Cmd.map UserMsg )
+            case model.pageData of
+                Ok pageData ->
+                    let
+                        ( userModel, userCmd ) =
+                            config.update pageData.pageStaticData (Just model.key) userMsg pageData.userModel
+
+                        updatedPageData =
+                            Ok { pageData | userModel = userModel }
+                    in
+                    ( { model | pageData = updatedPageData }, userCmd |> Cmd.map UserMsg )
+
+                Err error ->
+                    ( model, Cmd.none )
 
         UpdateCache cacheUpdateResult ->
             case cacheUpdateResult of
@@ -345,16 +348,18 @@ update config appMsg model =
                     ( model, Cmd.none )
 
         UpdateCacheAndUrl url cacheUpdateResult ->
-            case cacheUpdateResult of
+            case
+                Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\error -> "Http error")) model.pageData
+            of
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
-                Ok updatedCache ->
+                Ok ( updatedCache, pageData ) ->
                     let
                         ( userModel, userCmd ) =
                             case config.onPageChange of
                                 Just onPageChangeMsg ->
                                     config.update
-                                        model.pageStaticData
+                                        pageData.pageStaticData
                                         (Just model.key)
                                         (onPageChangeMsg
                                             { path = urlToPagePath url model.baseUrl
@@ -363,10 +368,10 @@ update config appMsg model =
                                             , metadata = config.urlToRoute url
                                             }
                                         )
-                                        model.userModel
+                                        pageData.userModel
 
                                 _ ->
-                                    ( model.userModel, Cmd.none )
+                                    ( pageData.userModel, Cmd.none )
 
                         urls =
                             { currentUrl = model.url, baseUrl = model.baseUrl }
@@ -374,20 +379,24 @@ update config appMsg model =
                     ( { model
                         | url = url
                         , contentCache = updatedCache
-                        , userModel = userModel
-                        , pageStaticData =
-                            ContentCache.lookupContentJson updatedCache urls
-                                |> Maybe.andThen
-                                    (\requests ->
-                                        StaticHttpRequest.resolve ApplicationType.Browser
-                                            (config.staticData (config.urlToRoute url))
-                                            requests
-                                            |> Result.toMaybe
-                                     -- TODO handle Maybe/Err cases
-                                    )
-                                |> Maybe.withDefault model.pageStaticData
+                        , pageData =
+                            Ok
+                                { userModel = userModel
+                                , sharedStaticData = pageData.sharedStaticData
+                                , pageStaticData =
+                                    ContentCache.lookupContentJson updatedCache urls
+                                        |> Maybe.andThen
+                                            (\requests ->
+                                                StaticHttpRequest.resolve ApplicationType.Browser
+                                                    (config.staticData (config.urlToRoute url))
+                                                    requests
+                                                    |> Result.toMaybe
+                                             -- TODO handle Maybe/Err cases
+                                            )
+                                        |> Maybe.withDefault pageData.pageStaticData
 
-                        -- TODO update pageStaticData here?
+                                -- TODO update pageStaticData here?
+                                }
                       }
                     , Cmd.batch
                         [ userCmd |> Cmd.map UserMsg
@@ -441,35 +450,19 @@ application config =
 
                             Nothing ->
                                 Nothing
-
-                    userSub =
+                in
+                case model.pageData of
+                    Ok pageData ->
                         Maybe.map
                             (\path ->
-                                config.subscriptions (path |> pathToUrl |> config.urlToRoute) path model.userModel
+                                config.subscriptions (path |> pathToUrl |> config.urlToRoute) path pageData.userModel
                                     |> Sub.map UserMsg
                             )
                             maybePagePath
                             |> Maybe.withDefault Sub.none
-                in
-                Sub.batch
-                    [ userSub
-                    , config.fromJsPort
-                        |> Sub.map
-                            (\decodeValue ->
-                                case decodeValue |> Decode.decodeValue (Decode.field "action" Decode.string) of
-                                    Ok "hmr-check" ->
-                                        StartingHotReload
 
-                                    _ ->
-                                        case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
-                                            Ok contentJson ->
-                                                HotReloadComplete contentJson
-
-                                            Err _ ->
-                                                -- TODO should be no message here
-                                                StartingHotReload
-                            )
-                    ]
+                    Err _ ->
+                        Sub.none
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
