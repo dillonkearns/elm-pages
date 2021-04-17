@@ -49,7 +49,7 @@ type alias Model route =
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( PagePath, route )
-    , staticRoutes : List ( PagePath, route )
+    , staticRoutes : Maybe (List ( PagePath, route ))
     , maybeRequestJson : RenderRequest.RenderRequest route
     }
 
@@ -347,7 +347,7 @@ init renderRequest toModel contentCache config flags =
                 , mode = Mode.Dev
                 , pendingRequests = []
                 , unprocessedPages = []
-                , staticRoutes = []
+                , staticRoutes = Just []
                 , maybeRequestJson = renderRequest
                 }
                 toModel
@@ -439,6 +439,14 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache
 
                 RenderRequest.FullBuild ->
                     []
+
+        unprocessedPagesState =
+            case renderRequest of
+                RenderRequest.SinglePage includeHtml serverRequestPayload _ ->
+                    Just [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
+
+                RenderRequest.FullBuild ->
+                    Nothing
     in
     StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses Nothing
         |> nextStepToEffect contentCache
@@ -450,7 +458,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } toModel contentCache
             , mode = mode
             , pendingRequests = []
             , unprocessedPages = unprocessedPages
-            , staticRoutes = unprocessedPages
+            , staticRoutes = unprocessedPagesState
             , maybeRequestJson = renderRequest
             }
         |> Tuple.mapFirst toModel
@@ -682,6 +690,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                         , route
                                         )
                                     )
+                                |> Just
 
                         Nothing ->
                             model.staticRoutes
@@ -735,7 +744,13 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                 Mode.ElmToHtmlBeta ->
                     let
                         sendManifestIfNeeded =
-                            if List.length model.unprocessedPages == List.length model.staticRoutes then
+                            if
+                                List.length model.unprocessedPages
+                                    == (model.staticRoutes
+                                            |> Maybe.map List.length
+                                            |> Maybe.withDefault -1
+                                       )
+                            then
                                 case toJsPayload of
                                     ToJsPayload.Success value ->
                                         Effect.SendSinglePage
