@@ -175,8 +175,10 @@ const appPromise = pagesInit({
 });
 userInit(appPromise);
 
-connect(function (newContentJson) {
-  appPromise.then((app) => {
-    app.ports.fromJsPort.send({ contentJson: newContentJson });
+if (typeof connect === "function") {
+  connect(function (newContentJson) {
+    appPromise.then((app) => {
+      app.ports.fromJsPort.send({ contentJson: newContentJson });
+    });
   });
-});
+}
