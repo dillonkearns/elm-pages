@@ -86,10 +86,8 @@ cliApplication config =
                     |> Tuple.mapSecond (perform renderRequest config config.toJsPort)
         , update =
             \msg model ->
-                case ( msg, model ) of
-                    ( cliMsg, cliModel ) ->
-                        update contentCache config cliMsg cliModel
-                            |> Tuple.mapSecond (perform cliModel.maybeRequestJson config config.toJsPort)
+                update contentCache config msg model
+                    |> Tuple.mapSecond (perform model.maybeRequestJson config config.toJsPort)
         , subscriptions =
             \_ ->
                 config.fromJsPort
