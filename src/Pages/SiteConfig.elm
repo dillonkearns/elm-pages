@@ -9,7 +9,7 @@ type alias SiteConfig route staticData =
     List route
     ->
         { staticData : StaticHttp.Request staticData
-        , canonicalUrl : staticData -> String
+        , canonicalUrl : String
         , manifest : staticData -> Pages.Manifest.Config
         , head :
             staticData

@@ -55,7 +55,6 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
                     }
                 )
             )
-    , canonicalSiteUrl : String
     , onPageChange :
         Maybe
             ({ path : PagePath

@@ -168,7 +168,18 @@ asJsonView x =
 --perform : RenderRequest route -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData -> (Json.Encode.Value -> Cmd Msg) -> Effect -> Cmd Msg
 
 
+perform :
+    RenderRequest route
+    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> (Codec.Value -> Cmd Never)
+    -> Effect
+    -> Cmd Msg
 perform renderRequest config toJsPort effect =
+    let
+        canonicalSiteUrl : String
+        canonicalSiteUrl =
+            config.site [] |> .canonicalUrl
+    in
     case effect of
         Effect.NoEffect ->
             Cmd.none
@@ -204,7 +215,7 @@ perform renderRequest config toJsPort effect =
                         String.dropLeft 7 unmasked.url
                 in
                 ToJsPayload.ReadFile filePath
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                     |> toJsPort
                     |> Cmd.map never
 
@@ -214,7 +225,7 @@ perform renderRequest config toJsPort effect =
                         String.dropLeft 7 unmasked.url
                 in
                 ToJsPayload.Glob globPattern
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                     |> toJsPort
                     |> Cmd.map never
 
@@ -266,7 +277,7 @@ perform renderRequest config toJsPort effect =
             in
             Cmd.batch
                 [ info
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl currentPagePath)
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
                     |> toJsPort
                     |> Cmd.map never
                 , Task.succeed ()
@@ -278,13 +289,13 @@ perform renderRequest config toJsPort effect =
 
         Effect.ReadFile filePath ->
             ToJsPayload.ReadFile filePath
-                |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> toJsPort
                 |> Cmd.map never
 
         Effect.GetGlob globPattern ->
             ToJsPayload.Glob globPattern
-                |> Codec.encoder (ToJsPayload.successCodecNew2 config.canonicalSiteUrl "")
+                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> toJsPort
                 |> Cmd.map never
 
@@ -774,9 +785,13 @@ sendSinglePageProgress toJsPayload config model =
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
+                    allRoutes =
+                        -- TODO
+                        []
+
                     currentUrl =
                         { protocol = Url.Https
-                        , host = config.canonicalSiteUrl
+                        , host = config.site allRoutes |> .canonicalUrl
                         , port_ = Nothing
                         , path = page |> PagePath.toString
                         , query = Nothing

@@ -851,7 +851,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , site =
                 \_ ->
                     { staticData = StaticHttp.succeed ()
-                    , canonicalUrl = \_ -> "canonical-site-url"
+                    , canonicalUrl = "canonical-site-url"
                     , manifest = \_ -> manifest
                     , head = \_ -> []
                     , generateFiles = generateFiles
@@ -876,7 +876,6 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
             , subscriptions = \_ _ _ -> Sub.none
-            , canonicalSiteUrl = canonicalSiteUrl
             , routeToPath = \(Route route) -> route |> String.split "/"
             , sharedStaticData = StaticHttp.succeed ()
 

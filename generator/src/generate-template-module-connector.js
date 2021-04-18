@@ -371,7 +371,6 @@ main =
                     , templateSubscriptions route path model
                     ]
         , onPageChange = Just OnPageChange
-        , canonicalSiteUrl = "TODO"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , staticData = staticDataForRoute
@@ -442,7 +441,7 @@ manifestGenerator resolvedRoutes =
         |> StaticHttp.map
             (\\data ->
                 (Site.config resolvedRoutes |> .manifest) data
-                    |> manifestToFile ((Site.config resolvedRoutes |> .canonicalUrl) data)
+                    |> manifestToFile (Site.config resolvedRoutes |> .canonicalUrl)
             )
 
 

@@ -18,7 +18,7 @@ config : SiteConfig StaticData
 config =
     \routes ->
         { staticData = staticData
-        , canonicalUrl = \_ -> canonicalUrl
+        , canonicalUrl = canonicalUrl
         , manifest = manifest
         , head = head
         , generateFiles = generateFiles routes
