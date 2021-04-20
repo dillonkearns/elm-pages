@@ -1,6 +1,7 @@
 module Glob exposing
-    ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore
+    ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, wildcard, zeroOrMore
     , capture, ignore
+    , toDataSource
     )
 
 {-|
@@ -304,8 +305,8 @@ type alias RawGlob =
 
 
 {-| -}
-toStaticHttp : Glob a -> DataSource.DataSource (List a)
-toStaticHttp glob =
+toDataSource : Glob a -> DataSource.DataSource (List a)
+toDataSource glob =
     DataSource.Http.get (Secrets.succeed <| "glob://" ++ toPattern glob)
         (OptimizedDecoder.map2 RawGlob
             (OptimizedDecoder.string |> OptimizedDecoder.list |> OptimizedDecoder.field "captures")
@@ -322,7 +323,7 @@ singleFile filePath =
     succeed identity
         |> ignore (literal filePath)
         |> capture fullFilePath
-        |> toStaticHttp
+        |> toDataSource
         |> DataSource.andThen
             (\globResults ->
                 case globResults of

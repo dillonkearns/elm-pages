@@ -24,7 +24,7 @@ blogPostsGlob =
         |> Glob.ignore (Glob.literal "content/blog/")
         |> Glob.capture Glob.wildcard
         |> Glob.ignore (Glob.literal ".md")
-        |> Glob.toStaticHttp
+        |> Glob.toDataSource
 
 
 allMetadata : DataSource.DataSource (List ( PagePath, ArticleMetadata ))

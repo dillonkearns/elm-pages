@@ -269,7 +269,7 @@ articlesRequest =
         |> Glob.ignore (Glob.literal "content/blog/")
         |> Glob.ignore Glob.wildcard
         |> Glob.ignore (Glob.literal ".md")
-        |> Glob.toStaticHttp
+        |> Glob.toDataSource
         |> DataSource.andThen
             (\articleFilePaths ->
                 articleFilePaths
