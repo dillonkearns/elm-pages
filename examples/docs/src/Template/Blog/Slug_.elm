@@ -265,10 +265,10 @@ toRssItem article =
 articlesRequest : DataSource.DataSource (List ArticleMetadata)
 articlesRequest =
     Glob.succeed identity
-        |> Glob.keep Glob.fullFilePath
-        |> Glob.drop (Glob.literal "content/blog/")
-        |> Glob.drop Glob.wildcard
-        |> Glob.drop (Glob.literal ".md")
+        |> Glob.capture Glob.fullFilePath
+        |> Glob.ignore (Glob.literal "content/blog/")
+        |> Glob.ignore Glob.wildcard
+        |> Glob.ignore (Glob.literal ".md")
         |> Glob.toStaticHttp
         |> DataSource.andThen
             (\articleFilePaths ->

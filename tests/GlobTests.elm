@@ -19,8 +19,8 @@ all =
         , test "capture" <|
             \() ->
                 Glob.succeed identity
-                    |> Glob.keep Glob.wildcard
-                    |> Glob.drop (Glob.literal ".txt")
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.ignore (Glob.literal ".txt")
                     |> expect
                         { captures = [ "my-file" ]
                         , expectedMatch = "my-file"
@@ -29,9 +29,9 @@ all =
         , test "oneOf" <|
             \() ->
                 Glob.succeed Tuple.pair
-                    |> Glob.keep Glob.wildcard
-                    |> Glob.drop (Glob.literal ".")
-                    |> Glob.keep
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.ignore (Glob.literal ".")
+                    |> Glob.capture
                         (Glob.oneOf
                             ( ( "yml", Yml )
                             , [ ( "json", Json )
@@ -47,9 +47,9 @@ all =
         , test "at least one" <|
             \() ->
                 Glob.succeed identity
-                    |> Glob.drop Glob.wildcard
-                    |> Glob.drop (Glob.literal ".")
-                    |> Glob.keep
+                    |> Glob.ignore Glob.wildcard
+                    |> Glob.ignore (Glob.literal ".")
+                    |> Glob.capture
                         (Glob.atLeastOne
                             ( ( "yml", Yml )
                             , [ ( "json", Json )
@@ -103,10 +103,10 @@ all =
         , test "new star with literal" <|
             \() ->
                 Glob.succeed Tuple.pair
-                    |> Glob.keep Glob.wildcard
-                    |> Glob.drop (Glob.literal "/")
-                    |> Glob.keep (Glob.wildcard |> Glob.map String.toUpper)
-                    |> Glob.drop (Glob.literal ".txt")
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.ignore (Glob.literal "/")
+                    |> Glob.capture (Glob.wildcard |> Glob.map String.toUpper)
+                    |> Glob.ignore (Glob.literal ".txt")
                     |> expect
                         { captures = [ "before-slash", "after-slash" ]
                         , expectedMatch = ( "before-slash", "AFTER-SLASH" )
@@ -115,10 +115,10 @@ all =
         , test "recursive match" <|
             \() ->
                 Glob.succeed Tuple.pair
-                    |> Glob.keep Glob.recursiveWildcard
-                    |> Glob.drop (Glob.literal "/")
-                    |> Glob.keep Glob.wildcard
-                    |> Glob.drop (Glob.literal ".txt")
+                    |> Glob.capture Glob.recursiveWildcard
+                    |> Glob.ignore (Glob.literal "/")
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.ignore (Glob.literal ".txt")
                     |> expect
                         { captures = [ "a/b/c", "d" ]
                         , expectedMatch = ( "a/b/c", "d" )
@@ -127,13 +127,13 @@ all =
         , test "not" <|
             \() ->
                 Glob.succeed Tuple.pair
-                    |> Glob.keep
+                    |> Glob.capture
                         (Glob.notOneOf
                             ( "xyz", [] )
                         )
-                    |> Glob.drop (Glob.literal "/")
-                    |> Glob.keep Glob.wildcard
-                    |> Glob.drop (Glob.literal ".txt")
+                    |> Glob.ignore (Glob.literal "/")
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.ignore (Glob.literal ".txt")
                     |> expect
                         -- abc/d.txt
                         -- https://runkit.com/embed/05epbnc0c7g1
@@ -144,11 +144,11 @@ all =
         , test "not with multiple patterns" <|
             \() ->
                 Glob.succeed Tuple.pair
-                    |> Glob.keep
+                    |> Glob.capture
                         (Glob.notOneOf ( "abz", [ "xyz" ] ))
-                    |> Glob.drop (Glob.literal "/")
-                    |> Glob.keep Glob.wildcard
-                    |> Glob.drop (Glob.literal ".txt")
+                    |> Glob.ignore (Glob.literal "/")
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.ignore (Glob.literal ".txt")
                     |> expect
                         -- abc/d.txt
                         -- https://runkit.com/embed/05epbnc0c7g1
@@ -162,9 +162,9 @@ all =
 zeroOrMoreGlob : Glob.Glob (Maybe String)
 zeroOrMoreGlob =
     Glob.succeed identity
-        |> Glob.drop (Glob.literal "test/a")
-        |> Glob.keep (Glob.zeroOrMore [ "a", "b" ])
-        |> Glob.drop (Glob.literal "/x.js")
+        |> Glob.ignore (Glob.literal "test/a")
+        |> Glob.capture (Glob.zeroOrMore [ "a", "b" ])
+        |> Glob.ignore (Glob.literal "/x.js")
 
 
 type DataExtension

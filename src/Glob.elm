@@ -1,4 +1,7 @@
-module Glob exposing (Glob, atLeastOne, drop, extractMatches, fullFilePath, keep, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore)
+module Glob exposing
+    ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore
+    , capture, ignore
+    )
 
 {-|
 
@@ -159,16 +162,16 @@ toPattern (Glob pattern applyCapture) =
 
 
 {-| -}
-drop : Glob a -> Glob value -> Glob value
-drop (Glob matcherPattern apply1) (Glob pattern apply2) =
+ignore : Glob a -> Glob value -> Glob value
+ignore (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
         apply2
 
 
 {-| -}
-keep : Glob a -> Glob (a -> value) -> Glob value
-keep (Glob matcherPattern apply1) (Glob pattern apply2) =
+capture : Glob a -> Glob (a -> value) -> Glob value
+capture (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
         (\fullPath captures ->
@@ -315,8 +318,8 @@ toStaticHttp glob =
 singleFile : String -> DataSource.DataSource (Maybe String)
 singleFile filePath =
     succeed identity
-        |> drop (literal filePath)
-        |> keep fullFilePath
+        |> ignore (literal filePath)
+        |> capture fullFilePath
         |> toStaticHttp
         |> DataSource.andThen
             (\globResults ->

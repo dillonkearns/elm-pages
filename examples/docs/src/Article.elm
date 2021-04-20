@@ -20,10 +20,10 @@ type alias BlogPost =
 blogPostsGlob : DataSource.DataSource (List { filePath : String, slug : String })
 blogPostsGlob =
     Glob.succeed BlogPost
-        |> Glob.keep Glob.fullFilePath
-        |> Glob.drop (Glob.literal "content/blog/")
-        |> Glob.keep Glob.wildcard
-        |> Glob.drop (Glob.literal ".md")
+        |> Glob.capture Glob.fullFilePath
+        |> Glob.ignore (Glob.literal "content/blog/")
+        |> Glob.capture Glob.wildcard
+        |> Glob.ignore (Glob.literal ".md")
         |> Glob.toStaticHttp
 
 
