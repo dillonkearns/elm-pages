@@ -114,14 +114,14 @@ toDirection string =
             Nothing
 
 
-staticData : RouteParams -> DataSource.Request StaticData
+staticData : RouteParams -> DataSource.DataSource StaticData
 staticData routeParams =
     DataSource.map2 StaticData
         (slideBody routeParams)
         slideCount
 
 
-slideBody : RouteParams -> DataSource.Request (List (Html.Html Msg))
+slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
 slideBody route =
     StaticFile.request
         "slides.md"
@@ -147,7 +147,7 @@ slideBody route =
         )
 
 
-slideCount : DataSource.Request Int
+slideCount : DataSource.DataSource Int
 slideCount =
     StaticFile.request "slides.md"
         (StaticFile.body

@@ -33,7 +33,7 @@ config =
 generateFiles :
     List (Maybe Route)
     ->
-        DataSource.Request
+        DataSource.DataSource
             (List
                 (Result
                     String
@@ -53,7 +53,7 @@ type alias StaticData =
     }
 
 
-staticData : DataSource.Request StaticData
+staticData : DataSource.DataSource StaticData
 staticData =
     DataSource.map StaticData
         --(StaticFile.request "site-name.txt" StaticFile.body)

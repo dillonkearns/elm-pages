@@ -10,7 +10,7 @@ install :
     { siteUrl : String
     }
     -> (List item -> List { path : String, lastMod : Maybe String })
-    -> DataSource.Request (List item)
+    -> DataSource.DataSource (List item)
     -> Builder pathKey userModel userMsg route
     -> Builder pathKey userModel userMsg route
 install config toSitemapEntry request builder =

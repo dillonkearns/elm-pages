@@ -120,7 +120,7 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : DataSource.Request (List Entry)
+staticRequest : DataSource.DataSource (List Entry)
 staticRequest =
     DataSource.request
         (Secrets.succeed

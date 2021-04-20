@@ -81,7 +81,7 @@ view static =
     }
 
 
-staticData : Route -> DataSource.Request (List (Element.Element msg))
+staticData : Route -> DataSource.DataSource (List (Element.Element msg))
 staticData route =
     StaticFile.request
         "content/index.md"

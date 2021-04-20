@@ -24,7 +24,7 @@ type StaticResponses
 
 
 type StaticHttpResult
-    = NotFetched (DataSource.Request ()) (Dict String (Result () String))
+    = NotFetched (DataSource.DataSource ()) (Dict String (Result () String))
 
 
 error : StaticResponses
@@ -34,12 +34,12 @@ error =
 
 init :
     { config
-        | getStaticRoutes : DataSource.Request (List route)
+        | getStaticRoutes : DataSource.DataSource (List route)
         , site : SiteConfig route siteStaticData
-        , staticData : route -> DataSource.Request pageStaticData
-        , sharedStaticData : DataSource.Request sharedStaticData
+        , staticData : route -> DataSource.DataSource pageStaticData
+        , sharedStaticData : DataSource.DataSource sharedStaticData
         , generateFiles :
-            DataSource.Request
+            DataSource.DataSource
                 (List
                     (Result
                         String
@@ -71,7 +71,7 @@ renderSingleRoute :
         | routeToPath : route -> List String
     }
     -> { path : PagePath, frontmatter : route }
-    -> DataSource.Request a
+    -> DataSource.DataSource a
     -> StaticResponses
 renderSingleRoute config pathAndRoute request =
     [ pathAndRoute.frontmatter ]
@@ -151,13 +151,13 @@ type NextStep route
 
 nextStep :
     { config
-        | getStaticRoutes : DataSource.Request (List route)
+        | getStaticRoutes : DataSource.DataSource (List route)
         , routeToPath : route -> List String
-        , staticData : route -> DataSource.Request pageStaticData
-        , sharedStaticData : DataSource.Request sharedStaticData
+        , staticData : route -> DataSource.DataSource pageStaticData
+        , sharedStaticData : DataSource.DataSource sharedStaticData
         , site : SiteConfig route siteStaticData
         , generateFiles :
-            DataSource.Request
+            DataSource.DataSource
                 (List
                     (Result
                         String
@@ -319,7 +319,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
     in
     if pendingRequests then
         let
-            requestContinuations : List ( String, DataSource.Request () )
+            requestContinuations : List ( String, DataSource.DataSource () )
             requestContinuations =
                 staticResponses
                     |> Dict.toList
@@ -469,7 +469,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
 performStaticHttpRequests :
     Dict String (Maybe String)
     -> SecretsDict
-    -> List ( String, DataSource.Request a )
+    -> List ( String, DataSource.DataSource a )
     -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests

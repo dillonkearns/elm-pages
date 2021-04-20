@@ -10,7 +10,7 @@ import TemplateType
 template :
     { staticData :
         List ( PagePath, TemplateType.Metadata )
-        -> DataSource.Request staticData
+        -> DataSource.DataSource staticData
     , view :
         List ( PagePath, TemplateType.Metadata )
         -> staticData
@@ -34,7 +34,7 @@ template config =
 type alias Template metadata renderedTemplate staticData model view templateMsg =
     { staticData :
         List ( PagePath, TemplateType.Metadata )
-        -> DataSource.Request staticData
+        -> DataSource.DataSource staticData
     , view :
         List ( PagePath, TemplateType.Metadata )
         -> staticData

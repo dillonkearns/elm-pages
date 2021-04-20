@@ -16,7 +16,7 @@ generate :
     , indexPage : PagePath
     }
     -> (item -> Maybe Rss.Item)
-    -> DataSource.Request (List item)
+    -> DataSource.DataSource (List item)
     -> Builder pathKey userModel userMsg route
     -> Builder pathKey userModel userMsg route
 generate options metadataToRssItem itemsRequest builder =

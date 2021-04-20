@@ -30,13 +30,13 @@ body =
 
 
 {-| -}
-request : String -> Decoder a -> DataSource.Request a
+request : String -> Decoder a -> DataSource.DataSource a
 request filePath =
     DataSource.get (Secrets.succeed <| "file://" ++ filePath)
 
 
 {-| -}
-glob : String -> DataSource.Request (List String)
+glob : String -> DataSource.DataSource (List String)
 glob pattern =
     DataSource.get (Secrets.succeed <| "glob://" ++ pattern)
         (OptimizedDecoder.list OptimizedDecoder.string)

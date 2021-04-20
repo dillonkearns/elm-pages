@@ -32,7 +32,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
         -> (sharedMsg -> mappedMsg)
         -> Document mappedMsg
         -> { body : Html mappedMsg, title : String }
-    , staticData : DataSource.Request sharedStaticData
+    , staticData : DataSource.DataSource sharedStaticData
     , subscriptions : PagePath -> sharedModel -> Sub sharedMsg
     , onPageChange :
         Maybe

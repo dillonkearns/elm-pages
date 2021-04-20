@@ -37,7 +37,7 @@ type alias RouteParams =
     { slug : String }
 
 
-routes : DataSource.Request (List RouteParams)
+routes : DataSource.DataSource (List RouteParams)
 routes =
     Article.blogPostsGlob
         |> DataSource.map
@@ -183,7 +183,7 @@ type alias StaticData =
     }
 
 
-staticData : RouteParams -> DataSource.Request StaticData
+staticData : RouteParams -> DataSource.DataSource StaticData
 staticData route =
     StaticFile.request
         ("content/blog/" ++ route.slug ++ ".md")
@@ -262,7 +262,7 @@ toRssItem article =
             }
 
 
-articlesRequest : DataSource.Request (List ArticleMetadata)
+articlesRequest : DataSource.DataSource (List ArticleMetadata)
 articlesRequest =
     Glob.succeed identity
         |> Glob.keep Glob.fullFilePath

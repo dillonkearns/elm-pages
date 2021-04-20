@@ -39,7 +39,7 @@ import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
-import DataSource
+import DataSource exposing (DataSource)
 
 ${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
 
@@ -390,7 +390,7 @@ main =
                     )
         }
 
-staticDataForRoute : Maybe Route -> DataSource.Request PageStaticData
+staticDataForRoute : Maybe Route -> DataSource PageStaticData
 staticDataForRoute route =
     case route of
         Nothing ->
@@ -409,7 +409,7 @@ staticDataForRoute route =
           .join("\n        ")}
 
 
-getStaticRoutes : DataSource.Request (List (Maybe Route))
+getStaticRoutes : DataSource (List (Maybe Route))
 getStaticRoutes =
     DataSource.combine
         [ DataSource.succeed
@@ -434,7 +434,7 @@ getStaticRoutes =
         |> DataSource.map (List.map Just)
 
 
-manifestGenerator : List ( Maybe Route ) -> DataSource.Request (Result anyError { path : List String, content : String })
+manifestGenerator : List ( Maybe Route ) -> DataSource (Result anyError { path : List String, content : String })
 manifestGenerator resolvedRoutes =
     Site.config resolvedRoutes
         |> .staticData

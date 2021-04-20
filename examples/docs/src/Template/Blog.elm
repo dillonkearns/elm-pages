@@ -36,7 +36,7 @@ template =
             }
 
 
-staticData : DataSource.Request StaticData
+staticData : DataSource.DataSource StaticData
 staticData =
     --StaticFile.glob "content/blog/*.md"
     Article.allMetadata

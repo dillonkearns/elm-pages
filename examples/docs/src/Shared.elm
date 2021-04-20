@@ -101,7 +101,7 @@ subscriptions _ _ =
     Sub.none
 
 
-staticData : DataSource.Request StaticData
+staticData : DataSource.DataSource StaticData
 staticData =
     DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (D.field "stargazers_count" D.int)

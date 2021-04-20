@@ -17,7 +17,7 @@ type alias BlogPost =
     }
 
 
-blogPostsGlob : DataSource.Request (List { filePath : String, slug : String })
+blogPostsGlob : DataSource.DataSource (List { filePath : String, slug : String })
 blogPostsGlob =
     Glob.succeed BlogPost
         |> Glob.keep Glob.fullFilePath
@@ -27,7 +27,7 @@ blogPostsGlob =
         |> Glob.toStaticHttp
 
 
-allMetadata : DataSource.Request (List ( PagePath, ArticleMetadata ))
+allMetadata : DataSource.DataSource (List ( PagePath, ArticleMetadata ))
 allMetadata =
     --StaticFile.glob "content/blog/*.md"
     blogPostsGlob
@@ -69,7 +69,7 @@ type alias DataFromFile msg =
 --fileRequest : String -> StaticHttp.Request (DataFromFile msg)
 
 
-fileRequest : String -> DataSource.Request ArticleMetadata
+fileRequest : String -> DataSource.DataSource ArticleMetadata
 fileRequest filePath =
     StaticFile.request
         --"content/blog/extensible-markdown-parsing-in-elm.md"

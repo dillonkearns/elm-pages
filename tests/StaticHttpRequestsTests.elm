@@ -115,7 +115,7 @@ all =
                             (Secrets.succeed (get url))
                             decoder
 
-                    pokemonDetailRequest : DataSource.Request ()
+                    pokemonDetailRequest : DataSource.DataSource ()
                     pokemonDetailRequest =
                         getReq
                             "https://pokeapi.co/api/v2/pokemon/"
@@ -780,7 +780,7 @@ type Route
     = Route String
 
 
-start : List ( List String, DataSource.Request a ) -> ProgramTest (Model Route) Msg Effect
+start : List ( List String, DataSource.DataSource a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
@@ -788,14 +788,14 @@ start pages =
 startWithHttpCache :
     Result String ()
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource.Request a )
+    -> List ( List String, DataSource.DataSource a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
     startLowLevel (DataSource.succeed [])
 
 
 startLowLevel :
-    DataSource.Request
+    DataSource.DataSource
         (List
             (Result
                 String
@@ -806,7 +806,7 @@ startLowLevel :
         )
     -> Result String ()
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource.Request a )
+    -> List ( List String, DataSource.DataSource a )
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let

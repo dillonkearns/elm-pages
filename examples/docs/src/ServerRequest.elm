@@ -15,7 +15,7 @@ init constructor =
     ServerRequest (OptimizedDecoder.succeed constructor)
 
 
-staticData : DataSource.Request String
+staticData : DataSource.DataSource String
 staticData =
     DataSource.get (Secrets.succeed "$$elm-pages$$headers")
         (OptimizedDecoder.field "headers"
@@ -23,7 +23,7 @@ staticData =
         )
 
 
-toStaticHttp : ServerRequest decodesTo -> DataSource.Request decodesTo
+toStaticHttp : ServerRequest decodesTo -> DataSource.DataSource decodesTo
 toStaticHttp (ServerRequest decoder) =
     DataSource.get (Secrets.succeed "$$elm-pages$$headers") decoder
 

@@ -49,14 +49,14 @@ import Browser.Navigation
 import Document exposing (Document)
 import Head
 import Pages.PagePath exposing (PagePath)
-import DataSource
+import DataSource exposing (DataSource)
 import Shared
 
 
 {-| -}
 type alias TemplateWithState routeParams templateStaticData templateModel templateMsg =
-    { staticData : routeParams -> DataSource.Request templateStaticData
-    , staticRoutes : DataSource.Request (List routeParams)
+    { staticData : routeParams -> DataSource templateStaticData
+    , staticRoutes : DataSource (List routeParams)
     , view :
         templateModel
         -> Shared.Model
@@ -88,8 +88,8 @@ type alias StaticPayload staticData routeParams =
 {-| -}
 type Builder routeParams templateStaticData
     = WithStaticData
-        { staticData : routeParams -> DataSource.Request templateStaticData
-        , staticRoutes : DataSource.Request (List routeParams)
+        { staticData : routeParams -> DataSource templateStaticData
+        , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload templateStaticData routeParams
             -> List Head.Tag
@@ -202,8 +202,8 @@ buildWithSharedState config builderState =
 
 {-| -}
 withStaticData :
-    { staticData : routeParams -> DataSource.Request templateStaticData
-    , staticRoutes : DataSource.Request (List routeParams)
+    { staticData : routeParams -> DataSource templateStaticData
+    , staticRoutes : DataSource (List routeParams)
     , head : StaticPayload templateStaticData routeParams -> List Head.Tag
     }
     -> Builder routeParams templateStaticData
@@ -218,7 +218,7 @@ withStaticData { staticData, head, staticRoutes } =
 {-| -}
 noStaticData :
     { head : StaticPayload () routeParams -> List Head.Tag
-    , staticRoutes : DataSource.Request (List routeParams)
+    , staticRoutes : DataSource (List routeParams)
     }
     -> Builder routeParams ()
 noStaticData { head, staticRoutes } =

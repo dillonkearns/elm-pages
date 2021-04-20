@@ -29,7 +29,7 @@ template =
         |> Template.buildNoState { view = view }
 
 
-staticData : DataSource.Request StaticData
+staticData : DataSource.DataSource StaticData
 staticData =
     Showcase.staticRequest
 

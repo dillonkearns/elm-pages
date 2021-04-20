@@ -1,5 +1,5 @@
 module DataSource exposing
-    ( Request, RequestDetails
+    ( RequestDetails
     , get, request
     , map, succeed, fail
     , Body, emptyBody, stringBody, jsonBody
@@ -7,6 +7,7 @@ module DataSource exposing
     , map2, map3, map4, map5, map6, map7, map8, map9
     , unoptimizedRequest
     , Expect, expectString, expectUnoptimizedJson
+    , DataSource
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -122,10 +123,10 @@ type alias Body =
     Body.Body
 
 
-{-| A Request that will be made a build time. Multiple `StaticHttp.Request`s can be combined together using the `mapN` functions,
+{-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
 very similar to how you can manipulate values with Json Decoders in Elm.
 -}
-type alias Request value =
+type alias DataSource value =
     RawRequest value
 
 
@@ -153,7 +154,7 @@ A common use for this is to map your data into your elm-pages view:
                 )
 
 -}
-map : (a -> b) -> Request a -> Request b
+map : (a -> b) -> DataSource a -> DataSource b
 map fn requestInfo =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -173,7 +174,7 @@ map fn requestInfo =
 
 {-| Helper to remove an inner layer of Request wrapping.
 -}
-resolve : Request (List (Request value)) -> Request (List value)
+resolve : DataSource (List (DataSource value)) -> DataSource (List value)
 resolve =
     andThen combine
 
@@ -212,7 +213,7 @@ resolve =
             |> StaticHttp.andThen StaticHttp.combine
 
 -}
-combine : List (Request value) -> Request (List value)
+combine : List (DataSource value) -> DataSource (List value)
 combine =
     List.foldl (map2 (::)) (succeed [])
 
@@ -240,12 +241,12 @@ combine =
             )
 
 -}
-map2 : (a -> b -> c) -> Request a -> Request b -> Request c
+map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
-                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, Request c )
+                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, DataSource c )
                 value appType rawResponses =
                     case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
                         ( Ok ( newDict1, newValue1 ), Ok ( newDict2, newValue2 ) ) ->
@@ -305,12 +306,12 @@ combineReducedDicts dict1 dict2 =
             )
 
 
-lookup : ApplicationType -> Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
 lookup =
     lookupHelp Dict.empty
 
 
-lookupHelp : Dict String String -> ApplicationType -> Request value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookupHelp : Dict String String -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
 lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
         Request ( urls, lookupFn ) ->
@@ -327,7 +328,7 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
             Ok ( strippedSoFar, value )
 
 
-addUrls : List (Pages.Secrets.Value HashRequest.Request) -> Request value -> Request value
+addUrls : List (Pages.Secrets.Value HashRequest.Request) -> DataSource value -> DataSource value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         Request ( initialUrls, function ) ->
@@ -337,7 +338,7 @@ addUrls urlsToAdd requestInfo =
             Done value
 
 
-lookupUrls : Request value -> List (Pages.Secrets.Value RequestDetails)
+lookupUrls : DataSource value -> List (Pages.Secrets.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
         Request ( urls, _ ) ->
@@ -364,7 +365,7 @@ from the previous response to build up the URL, headers, etc. that you send to t
                 )
 
 -}
-andThen : (a -> Request b) -> Request a -> Request b
+andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
     Request
         ( lookupUrls requestInfo
@@ -407,7 +408,7 @@ andThen fn requestInfo =
             }
 
 -}
-succeed : a -> Request a
+succeed : a -> DataSource a
 succeed value =
     Request
         ( []
@@ -420,7 +421,7 @@ succeed value =
 you will get a build error. Or in the dev server, you will see the error message in an overlay in your browser (and in
 the terminal).
 -}
-fail : String -> Request a
+fail : String -> DataSource a
 fail errorMessage =
     Request
         ( []
@@ -444,7 +445,7 @@ fail errorMessage =
 get :
     Pages.Secrets.Value String
     -> Decoder a
-    -> Request a
+    -> DataSource a
 get url decoder =
     request
         (Secrets.map
@@ -483,7 +484,7 @@ with this as a low-level detail, or you can use functions like [StaticHttp.get](
 request :
     Pages.Secrets.Value RequestDetails
     -> Decoder a
-    -> Request a
+    -> DataSource a
 request urlWithSecrets decoder =
     unoptimizedRequest urlWithSecrets (ExpectJson decoder)
 
@@ -558,7 +559,7 @@ so you don't need any additional optimization as the payload is already reduced 
 unoptimizedRequest :
     Pages.Secrets.Value RequestDetails
     -> Expect a
-    -> Request a
+    -> DataSource a
 unoptimizedRequest requestWithSecrets expect =
     case expect of
         ExpectJson decoder ->
@@ -746,10 +747,10 @@ unoptimizedRequest requestWithSecrets expect =
 {-| -}
 map3 :
     (value1 -> value2 -> value3 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource valueCombined
 map3 combineFn request1 request2 request3 =
     succeed combineFn
         |> map2 (|>) request1
@@ -760,11 +761,11 @@ map3 combineFn request1 request2 request3 =
 {-| -}
 map4 :
     (value1 -> value2 -> value3 -> value4 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request value4
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource value4
+    -> DataSource valueCombined
 map4 combineFn request1 request2 request3 request4 =
     succeed combineFn
         |> map2 (|>) request1
@@ -776,12 +777,12 @@ map4 combineFn request1 request2 request3 request4 =
 {-| -}
 map5 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request value4
-    -> Request value5
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource value4
+    -> DataSource value5
+    -> DataSource valueCombined
 map5 combineFn request1 request2 request3 request4 request5 =
     succeed combineFn
         |> map2 (|>) request1
@@ -794,13 +795,13 @@ map5 combineFn request1 request2 request3 request4 request5 =
 {-| -}
 map6 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request value4
-    -> Request value5
-    -> Request value6
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource value4
+    -> DataSource value5
+    -> DataSource value6
+    -> DataSource valueCombined
 map6 combineFn request1 request2 request3 request4 request5 request6 =
     succeed combineFn
         |> map2 (|>) request1
@@ -814,14 +815,14 @@ map6 combineFn request1 request2 request3 request4 request5 request6 =
 {-| -}
 map7 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request value4
-    -> Request value5
-    -> Request value6
-    -> Request value7
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource value4
+    -> DataSource value5
+    -> DataSource value6
+    -> DataSource value7
+    -> DataSource valueCombined
 map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
     succeed combineFn
         |> map2 (|>) request1
@@ -836,15 +837,15 @@ map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
 {-| -}
 map8 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request value4
-    -> Request value5
-    -> Request value6
-    -> Request value7
-    -> Request value8
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource value4
+    -> DataSource value5
+    -> DataSource value6
+    -> DataSource value7
+    -> DataSource value8
+    -> DataSource valueCombined
 map8 combineFn request1 request2 request3 request4 request5 request6 request7 request8 =
     succeed combineFn
         |> map2 (|>) request1
@@ -860,16 +861,16 @@ map8 combineFn request1 request2 request3 request4 request5 request6 request7 re
 {-| -}
 map9 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request value4
-    -> Request value5
-    -> Request value6
-    -> Request value7
-    -> Request value8
-    -> Request value9
-    -> Request valueCombined
+    -> DataSource value1
+    -> DataSource value2
+    -> DataSource value3
+    -> DataSource value4
+    -> DataSource value5
+    -> DataSource value6
+    -> DataSource value7
+    -> DataSource value8
+    -> DataSource value9
+    -> DataSource valueCombined
 map9 combineFn request1 request2 request3 request4 request5 request6 request7 request8 request9 =
     succeed combineFn
         |> map2 (|>) request1

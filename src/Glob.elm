@@ -298,7 +298,7 @@ type alias RawGlob =
 
 
 {-| -}
-toStaticHttp : Glob a -> DataSource.Request (List a)
+toStaticHttp : Glob a -> DataSource.DataSource (List a)
 toStaticHttp glob =
     DataSource.get (Secrets.succeed <| "glob://" ++ toPattern glob)
         (OptimizedDecoder.map2 RawGlob
@@ -311,7 +311,7 @@ toStaticHttp glob =
 
 
 {-| -}
-singleFile : String -> DataSource.Request (Maybe String)
+singleFile : String -> DataSource.DataSource (Maybe String)
 singleFile filePath =
     succeed identity
         |> drop (literal filePath)

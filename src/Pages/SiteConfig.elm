@@ -8,14 +8,14 @@ import Pages.Manifest
 type alias SiteConfig route staticData =
     List route
     ->
-        { staticData : DataSource.Request staticData
+        { staticData : DataSource.DataSource staticData
         , canonicalUrl : String
         , manifest : staticData -> Pages.Manifest.Config
         , head :
             staticData
             -> List Head.Tag
         , generateFiles :
-            DataSource.Request
+            DataSource.DataSource
                 (List
                     (Result
                         String
