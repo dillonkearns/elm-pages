@@ -1,4 +1,4 @@
-module Pages.StaticFile exposing (body, frontmatter, glob, rawFile, request)
+module DataSource.File exposing (body, frontmatter, glob, rawFile, request)
 
 {-|
 

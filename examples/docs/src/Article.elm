@@ -2,13 +2,13 @@ module Article exposing (..)
 
 import Cloudinary
 import DataSource
+import DataSource.File as StaticFile
 import Date exposing (Date)
 import Element exposing (Element)
 import Glob
 import OptimizedDecoder
 import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticFile as StaticFile
 
 
 type alias BlogPost =

@@ -14,7 +14,7 @@
         "Pages.PagePath",
         "DataSource",
         "DataSource.Http",
-        "Pages.StaticFile",
+        "DataSource.File",
         "Pages.Secrets",
         "Pages.Manifest",
         "Pages.Manifest.Category"

@@ -1,6 +1,7 @@
 module Template.Index exposing (Model, Msg, StaticData, template)
 
 import DataSource
+import DataSource.File as StaticFile
 import Document exposing (Document)
 import Element
 import Element.Region
@@ -9,7 +10,6 @@ import Head.Seo as Seo
 import MarkdownRenderer
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath
-import Pages.StaticFile as StaticFile
 import Shared
 import SiteOld
 import Template exposing (StaticPayload, Template)

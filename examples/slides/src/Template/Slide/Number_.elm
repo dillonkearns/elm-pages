@@ -3,6 +3,7 @@ module Template.Slide.Number_ exposing (Model, Msg, StaticData, template)
 import Browser.Events
 import Browser.Navigation
 import DataSource
+import DataSource.File as StaticFile
 import Document exposing (Document)
 import Head
 import Head.Seo as Seo
@@ -15,7 +16,6 @@ import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath
-import Pages.StaticFile as StaticFile
 import Shared
 import Tailwind.Utilities as Tw
 import Template exposing (StaticPayload, Template)

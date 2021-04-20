@@ -4,6 +4,7 @@ import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource
+import DataSource.File as StaticFile
 import Date exposing (Date)
 import Document exposing (Document)
 import Element exposing (Element)
@@ -16,7 +17,6 @@ import MarkdownRenderer
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticFile as StaticFile
 import Palette
 import Rss
 import Shared
