@@ -27,7 +27,7 @@ import Document exposing (Document)
 import Pages.ImagePath as ImagePath
 import Head
 import Head.Seo as Seo
-import Pages.StaticHttp as StaticHttp
+import DataSource
 import Shared
 import Template exposing (StaticPayload, Template, TemplateWithState)
 
@@ -46,7 +46,7 @@ template : Template RouteParams StaticData
 template =
     Template.noStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed []
+        , staticRoutes = DataSource.succeed []
         }
         |> Template.buildNoState { view = view }
 
