@@ -1,5 +1,6 @@
 module Template.Index exposing (Model, Msg, StaticData, template)
 
+import DataSource
 import Document exposing (Document)
 import Element
 import Element.Region
@@ -9,7 +10,6 @@ import MarkdownRenderer
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath
 import Pages.StaticFile as StaticFile
-import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
 import Template exposing (StaticPayload, Template)
@@ -35,7 +35,7 @@ template : Template Route StaticData
 template =
     Template.withStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed []
+        , staticRoutes = DataSource.succeed []
         , staticData = staticData
         }
         |> Template.buildNoState { view = view }
@@ -81,7 +81,7 @@ view static =
     }
 
 
-staticData : Route -> StaticHttp.Request (List (Element.Element msg))
+staticData : Route -> DataSource.Request (List (Element.Element msg))
 staticData route =
     StaticFile.request
         "content/index.md"

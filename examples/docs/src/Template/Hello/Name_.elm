@@ -1,11 +1,11 @@
 module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
 
+import DataSource
 import Document exposing (Document)
 import Element
 import Head
 import Head.Seo as Seo
 import Pages.ImagePath as ImagePath
-import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
 import Template exposing (StaticPayload, Template)
@@ -28,7 +28,7 @@ template : Template Route ()
 template =
     Template.noStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed [ { name = "world" } ]
+        , staticRoutes = DataSource.succeed [ { name = "world" } ]
         }
         |> Template.buildNoState { view = view }
 

@@ -2,12 +2,12 @@ module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
 
 import Browser.Navigation
 import Css.Global
+import DataSource
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
 import OptimizedDecoder as D
 import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
@@ -79,9 +79,9 @@ subscriptions _ _ =
     Sub.none
 
 
-staticData : StaticHttp.Request StaticData
+staticData : DataSource.Request StaticData
 staticData =
-    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+    DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (D.field "stargazers_count" D.int)
 
 

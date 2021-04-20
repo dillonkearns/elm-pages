@@ -2,6 +2,7 @@ module Site exposing (config)
 
 import Cloudinary
 import Color
+import DataSource
 import Head
 import Json.Encode
 import MimeType
@@ -9,7 +10,6 @@ import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
 import Pages.PagePath as PagePath
-import Pages.StaticHttp as StaticHttp
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
 import Sitemap
@@ -33,7 +33,7 @@ config =
 generateFiles :
     List (Maybe Route)
     ->
-        StaticHttp.Request
+        DataSource.Request
             (List
                 (Result
                     String
@@ -43,7 +43,7 @@ generateFiles :
                 )
             )
 generateFiles allRoutes =
-    StaticHttp.succeed
+    DataSource.succeed
         [ siteMap allRoutes |> Ok
         ]
 
@@ -53,11 +53,11 @@ type alias StaticData =
     }
 
 
-staticData : StaticHttp.Request StaticData
+staticData : DataSource.Request StaticData
 staticData =
-    StaticHttp.map StaticData
+    DataSource.map StaticData
         --(StaticFile.request "site-name.txt" StaticFile.body)
-        (StaticHttp.succeed "site-name")
+        (DataSource.succeed "site-name")
 
 
 head : StaticData -> List Head.Tag

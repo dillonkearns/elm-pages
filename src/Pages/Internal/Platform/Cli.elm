@@ -10,6 +10,7 @@ module Pages.Internal.Platform.Cli exposing
 
 import BuildError exposing (BuildError)
 import Codec
+import DataSource exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
 import ElmHtml.InternalTypes exposing (decodeElmHtml)
@@ -29,7 +30,6 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessP
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
-import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RenderRequest exposing (RenderRequest)
 import SecretsDict exposing (SecretsDict)
@@ -373,7 +373,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                 RenderRequest.SinglePage _ serverRequestPayload _ ->
                     StaticResponses.renderSingleRoute config
                         serverRequestPayload
-                        (StaticHttp.map2 (\_ _ -> ())
+                        (DataSource.map2 (\_ _ -> ())
                             (config.staticData serverRequestPayload.frontmatter)
                             config.sharedStaticData
                         )

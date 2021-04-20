@@ -1,12 +1,12 @@
 module Showcase exposing (..)
 
+import DataSource
 import Element
 import Element.Border
 import Element.Font
 import FontAwesome
 import OptimizedDecoder as Decode
 import Pages.Secrets as Secrets
-import Pages.StaticHttp as StaticHttp
 import Palette
 
 
@@ -120,15 +120,15 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : StaticHttp.Request (List Entry)
+staticRequest : DataSource.Request (List Entry)
 staticRequest =
-    StaticHttp.request
+    DataSource.request
         (Secrets.succeed
             (\airtableToken ->
                 { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
                 , method = "GET"
                 , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
-                , body = StaticHttp.emptyBody
+                , body = DataSource.emptyBody
                 }
             )
             |> Secrets.with "AIRTABLE_TOKEN"

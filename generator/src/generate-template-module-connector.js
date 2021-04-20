@@ -39,7 +39,7 @@ import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
-import Pages.StaticHttp as StaticHttp
+import DataSource
 
 ${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
 
@@ -377,9 +377,9 @@ main =
         , sharedStaticData = Shared.template.staticData
         , generateFiles =
             getStaticRoutes
-                |> StaticHttp.andThen
+                |> DataSource.andThen
                     (\\resolvedStaticRoutes ->
-                        StaticHttp.map2 (::)
+                        DataSource.map2 (::)
                             (manifestGenerator
                                 resolvedStaticRoutes
                             )
@@ -390,11 +390,11 @@ main =
                     )
         }
 
-staticDataForRoute : Maybe Route -> StaticHttp.Request PageStaticData
+staticDataForRoute : Maybe Route -> DataSource.Request PageStaticData
 staticDataForRoute route =
     case route of
         Nothing ->
-            StaticHttp.fail ""
+            DataSource.fail ""
         ${templates
           .map(
             (name) =>
@@ -402,17 +402,17 @@ staticDataForRoute route =
                 name
               )} routeParams) ->\n            Template.${name.join(
                 "."
-              )}.template.staticData routeParams |> StaticHttp.map Data${routeHelpers.routeVariant(
+              )}.template.staticData routeParams |> DataSource.map Data${routeHelpers.routeVariant(
                 name
               )}`
           )
           .join("\n        ")}
 
 
-getStaticRoutes : StaticHttp.Request (List (Maybe Route))
+getStaticRoutes : DataSource.Request (List (Maybe Route))
 getStaticRoutes =
-    StaticHttp.combine
-        [ StaticHttp.succeed
+    DataSource.combine
+        [ DataSource.succeed
             [ ${templates
               .filter((name) => !isParameterizedRoute(name))
               .map((name) => `Route.${routeHelpers.routeVariant(name)} {}`)
@@ -424,21 +424,21 @@ getStaticRoutes =
             (name) =>
               `Template.${moduleName(
                 name
-              )}.template.staticRoutes |> StaticHttp.map (List.map Route.${pathNormalizedName(
+              )}.template.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
                 name
               )})`
           )
           .join("\n                , ")}
         ]
-        |> StaticHttp.map List.concat
-        |> StaticHttp.map (List.map Just)
+        |> DataSource.map List.concat
+        |> DataSource.map (List.map Just)
 
 
-manifestGenerator : List ( Maybe Route ) -> StaticHttp.Request (Result anyError { path : List String, content : String })
+manifestGenerator : List ( Maybe Route ) -> DataSource.Request (Result anyError { path : List String, content : String })
 manifestGenerator resolvedRoutes =
     Site.config resolvedRoutes
         |> .staticData
-        |> StaticHttp.map
+        |> DataSource.map
             (\\data ->
                 (Site.config resolvedRoutes |> .manifest) data
                     |> manifestToFile (Site.config resolvedRoutes |> .canonicalUrl)

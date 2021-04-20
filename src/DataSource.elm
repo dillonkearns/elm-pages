@@ -1,4 +1,4 @@
-module Pages.StaticHttp exposing
+module DataSource exposing
     ( Request, RequestDetails
     , get, request
     , map, succeed, fail
@@ -134,8 +134,8 @@ step, but mapping allows you to change the resulting values by applying function
 
 A common use for this is to map your data into your elm-pages view:
 
+    import DataSource
     import Json.Decode as Decode exposing (Decoder)
-    import Pages.StaticHttp as StaticHttp
 
     view =
         StaticHttp.get
@@ -180,8 +180,8 @@ resolve =
 
 {-| Turn a list of `StaticHttp.Request`s into a single one.
 
+    import DataSource
     import Json.Decode as Decode exposing (Decoder)
-    import Pages.StaticHttp as StaticHttp
 
     type alias Pokemon =
         { name : String
@@ -350,8 +350,8 @@ lookupUrls requestInfo =
 {-| Build off of the response from a previous `StaticHttp` request to build a follow-up request. You can use the data
 from the previous response to build up the URL, headers, etc. that you send to the subsequent request.
 
+    import DataSource
     import Json.Decode as Decode exposing (Decoder)
-    import Pages.StaticHttp as StaticHttp
 
     licenseData : StaticHttp.Request String
     licenseData =
@@ -385,7 +385,7 @@ andThen fn requestInfo =
 
 {-| This is useful for prototyping with some hardcoded data, or for having a view that doesn't have any StaticHttp data.
 
-    import Pages.StaticHttp as StaticHttp
+    import DataSource
 
     view :
         List ( PagePath, Metadata )
@@ -431,8 +431,8 @@ fail errorMessage =
 
 {-| A simplified helper around [`StaticHttp.request`](#request), which builds up a StaticHttp GET request.
 
+    import DataSource
     import Json.Decode as Decode exposing (Decoder)
-    import Pages.StaticHttp as StaticHttp
 
     getRequest : StaticHttp.Request Int
     getRequest =

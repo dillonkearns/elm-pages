@@ -3,6 +3,7 @@ module Template.Blog.Slug_ exposing (Model, Msg, StaticData, articlesRequest, ro
 import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
+import DataSource
 import Date exposing (Date)
 import Document exposing (Document)
 import Element exposing (Element)
@@ -16,7 +17,6 @@ import OptimizedDecoder
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
-import Pages.StaticHttp as StaticHttp
 import Palette
 import Rss
 import Shared
@@ -37,10 +37,10 @@ type alias RouteParams =
     { slug : String }
 
 
-routes : StaticHttp.Request (List RouteParams)
+routes : DataSource.Request (List RouteParams)
 routes =
     Article.blogPostsGlob
-        |> StaticHttp.map
+        |> DataSource.map
             (List.map
                 (\globData ->
                     { slug = globData.slug }
@@ -183,7 +183,7 @@ type alias StaticData =
     }
 
 
-staticData : RouteParams -> StaticHttp.Request StaticData
+staticData : RouteParams -> DataSource.Request StaticData
 staticData route =
     StaticFile.request
         ("content/blog/" ++ route.slug ++ ".md")
@@ -262,7 +262,7 @@ toRssItem article =
             }
 
 
-articlesRequest : StaticHttp.Request (List ArticleMetadata)
+articlesRequest : DataSource.Request (List ArticleMetadata)
 articlesRequest =
     Glob.succeed identity
         |> Glob.keep Glob.fullFilePath
@@ -270,7 +270,7 @@ articlesRequest =
         |> Glob.drop Glob.wildcard
         |> Glob.drop (Glob.literal ".md")
         |> Glob.toStaticHttp
-        |> StaticHttp.andThen
+        |> DataSource.andThen
             (\articleFilePaths ->
                 articleFilePaths
                     |> List.filter (\filePath -> filePath |> String.contains "index" |> not)
@@ -279,5 +279,5 @@ articlesRequest =
                             StaticFile.request articleFilePath
                                 (StaticFile.frontmatter frontmatterDecoder)
                         )
-                    |> StaticHttp.combine
+                    |> DataSource.combine
             )

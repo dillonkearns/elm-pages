@@ -1,9 +1,9 @@
 module RssPlugin exposing (generate)
 
+import DataSource
 import Head
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.Platform exposing (Builder)
-import Pages.StaticHttp as StaticHttp
 import Rss
 import Time
 
@@ -16,7 +16,7 @@ generate :
     , indexPage : PagePath
     }
     -> (item -> Maybe Rss.Item)
-    -> StaticHttp.Request (List item)
+    -> DataSource.Request (List item)
     -> Builder pathKey userModel userMsg route
     -> Builder pathKey userModel userMsg route
 generate options metadataToRssItem itemsRequest builder =
@@ -30,7 +30,7 @@ generate options metadataToRssItem itemsRequest builder =
     builder
         |> Pages.Platform.withFileGenerator
             (itemsRequest
-                |> StaticHttp.map
+                |> DataSource.map
                     (\items ->
                         { path = feedFilePath
                         , content =

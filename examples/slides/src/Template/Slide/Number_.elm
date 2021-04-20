@@ -2,6 +2,7 @@ module Template.Slide.Number_ exposing (Model, Msg, StaticData, template)
 
 import Browser.Events
 import Browser.Navigation
+import DataSource
 import Document exposing (Document)
 import Head
 import Head.Seo as Seo
@@ -15,7 +16,6 @@ import MarkdownRenderer
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath
 import Pages.StaticFile as StaticFile
-import Pages.StaticHttp as StaticHttp
 import Shared
 import Tailwind.Utilities as Tw
 import Template exposing (StaticPayload, Template)
@@ -39,7 +39,7 @@ template =
         { head = head
         , staticRoutes =
             slideCount
-                |> StaticHttp.map
+                |> DataSource.map
                     (\count ->
                         List.range 1 (count - 1)
                             |> List.map String.fromInt
@@ -114,14 +114,14 @@ toDirection string =
             Nothing
 
 
-staticData : RouteParams -> StaticHttp.Request StaticData
+staticData : RouteParams -> DataSource.Request StaticData
 staticData routeParams =
-    StaticHttp.map2 StaticData
+    DataSource.map2 StaticData
         (slideBody routeParams)
         slideCount
 
 
-slideBody : RouteParams -> StaticHttp.Request (List (Html.Html Msg))
+slideBody : RouteParams -> DataSource.Request (List (Html.Html Msg))
 slideBody route =
     StaticFile.request
         "slides.md"
@@ -147,7 +147,7 @@ slideBody route =
         )
 
 
-slideCount : StaticHttp.Request Int
+slideCount : DataSource.Request Int
 slideCount =
     StaticFile.request "slides.md"
         (StaticFile.body

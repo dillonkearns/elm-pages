@@ -1,10 +1,10 @@
 module SharedTemplate exposing (..)
 
 import Browser.Navigation
+import DataSource
 import Document exposing (Document)
 import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Route exposing (Route)
 
 
@@ -32,7 +32,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
         -> (sharedMsg -> mappedMsg)
         -> Document mappedMsg
         -> { body : Html mappedMsg, title : String }
-    , staticData : StaticHttp.Request sharedStaticData
+    , staticData : DataSource.Request sharedStaticData
     , subscriptions : PagePath -> sharedModel -> Sub sharedMsg
     , onPageChange :
         Maybe

@@ -1,6 +1,7 @@
 module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderSingleRoute, update)
 
 import BuildError exposing (BuildError)
+import DataSource exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
 import Pages.Internal.ApplicationType as ApplicationType
@@ -8,7 +9,6 @@ import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
-import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -24,7 +24,7 @@ type StaticResponses
 
 
 type StaticHttpResult
-    = NotFetched (StaticHttp.Request ()) (Dict String (Result () String))
+    = NotFetched (DataSource.Request ()) (Dict String (Result () String))
 
 
 error : StaticResponses
@@ -34,12 +34,12 @@ error =
 
 init :
     { config
-        | getStaticRoutes : StaticHttp.Request (List route)
+        | getStaticRoutes : DataSource.Request (List route)
         , site : SiteConfig route siteStaticData
-        , staticData : route -> StaticHttp.Request pageStaticData
-        , sharedStaticData : StaticHttp.Request sharedStaticData
+        , staticData : route -> DataSource.Request pageStaticData
+        , sharedStaticData : DataSource.Request sharedStaticData
         , generateFiles :
-            StaticHttp.Request
+            DataSource.Request
                 (List
                     (Result
                         String
@@ -52,9 +52,9 @@ init :
     -> StaticResponses
 init config =
     NotFetched
-        (StaticHttp.map3 (\_ _ _ -> ())
+        (DataSource.map3 (\_ _ _ -> ())
             (config.getStaticRoutes
-                |> StaticHttp.andThen
+                |> DataSource.andThen
                     (\resolvedRoutes ->
                         config.site resolvedRoutes |> .staticData
                     )
@@ -71,7 +71,7 @@ renderSingleRoute :
         | routeToPath : route -> List String
     }
     -> { path : PagePath, frontmatter : route }
-    -> StaticHttp.Request a
+    -> DataSource.Request a
     -> StaticResponses
 renderSingleRoute config pathAndRoute request =
     [ pathAndRoute.frontmatter ]
@@ -79,7 +79,7 @@ renderSingleRoute config pathAndRoute request =
             (\route ->
                 ( config.routeToPath route |> String.join "/"
                 , NotFetched
-                    (request |> StaticHttp.map (\_ -> ()))
+                    (request |> DataSource.map (\_ -> ()))
                     Dict.empty
                 )
             )
@@ -151,13 +151,13 @@ type NextStep route
 
 nextStep :
     { config
-        | getStaticRoutes : StaticHttp.Request (List route)
+        | getStaticRoutes : DataSource.Request (List route)
         , routeToPath : route -> List String
-        , staticData : route -> StaticHttp.Request pageStaticData
-        , sharedStaticData : StaticHttp.Request sharedStaticData
+        , staticData : route -> DataSource.Request pageStaticData
+        , sharedStaticData : DataSource.Request sharedStaticData
         , site : SiteConfig route siteStaticData
         , generateFiles :
-            StaticHttp.Request
+            DataSource.Request
                 (List
                     (Result
                         String
@@ -319,7 +319,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
     in
     if pendingRequests then
         let
-            requestContinuations : List ( String, StaticHttp.Request () )
+            requestContinuations : List ( String, DataSource.Request () )
             requestContinuations =
                 staticResponses
                     |> Dict.toList
@@ -380,7 +380,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                     resolvedRoutes : Result StaticHttpRequest.Error (List route)
                     resolvedRoutes =
                         StaticHttpRequest.resolve ApplicationType.Cli
-                            (StaticHttp.map3
+                            (DataSource.map3
                                 (\routes _ _ ->
                                     routes
                                 )
@@ -400,7 +400,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                             let
                                                 entry =
                                                     NotFetched
-                                                        (StaticHttp.map2 (\_ _ -> ())
+                                                        (DataSource.map2 (\_ _ -> ())
                                                             config.sharedStaticData
                                                             (config.staticData route)
                                                         )
@@ -469,7 +469,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
 performStaticHttpRequests :
     Dict String (Maybe String)
     -> SecretsDict
-    -> List ( String, StaticHttp.Request a )
+    -> List ( String, DataSource.Request a )
     -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests

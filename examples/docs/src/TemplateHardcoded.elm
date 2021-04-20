@@ -1,16 +1,16 @@
 module TemplateHardcoded exposing (..)
 
+import DataSource
 import Head
 import Pages
 import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import TemplateType
 
 
 template :
     { staticData :
         List ( PagePath, TemplateType.Metadata )
-        -> StaticHttp.Request staticData
+        -> DataSource.Request staticData
     , view :
         List ( PagePath, TemplateType.Metadata )
         -> staticData
@@ -34,7 +34,7 @@ template config =
 type alias Template metadata renderedTemplate staticData model view templateMsg =
     { staticData :
         List ( PagePath, TemplateType.Metadata )
-        -> StaticHttp.Request staticData
+        -> DataSource.Request staticData
     , view :
         List ( PagePath, TemplateType.Metadata )
         -> staticData

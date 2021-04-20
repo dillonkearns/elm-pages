@@ -1,11 +1,11 @@
 module Template.Showcase exposing (Model, Msg, StaticData, template)
 
+import DataSource
 import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Pages.ImagePath as ImagePath
-import Pages.StaticHttp as StaticHttp
 import Shared
 import Showcase
 import Template exposing (StaticPayload, TemplateWithState)
@@ -23,13 +23,13 @@ template : TemplateWithState {} StaticData () Msg
 template =
     Template.withStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed []
+        , staticRoutes = DataSource.succeed []
         , staticData = \_ -> staticData
         }
         |> Template.buildNoState { view = view }
 
 
-staticData : StaticHttp.Request StaticData
+staticData : DataSource.Request StaticData
 staticData =
     Showcase.staticRequest
 

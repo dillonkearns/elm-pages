@@ -6,9 +6,9 @@ module Glob exposing (Glob, atLeastOne, drop, extractMatches, fullFilePath, keep
 
 -}
 
+import DataSource
 import List.Extra
 import OptimizedDecoder
-import Pages.StaticHttp as StaticHttp
 import Secrets
 
 
@@ -298,9 +298,9 @@ type alias RawGlob =
 
 
 {-| -}
-toStaticHttp : Glob a -> StaticHttp.Request (List a)
+toStaticHttp : Glob a -> DataSource.Request (List a)
 toStaticHttp glob =
-    StaticHttp.get (Secrets.succeed <| "glob://" ++ toPattern glob)
+    DataSource.get (Secrets.succeed <| "glob://" ++ toPattern glob)
         (OptimizedDecoder.map2 RawGlob
             (OptimizedDecoder.string |> OptimizedDecoder.list |> OptimizedDecoder.field "captures")
             (OptimizedDecoder.field "fullPath" OptimizedDecoder.string)
@@ -311,21 +311,21 @@ toStaticHttp glob =
 
 
 {-| -}
-singleFile : String -> StaticHttp.Request (Maybe String)
+singleFile : String -> DataSource.Request (Maybe String)
 singleFile filePath =
     succeed identity
         |> drop (literal filePath)
         |> keep fullFilePath
         |> toStaticHttp
-        |> StaticHttp.andThen
+        |> DataSource.andThen
             (\globResults ->
                 case globResults of
                     [] ->
-                        StaticHttp.succeed Nothing
+                        DataSource.succeed Nothing
 
                     [ single ] ->
-                        Just single |> StaticHttp.succeed
+                        Just single |> DataSource.succeed
 
                     multipleResults ->
-                        StaticHttp.fail <| "Unexpected - getSingleFile returned multiple results." ++ (multipleResults |> String.join ", ")
+                        DataSource.fail <| "Unexpected - getSingleFile returned multiple results." ++ (multipleResults |> String.join ", ")
             )

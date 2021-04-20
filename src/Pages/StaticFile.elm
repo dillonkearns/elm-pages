@@ -6,8 +6,8 @@ module Pages.StaticFile exposing (body, frontmatter, glob, rawFile, request)
 
 -}
 
+import DataSource
 import OptimizedDecoder exposing (Decoder)
-import Pages.StaticHttp as StaticHttp
 import Secrets
 
 
@@ -30,13 +30,13 @@ body =
 
 
 {-| -}
-request : String -> Decoder a -> StaticHttp.Request a
+request : String -> Decoder a -> DataSource.Request a
 request filePath =
-    StaticHttp.get (Secrets.succeed <| "file://" ++ filePath)
+    DataSource.get (Secrets.succeed <| "file://" ++ filePath)
 
 
 {-| -}
-glob : String -> StaticHttp.Request (List String)
+glob : String -> DataSource.Request (List String)
 glob pattern =
-    StaticHttp.get (Secrets.succeed <| "glob://" ++ pattern)
+    DataSource.get (Secrets.succeed <| "glob://" ++ pattern)
         (OptimizedDecoder.list OptimizedDecoder.string)

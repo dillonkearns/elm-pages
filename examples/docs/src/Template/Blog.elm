@@ -2,6 +2,7 @@ module Template.Blog exposing (Model, Msg, StaticData, template)
 
 import Article
 import Browser.Navigation
+import DataSource
 import Document exposing (Document)
 import Element
 import Head
@@ -9,7 +10,6 @@ import Head.Seo as Seo
 import Index
 import Pages.ImagePath as ImagePath
 import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Shared
 import SiteOld
 import Template exposing (DynamicContext, StaticPayload, TemplateWithState)
@@ -24,7 +24,7 @@ template =
     Template.withStaticData
         { head = head
         , staticData = \_ -> staticData
-        , staticRoutes = StaticHttp.succeed []
+        , staticRoutes = DataSource.succeed []
         }
         |> Template.buildWithLocalState
             { view = view
@@ -36,7 +36,7 @@ template =
             }
 
 
-staticData : StaticHttp.Request StaticData
+staticData : DataSource.Request StaticData
 staticData =
     --StaticFile.glob "content/blog/*.md"
     Article.allMetadata

@@ -1,10 +1,10 @@
 module StaticHttpUnitTests exposing (all)
 
+import DataSource
 import Dict
 import Expect
 import OptimizedDecoder as Decode
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
@@ -12,7 +12,7 @@ import Test exposing (Test, describe, test)
 
 
 getWithoutSecrets url =
-    StaticHttp.get (Secrets.succeed url)
+    DataSource.get (Secrets.succeed url)
 
 
 requestsDict requestMap =
@@ -31,7 +31,7 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = StaticHttp.emptyBody
+    , body = DataSource.emptyBody
     }
 
 
@@ -40,8 +40,8 @@ all =
     describe "Static Http Requests unit tests"
         [ test "andThen" <|
             \() ->
-                StaticHttp.get (Secrets.succeed "first") (Decode.succeed "NEXT")
-                    |> StaticHttp.andThen
+                DataSource.get (Secrets.succeed "first") (Decode.succeed "NEXT")
+                    |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
@@ -58,8 +58,8 @@ all =
                        )
         , test "andThen staring with done" <|
             \() ->
-                StaticHttp.succeed ()
-                    |> StaticHttp.andThen
+                DataSource.succeed ()
+                    |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
@@ -76,12 +76,12 @@ all =
         , test "map" <|
             \() ->
                 getWithoutSecrets "first" (Decode.succeed "NEXT")
-                    |> StaticHttp.andThen
+                    |> DataSource.andThen
                         (\_ ->
                             --                                        StaticHttp.get continueUrl (Decode.succeed ())
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
-                    |> StaticHttp.map (\_ -> ())
+                    |> DataSource.map (\_ -> ())
                     |> (\request ->
                             StaticHttpRequest.resolveUrls ApplicationType.Cli
                                 request
@@ -96,7 +96,7 @@ all =
         , test "andThen chain with 1 response available and 1 pending" <|
             \() ->
                 getWithoutSecrets "first" (Decode.succeed "NEXT")
-                    |> StaticHttp.andThen
+                    |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
@@ -113,10 +113,10 @@ all =
         , test "andThen chain with 1 response available and 2 pending" <|
             \() ->
                 getWithoutSecrets "first" Decode.int
-                    |> StaticHttp.andThen
+                    |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" Decode.string
-                                |> StaticHttp.andThen
+                                |> DataSource.andThen
                                     (\_ ->
                                         getWithoutSecrets "LAST"
                                             Decode.string
@@ -135,10 +135,10 @@ all =
         ]
 
 
-getReq : String -> StaticHttp.RequestDetails
+getReq : String -> DataSource.RequestDetails
 getReq url =
     { url = url
     , method = "GET"
     , headers = []
-    , body = StaticHttp.emptyBody
+    , body = DataSource.emptyBody
     }

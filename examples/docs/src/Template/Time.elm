@@ -1,11 +1,11 @@
 module Template.Time exposing (Model, Msg, StaticData, template)
 
+import DataSource
 import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Pages.ImagePath as ImagePath
-import Pages.StaticHttp as StaticHttp
 import Shared
 import Template exposing (StaticPayload, Template, TemplateWithState)
 
@@ -26,14 +26,14 @@ template : Template {} StaticData
 template =
     Template.withStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed []
+        , staticRoutes = DataSource.succeed []
         , staticData = staticData
         }
         |> Template.buildNoState { view = view }
 
 
 staticData routeParams =
-    StaticHttp.succeed "TIME RESPONSE"
+    DataSource.succeed "TIME RESPONSE"
 
 
 

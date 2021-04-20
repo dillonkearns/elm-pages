@@ -49,14 +49,14 @@ import Browser.Navigation
 import Document exposing (Document)
 import Head
 import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
+import DataSource
 import Shared
 
 
 {-| -}
 type alias TemplateWithState routeParams templateStaticData templateModel templateMsg =
-    { staticData : routeParams -> StaticHttp.Request templateStaticData
-    , staticRoutes : StaticHttp.Request (List routeParams)
+    { staticData : routeParams -> DataSource.Request templateStaticData
+    , staticRoutes : DataSource.Request (List routeParams)
     , view :
         templateModel
         -> Shared.Model
@@ -88,8 +88,8 @@ type alias StaticPayload staticData routeParams =
 {-| -}
 type Builder routeParams templateStaticData
     = WithStaticData
-        { staticData : routeParams -> StaticHttp.Request templateStaticData
-        , staticRoutes : StaticHttp.Request (List routeParams)
+        { staticData : routeParams -> DataSource.Request templateStaticData
+        , staticRoutes : DataSource.Request (List routeParams)
         , head :
             StaticPayload templateStaticData routeParams
             -> List Head.Tag
@@ -202,8 +202,8 @@ buildWithSharedState config builderState =
 
 {-| -}
 withStaticData :
-    { staticData : routeParams -> StaticHttp.Request templateStaticData
-    , staticRoutes : StaticHttp.Request (List routeParams)
+    { staticData : routeParams -> DataSource.Request templateStaticData
+    , staticRoutes : DataSource.Request (List routeParams)
     , head : StaticPayload templateStaticData routeParams -> List Head.Tag
     }
     -> Builder routeParams templateStaticData
@@ -218,12 +218,12 @@ withStaticData { staticData, head, staticRoutes } =
 {-| -}
 noStaticData :
     { head : StaticPayload () routeParams -> List Head.Tag
-    , staticRoutes : StaticHttp.Request (List routeParams)
+    , staticRoutes : DataSource.Request (List routeParams)
     }
     -> Builder routeParams ()
 noStaticData { head, staticRoutes } =
     WithStaticData
-        { staticData = \_ -> StaticHttp.succeed ()
+        { staticData = \_ -> DataSource.succeed ()
         , staticRoutes = staticRoutes
         , head = head
         }

@@ -1,21 +1,21 @@
 module Pages.SiteConfig exposing (SiteConfig)
 
+import DataSource
 import Head
 import Pages.Manifest
-import Pages.StaticHttp as StaticHttp
 
 
 type alias SiteConfig route staticData =
     List route
     ->
-        { staticData : StaticHttp.Request staticData
+        { staticData : DataSource.Request staticData
         , canonicalUrl : String
         , manifest : staticData -> Pages.Manifest.Config
         , head :
             staticData
             -> List Head.Tag
         , generateFiles :
-            StaticHttp.Request
+            DataSource.Request
                 (List
                     (Result
                         String

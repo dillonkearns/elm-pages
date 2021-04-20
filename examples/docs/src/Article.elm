@@ -1,6 +1,7 @@
 module Article exposing (..)
 
 import Cloudinary
+import DataSource
 import Date exposing (Date)
 import Element exposing (Element)
 import Glob
@@ -8,7 +9,6 @@ import OptimizedDecoder
 import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.StaticFile as StaticFile
-import Pages.StaticHttp as StaticHttp
 
 
 type alias BlogPost =
@@ -17,7 +17,7 @@ type alias BlogPost =
     }
 
 
-blogPostsGlob : StaticHttp.Request (List { filePath : String, slug : String })
+blogPostsGlob : DataSource.Request (List { filePath : String, slug : String })
 blogPostsGlob =
     Glob.succeed BlogPost
         |> Glob.keep Glob.fullFilePath
@@ -27,22 +27,22 @@ blogPostsGlob =
         |> Glob.toStaticHttp
 
 
-allMetadata : StaticHttp.Request (List ( PagePath, ArticleMetadata ))
+allMetadata : DataSource.Request (List ( PagePath, ArticleMetadata ))
 allMetadata =
     --StaticFile.glob "content/blog/*.md"
     blogPostsGlob
-        |> StaticHttp.map
+        |> DataSource.map
             (\paths ->
                 paths
                     |> List.map
                         (\{ filePath, slug } ->
-                            StaticHttp.map2 Tuple.pair
-                                (StaticHttp.succeed <| "blog/" ++ slug)
+                            DataSource.map2 Tuple.pair
+                                (DataSource.succeed <| "blog/" ++ slug)
                                 (StaticFile.request filePath (StaticFile.frontmatter frontmatterDecoder))
                         )
             )
-        |> StaticHttp.resolve
-        |> StaticHttp.map
+        |> DataSource.resolve
+        |> DataSource.map
             (\articles ->
                 articles
                     |> List.filterMap
@@ -69,7 +69,7 @@ type alias DataFromFile msg =
 --fileRequest : String -> StaticHttp.Request (DataFromFile msg)
 
 
-fileRequest : String -> StaticHttp.Request ArticleMetadata
+fileRequest : String -> DataSource.Request ArticleMetadata
 fileRequest filePath =
     StaticFile.request
         --"content/blog/extensible-markdown-parsing-in-elm.md"

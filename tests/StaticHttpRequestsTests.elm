@@ -1,6 +1,7 @@
 module StaticHttpRequestsTests exposing (all)
 
 import Codec
+import DataSource
 import Dict
 import Expect
 import Html
@@ -16,7 +17,6 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Pages.ProgramConfig exposing (ProgramConfig)
-import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as Request
 import PagesHttp
 import ProgramTest exposing (ProgramTest)
@@ -38,7 +38,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -57,7 +57,7 @@ all =
             \() ->
                 start
                     [ ( [ "post-1" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                         --, StaticHttp.succeed 86
                       )
                     ]
@@ -81,10 +81,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
-                            |> StaticHttp.andThen
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                            |> DataSource.andThen
                                 (\_ ->
-                                    StaticHttp.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
+                                    DataSource.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
                                 )
                       )
                     ]
@@ -111,11 +111,11 @@ all =
             \() ->
                 let
                     getReq url decoder =
-                        StaticHttp.request
+                        DataSource.request
                             (Secrets.succeed (get url))
                             decoder
 
-                    pokemonDetailRequest : StaticHttp.Request ()
+                    pokemonDetailRequest : DataSource.Request ()
                     pokemonDetailRequest =
                         getReq
                             "https://pokeapi.co/api/v2/pokemon/"
@@ -128,8 +128,8 @@ all =
                                         )
                                 )
                             )
-                            |> StaticHttp.resolve
-                            |> StaticHttp.map (\_ -> ())
+                            |> DataSource.resolve
+                            |> DataSource.map (\_ -> ())
                 in
                 start
                     [ ( [ "elm-pages" ], pokemonDetailRequest )
@@ -231,10 +231,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                       )
                     , ( [ "elm-pages-starter" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -263,7 +263,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -282,15 +282,15 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.unoptimizedRequest
+                      , DataSource.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , method = "GET"
                                 , headers = []
-                                , body = StaticHttp.emptyBody
+                                , body = DataSource.emptyBody
                                 }
                             )
-                            (StaticHttp.expectUnoptimizedJson
+                            (DataSource.expectUnoptimizedJson
                                 (JD.field "stargazer_count" JD.int)
                             )
                       )
@@ -311,15 +311,15 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.unoptimizedRequest
+                      , DataSource.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://example.com/file.txt"
                                 , method = "GET"
                                 , headers = []
-                                , body = StaticHttp.emptyBody
+                                , body = DataSource.emptyBody
                                 }
                             )
-                            (StaticHttp.expectString Ok)
+                            (DataSource.expectString Ok)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -338,15 +338,15 @@ all =
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.unoptimizedRequest
+                      , DataSource.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://example.com/file.txt"
                                 , method = "GET"
                                 , headers = []
-                                , body = StaticHttp.emptyBody
+                                , body = DataSource.emptyBody
                                 }
                             )
-                            (StaticHttp.expectString
+                            (DataSource.expectString
                                 (\string ->
                                     if String.toUpper string == string then
                                         Ok string
@@ -375,12 +375,12 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.request
+                      , DataSource.request
                             (Secrets.succeed
                                 { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
-                                , body = StaticHttp.emptyBody
+                                , body = DataSource.emptyBody
                                 }
                             )
                             (Decode.field "stargazer_count" Decode.int)
@@ -395,7 +395,7 @@ String was not uppercased"""
                           , [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , headers = []
-                                , body = StaticHttp.emptyBody
+                                , body = DataSource.emptyBody
                                 }
                               , """{"stargazer_count":86}"""
                               )
@@ -406,10 +406,10 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
-                            |> StaticHttp.andThen
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
+                            |> DataSource.andThen
                                 (\_ ->
-                                    StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
+                                    DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
                                 )
                       )
                     ]
@@ -436,9 +436,9 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.map2 (\_ _ -> ())
-                            (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
-                            (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
+                      , DataSource.map2 (\_ _ -> ())
+                            (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
+                            (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -464,7 +464,7 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.succeed ()
+                      , DataSource.succeed ()
                       )
                     ]
                     |> expectSuccess [ ( "", [] ) ]
@@ -472,9 +472,9 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.map2 (\_ _ -> ())
-                            (StaticHttp.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
-                            (StaticHttp.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                      , DataSource.map2 (\_ _ -> ())
+                            (DataSource.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                            (DataSource.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -493,7 +493,7 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI.")
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI.")
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -518,7 +518,7 @@ I encountered some errors while decoding this JSON:
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , StaticHttp.get
+                      , DataSource.get
                             (Secrets.succeed
                                 (\apiKey ->
                                     "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
@@ -526,9 +526,9 @@ I encountered some errors while decoding this JSON:
                                 |> Secrets.with "API_KEY"
                             )
                             Decode.string
-                            |> StaticHttp.andThen
+                            |> DataSource.andThen
                                 (\url ->
-                                    StaticHttp.get
+                                    DataSource.get
                                         (Secrets.succeed
                                             (\missingSecret ->
                                                 url ++ "?apiKey=" ++ missingSecret
@@ -560,7 +560,7 @@ So maybe MISSING should be API_KEY"""
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpResponse
@@ -592,13 +592,13 @@ Payload sent back invalid JSON""")
             \() ->
                 start
                     [ ( []
-                      , StaticHttp.request
+                      , DataSource.request
                             (Secrets.succeed
                                 (\apiKey bearer ->
                                     { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                     , method = "GET"
                                     , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
-                                    , body = StaticHttp.emptyBody
+                                    , body = DataSource.emptyBody
                                     }
                                 )
                                 |> Secrets.with "API_KEY"
@@ -629,7 +629,7 @@ Payload sent back invalid JSON""")
                                 , headers =
                                     [ ( "Authorization", "Bearer <BEARER>" )
                                     ]
-                                , body = StaticHttp.emptyBody
+                                , body = DataSource.emptyBody
                                 }
                               , """{}"""
                               )
@@ -649,7 +649,7 @@ Payload sent back invalid JSON""")
                           )
                         ]
                         [ ( []
-                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
                         |> expectSuccess
@@ -672,7 +672,7 @@ Payload sent back invalid JSON""")
                           )
                         ]
                         [ ( []
-                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
                         |> ProgramTest.simulateHttpOk
@@ -692,7 +692,7 @@ Payload sent back invalid JSON""")
             [ test "initial requests are sent out" <|
                 \() ->
                     startLowLevel
-                        (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                        (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
                             (starDecoder
                                 |> Decode.map
                                     (\starCount ->
@@ -724,7 +724,7 @@ Payload sent back invalid JSON""")
             , test "it sends success port when no HTTP requests are needed because they're all cached" <|
                 \() ->
                     startLowLevel
-                        (StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                        (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
                             (starDecoder
                                 |> Decode.map
                                     (\starCount ->
@@ -753,7 +753,7 @@ Payload sent back invalid JSON""")
                           )
                         ]
                         [ ( []
-                          , StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
                         |> expectSuccessNew
@@ -780,7 +780,7 @@ type Route
     = Route String
 
 
-start : List ( List String, StaticHttp.Request a ) -> ProgramTest (Model Route) Msg Effect
+start : List ( List String, DataSource.Request a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
     startWithHttpCache (Ok ()) [] pages
 
@@ -788,14 +788,14 @@ start pages =
 startWithHttpCache :
     Result String ()
     -> List ( Request.Request, String )
-    -> List ( List String, StaticHttp.Request a )
+    -> List ( List String, DataSource.Request a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
-    startLowLevel (StaticHttp.succeed [])
+    startLowLevel (DataSource.succeed [])
 
 
 startLowLevel :
-    StaticHttp.Request
+    DataSource.Request
         (List
             (Result
                 String
@@ -806,7 +806,7 @@ startLowLevel :
         )
     -> Result String ()
     -> List ( Request.Request, String )
-    -> List ( List String, StaticHttp.Request a )
+    -> List ( List String, DataSource.Request a )
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel generateFiles documentBodyResult staticHttpCache pages =
     let
@@ -826,7 +826,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     |> List.map Tuple.first
                     |> List.map (String.join "/")
                     |> List.map Route
-                    |> StaticHttp.succeed
+                    |> DataSource.succeed
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ -> ( (), Cmd.none )
             , staticData =
@@ -844,13 +844,13 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     case thing of
                         Just request ->
                             --\_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
-                            request |> StaticHttp.map (\_ -> ())
+                            request |> DataSource.map (\_ -> ())
 
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
             , site =
                 \_ ->
-                    { staticData = StaticHttp.succeed ()
+                    { staticData = DataSource.succeed ()
                     , canonicalUrl = "canonical-site-url"
                     , manifest = \_ -> manifest
                     , head = \_ -> []
@@ -877,7 +877,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                             Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
             , subscriptions = \_ _ _ -> Sub.none
             , routeToPath = \(Route route) -> route |> String.split "/"
-            , sharedStaticData = StaticHttp.succeed ()
+            , sharedStaticData = DataSource.succeed ()
 
             --, onPageChange = Just (\_ -> ())
             , onPageChange = Nothing
@@ -1121,5 +1121,5 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = StaticHttp.emptyBody
+    , body = DataSource.emptyBody
     }

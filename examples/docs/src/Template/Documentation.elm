@@ -1,5 +1,6 @@
 module Template.Documentation exposing (Model, Msg, StaticData, template)
 
+import DataSource
 import DocSidebar
 import Document exposing (Document)
 import Element exposing (Element)
@@ -11,7 +12,6 @@ import Json.Decode as Decode
 import MarkdownRenderer
 import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
 import Palette
 import Shared
 import SiteOld
@@ -38,7 +38,7 @@ template : TemplateWithState {} StaticData Model Msg
 template =
     Template.noStaticData
         { head = head
-        , staticRoutes = StaticHttp.succeed []
+        , staticRoutes = DataSource.succeed []
         }
         |> Template.buildWithSharedState
             { view = view
