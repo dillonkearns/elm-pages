@@ -4,7 +4,6 @@ module DataSource.Http exposing
     , Body, emptyBody, stringBody, jsonBody
     , unoptimizedRequest
     , Expect, expectString, expectUnoptimizedJson
-    , andThen
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.

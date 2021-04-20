@@ -5,7 +5,9 @@ module Glob exposing
 
 {-|
 
-@docs Glob, atLeastOne, drop, extractMatches, fullFilePath, keep, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore
+@docs Glob, atLeastOne, extractMatches, fullFilePath, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toStaticHttp, wildcard, zeroOrMore
+
+@docs capture, ignore
 
 -}
 

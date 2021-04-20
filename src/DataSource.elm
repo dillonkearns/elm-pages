@@ -1,9 +1,9 @@
 module DataSource exposing
-    ( map, succeed, fail
+    ( DataSource
+    , map, succeed, fail
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , DataSource
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -35,8 +35,8 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
   - Data that is specific to the logged-in user
   - Data that needs to be the very latest and changes often (for example, sports scores)
 
-@docs Request, RequestDetails
-@docs get, request
+@docs DataSource
+
 @docs map, succeed, fail
 
 
@@ -54,20 +54,6 @@ and describe your use case!
 @docs andThen, resolve, combine
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
-
-
-## Unoptimized Requests
-
-Warning - use these at your own risk! It's highly recommended that you use the other request functions that make use of
-`zwilias/json-decode-exploration` in order to allow you to reduce down your JSON to only the values that are used by
-your decoders. This can significantly reduce download sizes for your StaticHttp requests.
-
-@docs unoptimizedRequest
-
-
-### Expect for unoptimized requests
-
-@docs Expect, expectString, expectUnoptimizedJson
 
 -}
 
