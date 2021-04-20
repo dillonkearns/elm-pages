@@ -64,19 +64,18 @@ your decoders. This can significantly reduce download sizes for your StaticHttp 
 -}
 
 import DataSource exposing (DataSource)
-import Dict exposing (Dict)
-import Dict.Extra
+import Dict
 import Internal.OptimizedDecoder
 import Json.Decode
 import Json.Decode.Exploration
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
-import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
-import RequestsAndPending exposing (RequestsAndPending)
+import RequestsAndPending
 import Secrets
 
 
@@ -110,84 +109,6 @@ jsonBody content =
 -}
 type alias Body =
     Body.Body
-
-
-lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
-lookup =
-    lookupHelp Dict.empty
-
-
-lookupHelp : Dict String String -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
-lookupHelp strippedSoFar appType requestInfo rawResponses =
-    case requestInfo of
-        Request ( urls, lookupFn ) ->
-            lookupFn appType rawResponses
-                |> Result.andThen
-                    (\( strippedResponses, nextRequest ) ->
-                        lookupHelp (Dict.union strippedResponses strippedSoFar)
-                            appType
-                            (addUrls urls nextRequest)
-                            rawResponses
-                    )
-
-        Done value ->
-            Ok ( strippedSoFar, value )
-
-
-addUrls : List (Pages.Secrets.Value HashRequest.Request) -> DataSource value -> DataSource value
-addUrls urlsToAdd requestInfo =
-    case requestInfo of
-        Request ( initialUrls, function ) ->
-            Request ( initialUrls ++ urlsToAdd, function )
-
-        Done value ->
-            Done value
-
-
-lookupUrls : DataSource value -> List (Pages.Secrets.Value RequestDetails)
-lookupUrls requestInfo =
-    case requestInfo of
-        Request ( urls, _ ) ->
-            urls
-
-        Done _ ->
-            []
-
-
-{-| Build off of the response from a previous `StaticHttp` request to build a follow-up request. You can use the data
-from the previous response to build up the URL, headers, etc. that you send to the subsequent request.
-
-    import DataSource
-    import Json.Decode as Decode exposing (Decoder)
-
-    licenseData : StaticHttp.Request String
-    licenseData =
-        StaticHttp.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-            (Decode.at [ "license", "url" ] Decode.string)
-            |> StaticHttp.andThen
-                (\licenseUrl ->
-                    StaticHttp.get (Secrets.succeed licenseUrl) (Decode.field "description" Decode.string)
-                )
-
--}
-andThen : (a -> DataSource b) -> DataSource a -> DataSource b
-andThen fn requestInfo =
-    Request
-        ( lookupUrls requestInfo
-        , \appType rawResponses ->
-            lookup appType
-                requestInfo
-                rawResponses
-                |> (\result ->
-                        case result of
-                            Err error ->
-                                Err error
-
-                            Ok ( strippedResponses, value ) ->
-                                ( strippedResponses, fn value ) |> Ok
-                   )
-        )
 
 
 {-| A simplified helper around [`StaticHttp.request`](#request), which builds up a StaticHttp GET request.

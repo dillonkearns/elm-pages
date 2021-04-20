@@ -1113,10 +1113,6 @@ expectSuccessNew expectedRequests expectations previous =
             )
 
 
-canonicalSiteUrl =
-    ""
-
-
 get : String -> Request.Request
 get url =
     { method = "GET"

@@ -59,18 +59,13 @@ and describe your use case!
 
 import Dict exposing (Dict)
 import Dict.Extra
-import Internal.OptimizedDecoder
-import Json.Decode
-import Json.Decode.Exploration
 import Json.Encode as Encode
-import OptimizedDecoder as Decode exposing (Decoder)
-import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending exposing (RequestsAndPending)
-import Secrets
 
 
 {-| Build an empty body for a StaticHttp request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
