@@ -83,7 +83,7 @@ async function start(options) {
    * @param {connect.NextHandleFunction} next
    */
   async function processRequest(request, response, next) {
-    if (request.url?.startsWith("/elm.js")) {
+    if (request.url && request.url.startsWith("/elm.js")) {
       try {
         const clientElmJs = await clientElmMakeProcess;
         response.writeHead(200, { "Content-Type": "text/javascript" });
@@ -92,10 +92,10 @@ async function start(options) {
         response.writeHead(500, { "Content-Type": "application/json" });
         response.end(elmCompilerError);
       }
-    } else if (request.url?.startsWith("/stream")) {
+    } else if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
     } else if (
-      request.url.includes("content.json") ||
+      (request.url && request.url.includes("content.json")) ||
       request.headers["sec-fetch-mode"] === "navigate"
     ) {
       handleNavigationRequest(request, response);
