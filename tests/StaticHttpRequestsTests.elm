@@ -2,6 +2,7 @@ module StaticHttpRequestsTests exposing (all)
 
 import Codec
 import DataSource
+import DataSource.Http
 import Dict
 import Expect
 import Html
@@ -38,7 +39,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -57,7 +58,7 @@ all =
             \() ->
                 start
                     [ ( [ "post-1" ]
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                         --, StaticHttp.succeed 86
                       )
                     ]
@@ -81,10 +82,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                             |> DataSource.andThen
                                 (\_ ->
-                                    DataSource.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
+                                    DataSource.Http.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
                                 )
                       )
                     ]
@@ -111,7 +112,7 @@ all =
             \() ->
                 let
                     getReq url decoder =
-                        DataSource.request
+                        DataSource.Http.request
                             (Secrets.succeed (get url))
                             decoder
 
@@ -231,10 +232,10 @@ all =
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                       )
                     , ( [ "elm-pages-starter" ]
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -263,7 +264,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -282,7 +283,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , DataSource.unoptimizedRequest
+                      , DataSource.Http.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                                 , method = "GET"
@@ -290,7 +291,7 @@ all =
                                 , body = DataSource.emptyBody
                                 }
                             )
-                            (DataSource.expectUnoptimizedJson
+                            (DataSource.Http.expectUnoptimizedJson
                                 (JD.field "stargazer_count" JD.int)
                             )
                       )
@@ -311,7 +312,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , DataSource.unoptimizedRequest
+                      , DataSource.Http.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://example.com/file.txt"
                                 , method = "GET"
@@ -319,7 +320,7 @@ all =
                                 , body = DataSource.emptyBody
                                 }
                             )
-                            (DataSource.expectString Ok)
+                            (DataSource.Http.expectString Ok)
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -338,7 +339,7 @@ all =
             \() ->
                 start
                     [ ( []
-                      , DataSource.unoptimizedRequest
+                      , DataSource.Http.unoptimizedRequest
                             (Secrets.succeed
                                 { url = "https://example.com/file.txt"
                                 , method = "GET"
@@ -346,7 +347,7 @@ all =
                                 , body = DataSource.emptyBody
                                 }
                             )
-                            (DataSource.expectString
+                            (DataSource.Http.expectString
                                 (\string ->
                                     if String.toUpper string == string then
                                         Ok string
@@ -375,7 +376,7 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , DataSource.request
+                      , DataSource.Http.request
                             (Secrets.succeed
                                 { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -406,10 +407,10 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( []
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
                             |> DataSource.andThen
                                 (\_ ->
-                                    DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
+                                    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
                                 )
                       )
                     ]
@@ -437,8 +438,8 @@ String was not uppercased"""
                 start
                     [ ( []
                       , DataSource.map2 (\_ _ -> ())
-                            (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
-                            (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -473,8 +474,8 @@ String was not uppercased"""
                 start
                     [ ( []
                       , DataSource.map2 (\_ _ -> ())
-                            (DataSource.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
-                            (DataSource.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                            (DataSource.Http.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                            (DataSource.Http.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -493,7 +494,7 @@ String was not uppercased"""
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI.")
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI.")
                       )
                     ]
                     |> ProgramTest.simulateHttpOk
@@ -518,7 +519,7 @@ I encountered some errors while decoding this JSON:
             \() ->
                 start
                     [ ( [ "elm-pages" ]
-                      , DataSource.get
+                      , DataSource.Http.get
                             (Secrets.succeed
                                 (\apiKey ->
                                     "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
@@ -528,7 +529,7 @@ I encountered some errors while decoding this JSON:
                             Decode.string
                             |> DataSource.andThen
                                 (\url ->
-                                    DataSource.get
+                                    DataSource.Http.get
                                         (Secrets.succeed
                                             (\missingSecret ->
                                                 url ++ "?apiKey=" ++ missingSecret
@@ -560,7 +561,7 @@ So maybe MISSING should be API_KEY"""
             \() ->
                 start
                     [ ( []
-                      , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
                       )
                     ]
                     |> ProgramTest.simulateHttpResponse
@@ -592,7 +593,7 @@ Payload sent back invalid JSON""")
             \() ->
                 start
                     [ ( []
-                      , DataSource.request
+                      , DataSource.Http.request
                             (Secrets.succeed
                                 (\apiKey bearer ->
                                     { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
@@ -649,7 +650,7 @@ Payload sent back invalid JSON""")
                           )
                         ]
                         [ ( []
-                          , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
                         |> expectSuccess
@@ -672,7 +673,7 @@ Payload sent back invalid JSON""")
                           )
                         ]
                         [ ( []
-                          , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
                         |> ProgramTest.simulateHttpOk
@@ -692,7 +693,7 @@ Payload sent back invalid JSON""")
             [ test "initial requests are sent out" <|
                 \() ->
                     startLowLevel
-                        (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
                             (starDecoder
                                 |> Decode.map
                                     (\starCount ->
@@ -724,7 +725,7 @@ Payload sent back invalid JSON""")
             , test "it sends success port when no HTTP requests are needed because they're all cached" <|
                 \() ->
                     startLowLevel
-                        (DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
                             (starDecoder
                                 |> Decode.map
                                     (\starCount ->
@@ -753,7 +754,7 @@ Payload sent back invalid JSON""")
                           )
                         ]
                         [ ( []
-                          , DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
                         |> expectSuccessNew

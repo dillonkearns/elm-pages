@@ -10,7 +10,8 @@ module Pages.Internal.Platform.Cli exposing
 
 import BuildError exposing (BuildError)
 import Codec
-import DataSource exposing (RequestDetails)
+import DataSource
+import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
 import ElmHtml.InternalTypes exposing (decodeElmHtml)

@@ -1,6 +1,7 @@
 module Showcase exposing (..)
 
 import DataSource
+import DataSource.Http
 import Element
 import Element.Border
 import Element.Font
@@ -122,7 +123,7 @@ entryDecoder =
 
 staticRequest : DataSource.DataSource (List Entry)
 staticRequest =
-    DataSource.request
+    DataSource.Http.request
         (Secrets.succeed
             (\airtableToken ->
                 { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"

@@ -3,6 +3,7 @@ module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
 import Browser.Navigation
 import Css.Global
 import DataSource
+import DataSource.Http
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
@@ -81,7 +82,7 @@ subscriptions _ _ =
 
 staticData : DataSource.DataSource StaticData
 staticData =
-    DataSource.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (D.field "stargazers_count" D.int)
 
 

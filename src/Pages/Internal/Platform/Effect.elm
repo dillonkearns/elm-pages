@@ -1,6 +1,6 @@
 module Pages.Internal.Platform.Effect exposing (..)
 
-import DataSource exposing (RequestDetails)
+import DataSource.Http exposing (RequestDetails)
 import Pages.Internal.Platform.ToJsPayload exposing (ToJsPayload, ToJsSuccessPayloadNewCombined)
 
 

@@ -7,6 +7,7 @@ module Glob exposing (Glob, atLeastOne, drop, extractMatches, fullFilePath, keep
 -}
 
 import DataSource
+import DataSource.Http
 import List.Extra
 import OptimizedDecoder
 import Secrets
@@ -300,7 +301,7 @@ type alias RawGlob =
 {-| -}
 toStaticHttp : Glob a -> DataSource.DataSource (List a)
 toStaticHttp glob =
-    DataSource.get (Secrets.succeed <| "glob://" ++ toPattern glob)
+    DataSource.Http.get (Secrets.succeed <| "glob://" ++ toPattern glob)
         (OptimizedDecoder.map2 RawGlob
             (OptimizedDecoder.string |> OptimizedDecoder.list |> OptimizedDecoder.field "captures")
             (OptimizedDecoder.field "fullPath" OptimizedDecoder.string)

@@ -1,6 +1,7 @@
 module StaticHttpUnitTests exposing (all)
 
 import DataSource
+import DataSource.Http
 import Dict
 import Expect
 import OptimizedDecoder as Decode
@@ -12,7 +13,7 @@ import Test exposing (Test, describe, test)
 
 
 getWithoutSecrets url =
-    DataSource.get (Secrets.succeed url)
+    DataSource.Http.get (Secrets.succeed url)
 
 
 requestsDict requestMap =
@@ -40,7 +41,7 @@ all =
     describe "Static Http Requests unit tests"
         [ test "andThen" <|
             \() ->
-                DataSource.get (Secrets.succeed "first") (Decode.succeed "NEXT")
+                DataSource.Http.get (Secrets.succeed "first") (Decode.succeed "NEXT")
                     |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
@@ -135,7 +136,7 @@ all =
         ]
 
 
-getReq : String -> DataSource.RequestDetails
+getReq : String -> DataSource.Http.RequestDetails
 getReq url =
     { url = url
     , method = "GET"

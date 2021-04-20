@@ -1,7 +1,8 @@
 module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderSingleRoute, update)
 
 import BuildError exposing (BuildError)
-import DataSource exposing (RequestDetails)
+import DataSource
+import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
 import Pages.Internal.ApplicationType as ApplicationType
