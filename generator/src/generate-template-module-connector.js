@@ -90,7 +90,8 @@ type Msg
 
 
 type PageStaticData
-    = ${templates
+    = Data404NotFoundPage____
+    | ${templates
       .map(
         (name) =>
           `Data${pathNormalizedName(name)} Template.${moduleName(
@@ -160,12 +161,10 @@ view page globalData staticData =
             { head = []
             , view =
                 \\_ ->
-                    { title = "Not found"
+                    { title = "Page not found"
                     , body =
-                        Html.pre []
-                            [ Html.text <|
-                                "Not found - "
-                                    ++ String.join "/" (Route.routeToPath page.frontmatter)
+                            Html.div [] 
+                            [ Html.text "This page could not be found."
                             ]
                     }
 
@@ -394,7 +393,7 @@ staticDataForRoute : Maybe Route -> DataSource PageStaticData
 staticDataForRoute route =
     case route of
         Nothing ->
-            DataSource.fail ""
+            DataSource.succeed Data404NotFoundPage____
         ${templates
           .map(
             (name) =>
