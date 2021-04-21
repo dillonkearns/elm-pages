@@ -151,7 +151,10 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   const normalizedRoute = args.route.replace(/index$/, "");
   // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
   await fs.tryMkdir(`./dist/${normalizedRoute}`);
-  const contentJsonString = JSON.stringify({ staticData: args.contentJson });
+  const contentJsonString = JSON.stringify({
+    is404: args.is404,
+    staticData: args.contentJson,
+  });
   fs.writeFile(
     `dist/${normalizedRoute}/index.html`,
     wrapHtml(args, contentJsonString)
