@@ -9,6 +9,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as H
 import Html.Styled.Attributes exposing (css)
+import Markdown.Block exposing (HeadingLevel(..))
 import Markdown.Parser
 import Markdown.Renderer
 import OptimizedDecoder
@@ -113,6 +114,7 @@ fileRequest filePath =
                     case
                         rawBody
                             |> Markdown.Parser.parse
+                            |> Result.map (List.map transformMarkdown)
                             |> Result.mapError (\_ -> "Markdown parsing error")
                             |> Result.andThen
                                 (Markdown.Renderer.render TailwindMarkdownRenderer.renderer)
@@ -124,6 +126,41 @@ fileRequest filePath =
                             OptimizedDecoder.fail error
                 )
         )
+
+
+transformMarkdown blocks =
+    blocks
+        |> Markdown.Block.walk
+            (\block ->
+                case block of
+                    Markdown.Block.Heading level children ->
+                        Markdown.Block.Heading (bumpHeadingLevel level) children
+
+                    _ ->
+                        block
+            )
+
+
+bumpHeadingLevel : HeadingLevel -> HeadingLevel
+bumpHeadingLevel level =
+    case level of
+        H1 ->
+            H2
+
+        H2 ->
+            H3
+
+        H3 ->
+            H4
+
+        H4 ->
+            H5
+
+        H5 ->
+            H6
+
+        H6 ->
+            H6
 
 
 data : DataSource (List (H.Html Msg))
