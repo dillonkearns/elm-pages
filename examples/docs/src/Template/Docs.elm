@@ -116,24 +116,6 @@ tocView path toc =
             ]
 
 
-
-{-
-   Element.column [ Element.alignTop, Element.spacing 20 ]
-       [ Element.el [ Font.bold, Font.size 22 ] (Element.text "Table of Contents")
-       , Element.column [ Element.spacing 10 ]
-           (toc
-               |> List.map
-                   (\heading ->
-                       Element.link [ Font.color (Element.rgb255 100 100 100) ]
-                           { url = PagePath.toString path ++ "#" ++ heading.anchorId
-                           , label = Element.text heading.name
-                           }
-                   )
-           )
-       ]
--}
-
-
 type alias DocsFile =
     { filePath : String
     , rank : String
