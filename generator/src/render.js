@@ -10,7 +10,7 @@ const fsPromises = require("fs").promises;
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
-  console.error("@@@ UNHANDLED", error);
+  console.error(error);
 });
 
 module.exports =

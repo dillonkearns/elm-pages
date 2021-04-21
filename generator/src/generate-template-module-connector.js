@@ -15,6 +15,9 @@ function generateTemplateModuleConnector(phase) {
       return [];
     }
   });
+  if (templates.length <= 0) {
+    throw `I couldn't find any Page Templates. Try using elm-pages add Index to get started with your first page!`;
+  }
 
   return {
     mainModule: `port module TemplateModulesBeta exposing (..)
