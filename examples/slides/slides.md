@@ -35,9 +35,3 @@ view static =
 ## Page Templates
 
 Here's another body
-
-## Third
-
-Hello there!
-
-This is another slide. Actually a pretty nice way to work on slides.

@@ -41,7 +41,7 @@ template =
             slideCount
                 |> DataSource.map
                     (\count ->
-                        List.range 1 (count - 1)
+                        List.range 1 count
                             |> List.map String.fromInt
                             |> List.map RouteParams
                     )
@@ -61,7 +61,7 @@ template =
                                 nextSlide =
                                     clamp
                                         1
-                                        (pageStaticData.totalCount - 1)
+                                        pageStaticData.totalCount
                                         (case direction of
                                             Right ->
                                                 currentSlide + 1
