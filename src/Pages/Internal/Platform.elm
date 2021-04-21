@@ -258,7 +258,7 @@ type Msg userMsg
     | UpdateCacheAndUrl Url (Result Http.Error ( Url, ContentJson, ContentCache ))
     | PageScrollComplete
     | HotReloadComplete ContentJson
-    | StartingHotReload
+    | NoOp
 
 
 type alias Model userModel pageStaticData sharedStaticData =
@@ -507,7 +507,7 @@ update config appMsg model =
                     , Cmd.none
                     )
 
-        StartingHotReload ->
+        NoOp ->
             ( model, Cmd.none )
 
 
@@ -544,7 +544,7 @@ application config =
 
                                             Err _ ->
                                                 -- TODO should be no message here
-                                                StartingHotReload
+                                                NoOp
                                     )
                             ]
 
@@ -558,7 +558,7 @@ application config =
 
                                         Err _ ->
                                             -- TODO should be no message here
-                                            StartingHotReload
+                                            NoOp
                                 )
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
