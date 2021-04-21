@@ -29,6 +29,7 @@ type alias ToJsSuccessPayloadNew =
     , head : List Head.Tag
     , title : String
     , staticHttpCache : Dict String String
+    , is404 : Bool
     }
 
 
@@ -152,6 +153,7 @@ successCodecNew canonicalSiteUrl currentPagePath =
         |> Codec.field "staticHttpCache"
             .staticHttpCache
             (Codec.dict Codec.string)
+        |> Codec.field "is404" .is404 Codec.bool
         |> Codec.buildObject
 
 

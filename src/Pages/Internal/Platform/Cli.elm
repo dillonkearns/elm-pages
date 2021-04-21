@@ -378,6 +378,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                             (config.staticData serverRequestPayload.frontmatter)
                             config.sharedStaticData
                         )
+                        (config.handleRoute serverRequestPayload.frontmatter)
 
                 RenderRequest.FullBuild ->
                     StaticResponses.init config
@@ -744,9 +745,16 @@ sendSinglePageProgress :
     -> ( PagePath, route )
     -> Effect
 sendSinglePageProgress toJsPayload config model =
-    \( page, _ ) ->
+    \( page, route ) ->
         case model.maybeRequestJson of
             RenderRequest.SinglePage _ _ _ ->
+                let
+                    pageFound =
+                        StaticHttpRequest.resolve ApplicationType.Browser
+                            (config.handleRoute route)
+                            model.allRawResponses
+                            |> Result.withDefault False
+                in
                 { route = page |> PagePath.toString
                 , contentJson =
                     toJsPayload.pages
@@ -757,6 +765,7 @@ sendSinglePageProgress toJsPayload config model =
                 , head = []
                 , title = "No HTML rendered"
                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                , is404 = not pageFound
                 }
                     |> sendProgress
 
@@ -836,6 +845,7 @@ sendSinglePageProgress toJsPayload config model =
                         , head = headTags
                         , title = viewValue.title
                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                        , is404 = False
                         }
                             |> sendProgress
 

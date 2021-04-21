@@ -46,7 +46,7 @@ template : Template RouteParams StaticData
 template =
     Template.noStaticData
         { head = head
-        , staticRoutes = DataSource.succeed []
+        , staticRoutes = DataSource.succeed [{}]
         }
         |> Template.buildNoState { view = view }
 

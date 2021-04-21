@@ -3,9 +3,11 @@ module Pages.ContentCache exposing
     , Entry(..)
     , Path
     , init
+    , is404
     , lazyLoad
     , lookup
     , lookupMetadata
+    , pathForUrl
     )
 
 import BuildError exposing (BuildError)
@@ -153,13 +155,15 @@ httpTask url =
 
 type alias ContentJson =
     { staticData : RequestsAndPending
+    , is404 : Bool
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map ContentJson
+    Decode.map2 ContentJson
         (Decode.field "staticData" RequestsAndPending.decoder)
+        (Decode.field "is404" Decode.bool)
 
 
 update :
@@ -178,11 +182,14 @@ update cache urls rawContent =
                 Just NeedContent ->
                     Parsed
                         { staticData = rawContent.staticData
+                        , is404 = rawContent.is404
                         }
                         |> Just
 
                 Nothing ->
-                    { staticData = rawContent.staticData }
+                    { staticData = rawContent.staticData
+                    , is404 = rawContent.is404
+                    }
                         |> Parsed
                         |> Just
         )
@@ -213,6 +220,25 @@ lookup dict urls =
             (\entry ->
                 ( PagePath.build path, entry )
             )
+
+
+is404 :
+    ContentCache
+    -> { currentUrl : Url, baseUrl : Url }
+    -> Bool
+is404 dict urls =
+    dict
+        |> Dict.get (pathForUrl urls)
+        |> Maybe.map
+            (\entry ->
+                case entry of
+                    Parsed data ->
+                        data.is404
+
+                    _ ->
+                        True
+            )
+        |> Maybe.withDefault True
 
 
 lookupMetadata :

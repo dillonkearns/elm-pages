@@ -361,6 +361,7 @@ main =
         , routeToPath = Route.routeToPath
         , site = Site.config
         , getStaticRoutes = getStaticRoutes
+        , handleRoute = handleRoute
         , view = view
         , update = update
         , subscriptions =
@@ -406,6 +407,24 @@ staticDataForRoute route =
               )}`
           )
           .join("\n        ")}
+
+handleRoute : Maybe Route -> DataSource Bool
+handleRoute maybeRoute =
+    case maybeRoute of
+        Nothing ->
+            DataSource.succeed False
+
+        ${templates
+          .map(
+            (name) =>
+              `Just (Route.${routeHelpers.routeVariant(
+                name
+              )} routeParams) ->\n            Template.${name.join(
+                "."
+              )}.template.staticRoutes |> DataSource.map (List.member routeParams)`
+          )
+          .join("\n        ")}
+
 
 
 getStaticRoutes : DataSource (List (Maybe Route))

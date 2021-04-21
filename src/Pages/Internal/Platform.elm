@@ -34,31 +34,30 @@ mainView config model =
             , baseUrl = model.baseUrl
             }
     in
-    case ContentCache.lookup model.contentCache urls of
-        Just ( pagePath, entry ) ->
-            case model.pageData of
-                Ok pageData ->
-                    (config.view
-                        { path = pagePath
-                        , frontmatter = config.urlToRoute model.url
-                        }
-                        pageData.sharedStaticData
-                        pageData.pageStaticData
-                        |> .view
-                    )
-                        pageData.userModel
+    if ContentCache.is404 model.contentCache urls then
+        { title = "Page not found"
+        , body =
+            Html.div [] [ Html.text "Page not found." ]
+        }
 
-                Err error ->
-                    { title = "Page Data Error"
-                    , body =
-                        Html.div [] [ Html.text error ]
+    else
+        case model.pageData of
+            Ok pageData ->
+                (config.view
+                    { path = ContentCache.pathForUrl urls |> PagePath.build
+                    , frontmatter = config.urlToRoute model.url
                     }
+                    pageData.sharedStaticData
+                    pageData.pageStaticData
+                    |> .view
+                )
+                    pageData.userModel
 
-        Nothing ->
-            { title = "Page not found"
-            , body =
-                Html.div [] [ Html.text "Page not found." ]
-            }
+            Err error ->
+                { title = "Page Data Error"
+                , body =
+                    Html.div [] [ Html.text error ]
+                }
 
 
 urlToPagePath : Url -> Url -> PagePath
@@ -107,13 +106,15 @@ type alias Flags =
 
 type alias ContentJson =
     { staticData : RequestsAndPending
+    , is404 : Bool
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map ContentJson
+    Decode.map2 ContentJson
         (Decode.field "staticData" RequestsAndPending.decoder)
+        (Decode.field "is404" Decode.bool)
 
 
 init :
@@ -420,14 +421,6 @@ update config appMsg model =
                         config.sharedStaticData
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
-
-                maybePagePath =
-                    case ContentCache.lookupMetadata model.contentCache urls of
-                        Just pagePath ->
-                            Just pagePath
-
-                        Nothing ->
-                            Nothing
             in
             case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
                 Ok ( sharedStaticData, pageStaticData ) ->
@@ -507,7 +500,17 @@ application config =
                             ]
 
                     Err _ ->
-                        Sub.none
+                        config.fromJsPort
+                            |> Sub.map
+                                (\decodeValue ->
+                                    case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
+                                        Ok contentJson ->
+                                            HotReloadComplete contentJson
+
+                                        Err _ ->
+                                            -- TODO should be no message here
+                                            StartingHotReload
+                                )
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }

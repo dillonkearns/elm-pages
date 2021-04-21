@@ -191,13 +191,14 @@ async function start(options) {
             watcher.add(pattern);
           }
         );
+        const is404 = renderResult.is404;
         if (renderResult.kind === "json") {
-          res.writeHead(200, {
+          res.writeHead(is404 ? 404 : 200, {
             "Content-Type": "application/json",
           });
           res.end(renderResult.contentJson);
         } else {
-          res.writeHead(200, {
+          res.writeHead(is404 ? 404 : 200, {
             "Content-Type": "text/html",
           });
           res.end(renderResult.htmlString);

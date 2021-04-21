@@ -73,17 +73,20 @@ renderSingleRoute :
     }
     -> { path : PagePath, frontmatter : route }
     -> DataSource.DataSource a
+    -> DataSource.DataSource b
     -> StaticResponses
-renderSingleRoute config pathAndRoute request =
-    [ pathAndRoute.frontmatter ]
-        |> List.map
-            (\route ->
-                ( config.routeToPath route |> String.join "/"
-                , NotFetched
-                    (request |> DataSource.map (\_ -> ()))
-                    Dict.empty
-                )
-            )
+renderSingleRoute config pathAndRoute request cliData =
+    [ ( config.routeToPath pathAndRoute.frontmatter |> String.join "/"
+      , NotFetched
+            (request |> DataSource.map (\_ -> ()))
+            Dict.empty
+      )
+    , ( cliDictKey
+      , NotFetched
+            (cliData |> DataSource.map (\_ -> ()))
+            Dict.empty
+      )
+    ]
         |> Dict.fromList
         |> StaticResponses
 

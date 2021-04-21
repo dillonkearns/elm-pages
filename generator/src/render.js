@@ -77,7 +77,11 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         if (isJson) {
           resolve({
             kind: "json",
-            contentJson: JSON.stringify({ staticData: args.contentJson }),
+            is404: args.is404,
+            contentJson: JSON.stringify({
+              staticData: args.contentJson,
+              is404: args.is404,
+            }),
           });
         } else {
           resolve(outputString(fromElm));
@@ -162,10 +166,12 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   const args = fromElm.args[0];
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
+  contentJson["is404"] = args.is404;
   const normalizedRoute = args.route.replace(/index$/, "");
   const contentJsonString = JSON.stringify(contentJson);
 
   return {
+    is404: args.is404,
     route: normalizedRoute,
     htmlString: wrapHtml(args, contentJsonString),
     kind: "html",

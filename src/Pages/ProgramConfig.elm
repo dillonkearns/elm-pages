@@ -39,6 +39,7 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
             { view : userModel -> { title : String, body : Html userMsg }
             , head : List Head.Tag
             }
+    , handleRoute : route -> DataSource.DataSource Bool
     , getStaticRoutes : DataSource.DataSource (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
