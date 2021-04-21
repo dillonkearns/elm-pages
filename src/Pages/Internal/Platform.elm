@@ -70,6 +70,20 @@ urlToPagePath url baseUrl =
         |> PagePath.build
 
 
+urlsToPagePath :
+    { currentUrl : Url
+    , baseUrl : Url
+    }
+    -> PagePath
+urlsToPagePath urls =
+    urls.currentUrl.path
+        |> String.dropLeft (String.length urls.baseUrl.path)
+        |> String.chopForwardSlashes
+        |> String.split "/"
+        |> List.filter ((/=) "")
+        |> PagePath.build
+
+
 view :
     ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
     -> Model userModel pageStaticData sharedStaticData
@@ -172,29 +186,21 @@ init config flags url key =
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
 
-                maybePagePath =
-                    case ContentCache.lookupMetadata contentCache urls of
-                        Just pagePath ->
-                            Just pagePath
-
-                        Nothing ->
-                            Nothing
+                pagePath =
+                    urlsToPagePath urls
             in
             case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
                 Ok ( sharedStaticData, pageStaticData ) ->
                     let
                         ( userModel, userCmd ) =
-                            Maybe.map
-                                (\pagePath ->
-                                    { path =
-                                        { path = pagePath
-                                        , query = url.query
-                                        , fragment = url.fragment
-                                        }
-                                    , metadata = config.urlToRoute url
+                            Just
+                                { path =
+                                    { path = pagePath
+                                    , query = url.query
+                                    , fragment = url.fragment
                                     }
-                                )
-                                maybePagePath
+                                , metadata = config.urlToRoute url
+                                }
                                 |> config.init pageStaticData (Just key)
 
                         cmd =
@@ -468,24 +474,14 @@ application config =
                     urls =
                         { currentUrl = model.url, baseUrl = model.baseUrl }
 
-                    maybePagePath =
-                        case ContentCache.lookupMetadata model.contentCache urls of
-                            Just pagePath ->
-                                Just pagePath
-
-                            Nothing ->
-                                Nothing
+                    pagePath =
+                        urlsToPagePath urls
                 in
                 case model.pageData of
                     Ok pageData ->
                         Sub.batch
-                            [ Maybe.map
-                                (\path ->
-                                    config.subscriptions (path |> pathToUrl |> config.urlToRoute) path pageData.userModel
-                                        |> Sub.map UserMsg
-                                )
-                                maybePagePath
-                                |> Maybe.withDefault Sub.none
+                            [ config.subscriptions (model.url |> config.urlToRoute) pagePath pageData.userModel
+                                |> Sub.map UserMsg
                             , config.fromJsPort
                                 |> Sub.map
                                     (\decodeValue ->
