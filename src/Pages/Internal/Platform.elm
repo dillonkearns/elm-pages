@@ -427,24 +427,77 @@ update config appMsg model =
                         config.sharedStaticData
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
+
+                from404ToNon404 =
+                    not contentJson.is404
+                        && was404
+
+                was404 =
+                    ContentCache.is404 model.contentCache urls
             in
             case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
                 Ok ( sharedStaticData, pageStaticData ) ->
-                    ( { model
-                        | contentCache =
-                            ContentCache.init (Just ( urls, contentJson ))
-                        , pageData =
-                            model.pageData
-                                |> Result.map
-                                    (\previousPageData ->
+                    let
+                        updateResult =
+                            if from404ToNon404 then
+                                case config.onPageChange of
+                                    Just onPageChangeMsg ->
+                                        case model.pageData of
+                                            Ok pageData ->
+                                                config.update
+                                                    pageStaticData
+                                                    (Just model.key)
+                                                    (onPageChangeMsg
+                                                        { path = urlToPagePath model.url model.baseUrl
+                                                        , query = model.url.query
+                                                        , fragment = model.url.fragment
+                                                        , metadata = config.urlToRoute model.url
+                                                        }
+                                                    )
+                                                    pageData.userModel
+                                                    |> Just
+
+                                            Err error ->
+                                                Nothing
+
+                                    _ ->
+                                        Nothing
+
+                            else
+                                Nothing
+                    in
+                    case updateResult of
+                        Just ( userModel, userCmd ) ->
+                            ( { model
+                                | contentCache = ContentCache.init (Just ( urls, contentJson ))
+                                , pageData =
+                                    Ok
                                         { pageStaticData = pageStaticData
                                         , sharedStaticData = sharedStaticData
-                                        , userModel = previousPageData.userModel
+                                        , userModel = userModel
                                         }
-                                    )
-                      }
-                    , Cmd.none
-                    )
+                              }
+                            , Cmd.batch
+                                [ userCmd |> Cmd.map UserMsg
+                                ]
+                            )
+
+                        Nothing ->
+                            ( { model
+                                | contentCache =
+                                    ContentCache.init (Just ( urls, contentJson ))
+                                , pageData =
+                                    model.pageData
+                                        |> Result.map
+                                            (\previousPageData ->
+                                                { pageStaticData = pageStaticData
+                                                , sharedStaticData = sharedStaticData
+                                                , userModel = previousPageData.userModel
+                                                }
+                                            )
+                              }
+                            , Cmd.none
+                            )
 
                 Err error ->
                     ( { model
