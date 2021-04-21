@@ -363,22 +363,17 @@ update config appMsg model =
                 Ok ( ( _, contentJson, updatedCache ), pageData ) ->
                     let
                         ( userModel, userCmd ) =
-                            case config.onPageChange of
-                                Just onPageChangeMsg ->
-                                    config.update
-                                        pageData.pageStaticData
-                                        (Just model.key)
-                                        (onPageChangeMsg
-                                            { path = urlToPagePath url model.baseUrl
-                                            , query = url.query
-                                            , fragment = url.fragment
-                                            , metadata = config.urlToRoute url
-                                            }
-                                        )
-                                        pageData.userModel
-
-                                _ ->
-                                    ( pageData.userModel, Cmd.none )
+                            config.update
+                                pageData.pageStaticData
+                                (Just model.key)
+                                (config.onPageChange
+                                    { path = urlToPagePath url model.baseUrl
+                                    , query = url.query
+                                    , fragment = url.fragment
+                                    , metadata = config.urlToRoute url
+                                    }
+                                )
+                                pageData.userModel
                     in
                     ( { model
                         | url = url
@@ -440,27 +435,22 @@ update config appMsg model =
                     let
                         updateResult =
                             if from404ToNon404 then
-                                case config.onPageChange of
-                                    Just onPageChangeMsg ->
-                                        case model.pageData of
-                                            Ok pageData ->
-                                                config.update
-                                                    pageStaticData
-                                                    (Just model.key)
-                                                    (onPageChangeMsg
-                                                        { path = urlToPagePath model.url model.baseUrl
-                                                        , query = model.url.query
-                                                        , fragment = model.url.fragment
-                                                        , metadata = config.urlToRoute model.url
-                                                        }
-                                                    )
-                                                    pageData.userModel
-                                                    |> Just
+                                case model.pageData of
+                                    Ok pageData ->
+                                        config.update
+                                            pageStaticData
+                                            (Just model.key)
+                                            (config.onPageChange
+                                                { path = urlToPagePath model.url model.baseUrl
+                                                , query = model.url.query
+                                                , fragment = model.url.fragment
+                                                , metadata = config.urlToRoute model.url
+                                                }
+                                            )
+                                            pageData.userModel
+                                            |> Just
 
-                                            Err error ->
-                                                Nothing
-
-                                    _ ->
+                                    Err error ->
                                         Nothing
 
                             else

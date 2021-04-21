@@ -370,7 +370,7 @@ main =
                     [ Shared.template.subscriptions path model.global |> Sub.map MsgGlobal
                     , templateSubscriptions route path model
                     ]
-        , onPageChange = Just OnPageChange
+        , onPageChange = OnPageChange
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , staticData = staticDataForRoute

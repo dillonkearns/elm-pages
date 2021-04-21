@@ -57,12 +57,10 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
                 )
             )
     , onPageChange :
-        Maybe
-            ({ path : PagePath
-             , query : Maybe String
-             , fragment : Maybe String
-             , metadata : route
-             }
-             -> userMsg
-            )
+        { path : PagePath
+        , query : Maybe String
+        , fragment : Maybe String
+        , metadata : route
+        }
+        -> userMsg
     }
