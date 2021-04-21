@@ -269,7 +269,10 @@ async function runTerser(filePath) {
 }
 
 async function copyAssets() {
-  fs.writeFile("dist/elm-pages.js", indexTemplate);
+  fs.writeFile(
+    "dist/elm-pages.js",
+    fs.readFileSync(path.join(__dirname, "../static-code/elm-pages.js"))
+  );
   fs.copyDirFlat("static", "dist");
 }
 
