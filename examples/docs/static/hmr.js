@@ -69,7 +69,7 @@ function fetchContentJsonForCurrentPage() {
     const contentJsonForPage = await fetch(
       `${window.location.origin}${currentPath}content.json`
     );
-    if (contentJsonForPage.ok) {
+    if (contentJsonForPage.ok || contentJsonForPage.status === 404) {
       resolve(await contentJsonForPage.json());
     } else {
       try {
