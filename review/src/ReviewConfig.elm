@@ -50,5 +50,7 @@ config =
                     |> Rule.ignoreErrorsForFiles
                         [ "src/Pages/Internal/Platform/Effect.elm"
                         , "src/Pages/Internal/Platform.elm"
+                        , "src/Pages/Internal/Platform/Cli.elm"
+                        , "src/SecretsDict.elm"
                         ]
             )

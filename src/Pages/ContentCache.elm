@@ -5,7 +5,6 @@ module Pages.ContentCache exposing
     , init
     , is404
     , lazyLoad
-    , lookupMetadata
     , pathForUrl
     )
 
@@ -15,7 +14,6 @@ import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Pages.Internal.String as String
-import Pages.PagePath as PagePath exposing (PagePath)
 import RequestsAndPending exposing (RequestsAndPending)
 import Task exposing (Task)
 import Url exposing (Url)
@@ -204,23 +202,6 @@ pathForUrl { currentUrl, baseUrl } =
         |> List.filter ((/=) "")
 
 
-lookup :
-    ContentCache
-    -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath, Entry )
-lookup dict urls =
-    let
-        path =
-            pathForUrl urls
-    in
-    dict
-        |> Dict.get path
-        |> Maybe.map
-            (\entry ->
-                ( PagePath.build path, entry )
-            )
-
-
 is404 :
     ContentCache
     -> { currentUrl : Url, baseUrl : Url }
@@ -238,21 +219,3 @@ is404 dict urls =
                         True
             )
         |> Maybe.withDefault True
-
-
-lookupMetadata :
-    ContentCache
-    -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe PagePath
-lookupMetadata content urls =
-    urls
-        |> lookup content
-        |> Maybe.map
-            (\( pagePath, entry ) ->
-                case entry of
-                    NeedContent ->
-                        pagePath
-
-                    Parsed _ ->
-                        pagePath
-            )
