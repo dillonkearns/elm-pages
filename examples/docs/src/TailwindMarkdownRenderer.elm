@@ -1,5 +1,6 @@
 module TailwindMarkdownRenderer exposing (renderer)
 
+import Css
 import Html.Styled as Html
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block as Block exposing (ListItem(..), Task(..))
@@ -220,6 +221,15 @@ heading { level, rawText, children } =
             , Tw.text_2xl
             , Tw.mt_8
             , Tw.mb_4
+            , Css.before
+                [ Css.property "content" "\"#\""
+                , Css.position Css.absolute
+                , Css.marginLeft (Css.px -20)
+                , Css.color (Css.rgb 100 100 100)
+                ]
+
+            --, Tw.underline
+            , Tw.border_b_2
             ]
         ]
         children

@@ -1,5 +1,6 @@
 module Template.Docs exposing (Model, Msg, StaticData, template)
 
+import Css
 import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -7,7 +8,7 @@ import Document exposing (Document)
 import Glob
 import Head
 import Head.Seo as Seo
-import Html.Styled as H
+import Html.Styled as H exposing (Attribute)
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block exposing (HeadingLevel(..))
 import Markdown.Parser
@@ -101,11 +102,16 @@ tocView path toc =
         |> List.map
             (\heading ->
                 H.a
-                    [ --Font.color (Element.rgb255 100 100 100)
-                      Attr.href <| PagePath.toString path ++ "#" ++ heading.anchorId
-                    ]
+                    ([ --Font.color (Element.rgb255 100 100 100)
+                       Attr.href <| PagePath.toString path ++ "#" ++ heading.anchorId
+                     , css
+                        []
+                     ]
+                        ++ styleForLevel heading.level
+                    )
                     [ H.text heading.name
-                    , H.text <| String.fromInt heading.level
+
+                    --, H.text <| String.fromInt heading.level
                     ]
             )
         |> H.div
@@ -114,6 +120,29 @@ tocView path toc =
                 , Tw.flex_col
                 ]
             ]
+
+
+styleForLevel : Int -> List (Attribute Msg)
+styleForLevel headingLevel =
+    case headingLevel of
+        2 ->
+            [ css
+                [ Tw.font_bold
+                , Tw.text_lg
+                ]
+            ]
+
+        3 ->
+            []
+
+        4 ->
+            []
+
+        5 ->
+            []
+
+        _ ->
+            []
 
 
 type alias DocsFile =
