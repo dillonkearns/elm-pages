@@ -828,6 +828,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     |> List.map (String.join "/")
                     |> List.map Route
                     |> DataSource.succeed
+            , handleRoute = \_ -> DataSource.succeed True
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ -> ( (), Cmd.none )
             , staticData =
