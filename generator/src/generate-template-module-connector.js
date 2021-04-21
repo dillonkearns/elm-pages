@@ -428,23 +428,21 @@ handleRoute maybeRoute =
 getStaticRoutes : DataSource (List (Maybe Route))
 getStaticRoutes =
     DataSource.combine
-        [ DataSource.succeed
-            [ ${templates
-              .filter((name) => !isParameterizedRoute(name))
-              .map((name) => `Route.${routeHelpers.routeVariant(name)} {}`)
-              .join("\n                    , ")}
-            ]
-        , ${templates
-          .filter((name) => isParameterizedRoute(name))
-          .map(
-            (name) =>
-              `Template.${moduleName(
+        [ ${templates
+          .map((name) => {
+            if (isParameterizedRoute(name)) {
+              return `Template.${moduleName(
                 name
               )}.template.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
                 name
-              )})`
-          )
-          .join("\n                , ")}
+              )})`;
+            } else {
+              return `DataSource.succeed [ Route.${routeHelpers.routeVariant(
+                name
+              )} {} ]`;
+            }
+          })
+          .join("\n        , ")}
         ]
         |> DataSource.map List.concat
         |> DataSource.map (List.map Just)
