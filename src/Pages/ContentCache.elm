@@ -5,7 +5,6 @@ module Pages.ContentCache exposing
     , init
     , is404
     , lazyLoad
-    , lookup
     , lookupMetadata
     , pathForUrl
     )
