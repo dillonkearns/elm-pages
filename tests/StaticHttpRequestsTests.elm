@@ -880,9 +880,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , subscriptions = \_ _ _ -> Sub.none
             , routeToPath = \(Route route) -> route |> String.split "/"
             , sharedStaticData = DataSource.succeed ()
-
-            --, onPageChange = Just (\_ -> ())
-            , onPageChange = Nothing
+            , onPageChange = \_ -> Continue
             }
 
         encodedFlags =
