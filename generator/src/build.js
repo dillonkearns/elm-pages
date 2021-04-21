@@ -1,5 +1,4 @@
 const cliVersion = require("../../package.json").version;
-const indexTemplate = require("./index-template.js");
 const fs = require("./dir-helpers.js");
 const path = require("path");
 const seo = require("./seo-renderer.js");
