@@ -144,7 +144,8 @@ renderer =
     , tableHeaderCell =
         \_ children ->
             Element.paragraph [] children
-    , tableCell = Element.paragraph []
+    , tableCell = \_ -> Element.paragraph []
+    , strikethrough = \content -> Element.paragraph [ Font.strike ] content
     , html =
         Markdown.Html.oneOf
             [ Markdown.Html.tag "banner"

@@ -69,4 +69,5 @@ view static =
     , body =
         [ Element.text static.static
         ]
+            |> Document.ElmUiView
     }

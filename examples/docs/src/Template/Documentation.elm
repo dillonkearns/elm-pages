@@ -128,6 +128,7 @@ view model sharedModel staticPayload =
                 , Element.height Element.fill
                 ]
         ]
+            |> Document.ElmUiView
     }
 
 

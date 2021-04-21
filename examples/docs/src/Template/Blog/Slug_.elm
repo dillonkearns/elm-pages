@@ -109,6 +109,7 @@ view { static } =
                 )
             ]
         ]
+            |> Document.ElmUiView
     }
 
 

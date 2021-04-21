@@ -65,4 +65,5 @@ view static =
     , body =
         [ Element.text <| "👋 " ++ static.routeParams.name
         ]
+            |> Document.ElmUiView
     }

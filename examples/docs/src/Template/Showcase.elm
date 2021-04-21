@@ -63,6 +63,7 @@ view static =
             [ Element.column [ Element.padding 20, Element.centerX ] [ Showcase.view showcaseEntries ]
             ]
         ]
+            |> Document.ElmUiView
     }
 
 

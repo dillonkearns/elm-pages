@@ -78,6 +78,7 @@ view static =
                 [ Element.width Element.fill
                 ]
         ]
+            |> Document.ElmUiView
     }
 
 

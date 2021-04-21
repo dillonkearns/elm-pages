@@ -14,6 +14,7 @@ import Element.Region
 import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Styled
 import OptimizedDecoder as D
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
@@ -141,13 +142,22 @@ view stars page model toMsg pageView =
 
                       --, incrementView model |> Element.map toMsg
                       ]
-                    , pageView.body
+                    , case pageView.body of
+                        Document.ElmUiView elements ->
+                            elements
+
+                        Document.ElmCssView elements ->
+                            [ elements
+                                |> Html.Styled.div []
+                                |> Html.Styled.toUnstyled
+                                |> Element.html
+                            ]
                     ]
                 )
         )
             |> Element.layout
                 [ Element.width Element.fill
-                , Font.size 20
+                , Font.size 16
                 , Font.family [ Font.typeface "Roboto" ]
                 , Font.color (Element.rgba255 0 0 0 0.8)
                 ]
@@ -160,7 +170,7 @@ logoLinkMobile =
         { url = "/"
         , label =
             Element.row
-                [ Font.size 30
+                [ Font.size 16
                 , Element.spacing 16
                 , Element.htmlAttribute (Attr.class "navbar-title")
                 ]
@@ -218,7 +228,7 @@ logoLink =
         { url = "/"
         , label =
             Element.row
-                [ Font.size 30
+                [ Font.size 20
                 , Element.spacing 16
                 , Element.htmlAttribute (Attr.class "navbar-title")
                 ]

@@ -88,6 +88,7 @@ view thing model staticPayload =
                 ]
             ]
         ]
+            |> Document.ElmUiView
     }
 
 
