@@ -6,7 +6,7 @@ let updateAppContentJson = new Promise((resolve, reject) => resolve(() => {}));
 
 function connect(sendContentJsonPort) {
   // Listen for the server to tell us that an HMR update is available
-  eventSource = new EventSource("stream");
+  eventSource = new EventSource("/stream");
   eventSource.onmessage = async function (evt) {
     showCompiling("");
     if (evt.data === "content.json") {
