@@ -8,12 +8,14 @@ import Glob
 import Head
 import Head.Seo as Seo
 import Html.Styled as H
-import Html.Styled.Attributes exposing (css)
+import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block exposing (HeadingLevel(..))
 import Markdown.Parser
 import Markdown.Renderer
+import MarkdownHelpers
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath
+import Pages.PagePath as PagePath exposing (PagePath)
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Template exposing (StaticPayload, Template, TemplateWithState)
@@ -63,7 +65,7 @@ head static =
 
 
 type alias StaticData =
-    List (H.Html Msg)
+    List Markdown.Block.Block
 
 
 view :
@@ -73,16 +75,63 @@ view static =
     { title = "TODO title"
     , body =
         [ Css.Global.global Tw.globalStyles
+        , tocView
+            (PagePath.build [ "docs" ])
+            (MarkdownHelpers.buildToc
+                static.static
+            )
         , H.div
             [ css
                 [ Tw.p_8
                 , Tw.prose
                 ]
             ]
-            static.static
+            (static.static
+                |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                |> Result.withDefault []
+            )
         ]
             |> Document.ElmCssView
     }
+
+
+tocView : PagePath -> MarkdownHelpers.TableOfContents -> H.Html Msg
+tocView path toc =
+    toc
+        |> List.map
+            (\heading ->
+                H.a
+                    [ --Font.color (Element.rgb255 100 100 100)
+                      Attr.href <| PagePath.toString path ++ "#" ++ heading.anchorId
+                    ]
+                    [ H.text heading.name
+                    , H.text <| String.fromInt heading.level
+                    ]
+            )
+        |> H.div
+            [ css
+                [ Tw.flex
+                , Tw.flex_col
+                ]
+            ]
+
+
+
+{-
+   Element.column [ Element.alignTop, Element.spacing 20 ]
+       [ Element.el [ Font.bold, Font.size 22 ] (Element.text "Table of Contents")
+       , Element.column [ Element.spacing 10 ]
+           (toc
+               |> List.map
+                   (\heading ->
+                       Element.link [ Font.color (Element.rgb255 100 100 100) ]
+                           { url = PagePath.toString path ++ "#" ++ heading.anchorId
+                           , label = Element.text heading.name
+                           }
+                   )
+           )
+       ]
+-}
 
 
 type alias DocsFile =
@@ -104,7 +153,11 @@ docsGlob =
         |> Glob.toDataSource
 
 
-fileRequest : String -> DataSource (List (H.Html Msg))
+
+--fileRequest : String -> DataSource (List (H.Html Msg))
+
+
+fileRequest : String -> DataSource (List Markdown.Block.Block)
 fileRequest filePath =
     DataSource.File.request
         filePath
@@ -116,8 +169,6 @@ fileRequest filePath =
                             |> Markdown.Parser.parse
                             |> Result.map (List.map transformMarkdown)
                             |> Result.mapError (\_ -> "Markdown parsing error")
-                            |> Result.andThen
-                                (Markdown.Renderer.render TailwindMarkdownRenderer.renderer)
                     of
                         Ok renderedBody ->
                             OptimizedDecoder.succeed renderedBody
@@ -128,6 +179,7 @@ fileRequest filePath =
         )
 
 
+transformMarkdown : Markdown.Block.Block -> Markdown.Block.Block
 transformMarkdown blocks =
     blocks
         |> Markdown.Block.walk
@@ -163,7 +215,7 @@ bumpHeadingLevel level =
             H6
 
 
-data : DataSource (List (H.Html Msg))
+data : DataSource (List Markdown.Block.Block)
 data =
     docsGlob
         |> DataSource.map
