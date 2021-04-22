@@ -814,6 +814,7 @@ sendSinglePageProgress toJsPayload config model =
                             pageModel : userModel
                             pageModel =
                                 config.init
+                                    sharedStaticData
                                     pageStaticData
                                     Nothing
                                     (Just

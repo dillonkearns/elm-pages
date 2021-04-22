@@ -201,7 +201,7 @@ init config flags url key =
                                     }
                                 , metadata = config.urlToRoute url
                                 }
-                                |> config.init pageStaticData (Just key)
+                                |> config.init sharedStaticData pageStaticData (Just key)
 
                         cmd =
                             [ userCmd
@@ -331,7 +331,7 @@ update config appMsg model =
                 Ok pageData ->
                     let
                         ( userModel, userCmd ) =
-                            config.update pageData.pageStaticData (Just model.key) userMsg pageData.userModel
+                            config.update pageData.sharedStaticData pageData.pageStaticData (Just model.key) userMsg pageData.userModel
 
                         updatedPageData =
                             Ok { pageData | userModel = userModel }
@@ -364,6 +364,7 @@ update config appMsg model =
                     let
                         ( userModel, userCmd ) =
                             config.update
+                                pageData.sharedStaticData
                                 pageData.pageStaticData
                                 (Just model.key)
                                 (config.onPageChange
@@ -438,6 +439,7 @@ update config appMsg model =
                                 case model.pageData of
                                     Ok pageData ->
                                         config.update
+                                            sharedStaticData
                                             pageStaticData
                                             (Just model.key)
                                             (config.onPageChange

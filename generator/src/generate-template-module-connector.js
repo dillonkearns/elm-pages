@@ -177,6 +177,7 @@ view page globalData staticData =
 
 init :
     Maybe Shared.Model
+    -> Shared.StaticData
     -> PageStaticData
     -> Maybe Browser.Navigation.Key
     ->
@@ -189,7 +190,7 @@ init :
             , metadata : Maybe Route
             }
     -> ( Model, Cmd Msg )
-init currentGlobalModel pageStaticData navigationKey maybePagePath =
+init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey maybePagePath)
@@ -225,8 +226,8 @@ init currentGlobalModel pageStaticData navigationKey maybePagePath =
 
 
 
-update : PageStaticData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
-update pageStaticData navigationKey msg model =
+update : Shared.StaticData -> PageStaticData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
+update sharedStaticData pageStaticData navigationKey msg model =
     case msg of
         MsgGlobal msg_ ->
             let
@@ -238,7 +239,7 @@ update pageStaticData navigationKey msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) pageStaticData navigationKey <|
+            (init (Just model.global) sharedStaticData pageStaticData navigationKey <|
                 Just
                     { path =
                         { path = record.path

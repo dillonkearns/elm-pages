@@ -13,7 +13,8 @@ import Url exposing (Url)
 
 type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData =
     { init :
-        pageStaticData
+        sharedStaticData
+        -> pageStaticData
         -> Maybe Browser.Navigation.Key
         ->
             Maybe
@@ -25,7 +26,7 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
                 , metadata : route
                 }
         -> ( userModel, Cmd userMsg )
-    , update : pageStaticData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , update : sharedStaticData -> pageStaticData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
     , sharedStaticData : DataSource.DataSource sharedStaticData
     , staticData : route -> DataSource.DataSource pageStaticData
