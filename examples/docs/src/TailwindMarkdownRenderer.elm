@@ -25,6 +25,7 @@ renderer =
                 [ css
                     [ Tw.font_semibold
                     , Tw.font_medium
+                    , Css.color (Css.rgb 226 0 124) |> Css.important
                     ]
                 ]
                 [ Html.text content ]
