@@ -251,7 +251,6 @@ fileRequest filePath =
                     case
                         rawBody
                             |> Markdown.Parser.parse
-                            |> Result.map (List.map transformMarkdown)
                             |> Result.mapError (\_ -> "Markdown parsing error")
                     of
                         Ok renderedBody ->
@@ -301,11 +300,4 @@ bumpHeadingLevel level =
 
 data : DataSource (List Markdown.Block.Block)
 data =
-    docsGlob
-        |> DataSource.map
-            (\documents ->
-                documents
-                    |> List.map (\document -> fileRequest document.filePath)
-            )
-        |> DataSource.resolve
-        |> DataSource.map List.concat
+    fileRequest "content/docs.md"
