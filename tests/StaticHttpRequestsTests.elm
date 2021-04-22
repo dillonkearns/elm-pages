@@ -819,7 +819,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
             , generateFiles = generateFiles
-            , init = \_ _ _ -> ( (), Cmd.none )
+            , init = \_ _ _ _ -> ( (), Cmd.none )
             , getStaticRoutes =
                 --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
                 --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
@@ -830,7 +830,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     |> DataSource.succeed
             , handleRoute = \_ -> DataSource.succeed True
             , urlToRoute = .path >> Route
-            , update = \_ _ _ _ -> ( (), Cmd.none )
+            , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , staticData =
                 \(Route pageRoute) ->
                     let
