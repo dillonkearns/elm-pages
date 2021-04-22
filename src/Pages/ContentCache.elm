@@ -36,8 +36,7 @@ type alias ContentCacheInner =
 
 
 type Entry
-    = NeedContent
-    | Parsed ContentJson
+    = Parsed ContentJson
 
 
 type alias ParseError =
@@ -73,28 +72,12 @@ lazyLoad :
     -> Task Http.Error ( Url, ContentJson, ContentCache )
 lazyLoad urls cache =
     case Dict.get (pathForUrl urls) cache of
-        Just entry ->
-            case entry of
-                NeedContent ->
-                    urls.currentUrl
-                        |> httpTask
-                        |> Task.map
-                            (\downloadedContent ->
-                                ( urls.currentUrl
-                                , downloadedContent
-                                , update
-                                    cache
-                                    urls
-                                    downloadedContent
-                                )
-                            )
-
-                Parsed contentJson ->
-                    Task.succeed
-                        ( urls.currentUrl
-                        , contentJson
-                        , cache
-                        )
+        Just (Parsed contentJson) ->
+            Task.succeed
+                ( urls.currentUrl
+                , contentJson
+                , cache
+                )
 
         Nothing ->
             urls.currentUrl
@@ -176,13 +159,6 @@ update cache urls rawContent =
                 Just (Parsed _) ->
                     entry
 
-                Just NeedContent ->
-                    Parsed
-                        { staticData = rawContent.staticData
-                        , is404 = rawContent.is404
-                        }
-                        |> Just
-
                 Nothing ->
                     { staticData = rawContent.staticData
                     , is404 = rawContent.is404
@@ -214,8 +190,5 @@ is404 dict urls =
                 case entry of
                     Parsed data ->
                         data.is404
-
-                    _ ->
-                        True
             )
         |> Maybe.withDefault True
