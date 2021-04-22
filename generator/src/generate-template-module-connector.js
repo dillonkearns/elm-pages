@@ -22,7 +22,6 @@ function generateTemplateModuleConnector(phase) {
   return {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
-import Browser
 import Browser.Navigation
 import Route exposing (Route)
 import Document
@@ -33,15 +32,12 @@ import ${
         ? "Pages.Internal.Platform"
         : "Pages.Internal.Platform.Cli"
     }
-import Pages.Internal.Platform.ToJsPayload
 import Pages.Manifest as Manifest
 import Shared
 import Site
 import Head
 import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
-import Url
-import Url.Parser as Parser exposing ((</>), Parser)
 import DataSource exposing (DataSource)
 
 ${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
