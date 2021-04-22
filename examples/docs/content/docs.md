@@ -42,14 +42,14 @@ type alias Author =
     , avatarUrl : String
     }
 
-upcomingEvents : DataSource (List Author)
+authors : DataSource (List Author)
 ```
 
 It makes no difference where that data came from. In fact, let's define it as hardcoded data:
 
 ```elm
-upcomingEvents : DataSource (List Author)
-upcomingEvents =
+authors : DataSource (List Author)
+authors =
     DataSource.succeed [
         { name = "Dillon Kearns"
         , avatarUrl = "/avatars/dillon.jpg"
@@ -60,8 +60,8 @@ upcomingEvents =
 We could swap that out to get the data from another source at any time. Like this HTTP DataSource.
 
 ```elm
-upcomingEvents : DataSource (List Author)
-upcomingEvents =
+authors : DataSource (List Author)
+authors =
     DataSource.Http.get (Secrets.succeed "mycms.com/authors")
         authorsDecoder
 ```
