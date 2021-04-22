@@ -416,10 +416,8 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
 
                 RenderRequest.FullBuild ->
                     Nothing
-    in
-    StaticResponses.nextStep config mode secrets staticHttpCache [] staticResponses Nothing
-        |> nextStepToEffect contentCache
-            config
+
+        initialModel =
             { staticResponses = staticResponses
             , secrets = secrets
             , errors = []
@@ -430,6 +428,11 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
             , staticRoutes = unprocessedPagesState
             , maybeRequestJson = renderRequest
             }
+    in
+    StaticResponses.nextStep config initialModel Nothing
+        |> nextStepToEffect contentCache
+            config
+            initialModel
 
 
 updateAndSendPortIfDone :
@@ -440,17 +443,9 @@ updateAndSendPortIfDone :
 updateAndSendPortIfDone contentCache config model =
     StaticResponses.nextStep
         config
-        model.mode
-        model.secrets
-        model.allRawResponses
-        model.errors
-        model.staticResponses
+        model
         Nothing
         |> nextStepToEffect contentCache config model
-
-
-
---, { model | unprocessedPages = List.drop 1 model.unprocessedPages }
 
 
 update :
@@ -516,11 +511,7 @@ update contentCache config msg model =
                             }
             in
             StaticResponses.nextStep config
-                updatedModel.mode
-                updatedModel.secrets
-                updatedModel.allRawResponses
-                updatedModel.errors
-                updatedModel.staticResponses
+                updatedModel
                 Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
@@ -561,26 +552,17 @@ update contentCache config msg model =
                             }
             in
             StaticResponses.nextStep config
-                updatedModel.mode
-                updatedModel.secrets
-                updatedModel.allRawResponses
-                updatedModel.errors
-                updatedModel.staticResponses
+                updatedModel
                 Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
         Continue ->
-            -- TODO
             let
                 updatedModel =
                     model
             in
             StaticResponses.nextStep config
-                updatedModel.mode
-                updatedModel.secrets
-                updatedModel.allRawResponses
-                updatedModel.errors
-                updatedModel.staticResponses
+                updatedModel
                 Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
@@ -618,11 +600,7 @@ update contentCache config msg model =
                             }
             in
             StaticResponses.nextStep config
-                updatedModel.mode
-                updatedModel.secrets
-                updatedModel.allRawResponses
-                updatedModel.errors
-                updatedModel.staticResponses
+                updatedModel
                 Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
@@ -635,11 +613,7 @@ update contentCache config msg model =
                     }
             in
             StaticResponses.nextStep config
-                updatedModel.mode
-                updatedModel.secrets
-                updatedModel.allRawResponses
-                updatedModel.errors
-                updatedModel.staticResponses
+                updatedModel
                 Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
@@ -706,11 +680,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                     config
                     updatedModel
                     (StaticResponses.nextStep config
-                        updatedModel.mode
-                        updatedModel.secrets
-                        updatedModel.allRawResponses
-                        updatedModel.errors
-                        updatedModel.staticResponses
+                        updatedModel
                         Nothing
                     )
 

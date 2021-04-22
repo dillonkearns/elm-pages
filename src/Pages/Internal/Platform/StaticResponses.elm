@@ -171,17 +171,20 @@ nextStep :
                     )
                 )
     }
-    -> Mode
-    -> SecretsDict
-    -> RequestsAndPending
-    -> List BuildError
-    -> StaticResponses
+    ->
+        { model
+            | staticResponses : StaticResponses
+            , secrets : SecretsDict
+            , errors : List BuildError
+            , allRawResponses : Dict String (Maybe String)
+            , mode : Mode
+        }
     -> Maybe (List route)
     -> ( StaticResponses, NextStep route )
-nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes =
+nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoutes =
     let
         staticResponses =
-            case staticResponses_ of
+            case model.staticResponses of
                 StaticResponses s ->
                     s
 
@@ -372,13 +375,13 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                                     secureUrl
                                 )
                 in
-                ( staticResponses_, Continue newAllRawResponses newThing maybeRoutes )
+                ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
             Err error_ ->
-                ( staticResponses_, Finish (ToJsPayload.Errors <| (error_ ++ failedRequests ++ errors)) )
+                ( model.staticResponses, Finish (ToJsPayload.Errors <| (error_ ++ failedRequests ++ errors)) )
 
     else
-        case staticResponses_ of
+        case model.staticResponses of
             GettingInitialData (NotFetched _ _) ->
                 let
                     resolvedRoutes : Result StaticHttpRequest.Error (List route)
@@ -425,7 +428,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                         )
 
                     Err error_ ->
-                        ( staticResponses_
+                        ( model.staticResponses
                         , Finish
                             (ToJsPayload.Errors <|
                                 ([ StaticHttpRequest.toBuildError
@@ -459,7 +462,7 @@ nextStep config mode secrets allRawResponses errors staticResponses_ maybeRoutes
                 --        )
                 --
                 --    Ok okSiteStaticData ->
-                ( staticResponses_
+                ( model.staticResponses
                 , ToJsPayload.toJsPayload
                     (encode allRawResponses mode staticResponses)
                     generatedOkayFiles
