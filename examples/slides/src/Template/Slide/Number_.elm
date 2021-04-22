@@ -3,7 +3,7 @@ module Template.Slide.Number_ exposing (Model, Msg, StaticData, template)
 import Browser.Events
 import Browser.Navigation
 import DataSource
-import DataSource.File as StaticFile
+import DataSource.File
 import Document exposing (Document)
 import Head
 import Head.Seo as Seo
@@ -123,9 +123,9 @@ staticData routeParams =
 
 slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
 slideBody route =
-    StaticFile.request
+    DataSource.File.request
         "slides.md"
-        (StaticFile.body
+        (DataSource.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
                     case rawBody |> Markdown.Parser.parse of
@@ -149,8 +149,8 @@ slideBody route =
 
 slideCount : DataSource.DataSource Int
 slideCount =
-    StaticFile.request "slides.md"
-        (StaticFile.body
+    DataSource.File.request "slides.md"
+        (DataSource.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
                     case rawBody |> Markdown.Parser.parse of
