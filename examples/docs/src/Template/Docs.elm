@@ -17,6 +17,7 @@ import MarkdownHelpers
 import OptimizedDecoder
 import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
+import TableOfContents
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Template exposing (StaticPayload, Template, TemplateWithState)
@@ -76,9 +77,8 @@ view static =
     { title = "TODO title"
     , body =
         [ Css.Global.global Tw.globalStyles
-        , tocView
-            (PagePath.build [ "docs" ])
-            (MarkdownHelpers.buildToc
+        , TableOfContents.view
+            (TableOfContents.buildToc
                 static.static
             )
         , H.div
