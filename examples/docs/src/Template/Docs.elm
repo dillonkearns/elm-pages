@@ -1,6 +1,5 @@
 module Template.Docs exposing (Model, Msg, StaticData, template)
 
-import Css
 import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -8,7 +7,7 @@ import Document exposing (Document)
 import Glob
 import Head
 import Head.Seo as Seo
-import Html.Styled as H exposing (Attribute)
+import Html.Styled as H exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block exposing (HeadingLevel(..))
 import Markdown.Parser
@@ -18,6 +17,7 @@ import OptimizedDecoder
 import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
 import TableOfContents
+import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Template exposing (StaticPayload, Template, TemplateWithState)
@@ -77,20 +77,93 @@ view static =
     { title = "TODO title"
     , body =
         [ Css.Global.global Tw.globalStyles
-        , TableOfContents.view
-            (TableOfContents.buildToc
-                static.static
-            )
-        , H.div
+        , div
             [ css
-                [ Tw.p_8
-                , Tw.prose
+                [ Tw.relative
+                , Tw.flex
+                , Tw.w_full
+
+                --, Tw.max_w_container
+                , Tw.max_w_full
+                , Tw.mx_auto
+                , Tw.px_4
+                , Bp.lg
+                    [ Tw.px_8
+                    ]
+                , Bp.sm
+                    [ Tw.px_6
+                    ]
                 ]
             ]
-            (static.static
-                |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                |> Result.withDefault []
-            )
+            [ div
+                [ css
+                    [ Tw.w_full
+                    , Tw.flex_none
+                    , Bp.lg
+                        [ Tw.grid
+                        , Tw.grid_cols_3
+                        , Tw.gap_8
+                        ]
+                    ]
+                ]
+                [ TableOfContents.view
+                    (TableOfContents.buildToc
+                        static.static
+                    )
+                , div
+                    [ css
+                        [ Tw.relative
+                        , Tw.col_span_2
+                        , Tw.bg_white
+                        , Bp.lg
+                            [ Tw.neg_ml_8
+                            , Tw.shadow_md
+                            ]
+                        ]
+                    ]
+                    [ div
+                        [ css
+                            [ Tw.hidden
+                            , Tw.absolute
+                            , Tw.top_0
+                            , Tw.bottom_0
+                            , Tw.neg_right_4
+                            , Tw.w_8
+                            , Tw.bg_white
+                            , Bp.lg
+                                [ Tw.block
+                                ]
+                            ]
+                        ]
+                        []
+                    , div
+                        [ css
+                            [ Tw.relative
+                            , Tw.py_16
+                            , Bp.lg
+                                [ Tw.px_16
+                                ]
+                            ]
+                        ]
+                        [ div
+                            [ css
+                                [ Tw.prose
+                                , Tw.prose_sm
+
+                                --, Tw.prose_sm
+                                --, Tw.prose_blue
+                                --, Tw.max_w_[37_dot_5rem]
+                                , Tw.mx_auto
+                                ]
+                            ]
+                            (static.static
+                                |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                                |> Result.withDefault []
+                            )
+                        ]
+                    ]
+                ]
+            ]
         ]
             |> Document.ElmCssView
     }

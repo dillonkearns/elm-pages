@@ -180,7 +180,7 @@ level1Entry (Entry data children) =
             [ Attr.href <| "/docs#" ++ data.anchorId
             , css
                 [ Tw.block
-                , Tw.font_medium
+                , Tw.font_extrabold
                 , Tw.transition_colors
                 , Tw.duration_300
                 , Tw.text_gray_900
