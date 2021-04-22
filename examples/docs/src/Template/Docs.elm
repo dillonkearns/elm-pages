@@ -97,13 +97,13 @@ view static =
             ]
             [ div
                 [ css
-                    [ Tw.w_full
-                    , Tw.flex_none
-                    , Bp.lg
+                    [ Bp.lg
                         [ Tw.grid
                         , Tw.grid_cols_3
                         , Tw.gap_8
                         ]
+                    , Tw.w_full
+                    , Tw.flex_none
                     ]
                 ]
                 [ TableOfContents.view
@@ -112,13 +112,13 @@ view static =
                     )
                 , div
                     [ css
-                        [ Tw.relative
-                        , Tw.col_span_2
-                        , Tw.bg_white
-                        , Bp.lg
+                        [ Bp.lg
                             [ Tw.neg_ml_8
                             , Tw.shadow_md
                             ]
+                        , Tw.relative
+                        , Tw.col_span_2
+                        , Tw.bg_white
                         ]
                     ]
                     [ div
@@ -149,10 +149,8 @@ view static =
                             [ css
                                 [ Tw.prose
                                 , Tw.prose_sm
-
-                                --, Tw.prose_sm
-                                --, Tw.prose_blue
-                                --, Tw.max_w_[37_dot_5rem]
+                                , Tw.max_w_xl
+                                , Tw.whitespace_normal
                                 , Tw.mx_auto
                                 ]
                             ]
