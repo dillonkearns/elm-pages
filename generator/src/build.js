@@ -58,7 +58,7 @@ function runElmApp() {
     });
 
     app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
-      console.log({ fromElm });
+      // console.log({ fromElm });
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
