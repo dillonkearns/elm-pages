@@ -88,22 +88,28 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         }
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
+        try {
+          addDataSourceWatcher(filePath);
 
-        addDataSourceWatcher(filePath);
-
-        const fileContents = (
-          await fsPromises.readFile(path.join(process.cwd(), filePath))
-        ).toString();
-        const parsedFile = matter(fileContents);
-        app.ports.fromJsPort.send({
-          tag: "GotFile",
-          data: {
-            filePath,
-            parsedFrontmatter: parsedFile.data,
-            withoutFrontmatter: parsedFile.content,
-            rawFile: fileContents,
-          },
-        });
+          const fileContents = (
+            await fsPromises.readFile(path.join(process.cwd(), filePath))
+          ).toString();
+          const parsedFile = matter(fileContents);
+          app.ports.fromJsPort.send({
+            tag: "GotFile",
+            data: {
+              filePath,
+              parsedFrontmatter: parsedFile.data,
+              withoutFrontmatter: parsedFile.content,
+              rawFile: fileContents,
+            },
+          });
+        } catch (error) {
+          app.ports.fromJsPort.send({
+            tag: "BuildError",
+            data: { filePath },
+          });
+        }
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
         addDataSourceWatcher(globPattern);

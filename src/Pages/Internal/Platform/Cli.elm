@@ -59,6 +59,7 @@ type alias Model route =
 type Msg
     = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Pages.Http.Error String }
     | GotStaticFile ( String, Decode.Value )
+    | GotBuildError BuildError
     | GotGlob ( String, Decode.Value )
     | Continue
 
@@ -102,6 +103,23 @@ cliApplication config =
                                                 -- tag: "GotGlob"
                                                 -- tag: "GotFile"
                                                 case tag of
+                                                    "BuildError" ->
+                                                        Decode.field "data"
+                                                            (Decode.field "filePath" Decode.string
+                                                                |> Decode.map
+                                                                    (\filePath ->
+                                                                        { title = "File not found"
+                                                                        , message =
+                                                                            [ Terminal.text "A DataSource.File read failed because I couldn't find this file: "
+                                                                            , Terminal.yellow <| Terminal.text filePath
+                                                                            ]
+                                                                        , fatal = True
+                                                                        , path = "" -- TODO wire in current path here
+                                                                        }
+                                                                    )
+                                                            )
+                                                            |> Decode.map GotBuildError
+
                                                     "GotFile" ->
                                                         gotStaticFileDecoder
                                                             |> Decode.map GotStaticFile
@@ -598,6 +616,23 @@ update contentCache config msg model =
                                 }
                             , response = Ok (Json.Encode.encode 0 globResult)
                             }
+            in
+            StaticResponses.nextStep config
+                updatedModel.mode
+                updatedModel.secrets
+                updatedModel.allRawResponses
+                updatedModel.errors
+                updatedModel.staticResponses
+                Nothing
+                |> nextStepToEffect contentCache config updatedModel
+
+        GotBuildError buildError ->
+            let
+                updatedModel =
+                    { model
+                        | errors =
+                            buildError :: model.errors
+                    }
             in
             StaticResponses.nextStep config
                 updatedModel.mode
