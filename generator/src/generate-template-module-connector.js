@@ -489,13 +489,6 @@ port toJsPort : Json.Encode.Value -> Cmd msg
 port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
 
-mapDocument : Browser.Document Never -> Browser.Document mapped
-mapDocument document =
-    { title = document.title
-    , body = document.body |> List.map (Html.map never)
-    }
-
-
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `,
