@@ -1,6 +1,25 @@
 ## What is elm-pages
 
-### The elm-pages philosophy
+- Pre-render routes to HTML
+- Hydrate to a full Elm app, with client-side navigation after initial load
+- A file-based router
+- `DataSource`s allow you to pull data in to a given page and have it available before load
+- A nice type-safe API for SEO
+- Generate files, like RSS, sitemaps, podcast feeds, or any other strings you can output with pure Elm
+
+## Getting Started
+
+### CLI commands
+
+- `elm-pages dev` - Run a dev server
+- `elm-pages add Slide.Number_` Generate scaffolding for a new Page Template
+- `elm-pages build` - run a full production build
+
+### The dev server
+
+`elm-pages dev` gives you a dev server with hot module replacement built-in. It even reloads your `DataSource`s any time you change them.
+
+## The elm-pages philosophy
 
 #### Users build features, frameworks provide building blocks
 
@@ -12,11 +31,48 @@ Many frameworks provide features like
 
 You can do all those things with `elm-pages`, but using the core building blocks
 
-- The DataSources API lets you read from a file, parse frontmatter, and more. `elm-pages` helps you get the data. Where you get that data from, and what you do with it are up to you.
+- The DataSources API lets you read from a file, parse frontmatter, and more. `elm-pages` helps you get the data.
+- The data you get from any of those data sources is just typed Elm data. You decide what it means and how to use it.
 
 The goal of `elm-pages` is to get nicely typed data from the right sources (HTTP, files, structured formats like JSON, markdown, etc.), and get that data to the right places in order to build an optimized site with good SEO.
 
+## File Structure
+
+With `elm-pages`, you don't define the central `Main.elm` entrypoint. That's defined under the hood by `elm-pages`.
+
+It builds your app for you from these special files that you define:
+
+#### `Shared.elm`
+
+Must expose
+
+- `template : SharedTemplate Msg Model StaticData msg`
+- `Msg` - global `Msg`s across the whole app, like toggling a menu in the shared header view
+- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Page Templates.
+- `SharedMsg` (todo - this needs to be documented better. Consider whether there could be an easier way to wire this in for users, too)
+
+#### `Site.elm`
+
+Must expose
+
+- `config : SiteConfig StaticData`
+
+#### `Document.elm`
+
+Defines the types for your applications view.
+Must expose
+
+- A type called `Document msg` (must have exactly one type variable)
+- `map : (msg1 -> msg2) -> Document msg1 -> Document msg2`
+
+- `static/index.js` - same as previous `beta-index.js`
+- `static/style.css` - same as previous `beta-style.css`
+
 ## File-Based Routing
+
+`elm-pages` gives you a router based on the Elm modules in your `src/Page` folder.
+
+There
 
 ### Example routes
 
@@ -28,7 +84,52 @@ The goal of `elm-pages` is to get nicely typed data from the right sources (HTTP
 
 ## Page Templates
 
-TODO
+Page Templates are Elm modules in the `src/Page` folder that define a top-level `template`.
+
+You build the `template` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
+
+```elm
+module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
+
+import DataSource
+import Document exposing (Document)
+import Head
+import Head.Seo as Seo
+import Html exposing (text)
+import Pages.ImagePath as ImagePath
+import Shared
+import Template exposing (StaticPayload, Template)
+
+type alias Route = { name : String }
+
+type alias StaticData = ()
+
+type alias Model = ()
+
+type alias Msg = Never
+
+template : Template Route StaticData
+template =
+    Template.noStaticData
+        { head = head
+        , staticRoutes = DataSource.succeed [ { name = "world" } ]
+        }
+        |> Template.buildNoState { view = view }
+
+
+head :
+    StaticPayload StaticData Route
+    -> List Head.Tag
+head static = [] -- SEO tags here
+
+view :
+    StaticPayload StaticData Route
+    -> Document Msg
+view static =
+    { title = "Hello " ++ static.routeParams.name
+    , body = [ text <| "👋 " ++ static.routeParams.name ]
+    }
+```
 
 ## `DataSource`s
 
@@ -48,8 +149,8 @@ authors : DataSource (List Author)
 It makes no difference where that data came from. In fact, let's define it as hardcoded data:
 
 ```elm
-authors : DataSource (List Author)
-authors =
+hardcodedAuthors : DataSource (List Author)
+hardcodedAuthors =
     DataSource.succeed [
         { name = "Dillon Kearns"
         , avatarUrl = "/avatars/dillon.jpg"
@@ -60,15 +161,33 @@ authors =
 We could swap that out to get the data from another source at any time. Like this HTTP DataSource.
 
 ```elm
-authors : DataSource (List Author)
-authors =
+authorsFromCms : DataSource (List Author)
+authorsFromCms =
     DataSource.Http.get (Secrets.succeed "mycms.com/authors")
         authorsDecoder
 ```
 
 Notice that the type signature hasn't changed. The end result will be data that is available when our page loads.
 
-So how does it get there? Let's take a look at the lifecycle of a DataSource.
+In fact, let's combine our library of authors from 3 different `DataSource`s.
+
+```elm
+authorsFromFile : DataSource (List Author)
+authorsFromFile =
+    DataSource.File.read "data/authors.json"
+        authorsDecoder
+
+allAuthors : DataSource (List Author)
+allAuthors =
+    DataSource.map3 (\authors1 authors2 authors3 ->
+        List.concat [ authors1, authors2, authors3 ]
+    )
+    authorsFromFile
+    authorsFromCms
+    hardcodedAuthors
+```
+
+So how does the data get there? Let's take a look at the lifecycle of a DataSource.
 
 ### The `DataSource` Lifecycle
 
