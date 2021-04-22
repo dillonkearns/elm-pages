@@ -362,10 +362,26 @@ update config appMsg model =
                 -- to keep track of the last url change
                 Ok ( ( _, contentJson, updatedCache ), pageData ) ->
                     let
+                        updatedPageData =
+                            updatedPageStaticData
+                                |> Result.map
+                                    (\pageStaticData ->
+                                        { userModel = userModel
+                                        , sharedStaticData = pageData.sharedStaticData
+                                        , pageStaticData = pageStaticData
+                                        }
+                                    )
+
+                        updatedPageStaticData =
+                            StaticHttpRequest.resolve ApplicationType.Browser
+                                (config.staticData (config.urlToRoute url))
+                                contentJson.staticData
+                                |> Result.mapError (\_ -> "Http error")
+
                         ( userModel, userCmd ) =
                             config.update
                                 pageData.sharedStaticData
-                                pageData.pageStaticData
+                                (updatedPageStaticData |> Result.withDefault pageData.pageStaticData)
                                 (Just model.key)
                                 (config.onPageChange
                                     { path = urlToPagePath url model.baseUrl
@@ -379,18 +395,7 @@ update config appMsg model =
                     ( { model
                         | url = url
                         , contentCache = updatedCache
-                        , pageData =
-                            StaticHttpRequest.resolve ApplicationType.Browser
-                                (config.staticData (config.urlToRoute url))
-                                contentJson.staticData
-                                |> Result.mapError (\_ -> "Http error")
-                                |> Result.map
-                                    (\pageStaticData ->
-                                        { userModel = userModel
-                                        , sharedStaticData = pageData.sharedStaticData
-                                        , pageStaticData = pageStaticData
-                                        }
-                                    )
+                        , pageData = updatedPageData
                       }
                     , Cmd.batch
                         [ userCmd |> Cmd.map UserMsg
