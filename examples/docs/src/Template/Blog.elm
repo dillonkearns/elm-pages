@@ -19,7 +19,7 @@ type Msg
     = Msg
 
 
-template : TemplateWithState {} StaticData Model Msg
+template : TemplateWithState RouteParams StaticData Model Msg
 template =
     Template.withStaticData
         { head = head
@@ -46,7 +46,9 @@ type alias StaticData =
     List ( PagePath, Article.ArticleMetadata )
 
 
-init : {} -> ( Model, Cmd Msg )
+init :
+    StaticPayload StaticData RouteParams
+    -> ( Model, Cmd Msg )
 init _ =
     ( Model, Cmd.none )
 
@@ -57,12 +59,11 @@ type alias RouteParams =
 
 update :
     DynamicContext Shared.Model
-    -> StaticData
-    -> RouteParams
+    -> StaticPayload StaticData RouteParams
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update dynamic sharedModel routeParams msg model =
+update dynamic static msg model =
     ( model, Cmd.none )
 
 

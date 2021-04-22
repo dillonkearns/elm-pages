@@ -48,7 +48,9 @@ template =
             }
 
 
-init : {} -> ( Model, Cmd Msg )
+init :
+    StaticPayload StaticData RouteParams
+    -> ( Model, Cmd Msg )
 init _ =
     ( {}, Cmd.none )
 
@@ -59,7 +61,7 @@ type alias RouteParams =
 
 update :
     DynamicContext Shared.Model
-    -> RouteParams
+    -> StaticPayload StaticData RouteParams
     -> Msg
     -> Model
     -> ( Model, Cmd Msg, Maybe Shared.SharedMsg )

@@ -49,19 +49,19 @@ template =
         }
         |> Template.buildWithLocalState
             { view = view
-            , init = \routeParams -> ( (), Cmd.none )
+            , init = \staticPayload -> ( (), Cmd.none )
             , update =
-                \sharedModel pageStaticData routeParams msg model ->
+                \sharedModel static msg model ->
                     case msg of
                         OnKeyPress (Just direction) ->
                             let
                                 currentSlide =
-                                    String.toInt routeParams.number |> Maybe.withDefault 0
+                                    String.toInt static.routeParams.number |> Maybe.withDefault 0
 
                                 nextSlide =
                                     clamp
                                         1
-                                        pageStaticData.totalCount
+                                        static.static.totalCount
                                         (case direction of
                                             Right ->
                                                 currentSlide + 1

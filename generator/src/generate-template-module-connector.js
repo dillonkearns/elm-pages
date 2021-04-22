@@ -196,23 +196,28 @@ init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePageP
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey maybePagePath)
 
         ( templateModel, templateCmd ) =
-            case maybePagePath |> Maybe.andThen .metadata of
-                Nothing ->
-                    ( NotFound, Cmd.none )
-
+            case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageStaticData ) of
                 ${templates
                   .map(
-                    (name) => `Just (Route.${routeHelpers.routeVariant(
+                    (name) => `( Just ( (Route.${routeHelpers.routeVariant(
                       name
-                    )} routeParams) ->
-                    Template.${moduleName(name)}.template.init routeParams
+                    )} routeParams), justPath ), Data${pathNormalizedName(
+                      name
+                    )} thisPageData ) ->
+                    Template.${moduleName(name)}.template.init
+                        { static = thisPageData
+                        , sharedStatic = sharedStaticData
+                        , routeParams = routeParams
+                        , path = justPath.path
+                        }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
                         )} (Cmd.map Msg${pathNormalizedName(name)})
-
 `
                   )
                   .join("\n                ")}
+                _ ->
+                    ( NotFound, Cmd.none )
     in
     ( { global = sharedModel
       , page = templateModel
@@ -280,18 +285,21 @@ update sharedStaticData pageStaticData navigationKey msg model =
         Msg${pathNormalizedName(name)} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
-                    case ( model.page, pageStaticData, model.current |> Maybe.andThen .metadata ) of
+                    case ( model.page, pageStaticData, Maybe.map2 Tuple.pair (model.current |> Maybe.andThen .metadata) (model.current |> Maybe.map .path) ) of
                         ( Model${pathNormalizedName(
                           name
                         )} pageModel, Data${pathNormalizedName(
               name
-            )} thisPageData, Just (Route.${routeHelpers.routeVariant(
+            )} thisPageData, Just ( (Route.${routeHelpers.routeVariant(
               name
-            )} routeParams) ) ->
+            )} routeParams), justPage ) ) ->
                             Template.${moduleName(name)}.template.update
-                                thisPageData
+                                { static = thisPageData
+                                , sharedStatic = sharedStaticData
+                                , routeParams = routeParams
+                                , path = justPage.path
+                                }
                                 navigationKey
-                                routeParams
                                 msg_
                                 pageModel
                                 model.global

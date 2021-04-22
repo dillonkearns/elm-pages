@@ -65,8 +65,8 @@ type alias TemplateWithState routeParams templateStaticData templateModel templa
     , head :
         StaticPayload templateStaticData routeParams
         -> List Head.Tag
-    , init : routeParams -> ( templateModel, Cmd templateMsg )
-    , update : templateStaticData -> Maybe Browser.Navigation.Key -> routeParams -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , init : StaticPayload templateStaticData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : StaticPayload templateStaticData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
@@ -112,7 +112,7 @@ buildNoState { view } builderState =
             , staticData = record.staticData
             , staticRoutes = record.staticRoutes
             , init = \_ -> ( (), Cmd.none )
-            , update = \_ _ _ _ _ _ -> ( (), Cmd.none, Nothing )
+            , update = \_ _ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ -> Sub.none
             }
 
@@ -124,8 +124,8 @@ buildWithLocalState :
         -> Shared.Model
         -> StaticPayload templateStaticData routeParams
         -> Document templateMsg
-    , init : routeParams -> ( templateModel, Cmd templateMsg )
-    , update : DynamicContext Shared.Model -> templateStaticData -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , init : StaticPayload templateStaticData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : DynamicContext Shared.Model -> StaticPayload templateStaticData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
@@ -141,15 +141,14 @@ buildWithLocalState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \staticData navigationKey routeParams msg templateModel sharedModel ->
+                \staticPayload navigationKey msg templateModel sharedModel ->
                     let
                         ( updatedModel, cmd ) =
                             config.update
                                 { navigationKey = navigationKey
                                 , sharedModel = sharedModel
                                 }
-                                staticData
-                                routeParams
+                                staticPayload
                                 msg
                                 templateModel
                     in
@@ -173,8 +172,8 @@ buildWithSharedState :
         -> Shared.Model
         -> StaticPayload templateStaticData routeParams
         -> Document templateMsg
-    , init : routeParams -> ( templateModel, Cmd templateMsg )
-    , update : DynamicContext Shared.Model -> routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , init : StaticPayload templateStaticData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : DynamicContext Shared.Model -> StaticPayload templateStaticData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
@@ -188,12 +187,12 @@ buildWithSharedState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \pageStaticData navigationKey routeParams msg templateModel sharedModel ->
+                \staticPayload navigationKey msg templateModel sharedModel ->
                     config.update
                         { navigationKey = navigationKey
                         , sharedModel = sharedModel
                         }
-                        routeParams
+                        staticPayload
                         msg
                         templateModel
             , subscriptions = config.subscriptions
