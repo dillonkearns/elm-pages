@@ -93,6 +93,8 @@ type Orientation
     | PortraitSecondary
 
 
+{-| Setup a minimal Manifest.Config. You can then use the `with...` builder functions to set additional options.
+-}
 init :
     { description : String
     , name : String
@@ -125,41 +127,57 @@ usEnglish =
             }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/background_color>.
+-}
 withBackgroundColor : Color -> Config -> Config
 withBackgroundColor color config =
     { config | backgroundColor = Just color }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/categories>.
+-}
 withCategories : List Category -> Config -> Config
 withCategories categories config =
     { config | categories = categories ++ config.categories }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/display>.
+-}
 withDisplayMode : DisplayMode -> Config -> Config
 withDisplayMode displayMode config =
     { config | displayMode = displayMode }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/orientation>.
+-}
 withOrientation : Orientation -> Config -> Config
 withOrientation orientation config =
     { config | orientation = orientation }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/iarc_rating_id>.
+-}
 withIarcRatingId : String -> Config -> Config
 withIarcRatingId iarcRatingId config =
     { config | iarcRatingId = Just iarcRatingId }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/theme_color>.
+-}
 withThemeColor : Color -> Config -> Config
 withThemeColor themeColor config =
     { config | themeColor = Just themeColor }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name>.
+-}
 withShortName : String -> Config -> Config
 withShortName shortName config =
     { config | shortName = Just shortName }
 
 
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/lang>.
+-}
 withLang : LanguageTag -> Config -> Config
 withLang languageTag config =
     { config | lang = languageTag }
