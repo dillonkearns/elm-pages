@@ -19,7 +19,6 @@ import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 import Rss
-import Shared
 import SiteOld
 import StructuredData
 import Template exposing (StaticPayload, Template, TemplateWithState)
@@ -35,17 +34,6 @@ type alias Msg =
 
 type alias RouteParams =
     { slug : String }
-
-
-routes : DataSource.DataSource (List RouteParams)
-routes =
-    Article.blogPostsGlob
-        |> DataSource.map
-            (List.map
-                (\globData ->
-                    { slug = globData.slug }
-                )
-            )
 
 
 type alias BlogPost =
@@ -64,10 +52,19 @@ template =
         { staticData = staticData
         , head = head
         , staticRoutes = routes
-
-        --, route = route
         }
         |> Template.buildNoState { view = view }
+
+
+routes : DataSource.DataSource (List RouteParams)
+routes =
+    Article.blogPostsGlob
+        |> DataSource.map
+            (List.map
+                (\globData ->
+                    { slug = globData.slug }
+                )
+            )
 
 
 view :
