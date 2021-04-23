@@ -9,33 +9,37 @@ function connect(sendContentJsonPort, initialErrorPage) {
   eventSource = new EventSource("/stream");
   window.reloadOnOk = initialErrorPage;
   if (initialErrorPage) {
-    elmJsFetch().then(thenApplyHmr);
+    handleEvent(sendContentJsonPort, { data: "content.json" });
   }
   eventSource.onmessage = async function (evt) {
-    showCompiling("");
-    if (evt.data === "content.json") {
-      const elmJsRequest = elmJsFetch();
-      const fetchContentJson = fetchContentJsonForCurrentPage();
-      updateAppContentJson = updateContentJsonWith(
-        fetchContentJson,
-        sendContentJsonPort
-      );
-
-      try {
-        await fetchContentJson;
-        const elmJsResponse = await elmJsRequest;
-        thenApplyHmr(elmJsResponse);
-      } catch (errorJson) {
-        console.log({ errorJson });
-        showError({
-          type: "compile-errors",
-          errors: errorJson,
-        });
-      }
-    } else {
-      elmJsFetch().then(thenApplyHmr);
-    }
+    handleEvent(sendContentJsonPort, evt);
   };
+}
+
+async function handleEvent(sendContentJsonPort, evt) {
+  showCompiling("");
+  if (evt.data === "content.json") {
+    const elmJsRequest = elmJsFetch();
+    const fetchContentJson = fetchContentJsonForCurrentPage();
+    updateAppContentJson = updateContentJsonWith(
+      fetchContentJson,
+      sendContentJsonPort
+    );
+
+    try {
+      await fetchContentJson;
+      const elmJsResponse = await elmJsRequest;
+      thenApplyHmr(elmJsResponse);
+    } catch (errorJson) {
+      console.log({ errorJson });
+      showError({
+        type: "compile-errors",
+        errors: errorJson,
+      });
+    }
+  } else {
+    elmJsFetch().then(thenApplyHmr);
+  }
 }
 
 /**

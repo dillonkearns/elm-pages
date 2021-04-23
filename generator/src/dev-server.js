@@ -219,8 +219,13 @@ async function start(options) {
         }
       } catch (error) {
         console.log({ error });
-        res.writeHead(500, { "Content-Type": "text/html" });
-        res.end(errorHtml());
+        if (req.url.includes("content.json")) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(error.errorsJson));
+        } else {
+          res.writeHead(500, { "Content-Type": "text/html" });
+          res.end(errorHtml());
+        }
       }
     }
   }
