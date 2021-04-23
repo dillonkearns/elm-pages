@@ -18,10 +18,10 @@ import Palette
 import Secrets
 import Site
 import StructuredData
-import Template
-import Template.Metadata exposing (BlogPost)
-import TemplateDocument exposing (TemplateDocument)
-import TemplateType
+import Page
+import Page.Metadata exposing (BlogPost)
+import PageDocument exposing (TemplateDocument)
+import PageType
 
 
 type alias Model =

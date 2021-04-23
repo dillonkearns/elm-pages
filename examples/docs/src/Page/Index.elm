@@ -1,4 +1,4 @@
-module Template.Index exposing (Model, Msg, StaticData, template)
+module Page.Index exposing (Model, Msg, StaticData, template)
 
 import DataSource
 import DataSource.File as StaticFile
@@ -9,10 +9,10 @@ import Head
 import Head.Seo as Seo
 import MarkdownRenderer
 import OptimizedDecoder
+import Page exposing (Page, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
 import SiteOld
-import Template exposing (StaticPayload, Template)
 
 
 type alias Model =
@@ -31,14 +31,14 @@ type alias StaticData =
     List (Element.Element Msg)
 
 
-template : Template Route StaticData
+template : Page Route StaticData
 template =
-    Template.withStaticData
+    Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed []
         , staticData = staticData
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
 
 
 head :

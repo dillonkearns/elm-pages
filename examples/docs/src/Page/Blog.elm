@@ -1,32 +1,31 @@
-module Template.Blog exposing (Model, Msg, StaticData, template)
+module Page.Blog exposing (Model, Msg, StaticData, template)
 
 import Article
-import Browser.Navigation
 import DataSource
 import Document exposing (Document)
 import Element
 import Head
 import Head.Seo as Seo
 import Index
+import Page exposing (DynamicContext, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Pages.PagePath exposing (PagePath)
 import Shared
 import SiteOld
-import Template exposing (DynamicContext, StaticPayload, TemplateWithState)
 
 
 type Msg
     = Msg
 
 
-template : TemplateWithState RouteParams StaticData Model Msg
+template : PageWithState RouteParams StaticData Model Msg
 template =
-    Template.withStaticData
+    Page.withStaticData
         { head = head
         , staticData = \_ -> staticData
         , staticRoutes = DataSource.succeed []
         }
-        |> Template.buildWithLocalState
+        |> Page.buildWithLocalState
             { view = view
             , init = init
             , update = update

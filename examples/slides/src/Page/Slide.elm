@@ -1,26 +1,4 @@
-const fs = require("./dir-helpers.js");
-const path = require("path");
-const routeHelpers = require("./route-codegen-helpers");
-
-async function run({ moduleName }) {
-  if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
-    console.error("Invalid module name.");
-    process.exit(1);
-  }
-  const content = fileContent(moduleName);
-  const fullFilePath = path.join(
-    `src/Page/`,
-    moduleName.replace(/\./g, "/") + ".elm"
-  );
-  await fs.tryMkdir(path.dirname(fullFilePath));
-  fs.writeFile(fullFilePath, content);
-}
-
-/**
- * @param {string} pageModuleName
- */
-function fileContent(pageModuleName) {
-  return `module Page.${pageModuleName} exposing (Model, Msg, StaticData, template)
+module Page.Slide exposing (Model, Msg, StaticData, template)
 
 import Element exposing (Element)
 import Document exposing (Document)
@@ -40,7 +18,7 @@ type alias Msg =
     Never
 
 type alias RouteParams =
-    ${routeHelpers.paramsRecord(pageModuleName.split("."))}
+    {  }
 
 template : Page RouteParams StaticData
 template =
@@ -84,7 +62,3 @@ view static =
     , body = []
     }
 
-`;
-}
-
-module.exports = { run };

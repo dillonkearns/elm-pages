@@ -7,8 +7,8 @@ const routeHelpers = require("./route-codegen-helpers");
  * @param {'browser' | 'cli'} phase
  */
 function generateTemplateModuleConnector(phase) {
-  const templates = globby.sync(["src/Template/**/*.elm"], {}).map((file) => {
-    const captures = mm.capture("src/Template/**/*.elm", file);
+  const templates = globby.sync(["src/Page/**/*.elm"], {}).map((file) => {
+    const captures = mm.capture("src/Page/**/*.elm", file);
     if (captures) {
       return path.join(captures[0], captures[1]).split("/");
     } else {
@@ -57,12 +57,12 @@ import Html exposing (Html)
 import Pages.PagePath exposing (PagePath)
 import DataSource exposing (DataSource)
 
-${templates.map((name) => `import Template.${name.join(".")}`).join("\n")}
+${templates.map((name) => `import Page.${name.join(".")}`).join("\n")}
 
 
 type alias Model =
     { global : Shared.Model
-    , page : TemplateModel
+    , page : PageModel
     , current :
         Maybe
             { path :
@@ -75,13 +75,11 @@ type alias Model =
     }
 
 
-type TemplateModel
+type PageModel
     = ${templates
       .map(
         (name) =>
-          `Model${pathNormalizedName(name)} Template.${moduleName(
-            name
-          )}.Model\n`
+          `Model${pathNormalizedName(name)} Page.${moduleName(name)}.Model\n`
       )
       .join("    | ")}
     | NotFound
@@ -100,7 +98,7 @@ type Msg
     | ${templates
       .map(
         (name) =>
-          `Msg${pathNormalizedName(name)} Template.${moduleName(name)}.Msg\n`
+          `Msg${pathNormalizedName(name)} Page.${moduleName(name)}.Msg\n`
       )
       .join("    | ")}
 
@@ -110,7 +108,7 @@ type PageStaticData
     | ${templates
       .map(
         (name) =>
-          `Data${pathNormalizedName(name)} Template.${moduleName(
+          `Data${pathNormalizedName(name)} Page.${moduleName(
             name
           )}.StaticData\n`
       )
@@ -140,7 +138,7 @@ view page globalData staticData =
                       \\model ->
                           case model.page of
                               Model${pathNormalizedName(name)} subModel ->
-                                  Template.${moduleName(name)}.template.view
+                                  Page.${moduleName(name)}.template.view
                                       subModel
                                       model.global
                                       { static = data
@@ -163,7 +161,7 @@ view page globalData staticData =
 
                               _ ->
                                   { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-                  , head = Template.${moduleName(name)}.template.head
+                  , head = Page.${moduleName(name)}.template.head
                       { static = data
                       , sharedStatic = globalData
                       , routeParams = s
@@ -217,7 +215,7 @@ init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePageP
                     )} routeParams), justPath ), Data${pathNormalizedName(
                       name
                     )} thisPageData ) ->
-                    Template.${moduleName(name)}.template.init
+                    Page.${moduleName(name)}.template.init
                         { static = thisPageData
                         , sharedStatic = sharedStaticData
                         , routeParams = routeParams
@@ -306,7 +304,7 @@ update sharedStaticData pageStaticData navigationKey msg model =
             )} thisPageData, Just ( (Route.${routeHelpers.routeVariant(
               name
             )} routeParams), justPage ) ) ->
-                            Template.${moduleName(name)}.template.update
+                            Page.${moduleName(name)}.template.update
                                 { static = thisPageData
                                 , sharedStatic = sharedStaticData
                                 , routeParams = routeParams
@@ -355,7 +353,7 @@ templateSubscriptions route path model =
         )} templateModel, Just (Route.${routeHelpers.routeVariant(
               name
             )} routeParams) ) ->
-            Template.${moduleName(name)}.template.subscriptions
+            Page.${moduleName(name)}.template.subscriptions
                 routeParams
                 path
                 templateModel
@@ -425,7 +423,7 @@ staticDataForRoute route =
             (name) =>
               `Just (Route.${routeHelpers.routeVariant(
                 name
-              )} routeParams) ->\n            Template.${name.join(
+              )} routeParams) ->\n            Page.${name.join(
                 "."
               )}.template.staticData routeParams |> DataSource.map Data${routeHelpers.routeVariant(
                 name
@@ -456,7 +454,7 @@ getStaticRoutes =
         [ ${templates
           .map((name) => {
             if (isParameterizedRoute(name)) {
-              return `Template.${moduleName(
+              return `Page.${moduleName(
                 name
               )}.template.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
                 name
@@ -634,7 +632,7 @@ function moduleName(name) {
  */
 function handleRoute(name) {
   if (routeHelpers.routeParams(name).length > 0) {
-    return `Template.${name.join(
+    return `Page.${name.join(
       "."
     )}.template.staticRoutes |> DataSource.map (List.member routeParams)`;
   } else {

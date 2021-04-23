@@ -1,13 +1,13 @@
-module Template.Time exposing (Model, Msg, StaticData, template)
+module Page.Hello.Name_ exposing (Model, Msg, StaticData, template)
 
 import DataSource
 import Document exposing (Document)
-import Element exposing (Element)
+import Element
 import Head
 import Head.Seo as Seo
+import Page exposing (Page, StaticPayload)
 import Pages.ImagePath as ImagePath
-import Shared
-import Template exposing (StaticPayload, Template, TemplateWithState)
+import SiteOld
 
 
 type alias Model =
@@ -18,31 +18,22 @@ type alias Msg =
     Never
 
 
-type alias StaticData =
-    String
+type alias Route =
+    { name : String
+    }
 
 
-template : Template {} StaticData
+template : Page Route ()
 template =
-    Template.withStaticData
+    Page.noStaticData
         { head = head
-        , staticRoutes = DataSource.succeed []
-        , staticData = staticData
+        , staticRoutes = DataSource.succeed [ { name = "world" } ]
         }
-        |> Template.buildNoState { view = view }
-
-
-staticData routeParams =
-    DataSource.succeed "TIME RESPONSE"
-
-
-
---StaticHttp.get (Secrets.succeed "http://worldtimeapi.org/api/timezone/America/Los_Angeles")
---    (OptimizedDecoder.field "datetime" OptimizedDecoder.string)
+        |> Page.buildNoState { view = view }
 
 
 head :
-    StaticPayload StaticData {}
+    StaticPayload () Route
     -> List Head.Tag
 head static =
     Seo.summary
@@ -54,20 +45,24 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = SiteOld.tagline
         , locale = Nothing
         , title = "TODO title" -- metadata.title -- TODO
         }
         |> Seo.website
 
 
+type alias StaticData =
+    ()
+
+
 view :
-    StaticPayload StaticData {}
+    StaticPayload StaticData Route
     -> Document msg
 view static =
     { title = "TODO title"
     , body =
-        [ Element.text static.static
+        [ Element.text <| "👋 " ++ static.routeParams.name
         ]
             |> Document.ElmUiView
     }

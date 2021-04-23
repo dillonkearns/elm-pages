@@ -1,4 +1,4 @@
-module Template.Blog.Slug_ exposing (Model, Msg, StaticData, articlesRequest, routes, template, toRssItem)
+module Page.Blog.Slug_ exposing (Model, Msg, StaticData, articlesRequest, routes, template, toRssItem)
 
 import Article
 import Cloudinary
@@ -15,13 +15,13 @@ import Head
 import Head.Seo as Seo
 import MarkdownRenderer
 import OptimizedDecoder
+import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 import Rss
 import SiteOld
 import StructuredData
-import Template exposing (StaticPayload, Template, TemplateWithState)
 
 
 type alias Model =
@@ -46,14 +46,14 @@ type alias BlogPost =
     }
 
 
-template : Template RouteParams StaticData
+template : Page RouteParams StaticData
 template =
-    Template.withStaticData
+    Page.withStaticData
         { staticData = staticData
         , head = head
         , staticRoutes = routes
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
 
 
 routes : DataSource.DataSource (List RouteParams)

@@ -1,16 +1,16 @@
-module Template exposing
+module Page exposing
     ( Builder(..)
     , StaticPayload
     , withStaticData, noStaticData
-    , Template, buildNoState
-    , TemplateWithState, buildWithLocalState, buildWithSharedState
+    , Page, buildNoState
+    , PageWithState, buildWithLocalState, buildWithSharedState
     , DynamicContext
     )
 
 {-|
 
 
-## Building a Template
+## Building a Page Module
 
 @docs Builder
 
@@ -34,14 +34,14 @@ But before the user even requests the page, we have the following data:
 @docs withStaticData, noStaticData
 
 
-## Stateless Templates
+## Stateless Page Modules
 
-@docs Template, buildNoState
+@docs Page, buildNoState
 
 
-## Stateful Templates
+## Stateful Page Modules
 
-@docs TemplateWithState, buildWithLocalState, buildWithSharedState
+@docs PageWithState, buildWithLocalState, buildWithSharedState
 
 -}
 
@@ -54,7 +54,7 @@ import Shared
 
 
 {-| -}
-type alias TemplateWithState routeParams templateStaticData templateModel templateMsg =
+type alias PageWithState routeParams templateStaticData templateModel templateMsg =
     { staticData : routeParams -> DataSource templateStaticData
     , staticRoutes : DataSource (List routeParams)
     , view :
@@ -72,8 +72,8 @@ type alias TemplateWithState routeParams templateStaticData templateModel templa
 
 
 {-| -}
-type alias Template routeParams staticData =
-    TemplateWithState routeParams staticData () Never
+type alias Page routeParams staticData =
+    PageWithState routeParams staticData () Never
 
 
 {-| -}
@@ -103,7 +103,7 @@ buildNoState :
         -> Document Never
     }
     -> Builder routeParams templateStaticData
-    -> TemplateWithState routeParams templateStaticData () Never
+    -> PageWithState routeParams templateStaticData () Never
 buildNoState { view } builderState =
     case builderState of
         WithStaticData record ->
@@ -129,7 +129,7 @@ buildWithLocalState :
     , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
-    -> TemplateWithState routeParams templateStaticData templateModel templateMsg
+    -> PageWithState routeParams templateStaticData templateModel templateMsg
 buildWithLocalState config builderState =
     case builderState of
         WithStaticData record ->
@@ -178,7 +178,7 @@ buildWithSharedState :
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateStaticData
-    -> TemplateWithState routeParams templateStaticData templateModel templateMsg
+    -> PageWithState routeParams templateStaticData templateModel templateMsg
 buildWithSharedState config builderState =
     case builderState of
         WithStaticData record ->

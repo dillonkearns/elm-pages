@@ -1,4 +1,4 @@
-module Template.Docs exposing (Model, Msg, StaticData, template)
+module Page.Docs exposing (Model, Msg, StaticData, template)
 
 import Css.Global
 import DataSource exposing (DataSource)
@@ -14,13 +14,13 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownHelpers
 import OptimizedDecoder
+import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
 import TableOfContents
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
-import Template exposing (StaticPayload, Template, TemplateWithState)
 
 
 type alias Model =
@@ -35,15 +35,15 @@ type alias RouteParams =
     {}
 
 
-template : Template RouteParams StaticData
+template : Page RouteParams StaticData
 template =
-    Template.withStaticData
+    Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed [ {} ]
         , staticData =
             \_ -> data
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
 
 
 head :

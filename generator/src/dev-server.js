@@ -183,7 +183,7 @@ async function start(options) {
   function needToRerunCodegen(eventName, pathThatChanged) {
     return (
       (eventName === "add" || eventName === "unlink") &&
-      pathThatChanged.match(/src\/Template\/.*\.elm/)
+      pathThatChanged.match(/src\/Page\/.*\.elm/)
     );
   }
 

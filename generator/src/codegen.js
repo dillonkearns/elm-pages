@@ -18,10 +18,10 @@ async function writeFiles() {
   ensureDirSync("./elm-stuff");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages");
-  fs.copyFileSync(path.join(__dirname, `./Template.elm`), `./gen/Template.elm`);
+  fs.copyFileSync(path.join(__dirname, `./Page.elm`), `./gen/Page.elm`);
   fs.copyFileSync(
-    path.join(__dirname, `./Template.elm`),
-    `./elm-stuff/elm-pages/Template.elm`
+    path.join(__dirname, `./Page.elm`),
+    `./elm-stuff/elm-pages/Page.elm`
   );
 
   // prevent compilation errors if migrating from previous elm-pages version

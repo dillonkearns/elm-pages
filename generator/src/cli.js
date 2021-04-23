@@ -32,7 +32,7 @@ async function main() {
 
   program
     .command("add <moduleName>")
-    .description("create a new Page Template module")
+    .description("create a new Page module")
     .action(async (moduleName) => {
       await generate.run({ moduleName });
     });

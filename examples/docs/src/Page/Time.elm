@@ -1,14 +1,13 @@
-module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
+module Page.Time exposing (Model, Msg, StaticData, template)
 
 import DataSource
 import Document exposing (Document)
-import Element
+import Element exposing (Element)
 import Head
 import Head.Seo as Seo
+import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
-import SiteOld
-import Template exposing (StaticPayload, Template)
 
 
 type alias Model =
@@ -19,22 +18,31 @@ type alias Msg =
     Never
 
 
-type alias Route =
-    { name : String
-    }
+type alias StaticData =
+    String
 
 
-template : Template Route ()
+template : Page {} StaticData
 template =
-    Template.noStaticData
+    Page.withStaticData
         { head = head
-        , staticRoutes = DataSource.succeed [ { name = "world" } ]
+        , staticRoutes = DataSource.succeed []
+        , staticData = staticData
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
+
+
+staticData routeParams =
+    DataSource.succeed "TIME RESPONSE"
+
+
+
+--StaticHttp.get (Secrets.succeed "http://worldtimeapi.org/api/timezone/America/Los_Angeles")
+--    (OptimizedDecoder.field "datetime" OptimizedDecoder.string)
 
 
 head :
-    StaticPayload () Route
+    StaticPayload StaticData {}
     -> List Head.Tag
 head static =
     Seo.summary
@@ -46,24 +54,20 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = SiteOld.tagline
+        , description = "TODO"
         , locale = Nothing
         , title = "TODO title" -- metadata.title -- TODO
         }
         |> Seo.website
 
 
-type alias StaticData =
-    ()
-
-
 view :
-    StaticPayload StaticData Route
+    StaticPayload StaticData {}
     -> Document msg
 view static =
     { title = "TODO title"
     , body =
-        [ Element.text <| "👋 " ++ static.routeParams.name
+        [ Element.text static.static
         ]
             |> Document.ElmUiView
     }

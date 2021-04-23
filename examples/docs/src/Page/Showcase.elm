@@ -1,14 +1,14 @@
-module Template.Showcase exposing (Model, Msg, StaticData, template)
+module Page.Showcase exposing (Model, Msg, StaticData, template)
 
 import DataSource
 import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
+import Page exposing (PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
 import Showcase
-import Template exposing (StaticPayload, TemplateWithState)
 
 
 type alias Model =
@@ -19,14 +19,14 @@ type alias Msg =
     Never
 
 
-template : TemplateWithState {} StaticData () Msg
+template : PageWithState {} StaticData () Msg
 template =
-    Template.withStaticData
+    Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed []
         , staticData = \_ -> staticData
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
 
 
 staticData : DataSource.DataSource StaticData

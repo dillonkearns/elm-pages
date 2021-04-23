@@ -1,4 +1,4 @@
-module Template.Slide.Number_ exposing (Model, Msg, StaticData, template)
+module Page.Slide.Number_ exposing (Model, Msg, StaticData, template)
 
 import Browser.Events
 import Browser.Navigation
@@ -15,10 +15,10 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
+import Page exposing (Page, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
 import Tailwind.Utilities as Tw
-import Template exposing (StaticPayload, Template)
 
 
 type alias Model =
@@ -33,9 +33,9 @@ type alias RouteParams =
     { number : String }
 
 
-template : Template.TemplateWithState RouteParams StaticData Model Msg
+template : Page.PageWithState RouteParams StaticData Model Msg
 template =
-    Template.withStaticData
+    Page.withStaticData
         { head = head
         , staticRoutes =
             slideCount
@@ -47,7 +47,7 @@ template =
                     )
         , staticData = staticData
         }
-        |> Template.buildWithLocalState
+        |> Page.buildWithLocalState
             { view = view
             , init = \staticPayload -> ( (), Cmd.none )
             , update =

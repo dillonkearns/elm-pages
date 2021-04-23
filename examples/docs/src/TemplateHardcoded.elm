@@ -2,9 +2,9 @@ module TemplateHardcoded exposing (..)
 
 import DataSource
 import Head
+import PageType
 import Pages
 import Pages.PagePath exposing (PagePath)
-import TemplateType
 
 
 template :
