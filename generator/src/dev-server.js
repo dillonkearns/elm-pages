@@ -218,8 +218,9 @@ async function start(options) {
           res.end(renderResult.htmlString);
         }
       } catch (error) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(error.errorsJson));
+        console.log({ error });
+        res.writeHead(500, { "Content-Type": "text/html" });
+        res.end(errorHtml());
       }
     }
   }
@@ -263,6 +264,50 @@ function timeFrom(start, subtract = 0) {
   } else {
     return kleur.red(timeString);
   }
+}
+
+function errorHtml() {
+  /*html*/
+  return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <link rel="stylesheet" href="/style.css"></link>
+    <style>
+@keyframes lds-default {
+    0%, 20%, 80%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.5);
+    }
+  }
+    </style>
+    <!--<link rel="preload" href="/elm-pages.js" as="script"> -->
+    <link rel="preload" href="/index.js" as="script">
+    <!--<link rel="preload" href="/elm.js" as="script">-->
+    <script src="/hmr.js" type="text/javascript"></script>
+    <!--<script defer="defer" src="/elm.js" type="text/javascript"></script>-->
+    <!--<script defer="defer" src="/elm-pages.js" type="module"></script>-->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister()
+          } 
+        })
+      });
+    }
+
+    connect(function() {}, true)
+    </script>
+    <title>Error</title>
+    </head>
+    <body></body>
+  </html>
+  `;
 }
 
 module.exports = { start };

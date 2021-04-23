@@ -4,9 +4,13 @@ var eventSource = null;
 /** @type {Promise<() => void>} */
 let updateAppContentJson = new Promise((resolve, reject) => resolve(() => {}));
 
-function connect(sendContentJsonPort) {
+function connect(sendContentJsonPort, initialErrorPage) {
   // Listen for the server to tell us that an HMR update is available
   eventSource = new EventSource("/stream");
+  window.reloadOnOk = initialErrorPage;
+  if (initialErrorPage) {
+    elmJsFetch().then(thenApplyHmr);
+  }
   eventSource.onmessage = async function (evt) {
     showCompiling("");
     if (evt.data === "content.json") {
@@ -131,11 +135,15 @@ async function waitFor(millis) {
 
 async function thenApplyHmr(response) {
   if (response.ok) {
-    response.text().then(function (value) {
-      module.hot.apply();
-      delete Elm;
-      eval(value);
-    });
+    if (window.reloadOnOk) {
+      location.reload();
+    } else {
+      response.text().then(function (value) {
+        module.hot.apply();
+        delete Elm;
+        eval(value);
+      });
+    }
   } else {
     try {
       const errorJson = await response.json();
