@@ -25,10 +25,6 @@ config =
         }
 
 
-
--- TODO wire this in as part of the config
-
-
 generateFiles :
     List (Maybe Route)
     ->
