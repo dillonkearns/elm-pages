@@ -1047,19 +1047,12 @@ fromJsPort =
 
 manifest : Manifest.Config
 manifest =
-    { backgroundColor = Nothing
-    , categories = []
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
-    , iarcRatingId = Nothing
-    , name = "elm-pages docs"
-    , themeColor = Nothing
-    , startUrl = PagePath.external ""
-    , shortName = Just "elm-pages"
-    , sourceIcon = ImagePath.external ""
-    , icons = []
-    }
+    Manifest.init
+        { description = "elm-pages - A statically typed site generator."
+        , name = "elm-pages docs"
+        , startUrl = PagePath.external ""
+        , icons = []
+        }
 
 
 starDecoder : Decoder Int

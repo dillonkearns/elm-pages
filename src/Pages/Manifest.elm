@@ -111,7 +111,6 @@ init options =
     , themeColor = Nothing
     , startUrl = options.startUrl
     , shortName = Nothing
-    , sourceIcon = ImagePath.build [] -- TODO remove sourceIcon, no longer used in v2
     , icons = options.icons
     , lang = usEnglish
     }
@@ -196,12 +195,6 @@ orientationToString orientation =
 
 {-| Represents a [web app manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest)
 (see above for how to use it).
-
-The `sourceIcon` is used to automatically generate all of the Favicons and manifest
-icons of the appropriate sizes (512x512, etc) for Android, iOS, etc. So you just
-point at a single image asset and you will have optimized images following all
-the best practices!
-
 -}
 type alias Config =
     { backgroundColor : Maybe Color
@@ -218,7 +211,6 @@ type alias Config =
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : ImagePath
     , icons : List Icon
     , lang : LanguageTag
     }
@@ -309,13 +301,7 @@ code will run this for you to generate your `manifest.json` file automatically!
 -}
 toJson : String -> Config -> Encode.Value
 toJson canonicalSiteUrl config =
-    [ ( "sourceIcon"
-      , config.sourceIcon
-            |> ImagePath.toString
-            |> Encode.string
-            |> Just
-      )
-    , ( "dir", Encode.string "auto" |> Just )
+    [ ( "dir", Encode.string "auto" |> Just )
     , ( "lang"
       , config.lang
             |> LanguageTag.toString
