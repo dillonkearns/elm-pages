@@ -94,6 +94,7 @@ manifest static =
         , icon MimeType.Png 192
         , icon MimeType.Png 512
         ]
+    , lang = "en-US"
     }
 
 

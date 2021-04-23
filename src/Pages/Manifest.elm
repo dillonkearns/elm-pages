@@ -150,6 +150,7 @@ type alias Config =
     , shortName : Maybe String
     , sourceIcon : ImagePath
     , icons : List Icon
+    , lang : String
     }
 
 
@@ -245,7 +246,7 @@ toJson canonicalSiteUrl config =
             |> Just
       )
     , ( "dir", Encode.string "auto" |> Just )
-    , ( "lang", Encode.string "en-US" |> Just )
+    , ( "lang", Encode.string config.lang |> Just )
     , ( "icons"
       , config.icons
             |> Encode.list (encodeIcon canonicalSiteUrl)
