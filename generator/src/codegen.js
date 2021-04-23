@@ -13,6 +13,8 @@ async function generate() {
 }
 
 async function writeFiles() {
+  const cliCode = generateTemplateModuleConnector("cli");
+  const browserCode = generateTemplateModuleConnector("browser");
   ensureDirSync("./elm-stuff");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages");
@@ -31,13 +33,11 @@ async function writeFiles() {
 
   // write `Pages.elm` with cli interface
   fs.writeFileSync("./elm-stuff/elm-pages/Pages.elm", elmPagesCliFile());
-  const cliCode = generateTemplateModuleConnector("cli");
   fs.writeFileSync(
     "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
     cliCode.mainModule
   );
   fs.writeFileSync("./elm-stuff/elm-pages/Route.elm", cliCode.routesModule);
-  const browserCode = generateTemplateModuleConnector("browser");
   fs.writeFileSync("./gen/TemplateModulesBeta.elm", browserCode.mainModule);
   fs.writeFileSync("./gen/Route.elm", browserCode.routesModule);
 

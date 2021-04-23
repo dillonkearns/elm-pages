@@ -16,7 +16,24 @@ function generateTemplateModuleConnector(phase) {
     }
   });
   if (templates.length <= 0) {
-    throw `I couldn't find any Page Templates. Try using elm-pages add Index to get started with your first page!`;
+    throw {
+      path: "",
+      name: "TemplateModulesBeta",
+      problems: [
+        {
+          title: "Could not generate entrypoint",
+          message: [
+            `I couldn't find any Page Templates. Try creating your first page by running: \n\n`,
+            {
+              bold: false,
+              underline: false,
+              color: "yellow",
+              string: "elm-pages add Index",
+            },
+          ],
+        },
+      ],
+    };
   }
 
   return {

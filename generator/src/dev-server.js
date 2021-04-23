@@ -113,12 +113,26 @@ async function start(options) {
     } else if (pathThatChanged.endsWith(".elm")) {
       if (elmMakeRunning) {
       } else {
+        let codegenError = null;
         if (needToRerunCodegen(eventName, pathThatChanged)) {
-          await codegen.generate();
+          try {
+            await codegen.generate();
+          } catch (error) {
+            codegenError = error;
+          }
         }
         elmMakeRunning = true;
-        clientElmMakeProcess = compileElmForBrowser();
-        pendingCliCompile = compileCliApp();
+        if (codegenError) {
+          const errorJson = JSON.stringify({
+            type: "compile-errors",
+            errors: [codegenError],
+          });
+          clientElmMakeProcess = Promise.reject(errorJson);
+          pendingCliCompile = Promise.reject(errorJson);
+        } else {
+          clientElmMakeProcess = compileElmForBrowser();
+          pendingCliCompile = compileCliApp();
+        }
         let timestamp = Date.now();
 
         Promise.all([clientElmMakeProcess, pendingCliCompile])
