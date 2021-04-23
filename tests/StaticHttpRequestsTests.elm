@@ -10,7 +10,6 @@ import Json.Decode as JD
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache
-import Pages.ImagePath as ImagePath
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
