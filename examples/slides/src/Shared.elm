@@ -14,7 +14,7 @@ import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
 
 
-template : SharedTemplate Msg Model Data msg
+template : SharedTemplate Msg Model Data SharedMsg msg
 template =
     { init = init
     , update = update
@@ -22,6 +22,7 @@ template =
     , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
+    , sharedMsg = SharedMsg
     }
 
 

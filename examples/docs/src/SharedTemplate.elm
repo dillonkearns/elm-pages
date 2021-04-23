@@ -8,7 +8,7 @@ import Pages.PagePath exposing (PagePath)
 import Route exposing (Route)
 
 
-type alias SharedTemplate sharedMsg sharedModel sharedData mappedMsg =
+type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
     { init :
         Maybe Browser.Navigation.Key
         ->
@@ -20,8 +20,8 @@ type alias SharedTemplate sharedMsg sharedModel sharedData mappedMsg =
                     }
                 , metadata : Maybe Route
                 }
-        -> ( sharedModel, Cmd sharedMsg )
-    , update : sharedMsg -> sharedModel -> ( sharedModel, Cmd sharedMsg )
+        -> ( sharedModel, Cmd msg )
+    , update : msg -> sharedModel -> ( sharedModel, Cmd msg )
     , view :
         sharedData
         ->
@@ -29,17 +29,18 @@ type alias SharedTemplate sharedMsg sharedModel sharedData mappedMsg =
             , frontmatter : Maybe Route
             }
         -> sharedModel
-        -> (sharedMsg -> mappedMsg)
+        -> (msg -> mappedMsg)
         -> Document mappedMsg
         -> { body : Html mappedMsg, title : String }
     , data : DataSource.DataSource sharedData
-    , subscriptions : PagePath -> sharedModel -> Sub sharedMsg
+    , subscriptions : PagePath -> sharedModel -> Sub msg
     , onPageChange :
         Maybe
             ({ path : PagePath
              , query : Maybe String
              , fragment : Maybe String
              }
-             -> sharedMsg
+             -> msg
             )
+    , sharedMsg : sharedMsg -> msg
     }

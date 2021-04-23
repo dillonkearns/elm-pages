@@ -1,4 +1,4 @@
-module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
+module Shared exposing (Data, Model, Msg, SharedMsg(..), template)
 
 import Browser.Navigation
 import DataSource
@@ -22,7 +22,7 @@ import Secrets
 import SharedTemplate exposing (SharedTemplate)
 
 
-template : SharedTemplate Msg Model Data msg
+template : SharedTemplate Msg Model Data SharedMsg msg
 template =
     { init = init
     , update = update
@@ -30,6 +30,7 @@ template =
     , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
+    , sharedMsg = SharedMsg
     }
 
 
