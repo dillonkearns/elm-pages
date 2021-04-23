@@ -831,7 +831,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
             , handleRoute = \_ -> DataSource.succeed True
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
-            , staticData =
+            , data =
                 \(Route pageRoute) ->
                     let
                         thing =
@@ -852,7 +852,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                             Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
             , site =
                 \_ ->
-                    { staticData = DataSource.succeed ()
+                    { data = DataSource.succeed ()
                     , canonicalUrl = "canonical-site-url"
                     , manifest = \_ -> manifest
                     , head = \_ -> []
