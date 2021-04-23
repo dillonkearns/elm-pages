@@ -1,5 +1,7 @@
 module Pages.Manifest exposing
     ( Config, Icon
+    , init
+    , withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
     , DisplayMode(..), Orientation(..), IconPurpose(..)
     , toJson
     )
@@ -10,41 +12,33 @@ module Pages.Manifest exposing
 You pass your `Pages.Manifest.Config` record into the `Pages.application` function
 (from your generated `Pages.elm` file).
 
-    import Pages
     import Pages.Manifest as Manifest
     import Pages.Manifest.Category
     import Pages.PagePath as PagePath exposing (PagePath)
-    import Palette
 
-    manifest : Manifest.Config Pages.PathKey
+    manifest : Manifest.Config
     manifest =
-        { backgroundColor = Just Color.white
-        , categories = [ Pages.Manifest.Category.education ]
-        , displayMode = Manifest.Standalone
-        , orientation = Manifest.Portrait
-        , description = "elm-pages - A statically typed site generator."
-        , iarcRatingId = Nothing
-        , name = "elm-pages docs"
-        , themeColor = Just Color.white
-        , startUrl = Pages.pages.index
-        , shortName = Just "elm-pages"
-        , sourceIcon = Pages.images.icon
-        }
-
-    main : Pages.Program Model Msg Metadata (List (Element Msg))
-    main =
-        Pages.application
-            { init = init
-            , view = view
-            , update = update
-            , subscriptions = subscriptions
-            , documents = [ markdownDocument ]
-            , head = head
-            , manifest = manifest
-            , canonicalSiteUrl = canonicalSiteUrl
+        Manifest.init
+            { name = static.siteName
+            , description = "elm-pages - " ++ tagline
+            , startUrl = PagePath.build []
+            , icons =
+                [ icon webp 192
+                , icon webp 512
+                , icon MimeType.Png 192
+                , icon MimeType.Png 512
+                ]
             }
+            |> Manifest.withShortName "elm-pages"
 
 @docs Config, Icon
+
+
+## Builder options
+
+@docs init
+
+@docs withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
 
 
 ## Config options
@@ -61,6 +55,9 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
+import LanguageTag exposing (LanguageTag, emptySubtags)
+import LanguageTag.Country as Country
+import LanguageTag.Language
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
@@ -94,6 +91,79 @@ type Orientation
     | Portrait
     | PortraitPrimary
     | PortraitSecondary
+
+
+init :
+    { description : String
+    , name : String
+    , startUrl : PagePath
+    , icons : List Icon
+    }
+    -> Config
+init options =
+    { backgroundColor = Nothing
+    , categories = []
+    , displayMode = Standalone
+    , orientation = Portrait
+    , description = options.description
+    , iarcRatingId = Nothing
+    , name = options.name
+    , themeColor = Nothing
+    , startUrl = options.startUrl
+    , shortName = Nothing
+    , sourceIcon = ImagePath.build [] -- TODO remove sourceIcon, no longer used in v2
+    , icons = options.icons
+    , lang = usEnglish
+    }
+
+
+usEnglish : LanguageTag
+usEnglish =
+    LanguageTag.Language.en
+        |> LanguageTag.build
+            { emptySubtags
+                | region = Just Country.us
+            }
+
+
+withBackgroundColor : Color -> Config -> Config
+withBackgroundColor color config =
+    { config | backgroundColor = Just color }
+
+
+withCategories : List Category -> Config -> Config
+withCategories categories config =
+    { config | categories = categories ++ config.categories }
+
+
+withDisplayMode : DisplayMode -> Config -> Config
+withDisplayMode displayMode config =
+    { config | displayMode = displayMode }
+
+
+withOrientation : Orientation -> Config -> Config
+withOrientation orientation config =
+    { config | orientation = orientation }
+
+
+withIarcRatingId : String -> Config -> Config
+withIarcRatingId iarcRatingId config =
+    { config | iarcRatingId = Just iarcRatingId }
+
+
+withThemeColor : Color -> Config -> Config
+withThemeColor themeColor config =
+    { config | themeColor = Just themeColor }
+
+
+withShortName : String -> Config -> Config
+withShortName shortName config =
+    { config | shortName = Just shortName }
+
+
+withLang : LanguageTag -> Config -> Config
+withLang languageTag config =
+    { config | lang = languageTag }
 
 
 orientationToString : Orientation -> String
@@ -150,7 +220,7 @@ type alias Config =
     , shortName : Maybe String
     , sourceIcon : ImagePath
     , icons : List Icon
-    , lang : String
+    , lang : LanguageTag
     }
 
 
@@ -246,7 +316,12 @@ toJson canonicalSiteUrl config =
             |> Just
       )
     , ( "dir", Encode.string "auto" |> Just )
-    , ( "lang", Encode.string config.lang |> Just )
+    , ( "lang"
+      , config.lang
+            |> LanguageTag.toString
+            |> Encode.string
+            |> Just
+      )
     , ( "icons"
       , config.icons
             |> Encode.list (encodeIcon canonicalSiteUrl)

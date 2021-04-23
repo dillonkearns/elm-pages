@@ -76,25 +76,18 @@ canonicalUrl =
 
 manifest : StaticData -> Manifest.Config
 manifest static =
-    { backgroundColor = Just Color.white
-    , categories = [ Pages.Manifest.Category.education ]
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - " ++ tagline
-    , iarcRatingId = Nothing
-    , name = static.siteName
-    , themeColor = Just Color.white
-    , startUrl = PagePath.build []
-    , shortName = Just "elm-pages"
-    , sourceIcon = ImagePath.build [ "images", "icon-png.png" ]
-    , icons =
-        [ icon webp 192
-        , icon webp 512
-        , icon MimeType.Png 192
-        , icon MimeType.Png 512
-        ]
-    , lang = "en-US"
-    }
+    Manifest.init
+        { name = static.siteName
+        , description = "elm-pages - " ++ tagline
+        , startUrl = PagePath.build []
+        , icons =
+            [ icon webp 192
+            , icon webp 512
+            , icon MimeType.Png 192
+            , icon MimeType.Png 512
+            ]
+        }
+        |> Manifest.withShortName "elm-pages"
 
 
 tagline : String
