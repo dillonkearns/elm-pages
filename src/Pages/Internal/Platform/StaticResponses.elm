@@ -36,9 +36,9 @@ error =
 init :
     { config
         | getStaticRoutes : DataSource.DataSource (List route)
-        , site : SiteConfig route siteStaticData
-        , staticData : route -> DataSource.DataSource pageStaticData
-        , sharedStaticData : DataSource.DataSource sharedStaticData
+        , site : SiteConfig route siteData
+        , data : route -> DataSource.DataSource pageData
+        , sharedData : DataSource.DataSource sharedData
         , generateFiles :
             DataSource.DataSource
                 (List
@@ -57,11 +57,11 @@ init config =
             (config.getStaticRoutes
                 |> DataSource.andThen
                     (\resolvedRoutes ->
-                        config.site resolvedRoutes |> .staticData
+                        config.site resolvedRoutes |> .data
                     )
             )
             config.generateFiles
-            config.sharedStaticData
+            config.sharedData
         )
         Dict.empty
         |> GettingInitialData
@@ -157,9 +157,9 @@ nextStep :
     { config
         | getStaticRoutes : DataSource.DataSource (List route)
         , routeToPath : route -> List String
-        , staticData : route -> DataSource.DataSource pageStaticData
-        , sharedStaticData : DataSource.DataSource sharedStaticData
-        , site : SiteConfig route siteStaticData
+        , data : route -> DataSource.DataSource pageData
+        , sharedData : DataSource.DataSource sharedData
+        , site : SiteConfig route siteData
         , generateFiles :
             DataSource.DataSource
                 (List
@@ -393,7 +393,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                 )
                                 config.getStaticRoutes
                                 config.generateFiles
-                                config.sharedStaticData
+                                config.sharedData
                             )
                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
                 in
@@ -408,8 +408,8 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                                 entry =
                                                     NotFetched
                                                         (DataSource.map2 (\_ _ -> ())
-                                                            config.sharedStaticData
-                                                            (config.staticData route)
+                                                            config.sharedData
+                                                            (config.data route)
                                                         )
                                                         Dict.empty
                                             in

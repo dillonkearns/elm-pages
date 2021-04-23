@@ -69,7 +69,7 @@ type alias Program route =
 
 
 cliApplication :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Program route
 cliApplication config =
     let
@@ -184,12 +184,12 @@ asJsonView x =
 
 
 
---perform : RenderRequest route -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData -> (Json.Encode.Value -> Cmd Msg) -> Effect -> Cmd Msg
+--perform : RenderRequest route -> ProgramConfig userMsg userModel route siteData pageData sharedData -> (Json.Encode.Value -> Cmd Msg) -> Effect -> Cmd Msg
 
 
 perform :
     RenderRequest route
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> (Codec.Value -> Cmd Never)
     -> Effect
     -> Cmd Msg
@@ -347,7 +347,7 @@ flagsDecoder =
 init :
     RenderRequest route
     -> ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
 init renderRequest contentCache config flags =
@@ -381,7 +381,7 @@ initLegacy :
     RenderRequest route
     -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
     -> ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
 initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config flags =
@@ -393,8 +393,8 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                     StaticResponses.renderSingleRoute config
                         serverRequestPayload
                         (DataSource.map2 (\_ _ -> ())
-                            (config.staticData serverRequestPayload.frontmatter)
-                            config.sharedStaticData
+                            (config.data serverRequestPayload.frontmatter)
+                            config.sharedData
                         )
                         (config.handleRoute serverRequestPayload.frontmatter)
 
@@ -437,7 +437,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
 
 updateAndSendPortIfDone :
     ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone contentCache config model =
@@ -450,7 +450,7 @@ updateAndSendPortIfDone contentCache config model =
 
 update :
     ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Msg
     -> Model route
     -> ( Model route, Effect )
@@ -620,7 +620,7 @@ update contentCache config msg model =
 
 nextStepToEffect :
     ContentCache
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
@@ -745,7 +745,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
 sendSinglePageProgress :
     ToJsSuccessPayload
-    -> ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( PagePath, route )
     -> Effect
@@ -786,17 +786,17 @@ sendSinglePageProgress toJsPayload config model =
                     currentPage =
                         { path = page, frontmatter = config.urlToRoute currentUrl }
 
-                    pageStaticDataResult : Result BuildError pageStaticData
-                    pageStaticDataResult =
+                    pageDataResult : Result BuildError pageData
+                    pageDataResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
-                            (config.staticData (config.urlToRoute currentUrl))
+                            (config.data (config.urlToRoute currentUrl))
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                    sharedStaticDataResult : Result BuildError sharedStaticData
-                    sharedStaticDataResult =
+                    sharedDataResult : Result BuildError sharedData
+                    sharedDataResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
-                            config.sharedStaticData
+                            config.sharedData
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
@@ -813,14 +813,14 @@ sendSinglePageProgress toJsPayload config model =
                         , fragment = Nothing
                         }
                 in
-                case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
-                    Ok ( sharedStaticData, pageStaticData ) ->
+                case Result.map2 Tuple.pair sharedDataResult pageDataResult of
+                    Ok ( sharedData, pageData ) ->
                         let
                             pageModel : userModel
                             pageModel =
                                 config.init
-                                    sharedStaticData
-                                    pageStaticData
+                                    sharedData
+                                    pageData
                                     Nothing
                                     (Just
                                         { path =
@@ -835,11 +835,11 @@ sendSinglePageProgress toJsPayload config model =
 
                             viewValue : { title : String, body : Html userMsg }
                             viewValue =
-                                (config.view currentPage sharedStaticData pageStaticData |> .view) pageModel
+                                (config.view currentPage sharedData pageData |> .view) pageModel
 
                             headTags : List Head.Tag
                             headTags =
-                                config.view currentPage sharedStaticData pageStaticData |> .head
+                                config.view currentPage sharedData pageData |> .head
                         in
                         { route = page |> PagePath.toString
                         , contentJson =

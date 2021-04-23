@@ -1,4 +1,4 @@
-module Page.Docs exposing (Model, Msg, StaticData, page)
+module Page.Docs exposing (Data, Model, Msg, page)
 
 import Css.Global
 import DataSource exposing (DataSource)
@@ -35,19 +35,18 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams StaticData
+page : Page RouteParams Data
 page =
-    Page.withStaticData
+    Page.withData
         { head = head
         , staticRoutes = DataSource.succeed [ {} ]
-        , staticData =
-            \_ -> data
+        , data = \_ -> data
         }
         |> Page.buildNoState { view = view }
 
 
 head :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -66,12 +65,12 @@ head static =
         |> Seo.website
 
 
-type alias StaticData =
+type alias Data =
     List Markdown.Block.Block
 
 
 view :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> Document Msg
 view static =
     { title = "TODO title"

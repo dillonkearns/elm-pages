@@ -1,4 +1,4 @@
-module Page.Showcase exposing (Model, Msg, StaticData, page)
+module Page.Showcase exposing (Data, Model, Msg, page)
 
 import DataSource
 import Document exposing (Document)
@@ -19,18 +19,18 @@ type alias Msg =
     Never
 
 
-page : PageWithState {} StaticData () Msg
+page : PageWithState {} Data () Msg
 page =
-    Page.withStaticData
+    Page.withData
         { head = head
         , staticRoutes = DataSource.succeed []
-        , staticData = \_ -> staticData
+        , data = \_ -> data
         }
         |> Page.buildNoState { view = view }
 
 
-staticData : DataSource.DataSource StaticData
-staticData =
+data : DataSource.DataSource Data
+data =
     Showcase.staticRequest
 
 
@@ -45,12 +45,12 @@ type alias DataFromFile =
     { body : List (Element Msg), title : String }
 
 
-type alias StaticData =
+type alias Data =
     List Showcase.Entry
 
 
 view :
-    StaticPayload StaticData {}
+    StaticPayload Data {}
     -> Document Msg
 view static =
     { title = "elm-pages blog"
@@ -67,7 +67,7 @@ view static =
     }
 
 
-head : StaticPayload StaticData {} -> List Head.Tag
+head : StaticPayload Data {} -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

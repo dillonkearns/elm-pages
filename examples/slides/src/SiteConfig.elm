@@ -4,5 +4,5 @@ import Pages.SiteConfig
 import Route exposing (Route)
 
 
-type alias SiteConfig staticData =
-    Pages.SiteConfig.SiteConfig (Maybe Route) staticData
+type alias SiteConfig data =
+    Pages.SiteConfig.SiteConfig (Maybe Route) data

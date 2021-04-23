@@ -1,7 +1,7 @@
 module Page exposing
     ( Builder(..)
     , StaticPayload
-    , withStaticData, noStaticData
+    , withData, noData
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     , DynamicContext
@@ -29,9 +29,9 @@ But before the user even requests the page, we have the following data:
   - `path` - these paths are static. In other words, we know every single path when we build an elm-pages site.
   - `metadata` - we have a decoded Elm value for the page's metadata.
   - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
-  - `static` - this is the static data for this specific page. If you use `noStaticData`, then this will be `()`, meaning there is no page-specific static data.
+  - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
-@docs withStaticData, noStaticData
+@docs withData, noData
 
 
 ## Stateless Page Modules
@@ -54,44 +54,44 @@ import Shared
 
 
 {-| -}
-type alias PageWithState routeParams templateStaticData templateModel templateMsg =
-    { staticData : routeParams -> DataSource templateStaticData
+type alias PageWithState routeParams templateData templateModel templateMsg =
+    { data : routeParams -> DataSource templateData
     , staticRoutes : DataSource (List routeParams)
     , view :
         templateModel
         -> Shared.Model
-        -> StaticPayload templateStaticData routeParams
+        -> StaticPayload templateData routeParams
         -> Document templateMsg
     , head :
-        StaticPayload templateStaticData routeParams
+        StaticPayload templateData routeParams
         -> List Head.Tag
-    , init : StaticPayload templateStaticData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : StaticPayload templateStaticData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
 
 
 {-| -}
-type alias Page routeParams staticData =
-    PageWithState routeParams staticData () Never
+type alias Page routeParams data =
+    PageWithState routeParams data () Never
 
 
 {-| -}
-type alias StaticPayload staticData routeParams =
-    { static : staticData -- local
-    , sharedStatic : Shared.StaticData -- share
+type alias StaticPayload data routeParams =
+    { static : data -- local
+    , sharedStatic : Shared.Data -- share
     , routeParams : routeParams
     , path : PagePath
     }
 
 
 {-| -}
-type Builder routeParams templateStaticData
-    = WithStaticData
-        { staticData : routeParams -> DataSource templateStaticData
+type Builder routeParams templateData
+    = WithData
+        { data : routeParams -> DataSource templateData
         , staticRoutes : DataSource (List routeParams)
         , head :
-            StaticPayload templateStaticData routeParams
+            StaticPayload templateData routeParams
             -> List Head.Tag
         }
 
@@ -99,17 +99,17 @@ type Builder routeParams templateStaticData
 {-| -}
 buildNoState :
     { view :
-        StaticPayload templateStaticData routeParams
+        StaticPayload templateData routeParams
         -> Document Never
     }
-    -> Builder routeParams templateStaticData
-    -> PageWithState routeParams templateStaticData () Never
+    -> Builder routeParams templateData
+    -> PageWithState routeParams templateData () Never
 buildNoState { view } builderState =
     case builderState of
-        WithStaticData record ->
+        WithData record ->
             { view = \() _ -> view
             , head = record.head
-            , staticData = record.staticData
+            , data = record.data
             , staticRoutes = record.staticRoutes
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ _ _ _ -> ( (), Cmd.none, Nothing )
@@ -122,22 +122,22 @@ buildWithLocalState :
     { view :
         templateModel
         -> Shared.Model
-        -> StaticPayload templateStaticData routeParams
+        -> StaticPayload templateData routeParams
         -> Document templateMsg
-    , init : StaticPayload templateStaticData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : DynamicContext Shared.Model -> StaticPayload templateStaticData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
     }
-    -> Builder routeParams templateStaticData
-    -> PageWithState routeParams templateStaticData templateModel templateMsg
+    -> Builder routeParams templateData
+    -> PageWithState routeParams templateData templateModel templateMsg
 buildWithLocalState config builderState =
     case builderState of
-        WithStaticData record ->
+        WithData record ->
             { view =
                 \model sharedModel staticPayload ->
                     config.view model sharedModel staticPayload
             , head = record.head
-            , staticData = record.staticData
+            , data = record.data
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
@@ -171,20 +171,20 @@ buildWithSharedState :
     { view :
         templateModel
         -> Shared.Model
-        -> StaticPayload templateStaticData routeParams
+        -> StaticPayload templateData routeParams
         -> Document templateMsg
-    , init : StaticPayload templateStaticData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : DynamicContext Shared.Model -> StaticPayload templateStaticData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
     }
-    -> Builder routeParams templateStaticData
-    -> PageWithState routeParams templateStaticData templateModel templateMsg
+    -> Builder routeParams templateData
+    -> PageWithState routeParams templateData templateModel templateMsg
 buildWithSharedState config builderState =
     case builderState of
-        WithStaticData record ->
+        WithData record ->
             { view = config.view
             , head = record.head
-            , staticData = record.staticData
+            , data = record.data
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
@@ -201,29 +201,29 @@ buildWithSharedState config builderState =
 
 
 {-| -}
-withStaticData :
-    { staticData : routeParams -> DataSource templateStaticData
+withData :
+    { data : routeParams -> DataSource templateData
     , staticRoutes : DataSource (List routeParams)
-    , head : StaticPayload templateStaticData routeParams -> List Head.Tag
+    , head : StaticPayload templateData routeParams -> List Head.Tag
     }
-    -> Builder routeParams templateStaticData
-withStaticData { staticData, head, staticRoutes } =
-    WithStaticData
-        { staticData = staticData
+    -> Builder routeParams templateData
+withData { data, head, staticRoutes } =
+    WithData
+        { data = data
         , staticRoutes = staticRoutes
         , head = head
         }
 
 
 {-| -}
-noStaticData :
+noData :
     { head : StaticPayload () routeParams -> List Head.Tag
     , staticRoutes : DataSource (List routeParams)
     }
     -> Builder routeParams ()
-noStaticData { head, staticRoutes } =
-    WithStaticData
-        { staticData = \_ -> DataSource.succeed ()
+noData { head, staticRoutes } =
+    WithData
+        { data = \_ -> DataSource.succeed ()
         , staticRoutes = staticRoutes
         , head = head
         }

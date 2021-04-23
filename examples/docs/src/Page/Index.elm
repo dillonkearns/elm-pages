@@ -1,4 +1,4 @@
-module Page.Index exposing (Model, Msg, StaticData, page)
+module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource
 import DataSource.File as StaticFile
@@ -27,22 +27,22 @@ type alias Route =
     {}
 
 
-type alias StaticData =
+type alias Data =
     List (Element.Element Msg)
 
 
-page : Page Route StaticData
+page : Page Route Data
 page =
-    Page.withStaticData
+    Page.withData
         { head = head
         , staticRoutes = DataSource.succeed []
-        , staticData = staticData
+        , data = data
         }
         |> Page.buildNoState { view = view }
 
 
 head :
-    StaticPayload StaticData Route
+    StaticPayload Data Route
     -> List Head.Tag
 head static =
     Seo.summary
@@ -62,7 +62,7 @@ head static =
 
 
 view :
-    StaticPayload StaticData Route
+    StaticPayload Data Route
     -> Document Msg
 view static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
@@ -82,8 +82,8 @@ view static =
     }
 
 
-staticData : Route -> DataSource.DataSource (List (Element.Element msg))
-staticData route =
+data : Route -> DataSource.DataSource (List (Element.Element msg))
+data route =
     StaticFile.request
         "content/index.md"
         (StaticFile.body

@@ -8,7 +8,7 @@ import Pages.PagePath exposing (PagePath)
 import Route exposing (Route)
 
 
-type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
+type alias SharedTemplate sharedMsg sharedModel sharedData mappedMsg =
     { init :
         Maybe Browser.Navigation.Key
         ->
@@ -23,7 +23,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
         -> ( sharedModel, Cmd sharedMsg )
     , update : sharedMsg -> sharedModel -> ( sharedModel, Cmd sharedMsg )
     , view :
-        sharedStaticData
+        sharedData
         ->
             { path : PagePath
             , frontmatter : Maybe Route
@@ -32,7 +32,7 @@ type alias SharedTemplate sharedMsg sharedModel sharedStaticData mappedMsg =
         -> (sharedMsg -> mappedMsg)
         -> Document mappedMsg
         -> { body : Html mappedMsg, title : String }
-    , staticData : DataSource.DataSource sharedStaticData
+    , data : DataSource.DataSource sharedData
     , subscriptions : PagePath -> sharedModel -> Sub sharedMsg
     , onPageChange :
         Maybe

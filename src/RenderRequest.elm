@@ -41,7 +41,7 @@ type ServerOrBuild
 
 
 decoder :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Decoder (RenderRequest route)
 decoder config =
     optionalField "request"
@@ -91,7 +91,7 @@ decoder config =
 
 
 requestPayloadDecoder :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Decoder (RequestPayload route)
 requestPayloadDecoder config =
     (Decode.string

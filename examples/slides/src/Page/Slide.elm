@@ -1,4 +1,4 @@
-module Page.Slide exposing (Model, Msg, StaticData, page)
+module Page.Slide exposing (Data, Model, Msg, page)
 
 import DataSource
 import Document exposing (Document)
@@ -22,9 +22,9 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams StaticData
+page : Page RouteParams Data
 page =
-    Page.noStaticData
+    Page.noData
         { head = head
         , staticRoutes = DataSource.succeed [ {} ]
         }
@@ -32,7 +32,7 @@ page =
 
 
 head :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -51,12 +51,12 @@ head static =
         |> Seo.website
 
 
-type alias StaticData =
+type alias Data =
     ()
 
 
 view :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> Document Msg
 view static =
     { title = "TODO title"

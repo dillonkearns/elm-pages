@@ -1,4 +1,4 @@
-module Page.Time exposing (Model, Msg, StaticData, page)
+module Page.Time exposing (Data, Model, Msg, page)
 
 import DataSource
 import Document exposing (Document)
@@ -18,21 +18,26 @@ type alias Msg =
     Never
 
 
-type alias StaticData =
+type alias Data =
     String
 
 
-page : Page {} StaticData
+type alias RouteParams =
+    {}
+
+
+page : Page RouteParams Data
 page =
-    Page.withStaticData
+    Page.withData
         { head = head
         , staticRoutes = DataSource.succeed []
-        , staticData = staticData
+        , data = data
         }
         |> Page.buildNoState { view = view }
 
 
-staticData routeParams =
+data : RouteParams -> DataSource.DataSource String
+data routeParams =
     DataSource.succeed "TIME RESPONSE"
 
 
@@ -42,7 +47,7 @@ staticData routeParams =
 
 
 head :
-    StaticPayload StaticData {}
+    StaticPayload Data {}
     -> List Head.Tag
 head static =
     Seo.summary
@@ -62,7 +67,7 @@ head static =
 
 
 view :
-    StaticPayload StaticData {}
+    StaticPayload Data {}
     -> Document msg
 view static =
     { title = "TODO title"

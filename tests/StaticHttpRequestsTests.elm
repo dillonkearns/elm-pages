@@ -879,7 +879,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                             Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
             , subscriptions = \_ _ _ -> Sub.none
             , routeToPath = \(Route route) -> route |> String.split "/"
-            , sharedStaticData = DataSource.succeed ()
+            , sharedData = DataSource.succeed ()
             , onPageChange = \_ -> Continue
             }
 

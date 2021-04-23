@@ -11,10 +11,10 @@ import Pages.SiteConfig exposing (SiteConfig)
 import Url exposing (Url)
 
 
-type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData =
+type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     { init :
-        sharedStaticData
-        -> pageStaticData
+        sharedData
+        -> pageData
         -> Maybe Browser.Navigation.Key
         ->
             Maybe
@@ -26,16 +26,16 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
                 , metadata : route
                 }
         -> ( userModel, Cmd userMsg )
-    , update : sharedStaticData -> pageStaticData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
+    , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> PagePath -> userModel -> Sub userMsg
-    , sharedStaticData : DataSource.DataSource sharedStaticData
-    , staticData : route -> DataSource.DataSource pageStaticData
+    , sharedData : DataSource.DataSource sharedData
+    , data : route -> DataSource.DataSource pageData
     , view :
         { path : PagePath
         , frontmatter : route
         }
-        -> sharedStaticData
-        -> pageStaticData
+        -> sharedData
+        -> pageData
         ->
             { view : userModel -> { title : String, body : Html userMsg }
             , head : List Head.Tag
@@ -44,7 +44,7 @@ type alias ProgramConfig userMsg userModel route siteStaticData pageStaticData s
     , getStaticRoutes : DataSource.DataSource (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
-    , site : SiteConfig route siteStaticData
+    , site : SiteConfig route siteData
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , generateFiles :

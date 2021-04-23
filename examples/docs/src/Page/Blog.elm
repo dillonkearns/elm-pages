@@ -1,4 +1,4 @@
-module Page.Blog exposing (Model, Msg, StaticData, page)
+module Page.Blog exposing (Data, Model, Msg, page)
 
 import Article
 import DataSource
@@ -18,35 +18,32 @@ type Msg
     = Msg
 
 
-page : PageWithState RouteParams StaticData Model Msg
+page : PageWithState RouteParams Data Model Msg
 page =
-    Page.withStaticData
+    Page.withData
         { head = head
-        , staticData = \_ -> staticData
+        , data = \_ -> data
         , staticRoutes = DataSource.succeed []
         }
         |> Page.buildWithLocalState
             { view = view
             , init = init
             , update = update
-
-            --\_ _ _ model -> ( model, Cmd.none )
             , subscriptions = \_ _ _ -> Sub.none
             }
 
 
-staticData : DataSource.DataSource StaticData
-staticData =
-    --StaticFile.glob "content/blog/*.md"
+data : DataSource.DataSource Data
+data =
     Article.allMetadata
 
 
-type alias StaticData =
+type alias Data =
     List ( PagePath, Article.ArticleMetadata )
 
 
 init :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> ( Model, Cmd Msg )
 init _ =
     ( Model, Cmd.none )
@@ -58,7 +55,7 @@ type alias RouteParams =
 
 update :
     DynamicContext Shared.Model
-    -> StaticPayload StaticData RouteParams
+    -> StaticPayload Data RouteParams
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
@@ -73,7 +70,7 @@ type alias Model =
 view :
     Model
     -> Shared.Model
-    -> StaticPayload StaticData {}
+    -> StaticPayload Data {}
     -> Document Msg
 view thing model staticPayload =
     { title = "elm-pages blog"
@@ -92,7 +89,7 @@ view thing model staticPayload =
     }
 
 
-head : StaticPayload StaticData {} -> List Head.Tag
+head : StaticPayload Data {} -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

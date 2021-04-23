@@ -19,13 +19,13 @@ import Task
 import Url exposing (Url)
 
 
-type alias Program userModel userMsg pageStaticData sharedStaticData =
-    Platform.Program Flags (Model userModel pageStaticData sharedStaticData) (Msg userMsg)
+type alias Program userModel userMsg pageData sharedData =
+    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg)
 
 
 mainView :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> Model userModel pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
+    -> Model userModel pageData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
@@ -47,8 +47,8 @@ mainView config model =
                     { path = ContentCache.pathForUrl urls |> PagePath.build
                     , frontmatter = config.urlToRoute model.url
                     }
-                    pageData.sharedStaticData
-                    pageData.pageStaticData
+                    pageData.sharedData
+                    pageData.pageData
                     |> .view
                 )
                     pageData.userModel
@@ -85,8 +85,8 @@ urlsToPagePath urls =
 
 
 view :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
-    -> Model userModel pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
+    -> Model userModel pageData sharedData
     -> Browser.Document (Msg userMsg)
 view config model =
     let
@@ -132,11 +132,11 @@ contentJsonDecoder =
 
 
 init :
-    ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route staticData pageData sharedData
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( Model userModel pageStaticData sharedStaticData, Cmd (Msg userMsg) )
+    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg) )
 init config flags url key =
     let
         contentCache =
@@ -172,25 +172,25 @@ init config flags url key =
     case contentJson |> Maybe.map .staticData of
         Just justContentJson ->
             let
-                pageStaticDataResult : Result BuildError pageStaticData
-                pageStaticDataResult =
+                pageDataResult : Result BuildError pageData
+                pageDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
-                        (config.staticData (config.urlToRoute url))
+                        (config.data (config.urlToRoute url))
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
 
-                sharedStaticDataResult : Result BuildError sharedStaticData
-                sharedStaticDataResult =
+                sharedDataResult : Result BuildError sharedData
+                sharedDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
-                        config.sharedStaticData
+                        config.sharedData
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
 
                 pagePath =
                     urlsToPagePath urls
             in
-            case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
-                Ok ( sharedStaticData, pageStaticData ) ->
+            case Result.map2 Tuple.pair sharedDataResult pageDataResult of
+                Ok ( sharedData, pageData ) ->
                     let
                         ( userModel, userCmd ) =
                             Just
@@ -201,7 +201,7 @@ init config flags url key =
                                     }
                                 , metadata = config.urlToRoute url
                                 }
-                                |> config.init sharedStaticData pageStaticData (Just key)
+                                |> config.init sharedData pageData (Just key)
 
                         cmd =
                             [ userCmd
@@ -221,8 +221,8 @@ init config flags url key =
                       , contentCache = contentCache
                       , pageData =
                             Ok
-                                { pageStaticData = pageStaticData
-                                , sharedStaticData = sharedStaticData
+                                { pageData = pageData
+                                , sharedData = sharedData
                                 , userModel = userModel
                                 }
                       }
@@ -261,7 +261,7 @@ type Msg userMsg
     | NoOp
 
 
-type alias Model userModel pageStaticData sharedStaticData =
+type alias Model userModel pageData sharedData =
     { key : Browser.Navigation.Key
     , url : Url
     , baseUrl : Url
@@ -270,17 +270,17 @@ type alias Model userModel pageStaticData sharedStaticData =
         Result
             String
             { userModel : userModel
-            , pageStaticData : pageStaticData
-            , sharedStaticData : sharedStaticData
+            , pageData : pageData
+            , sharedData : sharedData
             }
     }
 
 
 update :
-    ProgramConfig userMsg userModel route siteStaticData pageStaticData sharedStaticData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Msg userMsg
-    -> Model userModel pageStaticData sharedStaticData
-    -> ( Model userModel pageStaticData sharedStaticData, Cmd (Msg userMsg) )
+    -> Model userModel pageData sharedData
+    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg) )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -331,7 +331,7 @@ update config appMsg model =
                 Ok pageData ->
                     let
                         ( userModel, userCmd ) =
-                            config.update pageData.sharedStaticData pageData.pageStaticData (Just model.key) userMsg pageData.userModel
+                            config.update pageData.sharedData pageData.pageData (Just model.key) userMsg pageData.userModel
 
                         updatedPageData =
                             Ok { pageData | userModel = userModel }
@@ -367,21 +367,21 @@ update config appMsg model =
                                 |> Result.map
                                     (\pageStaticData ->
                                         { userModel = userModel
-                                        , sharedStaticData = pageData.sharedStaticData
-                                        , pageStaticData = pageStaticData
+                                        , sharedData = pageData.sharedData
+                                        , pageData = pageStaticData
                                         }
                                     )
 
                         updatedPageStaticData =
                             StaticHttpRequest.resolve ApplicationType.Browser
-                                (config.staticData (config.urlToRoute url))
+                                (config.data (config.urlToRoute url))
                                 contentJson.staticData
                                 |> Result.mapError (\_ -> "Http error")
 
                         ( userModel, userCmd ) =
                             config.update
-                                pageData.sharedStaticData
-                                (updatedPageStaticData |> Result.withDefault pageData.pageStaticData)
+                                pageData.sharedData
+                                (updatedPageStaticData |> Result.withDefault pageData.pageData)
                                 (Just model.key)
                                 (config.onPageChange
                                     { path = urlToPagePath url model.baseUrl
@@ -415,17 +415,17 @@ update config appMsg model =
                 urls =
                     { currentUrl = model.url, baseUrl = model.baseUrl }
 
-                pageStaticDataResult : Result BuildError pageStaticData
-                pageStaticDataResult =
+                pageDataResult : Result BuildError pageData
+                pageDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
-                        (config.staticData (config.urlToRoute model.url))
+                        (config.data (config.urlToRoute model.url))
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
 
-                sharedStaticDataResult : Result BuildError sharedStaticData
-                sharedStaticDataResult =
+                sharedDataResult : Result BuildError sharedData
+                sharedDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
-                        config.sharedStaticData
+                        config.sharedData
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
 
@@ -436,16 +436,16 @@ update config appMsg model =
                 was404 =
                     ContentCache.is404 model.contentCache urls
             in
-            case Result.map2 Tuple.pair sharedStaticDataResult pageStaticDataResult of
-                Ok ( sharedStaticData, pageStaticData ) ->
+            case Result.map2 Tuple.pair sharedDataResult pageDataResult of
+                Ok ( sharedData, pageData ) ->
                     let
                         updateResult =
                             if from404ToNon404 then
                                 case model.pageData of
-                                    Ok pageData ->
+                                    Ok pageData_ ->
                                         config.update
-                                            sharedStaticData
-                                            pageStaticData
+                                            sharedData
+                                            pageData
                                             (Just model.key)
                                             (config.onPageChange
                                                 { path = urlToPagePath model.url model.baseUrl
@@ -454,7 +454,7 @@ update config appMsg model =
                                                 , metadata = config.urlToRoute model.url
                                                 }
                                             )
-                                            pageData.userModel
+                                            pageData_.userModel
                                             |> Just
 
                                     Err error ->
@@ -469,8 +469,8 @@ update config appMsg model =
                                 | contentCache = ContentCache.init (Just ( urls, contentJson ))
                                 , pageData =
                                     Ok
-                                        { pageStaticData = pageStaticData
-                                        , sharedStaticData = sharedStaticData
+                                        { pageData = pageData
+                                        , sharedData = sharedData
                                         , userModel = userModel
                                         }
                               }
@@ -487,8 +487,8 @@ update config appMsg model =
                                     model.pageData
                                         |> Result.map
                                             (\previousPageData ->
-                                                { pageStaticData = pageStaticData
-                                                , sharedStaticData = sharedStaticData
+                                                { pageData = pageData
+                                                , sharedData = sharedData
                                                 , userModel = previousPageData.userModel
                                                 }
                                             )
@@ -509,8 +509,8 @@ update config appMsg model =
 
 
 application :
-    ProgramConfig userMsg userModel route staticData pageStaticData sharedStaticData
-    -> Platform.Program Flags (Model userModel pageStaticData sharedStaticData) (Msg userMsg)
+    ProgramConfig userMsg userModel route staticData pageData sharedData
+    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg)
 application config =
     Browser.application
         { init =

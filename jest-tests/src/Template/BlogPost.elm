@@ -32,9 +32,9 @@ type alias Msg =
     Never
 
 
-template : TemplateDocument BlogPost StaticData Model Msg
+template : TemplateDocument BlogPost Data Model Msg
 template =
-    Template.withStaticData staticData head
+    Template.withData staticData head
         |> Template.buildNoState { view = view }
 
 
@@ -88,17 +88,17 @@ findMatchingImage imageAssetPath =
 
 
 
-staticData : a -> StaticHttp.Request StaticData
+staticData : a -> StaticHttp.Request Data
 staticData siteMetadata =
     StaticHttp.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (D.field "stargazers_count" D.int)
 
 
-type alias StaticData =
+type alias Data =
     Int
 
 
-view : List ( PagePath, TemplateType.Metadata ) -> StaticData -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
+view : List ( PagePath, TemplateType.Metadata ) -> Data -> Model -> BlogPost -> ( a, List (Element msg) ) -> { title : String, body : Element msg }
 view allMetadata static model blogPost rendered =
     { title = blogPost.title
     , body =
@@ -131,7 +131,7 @@ view allMetadata static model blogPost rendered =
     }
 
 
-head : StaticData -> PagePath.PagePath -> BlogPost -> List (Head.Tag Pages.PathKey)
+head : Data -> PagePath.PagePath -> BlogPost -> List (Head.Tag Pages.PathKey)
 head static currentPath meta =
     Head.structuredData
         (StructuredData.article

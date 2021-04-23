@@ -1,4 +1,4 @@
-module Page.Slide.Number_ exposing (Model, Msg, StaticData, page)
+module Page.Slide.Number_ exposing (Data, Model, Msg, page)
 
 import Browser.Events
 import Browser.Navigation
@@ -33,9 +33,9 @@ type alias RouteParams =
     { number : String }
 
 
-page : Page.PageWithState RouteParams StaticData Model Msg
+page : Page.PageWithState RouteParams Data Model Msg
 page =
-    Page.withStaticData
+    Page.withData
         { head = head
         , staticRoutes =
             slideCount
@@ -45,7 +45,7 @@ page =
                             |> List.map String.fromInt
                             |> List.map RouteParams
                     )
-        , staticData = staticData
+        , data = data
         }
         |> Page.buildWithLocalState
             { view = view
@@ -114,9 +114,9 @@ toDirection string =
             Nothing
 
 
-staticData : RouteParams -> DataSource.DataSource StaticData
-staticData routeParams =
-    DataSource.map2 StaticData
+data : RouteParams -> DataSource.DataSource Data
+data routeParams =
+    DataSource.map2 Data
         (slideBody routeParams)
         slideCount
 
@@ -208,7 +208,7 @@ markdownIndexedByHeading index markdownBlocks =
 
 
 head :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -227,7 +227,7 @@ head static =
         |> Seo.website
 
 
-type alias StaticData =
+type alias Data =
     { body : List (Html.Html Msg)
     , totalCount : Int
     }
@@ -236,7 +236,7 @@ type alias StaticData =
 view :
     Model
     -> Shared.Model
-    -> StaticPayload StaticData RouteParams
+    -> StaticPayload Data RouteParams
     -> Document Msg
 view model sharedModel static =
     { title = "TODO title"

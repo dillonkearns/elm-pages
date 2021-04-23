@@ -1,4 +1,4 @@
-module Page.Blog.Slug_ exposing (Model, Msg, StaticData, articlesRequest, page, routes, toRssItem)
+module Page.Blog.Slug_ exposing (Data, Model, Msg, articlesRequest, page, routes, toRssItem)
 
 import Article
 import Cloudinary
@@ -46,10 +46,10 @@ type alias BlogPost =
     }
 
 
-page : Page RouteParams StaticData
+page : Page RouteParams Data
 page =
-    Page.withStaticData
-        { staticData = staticData
+    Page.withData
+        { data = data
         , head = head
         , staticRoutes = routes
         }
@@ -68,7 +68,7 @@ routes =
 
 
 view :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> Document msg
 view { static } =
     { title = static.frontmatter.title
@@ -111,7 +111,7 @@ view { static } =
 
 
 head :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> List Head.Tag
 head { path, static } =
     let
@@ -175,17 +175,17 @@ articleImageView articleImage =
         }
 
 
-type alias StaticData =
+type alias Data =
     { body : List (Element Msg)
     , frontmatter : ArticleMetadata
     }
 
 
-staticData : RouteParams -> DataSource.DataSource StaticData
-staticData route =
+data : RouteParams -> DataSource.DataSource Data
+data route =
     StaticFile.request
         ("content/blog/" ++ route.slug ++ ".md")
-        (OptimizedDecoder.map2 StaticData
+        (OptimizedDecoder.map2 Data
             (StaticFile.body
                 |> OptimizedDecoder.andThen
                     (\rawBody ->

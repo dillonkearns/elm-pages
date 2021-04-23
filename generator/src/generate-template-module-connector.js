@@ -103,14 +103,12 @@ type Msg
       .join("    | ")}
 
 
-type PageStaticData
+type PageData
     = Data404NotFoundPage____
     | ${templates
       .map(
         (name) =>
-          `Data${pathNormalizedName(name)} Page.${moduleName(
-            name
-          )}.StaticData\n`
+          `Data${pathNormalizedName(name)} Page.${moduleName(name)}.Data\n`
       )
       .join("    | ")}
 
@@ -120,14 +118,14 @@ view :
     { path : PagePath
     , frontmatter : Maybe Route
     }
-    -> Shared.StaticData
-    -> PageStaticData
+    -> Shared.Data
+    -> PageData
     ->
         { view : Model -> { title : String, body : Html Msg }
         , head : List Head.Tag
         }
-view page globalData staticData =
-    case ( page.frontmatter, staticData ) of
+view page globalData pageData =
+    case ( page.frontmatter, pageData ) of
         ${templates
           .map(
             (name) =>
@@ -188,8 +186,8 @@ view page globalData staticData =
 
 init :
     Maybe Shared.Model
-    -> Shared.StaticData
-    -> PageStaticData
+    -> Shared.Data
+    -> PageData
     -> Maybe Browser.Navigation.Key
     ->
         Maybe
@@ -201,13 +199,13 @@ init :
             , metadata : Maybe Route
             }
     -> ( Model, Cmd Msg )
-init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePagePath =
+init currentGlobalModel sharedData pageData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey maybePagePath)
 
         ( templateModel, templateCmd ) =
-            case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageStaticData ) of
+            case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
                 ${templates
                   .map(
                     (name) => `( Just ( (Route.${routeHelpers.routeVariant(
@@ -217,7 +215,7 @@ init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePageP
                     )} thisPageData ) ->
                     Page.${moduleName(name)}.page.init
                         { static = thisPageData
-                        , sharedStatic = sharedStaticData
+                        , sharedStatic = sharedData
                         , routeParams = routeParams
                         , path = justPath.path
                         }
@@ -242,8 +240,8 @@ init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePageP
 
 
 
-update : Shared.StaticData -> PageStaticData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
-update sharedStaticData pageStaticData navigationKey msg model =
+update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
+update sharedData pageData navigationKey msg model =
     case msg of
         MsgGlobal msg_ ->
             let
@@ -255,7 +253,7 @@ update sharedStaticData pageStaticData navigationKey msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) sharedStaticData pageStaticData navigationKey <|
+            (init (Just model.global) sharedData pageData navigationKey <|
                 Just
                     { path =
                         { path = record.path
@@ -296,7 +294,7 @@ update sharedStaticData pageStaticData navigationKey msg model =
         Msg${pathNormalizedName(name)} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
-                    case ( model.page, pageStaticData, Maybe.map2 Tuple.pair (model.current |> Maybe.andThen .metadata) (model.current |> Maybe.map .path) ) of
+                    case ( model.page, pageData, Maybe.map2 Tuple.pair (model.current |> Maybe.andThen .metadata) (model.current |> Maybe.map .path) ) of
                         ( Model${pathNormalizedName(
                           name
                         )} pageModel, Data${pathNormalizedName(
@@ -306,7 +304,7 @@ update sharedStaticData pageStaticData navigationKey msg model =
             )} routeParams), justPage ) ) ->
                             Page.${moduleName(name)}.page.update
                                 { static = thisPageData
-                                , sharedStatic = sharedStaticData
+                                , sharedStatic = sharedData
                                 , routeParams = routeParams
                                 , path = justPage.path
                                 }
@@ -370,7 +368,7 @@ templateSubscriptions route path model =
 
 main : ${
       phase === "browser"
-        ? "Pages.Internal.Platform.Program Model Msg PageStaticData Shared.StaticData"
+        ? "Pages.Internal.Platform.Program Model Msg PageData Shared.Data"
         : "Pages.Internal.Platform.Cli.Program (Maybe Route)"
     }
 main =
@@ -396,8 +394,8 @@ main =
         , onPageChange = OnPageChange
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
-        , staticData = staticDataForRoute
-        , sharedStaticData = Shared.template.staticData
+        , data = dataForRoute
+        , sharedData = Shared.template.data
         , generateFiles =
             getStaticRoutes
                 |> DataSource.andThen
@@ -413,8 +411,8 @@ main =
                     )
         }
 
-staticDataForRoute : Maybe Route -> DataSource PageStaticData
-staticDataForRoute route =
+dataForRoute : Maybe Route -> DataSource PageData
+dataForRoute route =
     case route of
         Nothing ->
             DataSource.succeed Data404NotFoundPage____
@@ -425,7 +423,7 @@ staticDataForRoute route =
                 name
               )} routeParams) ->\n            Page.${name.join(
                 "."
-              )}.page.staticData routeParams |> DataSource.map Data${routeHelpers.routeVariant(
+              )}.page.data routeParams |> DataSource.map Data${routeHelpers.routeVariant(
                 name
               )}`
           )
@@ -474,7 +472,7 @@ getStaticRoutes =
 manifestGenerator : List ( Maybe Route ) -> DataSource (Result anyError { path : List String, content : String })
 manifestGenerator resolvedRoutes =
     Site.config resolvedRoutes
-        |> .staticData
+        |> .data
         |> DataSource.map
             (\\data ->
                 (Site.config resolvedRoutes |> .manifest) data

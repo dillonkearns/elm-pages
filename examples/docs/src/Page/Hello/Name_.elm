@@ -1,4 +1,4 @@
-module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
+module Page.Hello.Name_ exposing (Data, Model, Msg, page)
 
 import DataSource
 import Document exposing (Document)
@@ -25,7 +25,7 @@ type alias Route =
 
 page : Page Route ()
 page =
-    Page.noStaticData
+    Page.noData
         { head = head
         , staticRoutes = DataSource.succeed [ { name = "world" } ]
         }
@@ -52,12 +52,12 @@ head static =
         |> Seo.website
 
 
-type alias StaticData =
+type alias Data =
     ()
 
 
 view :
-    StaticPayload StaticData Route
+    StaticPayload Data Route
     -> Document msg
 view static =
     { title = "TODO title"

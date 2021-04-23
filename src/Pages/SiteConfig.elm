@@ -5,14 +5,14 @@ import Head
 import Pages.Manifest
 
 
-type alias SiteConfig route staticData =
+type alias SiteConfig route data =
     List route
     ->
-        { staticData : DataSource.DataSource staticData
+        { data : DataSource.DataSource data
         , canonicalUrl : String
-        , manifest : staticData -> Pages.Manifest.Config
+        , manifest : data -> Pages.Manifest.Config
         , head :
-            staticData
+            data
             -> List Head.Tag
         , generateFiles :
             DataSource.DataSource

@@ -15,10 +15,10 @@ import SiteConfig exposing (SiteConfig)
 import Sitemap
 
 
-config : SiteConfig StaticData
+config : SiteConfig Data
 config =
     \routes ->
-        { staticData = staticData
+        { data = data
         , canonicalUrl = canonicalUrl
         , manifest = manifest
         , head = head
@@ -44,19 +44,19 @@ generateFiles allRoutes =
         ]
 
 
-type alias StaticData =
+type alias Data =
     { siteName : String
     }
 
 
-staticData : DataSource.DataSource StaticData
-staticData =
-    DataSource.map StaticData
+data : DataSource.DataSource Data
+data =
+    DataSource.map Data
         --(StaticFile.request "site-name.txt" StaticFile.body)
         (DataSource.succeed "site-name")
 
 
-head : StaticData -> List Head.Tag
+head : Data -> List Head.Tag
 head static =
     [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
@@ -71,7 +71,7 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-manifest : StaticData -> Manifest.Config
+manifest : Data -> Manifest.Config
 manifest static =
     Manifest.init
         { name = static.siteName

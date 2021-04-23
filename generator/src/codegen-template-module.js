@@ -20,7 +20,7 @@ async function run({ moduleName }) {
  * @param {string} pageModuleName
  */
 function fileContent(pageModuleName) {
-  return `module Page.${pageModuleName} exposing (Model, Msg, StaticData, page)
+  return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
 import Element exposing (Element)
 import Document exposing (Document)
@@ -42,9 +42,9 @@ type alias Msg =
 type alias RouteParams =
     ${routeHelpers.paramsRecord(pageModuleName.split("."))}
 
-page : Page RouteParams StaticData
+page : Page RouteParams Data
 page =
-    Page.noStaticData
+    Page.noData
         { head = head
         , staticRoutes = DataSource.succeed [{}]
         }
@@ -53,7 +53,7 @@ page =
 
 
 head :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -72,12 +72,12 @@ head static =
         |> Seo.website
 
 
-type alias StaticData =
+type alias Data =
     ()
 
 
 view :
-    StaticPayload StaticData RouteParams
+    StaticPayload Data RouteParams
     -> Document Msg
 view static =
     { title = "TODO title"

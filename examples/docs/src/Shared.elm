@@ -1,4 +1,4 @@
-module Shared exposing (Model, Msg(..), SharedMsg(..), StaticData, template)
+module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import Browser.Navigation
 import DataSource
@@ -22,12 +22,12 @@ import Secrets
 import SharedTemplate exposing (SharedTemplate)
 
 
-template : SharedTemplate Msg Model StaticData msg
+template : SharedTemplate Msg Model Data msg
 template =
     { init = init
     , update = update
     , view = view
-    , staticData = staticData
+    , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
     }
@@ -44,7 +44,7 @@ type Msg
     | SharedMsg SharedMsg
 
 
-type alias StaticData =
+type alias Data =
     Int
 
 
@@ -103,14 +103,14 @@ subscriptions _ _ =
     Sub.none
 
 
-staticData : DataSource.DataSource StaticData
-staticData =
+data : DataSource.DataSource Data
+data =
     DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (D.field "stargazers_count" D.int)
 
 
 view :
-    StaticData
+    Data
     ->
         { path : PagePath
         , frontmatter : route
