@@ -1,4 +1,4 @@
-module Page.Blog.Slug_ exposing (Model, Msg, StaticData, articlesRequest, routes, template, toRssItem)
+module Page.Blog.Slug_ exposing (Model, Msg, StaticData, articlesRequest, page, routes, toRssItem)
 
 import Article
 import Cloudinary
@@ -46,8 +46,8 @@ type alias BlogPost =
     }
 
 
-template : Page RouteParams StaticData
-template =
+page : Page RouteParams StaticData
+page =
     Page.withStaticData
         { staticData = staticData
         , head = head

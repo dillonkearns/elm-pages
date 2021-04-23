@@ -1,4 +1,4 @@
-module Page.Index exposing (Model, Msg, StaticData, template)
+module Page.Index exposing (Model, Msg, StaticData, page)
 
 import DataSource
 import DataSource.File as StaticFile
@@ -31,8 +31,8 @@ type alias StaticData =
     List (Element.Element Msg)
 
 
-template : Page Route StaticData
-template =
+page : Page Route StaticData
+page =
     Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed []

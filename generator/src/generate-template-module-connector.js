@@ -138,7 +138,7 @@ view page globalData staticData =
                       \\model ->
                           case model.page of
                               Model${pathNormalizedName(name)} subModel ->
-                                  Page.${moduleName(name)}.template.view
+                                  Page.${moduleName(name)}.page.view
                                       subModel
                                       model.global
                                       { static = data
@@ -161,7 +161,7 @@ view page globalData staticData =
 
                               _ ->
                                   { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-                  , head = Page.${moduleName(name)}.template.head
+                  , head = Page.${moduleName(name)}.page.head
                       { static = data
                       , sharedStatic = globalData
                       , routeParams = s
@@ -215,7 +215,7 @@ init currentGlobalModel sharedStaticData pageStaticData navigationKey maybePageP
                     )} routeParams), justPath ), Data${pathNormalizedName(
                       name
                     )} thisPageData ) ->
-                    Page.${moduleName(name)}.template.init
+                    Page.${moduleName(name)}.page.init
                         { static = thisPageData
                         , sharedStatic = sharedStaticData
                         , routeParams = routeParams
@@ -304,7 +304,7 @@ update sharedStaticData pageStaticData navigationKey msg model =
             )} thisPageData, Just ( (Route.${routeHelpers.routeVariant(
               name
             )} routeParams), justPage ) ) ->
-                            Page.${moduleName(name)}.template.update
+                            Page.${moduleName(name)}.page.update
                                 { static = thisPageData
                                 , sharedStatic = sharedStaticData
                                 , routeParams = routeParams
@@ -353,7 +353,7 @@ templateSubscriptions route path model =
         )} templateModel, Just (Route.${routeHelpers.routeVariant(
               name
             )} routeParams) ) ->
-            Page.${moduleName(name)}.template.subscriptions
+            Page.${moduleName(name)}.page.subscriptions
                 routeParams
                 path
                 templateModel
@@ -425,7 +425,7 @@ staticDataForRoute route =
                 name
               )} routeParams) ->\n            Page.${name.join(
                 "."
-              )}.template.staticData routeParams |> DataSource.map Data${routeHelpers.routeVariant(
+              )}.page.staticData routeParams |> DataSource.map Data${routeHelpers.routeVariant(
                 name
               )}`
           )
@@ -456,7 +456,7 @@ getStaticRoutes =
             if (isParameterizedRoute(name)) {
               return `Page.${moduleName(
                 name
-              )}.template.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
+              )}.page.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
                 name
               )})`;
             } else {
@@ -634,7 +634,7 @@ function handleRoute(name) {
   if (routeHelpers.routeParams(name).length > 0) {
     return `Page.${name.join(
       "."
-    )}.template.staticRoutes |> DataSource.map (List.member routeParams)`;
+    )}.page.staticRoutes |> DataSource.map (List.member routeParams)`;
   } else {
     return `DataSource.succeed True`;
   }

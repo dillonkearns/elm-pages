@@ -20,7 +20,7 @@ async function run({ moduleName }) {
  * @param {string} pageModuleName
  */
 function fileContent(pageModuleName) {
-  return `module Page.${pageModuleName} exposing (Model, Msg, StaticData, template)
+  return `module Page.${pageModuleName} exposing (Model, Msg, StaticData, page)
 
 import Element exposing (Element)
 import Document exposing (Document)
@@ -42,8 +42,8 @@ type alias Msg =
 type alias RouteParams =
     ${routeHelpers.paramsRecord(pageModuleName.split("."))}
 
-template : Page RouteParams StaticData
-template =
+page : Page RouteParams StaticData
+page =
     Page.noStaticData
         { head = head
         , staticRoutes = DataSource.succeed [{}]

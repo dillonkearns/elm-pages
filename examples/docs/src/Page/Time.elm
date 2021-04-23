@@ -1,4 +1,4 @@
-module Page.Time exposing (Model, Msg, StaticData, template)
+module Page.Time exposing (Model, Msg, StaticData, page)
 
 import DataSource
 import Document exposing (Document)
@@ -22,8 +22,8 @@ type alias StaticData =
     String
 
 
-template : Page {} StaticData
-template =
+page : Page {} StaticData
+page =
     Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed []

@@ -1,4 +1,4 @@
-module Page.Showcase exposing (Model, Msg, StaticData, template)
+module Page.Showcase exposing (Model, Msg, StaticData, page)
 
 import DataSource
 import Document exposing (Document)
@@ -19,8 +19,8 @@ type alias Msg =
     Never
 
 
-template : PageWithState {} StaticData () Msg
-template =
+page : PageWithState {} StaticData () Msg
+page =
     Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed []

@@ -1,4 +1,4 @@
-module Page.Slide.Number_ exposing (Model, Msg, StaticData, template)
+module Page.Slide.Number_ exposing (Model, Msg, StaticData, page)
 
 import Browser.Events
 import Browser.Navigation
@@ -33,8 +33,8 @@ type alias RouteParams =
     { number : String }
 
 
-template : Page.PageWithState RouteParams StaticData Model Msg
-template =
+page : Page.PageWithState RouteParams StaticData Model Msg
+page =
     Page.withStaticData
         { head = head
         , staticRoutes =

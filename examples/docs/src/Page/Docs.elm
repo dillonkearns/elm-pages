@@ -1,4 +1,4 @@
-module Page.Docs exposing (Model, Msg, StaticData, template)
+module Page.Docs exposing (Model, Msg, StaticData, page)
 
 import Css.Global
 import DataSource exposing (DataSource)
@@ -35,8 +35,8 @@ type alias RouteParams =
     {}
 
 
-template : Page RouteParams StaticData
-template =
+page : Page RouteParams StaticData
+page =
     Page.withStaticData
         { head = head
         , staticRoutes = DataSource.succeed [ {} ]

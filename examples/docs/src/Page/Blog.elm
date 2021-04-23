@@ -1,4 +1,4 @@
-module Page.Blog exposing (Model, Msg, StaticData, template)
+module Page.Blog exposing (Model, Msg, StaticData, page)
 
 import Article
 import DataSource
@@ -18,8 +18,8 @@ type Msg
     = Msg
 
 
-template : PageWithState RouteParams StaticData Model Msg
-template =
+page : PageWithState RouteParams StaticData Model Msg
+page =
     Page.withStaticData
         { head = head
         , staticData = \_ -> staticData

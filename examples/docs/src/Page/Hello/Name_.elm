@@ -1,4 +1,4 @@
-module Page.Hello.Name_ exposing (Model, Msg, StaticData, template)
+module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
 
 import DataSource
 import Document exposing (Document)
@@ -23,8 +23,8 @@ type alias Route =
     }
 
 
-template : Page Route ()
-template =
+page : Page Route ()
+page =
     Page.noStaticData
         { head = head
         , staticRoutes = DataSource.succeed [ { name = "world" } ]

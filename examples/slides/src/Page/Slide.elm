@@ -1,13 +1,13 @@
-module Page.Slide exposing (Model, Msg, StaticData, template)
+module Page.Slide exposing (Model, Msg, StaticData, page)
 
-import Element exposing (Element)
+import DataSource
 import Document exposing (Document)
-import Pages.ImagePath as ImagePath
+import Element exposing (Element)
 import Head
 import Head.Seo as Seo
-import DataSource
+import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.ImagePath as ImagePath
 import Shared
-import Page exposing (StaticPayload, Page, PageWithState)
 
 
 type alias Model =
@@ -17,17 +17,18 @@ type alias Model =
 type alias Msg =
     Never
 
-type alias RouteParams =
-    {  }
 
-template : Page RouteParams StaticData
-template =
+type alias RouteParams =
+    {}
+
+
+page : Page RouteParams StaticData
+page =
     Page.noStaticData
         { head = head
-        , staticRoutes = DataSource.succeed [{}]
+        , staticRoutes = DataSource.succeed [ {} ]
         }
         |> Page.buildNoState { view = view }
-
 
 
 head :
@@ -61,4 +62,3 @@ view static =
     { title = "TODO title"
     , body = []
     }
-
