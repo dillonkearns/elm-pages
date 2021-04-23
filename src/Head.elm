@@ -1,6 +1,6 @@
 module Head exposing
     ( Tag, metaName, metaProperty
-    , rssLink, sitemapLink
+    , rssLink, sitemapLink, rootLanguage
     , structuredData
     , AttributeValue
     , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
@@ -18,7 +18,7 @@ But this module might be useful if you have a special use case, or if you are
 writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty
-@docs rssLink, sitemapLink
+@docs rssLink, sitemapLink, rootLanguage
 
 
 ## Structured Data
@@ -44,6 +44,7 @@ writing a plugin package to extend `elm-pages`.
 -}
 
 import Json.Encode
+import LanguageTag exposing (LanguageTag)
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Internal.String as String
@@ -56,6 +57,7 @@ through the `head` function.
 type Tag
     = Tag Details
     | StructuredData Json.Encode.Value
+    | RootModifier String String
 
 
 type alias Details =
@@ -287,6 +289,38 @@ appleTouchIcon maybeSize image =
         |> node "link"
 
 
+{-| Set the language for a page.
+
+<https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/lang>
+
+    import Head
+    import LanguageTag
+    import LanguageTag.Language
+
+    LanguageTag.Language.de -- sets the page's language to German
+        |> LanguageTag.build LanguageTag.emptySubtags
+        |> Head.rootLanguage
+
+This results pre-rendered HTML with a global lang tag set.
+
+```html
+<html lang="no">
+...
+</html>
+```
+
+-}
+rootLanguage : LanguageTag -> Tag
+rootLanguage languageTag =
+    languageTag
+        |> LanguageTag.toString
+        |> RootModifier "lang"
+
+
+
+-- TODO rootDirection for
+
+
 filterMaybeValues : List ( String, Maybe a ) -> List ( String, a )
 filterMaybeValues list =
     list
@@ -388,6 +422,12 @@ toJson canonicalSiteUrl currentPagePath tag =
             Json.Encode.object
                 [ ( "contents", value )
                 , ( "type", Json.Encode.string "json-ld" )
+                ]
+
+        RootModifier key value ->
+            Json.Encode.object
+                [ ( "type", Json.Encode.string "root" )
+                , ( "keyValuePair", Json.Encode.list Json.Encode.string [ key, value ] )
                 ]
 
 
