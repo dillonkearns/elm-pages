@@ -199,9 +199,10 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
  * @returns
  */
 function wrapHtml(fromElm, contentJsonString) {
+  const seoData = seo.gather(fromElm.head);
   /*html*/
   return `<!DOCTYPE html>
-  <html lang="en">
+  ${seoData.rootElement}
   <head>
     <link rel="stylesheet" href="/style.css"></link>
     <style>
@@ -243,7 +244,7 @@ function wrapHtml(fromElm, contentJsonString) {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    ${seo.toString(fromElm.head)}
+    ${seoData.headTags}
     </head>
     <body>
       <div data-url="" display="none"></div>

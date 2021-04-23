@@ -1,4 +1,4 @@
-module.exports = { toString, gather };
+module.exports = { gather };
 
 /** @typedef { { type: 'root'; keyValuePair: [string, string] } } RootTagModifier */
 
