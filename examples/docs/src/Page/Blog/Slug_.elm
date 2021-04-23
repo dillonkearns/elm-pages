@@ -1,4 +1,4 @@
-module Page.Blog.Slug_ exposing (Data, Model, Msg, articlesRequest, page, routes, toRssItem)
+module Page.Blog.Slug_ exposing (Data, Model, Msg, page, toRssItem)
 
 import Article
 import Cloudinary
