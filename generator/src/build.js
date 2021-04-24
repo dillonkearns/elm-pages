@@ -177,7 +177,6 @@ async function compileElm(options) {
   const fullOutputPath = path.join(process.cwd(), `dist/elm.js`);
   await spawnElmMake(options, "gen/TemplateModulesBeta.elm", outputPath);
 
-  // const elmEsmContent = await elmToEsm(path.join(process.cwd(), outputPath));
   if (!options.debug) {
     await runTerser(fullOutputPath);
   }
@@ -193,8 +192,8 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
     }
     const subprocess = runElm(options, elmEntrypointPath, outputPath, cwd);
 
-    subprocess.on("close", (code) => {
-      const fileOutputExists = fs.existsSync(fullOutputPath);
+    subprocess.on("close", async (code) => {
+      const fileOutputExists = await fs.exists(fullOutputPath);
       if (code == 0 && fileOutputExists) {
         resolve();
       } else {
