@@ -269,6 +269,7 @@ async function runTerser(filePath) {
         keep_fargs: false,
         unsafe_comps: true,
         unsafe: true,
+        passes: 2,
       },
       mangle: true,
     }
