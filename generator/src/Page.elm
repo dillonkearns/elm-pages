@@ -1,10 +1,9 @@
 module Page exposing
     ( Builder(..)
-    , StaticPayload
+    , StaticPayload, DynamicContext
     , prerenderedRoute, singleRoute, serverlessRoute
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
-    , DynamicContext
     )
 
 {-|
@@ -19,7 +18,7 @@ module Page exposing
 
 Every template will have access to a `StaticPayload`.
 
-@docs StaticPayload
+@docs StaticPayload, DynamicContext
 
 Since this data is _static_, you have access to it before the user has loaded the page, including at build time.
 An example of dynamic data would be keyboard input from the user, query params, or any other data that comes from the app running in the browser.
@@ -207,6 +206,7 @@ buildWithSharedState config builderState =
             }
 
 
+{-| -}
 singleRoute :
     { data : DataSource data
     , head : StaticPayload data {} -> List Head.Tag
@@ -222,6 +222,7 @@ singleRoute { data, head } =
         }
 
 
+{-| -}
 prerenderedRoute :
     { data : routeParams -> DataSource data
     , routes : DataSource (List routeParams)
@@ -255,6 +256,7 @@ serverlessRoute { data, head, routeFound } =
         }
 
 
+{-| -}
 type RouteFound
     = Found
       -- TODO other status codes, like 403?
