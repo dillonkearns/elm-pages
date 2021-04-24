@@ -33,12 +33,13 @@ async function run(options) {
   XMLHttpRequest = require("xhr2");
 
   await codegen.generate();
+  runCli(options);
+  copyAssets();
+  compileElm(options);
+}
 
+async function runCli(options) {
   await compileCliApp(options);
-
-  await copyAssets();
-  await compileElm(options);
-
   runElmApp();
 }
 
