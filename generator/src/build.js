@@ -34,10 +34,12 @@ async function run(options) {
 
   const generateCode = codegen.generate();
 
-  copyAssets();
+  const copyDone = copyAssets();
   await generateCode;
-  runCli(options);
-  compileElm(options);
+  const cliDone = runCli(options);
+  const compileClientDone = compileElm(options);
+
+  await Promise.all([copyDone, cliDone, compileClientDone]);
 }
 
 async function runCli(options) {
