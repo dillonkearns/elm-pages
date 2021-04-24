@@ -25,7 +25,7 @@ const ELM_FILE_PATH = path.join(
 );
 
 async function ensureRequiredDirs() {
-  fs.tryMkdir(`dist`);
+  await fs.tryMkdir(`dist`);
 }
 
 async function run(options) {
