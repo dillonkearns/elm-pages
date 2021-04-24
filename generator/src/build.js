@@ -240,7 +240,7 @@ function runElm(options, elmEntrypointPath, outputPath, cwd) {
 async function runTerser(filePath) {
   console.log("Running terser");
   const minifiedElm = await terser.minify(
-    fs.readFileSync(filePath).toString(),
+    (await fs.readFile(filePath)).toString(),
     {
       ecma: 5,
 
@@ -273,7 +273,7 @@ async function runTerser(filePath) {
     }
   );
   if (minifiedElm.code) {
-    fs.writeFile(filePath, minifiedElm.code);
+    await fs.writeFile(filePath, minifiedElm.code);
   } else {
     throw "Error running terser.";
   }

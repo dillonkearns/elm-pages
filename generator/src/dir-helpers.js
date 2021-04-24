@@ -2,7 +2,7 @@ const util = require("util");
 const fsSync = require("fs");
 const fs = {
   writeFile: util.promisify(fsSync.writeFile),
-  rmSync: util.promisify(fsSync.unlinkSync),
+  rm: util.promisify(fsSync.unlinkSync),
   mkdir: util.promisify(fsSync.mkdir),
   readFile: util.promisify(fsSync.readFile),
   copyFile: util.promisify(fsSync.copyFile),
@@ -68,6 +68,7 @@ module.exports = {
   tryMkdir,
   copyDirFlat,
   copyDirNested,
-  rmSync: fs.rmSync,
+  rmSync: fs.rm,
+  rm: fs.rm,
   existsSync: fs.existsSync,
 };
