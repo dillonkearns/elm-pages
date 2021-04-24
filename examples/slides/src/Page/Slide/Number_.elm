@@ -35,9 +35,9 @@ type alias RouteParams =
 
 page : Page.PageWithState RouteParams Data Model Msg
 page =
-    Page.withData
+    Page.prerenderedRoute
         { head = head
-        , staticRoutes =
+        , routes =
             slideCount
                 |> DataSource.map
                     (\count ->

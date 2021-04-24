@@ -1,12 +1,11 @@
 module Page exposing
     ( Builder(..)
     , StaticPayload
-    , withData, noData
-    , prerenderedRoute, singleRoute
+    , prerenderedRoute, singleRoute, serverlessRoute
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     , DynamicContext
-    , serverlessRoute)
+    )
 
 {-|
 
@@ -32,7 +31,6 @@ But before the user even requests the page, we have the following data:
   - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
   - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
-@docs withData, noData
 @docs prerenderedRoute, singleRoute, serverlessRoute
 
 
@@ -207,39 +205,6 @@ buildWithSharedState config builderState =
             , subscriptions = config.subscriptions
             , handleRoute = record.handleRoute
             }
-
-
-{-| -}
-withData :
-    { data : routeParams -> DataSource templateData
-    , staticRoutes : DataSource (List routeParams)
-    , head : StaticPayload templateData routeParams -> List Head.Tag
-    }
-    -> Builder routeParams templateData
-withData { data, head, staticRoutes } =
-    WithData
-        { data = data
-        , staticRoutes = staticRoutes
-        , head = head
-        , serverless = False
-        , handleRoute = Nothing
-        }
-
-
-{-| -}
-noData :
-    { head : StaticPayload () routeParams -> List Head.Tag
-    , staticRoutes : DataSource (List routeParams)
-    }
-    -> Builder routeParams ()
-noData { head, staticRoutes } =
-    WithData
-        { data = \_ -> DataSource.succeed ()
-        , staticRoutes = staticRoutes
-        , head = head
-        , serverless = False
-        , handleRoute = Nothing
-        }
 
 
 singleRoute :

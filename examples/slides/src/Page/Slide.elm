@@ -2,7 +2,6 @@ module Page.Slide exposing (Data, Model, Msg, page)
 
 import DataSource
 import Document exposing (Document)
-import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
@@ -24,9 +23,9 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.noData
+    Page.singleRoute
         { head = head
-        , staticRoutes = DataSource.succeed [ {} ]
+        , data = DataSource.succeed ()
         }
         |> Page.buildNoState { view = view }
 
