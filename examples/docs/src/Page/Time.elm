@@ -28,16 +28,15 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.withData
+    Page.singleRoute
         { head = head
-        , staticRoutes = DataSource.succeed []
         , data = data
         }
         |> Page.buildNoState { view = view }
 
 
-data : RouteParams -> DataSource.DataSource String
-data routeParams =
+data : DataSource.DataSource String
+data =
     DataSource.succeed "TIME RESPONSE"
 
 

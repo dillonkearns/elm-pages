@@ -20,10 +20,9 @@ type Msg
 
 page : PageWithState RouteParams Data Model Msg
 page =
-    Page.withData
+    Page.singleRoute
         { head = head
-        , data = \_ -> data
-        , staticRoutes = DataSource.succeed []
+        , data = data
         }
         |> Page.buildWithLocalState
             { view = view

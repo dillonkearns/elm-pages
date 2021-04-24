@@ -19,12 +19,15 @@ type alias Msg =
     Never
 
 
-page : PageWithState {} Data () Msg
+type alias RouteParams =
+    {}
+
+
+page : PageWithState RouteParams Data () Msg
 page =
-    Page.withData
+    Page.singleRoute
         { head = head
-        , staticRoutes = DataSource.succeed []
-        , data = \_ -> data
+        , data = data
         }
         |> Page.buildNoState { view = view }
 

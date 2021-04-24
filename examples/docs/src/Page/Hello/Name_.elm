@@ -25,9 +25,10 @@ type alias Route =
 
 page : Page Route ()
 page =
-    Page.noData
+    Page.prerenderedRoute
         { head = head
-        , staticRoutes = DataSource.succeed [ { name = "world" } ]
+        , data = \_ -> DataSource.succeed ()
+        , routes = DataSource.succeed [ { name = "world" } ]
         }
         |> Page.buildNoState { view = view }
 

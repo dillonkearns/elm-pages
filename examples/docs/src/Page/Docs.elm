@@ -37,10 +37,9 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.withData
+    Page.singleRoute
         { head = head
-        , staticRoutes = DataSource.succeed [ {} ]
-        , data = \_ -> data
+        , data = data
         }
         |> Page.buildNoState { view = view }
 

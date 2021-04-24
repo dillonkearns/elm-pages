@@ -5,7 +5,7 @@ module Page exposing
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     , DynamicContext
-    )
+    , prerenderedRoute, singleRoute)
 
 {-|
 
@@ -32,6 +32,7 @@ But before the user even requests the page, we have the following data:
   - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
 @docs withData, noData
+@docs prerenderedRoute, singleRoute
 
 
 ## Stateless Page Modules
@@ -225,5 +226,32 @@ noData { head, staticRoutes } =
     WithData
         { data = \_ -> DataSource.succeed ()
         , staticRoutes = staticRoutes
+        , head = head
+        }
+
+
+singleRoute :
+    { data : DataSource data
+    , head : StaticPayload data {} -> List Head.Tag
+    }
+    -> Builder {} data
+singleRoute { data, head } =
+    WithData
+        { data = \_ -> data
+        , staticRoutes = DataSource.succeed [ {} ]
+        , head = head
+        }
+
+
+prerenderedRoute :
+    { data : routeParams -> DataSource data
+    , routes : DataSource (List routeParams)
+    , head : StaticPayload data routeParams -> List Head.Tag
+    }
+    -> Builder routeParams data
+prerenderedRoute { data, head, routes } =
+    WithData
+        { data = data
+        , staticRoutes = routes
         , head = head
         }

@@ -23,7 +23,7 @@ type alias Msg =
     Never
 
 
-type alias Route =
+type alias RouteParams =
     {}
 
 
@@ -31,18 +31,17 @@ type alias Data =
     List (Element.Element Msg)
 
 
-page : Page Route Data
+page : Page RouteParams Data
 page =
-    Page.withData
+    Page.singleRoute
         { head = head
-        , staticRoutes = DataSource.succeed []
         , data = data
         }
         |> Page.buildNoState { view = view }
 
 
 head :
-    StaticPayload Data Route
+    StaticPayload Data RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -62,7 +61,7 @@ head static =
 
 
 view :
-    StaticPayload Data Route
+    StaticPayload Data RouteParams
     -> Document Msg
 view static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
@@ -82,8 +81,8 @@ view static =
     }
 
 
-data : Route -> DataSource.DataSource (List (Element.Element msg))
-data route =
+data : DataSource.DataSource (List (Element.Element msg))
+data =
     StaticFile.request
         "content/index.md"
         (StaticFile.body

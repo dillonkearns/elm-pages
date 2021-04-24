@@ -48,10 +48,10 @@ type alias BlogPost =
 
 page : Page RouteParams Data
 page =
-    Page.withData
+    Page.prerenderedRoute
         { data = data
         , head = head
-        , staticRoutes = routes
+        , routes = routes
         }
         |> Page.buildNoState { view = view }
 
