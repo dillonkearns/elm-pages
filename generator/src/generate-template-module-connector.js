@@ -451,17 +451,11 @@ getStaticRoutes =
     DataSource.combine
         [ ${templates
           .map((name) => {
-            if (isParameterizedRoute(name)) {
-              return `Page.${moduleName(
-                name
-              )}.page.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
-                name
-              )})`;
-            } else {
-              return `DataSource.succeed [ Route.${routeHelpers.routeVariant(
-                name
-              )} {} ]`;
-            }
+            return `Page.${moduleName(
+              name
+            )}.page.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
+              name
+            )})`;
           })
           .join("\n        , ")}
         ]
@@ -634,7 +628,10 @@ function handleRoute(name) {
       "."
     )}.page.staticRoutes |> DataSource.map (List.member routeParams)`;
   } else {
-    return `DataSource.succeed True`;
+    return `Page.${name.join(".")}.page.handleRoute
+                |> Maybe.map (\\handler -> handler routeParams)
+                |> Maybe.withDefault (DataSource.succeed True)
+`;
   }
 }
 

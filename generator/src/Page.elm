@@ -2,10 +2,11 @@ module Page exposing
     ( Builder(..)
     , StaticPayload
     , withData, noData
+    , prerenderedRoute, singleRoute
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     , DynamicContext
-    , prerenderedRoute, singleRoute)
+    , serverlessRoute)
 
 {-|
 
@@ -32,7 +33,7 @@ But before the user even requests the page, we have the following data:
   - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
 @docs withData, noData
-@docs prerenderedRoute, singleRoute
+@docs prerenderedRoute, singleRoute, serverlessRoute
 
 
 ## Stateless Page Modules
@@ -51,6 +52,7 @@ import DataSource exposing (DataSource)
 import Document exposing (Document)
 import Head
 import Pages.PagePath exposing (PagePath)
+import ServerRequest exposing (ServerRequest)
 import Shared
 
 
@@ -69,6 +71,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
+    , handleRoute : Maybe (routeParams -> DataSource Bool)
     }
 
 
@@ -94,6 +97,8 @@ type Builder routeParams templateData
         , head :
             StaticPayload templateData routeParams
             -> List Head.Tag
+        , serverless : Bool
+        , handleRoute : Maybe (routeParams -> DataSource Bool)
         }
 
 
@@ -115,6 +120,7 @@ buildNoState { view } builderState =
             , init = \_ -> ( (), Cmd.none )
             , update = \_ _ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ -> Sub.none
+            , handleRoute = record.handleRoute
             }
 
 
@@ -157,6 +163,7 @@ buildWithLocalState config builderState =
             , subscriptions =
                 \routeParams path templateModel sharedModel ->
                     config.subscriptions routeParams path templateModel
+            , handleRoute = record.handleRoute
             }
 
 
@@ -198,6 +205,7 @@ buildWithSharedState config builderState =
                         msg
                         templateModel
             , subscriptions = config.subscriptions
+            , handleRoute = record.handleRoute
             }
 
 
@@ -213,6 +221,8 @@ withData { data, head, staticRoutes } =
         { data = data
         , staticRoutes = staticRoutes
         , head = head
+        , serverless = False
+        , handleRoute = Nothing
         }
 
 
@@ -227,6 +237,8 @@ noData { head, staticRoutes } =
         { data = \_ -> DataSource.succeed ()
         , staticRoutes = staticRoutes
         , head = head
+        , serverless = False
+        , handleRoute = Nothing
         }
 
 
@@ -240,6 +252,8 @@ singleRoute { data, head } =
         { data = \_ -> data
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
+        , serverless = False
+        , handleRoute = Nothing
         }
 
 
@@ -254,4 +268,29 @@ prerenderedRoute { data, head, routes } =
         { data = data
         , staticRoutes = routes
         , head = head
+        , serverless = False
+        , handleRoute = Nothing
         }
+
+
+{-| -}
+serverlessRoute :
+    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
+    , routeFound : routeParams -> DataSource Bool
+    , head : StaticPayload data routeParams -> List Head.Tag
+    }
+    -> Builder routeParams data
+serverlessRoute { data, head, routeFound } =
+    WithData
+        { data = data ServerRequest.toStaticHttp
+        , staticRoutes = DataSource.succeed []
+        , head = head
+        , serverless = True
+        , handleRoute = Just routeFound
+        }
+
+
+type RouteFound
+    = Found
+      -- TODO other status codes, like 403?
+    | NotFound404

@@ -1,6 +1,7 @@
 module ServerRequest exposing (ServerRequest, expectHeader, init, optionalHeader, staticData, toStaticHttp)
 
 import DataSource
+import DataSource.Http
 import Internal.OptimizedDecoder exposing (OptimizedDecoder)
 import OptimizedDecoder
 import Secrets
@@ -17,7 +18,7 @@ init constructor =
 
 staticData : DataSource.DataSource String
 staticData =
-    DataSource.get (Secrets.succeed "$$elm-pages$$headers")
+    DataSource.Http.get (Secrets.succeed "$$elm-pages$$headers")
         (OptimizedDecoder.field "headers"
             (OptimizedDecoder.field "accept-language" OptimizedDecoder.string)
         )
@@ -25,7 +26,7 @@ staticData =
 
 toStaticHttp : ServerRequest decodesTo -> DataSource.DataSource decodesTo
 toStaticHttp (ServerRequest decoder) =
-    DataSource.get (Secrets.succeed "$$elm-pages$$headers") decoder
+    DataSource.Http.get (Secrets.succeed "$$elm-pages$$headers") decoder
 
 
 expectHeader : String -> ServerRequest (String -> value) -> ServerRequest value

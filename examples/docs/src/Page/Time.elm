@@ -1,12 +1,15 @@
 module Page.Time exposing (Data, Model, Msg, page)
 
 import DataSource
+import DataSource.Http
 import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
+import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
+import Secrets
 import Shared
 
 
@@ -28,16 +31,18 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.singleRoute
+    Page.serverlessRoute
         { head = head
-        , data = data
+        , data = \_ _ -> data
+        , routeFound = \_ -> DataSource.succeed True
         }
         |> Page.buildNoState { view = view }
 
 
 data : DataSource.DataSource String
 data =
-    DataSource.succeed "TIME RESPONSE"
+    DataSource.Http.get (Secrets.succeed "http://localhost:8080/")
+        OptimizedDecoder.string
 
 
 

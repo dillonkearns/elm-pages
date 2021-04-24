@@ -7,11 +7,17 @@ exports.handler =
    */
   async function (event, context) {
     console.log(JSON.stringify(event));
+    global.staticHttpCache = {};
 
     const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
     const renderer = require("../../../../generator/src/render");
     try {
-      const renderResult = await renderer(compiledElmPath, event.path, event);
+      const renderResult = await renderer(
+        compiledElmPath,
+        event.path,
+        event,
+        function () {}
+      );
 
       if (renderResult.kind === "json") {
         return {
@@ -33,6 +39,7 @@ exports.handler =
         };
       }
     } catch (error) {
+      console.error(error);
       return {
         body: `<body><h1>Error</h1><pre>${error}</pre></body>`,
         statusCode: 500,
