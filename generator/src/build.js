@@ -32,9 +32,11 @@ async function run(options) {
   await ensureRequiredDirs();
   XMLHttpRequest = require("xhr2");
 
-  await codegen.generate();
-  runCli(options);
+  const generateCode = codegen.generate();
+
   copyAssets();
+  await generateCode;
+  runCli(options);
   compileElm(options);
 }
 
@@ -58,7 +60,7 @@ function runElmApp() {
       flags: { secrets: process.env, mode, staticHttpCache },
     });
 
-    app.ports.toJsPort.subscribe((/** @type { FromElm }  */ fromElm) => {
+    app.ports.toJsPort.subscribe(async (/** @type { FromElm }  */ fromElm) => {
       // console.log({ fromElm });
       if (fromElm.command === "log") {
         console.log(fromElm.value);
@@ -69,7 +71,7 @@ function runElmApp() {
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
         try {
-          const fileContents = fs.readFileSync(filePath).toString();
+          const fileContents = (await fs.readFile(filePath)).toString();
           const parsedFile = matter(fileContents);
           app.ports.fromJsPort.send({
             tag: "GotFile",
@@ -88,7 +90,7 @@ function runElmApp() {
         }
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
-        const globResult = globby.sync(globPattern);
+        const globResult = await globby(globPattern);
         const captures = globResult.map((result) => {
           return {
             captures: mm.capture(globPattern, result),
