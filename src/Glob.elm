@@ -123,8 +123,8 @@ regexEscaped stringLiteral =
 
 
 {-| -}
-run : String -> RawGlob -> Glob a -> { match : a, pattern : String }
-run rawInput { captures, fullPath } (Glob pattern regex applyCapture) =
+run : String -> Glob a -> { match : a, pattern : String }
+run rawInput (Glob pattern regex applyCapture) =
     let
         fullRegex =
             "^" ++ regex ++ "$"
@@ -312,7 +312,7 @@ toDataSource glob =
             (OptimizedDecoder.field "fullPath" OptimizedDecoder.string)
             |> OptimizedDecoder.list
             |> OptimizedDecoder.map
-                (\rawGlob -> rawGlob |> List.map (\inner -> run inner.fullPath inner glob |> .match))
+                (\rawGlob -> rawGlob |> List.map (\inner -> run inner.fullPath glob |> .match))
         )
 
 

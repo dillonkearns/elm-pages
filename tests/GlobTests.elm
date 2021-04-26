@@ -12,8 +12,7 @@ all =
             \() ->
                 Glob.literal "hello"
                     |> expect "hello"
-                        { captures = []
-                        , expectedMatch = "hello"
+                        { expectedMatch = "hello"
                         , expectedPattern = "hello"
                         }
         , test "capture" <|
@@ -22,8 +21,7 @@ all =
                     |> Glob.capture Glob.wildcard
                     |> Glob.ignore (Glob.literal ".txt")
                     |> expect "my-file.txt"
-                        { captures = [ "my-file" ]
-                        , expectedMatch = "my-file"
+                        { expectedMatch = "my-file"
                         , expectedPattern = "*.txt"
                         }
         , test "oneOf" <|
@@ -40,8 +38,7 @@ all =
                         )
                     -- https://runkit.com/embed/05epbnc0c7g1
                     |> expect "data-file.json"
-                        { captures = [ "data-file", "json" ]
-                        , expectedMatch = ( "data-file", Json )
+                        { expectedMatch = ( "data-file", Json )
                         , expectedPattern = "*.(yml|json)"
                         }
         , test "at least one" <|
@@ -58,8 +55,7 @@ all =
                         )
                     -- https://runkit.com/embed/05epbnc0c7g1
                     |> expect "data-file.jsonymljsonjson"
-                        { captures = [ "data-file", "jsonymljsonjson" ]
-                        , expectedMatch = ( Json, [ Yml, Json, Json ] )
+                        { expectedMatch = ( Json, [ Yml, Json, Json ] )
                         , expectedPattern = "*.+(yml|json)"
                         }
         , test "optional group - no match" <|
@@ -68,8 +64,7 @@ all =
                     |> expect "test/a/x.js"
                         -- test/a/x.js
                         -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L42
-                        { captures = [ "" ]
-                        , expectedMatch = Nothing
+                        { expectedMatch = Nothing
                         , expectedPattern = "test/a*(a|b)/x.js"
                         }
         , test "optional group - single match" <|
@@ -78,8 +73,7 @@ all =
                     |> expect "test/ab/x.js"
                         -- test/ab/x.js
                         -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L44
-                        { captures = [ "b" ]
-                        , expectedMatch = Just "b"
+                        { expectedMatch = Just "b"
                         , expectedPattern = "test/a*(a|b)/x.js"
                         }
         , test "optional group - multiple matches" <|
@@ -88,16 +82,14 @@ all =
                     |> expect "test/aba/x.js"
                         -- test/aba/x.js
                         -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L45
-                        { captures = [ "ba" ]
-                        , expectedMatch = Just "ba"
+                        { expectedMatch = Just "ba"
                         , expectedPattern = "test/a*(a|b)/x.js"
                         }
         , test "new star" <|
             \() ->
                 Glob.wildcard
                     |> expect "star-pattern"
-                        { captures = [ "star-pattern" ]
-                        , expectedMatch = "star-pattern"
+                        { expectedMatch = "star-pattern"
                         , expectedPattern = "*"
                         }
         , test "new star with literal" <|
@@ -108,8 +100,7 @@ all =
                     |> Glob.capture (Glob.wildcard |> Glob.map String.toUpper)
                     |> Glob.ignore (Glob.literal ".txt")
                     |> expect "before-slash/after-slash.txt"
-                        { captures = [ "before-slash", "after-slash" ]
-                        , expectedMatch = ( "before-slash", "AFTER-SLASH" )
+                        { expectedMatch = ( "before-slash", "AFTER-SLASH" )
                         , expectedPattern = "*/*.txt"
                         }
         , test "recursive match" <|
@@ -120,8 +111,7 @@ all =
                     |> Glob.capture Glob.wildcard
                     |> Glob.ignore (Glob.literal ".txt")
                     |> expect "a/b/c/d.txt"
-                        { captures = [ "a/b/c", "d" ]
-                        , expectedMatch = ( "a/b/c", "d" )
+                        { expectedMatch = ( "a/b/c", "d" )
                         , expectedPattern = "**/*.txt"
                         }
         ]
@@ -143,18 +133,14 @@ type DataExtension
 expect :
     String
     ->
-        { captures : List String
-        , expectedMatch : match
+        { expectedMatch : match
         , expectedPattern : String
         }
     -> Glob.Glob match
     -> Expect.Expectation
-expect filePath { captures, expectedMatch, expectedPattern } glob =
+expect filePath { expectedMatch, expectedPattern } glob =
     glob
         |> Glob.run filePath
-            { fullPath = "full-path"
-            , captures = captures
-            }
         |> Expect.equal
             { pattern = expectedPattern
             , match = expectedMatch
