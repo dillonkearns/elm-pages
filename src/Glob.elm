@@ -15,18 +15,20 @@ import DataSource
 import DataSource.Http
 import List.Extra
 import OptimizedDecoder
+import Regex
 import Secrets
 
 
 {-| -}
 type Glob a
-    = Glob String (String -> List String -> ( a, List String ))
+    = Glob String String (String -> List String -> ( a, List String ))
 
 
 {-| -}
 map : (a -> b) -> Glob a -> Glob b
-map mapFn (Glob pattern applyCapture) =
+map mapFn (Glob pattern regex applyCapture) =
     Glob pattern
+        regex
         (\fullPath captures ->
             captures
                 |> applyCapture fullPath
@@ -37,15 +39,14 @@ map mapFn (Glob pattern applyCapture) =
 {-| -}
 succeed : constructor -> Glob constructor
 succeed constructor =
-    Glob "" (\_ captures -> ( constructor, captures ))
+    Glob "" "" (\_ captures -> ( constructor, captures ))
 
 
 {-| -}
 fullFilePath : Glob String
 fullFilePath =
-    --Glob "" (\fullPath captures -> ( constructor, captures ))
-    --Glob pattern applyCaptures
     Glob ""
+        ""
         (\fullPath captures ->
             ( fullPath, captures )
         )
@@ -55,6 +56,7 @@ fullFilePath =
 wildcard : Glob String
 wildcard =
     Glob "*"
+        "([^/]*?)"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -69,6 +71,7 @@ wildcard =
 recursiveWildcard : Glob String
 recursiveWildcard =
     Glob "**"
+        "(.*?)"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -87,6 +90,7 @@ zeroOrMore matchers =
             ++ (matchers |> String.join "|")
             ++ ")"
         )
+        "TODO"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -106,13 +110,20 @@ zeroOrMore matchers =
 {-| -}
 literal : String -> Glob String
 literal string =
-    Glob string (\_ captures -> ( string, captures ))
+    Glob string (regexEscaped string) (\_ captures -> ( string, captures ))
+
+
+regexEscaped : String -> String
+regexEscaped stringLiteral =
+    -- TODO
+    stringLiteral
 
 
 {-| -}
 not : String -> Glob String
 not string =
     Glob ("!(" ++ string ++ ")")
+        "TODO"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -135,6 +146,7 @@ notOneOf ( firstPattern, otherPatterns ) =
             ++ (allPatterns |> String.join "|")
             ++ ")"
         )
+        "TODO"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -146,12 +158,25 @@ notOneOf ( firstPattern, otherPatterns ) =
 
 
 {-| -}
-run : RawGlob -> Glob a -> { match : a, pattern : String }
-run { captures, fullPath } (Glob pattern applyCapture) =
+run : String -> RawGlob -> Glob a -> { match : a, pattern : String }
+run rawInput { captures, fullPath } (Glob pattern regex applyCapture) =
+    let
+        fullRegex =
+            "^" ++ regex ++ "$"
+
+        regexCaptures : List String
+        regexCaptures =
+            Regex.find parsedRegex rawInput
+                |> List.concatMap .submatches
+                |> List.filterMap identity
+
+        parsedRegex =
+            Regex.fromString fullRegex |> Maybe.withDefault Regex.never
+    in
     { match =
-        captures
+        regexCaptures
             |> List.reverse
-            |> applyCapture fullPath
+            |> applyCapture rawInput
             |> Tuple.first
     , pattern = pattern
     }
@@ -159,23 +184,25 @@ run { captures, fullPath } (Glob pattern applyCapture) =
 
 {-| -}
 toPattern : Glob a -> String
-toPattern (Glob pattern applyCapture) =
+toPattern (Glob pattern regex applyCapture) =
     pattern
 
 
 {-| -}
 ignore : Glob a -> Glob value -> Glob value
-ignore (Glob matcherPattern apply1) (Glob pattern apply2) =
+ignore (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
         (pattern ++ matcherPattern)
+        (regex2 ++ regex1)
         apply2
 
 
 {-| -}
 capture : Glob a -> Glob (a -> value) -> Glob value
-capture (Glob matcherPattern apply1) (Glob pattern apply2) =
+capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
         (pattern ++ matcherPattern)
+        (regex2 ++ regex1)
         (\fullPath captures ->
             let
                 ( applied1, captured1 ) =
@@ -202,6 +229,10 @@ oneOf ( defaultMatch, otherMatchers ) =
     Glob
         ("("
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
+            ++ ")"
+        )
+        ("("
+            ++ String.join "|" ((defaultMatch :: otherMatchers) |> List.map Tuple.first)
             ++ ")"
         )
         (\_ captures ->
@@ -236,6 +267,10 @@ atLeastOne ( defaultMatch, otherMatchers ) =
         ("+("
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
+        )
+        ("((?:"
+            ++ (allMatchers |> List.map Tuple.first |> String.join "|")
+            ++ ")+)"
         )
         (\_ captures ->
             case captures of
@@ -312,7 +347,7 @@ toDataSource glob =
             (OptimizedDecoder.field "fullPath" OptimizedDecoder.string)
             |> OptimizedDecoder.list
             |> OptimizedDecoder.map
-                (\rawGlob -> rawGlob |> List.map (\inner -> run inner glob |> .match))
+                (\rawGlob -> rawGlob |> List.map (\inner -> run inner.fullPath inner glob |> .match))
         )
 
 

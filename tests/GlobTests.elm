@@ -11,7 +11,7 @@ all =
         [ test "literal" <|
             \() ->
                 Glob.literal "hello"
-                    |> expect
+                    |> expect "hello"
                         { captures = []
                         , expectedMatch = "hello"
                         , expectedPattern = "hello"
@@ -21,7 +21,7 @@ all =
                 Glob.succeed identity
                     |> Glob.capture Glob.wildcard
                     |> Glob.ignore (Glob.literal ".txt")
-                    |> expect
+                    |> expect "my-file.txt"
                         { captures = [ "my-file" ]
                         , expectedMatch = "my-file"
                         , expectedPattern = "*.txt"
@@ -39,7 +39,7 @@ all =
                             )
                         )
                     -- https://runkit.com/embed/05epbnc0c7g1
-                    |> expect
+                    |> expect "data-file.json"
                         { captures = [ "data-file", "json" ]
                         , expectedMatch = ( "data-file", Json )
                         , expectedPattern = "*.(yml|json)"
@@ -57,7 +57,7 @@ all =
                             )
                         )
                     -- https://runkit.com/embed/05epbnc0c7g1
-                    |> expect
+                    |> expect "data-file.jsonymljsonjson"
                         { captures = [ "data-file", "jsonymljsonjson" ]
                         , expectedMatch = ( Json, [ Yml, Json, Json ] )
                         , expectedPattern = "*.+(yml|json)"
@@ -65,7 +65,7 @@ all =
         , test "optional group - no match" <|
             \() ->
                 zeroOrMoreGlob
-                    |> expect
+                    |> expect "test/a/x.js"
                         -- test/a/x.js
                         -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L42
                         { captures = [ "" ]
@@ -75,7 +75,7 @@ all =
         , test "optional group - single match" <|
             \() ->
                 zeroOrMoreGlob
-                    |> expect
+                    |> expect "test/ab/x.js"
                         -- test/ab/x.js
                         -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L44
                         { captures = [ "b" ]
@@ -85,7 +85,7 @@ all =
         , test "optional group - multiple matches" <|
             \() ->
                 zeroOrMoreGlob
-                    |> expect
+                    |> expect "test/aba/x.js"
                         -- test/aba/x.js
                         -- https://github.com/micromatch/micromatch/blob/fe4858b0c63b174fd3ae22674db39119b8fa4392/test/api.capture.js#L45
                         { captures = [ "ba" ]
@@ -95,7 +95,7 @@ all =
         , test "new star" <|
             \() ->
                 Glob.wildcard
-                    |> expect
+                    |> expect "star-pattern"
                         { captures = [ "star-pattern" ]
                         , expectedMatch = "star-pattern"
                         , expectedPattern = "*"
@@ -107,7 +107,7 @@ all =
                     |> Glob.ignore (Glob.literal "/")
                     |> Glob.capture (Glob.wildcard |> Glob.map String.toUpper)
                     |> Glob.ignore (Glob.literal ".txt")
-                    |> expect
+                    |> expect "before-slash/after-slash.txt"
                         { captures = [ "before-slash", "after-slash" ]
                         , expectedMatch = ( "before-slash", "AFTER-SLASH" )
                         , expectedPattern = "*/*.txt"
@@ -119,7 +119,7 @@ all =
                     |> Glob.ignore (Glob.literal "/")
                     |> Glob.capture Glob.wildcard
                     |> Glob.ignore (Glob.literal ".txt")
-                    |> expect
+                    |> expect "a/b/c/d.txt"
                         { captures = [ "a/b/c", "d" ]
                         , expectedMatch = ( "a/b/c", "d" )
                         , expectedPattern = "**/*.txt"
@@ -134,7 +134,7 @@ all =
                     |> Glob.ignore (Glob.literal "/")
                     |> Glob.capture Glob.wildcard
                     |> Glob.ignore (Glob.literal ".txt")
-                    |> expect
+                    |> expect "abc/d.txt"
                         -- abc/d.txt
                         -- https://runkit.com/embed/05epbnc0c7g1
                         { captures = [ "abc", "d" ]
@@ -149,7 +149,7 @@ all =
                     |> Glob.ignore (Glob.literal "/")
                     |> Glob.capture Glob.wildcard
                     |> Glob.ignore (Glob.literal ".txt")
-                    |> expect
+                    |> expect "abc/d.txt"
                         -- abc/d.txt
                         -- https://runkit.com/embed/05epbnc0c7g1
                         { captures = [ "abc", "d" ]
@@ -173,15 +173,17 @@ type DataExtension
 
 
 expect :
-    { captures : List String
-    , expectedMatch : match
-    , expectedPattern : String
-    }
+    String
+    ->
+        { captures : List String
+        , expectedMatch : match
+        , expectedPattern : String
+        }
     -> Glob.Glob match
     -> Expect.Expectation
-expect { captures, expectedMatch, expectedPattern } glob =
+expect filePath { captures, expectedMatch, expectedPattern } glob =
     glob
-        |> Glob.run
+        |> Glob.run filePath
             { fullPath = "full-path"
             , captures = captures
             }
