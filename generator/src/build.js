@@ -7,7 +7,6 @@ const codegen = require("./codegen.js");
 const terser = require("terser");
 const matter = require("gray-matter");
 const globby = require("globby");
-const mm = require("micromatch");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
