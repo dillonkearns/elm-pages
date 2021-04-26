@@ -92,17 +92,11 @@ function runElmApp() {
         }
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
-        const globResult = await globby(globPattern);
-        const captures = globResult.map((result) => {
-          return {
-            captures: mm.capture(globPattern, result),
-            fullPath: result,
-          };
-        });
+        const matchedPaths = await globby(globPattern);
 
         app.ports.fromJsPort.send({
           tag: "GotGlob",
-          data: { pattern: globPattern, result: captures },
+          data: { pattern: globPattern, result: matchedPaths },
         });
       } else if (fromElm.tag === "Errors") {
         console.error(fromElm.args[0].errorString);

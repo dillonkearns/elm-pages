@@ -297,22 +297,14 @@ extractMatches defaultValue list string =
             :: extractMatches defaultValue list updatedString
 
 
-type alias RawGlob =
-    { captures : List String
-    , fullPath : String
-    }
-
-
 {-| -}
 toDataSource : Glob a -> DataSource.DataSource (List a)
 toDataSource glob =
     DataSource.Http.get (Secrets.succeed <| "glob://" ++ toPattern glob)
-        (OptimizedDecoder.map2 RawGlob
-            (OptimizedDecoder.string |> OptimizedDecoder.list |> OptimizedDecoder.field "captures")
-            (OptimizedDecoder.field "fullPath" OptimizedDecoder.string)
+        (OptimizedDecoder.string
             |> OptimizedDecoder.list
             |> OptimizedDecoder.map
-                (\rawGlob -> rawGlob |> List.map (\inner -> run inner.fullPath glob |> .match))
+                (\rawGlob -> rawGlob |> List.map (\matchedPath -> run matchedPath glob |> .match))
         )
 
 
