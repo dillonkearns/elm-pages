@@ -90,7 +90,10 @@ zeroOrMore matchers =
             ++ (matchers |> String.join "|")
             ++ ")"
         )
-        "TODO"
+        ("((?:"
+            ++ (matchers |> String.join "|")
+            ++ ")*)"
+        )
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -169,6 +172,7 @@ run rawInput { captures, fullPath } (Glob pattern regex applyCapture) =
             Regex.find parsedRegex rawInput
                 |> List.concatMap .submatches
                 |> List.filterMap identity
+                |> List.map (Maybe.withDefault "")
 
         parsedRegex =
             Regex.fromString fullRegex |> Maybe.withDefault Regex.never
