@@ -91,7 +91,7 @@ zeroOrMore matchers =
             ++ ")"
         )
         ("((?:"
-            ++ (matchers |> String.join "|")
+            ++ (matchers |> List.map regexEscaped |> String.join "|")
             ++ ")*)"
         )
         (\_ captures ->
@@ -118,8 +118,16 @@ literal string =
 
 regexEscaped : String -> String
 regexEscaped stringLiteral =
-    -- TODO
+    --https://stackoverflow.com/a/6969486
     stringLiteral
+        |> Regex.replace regexEscapePattern (\match -> "\\" ++ match.match)
+
+
+regexEscapePattern : Regex.Regex
+regexEscapePattern =
+    "[.*+?^${}()|[\\]\\\\]"
+        |> Regex.fromString
+        |> Maybe.withDefault Regex.never
 
 
 {-| -}
@@ -197,7 +205,10 @@ oneOf ( defaultMatch, otherMatchers ) =
             ++ ")"
         )
         ("("
-            ++ String.join "|" ((defaultMatch :: otherMatchers) |> List.map Tuple.first)
+            ++ String.join "|"
+                ((allMatchers |> List.map Tuple.first |> List.map regexEscaped)
+                    |> List.map regexEscaped
+                )
             ++ ")"
         )
         (\_ captures ->
@@ -234,7 +245,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
             ++ ")"
         )
         ("((?:"
-            ++ (allMatchers |> List.map Tuple.first |> String.join "|")
+            ++ (allMatchers |> List.map Tuple.first |> List.map regexEscaped |> String.join "|")
             ++ ")+)"
         )
         (\_ captures ->
