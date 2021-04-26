@@ -440,7 +440,9 @@ handleRoute maybeRoute =
             (name) =>
               `Just (Route.${routeHelpers.routeVariant(
                 name
-              )} routeParams) ->\n            ${handleRoute(name)}`
+              )} routeParams) ->\n            Page.${name.join(
+                "."
+              )}.page.handleRoute routeParams`
           )
           .join("\n        ")}
 
@@ -616,23 +618,6 @@ function pathNormalizedName(name) {
  */
 function moduleName(name) {
   return name.join(".");
-}
-
-/**
- *
- * @param {string[]} name
- */
-function handleRoute(name) {
-  if (routeHelpers.routeParams(name).length > 0) {
-    return `Page.${name.join(
-      "."
-    )}.page.staticRoutes |> DataSource.map (List.member routeParams)`;
-  } else {
-    return `Page.${name.join(".")}.page.handleRoute
-                |> Maybe.map (\\handler -> handler routeParams)
-                |> Maybe.withDefault (DataSource.succeed True)
-`;
-  }
 }
 
 module.exports = { generateTemplateModuleConnector };

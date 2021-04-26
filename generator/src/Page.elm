@@ -68,7 +68,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
-    , handleRoute : Maybe (routeParams -> DataSource Bool)
+    , handleRoute : routeParams -> DataSource Bool
     }
 
 
@@ -95,7 +95,7 @@ type Builder routeParams templateData
             StaticPayload templateData routeParams
             -> List Head.Tag
         , serverless : Bool
-        , handleRoute : Maybe (routeParams -> DataSource Bool)
+        , handleRoute : routeParams -> DataSource Bool
         }
 
 
@@ -218,7 +218,7 @@ singleRoute { data, head } =
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
-        , handleRoute = Nothing
+        , handleRoute = \_ -> DataSource.succeed True
         }
 
 
@@ -235,7 +235,7 @@ prerenderedRoute { data, head, routes } =
         , staticRoutes = routes
         , head = head
         , serverless = False
-        , handleRoute = Nothing
+        , handleRoute = \routeParams -> routes |> DataSource.map (List.member routeParams)
         }
 
 
@@ -252,7 +252,7 @@ serverlessRoute { data, head, routeFound } =
         , staticRoutes = DataSource.succeed []
         , head = head
         , serverless = True
-        , handleRoute = Just routeFound
+        , handleRoute = routeFound
         }
 
 
