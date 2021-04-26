@@ -1,11 +1,11 @@
 module Glob exposing
-    ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
+    ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
     , capture, ignore
     )
 
 {-|
 
-@docs Glob, atLeastOne, extractMatches, fullFilePath, literal, map, not, notOneOf, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
+@docs Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
 
 @docs capture, ignore
 
@@ -123,44 +123,6 @@ regexEscaped stringLiteral =
 
 
 {-| -}
-not : String -> Glob String
-not string =
-    Glob ("!(" ++ string ++ ")")
-        "TODO"
-        (\_ captures ->
-            case captures of
-                first :: rest ->
-                    ( first, rest )
-
-                [] ->
-                    ( "ERROR", [] )
-        )
-
-
-{-| -}
-notOneOf : ( String, List String ) -> Glob String
-notOneOf ( firstPattern, otherPatterns ) =
-    let
-        allPatterns =
-            firstPattern :: otherPatterns
-    in
-    Glob
-        ("!("
-            ++ (allPatterns |> String.join "|")
-            ++ ")"
-        )
-        "TODO"
-        (\_ captures ->
-            case captures of
-                first :: rest ->
-                    ( first, rest )
-
-                [] ->
-                    ( "ERROR", [] )
-        )
-
-
-{-| -}
 run : String -> RawGlob -> Glob a -> { match : a, pattern : String }
 run rawInput { captures, fullPath } (Glob pattern regex applyCapture) =
     let
@@ -171,7 +133,6 @@ run rawInput { captures, fullPath } (Glob pattern regex applyCapture) =
         regexCaptures =
             Regex.find parsedRegex rawInput
                 |> List.concatMap .submatches
-                |> List.filterMap identity
                 |> List.map (Maybe.withDefault "")
 
         parsedRegex =

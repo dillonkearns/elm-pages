@@ -124,38 +124,6 @@ all =
                         , expectedMatch = ( "a/b/c", "d" )
                         , expectedPattern = "**/*.txt"
                         }
-        , test "not" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.capture
-                        (Glob.notOneOf
-                            ( "xyz", [] )
-                        )
-                    |> Glob.ignore (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.ignore (Glob.literal ".txt")
-                    |> expect "abc/d.txt"
-                        -- abc/d.txt
-                        -- https://runkit.com/embed/05epbnc0c7g1
-                        { captures = [ "abc", "d" ]
-                        , expectedMatch = ( "abc", "d" )
-                        , expectedPattern = "!(xyz)/*.txt"
-                        }
-        , test "not with multiple patterns" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.capture
-                        (Glob.notOneOf ( "abz", [ "xyz" ] ))
-                    |> Glob.ignore (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.ignore (Glob.literal ".txt")
-                    |> expect "abc/d.txt"
-                        -- abc/d.txt
-                        -- https://runkit.com/embed/05epbnc0c7g1
-                        { captures = [ "abc", "d" ]
-                        , expectedMatch = ( "abc", "d" )
-                        , expectedPattern = "!(abz|xyz)/*.txt"
-                        }
         ]
 
 
