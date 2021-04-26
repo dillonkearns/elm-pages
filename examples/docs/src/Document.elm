@@ -32,3 +32,10 @@ mapView fn view =
         ElmCssView elements ->
             List.map (Html.map fn) elements
                 |> ElmCssView
+
+
+placeholder : String -> Document msg
+placeholder moduleName =
+    { title = "Placeholder"
+    , body = ElmUiView [ Element.text moduleName ]
+    }
