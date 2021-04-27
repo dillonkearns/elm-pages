@@ -500,22 +500,27 @@ mapBoth fnA fnB ( a, b, c ) =
 `,
     routesModule: `module Route exposing (..)
 
-import Url
-import Url.Parser as Parser exposing ((</>), Parser)
+import Router
 
 
 type Route
     = ${templates.map(routeHelpers.routeVariantDefinition).join("\n    | ")}
 
 
-urlToRoute : Url.Url -> Maybe Route
+urlToRoute : { url | path : String } -> Maybe Route
 urlToRoute url =
-    Parser.parse (Parser.oneOf routes) url
+    Router.firstMatch matchers url.path
 
 
-routes : List (Parser (Route -> a) a)
-routes =
-    [ ${templates.map((name) => `${routeParser(name)}\n`).join("    , ")}
+matchers : List (Router.Matcher Route)
+matchers =
+    [ ${templates
+      .map(
+        (name) => `{ pattern = "^${routeRegex(name).pattern}$"
+      , toRoute = ${routeRegex(name).toRoute}
+     }\n`
+      )
+      .join("    , ")}
     ]
 
 
@@ -537,31 +542,177 @@ routeToPath maybeRoute =
 }
 
 /**
+ * @param {string} segment
+ * @returns {'static' | 'dynamic' | 'optional' | 'index'}
+ */
+function segmentKind(segment) {
+  if (segment === "Index") {
+    return "index";
+  }
+  const routeParamMatch = segment.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
+  const segmentKind = (routeParamMatch && routeParamMatch[2]) || "";
+  if (segmentKind === "") {
+    return "static";
+  } else if (segmentKind === "_") {
+    return "dynamic";
+  } else if (segmentKind === "__") {
+    return "optional";
+  } else {
+    throw "Unhandled segmentKind";
+  }
+}
+
+/**
  * @param {string[]} name
  */
 function routeParser(name) {
+  const parsedParams = routeHelpers.parseRouteParams(name);
+  const includesOptional = parsedParams.some(
+    (param) => param.kind === "optional"
+  );
+  const params = routeHelpers.routeParams(name);
+  if (includesOptional) {
+    const parserCode = name
+      .map((section) => {
+        const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
+        const maybeParam = routeParamMatch && routeParamMatch[1];
+        switch (segmentKind(section)) {
+          case "static": {
+            return `Parser.s  "${camelToKebab(section)}"`;
+          }
+          case "index": {
+            return `Parser.top`;
+          }
+          case "dynamic": {
+            return `Parser.string`;
+          }
+          case "optional": {
+            return `Parser.string`;
+          }
+        }
+      })
+      .join(" </> ");
+
+    const parserCodeWithoutOptional = name
+      .flatMap((section) => {
+        const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
+        const maybeParam = routeParamMatch && routeParamMatch[1];
+        switch (segmentKind(section)) {
+          case "static": {
+            return [`Parser.s  "${camelToKebab(section)}"`];
+          }
+          case "index": {
+            return [`Parser.top`];
+          }
+          case "dynamic": {
+            return [`Parser.string`];
+          }
+          case "optional": {
+            return [];
+          }
+        }
+      })
+      .join(" </> ");
+    return `Parser.oneOf
+        [ Parser.map (\\${params.join(" ")} -> ${pathNormalizedName(
+      name
+    )} { ${params.map((param) => `${param} = Just ${param}`)} }) (${parserCode})
+        , Parser.map (${pathNormalizedName(name)} { ${params.map(
+      (param) => `${param} = Nothing`
+    )} }) (${parserCodeWithoutOptional})
+        ]`;
+  } else {
+    const parserCode = name
+      .map((section) => {
+        const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
+        const maybeParam = routeParamMatch && routeParamMatch[1];
+        switch (segmentKind(section)) {
+          case "static": {
+            return `Parser.s  "${camelToKebab(section)}"`;
+          }
+          case "index": {
+            return `Parser.top`;
+          }
+          case "dynamic": {
+            return `Parser.string`;
+          }
+          case "optional": {
+            return `(Debug.todo "optional")`;
+          }
+        }
+        // if (maybeParam) {
+        //   return `Parser.string`;
+        // } else if (section === "Index") {
+        //   // TODO give an error if it isn't the final element
+        //   return "Parser.top";
+        // } else {
+        //   return `Parser.s "${camelToKebab(section)}"`;
+        // }
+      })
+      .join(" </> ");
+    if (params.length > 0) {
+      return `Parser.map (\\${params.join(" ")} -> ${pathNormalizedName(
+        name
+      )} { ${params.map((param) => `${param} = ${param}`)} }) (${parserCode})`;
+    } else {
+      return `Parser.map (${pathNormalizedName(name)} {}) (${parserCode})`;
+    }
+  }
+}
+
+/**
+ * @param {string[]} name
+ */
+function routeRegex(name) {
+  const parsedParams = routeHelpers.parseRouteParams(name);
+  const includesOptional = parsedParams.some(
+    (param) => param.kind === "optional"
+  );
   const params = routeHelpers.routeParams(name);
   const parserCode = name
-    .map((section) => {
-      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
+    .flatMap((section) => {
+      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
       const maybeParam = routeParamMatch && routeParamMatch[1];
-      if (maybeParam) {
-        return `Parser.string`;
-      } else if (section === "Index") {
-        // TODO give an error if it isn't the final element
-        return "Parser.top";
-      } else {
-        return `Parser.s "${camelToKebab(section)}"`;
+      switch (segmentKind(section)) {
+        case "static": {
+          return [camelToKebab(section)];
+        }
+        case "index": {
+          return [];
+        }
+        case "dynamic": {
+          return [`(?:([^/]+))`];
+        }
+        case "optional": {
+          return [`(([^/]+))?`];
+        }
       }
     })
-    .join(" </> ");
-  if (params.length > 0) {
-    return `Parser.map (\\${params.join(" ")} -> ${pathNormalizedName(
-      name
-    )} { ${params.map((param) => `${param} = ${param}`)} }) (${parserCode})`;
-  } else {
-    return `Parser.map (${pathNormalizedName(name)} {}) (${parserCode})`;
-  }
+    .join("\\\\/");
+
+  const toRoute = `\\matches ->
+      case matches of
+          [ ${parsedParams
+            .flatMap((parsedParam) => {
+              switch (parsedParam.kind) {
+                case "optional": {
+                  return parsedParam.name;
+                }
+                case "dynamic": {
+                  return `Just ${parsedParam.name}`;
+                }
+              }
+            })
+            .join(", ")} ] ->
+              Just (${pathNormalizedName(name)} { ${params.map(
+    (param) => `${param} = ${param}`
+  )} })
+          _ ->
+              Nothing
+
+  `;
+
+  return { pattern: parserCode, toRoute };
 }
 
 /**
