@@ -95,7 +95,7 @@ ensureLeadingSlash path =
 
 stripTrailingSlash : String -> String
 stripTrailingSlash path =
-    if path |> String.endsWith "/" then
+    if (path |> String.endsWith "/") && (String.length path > 1) then
         String.dropRight 1 path
 
     else

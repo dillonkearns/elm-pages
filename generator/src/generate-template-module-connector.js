@@ -539,7 +539,9 @@ routeToPath maybeRoute =
                 .map((param) => {
                   switch (param.kind) {
                     case "static": {
-                      return `[ "${camelToKebab(param.name)}" ]`;
+                      return param.name === "Index"
+                        ? `[]`
+                        : `[ "${camelToKebab(param.name)}" ]`;
                     }
                     case "optional": {
                       return `Router.maybeToList params.${param.name}`;
