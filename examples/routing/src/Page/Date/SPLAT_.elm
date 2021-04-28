@@ -1,4 +1,4 @@
-module Page.Cats.Name__ exposing (Data, Model, Msg, page)
+module Page.Date.SPLAT_ exposing (Data, Model, Msg, page)
 
 import DataSource
 import Document exposing (Document)
@@ -20,15 +20,17 @@ type alias Msg =
 
 
 type alias RouteParams =
-    { name : Maybe String }
+    { splat : ( String, List String ) }
 
 
 page : Page RouteParams Data
 page =
-    Page.prerenderedRoute
+    Page.serverlessRoute
         { head = head
-        , routes = routes
-        , data = data
+
+        --, routes = routes
+        , data = \_ -> data
+        , routeFound = \_ -> DataSource.succeed True
         }
         |> Page.buildNoState { view = view }
 
@@ -36,9 +38,9 @@ page =
 routes : DataSource.DataSource (List RouteParams)
 routes =
     DataSource.succeed
-        [ { name = Just "larry"
+        [ { splat = ( "2021", [ "04", "28" ] )
           }
-        , { name = Nothing
+        , { splat = ( "2021-04-28", [] )
           }
         ]
 
@@ -52,20 +54,7 @@ head :
     StaticPayload Data RouteParams
     -> List Head.Tag
 head static =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
-        , image =
-            { url = ImagePath.build [ "TODO" ]
-            , alt = "elm-pages logo"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "TODO"
-        , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
-        }
-        |> Seo.website
+    []
 
 
 type alias Data =
@@ -77,7 +66,7 @@ view :
     -> Document Msg
 view static =
     { body =
-        [ text (static.routeParams.name |> Maybe.withDefault "NOTHING")
+        [ Debug.toString static.routeParams |> text
         ]
     , title = ""
     }

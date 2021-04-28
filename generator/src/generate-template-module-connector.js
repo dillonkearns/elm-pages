@@ -534,7 +534,27 @@ routeToPath maybeRoute =
             (name) =>
               `Just (${routeHelpers.routeVariant(
                 name
-              )} params) ->\n            [ ${routePathList(name)} ]`
+              )} params) ->\n           List.concat [ ${routeHelpers
+                .parseRouteParamsWithStatic(name)
+                .map((param) => {
+                  switch (param.kind) {
+                    case "static": {
+                      return `[ "${camelToKebab(param.name)}" ]`;
+                    }
+                    case "optional": {
+                      return `Router.maybeToList params.${param.name}`;
+                    }
+                    case "required-splat": {
+                      return `Router.nonEmptyToList params.${param.name}`;
+                    }
+                    case "dynamic": {
+                      return `[ params.${param.name} ]`;
+                    }
+                    case "optional-splat": {
+                      throw "TODO";
+                    }
+                  }
+                })} ]`
           )
           .join("\n        ")}
 `,
@@ -543,7 +563,7 @@ routeToPath maybeRoute =
 
 /**
  * @param {string} segment
- * @returns {'static' | 'dynamic' | 'optional' | 'index'}
+ * @returns {'static' | 'dynamic' | 'optional' | 'index' | 'required-splat' | 'optional-splat'}
  */
 function segmentKind(segment) {
   if (segment === "Index") {
@@ -551,12 +571,13 @@ function segmentKind(segment) {
   }
   const routeParamMatch = segment.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
   const segmentKind = (routeParamMatch && routeParamMatch[2]) || "";
+  const isSplat = routeParamMatch && routeParamMatch[1] === "SPLAT";
   if (segmentKind === "") {
     return "static";
   } else if (segmentKind === "_") {
-    return "dynamic";
+    return isSplat ? "required-splat" : "dynamic";
   } else if (segmentKind === "__") {
-    return "optional";
+    return isSplat ? "optional-splat" : "optional";
   } else {
     throw "Unhandled segmentKind";
   }
@@ -585,6 +606,12 @@ function routeRegex(name) {
         case "dynamic": {
           return [`(?:([^/]+))`];
         }
+        case "required-splat": {
+          return [`(.*)`];
+        }
+        case "optional-splat": {
+          return [`TODO`];
+        }
         case "optional": {
           return [`([^/]+)?`];
         }
@@ -603,11 +630,18 @@ function routeRegex(name) {
                 case "dynamic": {
                   return `Just ${parsedParam.name}`;
                 }
+                case "required-splat": {
+                  return `Just splat`;
+                }
               }
             })
             .join(", ")} ] ->
-              Just (${pathNormalizedName(name)} { ${params.map(
-    (param) => `${param} = ${param}`
+              Just (${pathNormalizedName(name)} { ${parsedParams.map(
+    (param) => {
+      return `${param.name} = ${
+        param.kind === "required-splat" ? "Router.toNonEmpty " : ""
+      }${param.name}`;
+    }
   )} })
           _ ->
               Nothing

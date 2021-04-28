@@ -1,4 +1,4 @@
-module Router exposing (Matcher, firstMatch)
+module Router exposing (Matcher, firstMatch, maybeToList, nonEmptyToList, toNonEmpty)
 
 import List.Extra
 import Regex
@@ -21,6 +21,31 @@ toRegex : String -> Regex.Regex
 toRegex pattern =
     Regex.fromString pattern
         |> Maybe.withDefault Regex.never
+
+
+nonEmptyToList : ( String, List String ) -> List String
+nonEmptyToList ( string, strings ) =
+    string :: strings
+
+
+maybeToList : Maybe String -> List String
+maybeToList maybeString =
+    case maybeString of
+        Just string ->
+            [ string ]
+
+        Nothing ->
+            []
+
+
+toNonEmpty : String -> ( String, List String )
+toNonEmpty string =
+    case string |> String.split "/" of
+        [] ->
+            ( "ERROR", [] )
+
+        first :: rest ->
+            ( first, rest )
 
 
 type alias Matcher route =
