@@ -80,17 +80,17 @@ submatches pattern path =
 normalizePath : String -> String
 normalizePath path =
     path
-        |> stripLeadingSlash
+        |> ensureLeadingSlash
         |> stripTrailingSlash
 
 
-stripLeadingSlash : String -> String
-stripLeadingSlash path =
+ensureLeadingSlash : String -> String
+ensureLeadingSlash path =
     if path |> String.startsWith "/" then
-        String.dropLeft 1 path
+        path
 
     else
-        path
+        "/" ++ path
 
 
 stripTrailingSlash : String -> String

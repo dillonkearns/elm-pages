@@ -514,7 +514,7 @@ urlToRoute url =
 
 matchers : List (Router.Matcher Route)
 matchers =
-    [ ${templates
+    [ ${sortTemplates(templates)
       .map(
         (name) => `{ pattern = "^${routeRegex(name).pattern}$"
       , toRoute = ${routeRegex(name).toRoute}
@@ -581,6 +581,73 @@ function segmentKind(segment) {
   } else {
     throw "Unhandled segmentKind";
   }
+}
+
+/**
+ *
+ * @param {string[][]} templates
+ * @returns
+ */
+function sortTemplates(templates) {
+  return templates.sort((first, second) => {
+    const a = sortScore(first);
+    const b = sortScore(second);
+    console.log({ a, b });
+    if (b.splatScore === a.splatScore) {
+      if (b.staticSegments === a.staticSegments) {
+        return b.dynamicSegments - a.dynamicSegments;
+      } else {
+        return b.staticSegments - a.staticSegments;
+      }
+    } else {
+      return a.splatScore - b.splatScore;
+    }
+  });
+}
+
+/**
+ * @param {string[]} name
+ */
+function sortScore(name) {
+  const parsedParams = routeHelpers.parseRouteParamsWithStatic(name);
+  return parsedParams.reduce(
+    (currentScore, segment) => {
+      console.log({ kind: segment.kind });
+      switch (segment.kind) {
+        case "dynamic": {
+          return {
+            ...currentScore,
+            dynamicSegments: currentScore.dynamicSegments + 1,
+          };
+        }
+        case "static": {
+          return {
+            ...currentScore,
+            staticSegments: currentScore.staticSegments + 1,
+          };
+        }
+        case "optional": {
+          return {
+            ...currentScore,
+            splatScore: 10,
+          };
+        }
+        case "required-splat": {
+          return {
+            ...currentScore,
+            splatScore: 100,
+          };
+        }
+        case "optional-splat": {
+          return {
+            ...currentScore,
+            splatScore: 100,
+          };
+        }
+      }
+    },
+    { staticSegments: 0, dynamicSegments: 0, splatScore: 0 }
+  );
 }
 
 /**
@@ -722,4 +789,4 @@ function moduleName(name) {
   return name.join(".");
 }
 
-module.exports = { generateTemplateModuleConnector };
+module.exports = { generateTemplateModuleConnector, sortTemplates };
