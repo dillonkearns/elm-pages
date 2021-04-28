@@ -592,7 +592,6 @@ function sortTemplates(templates) {
   return templates.sort((first, second) => {
     const a = sortScore(first);
     const b = sortScore(second);
-    console.log({ a, b });
     if (b.splatScore === a.splatScore) {
       if (b.staticSegments === a.staticSegments) {
         return b.dynamicSegments - a.dynamicSegments;
@@ -612,7 +611,6 @@ function sortScore(name) {
   const parsedParams = routeHelpers.parseRouteParamsWithStatic(name);
   return parsedParams.reduce(
     (currentScore, segment) => {
-      console.log({ kind: segment.kind });
       switch (segment.kind) {
         case "dynamic": {
           return {
