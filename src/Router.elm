@@ -1,4 +1,4 @@
-module Router exposing (Matcher, firstMatch, maybeToList, nonEmptyToList, toNonEmpty)
+module Router exposing (Matcher, firstMatch, fromOptionalSplat, maybeToList, nonEmptyToList, toNonEmpty)
 
 import List.Extra
 import Regex
@@ -26,6 +26,13 @@ toRegex pattern =
 nonEmptyToList : ( String, List String ) -> List String
 nonEmptyToList ( string, strings ) =
     string :: strings
+
+
+fromOptionalSplat : Maybe String -> List String
+fromOptionalSplat maybeMatch =
+    maybeMatch
+        |> Maybe.map (\match -> match |> String.split "/")
+        |> Maybe.withDefault []
 
 
 maybeToList : Maybe String -> List String

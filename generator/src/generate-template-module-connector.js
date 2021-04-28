@@ -551,7 +551,7 @@ routeToPath maybeRoute =
                       return `[ params.${param.name} ]`;
                     }
                     case "optional-splat": {
-                      throw "TODO";
+                      return `params.${param.name}`;
                     }
                   }
                 })} ]`
@@ -598,26 +598,26 @@ function routeRegex(name) {
       const maybeParam = routeParamMatch && routeParamMatch[1];
       switch (segmentKind(section)) {
         case "static": {
-          return [camelToKebab(section)];
+          return [`\\\\/` + camelToKebab(section)];
         }
         case "index": {
-          return [];
+          return [`\\\\/`];
         }
         case "dynamic": {
-          return [`(?:([^/]+))`];
+          return [`\\\\/(?:([^/]+))`];
         }
         case "required-splat": {
-          return [`(.*)`];
+          return [`\\\\/(.*)`];
         }
         case "optional-splat": {
-          return [`TODO`];
+          return [`(.*)`];
         }
         case "optional": {
-          return [`([^/]+)?`];
+          return [`\\\\/([^/]+)?`];
         }
       }
     })
-    .join("\\\\/");
+    .join("");
 
   const toRoute = `\\matches ->
       case matches of
@@ -633,14 +633,15 @@ function routeRegex(name) {
                 case "required-splat": {
                   return `Just splat`;
                 }
+                case "optional-splat": {
+                  return `splat`;
+                }
               }
             })
             .join(", ")} ] ->
               Just (${pathNormalizedName(name)} { ${parsedParams.map(
     (param) => {
-      return `${param.name} = ${
-        param.kind === "required-splat" ? "Router.toNonEmpty " : ""
-      }${param.name}`;
+      return `${param.name} = ${prefixThing(param)}${param.name}`;
     }
   )} })
           _ ->
@@ -649,6 +650,20 @@ function routeRegex(name) {
   `;
 
   return { pattern: parserCode, toRoute };
+}
+
+function prefixThing(param) {
+  switch (param.kind) {
+    case "optional-splat": {
+      return "Router.fromOptionalSplat ";
+    }
+    case "required-splat": {
+      return "Router.toNonEmpty ";
+    }
+    default: {
+      return "";
+    }
+  }
 }
 
 /**
