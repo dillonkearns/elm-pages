@@ -3,8 +3,8 @@ module Page.Docs exposing (Data, Model, Msg, page)
 import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
+import DataSource.Glob as Glob
 import Document exposing (Document)
-import Glob
 import Head
 import Head.Seo as Seo
 import Html.Styled as H exposing (..)

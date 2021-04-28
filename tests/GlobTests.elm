@@ -1,7 +1,7 @@
 module GlobTests exposing (all)
 
+import DataSource.Glob as Glob
 import Expect
-import Glob
 import Test exposing (Test, describe, test)
 
 

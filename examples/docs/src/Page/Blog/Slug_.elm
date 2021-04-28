@@ -5,12 +5,12 @@ import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource
 import DataSource.File as StaticFile
+import DataSource.Glob as Glob
 import Date exposing (Date)
 import Document exposing (Document)
 import Element exposing (Element)
 import Element.Font as Font
 import Element.Region
-import Glob
 import Head
 import Head.Seo as Seo
 import MarkdownRenderer

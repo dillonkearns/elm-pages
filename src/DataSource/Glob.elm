@@ -1,4 +1,4 @@
-module Glob exposing
+module DataSource.Glob exposing
     ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
     , capture, ignore
     )
