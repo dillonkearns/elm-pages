@@ -4,6 +4,7 @@ import Expect
 import Fuzz exposing (Fuzzer)
 import Route exposing (Route)
 import Test exposing (Test, describe, fuzz, test)
+import Url
 
 
 all : Test
@@ -54,7 +55,9 @@ all =
 routeFuzzer : Fuzzer Route
 routeFuzzer =
     Fuzz.oneOf
-        [ Fuzz.constant (Route.Cats__Name__ { name = Just "larry" })
+        [ Fuzz.map
+            (\string -> Route.Cats__Name__ { name = Just string })
+            nonEmptyUrlEscapedString
         , Fuzz.int
             |> Fuzz.map
                 (\number ->
@@ -77,3 +80,17 @@ routeFuzzer =
             Fuzz.int
             (Fuzz.list Fuzz.int)
         ]
+
+
+nonEmptyUrlEscapedString : Fuzzer String
+nonEmptyUrlEscapedString =
+    Fuzz.map2
+        (\c string ->
+            Url.percentEncode
+                (String.fromChar
+                    c
+                    ++ string
+                )
+        )
+        Fuzz.char
+        Fuzz.string
