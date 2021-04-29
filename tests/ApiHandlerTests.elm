@@ -62,13 +62,18 @@ all =
 
 
 --withRoutes : a -> b -> List String
+--withRoutes : List ((b -> List String) -> String) -> Handler a b -> List String
 
 
-withRoutes : List ((b -> String) -> String) -> Handler a b -> List String
-withRoutes values (Handler pattern handler toString) =
+withRoutes values (Handler pattern handler toString dynamicSegments) =
     --[ "users/100.json", "users/101.json" ]
     values
-        |> List.map (\value -> value toString)
+        |> List.map
+            (\value ->
+                value
+                    |> dynamicSegments
+                    |> toString
+            )
 
 
 
@@ -76,7 +81,7 @@ withRoutes values (Handler pattern handler toString) =
 
 
 tryMatch : String -> Handler Response b -> Maybe Response
-tryMatch path (Handler pattern handler toString) =
+tryMatch path (Handler pattern handler toString dynamicSegments) =
     let
         matches =
             Regex.find
@@ -102,7 +107,7 @@ tryMatch path (Handler pattern handler toString) =
 
 
 type Handler a b
-    = Handler String (List String -> a) (b -> String)
+    = Handler String (List String -> a) (List String -> String) (b -> List String)
 
 
 type alias Response =
@@ -111,7 +116,7 @@ type alias Response =
 
 succeed : a -> Handler a b
 succeed a =
-    Handler "" (\args -> a) (\_ -> "")
+    Handler "" (\args -> a) (\_ -> "") (\_ -> [])
 
 
 
@@ -121,17 +126,17 @@ succeed a =
 
 
 literalSegment : String -> Handler a b -> Handler a b
-literalSegment segment (Handler pattern handler toString) =
-    Handler (pattern ++ segment) handler (\arg -> toString arg ++ segment)
+literalSegment segment (Handler pattern handler toString dynamicSegments) =
+    Handler (pattern ++ segment) handler (\values -> toString values ++ segment) dynamicSegments
 
 
 slash : Handler a b -> Handler a b
-slash (Handler pattern handler toString) =
-    Handler (pattern ++ "/") handler (\arg -> toString arg ++ "/")
+slash (Handler pattern handler toString dynamicSegments) =
+    Handler (pattern ++ "/") handler (\arg -> toString arg ++ "/") dynamicSegments
 
 
 captureSegment : Handler (String -> a) (String -> b) -> Handler a (String -> b)
-captureSegment (Handler pattern previousHandler toString) =
+captureSegment (Handler pattern previousHandler toString dynamicSegments) =
     Handler (pattern ++ "(.*)")
         (\matches ->
             case matches of
@@ -143,6 +148,7 @@ captureSegment (Handler pattern previousHandler toString) =
         )
         --(\string -> \arg -> toString arg)
         (\s -> toString s)
+        dynamicSegments
 
 
 captureRest : Handler (List String -> a) b -> Handler a b
