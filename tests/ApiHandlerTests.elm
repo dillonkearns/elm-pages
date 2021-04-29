@@ -26,6 +26,18 @@ all =
                     |> literalSegment ".json"
                     |> tryMatch "124.json"
                     |> Expect.equal (Just { body = "Data for user 124" })
+        , test "file path with multiple segments" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> literalSegment "users"
+                    |> slash
+                    |> captureSegment
+                    |> literalSegment ".json"
+                    |> tryMatch "users/123.json"
+                    |> Expect.equal (Just { body = "Data for user 123" })
         ]
 
 
@@ -64,7 +76,7 @@ type alias Response =
 
 succeed : a -> Handler a
 succeed a =
-    Handler "(.*)" (\args -> a)
+    Handler "" (\args -> a)
 
 
 handle : (a -> Response) -> Handler a -> Handler response
@@ -78,8 +90,8 @@ literalSegment segment (Handler pattern handler) =
 
 
 slash : Handler a -> Handler a
-slash handler =
-    handler
+slash (Handler pattern handler) =
+    Handler (pattern ++ "/") handler
 
 
 captureSegment : Handler (String -> a) -> Handler a
@@ -92,7 +104,7 @@ captureSegment (Handler pattern previousHandler) =
             _ ->
                 Debug.todo "Expected non-empty list"
     )
-        |> Handler pattern
+        |> Handler (pattern ++ "(.*)")
 
 
 captureRest : Handler (List String -> a) -> Handler a
