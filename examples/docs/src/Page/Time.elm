@@ -41,7 +41,7 @@ page =
 
 data : DataSource.DataSource String
 data =
-    DataSource.Http.get (Secrets.succeed "http://localhost:3000/.netlify/functions/time")
+    DataSource.Http.get (Secrets.succeed "/.netlify/functions/time")
         OptimizedDecoder.string
 
 
