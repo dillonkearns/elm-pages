@@ -2,20 +2,29 @@ module ApiHandlerTests exposing (..)
 
 import Expect
 import Regex
-import Test exposing (describe, test)
+import Test exposing (describe, only, test)
 
 
 all =
     describe "api routes"
-        [ test "match top-level file" <|
+        [ test "match top-level file with no extension" <|
             \() ->
-                exampleHandler
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> captureSegment
                     |> tryMatch "123"
                     |> Expect.equal (Just { body = "Data for user 123" })
-        , test "match top-level file 2" <|
+        , test "file with extension" <|
             \() ->
-                exampleHandler
-                    |> tryMatch "124"
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> captureSegment
+                    |> literalSegment ".json"
+                    |> tryMatch "124.json"
                     |> Expect.equal (Just { body = "Data for user 124" })
         ]
 
@@ -25,7 +34,7 @@ tryMatch path (Handler pattern handler) =
     let
         matches =
             Regex.find
-                (Regex.fromString pattern
+                (Regex.fromString (pattern |> Debug.log "pattern")
                     |> Maybe.withDefault Regex.never
                 )
                 path
@@ -42,10 +51,7 @@ exampleHandler =
         (\userId ->
             { body = "Data for user " ++ userId }
         )
-        |> literalSegment "rss.xml"
-        |> slash
-        --|> literalSegment ""
-        |> captureSegment ""
+        |> captureSegment
 
 
 type Handler a
@@ -67,8 +73,8 @@ handle function handler =
 
 
 literalSegment : String -> Handler a -> Handler a
-literalSegment segment handler =
-    handler
+literalSegment segment (Handler pattern handler) =
+    Handler (pattern ++ segment) handler
 
 
 slash : Handler a -> Handler a
@@ -76,8 +82,8 @@ slash handler =
     handler
 
 
-captureSegment : String -> Handler (String -> a) -> Handler a
-captureSegment string (Handler pattern previousHandler) =
+captureSegment : Handler (String -> a) -> Handler a
+captureSegment (Handler pattern previousHandler) =
     (\matches ->
         case matches of
             first :: rest ->
