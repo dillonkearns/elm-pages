@@ -171,7 +171,7 @@ captureSegment (Handler pattern previousHandler toString dynamicSegments) =
                 _ ->
                     ""
         )
-        (dynamicSegments (\_ -> [ "100" ]))
+        (dynamicSegments (\string -> [ string ]))
 
 
 captureRest : Handler (List String -> a) b -> Handler a b
