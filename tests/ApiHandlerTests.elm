@@ -38,11 +38,45 @@ all =
                     |> literalSegment ".json"
                     |> tryMatch "users/123.json"
                     |> Expect.equal (Just { body = "Data for user 123" })
+        , test "routes" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> literalSegment "users"
+                    |> slash
+                    |> captureSegment
+                    |> literalSegment ".json"
+                    |> withRoutes
+                        --[ \c -> c "100"
+                        [ \c -> "100"
+                        ]
+                    |> Expect.equal
+                        [ "users/100.json"
+
+                        --, "users/101.json"
+                        ]
         ]
 
 
-tryMatch : String -> Handler Response -> Maybe Response
-tryMatch path (Handler pattern handler) =
+
+--withRoutes : a -> b -> List String
+
+
+withRoutes : List ((b -> String) -> String) -> Handler a b -> List String
+withRoutes values (Handler pattern handler toString) =
+    --[ "users/100.json", "users/101.json" ]
+    values
+        |> List.map (\value -> value toString)
+
+
+
+--|> List.map (\value -> toString value)
+
+
+tryMatch : String -> Handler Response b -> Maybe Response
+tryMatch path (Handler pattern handler toString) =
     let
         matches =
             Regex.find
@@ -57,56 +91,60 @@ tryMatch path (Handler pattern handler) =
         |> Just
 
 
-exampleHandler : Handler Response
-exampleHandler =
-    succeed
-        (\userId ->
-            { body = "Data for user " ++ userId }
-        )
-        |> captureSegment
+
+--exampleHandler : Handler Response
+--exampleHandler =
+--    succeed
+--        (\userId ->
+--            { body = "Data for user " ++ userId }
+--        )
+--        |> captureSegment
 
 
-type Handler a
-    = Handler String (List String -> a)
+type Handler a b
+    = Handler String (List String -> a) (b -> String)
 
 
 type alias Response =
     { body : String }
 
 
-succeed : a -> Handler a
+succeed : a -> Handler a b
 succeed a =
-    Handler "" (\args -> a)
+    Handler "" (\args -> a) (\_ -> "")
 
 
-handle : (a -> Response) -> Handler a -> Handler response
-handle function handler =
-    Debug.todo ""
+
+--handle : (a -> Response) -> Handler a b -> Handler response b
+--handle function handler =
+--    Debug.todo ""
 
 
-literalSegment : String -> Handler a -> Handler a
-literalSegment segment (Handler pattern handler) =
-    Handler (pattern ++ segment) handler
+literalSegment : String -> Handler a b -> Handler a b
+literalSegment segment (Handler pattern handler toString) =
+    Handler (pattern ++ segment) handler (\arg -> toString arg ++ segment)
 
 
-slash : Handler a -> Handler a
-slash (Handler pattern handler) =
-    Handler (pattern ++ "/") handler
+slash : Handler a b -> Handler a b
+slash (Handler pattern handler toString) =
+    Handler (pattern ++ "/") handler (\arg -> toString arg ++ "/")
 
 
-captureSegment : Handler (String -> a) -> Handler a
-captureSegment (Handler pattern previousHandler) =
-    (\matches ->
-        case matches of
-            first :: rest ->
-                previousHandler rest first
+captureSegment : Handler (String -> a) (String -> b) -> Handler a (String -> b)
+captureSegment (Handler pattern previousHandler toString) =
+    Handler (pattern ++ "(.*)")
+        (\matches ->
+            case matches of
+                first :: rest ->
+                    previousHandler rest first
 
-            _ ->
-                Debug.todo "Expected non-empty list"
-    )
-        |> Handler (pattern ++ "(.*)")
+                _ ->
+                    Debug.todo "Expected non-empty list"
+        )
+        --(\string -> \arg -> toString arg)
+        (\s -> toString s)
 
 
-captureRest : Handler (List String -> a) -> Handler a
+captureRest : Handler (List String -> a) b -> Handler a b
 captureRest previousHandler =
     Debug.todo ""
