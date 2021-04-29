@@ -44,43 +44,28 @@ all =
                     |> withRoutes
                     --[ \c -> c "100"
                     |> Expect.equal
-                        "users/100.json"
+                        [ "users/100.json" ]
 
         --, "users/101.json"
         ]
 
 
-routesExample : Handler Response (List String)
+routesExample : Handler Response (List (List String))
 routesExample =
-    firstPart
-        |> captureSegment
-        |> literalSegment ".json"
-
-
-
---firstPart : Handler (String -> { body : String }) ((String -> List String) -> List String)
---firstPart : Handler (String -> { body : String }) (String -> List String)
-
-
-firstPart =
     succeed
         (\userId ->
             { body = "Data for user " ++ userId }
         )
         (\constructor ->
-            constructor "100"
+            [ constructor "100" ]
         )
         |> literalSegment "users"
         |> slash
+        |> captureSegment
+        |> literalSegment ".json"
 
 
-
---withRoutes : a -> b -> List String
---withRoutes : List ((b -> List String) -> String) -> Handler a b -> List String
---withRoutes : List b -> Handler a b -> List String
-
-
-withRoutes : Handler Response (List String) -> String
+withRoutes : Handler Response (List (List String)) -> List String
 withRoutes (Handler pattern handler toString dynamicSegments) =
     --[ "users/100.json", "users/101.json" ]
     --values
@@ -90,7 +75,9 @@ withRoutes (Handler pattern handler toString dynamicSegments) =
     --                |> dynamicSegments
     --                |> toString
     --        )
-    toString (dynamicSegments |> Debug.log "dynamicSegments")
+    dynamicSegments
+        --|> Debug.log "dynamicSegments"
+        |> List.map toString
 
 
 
@@ -131,7 +118,7 @@ type alias Response =
     { body : String }
 
 
-succeed : a -> ((b -> List String) -> List String) -> Handler a ((b -> List String) -> List String)
+succeed : a -> ((b -> List String) -> List (List String)) -> Handler a ((b -> List String) -> List (List String))
 succeed a buildTimePaths =
     Handler "" (\args -> a) (\_ -> "") buildTimePaths
 
@@ -152,7 +139,7 @@ slash (Handler pattern handler toString dynamicSegments) =
     Handler (pattern ++ "/") handler (\arg -> toString arg ++ "/") dynamicSegments
 
 
-captureSegment : Handler (String -> a) ((String -> List String) -> List String) -> Handler a (List String)
+captureSegment : Handler (String -> a) ((String -> List String) -> List (List String)) -> Handler a (List (List String))
 captureSegment (Handler pattern previousHandler toString dynamicSegments) =
     Handler (pattern ++ "(.*)")
         (\matches ->
