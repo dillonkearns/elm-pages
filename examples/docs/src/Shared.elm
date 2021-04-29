@@ -186,6 +186,7 @@ navbarLinks stars currentPath =
     , highlightableLink currentPath [ "docs" ] "Docs"
     , highlightableLink currentPath [ "showcase" ] "Showcase"
     , highlightableLink currentPath [ "blog" ] "Blog"
+    , highlightableLink currentPath [ "time" ] "Time"
     ]
 
 
