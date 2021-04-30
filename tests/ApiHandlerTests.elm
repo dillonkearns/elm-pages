@@ -61,58 +61,54 @@ all =
           --                [ "users/100.json"
           --                , "users/101.json"
           --                ],
-          only <|
-            describe "multi-part"
-                [ --test "multi-level routes" <|
-                  --    \() ->
-                  --        newThing
-                  --            |> withRoutes
-                  --            |> Expect.equal
-                  --                [ "repos/dillonkearns/elm-pages.json"
-                  --
-                  --                --, "users/101.json"
-                  --                ],
-                  test "3-level route" <|
-                    \() ->
-                        threeParts
-                            |> withRoutes
-                                (\constructor ->
-                                    [ constructor "dillonkearns" "elm-pages" "static-files"
-                                    ]
-                                )
-                            |> Expect.equal
-                                [ "repos/dillonkearns/elm-pages.json"
+          describe "multi-part"
+            [ test "multi-level routes" <|
+                \() ->
+                    newThing
+                        |> withRoutes
+                            (\a ->
+                                --constructor "dillonkearns" "elm-pages"
+                                --, constructor "101"
+                                a "dillonkearns" "elm-pages"
+                             --, constructor "elm-pages"
+                             --]
+                            )
+                        |> Expect.equal
+                            --[
+                            "repos/dillonkearns/elm-pages.json"
 
-                                --, "users/101.json"
-                                ]
-                ]
+            --, "users/101.json"
+            --]
+            , test "3-level route" <|
+                \() ->
+                    threeParts
+                        |> withRoutes
+                            (\constructor ->
+                                constructor "dillonkearns" "elm-pages" "static-files"
+                            )
+                        |> Expect.equal
+                            "repos/dillonkearns/elm-pages/static-files"
+
+            --, "users/101.json"
+            ]
         ]
 
 
-newThing : Handler { body : String } (String -> String -> String)
+newThing : Handler Response (String -> String -> List String)
 newThing =
     succeedNew
         (\userName repoName ->
             { body = "Data for user" }
         )
-        --(Debug.todo "")
-        --(\a ->
-        --    [ --constructor "dillonkearns" "elm-pages"
-        --      --, constructor "101"
-        --      a "dillonkearns" "elm-pages" -- [ "1", "2" ]
-        --
-        --    --, constructor "elm-pages"
-        --    ]
-        --)
-        --(Debug.todo "")
         |> literalSegment "repos"
         |> slash
         |> captureNew
         |> slash
         |> captureNew
+        |> literalSegment ".json"
 
 
-threeParts : Handler { body : String } (String -> String -> String -> String)
+threeParts : Handler Response (String -> String -> String -> List String)
 threeParts =
     succeedNew
         (\username repo branch ->

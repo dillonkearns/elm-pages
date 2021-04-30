@@ -3,15 +3,9 @@ module ApiHandler exposing (..)
 import Regex
 
 
-withRoutes : (constructor -> List String) -> Handler a constructor -> List String
+withRoutes : (constructor -> List String) -> Handler a constructor -> String
 withRoutes buildUrls (Handler pattern handler toString constructor) =
-    buildUrls constructor
-
-
-
---dynamicSegments
---    |> List.map toString
---|> List.map (\value -> toString value)
+    toString (buildUrls (constructor []))
 
 
 tryMatch : String -> Handler Response constructor -> Maybe Response
@@ -19,7 +13,7 @@ tryMatch path (Handler pattern handler toString constructor) =
     let
         matches =
             Regex.find
-                (Regex.fromString (pattern |> Debug.log "pattern")
+                (Regex.fromString pattern
                     |> Maybe.withDefault Regex.never
                 )
                 path
@@ -41,7 +35,7 @@ tryMatch path (Handler pattern handler toString constructor) =
 
 
 type Handler a constructor
-    = Handler String (List String -> a) (List String -> String) constructor
+    = Handler String (List String -> a) (List String -> String) (List String -> constructor)
 
 
 type alias Response =
@@ -67,9 +61,9 @@ type alias Response =
 --succeedNew : a -> b -> Handler a b
 
 
-succeedNew : a -> Handler a String
+succeedNew : a -> Handler a (List String)
 succeedNew a =
-    Handler "" (\args -> a) (\_ -> "") ""
+    Handler "" (\args -> a) (\_ -> "") (\list -> list)
 
 
 
@@ -168,23 +162,27 @@ captureNew (Handler pattern previousHandler toString constructor) =
                 _ ->
                     Debug.todo "Expected non-empty list"
         )
-        --(Debug.todo "")
         (\s ->
-            case s |> Debug.log "@@@ s" of
+            case s of
                 first :: rest ->
-                    toString s ++ first
+                    toString rest ++ first
 
                 _ ->
                     ""
         )
-        --(\_ -> dynamicSegments [])
-        --(Debug.todo "")
-        (\string ->
-            constructor
+        (\matches ->
+            \string ->
+                constructor (string :: matches)
         )
 
 
 
+--(\_ -> constructor)
+--(Debug.todo "")
+--)
+--foo : a -> List a -> List a
+--foo =
+--    (::)
 --(dynamicSegments (\string -> [ string ]))
 --(Debug.todo "")
 
