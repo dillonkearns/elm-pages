@@ -61,8 +61,8 @@ type alias Response =
 --succeedNew : a -> b -> Handler a b
 
 
-succeedNew : a -> Handler a (List String)
-succeedNew a =
+succeed : a -> Handler a (List String)
+succeed a =
     Handler "" (\args -> a) (\_ -> "") (\list -> list)
 
 

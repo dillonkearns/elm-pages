@@ -7,61 +7,61 @@ import Test exposing (describe, only, test)
 
 all =
     describe "api routes"
-        [ -- test "match top-level file with no extension" <|
-          --    \() ->
-          --        succeed
-          --            (\userId ->
-          --                { body = "Data for user " ++ userId }
-          --            )
-          --            (\_ -> [])
-          --            |> captureSegment
-          --            |> tryMatch "123"
-          --            |> Expect.equal (Just { body = "Data for user 123" })
-          --, test "file with extension" <|
-          --    \() ->
-          --        succeed
-          --            (\userId ->
-          --                { body = "Data for user " ++ userId }
-          --            )
-          --            (\_ -> [])
-          --            |> captureSegment
-          --            |> literalSegment ".json"
-          --            |> tryMatch "124.json"
-          --            |> Expect.equal (Just { body = "Data for user 124" })
-          --, test "file path with multiple segments" <|
-          --    \() ->
-          --        succeed
-          --            (\userId ->
-          --                { body = "Data for user " ++ userId }
-          --            )
-          --            (\_ -> [])
-          --            |> literalSegment "users"
-          --            |> slash
-          --            |> captureSegment
-          --            |> literalSegment ".json"
-          --            |> tryMatch "users/123.json"
-          --            |> Expect.equal (Just { body = "Data for user 123" })
-          --, test "routes" <|
-          --    \() ->
-          --        succeed
-          --            (\userId ->
-          --                { body = "Data for user " ++ userId }
-          --            )
-          --            (\constructor ->
-          --                [ constructor "100"
-          --                , constructor "101"
-          --                ]
-          --            )
-          --            |> literalSegment "users"
-          --            |> slash
-          --            |> captureSegment
-          --            |> literalSegment ".json"
-          --            |> withRoutes
-          --            |> Expect.equal
-          --                [ "users/100.json"
-          --                , "users/101.json"
-          --                ],
-          describe "multi-part"
+        [ test "match top-level file with no extension" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> captureNew
+                    |> tryMatch "123"
+                    |> Expect.equal (Just { body = "Data for user 123" })
+        , test "file with extension" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> captureNew
+                    |> literalSegment ".json"
+                    |> tryMatch "124.json"
+                    |> Expect.equal (Just { body = "Data for user 124" })
+        , test "file path with multiple segments" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> literalSegment "users"
+                    |> slash
+                    |> captureNew
+                    |> literalSegment ".json"
+                    |> tryMatch "users/123.json"
+                    |> Expect.equal (Just { body = "Data for user 123" })
+        , test "routes" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    |> literalSegment "users"
+                    |> slash
+                    |> captureNew
+                    |> literalSegment ".json"
+                    |> withRoutes
+                        (\constructor ->
+                            constructor "100"
+                         -- [
+                         --, constructor "101"
+                         --]
+                        )
+                    |> Expect.equal
+                        "users/100.json"
+
+        -- [
+        --, "users/101.json"
+        --]
+        , describe "multi-part"
             [ test "multi-level routes" <|
                 \() ->
                     newThing
@@ -96,7 +96,7 @@ all =
 
 newThing : Handler Response (String -> String -> List String)
 newThing =
-    succeedNew
+    succeed
         (\userName repoName ->
             { body = "Data for user" }
         )
@@ -110,7 +110,7 @@ newThing =
 
 threeParts : Handler Response (String -> String -> String -> List String)
 threeParts =
-    succeedNew
+    succeed
         (\username repo branch ->
             { body = [ username, repo, branch ] |> String.join " - " }
         )
