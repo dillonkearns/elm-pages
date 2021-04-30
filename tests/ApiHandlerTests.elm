@@ -43,43 +43,30 @@ all =
                     |> Expect.equal (Just { body = "Data for user 123" })
         , test "routes" <|
             \() ->
-                routesExample
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ userId }
+                    )
+                    (\constructor ->
+                        [ constructor "100"
+                        , constructor "101"
+                        ]
+                    )
+                    |> literalSegment "users"
+                    |> slash
+                    |> captureSegment
+                    |> literalSegment ".json"
                     |> withRoutes
-                    --[ \c -> c "100"
                     |> Expect.equal
-                        [ "users/100.json" ]
-
-        --, "users/101.json"
+                        [ "users/100.json"
+                        , "users/101.json"
+                        ]
         ]
-
-
-routesExample : Handler Response (List (List String))
-routesExample =
-    succeed
-        (\userId ->
-            { body = "Data for user " ++ userId }
-        )
-        (\constructor ->
-            [ constructor "100" ]
-        )
-        |> literalSegment "users"
-        |> slash
-        |> captureSegment
-        |> literalSegment ".json"
 
 
 withRoutes : Handler Response (List (List String)) -> List String
 withRoutes (Handler pattern handler toString dynamicSegments) =
-    --[ "users/100.json", "users/101.json" ]
-    --values
-    --    |> List.map
-    --        (\value ->
-    --            value
-    --                |> dynamicSegments
-    --                |> toString
-    --        )
     dynamicSegments
-        --|> Debug.log "dynamicSegments"
         |> List.map toString
 
 
