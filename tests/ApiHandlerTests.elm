@@ -50,17 +50,15 @@ all =
                     |> literalSegment ".json"
                     |> withRoutes
                         (\constructor ->
-                            constructor "100"
+                            [ constructor "100" ]
                          -- [
                          --, constructor "101"
                          --]
                         )
                     |> Expect.equal
-                        "users/100.json"
+                        [ "users/100.json" ]
 
-        -- [
         --, "users/101.json"
-        --]
         , describe "multi-part"
             [ test "multi-level routes" <|
                 \() ->
@@ -69,25 +67,23 @@ all =
                             (\a ->
                                 --constructor "dillonkearns" "elm-pages"
                                 --, constructor "101"
-                                a "dillonkearns" "elm-pages"
+                                [ a "dillonkearns" "elm-pages" ]
                              --, constructor "elm-pages"
                              --]
                             )
                         |> Expect.equal
-                            --[
-                            "repos/dillonkearns/elm-pages.json"
+                            [ "repos/dillonkearns/elm-pages.json" ]
 
             --, "users/101.json"
-            --]
             , test "3-level route" <|
                 \() ->
                     threeParts
                         |> withRoutes
                             (\constructor ->
-                                constructor "dillonkearns" "elm-pages" "static-files"
+                                [ constructor "dillonkearns" "elm-pages" "static-files" ]
                             )
                         |> Expect.equal
-                            "repos/dillonkearns/elm-pages/static-files"
+                            [ "repos/dillonkearns/elm-pages/static-files" ]
 
             --, "users/101.json"
             ]

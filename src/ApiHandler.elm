@@ -3,9 +3,10 @@ module ApiHandler exposing (..)
 import Regex
 
 
-withRoutes : (constructor -> List String) -> Handler a constructor -> String
+withRoutes : (constructor -> List (List String)) -> Handler a constructor -> List String
 withRoutes buildUrls (Handler pattern handler toString constructor) =
-    toString (buildUrls (constructor []))
+    buildUrls (constructor [])
+        |> List.map toString
 
 
 tryMatch : String -> Handler Response constructor -> Maybe Response
