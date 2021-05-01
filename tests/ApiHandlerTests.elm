@@ -61,7 +61,16 @@ all =
         , describe "multi-part"
             [ test "multi-level routes" <|
                 \() ->
-                    newThing
+                    succeed
+                        (\userName repoName ->
+                            { body = "Data for user" }
+                        )
+                        |> literalSegment "repos"
+                        |> slash
+                        |> captureNew
+                        |> slash
+                        |> captureNew
+                        |> literalSegment ".json"
                         |> withRoutes
                             (\a ->
                                 [ a "dillonkearns" "elm-pages"
@@ -74,7 +83,17 @@ all =
                             ]
             , test "3-level route" <|
                 \() ->
-                    threeParts
+                    succeed
+                        (\username repo branch ->
+                            { body = [ username, repo, branch ] |> String.join " - " }
+                        )
+                        |> literalSegment "repos"
+                        |> slash
+                        |> captureNew
+                        |> slash
+                        |> captureNew
+                        |> slash
+                        |> captureNew
                         |> withRoutes
                             (\constructor ->
                                 [ constructor "dillonkearns" "elm-pages" "static-files" ]
@@ -83,32 +102,3 @@ all =
                             [ "repos/dillonkearns/elm-pages/static-files" ]
             ]
         ]
-
-
-newThing : Handler Response (String -> String -> List String)
-newThing =
-    succeed
-        (\userName repoName ->
-            { body = "Data for user" }
-        )
-        |> literalSegment "repos"
-        |> slash
-        |> captureNew
-        |> slash
-        |> captureNew
-        |> literalSegment ".json"
-
-
-threeParts : Handler Response (String -> String -> String -> List String)
-threeParts =
-    succeed
-        (\username repo branch ->
-            { body = [ username, repo, branch ] |> String.join " - " }
-        )
-        |> literalSegment "repos"
-        |> slash
-        |> captureNew
-        |> slash
-        |> captureNew
-        |> slash
-        |> captureNew
