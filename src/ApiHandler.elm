@@ -73,8 +73,8 @@ succeed a =
 --    Debug.todo ""
 
 
-literalSegment : String -> Handler a constructor -> Handler a constructor
-literalSegment segment (Handler pattern handler toString constructor) =
+literal : String -> Handler a constructor -> Handler a constructor
+literal segment (Handler pattern handler toString constructor) =
     Handler (pattern ++ segment) handler (\values -> toString values ++ segment) constructor
 
 
@@ -134,7 +134,7 @@ slash (Handler pattern handler toString constructor) =
 --            b
 
 
-captureNew :
+capture :
     Handler
         (String -> a)
         constructor
@@ -142,7 +142,7 @@ captureNew :
         Handler
             a
             (String -> constructor)
-captureNew (Handler pattern previousHandler toString constructor) =
+capture (Handler pattern previousHandler toString constructor) =
     Handler
         (pattern ++ "(.*)")
         --(Debug.todo "")

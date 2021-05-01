@@ -13,7 +13,7 @@ all =
                     (\userId ->
                         { body = "Data for user " ++ userId }
                     )
-                    |> captureNew
+                    |> capture
                     |> tryMatch "123"
                     |> Expect.equal (Just { body = "Data for user 123" })
         , test "file with extension" <|
@@ -22,8 +22,8 @@ all =
                     (\userId ->
                         { body = "Data for user " ++ userId }
                     )
-                    |> captureNew
-                    |> literalSegment ".json"
+                    |> capture
+                    |> literal ".json"
                     |> tryMatch "124.json"
                     |> Expect.equal (Just { body = "Data for user 124" })
         , test "file path with multiple segments" <|
@@ -32,10 +32,10 @@ all =
                     (\userId ->
                         { body = "Data for user " ++ userId }
                     )
-                    |> literalSegment "users"
+                    |> literal "users"
                     |> slash
-                    |> captureNew
-                    |> literalSegment ".json"
+                    |> capture
+                    |> literal ".json"
                     |> tryMatch "users/123.json"
                     |> Expect.equal (Just { body = "Data for user 123" })
         , test "routes" <|
@@ -44,10 +44,10 @@ all =
                     (\userId ->
                         { body = "Data for user " ++ userId }
                     )
-                    |> literalSegment "users"
+                    |> literal "users"
                     |> slash
-                    |> captureNew
-                    |> literalSegment ".json"
+                    |> capture
+                    |> literal ".json"
                     |> withRoutes
                         (\constructor ->
                             [ constructor "100"
@@ -65,12 +65,12 @@ all =
                         (\userName repoName ->
                             { body = "Data for user" }
                         )
-                        |> literalSegment "repos"
+                        |> literal "repos"
                         |> slash
-                        |> captureNew
+                        |> capture
                         |> slash
-                        |> captureNew
-                        |> literalSegment ".json"
+                        |> capture
+                        |> literal ".json"
                         |> withRoutes
                             (\a ->
                                 [ a "dillonkearns" "elm-pages"
@@ -87,13 +87,13 @@ all =
                         (\username repo branch ->
                             { body = [ username, repo, branch ] |> String.join " - " }
                         )
-                        |> literalSegment "repos"
+                        |> literal "repos"
                         |> slash
-                        |> captureNew
+                        |> capture
                         |> slash
-                        |> captureNew
+                        |> capture
                         |> slash
-                        |> captureNew
+                        |> capture
                         |> withRoutes
                             (\constructor ->
                                 [ constructor "dillonkearns" "elm-pages" "static-files" ]
