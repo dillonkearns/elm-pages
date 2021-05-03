@@ -1,6 +1,80 @@
 module ApiHandler exposing (..)
 
-import Regex
+import DataSource exposing (DataSource)
+import Regex exposing (Regex)
+
+
+firstMatch : String -> List (Done response) -> Maybe response
+firstMatch path handlers =
+    case handlers of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            case tryMatchDone path first of
+                Just response ->
+                    Just response
+
+                Nothing ->
+                    firstMatch path rest
+
+
+tryMatchDone : String -> Done response -> Maybe response
+tryMatchDone path handler =
+    let
+        matches =
+            path
+                |> Regex.find handler.regex
+                |> List.concatMap .submatches
+                |> List.filterMap identity
+    in
+    if handler.handleRoute matches then
+        handler.matchesToResponse path
+
+    else
+        Nothing
+
+
+withRoutesNew :
+    (constructor -> List (List String))
+    -> Handler a constructor
+    -> List String
+withRoutesNew buildUrls (Handler pattern handler toString constructor) =
+    buildUrls (constructor [])
+        |> List.map toString
+
+
+type alias Done response =
+    { regex : Regex
+    , matchesToResponse : String -> Maybe response
+    , buildTimeRoutes : List String
+    , handleRoute : List String -> Bool
+    }
+
+
+done : (constructor -> List (List String)) -> Handler response constructor -> Done response
+done buildUrls (Handler pattern handler toString constructor) =
+    let
+        buildTimeRoutes =
+            buildUrls (constructor [])
+                |> List.map toString
+
+        preBuiltMatches : List (List String)
+        preBuiltMatches =
+            buildUrls (constructor [])
+    in
+    { regex = Regex.fromString pattern |> Maybe.withDefault Regex.never
+    , matchesToResponse = \path -> tryMatch path (Handler pattern handler toString constructor)
+    , buildTimeRoutes = buildTimeRoutes
+    , handleRoute =
+        \matches ->
+            preBuiltMatches
+                |> List.member matches
+    }
+
+
+
+--(Handler Response constructor)
 
 
 withRoutes : (constructor -> List (List String)) -> Handler a constructor -> List String
@@ -9,7 +83,7 @@ withRoutes buildUrls (Handler pattern handler toString constructor) =
         |> List.map toString
 
 
-tryMatch : String -> Handler Response constructor -> Maybe Response
+tryMatch : String -> Handler response constructor -> Maybe response
 tryMatch path (Handler pattern handler toString constructor) =
     let
         matches =
