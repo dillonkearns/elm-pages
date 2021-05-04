@@ -11,5 +11,5 @@ type Effect
     | ReadFile String
     | GetGlob String
     | Batch (List Effect)
-    | SendSinglePage ToJsSuccessPayloadNewCombined
+    | SendSinglePage Bool ToJsSuccessPayloadNewCombined
     | Continue

@@ -3,7 +3,7 @@ module ApiHandler exposing (..)
 import Regex exposing (Regex)
 
 
-firstMatch : String -> List (Done response) -> Maybe response
+firstMatch : String -> List (Done response) -> Maybe (Done response)
 firstMatch path handlers =
     case handlers of
         [] ->
@@ -18,17 +18,10 @@ firstMatch path handlers =
                     firstMatch path rest
 
 
-tryMatchDone : String -> Done response -> Maybe response
+tryMatchDone : String -> Done response -> Maybe (Done response)
 tryMatchDone path handler =
-    let
-        matches =
-            path
-                |> Regex.find handler.regex
-                |> List.concatMap .submatches
-                |> List.filterMap identity
-    in
-    if handler.handleRoute matches then
-        handler.matchesToResponse path
+    if Regex.contains handler.regex path then
+        Just handler
 
     else
         Nothing

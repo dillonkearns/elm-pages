@@ -8,9 +8,10 @@ module Pages.Internal.Platform.Cli exposing
     , update
     )
 
+import ApiHandler
 import BuildError exposing (BuildError)
 import Codec
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
@@ -69,8 +70,8 @@ type alias Program route =
 
 
 cliApplication :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> Program route
+    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    -> Program (Maybe route)
 cliApplication config =
     let
         contentCache =
@@ -284,7 +285,7 @@ perform renderRequest config toJsPort effect =
                         |> Cmd.map never
                     ]
 
-        Effect.SendSinglePage info ->
+        Effect.SendSinglePage done info ->
             let
                 currentPagePath =
                     case info of
@@ -299,8 +300,12 @@ perform renderRequest config toJsPort effect =
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
                     |> toJsPort
                     |> Cmd.map never
-                , Task.succeed ()
-                    |> Task.perform (\_ -> Continue)
+                , if done then
+                    Cmd.none
+
+                  else
+                    Task.succeed ()
+                        |> Task.perform (\_ -> Continue)
                 ]
 
         Effect.Continue ->
@@ -389,14 +394,20 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
-                RenderRequest.SinglePage _ serverRequestPayload _ ->
-                    StaticResponses.renderSingleRoute config
-                        serverRequestPayload
-                        (DataSource.map2 (\_ _ -> ())
-                            (config.data serverRequestPayload.frontmatter)
-                            config.sharedData
-                        )
-                        (config.handleRoute serverRequestPayload.frontmatter)
+                RenderRequest.SinglePage _ singleRequest _ ->
+                    case singleRequest of
+                        RenderRequest.Page serverRequestPayload ->
+                            StaticResponses.renderSingleRoute config
+                                serverRequestPayload
+                                (DataSource.map2 (\_ _ -> ())
+                                    (config.data serverRequestPayload.frontmatter)
+                                    config.sharedData
+                                )
+                                (config.handleRoute serverRequestPayload.frontmatter)
+
+                        RenderRequest.Api apiRequest ->
+                            StaticResponses.renderApiRequest config
+                                (DataSource.succeed apiRequest)
 
                 RenderRequest.FullBuild ->
                     StaticResponses.init config
@@ -404,7 +415,12 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
         unprocessedPages =
             case renderRequest of
                 RenderRequest.SinglePage _ serverRequestPayload _ ->
-                    [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
+                    case serverRequestPayload of
+                        RenderRequest.Page pageData ->
+                            [ ( pageData.path, pageData.frontmatter ) ]
+
+                        RenderRequest.Api _ ->
+                            []
 
                 RenderRequest.FullBuild ->
                     []
@@ -412,7 +428,12 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
         unprocessedPagesState =
             case renderRequest of
                 RenderRequest.SinglePage _ serverRequestPayload _ ->
-                    Just [ ( serverRequestPayload.path, serverRequestPayload.frontmatter ) ]
+                    case serverRequestPayload of
+                        RenderRequest.Page pageData ->
+                            Just [ ( pageData.path, pageData.frontmatter ) ]
+
+                        RenderRequest.Api _ ->
+                            Nothing
 
                 RenderRequest.FullBuild ->
                     Nothing
@@ -706,7 +727,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                             then
                                 case toJsPayload of
                                     ToJsPayload.Success value ->
-                                        Effect.SendSinglePage
+                                        Effect.SendSinglePage True
                                             (ToJsPayload.InitialData
                                                 { filesToGenerate = value.filesToGenerate
                                                 }
@@ -715,29 +736,111 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                     ToJsPayload.Errors _ ->
                                         Effect.SendJsData toJsPayload
 
+                                    ToJsPayload.ApiResponse ->
+                                        let
+                                            apiResponse : Effect
+                                            apiResponse =
+                                                case model.maybeRequestJson of
+                                                    RenderRequest.SinglePage includeHtml requestPayload value ->
+                                                        case requestPayload of
+                                                            RenderRequest.Api ( path, apiHandler ) ->
+                                                                StaticHttpRequest.resolve ApplicationType.Browser
+                                                                    (DataSource.succeed apiHandler)
+                                                                    model.allRawResponses
+                                                                    |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
+                                                                    |> (\request ->
+                                                                            case request of
+                                                                                Ok okRequest ->
+                                                                                    case okRequest.matchesToResponse path of
+                                                                                        Just response ->
+                                                                                            response
+                                                                                                |> ToJsPayload.SendApiResponse
+                                                                                                |> Effect.SendSinglePage True
+
+                                                                                        Nothing ->
+                                                                                            [] |> ToJsPayload.Errors |> Effect.SendJsData
+
+                                                                                Err error ->
+                                                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
+                                                                       )
+
+                                                            RenderRequest.Page _ ->
+                                                                [] |> ToJsPayload.Errors |> Effect.SendJsData
+
+                                                    RenderRequest.FullBuild ->
+                                                        [] |> ToJsPayload.Errors |> Effect.SendJsData
+                                        in
+                                        apiResponse
+
                             else
                                 Effect.NoEffect
                     in
-                    model.unprocessedPages
-                        |> List.take 1
-                        |> List.filterMap
-                            (\pageAndMetadata ->
-                                case toJsPayload of
-                                    ToJsPayload.Success value ->
-                                        sendSinglePageProgress value config model pageAndMetadata
-                                            |> Just
+                    case toJsPayload of
+                        ToJsPayload.ApiResponse ->
+                            let
+                                apiResponse : Effect
+                                apiResponse =
+                                    case model.maybeRequestJson of
+                                        RenderRequest.SinglePage includeHtml requestPayload value ->
+                                            case requestPayload of
+                                                RenderRequest.Api ( path, apiHandler ) ->
+                                                    StaticHttpRequest.resolve ApplicationType.Browser
+                                                        (DataSource.succeed apiHandler)
+                                                        model.allRawResponses
+                                                        |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
+                                                        |> (\request ->
+                                                                case request of
+                                                                    Ok okRequest ->
+                                                                        case okRequest.matchesToResponse path of
+                                                                            Just response ->
+                                                                                response
+                                                                                    |> ToJsPayload.SendApiResponse
+                                                                                    |> Effect.SendSinglePage True
 
-                                    ToJsPayload.Errors _ ->
-                                        Nothing
+                                                                            Nothing ->
+                                                                                Debug.todo ""
+
+                                                                    Err error ->
+                                                                        [ error ]
+                                                                            |> ToJsPayload.Errors
+                                                                            |> Effect.SendJsData
+                                                           )
+
+                                                RenderRequest.Page _ ->
+                                                    [] |> ToJsPayload.Errors |> Effect.SendJsData
+
+                                        RenderRequest.FullBuild ->
+                                            [] |> ToJsPayload.Errors |> Effect.SendJsData
+                            in
+                            ( { model | staticRoutes = Just [] }
+                            , apiResponse
                             )
-                        |> (\cmds ->
-                                ( model |> popProcessedRequest
-                                , Effect.Batch
-                                    (sendManifestIfNeeded
-                                        :: cmds
+
+                        _ ->
+                            model.unprocessedPages
+                                |> List.take 1
+                                |> List.filterMap
+                                    (\pageAndMetadata ->
+                                        case toJsPayload of
+                                            ToJsPayload.Success value ->
+                                                sendSinglePageProgress value config model pageAndMetadata
+                                                    |> Just
+
+                                            ToJsPayload.Errors _ ->
+                                                Nothing
+
+                                            ToJsPayload.ApiResponse ->
+                                                Nothing
                                     )
-                                )
-                           )
+                                |> (\cmds ->
+                                        ( model
+                                            |> popProcessedRequest
+                                        , Effect.Batch
+                                            (sendManifestIfNeeded
+                                                :: cmds
+                                            )
+                                        )
+                                   )
 
                 _ ->
                     ( model, Effect.SendJsData toJsPayload )
@@ -952,4 +1055,4 @@ popProcessedRequest model =
 
 sendProgress : ToJsPayload.ToJsSuccessPayloadNew -> Effect
 sendProgress singlePage =
-    singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage
+    singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage False

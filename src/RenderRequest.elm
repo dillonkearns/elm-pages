@@ -1,15 +1,15 @@
 module RenderRequest exposing (..)
 
+import ApiHandler
 import Json.Decode as Decode
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Url exposing (Url)
 
 
-type alias RequestPayload route =
-    { path : PagePath
-    , frontmatter : route
-    }
+type RequestPayload route
+    = Page { path : PagePath, frontmatter : route }
+    | Api ( String, ApiHandler.Done ApiHandler.Response )
 
 
 type RenderRequest route
@@ -41,8 +41,8 @@ type ServerOrBuild
 
 
 decoder :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> Decode.Decoder (RenderRequest route)
+    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    -> Decode.Decoder (RenderRequest (Maybe route))
 decoder config =
     optionalField "request"
         (Decode.map3
@@ -91,19 +91,41 @@ decoder config =
 
 
 requestPayloadDecoder :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> Decode.Decoder (RequestPayload route)
+    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    -> Decode.Decoder (RequestPayload (Maybe route))
 requestPayloadDecoder config =
     (Decode.string
         |> Decode.map
             (\path ->
                 let
+                    route : Maybe route
                     route =
                         pathToUrl path |> config.urlToRoute
+
+                    apiRoute : Maybe (ApiHandler.Done ApiHandler.Response)
+                    apiRoute =
+                        ApiHandler.firstMatch (String.dropLeft 1 path) site.files
+
+                    site =
+                        config.site []
                 in
-                { frontmatter = route
-                , path = config.routeToPath route |> PagePath.build
-                }
+                case route of
+                    Just justRoute ->
+                        Page
+                            { frontmatter = route
+                            , path = config.routeToPath route |> PagePath.build
+                            }
+
+                    Nothing ->
+                        case apiRoute of
+                            Just justApi ->
+                                ( path, justApi ) |> Api
+
+                            Nothing ->
+                                Page
+                                    { frontmatter = Nothing
+                                    , path = config.routeToPath route |> PagePath.build
+                                    }
             )
     )
         |> Decode.field "path"

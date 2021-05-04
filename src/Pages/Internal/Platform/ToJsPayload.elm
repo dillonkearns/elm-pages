@@ -11,6 +11,7 @@ import Json.Encode
 type ToJsPayload
     = Errors (List BuildError)
     | Success ToJsSuccessPayload
+    | ApiResponse
 
 
 type alias ToJsSuccessPayload =
@@ -70,16 +71,20 @@ toJsPayload encodedStatic generated allRawResponses allErrors =
 toJsCodec : Codec ToJsPayload
 toJsCodec =
     Codec.custom
-        (\errorsTag success value ->
+        (\errorsTag success vApiResponse value ->
             case value of
                 Errors errorList ->
                     errorsTag errorList
 
                 Success { pages, filesToGenerate, errors, staticHttpCache } ->
                     success (ToJsSuccessPayload pages filesToGenerate staticHttpCache errors)
+
+                ApiResponse ->
+                    vApiResponse
         )
         |> Codec.variant1 "Errors" Errors errorCodec
         |> Codec.variant1 "Success" Success successCodec
+        |> Codec.variant0 "ApiResponse" ApiResponse
         |> Codec.buildCustom
 
 
@@ -166,6 +171,7 @@ headCodec canonicalSiteUrl currentPagePath =
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
     | InitialData InitialDataRecord
+    | SendApiResponse { body : String }
     | ReadFile String
     | Glob String
 
@@ -178,7 +184,7 @@ type alias InitialDataRecord =
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\success initialData vReadFile vGlob value ->
+        (\success initialData vReadFile vGlob vSendApiResponse value ->
             case value of
                 PageProgress payload ->
                     success payload
@@ -191,11 +197,20 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
 
                 Glob globPattern ->
                     vGlob globPattern
+
+                SendApiResponse record ->
+                    vSendApiResponse record
         )
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
         |> Codec.variant1 "InitialData" InitialData initialDataCodec
         |> Codec.variant1 "ReadFile" ReadFile Codec.string
         |> Codec.variant1 "Glob" Glob Codec.string
+        |> Codec.variant1 "ApiResponse"
+            SendApiResponse
+            (Codec.object (\body -> { body = body })
+                |> Codec.field "body" .body Codec.string
+                |> Codec.buildObject
+            )
         |> Codec.buildCustom
 
 

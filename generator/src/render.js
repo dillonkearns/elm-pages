@@ -37,7 +37,7 @@ module.exports =
  * @param {string} pagePath
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
  * @param {(pattern: string) => void} addDataSourceWatcher
- * @returns {Promise<({ kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string })>}
+ * @returns {Promise<({ kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; })>}
  */
 function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
   return new Promise((resolve, reject) => {
@@ -68,6 +68,15 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         const args = fromElm.args[0];
         // console.log(`InitialData`, args);
         writeGeneratedFiles(args.filesToGenerate);
+      } else if (fromElm.tag === "ApiResponse") {
+        const args = fromElm.args[0];
+        // global.staticHttpCache = args.staticHttpCache;
+
+        resolve({
+          kind: "api-response",
+          is404: false,
+          body: args.body,
+        });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;

@@ -94,13 +94,8 @@ async function start(options) {
       }
     } else if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
-    } else if (
-      (request.url && request.url.includes("content.json")) ||
-      request.headers["sec-fetch-mode"] === "navigate"
-    ) {
-      handleNavigationRequest(request, response);
     } else {
-      next();
+      handleNavigationRequest(request, response, next);
     }
   }
 
@@ -187,7 +182,12 @@ async function start(options) {
     );
   }
 
-  async function handleNavigationRequest(req, res) {
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {connect.NextHandleFunction} next
+   */
+  async function handleNavigationRequest(req, res, next) {
     if (req.url.endsWith(".ico") || req.url.endsWith("manifest.json")) {
       res.writeHead(404, {
         "Content-Type": "text/html",
@@ -206,16 +206,30 @@ async function start(options) {
           }
         );
         const is404 = renderResult.is404;
-        if (renderResult.kind === "json") {
-          res.writeHead(is404 ? 404 : 200, {
-            "Content-Type": "application/json",
-          });
-          res.end(renderResult.contentJson);
-        } else {
-          res.writeHead(is404 ? 404 : 200, {
-            "Content-Type": "text/html",
-          });
-          res.end(renderResult.htmlString);
+        switch (renderResult.kind) {
+          case "json": {
+            res.writeHead(is404 ? 404 : 200, {
+              "Content-Type": "application/json",
+            });
+            res.end(renderResult.contentJson);
+            break;
+          }
+          case "html": {
+            res.writeHead(is404 ? 404 : 200, {
+              "Content-Type": "text/html",
+            });
+            res.end(renderResult.htmlString);
+            break;
+          }
+          case "api-response": {
+            res.writeHead(200, {
+              "Content-Type": serveStatic.mime.lookup(req.url || ""),
+            });
+            res.end(renderResult.body);
+            // TODO - if route is static, write file to api-route-cache/ directory
+            // TODO - get 404 or other status code from elm-pages renderer
+            break;
+          }
         }
       } catch (error) {
         console.log({ error });

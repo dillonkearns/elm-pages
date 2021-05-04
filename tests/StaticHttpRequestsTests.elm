@@ -856,6 +856,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     , manifest = \_ -> manifest
                     , head = \_ -> []
                     , generateFiles = generateFiles
+                    , files = []
                     }
             , view =
                 \page ->
@@ -975,7 +976,7 @@ simulateEffects effect =
                 , tracker = Nothing
                 }
 
-        Effect.SendSinglePage info ->
+        Effect.SendSinglePage _ info ->
             SimulatedEffect.Cmd.batch
                 [ info
                     |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")

@@ -1,14 +1,13 @@
 module Site exposing (config)
 
+import ApiHandler
 import Cloudinary
-import Color
 import DataSource
 import Head
 import Json.Encode
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
-import Pages.Manifest.Category
 import Pages.PagePath as PagePath
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
@@ -22,8 +21,35 @@ config =
         , canonicalUrl = canonicalUrl
         , manifest = manifest
         , head = head
+        , files = files
         , generateFiles = generateFiles routes
         }
+
+
+files : List (ApiHandler.Done ApiHandler.Response)
+files =
+    [ ApiHandler.succeed
+        (\userId ->
+            { body =
+                Json.Encode.object
+                    [ ( "id", Json.Encode.int (String.toInt userId |> Maybe.withDefault 0) )
+                    , ( "name", Json.Encode.string ("Data for user " ++ userId) )
+                    ]
+                    |> Json.Encode.encode 2
+            }
+        )
+        |> ApiHandler.literal "users"
+        |> ApiHandler.slash
+        |> ApiHandler.capture
+        |> ApiHandler.literal ".json"
+        |> ApiHandler.done
+            (\constructor ->
+                [ constructor "1"
+                , constructor "2"
+                , constructor "3"
+                ]
+            )
+    ]
 
 
 generateFiles :

@@ -1,7 +1,8 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderSingleRoute, update)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderApiRequest, renderSingleRoute, update)
 
+import ApiHandler
 import BuildError exposing (BuildError)
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
@@ -21,6 +22,7 @@ import TerminalText as Terminal
 
 type StaticResponses
     = GettingInitialData StaticHttpResult
+    | ApiRequest StaticHttpResult
     | StaticResponses (Dict String StaticHttpResult)
 
 
@@ -89,6 +91,18 @@ renderSingleRoute config pathAndRoute request cliData =
     ]
         |> Dict.fromList
         |> StaticResponses
+
+
+renderApiRequest :
+    config
+    -> DataSource response
+    -> StaticResponses
+renderApiRequest config request =
+    ApiRequest
+        (NotFetched
+            (request |> DataSource.map (\_ -> ()))
+            Dict.empty
+        )
 
 
 update :
@@ -190,6 +204,9 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
 
                 GettingInitialData initialData ->
                     Dict.singleton cliDictKey initialData
+
+                ApiRequest staticHttpResult ->
+                    Dict.singleton cliDictKey staticHttpResult
 
         generatedFiles : List (Result String { path : List String, content : String })
         generatedFiles =
@@ -469,6 +486,12 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                     allRawResponses
                     allErrors
                     -- TODO send all global head tags on initial call
+                    |> Finish
+                )
+
+            ApiRequest _ ->
+                ( model.staticResponses
+                , ToJsPayload.ApiResponse
                     |> Finish
                 )
 
