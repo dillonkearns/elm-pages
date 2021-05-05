@@ -3,6 +3,8 @@ module RenderRequest exposing (..)
 import ApiHandler
 import DataSource exposing (DataSource)
 import Json.Decode as Decode
+import Json.Encode
+import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Url exposing (Url)
@@ -105,7 +107,10 @@ requestPayloadDecoder config =
 
                     apiRoute : Maybe (ApiHandler.Done (DataSource ApiHandler.Response))
                     apiRoute =
-                        ApiHandler.firstMatch (String.dropLeft 1 path) site.files
+                        ApiHandler.firstMatch (String.dropLeft 1 path)
+                            (manifestHandler config
+                                :: site.files
+                            )
 
                     site =
                         config.site []
@@ -131,6 +136,35 @@ requestPayloadDecoder config =
     )
         |> Decode.field "path"
         |> Decode.field "payload"
+
+
+manifestHandler : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> ApiHandler.Done (DataSource ApiHandler.Response)
+manifestHandler config =
+    ApiHandler.succeed
+        (config.getStaticRoutes
+            |> DataSource.andThen
+                (\resolvedRoutes ->
+                    config.site resolvedRoutes
+                        |> .data
+                        |> DataSource.map
+                            (\data ->
+                                (config.site resolvedRoutes |> .manifest) data
+                                    |> manifestToFile (config.site resolvedRoutes |> .canonicalUrl)
+                            )
+                )
+        )
+        |> ApiHandler.literal "manifest.json"
+        |> ApiHandler.singleRoute
+
+
+manifestToFile : String -> Manifest.Config -> { body : String }
+manifestToFile resolvedCanonicalUrl manifestConfig =
+    manifestConfig
+        |> Manifest.toJson resolvedCanonicalUrl
+        |> (\manifestJsonValue ->
+                { body = Json.Encode.encode 0 manifestJsonValue
+                }
+           )
 
 
 pathToUrl : String -> Url

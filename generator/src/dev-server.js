@@ -187,58 +187,51 @@ async function start(options) {
    * @param {connect.NextHandleFunction} next
    */
   async function handleNavigationRequest(req, res, next) {
-    if (req.url.endsWith(".ico") || req.url.endsWith("manifest.json")) {
-      res.writeHead(404, {
-        "Content-Type": "text/html",
-      });
-      res.end(`Not found.`);
-    } else {
-      try {
-        await pendingCliCompile;
-        const renderResult = await renderer(
-          compiledElmPath,
-          req.url,
-          req,
-          function (pattern) {
-            console.log(`Watching data source ${pattern}`);
-            watcher.add(pattern);
-          }
-        );
-        const is404 = renderResult.is404;
-        switch (renderResult.kind) {
-          case "json": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "application/json",
-            });
-            res.end(renderResult.contentJson);
-            break;
-          }
-          case "html": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "text/html",
-            });
-            res.end(renderResult.htmlString);
-            break;
-          }
-          case "api-response": {
-            res.writeHead(200, {
-              "Content-Type": serveStatic.mime.lookup(req.url || ""),
-            });
-            res.end(renderResult.body);
-            // TODO - if route is static, write file to api-route-cache/ directory
-            // TODO - get 404 or other status code from elm-pages renderer
-            break;
-          }
+    try {
+      await pendingCliCompile;
+      const renderResult = await renderer(
+        compiledElmPath,
+        req.url,
+        req,
+        function (pattern) {
+          console.log(`Watching data source ${pattern}`);
+          watcher.add(pattern);
         }
-      } catch (error) {
-        console.log({ error });
-        if (req.url.includes("content.json")) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(error.errorsJson));
-        } else {
-          res.writeHead(500, { "Content-Type": "text/html" });
-          res.end(errorHtml());
+      );
+      const is404 = renderResult.is404;
+      switch (renderResult.kind) {
+        case "json": {
+          res.writeHead(is404 ? 404 : 200, {
+            "Content-Type": "application/json",
+          });
+          res.end(renderResult.contentJson);
+          break;
         }
+        case "html": {
+          res.writeHead(is404 ? 404 : 200, {
+            "Content-Type": "text/html",
+          });
+          res.end(renderResult.htmlString);
+          break;
+        }
+        case "api-response": {
+          res.writeHead(200, {
+            "Content-Type": serveStatic.mime.lookup(req.url || ""),
+          });
+          res.end(renderResult.body);
+          // TODO - if route is static, write file to api-route-cache/ directory
+          // TODO - get 404 or other status code from elm-pages renderer
+          break;
+        }
+      }
+    } catch (error) {
+      console.log({ error });
+      if (req.url.includes("content.json")) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(error.errorsJson));
+      } else {
+        res.writeHead(500, { "Content-Type": "text/html" });
+        res.end(errorHtml());
       }
     }
   }

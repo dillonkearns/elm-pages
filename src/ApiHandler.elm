@@ -45,6 +45,12 @@ type alias Done response =
     }
 
 
+singleRoute : Handler response (List String) -> Done response
+singleRoute handler =
+    handler
+        |> done (\constructor -> DataSource.succeed [ constructor ])
+
+
 done : (constructor -> DataSource (List (List String))) -> Handler response constructor -> Done response
 done buildUrls (Handler pattern handler toString constructor) =
     let
