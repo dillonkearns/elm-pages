@@ -41,7 +41,6 @@ module.exports =
  */
 function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
   return new Promise((resolve, reject) => {
-    console.time(`renderer-${pagePath}`);
     const isJson = pagePath.match(/content\.json\/?$/);
     const route = pagePath.replace(/content\.json\/?$/, "");
 
@@ -81,7 +80,6 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;
 
-        console.timeEnd(`renderer-${pagePath}`);
         if (isJson) {
           resolve({
             kind: "json",
