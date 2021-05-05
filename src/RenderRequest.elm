@@ -1,6 +1,7 @@
 module RenderRequest exposing (..)
 
 import ApiHandler
+import DataSource exposing (DataSource)
 import Json.Decode as Decode
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
@@ -9,7 +10,7 @@ import Url exposing (Url)
 
 type RequestPayload route
     = Page { path : PagePath, frontmatter : route }
-    | Api ( String, ApiHandler.Done ApiHandler.Response )
+    | Api ( String, ApiHandler.Done (DataSource ApiHandler.Response) )
 
 
 type RenderRequest route
@@ -102,7 +103,7 @@ requestPayloadDecoder config =
                     route =
                         pathToUrl path |> config.urlToRoute
 
-                    apiRoute : Maybe (ApiHandler.Done ApiHandler.Response)
+                    apiRoute : Maybe (ApiHandler.Done (DataSource ApiHandler.Response))
                     apiRoute =
                         ApiHandler.firstMatch (String.dropLeft 1 path) site.files
 

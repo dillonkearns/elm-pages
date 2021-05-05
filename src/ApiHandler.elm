@@ -1,5 +1,6 @@
 module ApiHandler exposing (..)
 
+import DataSource exposing (DataSource)
 import Regex exposing (Regex)
 
 
@@ -39,19 +40,19 @@ withRoutesNew buildUrls (Handler pattern handler toString constructor) =
 type alias Done response =
     { regex : Regex
     , matchesToResponse : String -> Maybe response
-    , buildTimeRoutes : List String
-    , handleRoute : List String -> Bool
+    , buildTimeRoutes : DataSource (List String)
+    , handleRoute : String -> DataSource Bool
     }
 
 
-done : (constructor -> List (List String)) -> Handler response constructor -> Done response
+done : (constructor -> DataSource (List (List String))) -> Handler response constructor -> Done response
 done buildUrls (Handler pattern handler toString constructor) =
     let
         buildTimeRoutes =
             buildUrls (constructor [])
-                |> List.map toString
+                |> DataSource.map (List.map toString)
 
-        preBuiltMatches : List (List String)
+        preBuiltMatches : DataSource (List (List String))
         preBuiltMatches =
             buildUrls (constructor [])
     in
@@ -59,9 +60,7 @@ done buildUrls (Handler pattern handler toString constructor) =
     , matchesToResponse = \path -> tryMatch path (Handler pattern handler toString constructor)
     , buildTimeRoutes = buildTimeRoutes
     , handleRoute =
-        \matches ->
-            preBuiltMatches
-                |> List.member matches
+        \path -> DataSource.succeed True
     }
 
 

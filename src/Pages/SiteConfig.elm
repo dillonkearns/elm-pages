@@ -1,7 +1,7 @@
 module Pages.SiteConfig exposing (SiteConfig)
 
 import ApiHandler
-import DataSource
+import DataSource exposing (DataSource)
 import Head
 import Pages.Manifest
 
@@ -9,15 +9,15 @@ import Pages.Manifest
 type alias SiteConfig route data =
     List route
     ->
-        { data : DataSource.DataSource data
+        { data : DataSource data
         , canonicalUrl : String
         , manifest : data -> Pages.Manifest.Config
-        , files : List (ApiHandler.Done ApiHandler.Response)
+        , files : List (ApiHandler.Done (DataSource ApiHandler.Response))
         , head :
             data
             -> List Head.Tag
         , generateFiles :
-            DataSource.DataSource
+            DataSource
                 (List
                     (Result
                         String

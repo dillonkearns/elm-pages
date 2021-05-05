@@ -405,9 +405,14 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                                 )
                                 (config.handleRoute serverRequestPayload.frontmatter)
 
-                        RenderRequest.Api apiRequest ->
-                            StaticResponses.renderApiRequest config
-                                (DataSource.succeed apiRequest)
+                        RenderRequest.Api ( path, apiRequest ) ->
+                            case apiRequest.matchesToResponse path of
+                                Just justRequest ->
+                                    StaticResponses.renderApiRequest config
+                                        justRequest
+
+                                Nothing ->
+                                    Debug.todo ""
 
                 RenderRequest.FullBuild ->
                     StaticResponses.init config
@@ -744,21 +749,30 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                     RenderRequest.SinglePage includeHtml requestPayload value ->
                                                         case requestPayload of
                                                             RenderRequest.Api ( path, apiHandler ) ->
+                                                                let
+                                                                    thing : Maybe (DataSource ApiHandler.Response)
+                                                                    thing =
+                                                                        apiHandler.matchesToResponse path
+
+                                                                    justThing : DataSource ApiHandler.Response
+                                                                    justThing =
+                                                                        case thing of
+                                                                            Just t ->
+                                                                                t
+
+                                                                            Nothing ->
+                                                                                Debug.todo ""
+                                                                in
                                                                 StaticHttpRequest.resolve ApplicationType.Browser
-                                                                    (DataSource.succeed apiHandler)
+                                                                    justThing
                                                                     model.allRawResponses
                                                                     |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                                                    |> (\request ->
-                                                                            case request of
-                                                                                Ok okRequest ->
-                                                                                    case okRequest.matchesToResponse path of
-                                                                                        Just response ->
-                                                                                            response
-                                                                                                |> ToJsPayload.SendApiResponse
-                                                                                                |> Effect.SendSinglePage True
-
-                                                                                        Nothing ->
-                                                                                            [] |> ToJsPayload.Errors |> Effect.SendJsData
+                                                                    |> (\response ->
+                                                                            case response of
+                                                                                Ok okResponse ->
+                                                                                    okResponse
+                                                                                        |> ToJsPayload.SendApiResponse
+                                                                                        |> Effect.SendSinglePage True
 
                                                                                 Err error ->
                                                                                     [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
@@ -784,21 +798,30 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                         RenderRequest.SinglePage includeHtml requestPayload value ->
                                             case requestPayload of
                                                 RenderRequest.Api ( path, apiHandler ) ->
+                                                    let
+                                                        thing : Maybe (DataSource ApiHandler.Response)
+                                                        thing =
+                                                            apiHandler.matchesToResponse path
+
+                                                        justThing : DataSource ApiHandler.Response
+                                                        justThing =
+                                                            case thing of
+                                                                Just t ->
+                                                                    t
+
+                                                                Nothing ->
+                                                                    Debug.todo ""
+                                                    in
                                                     StaticHttpRequest.resolve ApplicationType.Browser
-                                                        (DataSource.succeed apiHandler)
+                                                        justThing
                                                         model.allRawResponses
                                                         |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                                        |> (\request ->
-                                                                case request of
-                                                                    Ok okRequest ->
-                                                                        case okRequest.matchesToResponse path of
-                                                                            Just response ->
-                                                                                response
-                                                                                    |> ToJsPayload.SendApiResponse
-                                                                                    |> Effect.SendSinglePage True
-
-                                                                            Nothing ->
-                                                                                Debug.todo ""
+                                                        |> (\response ->
+                                                                case response of
+                                                                    Ok okResponse ->
+                                                                        okResponse
+                                                                            |> ToJsPayload.SendApiResponse
+                                                                            |> Effect.SendSinglePage True
 
                                                                     Err error ->
                                                                         [ error ]

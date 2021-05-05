@@ -2,14 +2,17 @@ module Site exposing (config)
 
 import ApiHandler
 import Cloudinary
-import DataSource
+import DataSource exposing (DataSource)
+import DataSource.Http
 import Head
 import Json.Encode
 import MimeType
+import OptimizedDecoder as D
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
 import Route exposing (Route)
+import Secrets
 import SiteConfig exposing (SiteConfig)
 import Sitemap
 
@@ -26,17 +29,18 @@ config =
         }
 
 
-files : List (ApiHandler.Done ApiHandler.Response)
+files : List (ApiHandler.Done (DataSource ApiHandler.Response))
 files =
     [ ApiHandler.succeed
         (\userId ->
-            { body =
-                Json.Encode.object
-                    [ ( "id", Json.Encode.int (String.toInt userId |> Maybe.withDefault 0) )
-                    , ( "name", Json.Encode.string ("Data for user " ++ userId) )
-                    ]
-                    |> Json.Encode.encode 2
-            }
+            DataSource.succeed
+                { body =
+                    Json.Encode.object
+                        [ ( "id", Json.Encode.int (String.toInt userId |> Maybe.withDefault 0) )
+                        , ( "name", Json.Encode.string ("Data for user " ++ userId) )
+                        ]
+                        |> Json.Encode.encode 2
+                }
         )
         |> ApiHandler.literal "users"
         |> ApiHandler.slash
@@ -44,10 +48,37 @@ files =
         |> ApiHandler.literal ".json"
         |> ApiHandler.done
             (\constructor ->
-                [ constructor "1"
-                , constructor "2"
-                , constructor "3"
-                ]
+                DataSource.succeed
+                    [ constructor "1"
+                    , constructor "2"
+                    , constructor "3"
+                    ]
+            )
+    , ApiHandler.succeed
+        (\repoName ->
+            DataSource.Http.get
+                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                (D.field "stargazers_count" D.int)
+                |> DataSource.map
+                    (\stars ->
+                        { body =
+                            Json.Encode.object
+                                [ ( "repo", Json.Encode.string repoName )
+                                , ( "stars", Json.Encode.int stars )
+                                ]
+                                |> Json.Encode.encode 2
+                        }
+                    )
+        )
+        |> ApiHandler.literal "repo"
+        |> ApiHandler.slash
+        |> ApiHandler.capture
+        |> ApiHandler.literal ".json"
+        |> ApiHandler.done
+            (\constructor ->
+                DataSource.succeed
+                    [ constructor "elm-graphql"
+                    ]
             )
     ]
 
