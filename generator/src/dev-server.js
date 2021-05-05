@@ -72,10 +72,9 @@ async function start(options) {
 
   const app = connect()
     .use(timeMiddleware())
-    .use(processRequest)
     .use(serveStaticCode)
-    .use(serveGeneratedFiles)
-    .use(serve);
+    .use(serve)
+    .use(processRequest);
   http.createServer(app).listen(port);
   /**
    * @param {http.IncomingMessage} request
