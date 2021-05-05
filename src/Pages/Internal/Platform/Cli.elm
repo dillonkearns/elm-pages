@@ -770,7 +770,9 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                     |> (\response ->
                                                                             case response of
                                                                                 Ok okResponse ->
-                                                                                    okResponse
+                                                                                    { body = okResponse.body
+                                                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                                    }
                                                                                         |> ToJsPayload.SendApiResponse
                                                                                         |> Effect.SendSinglePage True
 
@@ -819,7 +821,9 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         |> (\response ->
                                                                 case response of
                                                                     Ok okResponse ->
-                                                                        okResponse
+                                                                        { body = okResponse.body
+                                                                        , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                        }
                                                                             |> ToJsPayload.SendApiResponse
                                                                             |> Effect.SendSinglePage True
 

@@ -69,7 +69,7 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         writeGeneratedFiles(args.filesToGenerate);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
-        // global.staticHttpCache = args.staticHttpCache;
+        global.staticHttpCache = args.staticHttpCache;
 
         resolve({
           kind: "api-response",
