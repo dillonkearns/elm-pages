@@ -48,13 +48,13 @@ type alias Done response =
 singleRoute : Handler response (List String) -> Done response
 singleRoute handler =
     handler
-        |> done (\constructor -> DataSource.succeed [ constructor ])
+        |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
 
 
-done : (constructor -> DataSource (List (List String))) -> Handler response constructor -> Done response
-done buildUrls (Handler pattern handler toString constructor) =
+buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler response constructor -> Done response
+buildTimeRoutes buildUrls (Handler pattern handler toString constructor) =
     let
-        buildTimeRoutes =
+        buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
 
@@ -64,7 +64,7 @@ done buildUrls (Handler pattern handler toString constructor) =
     in
     { regex = Regex.fromString pattern |> Maybe.withDefault Regex.never
     , matchesToResponse = \path -> tryMatch path (Handler pattern handler toString constructor)
-    , buildTimeRoutes = buildTimeRoutes
+    , buildTimeRoutes = buildTimeRoutes__
     , handleRoute =
         \path -> DataSource.succeed True
     }

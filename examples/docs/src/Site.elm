@@ -46,7 +46,7 @@ files =
         |> ApiHandler.slash
         |> ApiHandler.capture
         |> ApiHandler.literal ".json"
-        |> ApiHandler.done
+        |> ApiHandler.buildTimeRoutes
             (\constructor ->
                 DataSource.succeed
                     [ constructor "1"
@@ -74,7 +74,7 @@ files =
         |> ApiHandler.slash
         |> ApiHandler.capture
         |> ApiHandler.literal ".json"
-        |> ApiHandler.done
+        |> ApiHandler.buildTimeRoutes
             (\constructor ->
                 DataSource.succeed
                     [ constructor "elm-graphql"
