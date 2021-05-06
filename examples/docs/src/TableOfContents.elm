@@ -1,5 +1,6 @@
 module TableOfContents exposing (..)
 
+import Css
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block as Block exposing (Block, HeadingLevel(..), Inline)
@@ -98,6 +99,7 @@ styledToString inlines =
         |> Block.extractInlineText
 
 
+surround : List (Html msg) -> Html msg
 surround children =
     div
         [ css
@@ -124,8 +126,6 @@ surround children =
                     , Tw.sticky
                     ]
                 ]
-            , Attr.style "top" "4rem"
-            , Attr.style "height" "calc(100vh - 4rem)"
             ]
             [ div
                 [ css
@@ -152,36 +152,12 @@ surround children =
 view : TableOfContents Data -> Html msg
 view toc =
     surround
-        (ul
-            [ css
-                [ Tw.space_y_8
-                , Tw.border_l
-                , Tw.border_gray_200
-                , Tw.pl_6
-                ]
-            ]
+        [ ul
+            []
             (toc
                 |> List.map level1Entry
             )
-            :: [ div
-                    [ css
-                        [ Tw.absolute
-                        , Tw.top_0
-                        , Tw.left_0
-                        , Tw.w_px
-                        , Tw.bg_blue_500
-                        , Tw.origin_top
-                        , Tw.transition_transform
-                        , Tw.duration_300
-                        ]
-                    , Attr.attribute ":style" "'height:'+(height?'1px':'0')+';transform:translateY('+top+'px) scaleY('+height+')'"
-                    , Attr.attribute ":class" "initialized ? 'transition-transform duration-300' : ''"
-                    , Attr.style "height" "1px"
-                    , Attr.style "transform" "translateY(148px) scaleY(20)"
-                    ]
-                    []
-               ]
-        )
+        ]
 
 
 level1Entry : Entry Data -> Html msg
@@ -219,6 +195,10 @@ item href body =
             , Tw.rounded
             , Tw.select_none
             , Tw.outline_none
+            , Css.hover
+                [ Tw.text_gray_900
+                , Tw.bg_gray_100
+                ]
             ]
         ]
         [ text body ]
