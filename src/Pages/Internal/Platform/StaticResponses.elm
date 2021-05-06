@@ -41,6 +41,7 @@ init :
         , site : SiteConfig route siteData
         , data : route -> DataSource.DataSource pageData
         , sharedData : DataSource.DataSource sharedData
+        , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
     }
     -> StaticResponses
 init config =
@@ -61,42 +62,35 @@ init config =
 
 buildTimeFilesRequest :
     { config
-        | getStaticRoutes : DataSource (List route)
-        , site : SiteConfig route siteData
+        | apiRoutes : List (ApiRoute.Done ApiRoute.Response)
     }
     -> DataSource (List (Result String { path : List String, content : String }))
 buildTimeFilesRequest config =
-    config.getStaticRoutes
-        |> DataSource.andThen
-            (\allRoutes ->
-                config.site
-                    allRoutes
-                    |> .apiRoutes
-                    |> List.map
-                        (\handler ->
-                            handler.buildTimeRoutes
-                                |> DataSource.andThen
-                                    (\paths ->
-                                        paths
-                                            |> List.map
-                                                (\path ->
-                                                    handler.matchesToResponse path
-                                                        |> DataSource.map
-                                                            (\maybeResponse ->
-                                                                case maybeResponse of
-                                                                    Nothing ->
-                                                                        Err ""
+    config.apiRoutes
+        |> List.map
+            (\handler ->
+                handler.buildTimeRoutes
+                    |> DataSource.andThen
+                        (\paths ->
+                            paths
+                                |> List.map
+                                    (\path ->
+                                        handler.matchesToResponse path
+                                            |> DataSource.map
+                                                (\maybeResponse ->
+                                                    case maybeResponse of
+                                                        Nothing ->
+                                                            Err ""
 
-                                                                    Just response ->
-                                                                        Ok { path = path |> String.split "/", content = response.body }
-                                                            )
+                                                        Just response ->
+                                                            Ok { path = path |> String.split "/", content = response.body }
                                                 )
-                                            |> DataSource.combine
                                     )
+                                |> DataSource.combine
                         )
-                    |> DataSource.combine
-                    |> DataSource.map List.concat
             )
+        |> DataSource.combine
+        |> DataSource.map List.concat
 
 
 renderSingleRoute :
@@ -204,6 +198,7 @@ nextStep :
         , data : route -> DataSource.DataSource pageData
         , sharedData : DataSource.DataSource sharedData
         , site : SiteConfig route siteData
+        , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
     }
     ->
         { model

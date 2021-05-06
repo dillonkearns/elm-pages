@@ -39,6 +39,7 @@ function generateTemplateModuleConnector(phase) {
   return {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
+import Api
 import Browser.Navigation
 import Route exposing (Route)
 import Document
@@ -396,6 +397,7 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
+        , apiRoutes = Api.routes
         }
 
 dataForRoute : Maybe Route -> DataSource PageData

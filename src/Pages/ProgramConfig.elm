@@ -1,5 +1,6 @@
 module Pages.ProgramConfig exposing (..)
 
+import ApiRoute
 import Browser.Navigation
 import DataSource
 import Head
@@ -54,4 +55,5 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         , metadata : route
         }
         -> userMsg
+    , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
     }
