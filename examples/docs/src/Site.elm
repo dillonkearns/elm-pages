@@ -35,22 +35,22 @@ files allRoutes =
             DataSource.succeed
                 { body =
                     Json.Encode.object
-                        [ ( "id", Json.Encode.int (String.toInt userId |> Maybe.withDefault 0) )
-                        , ( "name", Json.Encode.string ("Data for user " ++ userId) )
+                        [ ( "id", Json.Encode.int userId )
+                        , ( "name", Json.Encode.string ("Data for user " ++ String.fromInt userId) )
                         ]
                         |> Json.Encode.encode 2
                 }
         )
         |> ApiRoute.literal "users"
         |> ApiRoute.slash
-        |> ApiRoute.capture
+        |> ApiRoute.int
         |> ApiRoute.literal ".json"
         |> ApiRoute.buildTimeRoutes
             (\constructor ->
                 DataSource.succeed
-                    [ constructor "1"
-                    , constructor "2"
-                    , constructor "3"
+                    [ constructor 1
+                    , constructor 2
+                    , constructor 3
                     ]
             )
     , ApiRoute.succeed

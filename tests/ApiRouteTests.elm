@@ -38,6 +38,18 @@ all =
                     |> literal ".json"
                     |> tryMatch "users/123.json"
                     |> Expect.equal (Just { body = "Data for user 123" })
+        , test "integer matcher" <|
+            \() ->
+                succeed
+                    (\userId ->
+                        { body = "Data for user " ++ String.fromInt userId }
+                    )
+                    |> literal "users"
+                    |> slash
+                    |> int
+                    |> literal ".json"
+                    |> tryMatch "users/123.json"
+                    |> Expect.equal (Just { body = "Data for user 123" })
         , test "routes" <|
             \() ->
                 succeed

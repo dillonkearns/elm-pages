@@ -165,16 +165,6 @@ capture :
 capture (Handler pattern previousHandler toString constructor) =
     Handler
         (pattern ++ "(.*)")
-        --(Debug.todo "")
-        --(\matches ->
-        --    case matches of
-        --        first :: rest ->
-        --            previousHandler rest
-        --
-        --        -- first
-        --        _ ->
-        --            Debug.todo "Expected non-empty list"
-        --)
         (\matches ->
             case matches of
                 first :: rest ->
@@ -194,6 +184,39 @@ capture (Handler pattern previousHandler toString constructor) =
         (\matches ->
             \string ->
                 constructor (string :: matches)
+        )
+
+
+int :
+    Handler
+        (Int -> a)
+        constructor
+    ->
+        Handler
+            a
+            (Int -> constructor)
+int (Handler pattern previousHandler toString constructor) =
+    Handler
+        (pattern ++ "(\\d+)")
+        (\matches ->
+            case matches of
+                first :: rest ->
+                    previousHandler rest (String.toInt first |> Maybe.withDefault -1)
+
+                _ ->
+                    Debug.todo "Expected non-empty list"
+        )
+        (\s ->
+            case s of
+                first :: rest ->
+                    toString rest ++ first
+
+                _ ->
+                    ""
+        )
+        (\matches ->
+            \string ->
+                constructor (String.fromInt string :: matches)
         )
 
 
