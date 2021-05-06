@@ -8,7 +8,7 @@ module Pages.Internal.Platform.Cli exposing
     , update
     )
 
-import ApiHandler
+import ApiRoute
 import BuildError exposing (BuildError)
 import Codec
 import DataSource exposing (DataSource)
@@ -755,7 +755,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         case requestPayload of
                                                             RenderRequest.Api ( path, apiHandler ) ->
                                                                 let
-                                                                    thing : DataSource (Maybe ApiHandler.Response)
+                                                                    thing : DataSource (Maybe ApiRoute.Response)
                                                                     thing =
                                                                         apiHandler.matchesToResponse path
                                                                 in
@@ -814,7 +814,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                             case requestPayload of
                                                 RenderRequest.Api ( path, apiHandler ) ->
                                                     let
-                                                        thing : DataSource (Maybe ApiHandler.Response)
+                                                        thing : DataSource (Maybe ApiRoute.Response)
                                                         thing =
                                                             apiHandler.matchesToResponse path
                                                     in

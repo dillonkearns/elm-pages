@@ -1,6 +1,6 @@
 module RenderRequest exposing (..)
 
-import ApiHandler
+import ApiRoute
 import DataSource exposing (DataSource)
 import Json.Decode as Decode
 import Json.Encode
@@ -12,7 +12,7 @@ import Url exposing (Url)
 
 type RequestPayload route
     = Page { path : PagePath, frontmatter : route }
-    | Api ( String, ApiHandler.Done ApiHandler.Response )
+    | Api ( String, ApiRoute.Done ApiRoute.Response )
     | NotFound
 
 
@@ -106,9 +106,9 @@ requestPayloadDecoder config =
                     route =
                         pathToUrl path |> config.urlToRoute
 
-                    apiRoute : Maybe (ApiHandler.Done ApiHandler.Response)
+                    apiRoute : Maybe (ApiRoute.Done ApiRoute.Response)
                     apiRoute =
-                        ApiHandler.firstMatch (String.dropLeft 1 path)
+                        ApiRoute.firstMatch (String.dropLeft 1 path)
                             (manifestHandler config
                                 :: site.apiRoutes
                             )
@@ -136,9 +136,9 @@ requestPayloadDecoder config =
         |> Decode.field "payload"
 
 
-manifestHandler : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> ApiHandler.Done ApiHandler.Response
+manifestHandler : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> ApiRoute.Done ApiRoute.Response
 manifestHandler config =
-    ApiHandler.succeed
+    ApiRoute.succeed
         (config.getStaticRoutes
             |> DataSource.andThen
                 (\resolvedRoutes ->
@@ -151,8 +151,8 @@ manifestHandler config =
                             )
                 )
         )
-        |> ApiHandler.literal "manifest.json"
-        |> ApiHandler.singleRoute
+        |> ApiRoute.literal "manifest.json"
+        |> ApiRoute.singleRoute
 
 
 manifestToFile : String -> Manifest.Config -> { body : String }

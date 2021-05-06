@@ -1,6 +1,6 @@
 module Site exposing (config)
 
-import ApiHandler
+import ApiRoute
 import Cloudinary
 import DataSource exposing (DataSource)
 import DataSource.Http
@@ -28,9 +28,9 @@ config =
         }
 
 
-files : List (Maybe Route) -> List (ApiHandler.Done ApiHandler.Response)
+files : List (Maybe Route) -> List (ApiRoute.Done ApiRoute.Response)
 files allRoutes =
-    [ ApiHandler.succeed
+    [ ApiRoute.succeed
         (\userId ->
             DataSource.succeed
                 { body =
@@ -41,11 +41,11 @@ files allRoutes =
                         |> Json.Encode.encode 2
                 }
         )
-        |> ApiHandler.literal "users"
-        |> ApiHandler.slash
-        |> ApiHandler.capture
-        |> ApiHandler.literal ".json"
-        |> ApiHandler.buildTimeRoutes
+        |> ApiRoute.literal "users"
+        |> ApiRoute.slash
+        |> ApiRoute.capture
+        |> ApiRoute.literal ".json"
+        |> ApiRoute.buildTimeRoutes
             (\constructor ->
                 DataSource.succeed
                     [ constructor "1"
@@ -53,7 +53,7 @@ files allRoutes =
                     , constructor "3"
                     ]
             )
-    , ApiHandler.succeed
+    , ApiRoute.succeed
         (\repoName ->
             DataSource.Http.get
                 (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
@@ -69,17 +69,17 @@ files allRoutes =
                         }
                     )
         )
-        |> ApiHandler.literal "repo"
-        |> ApiHandler.slash
-        |> ApiHandler.capture
-        |> ApiHandler.literal ".json"
-        |> ApiHandler.buildTimeRoutes
+        |> ApiRoute.literal "repo"
+        |> ApiRoute.slash
+        |> ApiRoute.capture
+        |> ApiRoute.literal ".json"
+        |> ApiRoute.buildTimeRoutes
             (\constructor ->
                 DataSource.succeed
                     [ constructor "elm-graphql"
                     ]
             )
-    , ApiHandler.succeed
+    , ApiRoute.succeed
         (DataSource.succeed
             { body =
                 allRoutes
@@ -93,8 +93,8 @@ files allRoutes =
                     |> Sitemap.build { siteUrl = "https://elm-pages.com" }
             }
         )
-        |> ApiHandler.literal "sitemap.xml"
-        |> ApiHandler.singleRoute
+        |> ApiRoute.literal "sitemap.xml"
+        |> ApiRoute.singleRoute
     ]
 
 

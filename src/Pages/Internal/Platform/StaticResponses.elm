@@ -1,6 +1,6 @@
 module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderApiRequest, renderSingleRoute, update)
 
-import ApiHandler
+import ApiRoute
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)

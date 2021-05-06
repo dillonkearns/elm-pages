@@ -1,6 +1,6 @@
-module ApiHandlerTests exposing (..)
+module ApiRouteTests exposing (..)
 
-import ApiHandler exposing (..)
+import ApiRoute exposing (..)
 import Expect
 import Test exposing (describe, only, test)
 

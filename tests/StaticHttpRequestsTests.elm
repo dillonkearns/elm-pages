@@ -1,6 +1,6 @@
 module StaticHttpRequestsTests exposing (all)
 
-import ApiHandler
+import ApiRoute
 import Codec
 import DataSource
 import DataSource.Http
@@ -693,7 +693,7 @@ Payload sent back invalid JSON""")
             [ test "initial requests are sent out" <|
                 \() ->
                     startLowLevel
-                        [ ApiHandler.succeed
+                        [ ApiRoute.succeed
                             (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
                                 (starDecoder
                                     |> Decode.map
@@ -703,8 +703,8 @@ Payload sent back invalid JSON""")
                                         )
                                 )
                             )
-                            |> ApiHandler.literal "test.txt"
-                            |> ApiHandler.singleRoute
+                            |> ApiRoute.literal "test.txt"
+                            |> ApiRoute.singleRoute
                         ]
                         (Ok ())
                         []
@@ -726,7 +726,7 @@ Payload sent back invalid JSON""")
             , test "it sends success port when no HTTP requests are needed because they're all cached" <|
                 \() ->
                     startLowLevel
-                        [ ApiHandler.succeed
+                        [ ApiRoute.succeed
                             (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
                                 (starDecoder
                                     |> Decode.map
@@ -736,8 +736,8 @@ Payload sent back invalid JSON""")
                                         )
                                 )
                             )
-                            |> ApiHandler.literal "test.txt"
-                            |> ApiHandler.singleRoute
+                            |> ApiRoute.literal "test.txt"
+                            |> ApiRoute.singleRoute
                         ]
                         (Ok ())
                         [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -798,7 +798,7 @@ startWithHttpCache =
 
 
 startLowLevel :
-    List (ApiHandler.Done ApiHandler.Response)
+    List (ApiRoute.Done ApiRoute.Response)
     -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, DataSource.DataSource a )

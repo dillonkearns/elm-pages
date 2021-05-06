@@ -1,6 +1,6 @@
 module Pages.SiteConfig exposing (SiteConfig)
 
-import ApiHandler
+import ApiRoute
 import DataSource exposing (DataSource)
 import Head
 import Pages.Manifest
@@ -12,7 +12,7 @@ type alias SiteConfig route data =
         { data : DataSource data
         , canonicalUrl : String
         , manifest : data -> Pages.Manifest.Config
-        , apiRoutes : List (ApiHandler.Done ApiHandler.Response)
+        , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
         , head :
             data
             -> List Head.Tag

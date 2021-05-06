@@ -1,4 +1,4 @@
-module ApiHandler exposing (..)
+module ApiRoute exposing (..)
 
 import DataSource exposing (DataSource)
 import Regex exposing (Regex)
