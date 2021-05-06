@@ -7,7 +7,7 @@ import DataSource.Http
 import Head
 import Json.Encode
 import MimeType
-import OptimizedDecoder as D
+import OptimizedDecoder as Decode
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath
@@ -57,7 +57,7 @@ files allRoutes =
         (\repoName ->
             DataSource.Http.get
                 (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                (D.field "stargazers_count" D.int)
+                (Decode.field "stargazers_count" Decode.int)
                 |> DataSource.map
                     (\stars ->
                         { body =
