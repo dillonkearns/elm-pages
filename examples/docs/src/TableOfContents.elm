@@ -191,18 +191,7 @@ level1Entry (Entry data children) =
             [ Tw.space_y_3
             ]
         ]
-        [ a
-            [ Attr.href <| "/docs#" ++ data.anchorId
-            , css
-                [ Tw.block
-                , Tw.font_extrabold
-                , Tw.transition_colors
-                , Tw.duration_300
-                , Tw.text_gray_900
-                ]
-            , Attr.attribute ":class" "{ 'transition-colors duration-300': initialized, 'text-teal-600': activeSlug === 'getting-set-up', 'text-gray-900': activeSlug !== 'getting-set-up' }"
-            ]
-            [ text data.name ]
+        [ item ("/docs#" ++ data.anchorId) data.name
         , ul
             [ css
                 [ Tw.space_y_3
@@ -214,6 +203,27 @@ level1Entry (Entry data children) =
         ]
 
 
+item : String -> String -> Html msg
+item href body =
+    a
+        [ Attr.href href
+        , css
+            [ Tw.block
+            , Tw.w_full
+            , Tw.text_left
+            , Tw.text_base
+            , Tw.no_underline
+            , Tw.text_gray_600
+            , Tw.mt_1
+            , Tw.p_2
+            , Tw.rounded
+            , Tw.select_none
+            , Tw.outline_none
+            ]
+        ]
+        [ text body ]
+
+
 level2Entry : Entry Data -> Html msg
 level2Entry (Entry data children) =
     li
@@ -221,14 +231,5 @@ level2Entry (Entry data children) =
             [ Tw.ml_4
             ]
         ]
-        [ a
-            [ Attr.href <| "/docs#" ++ data.anchorId
-            , css
-                [ Tw.block
-                , Tw.transition_colors
-                , Tw.duration_300
-                ]
-            , Attr.attribute ":class" "{ 'transition-colors duration-300': initialized, 'text-teal-600': activeSlug === 'requirements' }"
-            ]
-            [ text data.name ]
+        [ item ("/docs#" ++ data.anchorId) data.name
         ]
