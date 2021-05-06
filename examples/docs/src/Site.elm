@@ -169,19 +169,3 @@ cloudinaryIcon :
     -> ImagePath
 cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
-
-
-siteMap :
-    List (Maybe Route)
-    -> { path : List String, content : String }
-siteMap allRoutes =
-    allRoutes
-        |> List.filterMap identity
-        |> List.map
-            (\route ->
-                { path = Route.routeToPath (Just route) |> String.join "/"
-                , lastMod = Nothing
-                }
-            )
-        |> Sitemap.build { siteUrl = "https://elm-pages.com" }
-        |> (\sitemapXmlString -> { path = [ "sitemap.xml" ], content = sitemapXmlString })
