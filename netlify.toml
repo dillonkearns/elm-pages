@@ -10,3 +10,9 @@
   to = "/.netlify/functions/render"
   status = 200
   # force = true
+
+[dev]
+  command = "npm start"
+  targetPort = 1234
+  autoLaunch = true
+  framework = "#custom"

@@ -7,6 +7,7 @@ import Json.Encode
 import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
+import Regex
 import Url exposing (Url)
 
 
@@ -100,8 +101,13 @@ requestPayloadDecoder :
 requestPayloadDecoder config =
     (Decode.string
         |> Decode.map
-            (\path ->
+            (\rawPath ->
                 let
+                    path : String
+                    path =
+                        rawPath
+                            |> dropTrailingIndexHtml
+
                     route : Maybe route
                     route =
                         pathToUrl path |> config.urlToRoute
@@ -191,3 +197,8 @@ optionalField fieldName decoder_ =
     in
     Decode.value
         |> Decode.andThen finishDecoding
+
+
+dropTrailingIndexHtml =
+    Regex.replace (Regex.fromString "/index\\.html$" |> Maybe.withDefault Regex.never)
+        (\_ -> "")

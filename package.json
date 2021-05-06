@@ -6,6 +6,7 @@
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
   "main": "index.js",
   "scripts": {
+    "start": "cd examples/docs && npm start",
     "test": "elm-test && (cd generator && mocha) && (cd examples/routing && npm i && npm run build -- --debug && elm-test)",
     "review": "elm-review"
   },
