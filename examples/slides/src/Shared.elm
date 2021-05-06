@@ -3,13 +3,10 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 import Browser.Navigation
 import Css.Global
 import DataSource
-import DataSource.Http
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
-import OptimizedDecoder as D
 import Pages.PagePath exposing (PagePath)
-import Secrets
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
 
@@ -36,7 +33,7 @@ type Msg
 
 
 type alias Data =
-    Int
+    ()
 
 
 type SharedMsg
@@ -83,8 +80,7 @@ subscriptions _ _ =
 
 data : DataSource.DataSource Data
 data =
-    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (D.field "stargazers_count" D.int)
+    DataSource.succeed ()
 
 
 view :
