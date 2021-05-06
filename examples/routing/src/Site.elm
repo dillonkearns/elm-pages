@@ -20,27 +20,9 @@ config =
         { data = data
         , canonicalUrl = canonicalUrl
         , manifest = manifest
+        , files = []
         , head = head
-        , generateFiles = generateFiles routes
         }
-
-
-generateFiles :
-    List (Maybe Route)
-    ->
-        DataSource.DataSource
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
-            )
-generateFiles allRoutes =
-    DataSource.succeed
-        [ siteMap allRoutes |> Ok
-        ]
 
 
 type alias Data =

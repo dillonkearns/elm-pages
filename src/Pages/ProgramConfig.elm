@@ -47,16 +47,6 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , site : SiteConfig route siteData
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
-    , generateFiles :
-        DataSource.DataSource
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
-            )
     , onPageChange :
         { path : PagePath
         , query : Maybe String

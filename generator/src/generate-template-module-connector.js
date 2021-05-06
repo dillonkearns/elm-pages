@@ -396,19 +396,6 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , generateFiles =
-            getStaticRoutes
-                |> DataSource.andThen
-                    (\\resolvedStaticRoutes ->
-                        DataSource.map2 (::)
-                            (manifestGenerator
-                                resolvedStaticRoutes
-                            )
-                            (Site.config
-                                resolvedStaticRoutes
-                                |> .generateFiles
-                            )
-                    )
         }
 
 dataForRoute : Maybe Route -> DataSource PageData

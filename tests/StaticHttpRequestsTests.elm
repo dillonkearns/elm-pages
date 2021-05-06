@@ -1,5 +1,6 @@
 module StaticHttpRequestsTests exposing (all)
 
+import ApiHandler
 import Codec
 import DataSource
 import DataSource.Http
@@ -692,18 +693,19 @@ Payload sent back invalid JSON""")
             [ test "initial requests are sent out" <|
                 \() ->
                     startLowLevel
-                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                            (starDecoder
-                                |> Decode.map
-                                    (\starCount ->
-                                        [ Ok
-                                            { path = [ "test.txt" ]
-                                            , content = "Star count: " ++ String.fromInt starCount
+                        [ ApiHandler.succeed
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                                (starDecoder
+                                    |> Decode.map
+                                        (\starCount ->
+                                            { body = "Star count: " ++ String.fromInt starCount
                                             }
-                                        ]
-                                    )
+                                        )
+                                )
                             )
-                        )
+                            |> ApiHandler.literal "test.txt"
+                            |> ApiHandler.singleRoute
+                        ]
                         (Ok ())
                         []
                         []
@@ -724,18 +726,19 @@ Payload sent back invalid JSON""")
             , test "it sends success port when no HTTP requests are needed because they're all cached" <|
                 \() ->
                     startLowLevel
-                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
-                            (starDecoder
-                                |> Decode.map
-                                    (\starCount ->
-                                        [ Ok
-                                            { path = [ "test.txt" ]
-                                            , content = "Star count: " ++ String.fromInt starCount
+                        [ ApiHandler.succeed
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                                (starDecoder
+                                    |> Decode.map
+                                        (\starCount ->
+                                            { body = "Star count: " ++ String.fromInt starCount
                                             }
-                                        ]
-                                    )
+                                        )
+                                )
                             )
-                        )
+                            |> ApiHandler.literal "test.txt"
+                            |> ApiHandler.singleRoute
+                        ]
                         (Ok ())
                         [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , method = "GET"
@@ -791,24 +794,16 @@ startWithHttpCache :
     -> List ( List String, DataSource.DataSource a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
-    startLowLevel (DataSource.succeed [])
+    startLowLevel []
 
 
 startLowLevel :
-    DataSource.DataSource
-        (List
-            (Result
-                String
-                { path : List String
-                , content : String
-                }
-            )
-        )
+    List (ApiHandler.Done ApiHandler.Response)
     -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, DataSource.DataSource a )
     -> ProgramTest (Model Route) Msg Effect
-startLowLevel generateFiles documentBodyResult staticHttpCache pages =
+startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
     let
         contentCache =
             ContentCache.init Nothing
@@ -817,7 +812,6 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
-            , generateFiles = generateFiles
             , init = \_ _ _ _ -> ( (), Cmd.none )
             , getStaticRoutes =
                 --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
@@ -855,8 +849,7 @@ startLowLevel generateFiles documentBodyResult staticHttpCache pages =
                     , canonicalUrl = "canonical-site-url"
                     , manifest = \_ -> manifest
                     , head = \_ -> []
-                    , generateFiles = generateFiles
-                    , files = []
+                    , files = apiRoutes
                     }
             , view =
                 \page ->

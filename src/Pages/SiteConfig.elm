@@ -16,14 +16,4 @@ type alias SiteConfig route data =
         , head :
             data
             -> List Head.Tag
-        , generateFiles :
-            DataSource
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
-                )
         }

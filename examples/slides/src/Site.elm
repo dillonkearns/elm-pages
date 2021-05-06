@@ -21,26 +21,8 @@ config =
         , canonicalUrl = canonicalUrl
         , manifest = manifest
         , head = head
-        , generateFiles = generateFiles routes
+        , files = []
         }
-
-
-generateFiles :
-    List (Maybe Route)
-    ->
-        DataSource.DataSource
-            (List
-                (Result
-                    String
-                    { path : List String
-                    , content : String
-                    }
-                )
-            )
-generateFiles allRoutes =
-    DataSource.succeed
-        [ siteMap allRoutes |> Ok
-        ]
 
 
 type alias Data =
