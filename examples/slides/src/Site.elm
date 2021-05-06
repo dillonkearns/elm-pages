@@ -21,7 +21,7 @@ config =
         , canonicalUrl = canonicalUrl
         , manifest = manifest
         , head = head
-        , files = []
+        , apiRoutes = []
         }
 
 

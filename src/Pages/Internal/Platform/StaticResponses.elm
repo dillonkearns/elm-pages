@@ -71,7 +71,7 @@ buildTimeFilesRequest config =
             (\allRoutes ->
                 config.site
                     allRoutes
-                    |> .files
+                    |> .apiRoutes
                     |> List.map
                         (\handler ->
                             handler.buildTimeRoutes

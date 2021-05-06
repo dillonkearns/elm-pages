@@ -849,7 +849,7 @@ startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
                     , canonicalUrl = "canonical-site-url"
                     , manifest = \_ -> manifest
                     , head = \_ -> []
-                    , files = apiRoutes
+                    , apiRoutes = apiRoutes
                     }
             , view =
                 \page ->

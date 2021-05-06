@@ -110,7 +110,7 @@ requestPayloadDecoder config =
                     apiRoute =
                         ApiHandler.firstMatch (String.dropLeft 1 path)
                             (manifestHandler config
-                                :: site.files
+                                :: site.apiRoutes
                             )
 
                     site =

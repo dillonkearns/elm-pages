@@ -20,7 +20,7 @@ config =
         { data = data
         , canonicalUrl = canonicalUrl
         , manifest = manifest
-        , files = []
+        , apiRoutes = []
         , head = head
         }
 
