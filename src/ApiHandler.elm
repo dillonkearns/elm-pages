@@ -62,7 +62,7 @@ buildTimeRoutes buildUrls ((Handler pattern handler toString constructor) as ful
         preBuiltMatches =
             buildUrls (constructor [])
     in
-    { regex = Regex.fromString pattern |> Maybe.withDefault Regex.never
+    { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
     , matchesToResponse =
         \path ->
             let
