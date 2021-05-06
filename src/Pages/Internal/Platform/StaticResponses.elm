@@ -41,16 +41,6 @@ init :
         , site : SiteConfig route siteData
         , data : route -> DataSource.DataSource pageData
         , sharedData : DataSource.DataSource sharedData
-        , generateFiles :
-            DataSource.DataSource
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
-                )
     }
     -> StaticResponses
 init config =
@@ -62,11 +52,45 @@ init config =
                         config.site resolvedRoutes |> .data
                     )
             )
-            config.generateFiles
+            (buildTimeFilesRequest config.site)
             config.sharedData
         )
         Dict.empty
         |> GettingInitialData
+
+
+buildTimeFilesRequest : SiteConfig route siteData -> DataSource (List (Result String { path : List String, content : String }))
+buildTimeFilesRequest config =
+    let
+        allRoutes =
+            []
+    in
+    config allRoutes
+        |> .files
+        |> List.map
+            (\handler ->
+                handler.buildTimeRoutes
+                    |> DataSource.andThen
+                        (\paths ->
+                            paths
+                                |> List.map
+                                    (\path ->
+                                        handler.matchesToResponse path
+                                            |> DataSource.map
+                                                (\maybeResponse ->
+                                                    case maybeResponse of
+                                                        Nothing ->
+                                                            Err ""
+
+                                                        Just response ->
+                                                            Ok { path = path |> String.split "/", content = response.body }
+                                                )
+                                    )
+                                |> DataSource.combine
+                        )
+            )
+        |> DataSource.combine
+        |> DataSource.map List.concat
 
 
 renderSingleRoute :
@@ -174,16 +198,6 @@ nextStep :
         , data : route -> DataSource.DataSource pageData
         , sharedData : DataSource.DataSource sharedData
         , site : SiteConfig route siteData
-        , generateFiles :
-            DataSource.DataSource
-                (List
-                    (Result
-                        String
-                        { path : List String
-                        , content : String
-                        }
-                    )
-                )
     }
     ->
         { model
@@ -215,7 +229,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
         resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
         resolvedGenerateFilesResult =
             StaticHttpRequest.resolve ApplicationType.Cli
-                config.generateFiles
+                (buildTimeFilesRequest config.site)
                 (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
 
         generatedOkayFiles : List { path : List String, content : String }
@@ -228,7 +242,6 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                 Just ok
 
                             Err _ ->
-                                --Debug.todo (Debug.toString error_)
                                 Nothing
                     )
 
@@ -409,7 +422,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                     routes
                                 )
                                 config.getStaticRoutes
-                                config.generateFiles
+                                (buildTimeFilesRequest config.site)
                                 config.sharedData
                             )
                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
