@@ -734,6 +734,8 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                             |> Maybe.map List.length
                                             |> Maybe.withDefault -1
                                        )
+                                    && model.maybeRequestJson
+                                    == RenderRequest.FullBuild
                             then
                                 case toJsPayload of
                                     ToJsPayload.Success value ->
@@ -747,59 +749,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                         Effect.SendJsData toJsPayload
 
                                     ToJsPayload.ApiResponse ->
-                                        let
-                                            apiResponse : Effect
-                                            apiResponse =
-                                                case model.maybeRequestJson of
-                                                    RenderRequest.SinglePage includeHtml requestPayload value ->
-                                                        case requestPayload of
-                                                            RenderRequest.Api ( path, apiHandler ) ->
-                                                                let
-                                                                    thing : DataSource (Maybe ApiRoute.Response)
-                                                                    thing =
-                                                                        apiHandler.matchesToResponse path
-                                                                in
-                                                                StaticHttpRequest.resolve ApplicationType.Browser
-                                                                    thing
-                                                                    model.allRawResponses
-                                                                    |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                                                    |> (\response ->
-                                                                            case response of
-                                                                                Ok (Just okResponse) ->
-                                                                                    { body = okResponse.body
-                                                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                                    , statusCode = 200
-                                                                                    }
-                                                                                        |> ToJsPayload.SendApiResponse
-                                                                                        |> Effect.SendSinglePage True
-
-                                                                                Ok Nothing ->
-                                                                                    { body = "Not found"
-                                                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                                    , statusCode = 404
-                                                                                    }
-                                                                                        |> ToJsPayload.SendApiResponse
-                                                                                        |> Effect.SendSinglePage True
-
-                                                                                Err error ->
-                                                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
-                                                                       )
-
-                                                            RenderRequest.Page _ ->
-                                                                [] |> ToJsPayload.Errors |> Effect.SendJsData
-
-                                                            RenderRequest.NotFound ->
-                                                                { body = "Not found"
-                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                , statusCode = 404
-                                                                }
-                                                                    |> ToJsPayload.SendApiResponse
-                                                                    |> Effect.SendSinglePage True
-
-                                                    RenderRequest.FullBuild ->
-                                                        [] |> ToJsPayload.Errors |> Effect.SendJsData
-                                        in
-                                        apiResponse
+                                        Effect.NoEffect
 
                             else
                                 Effect.NoEffect
