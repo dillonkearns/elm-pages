@@ -12,7 +12,7 @@ type alias SiteConfig route data =
         { data : DataSource data
         , canonicalUrl : String
         , manifest : data -> Pages.Manifest.Config
-        , files : List (ApiHandler.Done (DataSource ApiHandler.Response))
+        , files : List (ApiHandler.Done ApiHandler.Response)
         , head :
             data
             -> List Head.Tag

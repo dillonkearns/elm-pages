@@ -406,13 +406,8 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                                 (config.handleRoute serverRequestPayload.frontmatter)
 
                         RenderRequest.Api ( path, apiRequest ) ->
-                            case apiRequest.matchesToResponse path of
-                                Just justRequest ->
-                                    StaticResponses.renderApiRequest config
-                                        justRequest
-
-                                Nothing ->
-                                    Debug.todo ""
+                            StaticResponses.renderApiRequest config
+                                (apiRequest.matchesToResponse path)
 
                 RenderRequest.FullBuild ->
                     StaticResponses.init config
@@ -750,27 +745,25 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         case requestPayload of
                                                             RenderRequest.Api ( path, apiHandler ) ->
                                                                 let
-                                                                    thing : Maybe (DataSource ApiHandler.Response)
+                                                                    thing : DataSource (Maybe ApiHandler.Response)
                                                                     thing =
                                                                         apiHandler.matchesToResponse path
-
-                                                                    justThing : DataSource ApiHandler.Response
-                                                                    justThing =
-                                                                        case thing of
-                                                                            Just t ->
-                                                                                t
-
-                                                                            Nothing ->
-                                                                                Debug.todo ""
                                                                 in
                                                                 StaticHttpRequest.resolve ApplicationType.Browser
-                                                                    justThing
+                                                                    thing
                                                                     model.allRawResponses
                                                                     |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
                                                                     |> (\response ->
                                                                             case response of
-                                                                                Ok okResponse ->
+                                                                                Ok (Just okResponse) ->
                                                                                     { body = okResponse.body
+                                                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                                    }
+                                                                                        |> ToJsPayload.SendApiResponse
+                                                                                        |> Effect.SendSinglePage True
+
+                                                                                Ok Nothing ->
+                                                                                    { body = "Not found"
                                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                                     }
                                                                                         |> ToJsPayload.SendApiResponse
@@ -801,27 +794,25 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                             case requestPayload of
                                                 RenderRequest.Api ( path, apiHandler ) ->
                                                     let
-                                                        thing : Maybe (DataSource ApiHandler.Response)
+                                                        thing : DataSource (Maybe ApiHandler.Response)
                                                         thing =
                                                             apiHandler.matchesToResponse path
-
-                                                        justThing : DataSource ApiHandler.Response
-                                                        justThing =
-                                                            case thing of
-                                                                Just t ->
-                                                                    t
-
-                                                                Nothing ->
-                                                                    Debug.todo ""
                                                     in
                                                     StaticHttpRequest.resolve ApplicationType.Browser
-                                                        justThing
+                                                        thing
                                                         model.allRawResponses
                                                         |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
                                                         |> (\response ->
                                                                 case response of
-                                                                    Ok okResponse ->
+                                                                    Ok (Just okResponse) ->
                                                                         { body = okResponse.body
+                                                                        , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                        }
+                                                                            |> ToJsPayload.SendApiResponse
+                                                                            |> Effect.SendSinglePage True
+
+                                                                    Ok Nothing ->
+                                                                        { body = "Not found"
                                                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                         }
                                                                             |> ToJsPayload.SendApiResponse

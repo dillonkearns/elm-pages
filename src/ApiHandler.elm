@@ -39,20 +39,20 @@ withRoutesNew buildUrls (Handler pattern handler toString constructor) =
 
 type alias Done response =
     { regex : Regex
-    , matchesToResponse : String -> Maybe response
+    , matchesToResponse : String -> DataSource (Maybe response)
     , buildTimeRoutes : DataSource (List String)
     , handleRoute : String -> DataSource Bool
     }
 
 
-singleRoute : Handler response (List String) -> Done response
+singleRoute : Handler (DataSource Response) (List String) -> Done Response
 singleRoute handler =
     handler
         |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
 
 
-buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler response constructor -> Done response
-buildTimeRoutes buildUrls (Handler pattern handler toString constructor) =
+buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler (DataSource Response) constructor -> Done Response
+buildTimeRoutes buildUrls ((Handler pattern handler toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ =
             buildUrls (constructor [])
@@ -63,11 +63,50 @@ buildTimeRoutes buildUrls (Handler pattern handler toString constructor) =
             buildUrls (constructor [])
     in
     { regex = Regex.fromString pattern |> Maybe.withDefault Regex.never
-    , matchesToResponse = \path -> tryMatch path (Handler pattern handler toString constructor)
+    , matchesToResponse =
+        \path ->
+            let
+                matches : List String
+                matches =
+                    pathToMatches path fullHandler
+
+                routeFound : DataSource Bool
+                routeFound =
+                    preBuiltMatches
+                        |> DataSource.map (List.member matches)
+            in
+            routeFound
+                |> DataSource.andThen
+                    (\found ->
+                        if found then
+                            tryMatch path fullHandler
+                                |> Maybe.map (DataSource.map Just)
+                                |> Maybe.withDefault (DataSource.succeed Nothing)
+
+                        else
+                            DataSource.succeed Nothing
+                    )
     , buildTimeRoutes = buildTimeRoutes__
     , handleRoute =
-        \path -> DataSource.succeed True
+        \path ->
+            let
+                matches =
+                    pathToMatches path fullHandler
+            in
+            preBuiltMatches
+                |> DataSource.map (List.member matches)
     }
+
+
+pathToMatches : String -> Handler a constructor -> List String
+pathToMatches path (Handler pattern handler toString constructor) =
+    Regex.find
+        (Regex.fromString pattern
+            |> Maybe.withDefault Regex.never
+        )
+        path
+        |> List.concatMap .submatches
+        |> List.filterMap identity
 
 
 withRoutes : (constructor -> List (List String)) -> Handler a constructor -> List String

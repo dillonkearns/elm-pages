@@ -12,7 +12,7 @@ import Url exposing (Url)
 
 type RequestPayload route
     = Page { path : PagePath, frontmatter : route }
-    | Api ( String, ApiHandler.Done (DataSource ApiHandler.Response) )
+    | Api ( String, ApiHandler.Done ApiHandler.Response )
 
 
 type RenderRequest route
@@ -105,7 +105,7 @@ requestPayloadDecoder config =
                     route =
                         pathToUrl path |> config.urlToRoute
 
-                    apiRoute : Maybe (ApiHandler.Done (DataSource ApiHandler.Response))
+                    apiRoute : Maybe (ApiHandler.Done ApiHandler.Response)
                     apiRoute =
                         ApiHandler.firstMatch (String.dropLeft 1 path)
                             (manifestHandler config
@@ -138,7 +138,7 @@ requestPayloadDecoder config =
         |> Decode.field "payload"
 
 
-manifestHandler : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> ApiHandler.Done (DataSource ApiHandler.Response)
+manifestHandler : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> ApiHandler.Done ApiHandler.Response
 manifestHandler config =
     ApiHandler.succeed
         (config.getStaticRoutes

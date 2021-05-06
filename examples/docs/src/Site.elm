@@ -29,7 +29,7 @@ config =
         }
 
 
-files : List (ApiHandler.Done (DataSource ApiHandler.Response))
+files : List (ApiHandler.Done ApiHandler.Response)
 files =
     [ ApiHandler.succeed
         (\userId ->
