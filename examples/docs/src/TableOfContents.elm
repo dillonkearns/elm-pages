@@ -98,75 +98,90 @@ styledToString inlines =
         |> Block.extractInlineText
 
 
-view : TableOfContents Data -> Html msg
-view toc =
+surround children =
     div
         [ css
-            [ Tw.bg_gray_50
-            , Tw.neg_mx_4
-            , Tw.py_12
-            , Tw.px_4
-            , Bp.lg
-                [ Tw.bg_transparent
-                , Tw.mx_0
-                , Tw.pl_0
-                , Tw.pr_8
-                ]
-            , Bp.sm
-                [ Tw.neg_mx_6
-                , Tw.py_16
-                , Tw.px_6
-                ]
+            [ Tw.flex
+            , Tw.flex_1
+            , Tw.h_full
             ]
         ]
-        [ div
+        [ aside
             [ css
-                [ Tw.text_sm
+                [ Tw.h_screen
+                , Tw.bg_white
+                , Tw.flex_shrink_0
+                , Tw.w_full
+                , Tw.fixed
+                , Tw.z_10
 
-                --, Tw.max_w_[37_dot_5rem]
-                , Tw.mx_auto
-                , Tw.relative
-                , Bp.lg
-                    [ Tw.max_w_none
-                    , Tw.mx_0
+                --, Bp.dark
+                --    [ Tw.bg_dark
+                --    ]
+                , Bp.md
+                    [ Tw.w_64
+                    , Tw.block
                     , Tw.sticky
-                    , Tw.top_10
                     ]
                 ]
-            , Attr.attribute "x-data" "TableOfContents()"
-            , Attr.attribute "x-init" "init()"
+            , Attr.style "top" "4rem"
+            , Attr.style "height" "calc(100vh - 4rem)"
             ]
-            (ul
+            [ div
                 [ css
-                    [ Tw.space_y_8
-                    , Tw.border_l
-                    , Tw.border_gray_200
-                    , Tw.pl_6
+                    [ Tw.border_gray_200
+                    , Tw.w_full
+                    , Tw.p_4
+                    , Tw.pb_40
+                    , Tw.h_full
+                    , Tw.overflow_y_auto
+
+                    --, Bp.dark
+                    --    [ Tw.border_gray_900
+                    --    ]
+                    , Bp.md
+                        [ Tw.pb_16
+                        ]
                     ]
                 ]
-                (toc
-                    |> List.map level1Entry
-                )
-                :: [ div
-                        [ css
-                            [ Tw.absolute
-                            , Tw.top_0
-                            , Tw.left_0
-                            , Tw.w_px
-                            , Tw.bg_blue_500
-                            , Tw.origin_top
-                            , Tw.transition_transform
-                            , Tw.duration_300
-                            ]
-                        , Attr.attribute ":style" "'height:'+(height?'1px':'0')+';transform:translateY('+top+'px) scaleY('+height+')'"
-                        , Attr.attribute ":class" "initialized ? 'transition-transform duration-300' : ''"
-                        , Attr.style "height" "1px"
-                        , Attr.style "transform" "translateY(148px) scaleY(20)"
-                        ]
-                        []
-                   ]
-            )
+                children
+            ]
         ]
+
+
+view : TableOfContents Data -> Html msg
+view toc =
+    surround
+        (ul
+            [ css
+                [ Tw.space_y_8
+                , Tw.border_l
+                , Tw.border_gray_200
+                , Tw.pl_6
+                ]
+            ]
+            (toc
+                |> List.map level1Entry
+            )
+            :: [ div
+                    [ css
+                        [ Tw.absolute
+                        , Tw.top_0
+                        , Tw.left_0
+                        , Tw.w_px
+                        , Tw.bg_blue_500
+                        , Tw.origin_top
+                        , Tw.transition_transform
+                        , Tw.duration_300
+                        ]
+                    , Attr.attribute ":style" "'height:'+(height?'1px':'0')+';transform:translateY('+top+'px) scaleY('+height+')'"
+                    , Attr.attribute ":class" "initialized ? 'transition-transform duration-300' : ''"
+                    , Attr.style "height" "1px"
+                    , Attr.style "transform" "translateY(148px) scaleY(20)"
+                    ]
+                    []
+               ]
+        )
 
 
 level1Entry : Entry Data -> Html msg
