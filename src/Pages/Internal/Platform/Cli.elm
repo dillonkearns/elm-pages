@@ -409,6 +409,10 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                             StaticResponses.renderApiRequest config
                                 (apiRequest.matchesToResponse path)
 
+                        RenderRequest.NotFound ->
+                            StaticResponses.renderApiRequest config
+                                (DataSource.succeed [])
+
                 RenderRequest.FullBuild ->
                     StaticResponses.init config
 
@@ -420,6 +424,9 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                             [ ( pageData.path, pageData.frontmatter ) ]
 
                         RenderRequest.Api _ ->
+                            []
+
+                        RenderRequest.NotFound ->
                             []
 
                 RenderRequest.FullBuild ->
@@ -434,6 +441,9 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
 
                         RenderRequest.Api _ ->
                             Nothing
+
+                        RenderRequest.NotFound ->
+                            Just []
 
                 RenderRequest.FullBuild ->
                     Nothing
@@ -758,6 +768,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                                 Ok (Just okResponse) ->
                                                                                     { body = okResponse.body
                                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                                    , statusCode = 200
                                                                                     }
                                                                                         |> ToJsPayload.SendApiResponse
                                                                                         |> Effect.SendSinglePage True
@@ -765,6 +776,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                                 Ok Nothing ->
                                                                                     { body = "Not found"
                                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                                    , statusCode = 404
                                                                                     }
                                                                                         |> ToJsPayload.SendApiResponse
                                                                                         |> Effect.SendSinglePage True
@@ -775,6 +787,14 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
                                                             RenderRequest.Page _ ->
                                                                 [] |> ToJsPayload.Errors |> Effect.SendJsData
+
+                                                            RenderRequest.NotFound ->
+                                                                { body = "Not found"
+                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                , statusCode = 404
+                                                                }
+                                                                    |> ToJsPayload.SendApiResponse
+                                                                    |> Effect.SendSinglePage True
 
                                                     RenderRequest.FullBuild ->
                                                         [] |> ToJsPayload.Errors |> Effect.SendJsData
@@ -807,6 +827,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                     Ok (Just okResponse) ->
                                                                         { body = okResponse.body
                                                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                        , statusCode = 200
                                                                         }
                                                                             |> ToJsPayload.SendApiResponse
                                                                             |> Effect.SendSinglePage True
@@ -814,6 +835,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                     Ok Nothing ->
                                                                         { body = "Not found"
                                                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                        , statusCode = 404
                                                                         }
                                                                             |> ToJsPayload.SendApiResponse
                                                                             |> Effect.SendSinglePage True
@@ -826,6 +848,14 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
                                                 RenderRequest.Page _ ->
                                                     [] |> ToJsPayload.Errors |> Effect.SendJsData
+
+                                                RenderRequest.NotFound ->
+                                                    { body = "Not found"
+                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                    , statusCode = 404
+                                                    }
+                                                        |> ToJsPayload.SendApiResponse
+                                                        |> Effect.SendSinglePage True
 
                                         RenderRequest.FullBuild ->
                                             [] |> ToJsPayload.Errors |> Effect.SendJsData

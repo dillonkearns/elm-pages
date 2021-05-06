@@ -73,7 +73,8 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
 
         resolve({
           kind: "api-response",
-          is404: false,
+          is404: args.is404,
+          statusCode: args.statusCode,
           body: args.body,
         });
       } else if (fromElm.tag === "PageProgress") {

@@ -13,6 +13,7 @@ import Url exposing (Url)
 type RequestPayload route
     = Page { path : PagePath, frontmatter : route }
     | Api ( String, ApiHandler.Done ApiHandler.Response )
+    | NotFound
 
 
 type RenderRequest route
@@ -128,10 +129,7 @@ requestPayloadDecoder config =
                                 ( path, justApi ) |> Api
 
                             Nothing ->
-                                Page
-                                    { frontmatter = Nothing
-                                    , path = config.routeToPath route |> PagePath.build
-                                    }
+                                NotFound
             )
     )
         |> Decode.field "path"

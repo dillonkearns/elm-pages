@@ -171,7 +171,7 @@ headCodec canonicalSiteUrl currentPagePath =
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
     | InitialData InitialDataRecord
-    | SendApiResponse { body : String, staticHttpCache : Dict String String }
+    | SendApiResponse { body : String, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
 
@@ -207,11 +207,12 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.variant1 "ApiResponse"
             SendApiResponse
-            (Codec.object (\body staticHttpCache -> { body = body, staticHttpCache = staticHttpCache })
+            (Codec.object (\body staticHttpCache statusCode -> { body = body, staticHttpCache = staticHttpCache, statusCode = statusCode })
                 |> Codec.field "body" .body Codec.string
                 |> Codec.field "staticHttpCache"
                     .staticHttpCache
                     (Codec.dict Codec.string)
+                |> Codec.field "statusCode" .statusCode Codec.int
                 |> Codec.buildObject
             )
         |> Codec.buildCustom

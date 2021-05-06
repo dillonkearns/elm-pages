@@ -215,8 +215,11 @@ async function start(options) {
           break;
         }
         case "api-response": {
-          res.writeHead(200, {
-            "Content-Type": serveStatic.mime.lookup(req.url || ""),
+          let mimeType = serveStatic.mime.lookup(req.url || "text/html");
+          mimeType =
+            mimeType === "application/octet-stream" ? "text/html" : mimeType;
+          res.writeHead(renderResult.statusCode, {
+            "Content-Type": mimeType,
           });
           res.end(renderResult.body);
           // TODO - if route is static, write file to api-route-cache/ directory
