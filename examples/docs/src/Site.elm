@@ -46,11 +46,11 @@ files allRoutes =
         |> ApiRoute.int
         |> ApiRoute.literal ".json"
         |> ApiRoute.buildTimeRoutes
-            (\constructor ->
+            (\route ->
                 DataSource.succeed
-                    [ constructor 1
-                    , constructor 2
-                    , constructor 3
+                    [ route 1
+                    , route 2
+                    , route 3
                     ]
             )
     , ApiRoute.succeed
@@ -74,9 +74,9 @@ files allRoutes =
         |> ApiRoute.capture
         |> ApiRoute.literal ".json"
         |> ApiRoute.buildTimeRoutes
-            (\constructor ->
+            (\route ->
                 DataSource.succeed
-                    [ constructor "elm-graphql"
+                    [ route "elm-graphql"
                     ]
             )
     , ApiRoute.succeed
