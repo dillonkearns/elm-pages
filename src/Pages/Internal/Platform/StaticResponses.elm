@@ -52,45 +52,51 @@ init config =
                         config.site resolvedRoutes |> .data
                     )
             )
-            (buildTimeFilesRequest config.site)
+            (buildTimeFilesRequest config)
             config.sharedData
         )
         Dict.empty
         |> GettingInitialData
 
 
-buildTimeFilesRequest : SiteConfig route siteData -> DataSource (List (Result String { path : List String, content : String }))
+buildTimeFilesRequest :
+    { config
+        | getStaticRoutes : DataSource (List route)
+        , site : SiteConfig route siteData
+    }
+    -> DataSource (List (Result String { path : List String, content : String }))
 buildTimeFilesRequest config =
-    let
-        allRoutes =
-            []
-    in
-    config allRoutes
-        |> .files
-        |> List.map
-            (\handler ->
-                handler.buildTimeRoutes
-                    |> DataSource.andThen
-                        (\paths ->
-                            paths
-                                |> List.map
-                                    (\path ->
-                                        handler.matchesToResponse path
-                                            |> DataSource.map
-                                                (\maybeResponse ->
-                                                    case maybeResponse of
-                                                        Nothing ->
-                                                            Err ""
+    config.getStaticRoutes
+        |> DataSource.andThen
+            (\allRoutes ->
+                config.site
+                    allRoutes
+                    |> .files
+                    |> List.map
+                        (\handler ->
+                            handler.buildTimeRoutes
+                                |> DataSource.andThen
+                                    (\paths ->
+                                        paths
+                                            |> List.map
+                                                (\path ->
+                                                    handler.matchesToResponse path
+                                                        |> DataSource.map
+                                                            (\maybeResponse ->
+                                                                case maybeResponse of
+                                                                    Nothing ->
+                                                                        Err ""
 
-                                                        Just response ->
-                                                            Ok { path = path |> String.split "/", content = response.body }
+                                                                    Just response ->
+                                                                        Ok { path = path |> String.split "/", content = response.body }
+                                                            )
                                                 )
+                                            |> DataSource.combine
                                     )
-                                |> DataSource.combine
                         )
+                    |> DataSource.combine
+                    |> DataSource.map List.concat
             )
-        |> DataSource.combine
-        |> DataSource.map List.concat
 
 
 renderSingleRoute :
@@ -229,7 +235,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
         resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
         resolvedGenerateFilesResult =
             StaticHttpRequest.resolve ApplicationType.Cli
-                (buildTimeFilesRequest config.site)
+                (buildTimeFilesRequest config)
                 (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
 
         generatedOkayFiles : List { path : List String, content : String }
@@ -422,7 +428,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                     routes
                                 )
                                 config.getStaticRoutes
-                                (buildTimeFilesRequest config.site)
+                                (buildTimeFilesRequest config)
                                 config.sharedData
                             )
                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))

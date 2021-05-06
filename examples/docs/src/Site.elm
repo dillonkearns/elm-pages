@@ -24,13 +24,13 @@ config =
         , canonicalUrl = canonicalUrl
         , manifest = manifest
         , head = head
-        , files = files
+        , files = files routes
         , generateFiles = generateFiles routes
         }
 
 
-files : List (ApiHandler.Done ApiHandler.Response)
-files =
+files : List (Maybe Route) -> List (ApiHandler.Done ApiHandler.Response)
+files allRoutes =
     [ ApiHandler.succeed
         (\userId ->
             DataSource.succeed
@@ -80,6 +80,22 @@ files =
                     [ constructor "elm-graphql"
                     ]
             )
+    , ApiHandler.succeed
+        (DataSource.succeed
+            { body =
+                allRoutes
+                    |> List.filterMap identity
+                    |> List.map
+                        (\route ->
+                            { path = Route.routeToPath (Just route) |> String.join "/"
+                            , lastMod = Nothing
+                            }
+                        )
+                    |> Sitemap.build { siteUrl = "https://elm-pages.com" }
+            }
+        )
+        |> ApiHandler.literal "sitemap.xml"
+        |> ApiHandler.singleRoute
     ]
 
 
