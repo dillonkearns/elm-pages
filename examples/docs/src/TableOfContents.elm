@@ -188,21 +188,24 @@ item isCurrent href body =
             , Tw.text_left
             , Tw.text_base
             , Tw.no_underline
-            , Tw.text_gray_600
             , Tw.mt_1
             , Tw.p_2
             , Tw.rounded
             , Tw.select_none
             , Tw.outline_none
-            , Css.hover
-                [ Tw.text_gray_900
-                , Tw.bg_gray_100
-                ]
             , if isCurrent then
-                Tw.bg_gray_200
+                Css.batch
+                    [ Tw.bg_gray_200
+                    ]
 
               else
-                Css.batch []
+                Css.batch
+                    [ Css.hover
+                        [ Tw.text_black
+                        , Tw.bg_gray_100
+                        ]
+                    , Tw.text_gray_500
+                    ]
             ]
         ]
         [ text body ]
