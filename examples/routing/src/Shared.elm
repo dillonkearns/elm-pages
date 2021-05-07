@@ -100,9 +100,7 @@ view :
 view stars page model toMsg pageView =
     { body =
         Html.Styled.div []
-            (Css.Global.global Tailwind.Utilities.globalStyles
-                :: pageView.body
-            )
+            pageView.body
             |> Html.Styled.toUnstyled
     , title = pageView.title
     }

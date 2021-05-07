@@ -20,7 +20,6 @@ config =
         { data = data
         , canonicalUrl = canonicalUrl
         , manifest = manifest
-        , apiRoutes = []
         , head = head
         }
 
