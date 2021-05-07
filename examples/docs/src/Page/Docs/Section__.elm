@@ -105,8 +105,7 @@ view static =
     { title = ""
     , body =
         Document.ElmCssView
-            [ Css.Global.global Tw.globalStyles
-            , Css.Global.global
+            [ Css.Global.global
                 [ Css.Global.selector ".anchor-icon"
                     [ Css.opacity Css.zero
                     ]
