@@ -76,24 +76,78 @@ data routeParams =
 previousAndNextData : RouteParams -> DataSource ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
 previousAndNextData current =
     docFiles
-        |> DataSource.map
+        |> DataSource.andThen
             (\sections ->
                 let
-                    toPage : Section -> NextPrevious.Item
-                    toPage thing =
-                        { title = thing.slug, url = "/docs/" ++ thing.slug }
-
                     index : Int
                     index =
                         sections
                             |> List.Extra.findIndex (\section -> Just section.slug == current.section)
                             |> Maybe.withDefault 0
                 in
-                ( List.Extra.getAt (index - 1) sections
-                    |> Maybe.map toPage
-                , List.Extra.getAt (index + 1) sections
-                    |> Maybe.map toPage
-                )
+                DataSource.map2 Tuple.pair
+                    (List.Extra.getAt (index - 1) sections
+                        |> maybeDataSource titleForSection
+                    )
+                    (List.Extra.getAt (index + 1) sections
+                        |> maybeDataSource titleForSection
+                    )
+            )
+
+
+maybeDataSource : (a -> DataSource b) -> Maybe a -> DataSource (Maybe b)
+maybeDataSource fn maybe =
+    case maybe of
+        Just just ->
+            fn just |> DataSource.map Just
+
+        Nothing ->
+            DataSource.succeed Nothing
+
+
+titleForSection : Section -> DataSource NextPrevious.Item
+titleForSection section =
+    let
+        matchingFile : Glob.Glob ()
+        matchingFile =
+            Glob.succeed ()
+                |> Glob.ignore (Glob.literal "content/docs/")
+                |> Glob.ignore Glob.int
+                |> Glob.ignore (Glob.literal "-")
+                |> Glob.ignore (Glob.literal section.slug)
+                |> Glob.ignore (Glob.literal ".md")
+    in
+    Glob.expectUniqueFile matchingFile
+        |> DataSource.andThen
+            (\filePath ->
+                DataSource.File.request filePath
+                    (markdownBodyDecoder
+                        |> OptimizedDecoder.map
+                            (\blocks ->
+                                List.Extra.findMap
+                                    (\block ->
+                                        case block of
+                                            Block.Heading Block.H1 inlines ->
+                                                Just
+                                                    { title = Block.extractInlineText inlines
+                                                    , url = "/docs/" ++ section.slug
+                                                    }
+
+                                            _ ->
+                                                Nothing
+                                    )
+                                    blocks
+                            )
+                    )
+            )
+        |> DataSource.andThen
+            (\maybeTitle ->
+                case maybeTitle of
+                    Just title ->
+                        DataSource.succeed title
+
+                    Nothing ->
+                        DataSource.fail "Expected to find an H1 heading in this markdown."
             )
 
 
@@ -242,6 +296,7 @@ pageBody routeParams =
             )
 
 
+markdownBodyDecoder : OptimizedDecoder.Decoder (List Block)
 markdownBodyDecoder =
     DataSource.File.body
         |> OptimizedDecoder.andThen
