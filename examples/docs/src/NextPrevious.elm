@@ -8,7 +8,12 @@ import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Utilities as Tw
 
 
-view left right =
+type alias Item =
+    { title : String, url : String }
+
+
+view : ( Maybe Item, Maybe Item ) -> Html msg
+view ( maybeLeft, maybeRight ) =
     div
         [ css
             [ Tw.pt_16
@@ -22,28 +27,42 @@ view left right =
                 , Tw.justify_between
                 ]
             ]
-            [ div []
-                [ a
-                    [ linkStyle
-                    , Attr.title left.title
-                    , Attr.href left.url
-                    ]
-                    [ leftArrow
-                    , text left.title
-                    ]
-                ]
-            , div []
-                [ a
-                    [ linkStyle
-                    , Attr.title right.title
-                    , Attr.href right.url
-                    ]
-                    [ text right.title
-                    , rightArrow
-                    ]
-                ]
+            [ maybeLeft
+                |> Maybe.map
+                    (\left ->
+                        div []
+                            [ a
+                                [ linkStyle
+                                , Attr.title left.title
+                                , Attr.href left.url
+                                ]
+                                [ leftArrow
+                                , text left.title
+                                ]
+                            ]
+                    )
+                |> Maybe.withDefault empty
+            , maybeRight
+                |> Maybe.map
+                    (\right ->
+                        div []
+                            [ a
+                                [ linkStyle
+                                , Attr.title right.title
+                                , Attr.href right.url
+                                ]
+                                [ text right.title
+                                , rightArrow
+                                ]
+                            ]
+                    )
+                |> Maybe.withDefault empty
             ]
         ]
+
+
+empty =
+    div [] []
 
 
 linkStyle =

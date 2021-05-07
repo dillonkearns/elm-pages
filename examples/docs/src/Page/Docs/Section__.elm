@@ -67,9 +67,34 @@ type alias Section =
 
 data : RouteParams -> DataSource Data
 data routeParams =
-    DataSource.map2 Data
+    DataSource.map3 Data
         toc
         (pageBody routeParams)
+        (previousAndNextData routeParams)
+
+
+previousAndNextData : RouteParams -> DataSource ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+previousAndNextData current =
+    docFiles
+        |> DataSource.map
+            (\sections ->
+                let
+                    toPage : Section -> NextPrevious.Item
+                    toPage thing =
+                        { title = thing.slug, url = "/docs/" ++ thing.slug }
+
+                    index : Int
+                    index =
+                        sections
+                            |> List.Extra.findIndex (\section -> Just section.slug == current.section)
+                            |> Maybe.withDefault 0
+                in
+                ( List.Extra.getAt (index - 1) sections
+                    |> Maybe.map toPage
+                , List.Extra.getAt (index + 1) sections
+                    |> Maybe.map toPage
+                )
+            )
 
 
 head :
@@ -95,6 +120,7 @@ head static =
 type alias Data =
     { toc : TableOfContents.TableOfContents TableOfContents.Data
     , body : List Block
+    , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
     }
 
 
@@ -152,9 +178,7 @@ view static =
                             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                             |> Result.withDefault [ Html.text "" ]
                          )
-                            ++ [ NextPrevious.view
-                                    { title = "TODO", url = "TODO" }
-                                    { title = "TODO", url = "TODO" }
+                            ++ [ NextPrevious.view static.static.previousAndNext
                                ]
                         )
                     ]
