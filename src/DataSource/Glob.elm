@@ -71,8 +71,8 @@ wildcard =
 {-| -}
 int : Glob Int
 int =
-    Glob "[[:digit:]]+"
-        "(\\d+?)"
+    Glob "[0-9]+"
+        "([0-9]+?)"
         (\_ captures ->
             case captures of
                 first :: rest ->
