@@ -8,15 +8,20 @@ import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
+import Html.Styled.Attributes exposing (css)
 import List.Extra
-import Markdown.Block as Block
+import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
+import Markdown.Renderer
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
 import TableOfContents
+import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import TailwindMarkdownRenderer
 
 
 type alias Model =
@@ -60,8 +65,9 @@ type alias Section =
 
 data : RouteParams -> DataSource Data
 data routeParams =
-    DataSource.map Data
+    DataSource.map2 Data
         toc
+        (pageBody routeParams)
 
 
 head :
@@ -86,6 +92,7 @@ head static =
 
 type alias Data =
     { toc : TableOfContents.TableOfContents TableOfContents.Data
+    , body : List Block
     }
 
 
@@ -98,7 +105,39 @@ view static =
     , body =
         Document.ElmCssView
             [ Css.Global.global Tw.globalStyles
-            , TableOfContents.view static.static.toc
+            , Html.div
+                [ css
+                    [ Tw.flex
+                    , Tw.flex_1
+                    , Tw.h_full
+                    ]
+                ]
+                [ TableOfContents.view static.static.toc
+                , Html.article
+                    [ css
+                        [ Tw.prose
+                        , Tw.prose_sm
+                        , Tw.max_w_xl
+
+                        --, Tw.whitespace_normal
+                        --, Tw.mx_auto
+                        , Tw.relative
+                        , Tw.pt_8
+                        , Tw.pb_16
+                        , Tw.px_6
+                        , Tw.w_full
+                        , Tw.max_w_full
+                        , Tw.overflow_x_hidden
+                        , Bp.md
+                            [ Tw.px_8
+                            ]
+                        ]
+                    ]
+                    (static.static.body
+                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                        |> Result.withDefault [ Html.text "" ]
+                    )
+                ]
             ]
     }
 
@@ -131,6 +170,11 @@ docFiles =
         |> Glob.capture Glob.wildcard
         |> Glob.ignore (Glob.literal ".md")
         |> Glob.toDataSource
+
+
+pageBody routeParams =
+    DataSource.File.request "content/docs/01-what-is-elm-pages.md"
+        markdownBodyDecoder
 
 
 markdownBodyDecoder =

@@ -101,51 +101,43 @@ styledToString inlines =
 
 surround : List (Html msg) -> Html msg
 surround children =
-    div
+    aside
         [ css
-            [ Tw.flex
-            , Tw.flex_1
-            , Tw.h_full
+            [ Tw.h_screen
+            , Tw.bg_white
+            , Tw.flex_shrink_0
+            , Tw.w_full
+            , Tw.fixed
+            , Tw.z_10
+
+            --, Bp.dark
+            --    [ Tw.bg_dark
+            --    ]
+            , Bp.md
+                [ Tw.w_64
+                , Tw.block
+                , Tw.sticky
+                ]
             ]
         ]
-        [ aside
+        [ div
             [ css
-                [ Tw.h_screen
-                , Tw.bg_white
-                , Tw.flex_shrink_0
+                [ Tw.border_gray_200
                 , Tw.w_full
-                , Tw.fixed
-                , Tw.z_10
+                , Tw.p_4
+                , Tw.pb_40
+                , Tw.h_full
+                , Tw.overflow_y_auto
 
                 --, Bp.dark
-                --    [ Tw.bg_dark
+                --    [ Tw.border_gray_900
                 --    ]
                 , Bp.md
-                    [ Tw.w_64
-                    , Tw.block
-                    , Tw.sticky
+                    [ Tw.pb_16
                     ]
                 ]
             ]
-            [ div
-                [ css
-                    [ Tw.border_gray_200
-                    , Tw.w_full
-                    , Tw.p_4
-                    , Tw.pb_40
-                    , Tw.h_full
-                    , Tw.overflow_y_auto
-
-                    --, Bp.dark
-                    --    [ Tw.border_gray_900
-                    --    ]
-                    , Bp.md
-                        [ Tw.pb_16
-                        ]
-                    ]
-                ]
-                children
-            ]
+            children
         ]
 
 
