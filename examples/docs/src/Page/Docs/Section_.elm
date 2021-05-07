@@ -111,7 +111,7 @@ toc =
                         (\section ->
                             DataSource.File.request
                                 section.filePath
-                                headingsDecoder
+                                (headingsDecoder section.slug)
                         )
             )
         |> DataSource.resolve
@@ -146,8 +146,8 @@ markdownBodyDecoder =
             )
 
 
-headingsDecoder : OptimizedDecoder.Decoder (TableOfContents.Entry TableOfContents.Data)
-headingsDecoder =
+headingsDecoder : String -> OptimizedDecoder.Decoder (TableOfContents.Entry TableOfContents.Data)
+headingsDecoder slug =
     DataSource.File.body
         |> OptimizedDecoder.andThen
             (\rawBody ->
@@ -156,7 +156,7 @@ headingsDecoder =
                         |> Markdown.Parser.parse
                         |> Result.mapError (\_ -> "Markdown parsing error")
                         |> Result.map TableOfContents.gatherHeadings
-                        |> Result.andThen nameAndTopLevel
+                        |> Result.andThen (nameAndTopLevel slug)
                 of
                     Ok renderedBody ->
                         OptimizedDecoder.succeed renderedBody
@@ -167,9 +167,10 @@ headingsDecoder =
 
 
 nameAndTopLevel :
-    List ( Block.HeadingLevel, List Block.Inline )
+    String
+    -> List ( Block.HeadingLevel, List Block.Inline )
     -> Result String (TableOfContents.Entry TableOfContents.Data)
-nameAndTopLevel headings =
+nameAndTopLevel slug headings =
     let
         h1 : Maybe (List Block.Inline)
         h1 =
@@ -200,13 +201,11 @@ nameAndTopLevel headings =
     case h1 of
         Just justH1 ->
             Ok
-                --(
-                -- justH1
-                --, h2s
-                --)
                 (TableOfContents.Entry
-                    (toData 1 justH1)
-                    --(List (Entry data))
+                    { anchorId = slug
+                    , name = TableOfContents.styledToString justH1
+                    , level = 1
+                    }
                     (h2s
                         |> List.map (toData 2)
                         |> List.map (\l2Data -> TableOfContents.Entry l2Data [])

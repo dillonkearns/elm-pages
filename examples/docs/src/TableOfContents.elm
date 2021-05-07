@@ -167,7 +167,7 @@ level1Entry (Entry data children) =
             [ Tw.space_y_3
             ]
         ]
-        [ item ("/docs#" ++ data.anchorId) data.name
+        [ item ("/docs/" ++ data.anchorId) data.name
         , ul
             [ css
                 [ Tw.space_y_3
