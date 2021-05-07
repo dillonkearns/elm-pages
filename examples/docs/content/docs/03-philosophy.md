@@ -1,6 +1,6 @@
 # The elm-pages philosophy
 
-## Derive Features From Building Blocks
+## Composable Building Blocks
 
 Many frameworks provide features like
 
