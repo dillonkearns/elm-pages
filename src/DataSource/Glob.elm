@@ -1,6 +1,7 @@
 module DataSource.Glob exposing
     ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
     , capture, ignore
+    , int
     )
 
 {-|
@@ -64,6 +65,21 @@ wildcard =
 
                 [] ->
                     ( "ERROR", [] )
+        )
+
+
+{-| -}
+int : Glob Int
+int =
+    Glob "[[:digit:]]+"
+        "(\\d+?)"
+        (\_ captures ->
+            case captures of
+                first :: rest ->
+                    ( String.toInt first |> Maybe.withDefault -1, rest )
+
+                [] ->
+                    ( -1, [] )
         )
 
 
