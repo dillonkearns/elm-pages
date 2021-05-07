@@ -284,6 +284,7 @@ nameAndTopLevel slug headings =
             Err ""
 
 
+toData : Int -> List Block.Inline -> { anchorId : String, name : String, level : Int }
 toData level styledList =
     { anchorId = TableOfContents.styledToString styledList |> TableOfContents.rawTextToId
     , name = TableOfContents.styledToString styledList
