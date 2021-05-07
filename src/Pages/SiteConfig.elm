@@ -12,7 +12,6 @@ type alias SiteConfig route data =
         { data : DataSource data
         , canonicalUrl : String
         , manifest : data -> Pages.Manifest.Config
-        , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
         , head :
             data
             -> List Head.Tag

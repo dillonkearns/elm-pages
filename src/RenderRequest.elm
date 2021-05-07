@@ -116,11 +116,8 @@ requestPayloadDecoder config =
                     apiRoute =
                         ApiRoute.firstMatch (String.dropLeft 1 path)
                             (manifestHandler config
-                                :: site.apiRoutes
+                                :: config.apiRoutes
                             )
-
-                    site =
-                        config.site []
                 in
                 case route of
                     Just justRoute ->
