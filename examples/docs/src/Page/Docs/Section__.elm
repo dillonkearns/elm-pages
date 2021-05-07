@@ -184,8 +184,7 @@ pageBody routeParams =
         matchingFile =
             Glob.succeed ()
                 |> Glob.ignore (Glob.literal "content/docs/")
-                --|> Glob.ignore Glob.int
-                |> Glob.ignore Glob.wildcard
+                |> Glob.ignore Glob.int
                 |> Glob.ignore (Glob.literal "-")
                 |> Glob.ignore (Glob.literal slug)
                 |> Glob.ignore (Glob.literal ".md")
