@@ -161,7 +161,6 @@ level1Entry current (Entry data children) =
     li
         [ css
             [ Tw.space_y_3
-            , Tw.font_semibold
             , Tw.text_gray_900
             , Tw.rounded_lg
             ]
@@ -196,6 +195,7 @@ item isCurrent href body =
             , if isCurrent then
                 Css.batch
                     [ Tw.bg_gray_200
+                    , Tw.font_semibold
                     ]
 
               else
