@@ -166,7 +166,7 @@ level1Entry (Entry data children) =
                 ]
             ]
             (children
-                |> List.map level2Entry
+                |> List.map (level2Entry data.anchorId)
             )
         ]
 
@@ -196,12 +196,12 @@ item href body =
         [ text body ]
 
 
-level2Entry : Entry Data -> Html msg
-level2Entry (Entry data children) =
+level2Entry : String -> Entry Data -> Html msg
+level2Entry parentPath (Entry data children) =
     li
         [ css
             [ Tw.ml_4
             ]
         ]
-        [ item ("/docs#" ++ data.anchorId) data.name
+        [ item ("/docs/" ++ parentPath ++ "#" ++ data.anchorId) data.name
         ]
