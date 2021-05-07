@@ -141,15 +141,23 @@ view static =
                             ]
                         ]
                     ]
-                    ((static.static.body
-                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                        |> Result.withDefault [ Html.text "" ]
-                     )
-                        ++ [ NextPrevious.view
-                                { title = "TODO", url = "TODO" }
-                                { title = "TODO", url = "TODO" }
-                           ]
-                    )
+                    [ Html.div
+                        [ css
+                            [ Tw.max_w_screen_md
+                            , Tw.mx_auto
+                            , Bp.xl [ Tw.pr_36 ]
+                            ]
+                        ]
+                        ((static.static.body
+                            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                            |> Result.withDefault [ Html.text "" ]
+                         )
+                            ++ [ NextPrevious.view
+                                    { title = "TODO", url = "TODO" }
+                                    { title = "TODO", url = "TODO" }
+                               ]
+                        )
+                    ]
                 ]
             ]
     }

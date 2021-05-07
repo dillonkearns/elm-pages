@@ -123,46 +123,44 @@ view :
     -> { body : Html msg, title : String }
 view stars page model toMsg pageView =
     { body =
-        (if model.showMobileMenu then
-            Element.column
-                [ Element.width Element.fill
-                , Element.padding 20
-                ]
-                [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
-                    [ logoLinkMobile |> Element.map toMsg
-                    , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
-                        |> Element.map toMsg
-                    ]
-                , Element.column [ Element.centerX, Element.spacing 20 ]
-                    (navbarLinks stars page.path)
-                ]
-
-         else
-            Element.column [ Element.width Element.fill ]
-                (List.concat
-                    [ [ header stars page.path |> Element.map toMsg
-
-                      --, incrementView model |> Element.map toMsg
-                      ]
-                    , case pageView.body of
-                        Document.ElmUiView elements ->
-                            elements
-
-                        Document.ElmCssView elements ->
-                            [ elements
-                                |> Html.Styled.div []
-                                |> Html.Styled.toUnstyled
-                                |> Element.html
+        case pageView.body of
+            Document.ElmUiView elements ->
+                (if model.showMobileMenu then
+                    Element.column
+                        [ Element.width Element.fill
+                        , Element.padding 20
+                        ]
+                        [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
+                            [ logoLinkMobile |> Element.map toMsg
+                            , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
+                                |> Element.map toMsg
                             ]
-                    ]
+                        , Element.column [ Element.centerX, Element.spacing 20 ]
+                            (navbarLinks stars page.path)
+                        ]
+
+                 else
+                    Element.column [ Element.width Element.fill ]
+                        (List.concat
+                            [ [ header stars page.path |> Element.map toMsg
+
+                              --, incrementView model |> Element.map toMsg
+                              ]
+                            , elements
+                            ]
+                        )
                 )
-        )
-            |> Element.layout
-                [ Element.width Element.fill
-                , Font.size 16
-                , Font.family [ Font.typeface "Roboto" ]
-                , Font.color (Element.rgba255 0 0 0 0.8)
-                ]
+                    |> Element.layout
+                        [ Element.width Element.fill
+                        , Font.size 16
+                        , Font.family [ Font.typeface "Roboto" ]
+                        , Font.color (Element.rgba255 0 0 0 0.8)
+                        ]
+
+            Document.ElmCssView elements ->
+                elements
+                    |> Html.Styled.div []
+                    |> Html.Styled.toUnstyled
     , title = pageView.title
     }
 
