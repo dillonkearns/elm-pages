@@ -125,7 +125,6 @@ view static =
                 , Html.article
                     [ css
                         [ Tw.prose
-                        , Tw.prose_sm
                         , Tw.max_w_xl
 
                         --, Tw.whitespace_normal
