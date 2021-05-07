@@ -1,7 +1,7 @@
 module DataSource.Glob exposing
     ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, recursiveWildcard, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, wildcard, zeroOrMore
     , capture, ignore
-    , int
+    , expectUniqueFile, int
     )
 
 {-|
@@ -353,4 +353,22 @@ singleFile filePath =
 
                     multipleResults ->
                         DataSource.fail <| "Unexpected - getSingleFile returned multiple results." ++ (multipleResults |> String.join ", ")
+            )
+
+
+{-| -}
+expectUniqueFile : Glob a -> DataSource.DataSource String
+expectUniqueFile glob =
+    succeed identity
+        |> ignore glob
+        |> capture fullFilePath
+        |> toDataSource
+        |> DataSource.andThen
+            (\matchingFiles ->
+                case matchingFiles |> Debug.log "matchingFiles" of
+                    [ file ] ->
+                        DataSource.succeed file
+
+                    _ ->
+                        DataSource.fail "No files matched."
             )
