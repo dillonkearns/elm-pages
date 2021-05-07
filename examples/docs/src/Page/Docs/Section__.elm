@@ -1,4 +1,4 @@
-module Page.Docs.Section_ exposing (Data, Model, Msg, page)
+module Page.Docs.Section__ exposing (Data, Model, Msg, page)
 
 import Css.Global
 import DataSource exposing (DataSource)
@@ -28,7 +28,7 @@ type alias Msg =
 
 
 type alias RouteParams =
-    { section : String }
+    { section : Maybe String }
 
 
 page : Page RouteParams Data
@@ -44,7 +44,11 @@ page =
 routes : DataSource (List RouteParams)
 routes =
     docFiles
-        |> DataSource.map (List.map (.slug >> RouteParams))
+        |> DataSource.map (List.map (.slug >> Just >> RouteParams))
+        |> DataSource.map
+            (\sections ->
+                { section = Nothing } :: sections
+            )
 
 
 type alias Section =
