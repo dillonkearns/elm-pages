@@ -82,7 +82,7 @@ There
 | `src/Page/Blog.elm`       | `/blog`         | `{}`                |
 | `src/Page/Blog/Slug_.elm` | `/blog/:slug`   | `{ slug : String }` |
 
-## Page Templates
+## Page Modules
 
 Page Templates are Elm modules in the `src/Page` folder that define a top-level `template`.
 
