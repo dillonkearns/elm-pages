@@ -141,25 +141,32 @@ surround children =
         ]
 
 
-view : TableOfContents Data -> Html msg
-view toc =
+view : Maybe String -> TableOfContents Data -> Html msg
+view current toc =
     surround
         [ ul
             []
             (toc
-                |> List.map level1Entry
+                |> List.map (level1Entry current)
             )
         ]
 
 
-level1Entry : Entry Data -> Html msg
-level1Entry (Entry data children) =
+level1Entry : Maybe String -> Entry Data -> Html msg
+level1Entry current (Entry data children) =
+    let
+        isCurrent =
+            current == Just data.anchorId
+    in
     li
         [ css
             [ Tw.space_y_3
+            , Tw.font_semibold
+            , Tw.text_gray_900
+            , Tw.rounded_lg
             ]
         ]
-        [ item ("/docs/" ++ data.anchorId) data.name
+        [ item isCurrent ("/docs/" ++ data.anchorId) data.name
         , ul
             [ css
                 [ Tw.space_y_3
@@ -171,8 +178,8 @@ level1Entry (Entry data children) =
         ]
 
 
-item : String -> String -> Html msg
-item href body =
+item : Bool -> String -> String -> Html msg
+item isCurrent href body =
     a
         [ Attr.href href
         , css
@@ -191,6 +198,11 @@ item href body =
                 [ Tw.text_gray_900
                 , Tw.bg_gray_100
                 ]
+            , if isCurrent then
+                Tw.bg_gray_200
+
+              else
+                Css.batch []
             ]
         ]
         [ text body ]
@@ -203,5 +215,5 @@ level2Entry parentPath (Entry data children) =
             [ Tw.ml_4
             ]
         ]
-        [ item ("/docs/" ++ parentPath ++ "#" ++ data.anchorId) data.name
+        [ item False ("/docs/" ++ parentPath ++ "#" ++ data.anchorId) data.name
         ]

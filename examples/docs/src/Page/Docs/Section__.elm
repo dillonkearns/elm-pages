@@ -112,7 +112,7 @@ view static =
                     , Tw.h_full
                     ]
                 ]
-                [ TableOfContents.view static.static.toc
+                [ TableOfContents.view static.routeParams.section static.static.toc
                 , Html.article
                     [ css
                         [ Tw.prose
