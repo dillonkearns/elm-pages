@@ -15,6 +15,7 @@ import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
+import NextPrevious
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
@@ -141,9 +142,14 @@ view static =
                             ]
                         ]
                     ]
-                    (static.static.body
+                    ((static.static.body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault [ Html.text "" ]
+                     )
+                        ++ [ NextPrevious.view
+                                { title = "TODO", url = "TODO" }
+                                { title = "TODO", url = "TODO" }
+                           ]
                     )
                 ]
             ]
