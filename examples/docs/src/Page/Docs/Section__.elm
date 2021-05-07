@@ -4,7 +4,7 @@ import Css
 import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
-import DataSource.Glob as Glob
+import DataSource.Glob as Glob exposing (Glob)
 import Document exposing (Document)
 import Element exposing (Element)
 import Head
@@ -107,17 +107,7 @@ maybeDataSource fn maybe =
 
 titleForSection : Section -> DataSource NextPrevious.Item
 titleForSection section =
-    let
-        matchingFile : Glob.Glob ()
-        matchingFile =
-            Glob.succeed ()
-                |> Glob.ignore (Glob.literal "content/docs/")
-                |> Glob.ignore Glob.int
-                |> Glob.ignore (Glob.literal "-")
-                |> Glob.ignore (Glob.literal section.slug)
-                |> Glob.ignore (Glob.literal ".md")
-    in
-    Glob.expectUniqueFile matchingFile
+    Glob.expectUniqueFile (findBySlug section.slug)
         |> DataSource.andThen
             (\filePath ->
                 DataSource.File.request filePath
@@ -278,22 +268,23 @@ pageBody routeParams =
         slug =
             routeParams.section
                 |> Maybe.withDefault "what-is-elm-pages"
-
-        matchingFile : Glob.Glob ()
-        matchingFile =
-            Glob.succeed ()
-                |> Glob.ignore (Glob.literal "content/docs/")
-                |> Glob.ignore Glob.int
-                |> Glob.ignore (Glob.literal "-")
-                |> Glob.ignore (Glob.literal slug)
-                |> Glob.ignore (Glob.literal ".md")
     in
-    Glob.expectUniqueFile matchingFile
+    Glob.expectUniqueFile (findBySlug slug)
         |> DataSource.andThen
             (\filePath ->
                 DataSource.File.request filePath
                     markdownBodyDecoder
             )
+
+
+findBySlug : String -> Glob ()
+findBySlug slug =
+    Glob.succeed ()
+        |> Glob.ignore (Glob.literal "content/docs/")
+        |> Glob.ignore Glob.int
+        |> Glob.ignore (Glob.literal "-")
+        |> Glob.ignore (Glob.literal slug)
+        |> Glob.ignore (Glob.literal ".md")
 
 
 markdownBodyDecoder : OptimizedDecoder.Decoder (List Block)
