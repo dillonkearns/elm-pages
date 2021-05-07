@@ -171,7 +171,7 @@ capture (Handler pattern previousHandler toString constructor) =
                     previousHandler rest first
 
                 _ ->
-                    Debug.todo "Expected non-empty list"
+                    previousHandler [] "Error"
         )
         (\s ->
             case s of
@@ -204,7 +204,7 @@ int (Handler pattern previousHandler toString constructor) =
                     previousHandler rest (String.toInt first |> Maybe.withDefault -1)
 
                 _ ->
-                    Debug.todo "Expected non-empty list"
+                    previousHandler [] -1
         )
         (\s ->
             case s of
@@ -220,6 +220,7 @@ int (Handler pattern previousHandler toString constructor) =
         )
 
 
-captureRest : Handler (List String -> a) b -> Handler a b
-captureRest previousHandler =
-    Debug.todo ""
+
+--captureRest : Handler (List String -> a) b -> Handler a b
+--captureRest previousHandler =
+--    Debug.todo ""

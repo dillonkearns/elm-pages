@@ -365,7 +365,7 @@ expectUniqueFile glob =
         |> toDataSource
         |> DataSource.andThen
             (\matchingFiles ->
-                case matchingFiles |> Debug.log "matchingFiles" of
+                case matchingFiles of
                     [ file ] ->
                         DataSource.succeed file
 
