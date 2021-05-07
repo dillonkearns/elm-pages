@@ -172,9 +172,30 @@ docFiles =
         |> Glob.toDataSource
 
 
+pageBody : RouteParams -> DataSource (List Block)
 pageBody routeParams =
-    DataSource.File.request "content/docs/01-what-is-elm-pages.md"
-        markdownBodyDecoder
+    let
+        slug : String
+        slug =
+            routeParams.section
+                |> Maybe.withDefault "what-is-elm-pages"
+
+        matchingFile : Glob.Glob ()
+        matchingFile =
+            Glob.succeed ()
+                |> Glob.ignore (Glob.literal "content/docs/")
+                --|> Glob.ignore Glob.int
+                |> Glob.ignore Glob.wildcard
+                |> Glob.ignore (Glob.literal "-")
+                |> Glob.ignore (Glob.literal slug)
+                |> Glob.ignore (Glob.literal ".md")
+    in
+    Glob.expectUniqueFile matchingFile
+        |> DataSource.andThen
+            (\filePath ->
+                DataSource.File.request filePath
+                    markdownBodyDecoder
+            )
 
 
 markdownBodyDecoder =
