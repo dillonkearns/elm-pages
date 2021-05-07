@@ -1,5 +1,6 @@
 module Page.Docs.Section__ exposing (Data, Model, Msg, page)
 
+import Css
 import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -105,6 +106,14 @@ view static =
     , body =
         Document.ElmCssView
             [ Css.Global.global Tw.globalStyles
+            , Css.Global.global
+                [ Css.Global.selector ".anchor-icon"
+                    [ Css.opacity Css.zero
+                    ]
+                , Css.Global.selector "h2:hover .anchor-icon"
+                    [ Css.opacity (Css.num 100)
+                    ]
+                ]
             , Html.div
                 [ css
                     [ Tw.flex

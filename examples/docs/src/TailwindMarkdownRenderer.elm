@@ -222,18 +222,25 @@ heading { level, rawText, children } =
             , Tw.text_2xl
             , Tw.mt_8
             , Tw.mb_4
-            , Css.before
-                [ Css.property "content" "\"#\""
-                , Css.position Css.absolute
-                , Css.marginLeft (Css.px -20)
-                , Css.color (Css.rgb 100 100 100)
-                ]
-
-            --, Tw.underline
             , Tw.border_b_2
             ]
         ]
-        children
+        (children
+            ++ [ if level == Block.H2 then
+                    Html.span
+                        [ Attr.class "anchor-icon"
+                        , css
+                            [ Tw.ml_2
+                            , Tw.text_gray_500
+                            , Tw.select_none
+                            ]
+                        ]
+                        [ Html.text "#" ]
+
+                 else
+                    Html.text ""
+               ]
+        )
 
 
 
