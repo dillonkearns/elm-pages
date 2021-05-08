@@ -196,70 +196,80 @@ rawTextToId rawText =
 
 heading : { level : Block.HeadingLevel, rawText : String, children : List (Html.Html msg) } -> Html.Html msg
 heading { level, rawText, children } =
-    if level == Block.H2 then
-        Html.h2
-            [ Attr.id (rawTextToId rawText)
-            , Attr.attribute "name" (rawTextToId rawText)
-            , css
-                [ Tw.text_3xl
-                , Tw.font_semibold
-                , Tw.tracking_tight
-                , Tw.mt_10
-                , Tw.pb_1
-                , Tw.border_b
-                ]
-            ]
-            [ Html.a
-                [ Attr.href <| "#" ++ rawTextToId rawText
-                , css
-                    [ Tw.no_underline |> Css.important
+    case level of
+        Block.H1 ->
+            Html.h1
+                [ css
+                    [ Tw.text_4xl
+                    , Tw.font_bold
+                    , Tw.tracking_tight
+                    , Tw.mt_2
+                    , Tw.mb_4
                     ]
                 ]
-                (children
-                    ++ [ Html.span
-                            [ Attr.class "anchor-icon"
-                            , css
-                                [ Tw.ml_2
-                                , Tw.text_gray_500
-                                , Tw.select_none
-                                ]
-                            ]
-                            [ Html.text "#" ]
-                       ]
-                )
-            ]
+                children
 
-    else
-        (case level of
-            Block.H1 ->
-                Html.h1
-
-            Block.H2 ->
-                Html.h2
-
-            Block.H3 ->
-                Html.h3
-
-            Block.H4 ->
-                Html.h4
-
-            Block.H5 ->
-                Html.h5
-
-            Block.H6 ->
-                Html.h6
-        )
-            [ Attr.id (rawTextToId rawText)
-            , Attr.attribute "name" (rawTextToId rawText)
-            , css
-                [ Tw.font_bold
-                , Tw.text_2xl
-                , Tw.mt_8
-                , Tw.mb_4
-                , Tw.border_b_2
+        Block.H2 ->
+            Html.h2
+                [ Attr.id (rawTextToId rawText)
+                , Attr.attribute "name" (rawTextToId rawText)
+                , css
+                    [ Tw.text_3xl
+                    , Tw.font_semibold
+                    , Tw.tracking_tight
+                    , Tw.mt_10
+                    , Tw.pb_1
+                    , Tw.border_b
+                    ]
                 ]
-            ]
-            children
+                [ Html.a
+                    [ Attr.href <| "#" ++ rawTextToId rawText
+                    , css
+                        [ Tw.no_underline |> Css.important
+                        ]
+                    ]
+                    (children
+                        ++ [ Html.span
+                                [ Attr.class "anchor-icon"
+                                , css
+                                    [ Tw.ml_2
+                                    , Tw.text_gray_500
+                                    , Tw.select_none
+                                    ]
+                                ]
+                                [ Html.text "#" ]
+                           ]
+                    )
+                ]
+
+        _ ->
+            (case level of
+                Block.H1 ->
+                    Html.h1
+
+                Block.H2 ->
+                    Html.h2
+
+                Block.H3 ->
+                    Html.h3
+
+                Block.H4 ->
+                    Html.h4
+
+                Block.H5 ->
+                    Html.h5
+
+                Block.H6 ->
+                    Html.h6
+            )
+                [ css
+                    [ Tw.font_bold
+                    , Tw.text_lg
+                    , Tw.mt_8
+                    , Tw.mb_4
+                    ]
+                ]
+                children
 
 
 
