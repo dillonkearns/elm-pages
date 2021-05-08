@@ -1,8 +1,9 @@
 module TableOfContents exposing (..)
 
 import Css
+import Css.Global
 import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html.Styled.Attributes as Attr exposing (class, css)
 import Markdown.Block as Block exposing (Block, HeadingLevel(..), Inline)
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -99,14 +100,19 @@ styledToString inlines =
         |> Block.extractInlineText
 
 
-surround : List (Html msg) -> Html msg
-surround children =
+surround : Bool -> List (Html msg) -> Html msg
+surround showMobileMenu children =
     aside
         [ css
             [ Tw.h_screen
             , Tw.bg_white
             , Tw.flex_shrink_0
             , Tw.w_full
+            , if showMobileMenu then
+                Tw.block
+
+              else
+                Tw.hidden
             , Tw.fixed
             , Tw.z_10
 
@@ -141,9 +147,9 @@ surround children =
         ]
 
 
-view : Maybe String -> TableOfContents Data -> Html msg
-view current toc =
-    surround
+view : Bool -> Maybe String -> TableOfContents Data -> Html msg
+view showMobileMenu current toc =
+    surround showMobileMenu
         [ ul
             []
             (toc

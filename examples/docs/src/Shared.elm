@@ -15,6 +15,7 @@ import FontAwesome
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
+import Html.Styled.Attributes
 import OptimizedDecoder as D
 import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
@@ -158,7 +159,13 @@ view stars page model toMsg pageView =
                         ]
 
             Document.ElmCssView elements ->
-                elements
+                ((header stars page.path
+                    |> Element.layout []
+                    |> Html.Styled.fromUnstyled
+                    |> Html.Styled.map toMsg
+                 )
+                    :: elements
+                )
                     |> Html.Styled.div []
                     |> Html.Styled.toUnstyled
     , title = pageView.title

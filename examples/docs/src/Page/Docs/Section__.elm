@@ -45,7 +45,12 @@ page =
         , routes = routes
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> Page.buildWithLocalState
+            { view = view
+            , init = \_ -> ( (), Cmd.none )
+            , update = \_ _ _ _ -> ( (), Cmd.none )
+            , subscriptions = \_ _ _ -> Sub.none
+            }
 
 
 routes : DataSource (List RouteParams)
@@ -169,9 +174,11 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    Model
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
     -> Document Msg
-view static =
+view model sharedModel static =
     --View.placeholder "Docs.Section_"
     { title = ""
     , body =
@@ -191,7 +198,7 @@ view static =
                     , Tw.h_full
                     ]
                 ]
-                [ TableOfContents.view static.routeParams.section static.static.toc
+                [ TableOfContents.view sharedModel.showMobileMenu static.routeParams.section static.static.toc
                 , Html.article
                     [ css
                         [ Tw.prose
