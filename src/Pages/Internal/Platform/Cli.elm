@@ -15,10 +15,9 @@ import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
-import ElmHtml.InternalTypes exposing (decodeElmHtml)
-import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
 import Head
 import Html exposing (Html)
+import HtmlPrinter
 import Http
 import Json.Decode as Decode
 import Json.Encode
@@ -154,38 +153,6 @@ gotStaticFileDecoder =
             (Decode.field "filePath" Decode.string)
             Decode.value
         )
-
-
-viewRenderer : Html msg -> String
-viewRenderer html =
-    let
-        options =
-            { defaultFormatOptions | newLines = False, indent = 0 }
-    in
-    viewDecoder options html
-
-
-viewDecoder : FormatOptions -> Html msg -> String
-viewDecoder options viewHtml =
-    case
-        Decode.decodeValue
-            (decodeElmHtml (\_ _ -> Decode.succeed ()))
-            (asJsonView viewHtml)
-    of
-        Ok str ->
-            nodeToStringWithOptions options str
-
-        Err err ->
-            "Error: " ++ Decode.errorToString err
-
-
-asJsonView : Html msg -> Decode.Value
-asJsonView x =
-    Json.Encode.string "REPLACE_ME_WITH_JSON_STRINGIFY"
-
-
-
---perform : RenderRequest route -> ProgramConfig userMsg userModel route siteData pageData sharedData -> (Json.Encode.Value -> Cmd Msg) -> Effect -> Cmd Msg
 
 
 perform :
@@ -900,7 +867,7 @@ sendSinglePageProgress toJsPayload config model =
                                                     (config.view currentPage sharedData pageData |> .view) pageModel
                                             in
                                             { head = config.view currentPage sharedData pageData |> .head
-                                            , view = viewValue.body |> viewRenderer
+                                            , view = viewValue.body |> HtmlPrinter.htmlToString
                                             , title = viewValue.title
                                             }
                                         )
@@ -1031,7 +998,7 @@ sendSinglePageProgress toJsPayload config model =
                             toJsPayload.pages
                                 |> Dict.get (PagePath.toString page)
                                 |> Maybe.withDefault Dict.empty
-                        , html = viewValue.body |> viewRenderer
+                        , html = viewValue.body |> HtmlPrinter.htmlToString
                         , errors = []
                         , head = headTags
                         , title = viewValue.title

@@ -3,20 +3,27 @@ module Api exposing (routes)
 import ApiRoute
 import DataSource
 import DataSource.Http
+import Html exposing (Html)
 import Json.Encode
 import OptimizedDecoder as Decode
 import Secrets
 
 
-routes : List (ApiRoute.Done ApiRoute.Response)
-routes =
+routes :
+    (Html Never -> String)
+    -> List (ApiRoute.Done ApiRoute.Response)
+routes htmlToString =
     [ ApiRoute.succeed
         (\userId ->
             DataSource.succeed
                 { body =
                     Json.Encode.object
                         [ ( "id", Json.Encode.int userId )
-                        , ( "name", Json.Encode.string ("Data for user " ++ String.fromInt userId) )
+                        , ( "name"
+                          , Html.p [] [ Html.text <| "Data for user " ++ String.fromInt userId ]
+                                |> htmlToString
+                                |> Json.Encode.string
+                          )
                         ]
                         |> Json.Encode.encode 2
                 }

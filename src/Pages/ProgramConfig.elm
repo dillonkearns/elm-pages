@@ -55,5 +55,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         , metadata : route
         }
         -> userMsg
-    , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
+    , apiRoutes :
+        (Html Never -> String)
+        -> List (ApiRoute.Done ApiRoute.Response)
     }

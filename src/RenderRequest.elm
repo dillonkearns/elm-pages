@@ -2,6 +2,7 @@ module RenderRequest exposing (..)
 
 import ApiRoute
 import DataSource exposing (DataSource)
+import HtmlPrinter
 import Json.Decode as Decode
 import Json.Encode
 import Pages.Manifest as Manifest
@@ -116,7 +117,7 @@ requestPayloadDecoder config =
                     apiRoute =
                         ApiRoute.firstMatch (String.dropLeft 1 path)
                             (manifestHandler config
-                                :: config.apiRoutes
+                                :: config.apiRoutes HtmlPrinter.htmlToString
                             )
                 in
                 case route of

@@ -6,6 +6,8 @@ import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
+import Html exposing (Html)
+import HtmlPrinter exposing (htmlToString)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -41,7 +43,8 @@ init :
         , site : SiteConfig route siteData
         , data : route -> DataSource.DataSource pageData
         , sharedData : DataSource.DataSource sharedData
-        , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
+        , apiRoutes :
+            (Html Never -> String) -> List (ApiRoute.Done ApiRoute.Response)
     }
     -> StaticResponses
 init config =
@@ -62,11 +65,13 @@ init config =
 
 buildTimeFilesRequest :
     { config
-        | apiRoutes : List (ApiRoute.Done ApiRoute.Response)
+        | apiRoutes :
+            (Html Never -> String)
+            -> List (ApiRoute.Done ApiRoute.Response)
     }
     -> DataSource (List (Result String { path : List String, content : String }))
 buildTimeFilesRequest config =
-    config.apiRoutes
+    config.apiRoutes htmlToString
         |> List.map
             (\handler ->
                 handler.buildTimeRoutes
@@ -198,7 +203,7 @@ nextStep :
         , data : route -> DataSource.DataSource pageData
         , sharedData : DataSource.DataSource sharedData
         , site : SiteConfig route siteData
-        , apiRoutes : List (ApiRoute.Done ApiRoute.Response)
+        , apiRoutes : (Html Never -> String) -> List (ApiRoute.Done ApiRoute.Response)
     }
     ->
         { model
