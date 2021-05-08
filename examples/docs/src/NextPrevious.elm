@@ -77,7 +77,7 @@ linkStyle =
         , Tw.items_center
         , Tw.mr_2
         , Css.hover
-            [ Tw.text_blue_600
+            [ Tw.text_blue_700 |> Css.important
             ]
         ]
 
