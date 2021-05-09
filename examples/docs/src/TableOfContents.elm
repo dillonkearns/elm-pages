@@ -107,6 +107,7 @@ surround showMobileMenu children =
             [ Tw.h_screen
             , Tw.bg_white
             , Tw.flex_shrink_0
+            , Tw.top_0
             , Tw.w_full
             , if showMobileMenu then
                 Tw.block
@@ -123,6 +124,7 @@ surround showMobileMenu children =
                 [ Tw.w_64
                 , Tw.block
                 , Tw.sticky
+                , Tw.flex_shrink_0
                 ]
             ]
         ]
