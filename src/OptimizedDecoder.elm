@@ -6,6 +6,7 @@ module OptimizedDecoder exposing
     , maybe, oneOf
     , lazy, value, null, succeed, fail, andThen
     , map, map2, map3, map4, map5, map6, map7, map8, andMap
+    , fromResult
     , decodeString, decodeValue, decoder
     )
 
@@ -58,6 +59,8 @@ which makes it easier to handle large objects.
 [pipe]: http://package.elm-lang.org/packages/zwilias/json-decode-exploration/latest/Json-Decode-Exploration-Pipeline
 
 @docs map, map2, map3, map4, map5, map6, map7, map8, andMap
+
+@docs fromResult
 
 
 # Directly Running Decoders
@@ -646,6 +649,19 @@ lazy toDecoder =
 map : (a -> b) -> Decoder a -> Decoder b
 map f (OptimizedDecoder jd jde) =
     OptimizedDecoder (JD.map f jd) (JDE.map f jde)
+
+
+{-| Turn a Result into a Decoder (uses succeed and fail under the hood). This is often
+helpful for chaining with `andThen`.
+-}
+fromResult : Result String value -> Decoder value
+fromResult result =
+    case result of
+        Ok okValue ->
+            succeed okValue
+
+        Err error ->
+            fail error
 
 
 {-| Chain decoders where one decoder depends on the value of another decoder.

@@ -1,6 +1,7 @@
 module DataSource exposing
     ( DataSource
     , map, succeed, fail
+    , fromResult
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
@@ -38,6 +39,8 @@ in [this article introducing StaticHttp requests and some concepts around it](ht
 @docs DataSource
 
 @docs map, succeed, fail
+
+@docs fromResult
 
 
 ## Building a StaticHttp Request Body
@@ -415,6 +418,18 @@ fail errorMessage =
         , \_ _ ->
             Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail errorMessage)
         )
+
+
+{-| Turn an Err into a DataSource failure.
+-}
+fromResult : Result String value -> DataSource value
+fromResult result =
+    case result of
+        Ok okValue ->
+            succeed okValue
+
+        Err error ->
+            fail error
 
 
 {-| -}
