@@ -137,12 +137,9 @@ titleForSection section =
             )
         |> DataSource.andThen
             (\maybeTitle ->
-                case maybeTitle of
-                    Just title ->
-                        DataSource.succeed title
-
-                    Nothing ->
-                        DataSource.fail "Expected to find an H1 heading in this markdown."
+                maybeTitle
+                    |> Result.fromMaybe "Expected to find an H1 heading in this markdown."
+                    |> DataSource.fromResult
             )
 
 
@@ -299,16 +296,10 @@ markdownBodyDecoder =
     DataSource.File.body
         |> OptimizedDecoder.andThen
             (\rawBody ->
-                case
-                    rawBody
-                        |> Markdown.Parser.parse
-                        |> Result.mapError (\_ -> "Markdown parsing error")
-                of
-                    Ok renderedBody ->
-                        OptimizedDecoder.succeed renderedBody
-
-                    Err error ->
-                        OptimizedDecoder.fail error
+                rawBody
+                    |> Markdown.Parser.parse
+                    |> Result.mapError (\_ -> "Markdown parsing error")
+                    |> OptimizedDecoder.fromResult
             )
 
 
@@ -317,18 +308,12 @@ headingsDecoder slug =
     DataSource.File.body
         |> OptimizedDecoder.andThen
             (\rawBody ->
-                case
-                    rawBody
-                        |> Markdown.Parser.parse
-                        |> Result.mapError (\_ -> "Markdown parsing error")
-                        |> Result.map TableOfContents.gatherHeadings
-                        |> Result.andThen (nameAndTopLevel slug)
-                of
-                    Ok renderedBody ->
-                        OptimizedDecoder.succeed renderedBody
-
-                    Err error ->
-                        OptimizedDecoder.fail error
+                rawBody
+                    |> Markdown.Parser.parse
+                    |> Result.mapError (\_ -> "Markdown parsing error")
+                    |> Result.map TableOfContents.gatherHeadings
+                    |> Result.andThen (nameAndTopLevel slug)
+                    |> OptimizedDecoder.fromResult
             )
 
 
