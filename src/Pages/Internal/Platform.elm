@@ -362,6 +362,7 @@ update config appMsg model =
                 -- to keep track of the last url change
                 Ok ( ( _, contentJson, updatedCache ), pageData ) ->
                     let
+                        updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
                         updatedPageData =
                             updatedPageStaticData
                                 |> Result.map
