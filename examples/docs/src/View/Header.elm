@@ -59,7 +59,7 @@ view toggleMobileMenuMsg stars currentPath =
                 ]
                 [ span
                     [ css
-                        [ Tw.mr_2
+                        [ Tw.mr_0
                         , Tw.font_extrabold
                         , Tw.inline
                         , Bp.md
@@ -70,70 +70,42 @@ view toggleMobileMenuMsg stars currentPath =
                     [ text "elm-pages" ]
                 ]
             ]
-        , div
-            [ css
-                [ Tw.relative
-                , Tw.w_full
-                , Bp.md
-                    [ Tw.w_64
-                    ]
-                ]
-            ]
-            [ input
-                [ css
-                    [ Tw.appearance_none
-                    , Tw.border
-                    , Tw.rounded
-                    , Tw.py_2
-                    , Tw.px_3
-                    , Tw.leading_tight
-                    , Tw.w_full
-                    , Css.focus
-                        [ Tw.outline_none
-                        , Tw.ring
-                        ]
-                    ]
-                , Attr.type_ "search"
-                , Attr.placeholder "Search (/ to focus)"
-                ]
-                []
-            ]
-        , div
-            [ css
-                [ Tw.mr_2
-                ]
-            ]
-            []
         , a
             [ css
                 [ Tw.text_current
+                , Tw.text_sm
                 , Tw.p_2
-                , Tw.cursor_pointer
                 ]
-            , Attr.tabindex 0
+            , Attr.href "/blog"
+            , Attr.target "_blank"
             ]
-            [ svg
-                [ SvgAttr.fill "none"
-                , SvgAttr.viewBox "0 0 24 24"
-                , SvgAttr.width "24"
-                , SvgAttr.height "24"
-                , SvgAttr.stroke "currentColor"
+            [ text "Blog" ]
+        , a
+            [ css
+                [ Tw.text_current
+                , Tw.text_sm
+                , Tw.p_2
                 ]
-                [ Svg.Styled.path
-                    [ SvgAttr.strokeLinecap "round"
-                    , SvgAttr.strokeLinejoin "round"
-                    , SvgAttr.strokeWidth "2"
-                    , SvgAttr.d "M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                    ]
-                    []
-                ]
+            , Attr.href "/showcase"
+            , Attr.target "_blank"
             ]
+            [ text "Showcase" ]
+        , a
+            [ css
+                [ Tw.text_current
+                , Tw.text_sm
+                , Tw.p_2
+                ]
+            , Attr.href "/docs"
+            , Attr.target "_blank"
+            ]
+            [ text "Docs" ]
         , a
             [ css
                 [ Tw.text_current
                 , Tw.p_2
                 ]
-            , Attr.href "https://github.com/shuding/nextra"
+            , Attr.href "https://github.com/dillonkearns/elm-pages"
             , Attr.target "_blank"
             ]
             [ svg
