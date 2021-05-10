@@ -61,6 +61,14 @@ view static =
                 [ Tw.flex
                 , Tw.flex_col
                 , Tw.pt_8
+                , Tw.px_4
+                , Bp.lg
+                    [ Tw.px_8
+                    ]
+                , Bp.sm
+                    [ Tw.py_20
+                    , Tw.px_6
+                    ]
                 ]
             ]
             [ topSection
@@ -229,13 +237,8 @@ topSection =
                 , Tw.mx_auto
                 , Tw.text_center
                 , Tw.py_16
-                , Tw.px_4
-                , Bp.lg
-                    [ Tw.px_8
-                    ]
                 , Bp.sm
                     [ Tw.py_20
-                    , Tw.px_6
                     ]
                 ]
             ]
