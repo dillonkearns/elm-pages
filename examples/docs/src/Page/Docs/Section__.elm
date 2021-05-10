@@ -204,7 +204,7 @@ view model sharedModel static =
                         --, Tw.whitespace_normal
                         --, Tw.mx_auto
                         , Tw.relative
-                        , Tw.pt_8
+                        , Tw.pt_20
                         , Tw.pb_16
                         , Tw.px_6
                         , Tw.w_full

@@ -21,6 +21,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
+import View.Header
 
 
 template : SharedTemplate Msg Model Data SharedMsg msg
@@ -159,9 +160,7 @@ view stars page model toMsg pageView =
                         ]
 
             Document.ElmCssView elements ->
-                ((header stars page.path
-                    |> Element.layout []
-                    |> Html.Styled.fromUnstyled
+                ((View.Header.view ToggleMobileMenu stars page.path
                     |> Html.Styled.map toMsg
                  )
                     :: elements
