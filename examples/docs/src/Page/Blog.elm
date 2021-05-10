@@ -1,17 +1,24 @@
 module Page.Blog exposing (Data, Model, Msg, page)
 
 import Article
+import Css
+import Data.Author
 import DataSource
+import Date
 import Document exposing (Document)
 import Element
 import Head
 import Head.Seo as Seo
+import Html.Styled exposing (..)
+import Html.Styled.Attributes as Attr exposing (css)
 import Index
 import Page exposing (DynamicContext, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
-import Pages.PagePath exposing (PagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
 import Shared
 import SiteOld
+import Tailwind.Breakpoints as Bp
+import Tailwind.Utilities as Tw
 
 
 type Msg
@@ -74,17 +81,101 @@ view :
 view thing model staticPayload =
     { title = "elm-pages blog"
     , body =
-        [ Element.column [ Element.width Element.fill ]
-            [ Element.column [ Element.padding 20, Element.centerX ]
-                [ --Element.text
-                  --    (staticPayload.static
-                  --        |> String.join ", "
-                  --    )
-                  Index.view staticPayload.static
+        [ div
+            [ css
+                [ Tw.relative
+                , Tw.bg_gray_50
+                , Tw.pt_16
+                , Tw.pb_20
+                , Tw.px_4
+                , Bp.lg
+                    [ Tw.pt_24
+                    , Tw.pb_28
+                    , Tw.px_8
+                    ]
+                , Bp.sm
+                    [ Tw.px_6
+                    ]
+                ]
+            ]
+            [ div
+                [ css
+                    [ Tw.absolute
+                    , Tw.inset_0
+                    ]
+                ]
+                [ div
+                    [ css
+                        [ Tw.bg_white
+                        , Tw.h_1over3
+                        , Bp.sm
+                            [ Tw.h_2over3
+                            ]
+                        ]
+                    ]
+                    []
+                ]
+            , div
+                [ css
+                    [ Tw.relative
+                    , Tw.max_w_7xl
+                    , Tw.mx_auto
+                    ]
+                ]
+                [ div
+                    [ css
+                        [ Tw.text_center
+                        ]
+                    ]
+                    [ h2
+                        [ css
+                            [ Tw.text_3xl
+                            , Tw.tracking_tight
+                            , Tw.font_extrabold
+                            , Tw.text_gray_900
+                            , Bp.sm
+                                [ Tw.text_4xl
+                                ]
+                            ]
+                        ]
+                        [ text "Blog" ]
+                    , p
+                        [ css
+                            [ Tw.mt_3
+                            , Tw.max_w_2xl
+                            , Tw.mx_auto
+                            , Tw.text_xl
+                            , Tw.text_gray_500
+                            , Bp.sm
+                                [ Tw.mt_4
+                                ]
+                            ]
+                        ]
+                        [ text "The latest elm-pages news and articles." ]
+                    ]
+                , div
+                    [ css
+                        [ Tw.mt_12
+                        , Tw.max_w_lg
+                        , Tw.mx_auto
+                        , Tw.grid
+                        , Tw.gap_5
+                        , Bp.lg
+                            [ Tw.grid_cols_3
+                            , Tw.max_w_none
+                            ]
+                        ]
+                    ]
+                    (staticPayload.static
+                        |> List.map
+                            (\articleInfo ->
+                                blogCard articleInfo
+                            )
+                    )
                 ]
             ]
         ]
-            |> Document.ElmUiView
+            |> Document.ElmCssView
     }
 
 
@@ -106,22 +197,157 @@ head staticPayload =
         |> Seo.website
 
 
+blogCard : ( PagePath, Article.ArticleMetadata ) -> Html msg
+blogCard ( path, info ) =
+    let
+        author =
+            Data.Author.dillon
+    in
+    a
+        [ Attr.href (PagePath.toString path)
+        , css
+            [ Tw.flex
+            , Tw.flex_col
+            , Tw.rounded_lg
+            , Tw.shadow_lg
+            , Tw.overflow_hidden
+            ]
+        ]
+        [ div
+            [ css
+                [ Tw.flex_shrink_0
+                ]
+            ]
+            [ img
+                [ css
+                    [ Tw.h_48
+                    , Tw.w_full
+                    , Tw.object_cover
+                    ]
+                , Attr.src (ImagePath.toString info.image)
+                , Attr.alt ""
+                ]
+                []
+            ]
+        , div
+            [ css
+                [ Tw.flex_1
+                , Tw.bg_white
+                , Tw.p_6
+                , Tw.flex
+                , Tw.flex_col
+                , Tw.justify_between
+                ]
+            ]
+            [ div
+                [ css
+                    [ Tw.flex_1
+                    ]
+                ]
+                [ p
+                    [ css
+                        [ Tw.text_sm
+                        , Tw.font_medium
+                        , Tw.text_blue_600
+                        ]
+                    ]
+                    [ span
+                        []
+                        [ text "Article" ]
+                    ]
+                , span
+                    [ css
+                        [ Tw.block
+                        , Tw.mt_2
+                        ]
+                    ]
+                    [ p
+                        [ css
+                            [ Tw.text_xl
+                            , Tw.font_semibold
+                            , Tw.text_gray_900
+                            ]
+                        ]
+                        [ text info.title ]
+                    , p
+                        [ css
+                            [ Tw.mt_3
+                            , Tw.text_base
+                            , Tw.text_gray_500
+                            ]
+                        ]
+                        [ text info.description ]
+                    ]
+                ]
+            , div
+                [ css
+                    [ Tw.mt_6
+                    , Tw.flex
+                    , Tw.items_center
+                    ]
+                ]
+                [ div
+                    [ css
+                        [ Tw.flex_shrink_0
+                        ]
+                    ]
+                    [ div
+                        []
+                        [ span
+                            [ css
+                                [ Tw.sr_only
+                                ]
+                            ]
+                            [ text author.name ]
+                        , img
+                            [ css
+                                [ Tw.h_10
+                                , Tw.w_10
+                                , Tw.rounded_full
+                                ]
+                            , Attr.src (author.avatar |> ImagePath.toString)
+                            , Attr.alt ""
+                            ]
+                            []
+                        ]
+                    ]
+                , div
+                    [ css
+                        [ Tw.ml_3
+                        ]
+                    ]
+                    [ p
+                        [ css
+                            [ Tw.text_sm
+                            , Tw.font_medium
+                            , Tw.text_gray_900
+                            ]
+                        ]
+                        [ span
+                            []
+                            [ text author.name ]
+                        ]
+                    , div
+                        [ css
+                            [ Tw.flex
+                            , Tw.space_x_1
+                            , Tw.text_sm
+                            , Tw.text_gray_500
+                            ]
+                        ]
+                        [ time
+                            [ Attr.datetime "2020-03-16"
+                            ]
+                            [ text (info.published |> Date.format "MMMM ddd, yyyy") ]
 
---fileRequest : StaticHttp.Request DataFromFile
---fileRequest =
---    StaticFile.request
---        "content/blog/extensible-markdown-parsing-in-elm.md"
---        (OptimizedDecoder.map2 DataFromFile
---            (StaticFile.body
---                |> OptimizedDecoder.andThen
---                    (\rawBody ->
---                        case rawBody |> MarkdownRenderer.view |> Result.map Tuple.second of
---                            Ok renderedBody ->
---                                OptimizedDecoder.succeed renderedBody
---
---                            Err error ->
---                                OptimizedDecoder.fail error
---                    )
---            )
---            (StaticFile.frontmatter frontmatterDecoder)
---        )
+                        --, span
+                        --    [ Attr.attribute "aria-hidden" "true"
+                        --    ]
+                        --    [ text "·" ]
+                        --, span []
+                        --    [ text "6 min read" ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
