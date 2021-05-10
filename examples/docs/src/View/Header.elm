@@ -4,7 +4,7 @@ import Css
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Html.Styled.Events
-import Pages.PagePath exposing (PagePath)
+import Pages.PagePath as PagePath exposing (PagePath)
 import Svg.Styled exposing (svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
@@ -70,36 +70,9 @@ view toggleMobileMenuMsg stars currentPath =
                     [ text "elm-pages" ]
                 ]
             ]
-        , a
-            [ css
-                [ Tw.text_current
-                , Tw.text_sm
-                , Tw.p_2
-                ]
-            , Attr.href "/blog"
-            , Attr.target "_blank"
-            ]
-            [ text "Blog" ]
-        , a
-            [ css
-                [ Tw.text_current
-                , Tw.text_sm
-                , Tw.p_2
-                ]
-            , Attr.href "/showcase"
-            , Attr.target "_blank"
-            ]
-            [ text "Showcase" ]
-        , a
-            [ css
-                [ Tw.text_current
-                , Tw.text_sm
-                , Tw.p_2
-                ]
-            , Attr.href "/docs"
-            , Attr.target "_blank"
-            ]
-            [ text "Docs" ]
+        , headerLink currentPath [ "showcase" ] "Showcase"
+        , headerLink currentPath [ "blog" ] "Blog"
+        , headerLink currentPath [ "docs" ] "Docs"
         , a
             [ css
                 [ Tw.text_current
@@ -157,107 +130,27 @@ view toggleMobileMenuMsg stars currentPath =
         ]
 
 
+headerLink : PagePath -> List String -> String -> Html msg
+headerLink currentPagePath linkTo name =
+    let
+        isCurrentPath =
+            currentPath == List.take (List.length currentPath) linkTo
 
---Element.column [ Element.width Element.fill ]
---    [ responsiveHeader
---    , Element.column
---        [ Element.width Element.fill
---        , Element.htmlAttribute (Attr.class "responsive-desktop")
---        ]
---        [ Element.el
---            [ Element.height (Element.px 4)
---            , Element.width Element.fill
---            , Element.Background.gradient
---                { angle = 0.2
---                , steps =
---                    [ Element.rgb255 0 242 96
---                    , Element.rgb255 5 117 230
---                    ]
---                }
---            ]
---            Element.none
---        , Element.row
---            [ Element.paddingXY 25 4
---            , Element.spaceEvenly
---            , Element.width Element.fill
---            , Element.Region.navigation
---            , Element.Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
---            , Element.Border.color (Element.rgba255 40 80 40 0.4)
---            ]
---            [ logoLink
---            , Element.row [ Element.spacing 15 ] (navbarLinks stars currentPath)
---            ]
---        ]
---    ]
---responsiveHeader =
---    Element.row
---        [ Element.width Element.fill
---        , Element.spaceEvenly
---        , Element.htmlAttribute (Attr.class "responsive-mobile")
---        , Element.width Element.fill
---        , Element.padding 20
---        ]
---        [ logoLinkMobile
---        , FontAwesome.icon "fas fa-bars" |> Element.el [ Element.alignRight, Element.Events.onClick ToggleMobileMenu ]
---        ]
---
---
---githubRepoLink : Int -> Element msg
---githubRepoLink starCount =
---    Element.newTabLink []
---        { url = "https://github.com/dillonkearns/elm-pages"
---        , label =
---            Element.row [ Element.spacing 5 ]
---                [ Element.image
---                    [ Element.width (Element.px 22)
---                    , Font.color Palette.color.primary
---                    ]
---                    { src = "/images/github.svg", description = "Github repo" }
---                , Element.text <| String.fromInt starCount
---                ]
---        }
---
---
---elmDocsLink : Element msg
---elmDocsLink =
---    Element.newTabLink []
---        { url = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/"
---        , label =
---            Element.image
---                [ Element.width (Element.px 22)
---                , Font.color Palette.color.primary
---                ]
---                { src = "/images/elm-logo.svg", description = "Elm Package Docs" }
---        }
---
---
---highlightableLink :
---    PagePath
---    -> List String
---    -> String
---    -> Element msg
---highlightableLink currentPath linkDirectory displayName =
---    let
---        isHighlighted =
---            (currentPath |> PagePath.toPath)
---                == linkDirectory
---                || (currentPath
---                        |> PagePath.toPath
---                        |> List.reverse
---                        |> List.drop 1
---                        |> List.reverse
---                   )
---                == linkDirectory
---    in
---    Element.link
---        (if isHighlighted then
---            [ Font.underline
---            , Font.color Palette.color.primary
---            ]
---
---         else
---            []
---        )
---        { url = linkDirectory |> String.join "/"
---        , label = Element.text displayName
---        }
+        currentPath =
+            PagePath.toPath currentPagePath
+    in
+    a
+        [ css
+            [ Tw.text_current
+            , Tw.text_sm
+            , Tw.p_2
+            , if isCurrentPath then
+                Tw.text_blue_500
+
+              else
+                Css.batch []
+            ]
+        , Attr.href (linkTo |> String.join "/")
+        , Attr.target "_blank"
+        ]
+        [ text name ]
