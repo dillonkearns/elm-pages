@@ -151,6 +151,5 @@ headerLink currentPagePath linkTo name =
                 Css.batch []
             ]
         , Attr.href (linkTo |> String.join "/")
-        , Attr.target "_blank"
         ]
         [ text name ]
