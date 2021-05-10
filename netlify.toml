@@ -6,6 +6,11 @@
   ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
 
 [[redirects]]
+  from = "/screenshot/*"
+  to = "/.netlify/functions/screenshot"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/.netlify/functions/render"
   status = 200

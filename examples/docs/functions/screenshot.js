@@ -52,8 +52,7 @@ async function getScreenshot(url, isDev) {
 
 // Docs on event and context https://www.netlify.com/docs/functions/#the-handler-method
 exports.handler = async (event, context) => {
-  const qs = new URLSearchParams(event.queryStringParameters);
-  const url = qs.get("url");
+  const url = decodeURIComponent(event.path.replace(/^.*\/screenshot\//, ''))
 
   console.log({ url });
   const photoBuffer = await getScreenshot(

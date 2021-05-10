@@ -14,6 +14,7 @@ import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import Url
 
 
 type alias Model =
@@ -161,7 +162,7 @@ showcaseItem item =
                 ]
             ]
             [ img
-                [ Attr.src ("/.netlify/functions/screenshot?url=" ++ item.screenshotUrl)
+                [ Attr.src ("/screenshot/" ++ Url.percentEncode item.screenshotUrl)
                 , Attr.alt ""
                 , Attr.attribute "loading" "lazy"
                 , css
