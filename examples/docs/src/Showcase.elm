@@ -117,7 +117,7 @@ entryDecoder =
             (Decode.field "Live URL" Decode.string)
             (Decode.field "Author" Decode.string)
             (Decode.field "Author URL" Decode.string)
-            (Decode.field "Categories" (Decode.list Decode.string))
+            (Decode.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
