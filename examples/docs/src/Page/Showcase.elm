@@ -161,7 +161,7 @@ showcaseItem item =
                 ]
             ]
             [ img
-                [ Attr.src ("https://image.thum.io/get/width/800/crop/800/" ++ item.screenshotUrl)
+                [ Attr.src ("/.netlify/functions/screenshot?url=" ++ item.screenshotUrl)
                 , Attr.alt ""
                 , Attr.attribute "loading" "lazy"
                 , css
