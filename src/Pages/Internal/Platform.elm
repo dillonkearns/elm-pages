@@ -311,20 +311,57 @@ update config appMsg model =
                     , baseUrl = model.baseUrl
                     }
             in
-            ( model
-            , if navigatingToSamePage then
+            if navigatingToSamePage then
                 -- this saves a few CPU cycles, but also
                 -- makes sure we don't send an UpdateCacheAndUrl
                 -- which scrolls to the top after page changes.
                 -- This is important because we may have just scrolled
                 -- to a specific page location for an anchor link.
-                Cmd.none
+                model.pageData
+                    |> Result.map
+                        (\pageData ->
+                            let
+                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                                updatedPageData =
+                                    Ok
+                                        { userModel = userModel
+                                        , sharedData = pageData.sharedData
+                                        , pageData = pageData.pageData
+                                        }
 
-              else
-                model.contentCache
+                                ( userModel, userCmd ) =
+                                    config.update
+                                        pageData.sharedData
+                                        pageData.pageData
+                                        (Just model.key)
+                                        (config.onPageChange
+                                            { path = urlToPagePath url model.baseUrl
+                                            , query = url.query
+                                            , fragment = url.fragment
+                                            , metadata = config.urlToRoute url
+                                            }
+                                        )
+                                        pageData.userModel
+                            in
+                            ( { model
+                                | url = url
+                                , pageData = updatedPageData
+                              }
+                            , Cmd.none
+                              --Cmd.batch
+                              --    [ userCmd |> Cmd.map UserMsg
+                              --    , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+                              --    ]
+                            )
+                        )
+                    |> Result.withDefault ( model, Cmd.none )
+
+            else
+                ( model
+                , model.contentCache
                     |> ContentCache.lazyLoad urls
                     |> Task.attempt (UpdateCacheAndUrl url)
-            )
+                )
 
         UserMsg userMsg ->
             case model.pageData of
