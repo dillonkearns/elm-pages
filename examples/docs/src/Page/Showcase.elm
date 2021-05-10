@@ -60,7 +60,7 @@ view static =
             [ css
                 [ Tw.flex
                 , Tw.flex_col
-                , Tw.justify_around
+                , Tw.pt_8
                 ]
             ]
             [ topSection
