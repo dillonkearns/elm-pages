@@ -65,6 +65,7 @@ exports.handler = async (event, context) => {
   return {
     statusCode: 200,
     body: photoBuffer,
+    headers: {'Cache-Control': 'public, max-age=1800'},
     isBase64Encoded: true,
   };
 };
