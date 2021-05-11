@@ -791,8 +791,8 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                 sendSinglePageProgress value config model pageAndMetadata
                                                     |> Just
 
-                                            ToJsPayload.Errors _ ->
-                                                Nothing
+                                            ToJsPayload.Errors errors ->
+                                                errors |> ToJsPayload.Errors |> Effect.SendJsData |> Just
 
                                             ToJsPayload.ApiResponse ->
                                                 Nothing
