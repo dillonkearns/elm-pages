@@ -57,14 +57,14 @@ exports.handler = async (event, context) => {
   console.log({ url });
   const photoBuffer = await getScreenshot(
     url,
-    // Here we need to pass a boolean to say if we are on the server. Netlify has a bug where process.env.NETLIFY is undefiend in functions so I'm using one of the only vars I can find
+    // Here we need to pass a boolean to say if we are on the server. Netlify has a bug where process.env.NETLIFY is undefined in functions so I'm using one of the only vars I can find
     // !process.env.NETLIFY
     process.env.URL.includes("http://localhost")
   );
   return {
     statusCode: 200,
     body: photoBuffer,
-    headers: {'Cache-Control': 'public, max-age=1800'},
+    headers: {'Cache-Control': 'public, max-age=604800'},
     isBase64Encoded: true,
   };
 };
