@@ -71,7 +71,7 @@ view static =
                 , Element.spacing 60
                 , Element.Region.mainContent
                 ]
-                static.static
+                static.data
           ]
             |> Element.textColumn
                 [ Element.width Element.fill

@@ -140,8 +140,8 @@ view page globalData pageData =
                                   Page.${moduleName(name)}.page.view
                                       subModel
                                       model.global
-                                      { static = data
-                                      , sharedStatic = globalData
+                                      { data = data
+                                      , sharedData = globalData
                                       , routeParams = s
                                       , path = page.path
                                       }
@@ -161,8 +161,8 @@ view page globalData pageData =
                               _ ->
                                   { title = "Model mismatch", body = Html.text <| "Model mismatch" }
                   , head = Page.${moduleName(name)}.page.head
-                      { static = data
-                      , sharedStatic = globalData
+                      { data = data
+                      , sharedData = globalData
                       , routeParams = s
                       , path = page.path
                       }
@@ -215,8 +215,8 @@ init currentGlobalModel sharedData pageData navigationKey maybePagePath =
                       name
                     )} thisPageData ) ->
                     Page.${moduleName(name)}.page.init
-                        { static = thisPageData
-                        , sharedStatic = sharedData
+                        { data = thisPageData
+                        , sharedData = sharedData
                         , routeParams = routeParams
                         , path = justPath.path
                         }
@@ -304,8 +304,8 @@ update sharedData pageData navigationKey msg model =
               name
             )} routeParams), justPage ) ) ->
                             Page.${moduleName(name)}.page.update
-                                { static = thisPageData
-                                , sharedStatic = sharedData
+                                { data = thisPageData
+                                , sharedData = sharedData
                                 , routeParams = routeParams
                                 , path = justPage.path
                                 }

@@ -71,7 +71,7 @@ view :
 view static =
     { title = "TODO title"
     , body =
-        [ Element.text static.static
+        [ Element.text static.data
         ]
             |> Document.ElmUiView
     }

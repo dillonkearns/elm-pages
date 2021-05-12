@@ -70,8 +70,8 @@ routes =
 view :
     StaticPayload Data RouteParams
     -> Document msg
-view { static } =
-    { title = static.frontmatter.title
+view static =
+    { title = static.data.frontmatter.title
     , body =
         let
             author =
@@ -98,10 +98,10 @@ view { static } =
                             ]
                         ]
                     ]
-                    :: (publishedDateView static.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                    :: Palette.blogHeading static.frontmatter.title
-                    :: articleImageView static.frontmatter.image
-                    :: static.body
+                    :: (publishedDateView static.data.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
+                    :: Palette.blogHeading static.data.frontmatter.title
+                    :: articleImageView static.data.frontmatter.image
+                    :: static.data.body
                     |> List.map (Element.map never)
                 )
             ]
@@ -113,10 +113,10 @@ view { static } =
 head :
     StaticPayload Data RouteParams
     -> List Head.Tag
-head { path, static } =
+head static =
     let
         metadata =
-            static.frontmatter
+            static.data.frontmatter
     in
     Head.structuredData
         (StructuredData.article
@@ -124,7 +124,7 @@ head { path, static } =
             , description = metadata.description
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = SiteOld.canonicalUrl ++ "/" ++ PagePath.toString path
+            , url = SiteOld.canonicalUrl ++ "/" ++ PagePath.toString static.path
             , imageUrl = SiteOld.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
             , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =

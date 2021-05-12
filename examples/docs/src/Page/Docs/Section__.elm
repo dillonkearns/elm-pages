@@ -195,7 +195,7 @@ view model sharedModel static =
                     , Tw.h_full
                     ]
                 ]
-                [ TableOfContents.view sharedModel.showMobileMenu static.routeParams.section static.static.toc
+                [ TableOfContents.view sharedModel.showMobileMenu static.routeParams.section static.data.toc
                 , Html.article
                     [ css
                         [ Tw.prose
@@ -222,11 +222,11 @@ view model sharedModel static =
                             , Bp.xl [ Tw.pr_36 ]
                             ]
                         ]
-                        ((static.static.body
+                        ((static.data.body
                             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                             |> Result.withDefault [ Html.text "" ]
                          )
-                            ++ [ NextPrevious.view static.static.previousAndNext
+                            ++ [ NextPrevious.view static.data.previousAndNext
                                ]
                         )
                     ]

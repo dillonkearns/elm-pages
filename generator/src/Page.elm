@@ -79,8 +79,8 @@ type alias Page routeParams data =
 
 {-| -}
 type alias StaticPayload data routeParams =
-    { static : data -- local
-    , sharedStatic : Shared.Data -- share
+    { data : data
+    , sharedData : Shared.Data
     , routeParams : routeParams
     , path : PagePath
     }

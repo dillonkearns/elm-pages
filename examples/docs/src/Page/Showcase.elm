@@ -80,7 +80,7 @@ view static =
                     , Tw.justify_around
                     ]
                 ]
-                [ showcaseEntries static.static ]
+                [ showcaseEntries static.data ]
             ]
         ]
             |> Document.ElmCssView

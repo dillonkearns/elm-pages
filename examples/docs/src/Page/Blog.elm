@@ -166,7 +166,7 @@ view thing model staticPayload =
                             ]
                         ]
                     ]
-                    (staticPayload.static
+                    (staticPayload.data
                         |> List.map
                             (\articleInfo ->
                                 blogCard articleInfo
