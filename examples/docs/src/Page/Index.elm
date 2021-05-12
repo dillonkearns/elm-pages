@@ -88,11 +88,9 @@ data =
         (StaticFile.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
-                    case rawBody |> MarkdownRenderer.view |> Result.map Tuple.second of
-                        Ok renderedBody ->
-                            OptimizedDecoder.succeed renderedBody
-
-                        Err error ->
-                            OptimizedDecoder.fail error
+                    rawBody
+                        |> MarkdownRenderer.view
+                        |> Result.map Tuple.second
+                        |> OptimizedDecoder.fromResult
                 )
         )
