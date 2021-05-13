@@ -204,6 +204,7 @@ surround showMobileMenu onDocsPage children =
             , Tw.bg_white
             , Tw.flex_shrink_0
             , Tw.top_0
+            , Tw.pt_16
             , Tw.w_full
             , if showMobileMenu then
                 Tw.block
