@@ -3,6 +3,7 @@ module Shared exposing (Data, Model, Msg, SharedMsg(..), template)
 import Browser.Navigation
 import DataSource
 import DataSource.Http
+import DocsSection
 import Document exposing (Document)
 import DocumentSvg
 import Element exposing (Element)
@@ -21,6 +22,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Palette
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
+import TableOfContents
 import View.Header
 
 
@@ -48,7 +50,7 @@ type Msg
 
 
 type alias Data =
-    Int
+    TableOfContents.TableOfContents TableOfContents.Data
 
 
 type SharedMsg
@@ -110,7 +112,7 @@ data : DataSource.DataSource Data
 data =
     --DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
     --    (D.field "stargazers_count" D.int)
-    DataSource.succeed 123
+    TableOfContents.dataSource DocsSection.files
 
 
 view :
@@ -123,7 +125,7 @@ view :
     -> (Msg -> msg)
     -> Document msg
     -> { body : Html msg, title : String }
-view stars page model toMsg pageView =
+view tableOfContents page model toMsg pageView =
     { body =
         case pageView.body of
             Document.ElmUiView elements ->
@@ -138,13 +140,13 @@ view stars page model toMsg pageView =
                                 |> Element.map toMsg
                             ]
                         , Element.column [ Element.centerX, Element.spacing 20 ]
-                            (navbarLinks stars page.path)
+                            (navbarLinks 123 page.path)
                         ]
 
                  else
                     Element.column [ Element.width Element.fill ]
                         (List.concat
-                            [ [ header stars page.path |> Element.map toMsg
+                            [ [ header 123 page.path |> Element.map toMsg
 
                               --, incrementView model |> Element.map toMsg
                               ]
@@ -160,9 +162,10 @@ view stars page model toMsg pageView =
                         ]
 
             Document.ElmCssView elements ->
-                ((View.Header.view ToggleMobileMenu stars page.path
+                ((View.Header.view ToggleMobileMenu 123 page.path
                     |> Html.Styled.map toMsg
                  )
+                    :: TableOfContents.view model.showMobileMenu False Nothing tableOfContents
                     :: elements
                 )
                     |> Html.Styled.div []

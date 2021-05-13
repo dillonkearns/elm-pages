@@ -196,8 +196,8 @@ styledToString inlines =
         |> Block.extractInlineText
 
 
-surround : Bool -> List (Html msg) -> Html msg
-surround showMobileMenu children =
+surround : Bool -> Bool -> List (Html msg) -> Html msg
+surround showMobileMenu onDocsPage children =
     aside
         [ css
             [ Tw.h_screen
@@ -219,7 +219,11 @@ surround showMobileMenu children =
             , Bp.md
                 [ Tw.w_64
                 , Tw.block
-                , Tw.sticky
+                , if onDocsPage then
+                    Tw.sticky
+
+                  else
+                    Tw.hidden
                 , Tw.flex_shrink_0
                 ]
             ]
@@ -245,9 +249,10 @@ surround showMobileMenu children =
         ]
 
 
-view : Bool -> Maybe String -> TableOfContents Data -> Html msg
-view showMobileMenu current toc =
+view : Bool -> Bool -> Maybe String -> TableOfContents Data -> Html msg
+view showMobileMenu onDocsPage current toc =
     surround showMobileMenu
+        onDocsPage
         [ ul
             []
             (toc

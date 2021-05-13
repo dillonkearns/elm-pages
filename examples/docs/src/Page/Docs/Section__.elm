@@ -188,7 +188,7 @@ view model sharedModel static =
                     , Tw.h_full
                     ]
                 ]
-                [ TableOfContents.view sharedModel.showMobileMenu static.routeParams.section static.data.toc
+                [ TableOfContents.view sharedModel.showMobileMenu True static.routeParams.section static.data.toc
                 , Html.article
                     [ css
                         [ Tw.prose
