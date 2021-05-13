@@ -369,6 +369,9 @@ expectUniqueFile glob =
                     [ file ] ->
                         DataSource.succeed file
 
-                    _ ->
+                    [] ->
                         DataSource.fail "No files matched."
+
+                    _ ->
+                        DataSource.fail "More than one file matched."
             )
