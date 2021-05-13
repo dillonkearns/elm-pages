@@ -83,16 +83,27 @@ view toggleMobileMenuMsg stars currentPath =
             ]
             [ headerLink currentPath [ "docs" ] "Docs" ]
         , button
-            [ Html.Styled.Events.onClick toggleMobileMenuMsg
+            [ Attr.type_ "button"
+            , Html.Styled.Events.onClick toggleMobileMenuMsg
             , css
                 [ Tw.flex
                 , Tw.items_center
-                , Tw.border
-                , Tw.border_gray_400
-                , Tw.rounded_lg
                 , Tw.px_1
-                , Bp.md
-                    [ Tw.hidden
+                , Tw.border
+                , Tw.border_gray_300
+                , Tw.shadow_sm
+                , Tw.text_sm
+                , Tw.rounded_md
+                , Tw.text_gray_700
+                , Tw.bg_white
+                , Css.focus
+                    [ Tw.outline_none
+                    , Tw.ring_2
+                    , Tw.ring_offset_2
+                    , Tw.ring_blue_500
+                    ]
+                , Css.hover
+                    [ Tw.bg_gray_50
                     ]
                 ]
             ]
