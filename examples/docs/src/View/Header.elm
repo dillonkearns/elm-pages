@@ -5,7 +5,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Html.Styled.Events
 import Pages.PagePath as PagePath exposing (PagePath)
-import Svg.Styled exposing (svg)
+import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -96,6 +96,7 @@ view toggleMobileMenuMsg stars currentPath =
                 , Tw.rounded_md
                 , Tw.text_gray_700
                 , Tw.bg_white
+                , Bp.md [ Tw.hidden ]
                 , Css.focus
                     [ Tw.outline_none
                     , Tw.ring_2
@@ -109,17 +110,17 @@ view toggleMobileMenuMsg stars currentPath =
             ]
             [ linkInner currentPath [ "docs" ] "Docs"
             , svg
-                [ SvgAttr.fill "none"
-                , SvgAttr.width "24"
-                , SvgAttr.height "24"
-                , SvgAttr.viewBox "0 0 24 24"
-                , SvgAttr.stroke "rgba(0,0,0,0.75)"
+                [ SvgAttr.css
+                    [ Tw.h_5
+                    , Tw.w_5
+                    ]
+                , SvgAttr.viewBox "0 0 20 20"
+                , SvgAttr.fill "currentColor"
                 ]
-                [ Svg.Styled.path
-                    [ SvgAttr.strokeLinecap "round"
-                    , SvgAttr.strokeLinejoin "round"
-                    , SvgAttr.strokeWidth "2"
-                    , SvgAttr.d "M4 6h16M4 12h16M4 18h16"
+                [ path
+                    [ SvgAttr.fillRule "evenodd"
+                    , SvgAttr.d "M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                    , SvgAttr.clipRule "evenodd"
                     ]
                     []
                 ]
