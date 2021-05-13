@@ -84,8 +84,9 @@ view thing model staticPayload =
         [ div
             [ css
                 [ Tw.relative
-                , Tw.bg_gray_50
-                , Tw.pt_16
+                , Tw.bg_gray_100
+                , Tw.min_h_screen
+                , Tw.pt_32
                 , Tw.pb_20
                 , Tw.px_4
                 , Bp.lg
@@ -106,8 +107,7 @@ view thing model staticPayload =
                 ]
                 [ div
                     [ css
-                        [ Tw.bg_white
-                        , Tw.h_1over3
+                        [ Tw.h_1over3
                         , Bp.sm
                             [ Tw.h_2over3
                             ]
@@ -215,22 +215,6 @@ blogCard ( path, info ) =
         ]
         [ div
             [ css
-                [ Tw.flex_shrink_0
-                ]
-            ]
-            [ img
-                [ css
-                    [ Tw.h_48
-                    , Tw.w_full
-                    , Tw.object_cover
-                    ]
-                , Attr.src (ImagePath.toString info.image)
-                , Attr.alt ""
-                ]
-                []
-            ]
-        , div
-            [ css
                 [ Tw.flex_1
                 , Tw.bg_white
                 , Tw.p_6
@@ -244,18 +228,7 @@ blogCard ( path, info ) =
                     [ Tw.flex_1
                     ]
                 ]
-                [ p
-                    [ css
-                        [ Tw.text_sm
-                        , Tw.font_medium
-                        , Tw.text_blue_600
-                        ]
-                    ]
-                    [ span
-                        []
-                        [ text "Article" ]
-                    ]
-                , span
+                [ span
                     [ css
                         [ Tw.block
                         , Tw.mt_2
