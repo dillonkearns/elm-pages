@@ -96,7 +96,7 @@ view toggleMobileMenuMsg stars currentPath =
                     ]
                 ]
             ]
-            [ headerLink currentPath [ "docs" ] "Docs"
+            [ linkInner currentPath [ "docs" ] "Docs"
             , svg
                 [ SvgAttr.fill "none"
                 , SvgAttr.width "24"
@@ -142,5 +142,28 @@ headerLink currentPagePath linkTo name =
                 Tw.text_gray_700
             ]
         , Attr.href (linkTo |> String.join "/")
+        ]
+        [ text name ]
+
+
+linkInner : PagePath -> List String -> String -> Html msg
+linkInner currentPagePath linkTo name =
+    let
+        isCurrentPath =
+            currentPath == List.take (List.length currentPath) linkTo
+
+        currentPath =
+            PagePath.toPath currentPagePath
+    in
+    span
+        [ css
+            [ Tw.text_sm
+            , Tw.p_2
+            , if isCurrentPath then
+                Tw.text_blue_500
+
+              else
+                Tw.text_gray_700
+            ]
         ]
         [ text name ]
