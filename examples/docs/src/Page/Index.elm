@@ -14,6 +14,27 @@ import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import View.CodeTab as CodeTab
+
+
+
+{-
+   example : String -> String -> DataSourceString
+   example bandName songName =
+       DataSource.Http.get
+           (Secrets.succeed
+               (Url.Builder.absolute
+                   [ "https://private-anon-bc5d0d71a9-lyricsovh.apiary-proxy.com"
+                   , "v1"
+                   , bandName
+                   , songName
+                   ]
+                   []
+               )
+           )
+           (Decode.field "lyrics" Decode.string)
+
+-}
 
 
 type alias Model =
@@ -147,12 +168,11 @@ landingView =
                                     , Tw.items_center
                                     , Tw.justify_center
                                     , Tw.bg_gradient_to_r
-                                    , Tw.from_purple_600
-                                    , Tw.to_indigo_600
+                                    , Tw.from_blue_600
+                                    , Tw.to_blue_700
                                     ]
                                 ]
-                                [ {- Heroicon name: outline/inbox -}
-                                  svg
+                                [ svg
                                     [ SvgAttr.css
                                         [ Tw.h_6
                                         , Tw.w_6
@@ -167,7 +187,7 @@ landingView =
                                         [ SvgAttr.strokeLinecap "round"
                                         , SvgAttr.strokeLinejoin "round"
                                         , SvgAttr.strokeWidth "2"
-                                        , SvgAttr.d "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                                        , SvgAttr.d "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                                         ]
                                         []
                                     ]
@@ -214,11 +234,11 @@ landingView =
                                         , Tw.shadow_sm
                                         , Tw.text_white
                                         , Tw.bg_gradient_to_r
-                                        , Tw.from_purple_600
-                                        , Tw.to_indigo_600
+                                        , Tw.from_blue_600
+                                        , Tw.to_blue_700
                                         , Css.hover
-                                            [ Tw.from_purple_700
-                                            , Tw.to_indigo_700
+                                            [ Tw.from_blue_700
+                                            , Tw.to_blue_800
                                             ]
                                         ]
                                     ]
@@ -256,26 +276,40 @@ landingView =
                                 ]
                             ]
                         ]
-                        [ img
-                            [ css
-                                [ Tw.w_full
-                                , Tw.rounded_xl
-                                , Tw.shadow_xl
-                                , Tw.ring_1
-                                , Tw.ring_black
-                                , Tw.ring_opacity_5
-                                , Bp.lg
-                                    [ Tw.absolute
-                                    , Tw.left_0
-                                    , Tw.h_full
-                                    , Tw.w_auto
-                                    , Tw.max_w_none
-                                    ]
-                                ]
-                            , Attr.src "https://tailwindui.com/img/component-images/inbox-app-screenshot-1.jpg"
-                            , Attr.alt "Inbox user interface"
-                            ]
-                            []
+                        [ CodeTab.view ( "Page.Repo.Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
+
+type alias Data = Int
+type alias RouteParams = { name : String }
+
+page : Page RouteParams Data
+page =
+    Page.prerenderedRoute
+        { head = head
+        , routes = routes
+        , data = data
+        }
+        |> Page.buildNoState { view = view }
+
+routes : DataSource (List RouteParams)
+routes =
+    DataSource.succeed [ { name = "elm-pages" } ]
+
+data : RouteParams -> DataSource Data
+data routeParams =
+    DataSource.Http.get
+        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        (Decode.field "stargazer_count" Decode.int)
+
+view :
+    StaticPayload Data RouteParams
+    -> Document Msg
+view static =
+    { title = static.routeParams.name
+    , body =
+        [ h1 [] [ text static.routeParams.name ]
+        , p [] [ text ("Stars: " ++ String.fromInt static.data) ]
+        ]
+    }""" )
                         ]
                     ]
                 ]
