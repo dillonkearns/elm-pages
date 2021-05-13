@@ -260,65 +260,19 @@ blogCard ( path, info ) =
                     ]
                 ]
                 [ div
-                    [ css
-                        [ Tw.flex_shrink_0
-                        ]
-                    ]
+                    []
                     [ div
-                        []
-                        [ span
-                            [ css
-                                [ Tw.sr_only
-                                ]
-                            ]
-                            [ text author.name ]
-                        , img
-                            [ css
-                                [ Tw.h_10
-                                , Tw.w_10
-                                , Tw.rounded_full
-                                ]
-                            , Attr.src (author.avatar |> ImagePath.toString)
-                            , Attr.alt ""
-                            ]
-                            []
-                        ]
-                    ]
-                , div
-                    [ css
-                        [ Tw.ml_3
-                        ]
-                    ]
-                    [ p
-                        [ css
-                            [ Tw.text_sm
-                            , Tw.font_medium
-                            , Tw.text_gray_900
-                            ]
-                        ]
-                        [ span
-                            []
-                            [ text author.name ]
-                        ]
-                    , div
                         [ css
                             [ Tw.flex
                             , Tw.space_x_1
                             , Tw.text_sm
-                            , Tw.text_gray_500
+                            , Tw.text_gray_400
                             ]
                         ]
                         [ time
                             [ Attr.datetime "2020-03-16"
                             ]
                             [ text (info.published |> Date.format "MMMM ddd, yyyy") ]
-
-                        --, span
-                        --    [ Attr.attribute "aria-hidden" "true"
-                        --    ]
-                        --    [ text "·" ]
-                        --, span []
-                        --    [ text "6 min read" ]
                         ]
                     ]
                 ]
