@@ -5,6 +5,7 @@ import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Glob as Glob exposing (Glob)
+import DocsSection exposing (Section)
 import Document exposing (Document)
 import Head
 import Head.Seo as Seo
@@ -54,7 +55,7 @@ page =
 
 routes : DataSource (List RouteParams)
 routes =
-    docFiles
+    DocsSection.files
         |> DataSource.map (List.map (.slug >> Just >> RouteParams))
         |> DataSource.map
             (\sections ->
@@ -62,24 +63,17 @@ routes =
             )
 
 
-type alias Section =
-    { filePath : String
-    , order : Int
-    , slug : String
-    }
-
-
 data : RouteParams -> DataSource Data
 data routeParams =
     DataSource.map3 Data
-        (TableOfContents.dataSource docFiles)
+        (TableOfContents.dataSource DocsSection.files)
         (pageBody routeParams)
         (previousAndNextData routeParams)
 
 
 previousAndNextData : RouteParams -> DataSource ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
 previousAndNextData current =
-    docFiles
+    DocsSection.files
         |> DataSource.andThen
             (\sections ->
                 let
@@ -232,23 +226,6 @@ view model sharedModel static =
                 ]
             ]
     }
-
-
-docFiles : DataSource (List Section)
-docFiles =
-    Glob.succeed Section
-        |> Glob.capture Glob.fullFilePath
-        |> Glob.ignore (Glob.literal "content/docs/")
-        |> Glob.capture Glob.int
-        |> Glob.ignore (Glob.literal "-")
-        |> Glob.capture Glob.wildcard
-        |> Glob.ignore (Glob.literal ".md")
-        |> Glob.toDataSource
-        |> DataSource.map
-            (\sections ->
-                sections
-                    |> List.sortBy .order
-            )
 
 
 pageBody : RouteParams -> DataSource (List Block)
