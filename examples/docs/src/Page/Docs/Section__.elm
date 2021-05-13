@@ -6,7 +6,6 @@ import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Glob as Glob exposing (Glob)
 import Document exposing (Document)
-import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -73,7 +72,7 @@ type alias Section =
 data : RouteParams -> DataSource Data
 data routeParams =
     DataSource.map3 Data
-        toc
+        (TableOfContents.dataSource docFiles)
         (pageBody routeParams)
         (previousAndNextData routeParams)
 
@@ -235,24 +234,6 @@ view model sharedModel static =
     }
 
 
-toc : DataSource (TableOfContents.TableOfContents TableOfContents.Data)
-toc =
-    docFiles
-        |> DataSource.map
-            (\sections ->
-                sections
-                    |> List.sortBy .order
-                    |> List.reverse
-                    |> List.map
-                        (\section ->
-                            DataSource.File.request
-                                section.filePath
-                                (headingsDecoder section.slug)
-                        )
-            )
-        |> DataSource.resolve
-
-
 docFiles : DataSource (List Section)
 docFiles =
     Glob.succeed Section
@@ -263,6 +244,11 @@ docFiles =
         |> Glob.capture Glob.wildcard
         |> Glob.ignore (Glob.literal ".md")
         |> Glob.toDataSource
+        |> DataSource.map
+            (\sections ->
+                sections
+                    |> List.sortBy .order
+            )
 
 
 pageBody : RouteParams -> DataSource (List Block)
@@ -301,75 +287,3 @@ markdownBodyDecoder =
                     |> Result.mapError (\_ -> "Markdown parsing error")
                     |> OptimizedDecoder.fromResult
             )
-
-
-headingsDecoder : String -> OptimizedDecoder.Decoder (TableOfContents.Entry TableOfContents.Data)
-headingsDecoder slug =
-    DataSource.File.body
-        |> OptimizedDecoder.andThen
-            (\rawBody ->
-                rawBody
-                    |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> "Markdown parsing error")
-                    |> Result.map TableOfContents.gatherHeadings
-                    |> Result.andThen (nameAndTopLevel slug)
-                    |> OptimizedDecoder.fromResult
-            )
-
-
-nameAndTopLevel :
-    String
-    -> List ( Block.HeadingLevel, List Block.Inline )
-    -> Result String (TableOfContents.Entry TableOfContents.Data)
-nameAndTopLevel slug headings =
-    let
-        h1 : Maybe (List Block.Inline)
-        h1 =
-            List.Extra.findMap
-                (\( level, inlines ) ->
-                    case level of
-                        Block.H1 ->
-                            Just inlines
-
-                        _ ->
-                            Nothing
-                )
-                headings
-
-        h2s : List (List Block.Inline)
-        h2s =
-            List.filterMap
-                (\( level, inlines ) ->
-                    case level of
-                        Block.H2 ->
-                            Just inlines
-
-                        _ ->
-                            Nothing
-                )
-                headings
-    in
-    case h1 of
-        Just justH1 ->
-            Ok
-                (TableOfContents.Entry
-                    { anchorId = slug
-                    , name = TableOfContents.styledToString justH1
-                    , level = 1
-                    }
-                    (h2s
-                        |> List.map (toData 2)
-                        |> List.map (\l2Data -> TableOfContents.Entry l2Data [])
-                    )
-                )
-
-        _ ->
-            Err ""
-
-
-toData : Int -> List Block.Inline -> { anchorId : String, name : String, level : Int }
-toData level styledList =
-    { anchorId = TableOfContents.styledToString styledList |> TableOfContents.rawTextToId
-    , name = TableOfContents.styledToString styledList
-    , level = level
-    }

@@ -2,11 +2,107 @@ module TableOfContents exposing (..)
 
 import Css
 import Css.Global
+import DataSource exposing (DataSource)
+import DataSource.File
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (class, css)
+import List.Extra
 import Markdown.Block as Block exposing (Block, HeadingLevel(..), Inline)
+import Markdown.Parser
+import OptimizedDecoder
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+
+
+dataSource :
+    DataSource (List { file | filePath : String, slug : String })
+    -> DataSource (TableOfContents Data)
+dataSource docFiles =
+    docFiles
+        |> DataSource.map
+            (\sections ->
+                sections
+                    |> List.map
+                        (\section ->
+                            DataSource.File.request
+                                section.filePath
+                                (headingsDecoder section.slug)
+                        )
+            )
+        |> DataSource.resolve
+        |> DataSource.map List.reverse
+
+
+headingsDecoder : String -> OptimizedDecoder.Decoder (Entry Data)
+headingsDecoder slug =
+    DataSource.File.body
+        |> OptimizedDecoder.andThen
+            (\rawBody ->
+                rawBody
+                    |> Markdown.Parser.parse
+                    |> Result.mapError (\_ -> "Markdown parsing error")
+                    |> Result.map gatherHeadings
+                    |> Result.andThen (nameAndTopLevel slug)
+                    |> OptimizedDecoder.fromResult
+            )
+
+
+nameAndTopLevel :
+    String
+    -> List ( Block.HeadingLevel, List Block.Inline )
+    -> Result String (Entry Data)
+nameAndTopLevel slug headings =
+    let
+        h1 : Maybe (List Block.Inline)
+        h1 =
+            List.Extra.findMap
+                (\( level, inlines ) ->
+                    case level of
+                        Block.H1 ->
+                            Just inlines
+
+                        _ ->
+                            Nothing
+                )
+                headings
+
+        h2s : List (List Block.Inline)
+        h2s =
+            List.filterMap
+                (\( level, inlines ) ->
+                    case level of
+                        Block.H2 ->
+                            Just inlines
+
+                        _ ->
+                            Nothing
+                )
+                headings
+    in
+    case h1 of
+        Just justH1 ->
+            Ok
+                (Entry
+                    { anchorId = slug
+                    , name = styledToString justH1
+                    , level = 1
+                    }
+                    (h2s
+                        |> List.map (toData 2)
+                        |> List.map (\l2Data -> Entry l2Data [])
+                    )
+                )
+
+        _ ->
+            Err ""
+
+
+toData : Int -> List Block.Inline -> { anchorId : String, name : String, level : Int }
+toData level styledList =
+    { anchorId = styledToString styledList |> rawTextToId
+    , name = styledToString styledList
+    , level = level
+    }
 
 
 type alias TableOfContents data =
