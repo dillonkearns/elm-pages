@@ -128,39 +128,6 @@ view :
 view tableOfContents page model toMsg pageView =
     { body =
         case pageView.body of
-            Document.ElmUiView elements ->
-                (if model.showMobileMenu then
-                    Element.column
-                        [ Element.width Element.fill
-                        , Element.padding 20
-                        ]
-                        [ Element.row [ Element.width Element.fill, Element.spaceEvenly ]
-                            [ logoLinkMobile |> Element.map toMsg
-                            , FontAwesome.styledIcon "fas fa-bars" [ Element.Events.onClick ToggleMobileMenu ]
-                                |> Element.map toMsg
-                            ]
-                        , Element.column [ Element.centerX, Element.spacing 20 ]
-                            (navbarLinks 123 page.path)
-                        ]
-
-                 else
-                    Element.column [ Element.width Element.fill ]
-                        (List.concat
-                            [ [ header 123 page.path |> Element.map toMsg
-
-                              --, incrementView model |> Element.map toMsg
-                              ]
-                            , elements
-                            ]
-                        )
-                )
-                    |> Element.layout
-                        [ Element.width Element.fill
-                        , Font.size 16
-                        , Font.family [ Font.typeface "Roboto" ]
-                        , Font.color (Element.rgba255 0 0 0 0.8)
-                        ]
-
             Document.ElmCssView elements ->
                 ((View.Header.view ToggleMobileMenu 123 page.path
                     |> Html.Styled.map toMsg

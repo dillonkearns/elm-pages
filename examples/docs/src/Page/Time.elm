@@ -6,6 +6,7 @@ import Document exposing (Document)
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
@@ -71,7 +72,7 @@ view :
 view static =
     { title = "TODO title"
     , body =
-        [ Element.text static.data
+        [ Html.text static.data
         ]
-            |> Document.ElmUiView
+            |> Document.ElmCssView
     }
