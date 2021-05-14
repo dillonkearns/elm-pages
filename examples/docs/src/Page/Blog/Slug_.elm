@@ -13,6 +13,10 @@ import Element.Font as Font
 import Element.Region
 import Head
 import Head.Seo as Seo
+import Html.Styled exposing (..)
+import Html.Styled.Attributes as Attr exposing (css)
+import Markdown.Parser
+import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
@@ -22,6 +26,8 @@ import Palette
 import Rss
 import SiteOld
 import StructuredData
+import Tailwind.Utilities as Tw
+import TailwindMarkdownRenderer
 
 
 type alias Model =
@@ -69,7 +75,7 @@ routes =
 
 view :
     StaticPayload Data RouteParams
-    -> Document msg
+    -> Document Msg
 view static =
     { title = static.data.frontmatter.title
     , body =
@@ -77,37 +83,93 @@ view static =
             author =
                 Author.dillon
         in
-        [ Element.column [ Element.width Element.fill ]
-            [ Element.column
-                [ Element.padding 30
-                , Element.spacing 40
-                , Element.Region.mainContent
-                , Element.width (Element.fill |> Element.maximum 800)
-                , Element.centerX
+        Document.ElmCssView
+            [ div
+                [ css
+                    [ Tw.pt_32
+                    , Tw.pb_16
+                    ]
                 ]
-                (Element.column [ Element.spacing 10 ]
-                    [ Element.row [ Element.spacing 10 ]
-                        [ Author.view [] author
-                        , Element.column [ Element.spacing 10, Element.width Element.fill ]
-                            [ Element.paragraph [ Font.bold, Font.size 24 ]
-                                [ Element.text author.name
-                                ]
-                            , Element.paragraph [ Font.size 16 ]
-                                [ Element.text author.bio
-                                ]
-                            ]
+                [ h1
+                    [ css
+                        [ Tw.text_center
+                        , Tw.text_4xl
+                        , Tw.font_bold
+                        , Tw.tracking_tight
+                        , Tw.mt_2
+                        , Tw.mb_4
+                        , Tw.pb_16
                         ]
                     ]
-                    :: (publishedDateView static.data.frontmatter |> Element.el [ Font.size 16, Font.color (Element.rgba255 0 0 0 0.6) ])
-                    :: Palette.blogHeading static.data.frontmatter.title
-                    :: articleImageView static.data.frontmatter.image
-                    :: static.data.body
-                    |> List.map (Element.map never)
-                )
+                    [ text static.data.frontmatter.title ]
+
+                --, authorView author static
+                , div
+                    [ css
+                        [ Tw.prose
+
+                        --, Tw.max_w_xl
+                        , Tw.mx_auto
+                        ]
+                    ]
+                    static.data.body
+                ]
+            ]
+    }
+
+
+authorView author static =
+    div
+        [ css
+            [ Tw.flex
+
+            --, Tw.flex_shrink_0
             ]
         ]
-            |> Document.ElmUiView
-    }
+        [ img
+            [ Attr.src (author.avatar |> ImagePath.toString)
+            , css
+                [ Tw.rounded_full
+                , Tw.h_10
+                , Tw.w_10
+                ]
+            ]
+            []
+        , div
+            [ css [ Tw.ml_3 ]
+            ]
+            [ div
+                [ css
+                    []
+                ]
+                [ p
+                    [ css
+                        [ Tw.text_sm
+                        , Tw.font_medium
+                        , Tw.text_gray_900
+                        ]
+                    ]
+                    [ span
+                        []
+                        [ text author.name ]
+                    ]
+                ]
+            , div
+                [ css
+                    [ Tw.flex
+                    , Tw.space_x_1
+                    , Tw.text_sm
+                    , Tw.text_gray_500
+                    , Tw.text_gray_400
+                    ]
+                ]
+                [ time
+                    [ Attr.datetime "2020-03-16"
+                    ]
+                    [ text (static.data.frontmatter.published |> Date.format "MMMM ddd, yyyy") ]
+                ]
+            ]
+        ]
 
 
 head :
@@ -176,7 +238,7 @@ articleImageView articleImage =
 
 
 type alias Data =
-    { body : List (Element Msg)
+    { body : List (Html Msg)
     , frontmatter : ArticleMetadata
     }
 
@@ -190,8 +252,10 @@ data route =
                 |> OptimizedDecoder.andThen
                     (\rawBody ->
                         rawBody
-                            |> MarkdownRenderer.view
-                            |> Result.map Tuple.second
+                            |> Markdown.Parser.parse
+                            |> Result.mapError (\_ -> "Couldn't parse markdown.")
+                            |> Result.andThen (Markdown.Renderer.render TailwindMarkdownRenderer.renderer)
+                            --|> Result.map Tuple.second
                             |> OptimizedDecoder.fromResult
                     )
             )
@@ -217,12 +281,8 @@ frontmatterDecoder =
             (OptimizedDecoder.string
                 |> OptimizedDecoder.andThen
                     (\isoString ->
-                        case Date.fromIsoString isoString of
-                            Ok date ->
-                                OptimizedDecoder.succeed date
-
-                            Err error ->
-                                OptimizedDecoder.fail error
+                        Date.fromIsoString isoString
+                            |> OptimizedDecoder.fromResult
                     )
             )
         )
