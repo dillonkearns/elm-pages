@@ -63,7 +63,7 @@ exports.handler = async (event, context) => {
   );
   return {
     statusCode: 200,
-    body: photoBuffer,
+    body: photoBuffer.toString("base64"),
     // headers: {'Cache-Control': 'public, max-age=600, s-maxage=604800 stale-while-revalidate=31540000'},
     // `stale-while-revalidate=31540000` - we never want to make the user wait to see a screenshot. No matter how stale the cached image is,
     // we will go fetch it in the background but we'd prefer for the user to get a stale screenshot than waiting for a long time for images to load for the showcase
@@ -71,6 +71,7 @@ exports.handler = async (event, context) => {
     headers: {
       "Cache-Control":
         "public, max-age=600, s-maxage=60 stale-while-revalidate=31540000",
+      "Content-Length": photoBuffer.length.toString(),
       "Content-Type": "image/png",
     },
     isBase64Encoded: true,
