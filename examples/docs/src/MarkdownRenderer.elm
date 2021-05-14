@@ -220,10 +220,6 @@ renderer =
                 |> Markdown.Html.withAttribute "url"
             , Markdown.Html.tag "ellie-output"
                 (\ellieId _ ->
-                    -- Oembed.view [] Nothing url
-                    --     |> Maybe.map Element.html
-                    --     |> Maybe.withDefault Element.none
-                    --     |> Element.el [ Element.centerX ]
                     Ellie.outputTab ellieId
                 )
                 |> Markdown.Html.withAttribute "id"

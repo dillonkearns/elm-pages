@@ -1,11 +1,13 @@
 module TailwindMarkdownRenderer exposing (renderer)
 
 import Css
+import Ellie
 import Html.Styled as Html
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Block as Block exposing (ListItem(..), Task(..))
 import Markdown.Html
 import Markdown.Renderer
+import Oembed
 import SyntaxHighlight
 import Tailwind.Utilities as Tw
 
@@ -99,7 +101,21 @@ renderer =
                                 itemBlocks
                         )
                 )
-    , html = Markdown.Html.oneOf []
+    , html =
+        Markdown.Html.oneOf
+            [ Markdown.Html.tag "oembed"
+                (\url _ ->
+                    Oembed.view [] Nothing url
+                        |> Maybe.map Html.fromUnstyled
+                        |> Maybe.withDefault (Html.div [] [])
+                )
+                |> Markdown.Html.withAttribute "url"
+            , Markdown.Html.tag "ellie-output"
+                (\ellieId _ ->
+                    Ellie.outputTabElmCss ellieId
+                )
+                |> Markdown.Html.withAttribute "id"
+            ]
     , codeBlock = codeBlock
 
     --\{ body, language } ->
