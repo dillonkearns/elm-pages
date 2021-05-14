@@ -52,7 +52,7 @@ async function getScreenshot(url, isDev) {
 
 // Docs on event and context https://www.netlify.com/docs/functions/#the-handler-method
 exports.handler = async (event, context) => {
-  const url = decodeURIComponent(event.path.replace(/^.*\/screenshot\//, ''))
+  const url = decodeURIComponent(event.path.replace(/^.*\/screenshot\//, ""));
 
   console.log({ url });
   const photoBuffer = await getScreenshot(
@@ -68,7 +68,11 @@ exports.handler = async (event, context) => {
     // `stale-while-revalidate=31540000` - we never want to make the user wait to see a screenshot. No matter how stale the cached image is,
     // we will go fetch it in the background but we'd prefer for the user to get a stale screenshot than waiting for a long time for images to load for the showcase
     // see https://www.youtube.com/watch?v=bfLFHp7Sbkg
-    headers: {'Cache-Control': 'public, max-age=600, s-maxage=60 stale-while-revalidate=31540000'},
+    headers: {
+      "Cache-Control":
+        "public, max-age=600, s-maxage=60 stale-while-revalidate=31540000",
+      "Content-Type": "image/png",
+    },
     isBase64Encoded: true,
   };
 };

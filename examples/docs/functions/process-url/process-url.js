@@ -9,6 +9,7 @@ exports.handler = async function (event, ctx) {
   const pathToScreenshot = event.path.replace(/^.*process-url\//, "");
 
   try {
+    const screenshotUrl = `https://deploy-preview-176--elm-pages.netlify.app/screenshot/${pathToScreenshot}`;
     const imageUrl = cloudinary.url(
       `https://res.cloudinary.com/dillonkearns/image/upload/v1621026065/elm-pages/1x1-ff00007f_rd0kpy.png`,
       {
@@ -17,7 +18,7 @@ exports.handler = async function (event, ctx) {
         // secure: true,
         custom_pre_function: {
           function_type: "remote",
-          source: `${process.env.URL}/screenshot/${pathToScreenshot}`,
+          source: screenshotUrl,
         },
       }
     );
