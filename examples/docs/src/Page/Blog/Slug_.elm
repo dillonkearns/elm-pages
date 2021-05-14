@@ -2,6 +2,7 @@ module Page.Blog.Slug_ exposing (Data, Model, Msg, page, toRssItem)
 
 import Article
 import Cloudinary
+import Css
 import Data.Author as Author exposing (Author)
 import DataSource
 import DataSource.File as StaticFile
@@ -21,6 +22,7 @@ import Pages.PagePath as PagePath exposing (PagePath)
 import Rss
 import SiteOld
 import StructuredData
+import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 
@@ -81,33 +83,46 @@ view static =
         Document.ElmCssView
             [ div
                 [ css
-                    [ Tw.pt_32
-                    , Tw.pb_16
+                    [ Tw.min_h_screen
+                    , Tw.w_full
+                    , Tw.relative
                     ]
                 ]
-                [ h1
+                [ div
                     [ css
-                        [ Tw.text_center
-                        , Tw.text_4xl
-                        , Tw.font_bold
-                        , Tw.tracking_tight
-                        , Tw.mt_2
-                        , Tw.mb_4
+                        [ Tw.pt_32
                         , Tw.pb_16
+                        , Tw.px_8
+                        , Tw.flex
+                        , Tw.flex_col
                         ]
                     ]
-                    [ text static.data.frontmatter.title ]
-
-                --, authorView author static
-                , div
-                    [ css
-                        [ Tw.prose
-
-                        --, Tw.max_w_xl
-                        , Tw.mx_auto
+                    [ div
+                        [ css
+                            [ Bp.md [ Tw.mx_auto ]
+                            ]
+                        ]
+                        [ h1
+                            [ css
+                                [ Tw.text_center
+                                , Tw.text_4xl
+                                , Tw.font_bold
+                                , Tw.tracking_tight
+                                , Tw.mt_2
+                                , Tw.mb_8
+                                ]
+                            ]
+                            [ text static.data.frontmatter.title
+                            ]
+                        , authorView author static
+                        , div
+                            [ css
+                                [ Tw.prose
+                                ]
+                            ]
+                            static.data.body
                         ]
                     ]
-                    static.data.body
                 ]
             ]
     }
@@ -117,6 +132,7 @@ authorView author static =
     div
         [ css
             [ Tw.flex
+            , Tw.mb_16
 
             --, Tw.flex_shrink_0
             ]
