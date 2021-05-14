@@ -17,7 +17,7 @@ exports.handler = async function (event, ctx) {
         // secure: true,
         custom_pre_function: {
           function_type: "remote",
-          source: `${process.env.URL}/.netlify/functions/screenshot/${pathToScreenshot}`,
+          source: `${process.env.URL}/screenshot/${pathToScreenshot}`,
         },
       }
     );
