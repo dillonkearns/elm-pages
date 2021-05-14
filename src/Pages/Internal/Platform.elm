@@ -598,14 +598,3 @@ application config =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-pathToUrl : PagePath -> Url
-pathToUrl path =
-    { protocol = Url.Https
-    , host = "TODO"
-    , port_ = Nothing
-    , path = path |> PagePath.toString
-    , query = Nothing
-    , fragment = Nothing
-    }

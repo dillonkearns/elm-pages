@@ -1,6 +1,5 @@
 module Pages.SiteConfig exposing (SiteConfig)
 
-import ApiRoute
 import DataSource exposing (DataSource)
 import Head
 import Pages.Manifest

@@ -31,7 +31,6 @@ type Msg
         , fragment : Maybe String
         }
     | ToggleMobileMenu
-    | Increment
     | SharedMsg SharedMsg
 
 
@@ -79,9 +78,6 @@ update msg model =
 
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
-
-        Increment ->
-            ( { model | counter = model.counter + 1 }, Cmd.none )
 
         SharedMsg globalMsg ->
             case globalMsg of

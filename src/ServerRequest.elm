@@ -2,7 +2,6 @@ module ServerRequest exposing (ServerRequest, expectHeader, init, optionalHeader
 
 import DataSource
 import DataSource.Http
-import Internal.OptimizedDecoder exposing (OptimizedDecoder)
 import OptimizedDecoder
 import Secrets
 

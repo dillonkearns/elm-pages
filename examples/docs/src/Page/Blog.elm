@@ -196,10 +196,6 @@ head staticPayload =
 
 blogCard : ( PagePath, Article.ArticleMetadata ) -> Html msg
 blogCard ( path, info ) =
-    let
-        author =
-            Data.Author.dillon
-    in
     a
         [ Attr.href (PagePath.toString path)
         , css

@@ -1,7 +1,7 @@
 module RenderRequest exposing (..)
 
 import ApiRoute
-import DataSource exposing (DataSource)
+import DataSource
 import HtmlPrinter
 import Json.Decode as Decode
 import Json.Encode
@@ -43,7 +43,6 @@ type IncludeHtml
 
 type ServerOrBuild
     = Server
-    | Build
 
 
 decoder :

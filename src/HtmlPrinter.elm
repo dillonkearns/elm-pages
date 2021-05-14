@@ -1,7 +1,7 @@
 module HtmlPrinter exposing (htmlToString)
 
 import ElmHtml.InternalTypes exposing (decodeElmHtml)
-import ElmHtml.ToString exposing (FormatOptions, defaultFormatOptions, nodeToStringWithOptions)
+import ElmHtml.ToString exposing (defaultFormatOptions, nodeToStringWithOptions)
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
