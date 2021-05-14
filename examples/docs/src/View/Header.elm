@@ -71,8 +71,8 @@ view toggleMobileMenuMsg stars currentPath =
                     [ text "elm-pages" ]
                 ]
             ]
-        , headerLink currentPath [ "showcase" ] "Showcase"
-        , headerLink currentPath [ "blog" ] "Blog"
+        , headerLink currentPath "showcase" "Showcase"
+        , headerLink currentPath "blog" "Blog"
         , span
             [ css
                 [ Tw.hidden
@@ -81,7 +81,7 @@ view toggleMobileMenuMsg stars currentPath =
                     ]
                 ]
             ]
-            [ headerLink currentPath [ "docs" ] "Docs" ]
+            [ headerLink currentPath "docs" "Docs" ]
         , button
             [ Attr.type_ "button"
             , Html.Styled.Events.onClick toggleMobileMenuMsg
@@ -108,7 +108,7 @@ view toggleMobileMenuMsg stars currentPath =
                     ]
                 ]
             ]
-            [ linkInner currentPath [ "docs" ] "Docs"
+            [ linkInner currentPath "docs" "Docs"
             , svg
                 [ SvgAttr.css
                     [ Tw.h_5
@@ -134,38 +134,20 @@ view toggleMobileMenuMsg stars currentPath =
         ]
 
 
-headerLink : PagePath -> List String -> String -> Html msg
+headerLink : PagePath -> String -> String -> Html msg
 headerLink currentPagePath linkTo name =
-    let
-        isCurrentPath =
-            currentPath == List.take (List.length currentPath) linkTo
-
-        currentPath =
-            PagePath.toPath currentPagePath
-    in
     a
-        [ css
-            [ Tw.text_sm
-            , Tw.p_2
-            , if isCurrentPath then
-                Tw.text_blue_500
-
-              else
-                Tw.text_gray_700
-            ]
-        , Attr.href (linkTo |> String.join "/")
+        [ Attr.href ("/" ++ linkTo)
         ]
-        [ text name ]
+        [ linkInner currentPagePath linkTo name ]
 
 
-linkInner : PagePath -> List String -> String -> Html msg
+linkInner : PagePath -> String -> String -> Html msg
 linkInner currentPagePath linkTo name =
     let
+        isCurrentPath : Bool
         isCurrentPath =
-            currentPath == List.take (List.length currentPath) linkTo
-
-        currentPath =
-            PagePath.toPath currentPagePath
+            List.head (PagePath.toPath currentPagePath) == Just linkTo
     in
     span
         [ css
