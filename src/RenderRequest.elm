@@ -1,11 +1,8 @@
 module RenderRequest exposing (..)
 
 import ApiRoute
-import DataSource
 import HtmlPrinter
 import Json.Decode as Decode
-import Json.Encode
-import Pages.Manifest as Manifest
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Regex
@@ -115,9 +112,7 @@ requestPayloadDecoder config =
                     apiRoute : Maybe (ApiRoute.Done ApiRoute.Response)
                     apiRoute =
                         ApiRoute.firstMatch (String.dropLeft 1 path)
-                            (manifestHandler config
-                                :: config.apiRoutes HtmlPrinter.htmlToString
-                            )
+                            (config.apiRoutes HtmlPrinter.htmlToString)
                 in
                 case route of
                     Just justRoute ->
@@ -137,35 +132,6 @@ requestPayloadDecoder config =
     )
         |> Decode.field "path"
         |> Decode.field "payload"
-
-
-manifestHandler : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> ApiRoute.Done ApiRoute.Response
-manifestHandler config =
-    ApiRoute.succeed
-        (config.getStaticRoutes
-            |> DataSource.andThen
-                (\resolvedRoutes ->
-                    config.site resolvedRoutes
-                        |> .data
-                        |> DataSource.map
-                            (\data ->
-                                (config.site resolvedRoutes |> .manifest) data
-                                    |> manifestToFile (config.site resolvedRoutes |> .canonicalUrl)
-                            )
-                )
-        )
-        |> ApiRoute.literal "manifest.json"
-        |> ApiRoute.singleRoute
-
-
-manifestToFile : String -> Manifest.Config -> { body : String }
-manifestToFile resolvedCanonicalUrl manifestConfig =
-    manifestConfig
-        |> Manifest.toJson resolvedCanonicalUrl
-        |> (\manifestJsonValue ->
-                { body = Json.Encode.encode 0 manifestJsonValue
-                }
-           )
 
 
 pathToUrl : String -> Url

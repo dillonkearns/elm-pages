@@ -40,6 +40,7 @@ function generateTemplateModuleConnector(phase) {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
 import Api
+import ApiRoute
 import Browser.Navigation
 import Route exposing (Route)
 import Document
@@ -397,7 +398,8 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , apiRoutes = Api.routes
+        , apiRoutes = \\htmlToString -> manifestHandler :: Api.routes htmlToString
+
         }
 
 dataForRoute : Maybe Route -> DataSource PageData
@@ -454,28 +456,33 @@ getStaticRoutes =
         |> DataSource.map (List.map Just)
 
 
-manifestGenerator : List ( Maybe Route ) -> DataSource (Result anyError { path : List String, content : String })
-manifestGenerator resolvedRoutes =
-    Site.config resolvedRoutes
-        |> .data
-        |> DataSource.map
-            (\\data ->
-                (Site.config resolvedRoutes |> .manifest) data
-                    |> manifestToFile (Site.config resolvedRoutes |> .canonicalUrl)
-            )
+manifestHandler : ApiRoute.Done ApiRoute.Response
+manifestHandler =
+    ApiRoute.succeed
+        (getStaticRoutes
+            |> DataSource.andThen
+                (\\resolvedRoutes ->
+                    Site.config resolvedRoutes
+                        |> .data
+                        |> DataSource.map
+                            (\\data ->
+                                (Site.config resolvedRoutes |> .manifest) data
+                                    |> manifestToFile (Site.config resolvedRoutes |> .canonicalUrl)
+                            )
+                )
+        )
+        |> ApiRoute.literal "manifest.json"
+        |> ApiRoute.singleRoute
 
 
-manifestToFile : String -> Manifest.Config -> Result anyError { path : List String, content : String }
+manifestToFile : String -> Manifest.Config -> { body : String }
 manifestToFile resolvedCanonicalUrl manifestConfig =
     manifestConfig
         |> Manifest.toJson resolvedCanonicalUrl
         |> (\\manifestJsonValue ->
-                Ok
-                    { path = [ "manifest.json" ]
-                    , content = Json.Encode.encode 0 manifestJsonValue
-                    }
+                { body = Json.Encode.encode 0 manifestJsonValue
+                }
            )
-
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
