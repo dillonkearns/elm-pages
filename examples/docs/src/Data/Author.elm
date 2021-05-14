@@ -1,11 +1,9 @@
-module Data.Author exposing (Author, all, decoder, dillon, view)
+module Data.Author exposing (Author, all, decoder, dillon)
 
 import Cloudinary
-import Element exposing (Element)
-import Html.Attributes as Attr
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
-import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.ImagePath exposing (ImagePath)
 
 
 type alias Author =
@@ -41,13 +39,3 @@ decoder =
                     Nothing ->
                         Decode.fail ("Couldn't find author with name " ++ lookupName ++ ". Options are " ++ String.join ", " (List.map .name all))
             )
-
-
-view : List (Element.Attribute msg) -> Author -> Element msg
-view attributes author =
-    Element.image
-        (Element.width (Element.px 70)
-            :: Element.htmlAttribute (Attr.class "avatar")
-            :: attributes
-        )
-        { src = ImagePath.toString author.avatar, description = author.name }

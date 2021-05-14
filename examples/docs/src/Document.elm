@@ -1,6 +1,5 @@
 module Document exposing (Document, View(..), map)
 
-import Element exposing (Element)
 import Html.Styled as Html exposing (Html)
 
 

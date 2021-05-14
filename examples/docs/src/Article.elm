@@ -5,7 +5,6 @@ import DataSource
 import DataSource.File as StaticFile
 import DataSource.Glob as Glob
 import Date exposing (Date)
-import Element exposing (Element)
 import OptimizedDecoder
 import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -57,44 +56,6 @@ allMetadata =
                                     )
                         )
             )
-
-
-type alias DataFromFile msg =
-    { body : List (Element msg)
-    , metadata : ArticleMetadata
-    }
-
-
-
---fileRequest : String -> StaticHttp.Request (DataFromFile msg)
-
-
-fileRequest : String -> DataSource.DataSource ArticleMetadata
-fileRequest filePath =
-    StaticFile.request
-        --"content/blog/extensible-markdown-parsing-in-elm.md"
-        filePath
-        --(OptimizedDecoder.map2 DataFromFile
-        --    (StaticFile.body
-        --        |> OptimizedDecoder.andThen
-        --            (\rawBody ->
-        --                case
-        --                    rawBody
-        --                        |> MarkdownRenderer.view
-        --                        |> Result.map Tuple.second
-        --                of
-        --                    Ok renderedBody ->
-        --                        OptimizedDecoder.succeed renderedBody
-        --
-        --                    Err error ->
-        --                        OptimizedDecoder.fail error
-        --            )
-        --    )
-        (StaticFile.frontmatter frontmatterDecoder)
-
-
-
---)
 
 
 type alias ArticleMetadata =

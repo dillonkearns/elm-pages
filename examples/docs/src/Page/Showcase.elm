@@ -3,14 +3,12 @@ module Page.Showcase exposing (Data, Model, Msg, page)
 import Css
 import DataSource
 import Document exposing (Document)
-import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css, href)
 import Page exposing (PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
-import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -41,10 +39,6 @@ page =
 data : DataSource.DataSource Data
 data =
     Showcase.staticRequest
-
-
-type alias DataFromFile =
-    { body : List (Element Msg), title : String }
 
 
 type alias Data =

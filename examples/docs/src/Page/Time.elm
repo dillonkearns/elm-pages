@@ -3,7 +3,6 @@ module Page.Time exposing (Data, Model, Msg, page)
 import DataSource
 import DataSource.Http
 import Document exposing (Document)
-import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html

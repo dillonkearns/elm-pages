@@ -7,45 +7,6 @@ code {
   font-family: 'IBM Plex Mono', monospace !important;
 }
 
-
-.dotted-line {
-  -webkit-animation: animation-yweh2o 400ms linear infinite;
-  animation: animation-yweh2o 400ms linear infinite;
-}
-@-webkit-keyframes animation-yweh2o {
-  to {
-    stroke-dashoffset: 10;
-  }
-}
-@keyframes animation-yweh2o {
-  to {
-    stroke-dashoffset: 10;
-  }
-}
-
-.avatar img {
-  border-radius: 50%;
-}
-@media all and (max-width: 600px) {
-  .navbar-title {
-    font-size: 20px !important;
-  }
-  .navbar-title svg {
-    width: 20px;
-  }
-}
-
-@media (max-width: 600px) {
-  .responsive-desktop {
-    display: none !important;
-  }
-}
-@media (min-width: 600px) {
-  .responsive-mobile {
-    display: none !important;
-  }
-}
-
 /*! tailwindcss v2.1.2 | MIT License | https://tailwindcss.com */ /*! modern-normalize v1.0.0 | MIT License | https://github.com/sindresorhus/modern-normalize */
 *,
 ::after,

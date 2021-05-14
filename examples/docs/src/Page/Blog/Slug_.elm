@@ -8,21 +8,16 @@ import DataSource.File as StaticFile
 import DataSource.Glob as Glob
 import Date exposing (Date)
 import Document exposing (Document)
-import Element exposing (Element)
-import Element.Font as Font
-import Element.Region
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Parser
 import Markdown.Renderer
-import MarkdownRenderer
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
-import Palette
 import Rss
 import SiteOld
 import StructuredData
@@ -219,22 +214,6 @@ head static =
                     , expirationTime = Nothing
                     }
            )
-
-
-publishedDateView : { a | published : Date } -> Element msg
-publishedDateView metadata =
-    Element.text
-        (metadata.published
-            |> Date.format "MMMM ddd, yyyy"
-        )
-
-
-articleImageView : ImagePath -> Element msg
-articleImageView articleImage =
-    Element.image [ Element.width Element.fill ]
-        { src = ImagePath.toString articleImage
-        , description = "Article cover photo"
-        }
 
 
 type alias Data =

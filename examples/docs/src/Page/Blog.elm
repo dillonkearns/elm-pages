@@ -1,17 +1,14 @@
 module Page.Blog exposing (Data, Model, Msg, page)
 
 import Article
-import Css
 import Data.Author
 import DataSource
 import Date
 import Document exposing (Document)
-import Element
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Index
 import Page exposing (DynamicContext, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Pages.PagePath as PagePath exposing (PagePath)
