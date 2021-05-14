@@ -1,7 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap");
 
 code {
-  font-family: 'IBM Plex Mono', monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
+}
+
+code::before,
+code::after {
+  content: "" !important;
 }
 
 /*! tailwindcss v2.1.2 | MIT License | https://tailwindcss.com */ /*! modern-normalize v1.0.0 | MIT License | https://github.com/sindresorhus/modern-normalize */
@@ -236,8 +241,6 @@ video {
   max-width: 100%;
   height: auto;
 }
-
-
 
 pre.elmsh {
   padding: 10px;
