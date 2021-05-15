@@ -494,8 +494,9 @@ mapBoth : (a -> b) -> (c -> d) -> ( a, c, e ) -> ( b, d, e )
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `,
-    routesModule: `module Route exposing (..)
-
+    routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute)
+import Html exposing (Attribute, Html)
+import Html.Attributes as Attr
 import Router
 
 
@@ -555,6 +556,24 @@ routeToPath maybeRoute =
                 })} ]`
           )
           .join("\n        ")}
+
+toLink : (List (Attribute msg) -> tag) -> Route -> tag
+toLink toAnchorTag route =
+    toAnchorTag
+        [ Attr.href ("/" ++ (routeToPath (Just route) |> String.join "/"))
+        , Attr.attribute "elm-pages:prefetch" ""
+        ]
+
+
+link : Route -> List (Attribute msg) -> List (Html msg) -> Html msg
+link route attributes children =
+    toLink
+        (\\anchorAttrs ->
+            Html.a
+                (anchorAttrs ++ attributes)
+                children
+        )
+        route
 `,
   };
 }

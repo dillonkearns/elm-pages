@@ -195,17 +195,13 @@ head staticPayload =
 
 link : Route.Route -> List (Attribute msg) -> List (Html msg) -> Html msg
 link route attrs children =
-    a
-        (Attr.href
-            ("/"
-                ++ (Route.routeToPath (Just route)
-                        |> String.join "/"
-                   )
-            )
-            :: Attr.attribute "elm-pages:prefetch" ""
-            :: attrs
+    Route.toLink
+        (\anchorAttrs ->
+            a
+                (List.map Attr.fromUnstyled anchorAttrs ++ attrs)
+                children
         )
-        children
+        route
 
 
 blogCard : ( Route, Article.ArticleMetadata ) -> Html msg
