@@ -35,6 +35,8 @@ async function start(options) {
     ignoreInitial: true,
   });
   watchElmSourceDirs();
+
+  await codegen.generate();
   let clientElmMakeProcess = compileElmForBrowser();
   let pendingCliCompile = compileCliApp();
 
