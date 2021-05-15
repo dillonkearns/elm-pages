@@ -1,7 +1,6 @@
 module Page.Blog exposing (Data, Model, Msg, page)
 
 import Article
-import Data.Author
 import DataSource
 import Date
 import Document exposing (Document)
@@ -11,7 +10,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Page exposing (DynamicContext, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
-import Pages.PagePath as PagePath exposing (PagePath)
+import Route exposing (Route)
 import Shared
 import SiteOld
 import Tailwind.Breakpoints as Bp
@@ -42,7 +41,7 @@ data =
 
 
 type alias Data =
-    List ( PagePath, Article.ArticleMetadata )
+    List ( Route, Article.ArticleMetadata )
 
 
 init :
@@ -194,11 +193,25 @@ head staticPayload =
         |> Seo.website
 
 
-blogCard : ( PagePath, Article.ArticleMetadata ) -> Html msg
-blogCard ( path, info ) =
+link : Route.Route -> List (Attribute msg) -> List (Html msg) -> Html msg
+link route attrs children =
     a
-        [ Attr.href (PagePath.toString path)
-        , css
+        (Attr.href
+            ("/"
+                ++ (Route.routeToPath (Just route)
+                        |> String.join "/"
+                   )
+            )
+            :: Attr.attribute "elm-pages:prefetch" ""
+            :: attrs
+        )
+        children
+
+
+blogCard : ( Route, Article.ArticleMetadata ) -> Html msg
+blogCard ( route, info ) =
+    link route
+        [ css
             [ Tw.flex
             , Tw.flex_col
             , Tw.rounded_lg

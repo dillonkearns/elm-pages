@@ -138,6 +138,7 @@ headerLink : PagePath -> String -> String -> Html msg
 headerLink currentPagePath linkTo name =
     a
         [ Attr.href ("/" ++ linkTo)
+        , Attr.attribute "elm-pages:prefetch" "true"
         ]
         [ linkInner currentPagePath linkTo name ]
 

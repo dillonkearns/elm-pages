@@ -8,6 +8,7 @@ import Date exposing (Date)
 import OptimizedDecoder
 import Pages.ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Route
 
 
 type alias BlogPost =
@@ -26,7 +27,7 @@ blogPostsGlob =
         |> Glob.toDataSource
 
 
-allMetadata : DataSource.DataSource (List ( PagePath, ArticleMetadata ))
+allMetadata : DataSource.DataSource (List ( Route.Route, ArticleMetadata ))
 allMetadata =
     --StaticFile.glob "content/blog/*.md"
     blogPostsGlob
@@ -36,7 +37,7 @@ allMetadata =
                     |> List.map
                         (\{ filePath, slug } ->
                             DataSource.map2 Tuple.pair
-                                (DataSource.succeed <| "blog/" ++ slug)
+                                (DataSource.succeed <| Route.Blog__Slug_ { slug = slug })
                                 (StaticFile.request filePath (StaticFile.frontmatter frontmatterDecoder))
                         )
             )
@@ -45,15 +46,12 @@ allMetadata =
             (\articles ->
                 articles
                     |> List.filterMap
-                        (\( path, metadata ) ->
+                        (\( route, metadata ) ->
                             if metadata.draft then
                                 Nothing
 
                             else
-                                Just
-                                    ( path |> PagePath.external
-                                    , metadata
-                                    )
+                                Just ( route, metadata )
                         )
             )
 

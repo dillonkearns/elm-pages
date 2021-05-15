@@ -2,7 +2,6 @@ import userInit from "/index.js";
 
 let prefetchedPages;
 let initialLocationHash;
-let elmViewRendered = false;
 
 function pagesInit(
   /** @type { mainElmModule: { init: any  } } */ { mainElmModule }
@@ -12,14 +11,6 @@ function pagesInit(
 
   return new Promise(function (resolve, reject) {
     document.addEventListener("DOMContentLoaded", (_) => {
-      new MutationObserver(function () {
-        elmViewRendered = true;
-      }).observe(document.body, {
-        attributes: true,
-        childList: true,
-        subtree: true,
-      });
-
       loadContentAndInitializeApp(mainElmModule).then(resolve, reject);
     });
   });
@@ -58,25 +49,11 @@ function loadContentAndInitializeApp(
       },
     });
 
-    app.ports.toJsPort.subscribe((
-      /** @type { { allRoutes: string[] } }  */ fromElm
-    ) => {
-      window.allRoutes = fromElm.allRoutes.map(
-        (route) => new URL(route, document.baseURI).href
-      );
-
-      setupLinkPrefetching();
+    app.ports.toJsPort.subscribe((fromElm) => {
+      loadNamedAnchor();
     });
 
     return app;
-  });
-}
-
-function setupLinkPrefetching() {
-  new MutationObserver(observeFirstRender).observe(document.body, {
-    attributes: true,
-    childList: true,
-    subtree: true,
   });
 }
 
@@ -87,62 +64,14 @@ function loadNamedAnchor() {
   }
 }
 
-function observeFirstRender(
-  /** @type {MutationRecord[]} */ mutationList,
-  /** @type {MutationObserver} */ firstRenderObserver
-) {
-  loadNamedAnchor();
-  for (let mutation of mutationList) {
-    if (mutation.type === "childList") {
-      setupLinkPrefetchingHelp();
-    }
-  }
-  firstRenderObserver.disconnect();
-  new MutationObserver(observeUrlChanges).observe(document.body.children[0], {
-    attributes: true,
-    childList: false,
-    subtree: false,
-  });
-}
-
-function observeUrlChanges(
-  /** @type {MutationRecord[]} */ mutationList,
-  /** @type {MutationObserver} */ _theObserver
-) {
-  for (let mutation of mutationList) {
-    if (
-      mutation.type === "attributes" &&
-      mutation.attributeName === "data-url"
-    ) {
-      setupLinkPrefetchingHelp();
-    }
-  }
-}
-
-function setupLinkPrefetchingHelp(
-  /** @type {MutationObserver} */ _mutationList,
-  /** @type {MutationObserver} */ _theObserver
-) {
-  const links = document.querySelectorAll("a");
-  links.forEach((link) => {
-    // console.log(link.pathname);
-    link.addEventListener("mouseenter", function (event) {
-      if (event && event.target && event.target instanceof HTMLAnchorElement) {
-        prefetchIfNeeded(event.target);
-      } else {
-        // console.log("Couldn't prefetch with event", event);
-      }
-    });
-  });
-}
-
 function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   if (target.host === window.location.host) {
     if (prefetchedPages.includes(target.pathname)) {
       // console.log("Already preloaded", target.href);
       // console.log("Not a known route, skipping preload", target.pathname);
     } else if (
-      !allRoutes.includes(new URL(target.pathname, document.baseURI).href)
+      // !allRoutes.includes(new URL(target.pathname, document.baseURI).href)
+      false
     ) {
     } else {
       prefetchedPages.push(target.pathname);
@@ -181,4 +110,39 @@ if (typeof connect === "function") {
       app.ports.fromJsPort.send({ contentJson: newContentJson });
     });
   });
+}
+
+/** @param {MouseEvent} event */
+const trigger_prefetch = (event) => {
+  const a = find_anchor(/** @type {Node} */ (event.target));
+  if (a && a.href && a.hasAttribute("elm-pages:prefetch")) {
+    console.log("PREFETCH", a.href);
+    prefetchIfNeeded(a);
+    // this.prefetch(new URL(/** @type {string} */ (a.href)));
+  }
+};
+
+/** @type {NodeJS.Timeout} */
+let mousemove_timeout;
+
+/** @param {MouseEvent} event */
+const handle_mousemove = (event) => {
+  clearTimeout(mousemove_timeout);
+  mousemove_timeout = setTimeout(() => {
+    trigger_prefetch(event);
+  }, 20);
+};
+
+addEventListener("touchstart", trigger_prefetch);
+addEventListener("mousemove", handle_mousemove);
+
+/**
+ * @param {Node} node
+//  * @rturns {HTMLAnchorElement | SVGAElement}
+ * @returns {HTMLAnchorElement}
+ */
+function find_anchor(node) {
+  while (node && node.nodeName.toUpperCase() !== "A") node = node.parentNode; // SVG <a> elements have a lowercase name
+  // return /** @type {HTMLAnchorElement | SVGAElement} */ (node);
+  return /** @type {HTMLAnchorElement} */ (node);
 }
