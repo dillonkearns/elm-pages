@@ -55,8 +55,13 @@ page =
 
 routes : DataSource (List RouteParams)
 routes =
-    DocsSection.files
-        |> DataSource.map (List.map (.slug >> Just >> RouteParams))
+    DocsSection.all
+        |> DataSource.map
+            (List.map
+                (\section ->
+                    { section = Just section.slug }
+                )
+            )
         |> DataSource.map
             (\sections ->
                 { section = Nothing } :: sections
@@ -66,14 +71,14 @@ routes =
 data : RouteParams -> DataSource Data
 data routeParams =
     DataSource.map3 Data
-        (TableOfContents.dataSource DocsSection.files)
+        (TableOfContents.dataSource DocsSection.all)
         (pageBody routeParams)
         (previousAndNextData routeParams)
 
 
 previousAndNextData : RouteParams -> DataSource ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
 previousAndNextData current =
-    DocsSection.files
+    DocsSection.all
         |> DataSource.andThen
             (\sections ->
                 let

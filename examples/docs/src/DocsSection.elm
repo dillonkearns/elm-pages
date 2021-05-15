@@ -1,4 +1,4 @@
-module DocsSection exposing (Section, files)
+module DocsSection exposing (Section, all)
 
 import DataSource exposing (DataSource)
 import DataSource.Glob as Glob
@@ -11,8 +11,8 @@ type alias Section =
     }
 
 
-files : DataSource (List Section)
-files =
+all : DataSource (List Section)
+all =
     Glob.succeed Section
         |> Glob.capture Glob.fullFilePath
         |> Glob.ignore (Glob.literal "content/docs/")
