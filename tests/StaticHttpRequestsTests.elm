@@ -873,7 +873,7 @@ startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
             , routeToPath = \(Route route) -> route |> String.split "/"
             , sharedData = DataSource.succeed ()
             , onPageChange = \_ -> Continue
-            , apiRoutes = apiRoutes
+            , apiRoutes = \_ -> apiRoutes
             }
 
         encodedFlags =
