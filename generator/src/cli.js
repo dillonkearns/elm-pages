@@ -3,6 +3,7 @@
 const build = require("./build.js");
 const dev = require("./dev-server.js");
 const generate = require("./codegen-template-module.js");
+const init = require("./init.js");
 
 const commander = require("commander");
 
@@ -35,6 +36,13 @@ async function main() {
     .description("create a new Page module")
     .action(async (moduleName) => {
       await generate.run({ moduleName });
+    });
+
+  program
+    .command("init <projectName>")
+    .description("scaffold a new elm-pages project boilerplate")
+    .action(async (projectName) => {
+      await init.run(projectName);
     });
 
   program.parse(process.argv);

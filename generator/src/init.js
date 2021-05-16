@@ -6,7 +6,7 @@ const kleur = require("kleur");
 /**
  * @param {string} name
  */
-function runInit(name) {
+async function run(name) {
   console.log("Creating " + name + " project...");
 
   const appRoot = path.resolve(name.toString());
@@ -33,4 +33,4 @@ function runInit(name) {
   );
 }
 
-runInit("init-example");
+module.exports = { run };
