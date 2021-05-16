@@ -495,20 +495,31 @@ mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `,
     routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute)
+
+{-|
+
+@docs Route, link, matchers, routeToPath, toLink, urlToRoute
+
+-}
+
+
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attr
 import Router
 
 
+{-| -}
 type Route
     = ${templates.map(routeHelpers.routeVariantDefinition).join("\n    | ")}
 
 
+{-| -}
 urlToRoute : { url | path : String } -> Maybe Route
 urlToRoute url =
     Router.firstMatch matchers url.path
 
 
+{-| -}
 matchers : List (Router.Matcher Route)
 matchers =
     [ ${sortTemplates(templates)
@@ -521,6 +532,7 @@ matchers =
     ]
 
 
+{-| -}
 routeToPath : Maybe Route -> List String
 routeToPath maybeRoute =
     case maybeRoute of
@@ -557,6 +569,7 @@ routeToPath maybeRoute =
           )
           .join("\n        ")}
 
+{-| -}
 toLink : (List (Attribute msg) -> tag) -> Route -> tag
 toLink toAnchorTag route =
     toAnchorTag
@@ -565,6 +578,7 @@ toLink toAnchorTag route =
         ]
 
 
+{-| -}
 link : Route -> List (Attribute msg) -> List (Html msg) -> Html msg
 link route attributes children =
     toLink
