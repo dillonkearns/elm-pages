@@ -190,8 +190,8 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
       if (code == 0 && fileOutputExists) {
         resolve();
       } else {
+        process.exitCode = 1;
         reject();
-        process.exit(1);
       }
     });
   });
