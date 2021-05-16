@@ -23,6 +23,14 @@ async function writeFiles() {
     path.join(__dirname, `./Page.elm`),
     `./elm-stuff/elm-pages/Page.elm`
   );
+  fs.copyFileSync(
+    path.join(__dirname, `./SharedTemplate.elm`),
+    `./gen/SharedTemplate.elm`
+  );
+  fs.copyFileSync(
+    path.join(__dirname, `./SharedTemplate.elm`),
+    `./elm-stuff/elm-pages/SharedTemplate.elm`
+  );
 
   // prevent compilation errors if migrating from previous elm-pages version
   deleteIfExists("./elm-stuff/elm-pages/Pages/ContentCache.elm");

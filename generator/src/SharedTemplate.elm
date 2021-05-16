@@ -1,4 +1,4 @@
-module SharedTemplate exposing (..)
+module SharedTemplate exposing (SharedTemplate)
 
 import Browser.Navigation
 import DataSource
