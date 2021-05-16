@@ -61,7 +61,7 @@ page =
                                 nextSlide =
                                     clamp
                                         1
-                                        static.static.totalCount
+                                        static.data.totalCount
                                         (case direction of
                                             Right ->
                                                 currentSlide + 1
@@ -249,7 +249,7 @@ view model sharedModel static =
                 , Tw.py_6
                 ]
             ]
-            (static.static.body
+            (static.data.body
                 ++ [ Html.text static.routeParams.number ]
             )
         ]
