@@ -1,14 +1,11 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import Browser.Navigation
-import Css.Global
 import DataSource
 import Document exposing (Document)
 import Html exposing (Html)
-import Html.Styled
 import Pages.PagePath exposing (PagePath)
 import SharedTemplate exposing (SharedTemplate)
-import Tailwind.Utilities
 
 
 template : SharedTemplate Msg Model Data SharedMsg msg
@@ -93,12 +90,7 @@ view :
     -> (Msg -> msg)
     -> Document msg
     -> { body : Html msg, title : String }
-view stars page model toMsg pageView =
-    { body =
-        Html.Styled.div []
-            (Css.Global.global Tailwind.Utilities.globalStyles
-                :: pageView.body
-            )
-            |> Html.Styled.toUnstyled
+view sharedData page model toMsg pageView =
+    { body = Html.div [] pageView.body
     , title = pageView.title
     }
