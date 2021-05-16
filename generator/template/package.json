@@ -1,15 +1,10 @@
 {
-  "name": "elm-pages-example",
-  "version": "1.0.0",
-  "description": "Example site built with elm-pages.",
+  "name": "elm-pages-app",
   "scripts": {
     "start": "elm-pages dev",
     "build": "elm-pages build"
   },
-  "author": "Dillon Kearns",
-  "license": "BSD-3",
   "devDependencies": {
-    "elm-pages": "file:../..",
-    "elm-tooling": "^1.3.0"
+    "elm-pages": "file:../.."
   }
 }
