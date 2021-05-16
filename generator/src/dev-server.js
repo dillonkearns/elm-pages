@@ -50,6 +50,11 @@ async function start(options) {
       .catch(() => {
         elmMakeRunning = false;
       });
+    console.log(
+      `${kleur.dim(`elm-pages dev server running at`)} ${kleur.green(
+        `<http://localhost:${port}>`
+      )}`
+    );
   }
 
   setup();
@@ -99,8 +104,6 @@ async function start(options) {
       handleNavigationRequest(request, response, next);
     }
   }
-
-  console.log(`elm-pages dev server running at http://localhost:${port}`);
 
   watcher.on("all", async function (eventName, pathThatChanged) {
     console.log({ pathThatChanged });
