@@ -76,7 +76,7 @@ data routeParams =
         (previousAndNextData routeParams)
 
 
-previousAndNextData : RouteParams -> DataSource ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+previousAndNextData : RouteParams -> DataSource { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
 previousAndNextData current =
     DocsSection.all
         |> DataSource.andThen
@@ -88,12 +88,20 @@ previousAndNextData current =
                             |> List.Extra.findIndex (\section -> Just section.slug == current.section)
                             |> Maybe.withDefault 0
                 in
-                DataSource.map2 Tuple.pair
-                    (List.Extra.getAt (index - 1) sections
+                DataSource.map2 (\title previousAndNext -> { title = title, previousAndNext = previousAndNext })
+                    (List.Extra.getAt index sections
                         |> maybeDataSource titleForSection
+                        |> DataSource.map (Result.fromMaybe "Couldn't find section")
+                        |> DataSource.andThen DataSource.fromResult
+                        |> DataSource.map .title
                     )
-                    (List.Extra.getAt (index + 1) sections
-                        |> maybeDataSource titleForSection
+                    (DataSource.map2 Tuple.pair
+                        (List.Extra.getAt (index - 1) sections
+                            |> maybeDataSource titleForSection
+                        )
+                        (List.Extra.getAt (index + 1) sections
+                            |> maybeDataSource titleForSection
+                        )
                     )
             )
 
@@ -156,7 +164,7 @@ head static =
             }
         , description = "TODO"
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = static.data.titles.title
         }
         |> Seo.website
 
@@ -164,7 +172,7 @@ head static =
 type alias Data =
     { toc : TableOfContents.TableOfContents TableOfContents.Data
     , body : List Block
-    , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+    , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
     }
 
 
@@ -174,8 +182,7 @@ view :
     -> StaticPayload Data RouteParams
     -> Document Msg
 view model sharedModel static =
-    --View.placeholder "Docs.Section_"
-    { title = ""
+    { title = static.data.titles.title ++ " - elm-pages docs"
     , body =
         Document.ElmCssView
             [ Css.Global.global
@@ -224,7 +231,7 @@ view model sharedModel static =
                             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                             |> Result.withDefault [ Html.text "" ]
                          )
-                            ++ [ NextPrevious.view static.data.previousAndNext
+                            ++ [ NextPrevious.view static.data.titles.previousAndNext
                                ]
                         )
                     ]
