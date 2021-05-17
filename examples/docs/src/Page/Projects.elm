@@ -101,7 +101,8 @@ data =
 
 repo : String -> DataSource Repo
 repo repoName =
-    DataSource.Http.get (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+    DataSource.Http.get
+        (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
         (OptimizedDecoder.map Repo
             (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
         )
