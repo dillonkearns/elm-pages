@@ -7,8 +7,10 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
+import Link
 import Page exposing (Page, StaticPayload)
 import Pages.ImagePath as ImagePath
+import Route exposing (Route)
 import SiteOld
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
@@ -124,6 +126,46 @@ landingView =
             ]
             []
         , firstSection
+            { heading = "Pull in typed Elm data to your pages"
+            , body = "Whether your data is coming from markdown files, APIs, a CMS, or all at once, elm-pages lets you pull in just the data you need for a page."
+            , buttonText = "Check out the Docs"
+            , buttonLink = Route.Docs__Section__ { section = Nothing }
+            , code =
+                ( "Page.Repo.Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
+                
+type alias Data = Int
+type alias RouteParams = { name : String }
+
+page : Page RouteParams Data
+page =
+    Page.prerenderedRoute
+        { head = head
+        , routes = routes
+        , data = data
+        }
+        |> Page.buildNoState { view = view }
+
+routes : DataSource (List RouteParams)
+routes =
+    DataSource.succeed [ { name = "elm-pages" } ]
+
+data : RouteParams -> DataSource Data
+data routeParams =
+    DataSource.Http.get
+        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        (Decode.field "stargazer_count" Decode.int)
+
+view :
+    StaticPayload Data RouteParams
+    -> Document Msg
+view static =
+    { title = static.routeParams.name
+    , body =
+        [ h1 [] [ text static.routeParams.name ]
+        , p [] [ text ("Stars: " ++ String.fromInt static.data) ]
+        ]
+    }""" )
+            }
         , div
             [ css
                 [ Tw.mt_24
@@ -853,8 +895,15 @@ gradientFeatures =
         ]
 
 
-firstSection : Html Never
-firstSection =
+firstSection :
+    { heading : String
+    , body : String
+    , buttonLink : Route
+    , buttonText : String
+    , code : ( String, String )
+    }
+    -> Html Never
+firstSection info =
     div
         [ css
             [ Tw.relative
@@ -934,7 +983,7 @@ firstSection =
                                 , Tw.text_gray_900
                                 ]
                             ]
-                            [ text "Pull in typed Elm data to your pages" ]
+                            [ text info.heading ]
                         , p
                             [ css
                                 [ Tw.mt_4
@@ -942,15 +991,14 @@ firstSection =
                                 , Tw.text_gray_500
                                 ]
                             ]
-                            [ text "Whether your data is coming from markdown files, APIs, a CMS, or all at once, elm-pages lets you pull in just the data you need for a page." ]
+                            [ text info.body ]
                         , div
                             [ css
                                 [ Tw.mt_6
                                 ]
                             ]
-                            [ a
-                                [ Attr.href "/docs"
-                                , css
+                            [ Link.link info.buttonLink
+                                [ css
                                     [ Tw.inline_flex
                                     , Tw.px_4
                                     , Tw.py_2
@@ -970,7 +1018,7 @@ firstSection =
                                         ]
                                     ]
                                 ]
-                                [ text "Check out the Docs" ]
+                                [ text info.buttonText ]
                             ]
                         ]
                     ]
@@ -1004,40 +1052,7 @@ firstSection =
                             ]
                         ]
                     ]
-                    [ CodeTab.view ( "Page.Repo.Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
-    
-    type alias Data = Int
-    type alias RouteParams = { name : String }
-    
-    page : Page RouteParams Data
-    page =
-        Page.prerenderedRoute
-            { head = head
-            , routes = routes
-            , data = data
-            }
-            |> Page.buildNoState { view = view }
-    
-    routes : DataSource (List RouteParams)
-    routes =
-        DataSource.succeed [ { name = "elm-pages" } ]
-    
-    data : RouteParams -> DataSource Data
-    data routeParams =
-        DataSource.Http.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-            (Decode.field "stargazer_count" Decode.int)
-    
-    view :
-        StaticPayload Data RouteParams
-        -> Document Msg
-    view static =
-        { title = static.routeParams.name
-        , body =
-            [ h1 [] [ text static.routeParams.name ]
-            , p [] [ text ("Stars: " ++ String.fromInt static.data) ]
-            ]
-        }""" )
+                    [ CodeTab.view info.code
                     ]
                 ]
             ]
