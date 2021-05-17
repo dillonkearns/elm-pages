@@ -166,200 +166,54 @@ view static =
         ]
     }""" )
             }
-        , div
-            [ css
-                [ Tw.mt_24
-                ]
-            ]
-            [ div
-                [ css
-                    [ Bp.lg
-                        [ Tw.mx_auto
-                        , Tw.max_w_7xl
-                        , Tw.px_8
-                        , Tw.grid
-                        , Tw.grid_cols_2
-                        , Tw.grid_flow_col_dense
-                        , Tw.gap_24
-                        ]
-                    ]
-                ]
-                [ div
-                    [ css
-                        [ Tw.px_4
-                        , Tw.max_w_xl
-                        , Tw.mx_auto
-                        , Bp.lg
-                            [ Tw.py_32
-                            , Tw.max_w_none
-                            , Tw.mx_0
-                            , Tw.px_0
-                            , Tw.col_start_2
-                            ]
-                        , Bp.sm
-                            [ Tw.px_6
-                            ]
-                        ]
-                    ]
-                    [ div []
-                        [ div []
-                            [ span
-                                [ css
-                                    [ Tw.h_12
-                                    , Tw.w_12
-                                    , Tw.rounded_md
-                                    , Tw.flex
-                                    , Tw.items_center
-                                    , Tw.justify_center
-                                    , Tw.bg_gradient_to_r
-                                    , Tw.from_purple_600
-                                    , Tw.to_indigo_600
-                                    ]
-                                ]
-                                [ {- Heroicon name: outline/sparkles -}
-                                  svg
-                                    [ SvgAttr.css
-                                        [ Tw.h_6
-                                        , Tw.w_6
-                                        , Tw.text_white
-                                        ]
-                                    , SvgAttr.fill "none"
-                                    , SvgAttr.viewBox "0 0 24 24"
-                                    , SvgAttr.stroke "currentColor"
-                                    , Attr.attribute "aria-hidden" "true"
-                                    ]
-                                    [ path
-                                        [ SvgAttr.strokeLinecap "round"
-                                        , SvgAttr.strokeLinejoin "round"
-                                        , SvgAttr.strokeWidth "2"
-                                        , SvgAttr.d "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                                        ]
-                                        []
-                                    ]
-                                ]
-                            ]
-                        , div
-                            [ css
-                                [ Tw.mt_6
-                                ]
-                            ]
-                            [ h2
-                                [ css
-                                    [ Tw.text_3xl
-                                    , Tw.font_extrabold
-                                    , Tw.tracking_tight
-                                    , Tw.text_gray_900
-                                    ]
-                                ]
-                                [ text "Better understand your customers" ]
-                            , p
-                                [ css
-                                    [ Tw.mt_4
-                                    , Tw.text_lg
-                                    , Tw.text_gray_500
-                                    ]
-                                ]
-                                [ text "Semper curabitur ullamcorper posuere nunc sed. Ornare iaculis bibendum malesuada faucibus lacinia porttitor. Pulvinar laoreet sagittis viverra duis. In venenatis sem arcu pretium pharetra at. Lectus viverra dui tellus ornare pharetra." ]
-                            , div
-                                [ css
-                                    [ Tw.mt_6
-                                    ]
-                                ]
-                                [ a
-                                    [ Attr.href "#"
-                                    , css
-                                        [ Tw.inline_flex
-                                        , Tw.px_4
-                                        , Tw.py_2
-                                        , Tw.border
-                                        , Tw.border_transparent
-                                        , Tw.text_base
-                                        , Tw.font_medium
-                                        , Tw.rounded_md
-                                        , Tw.shadow_sm
-                                        , Tw.text_white
-                                        , Tw.bg_gradient_to_r
-                                        , Tw.from_purple_600
-                                        , Tw.to_indigo_600
-                                        , Css.hover
-                                            [ Tw.from_purple_700
-                                            , Tw.to_indigo_700
-                                            ]
-                                        ]
-                                    ]
-                                    [ text "Get started" ]
-                                ]
-                            ]
-                        ]
-                    ]
-                , div
-                    [ css
-                        [ Tw.mt_12
-                        , Bp.lg
-                            [ Tw.mt_0
-                            , Tw.col_start_1
-                            ]
-                        , Bp.sm
-                            [ Tw.mt_16
-                            ]
-                        ]
-                    ]
-                    [ div
-                        [ css
-                            [ Tw.pr_4
-                            , Tw.neg_ml_48
-                            , Bp.lg
-                                [ Tw.px_0
-                                , Tw.m_0
-                                , Tw.relative
-                                , Tw.h_full
-                                ]
-                            , Bp.md
-                                [ Tw.neg_ml_16
-                                ]
-                            , Bp.sm
-                                [ Tw.pr_6
-                                ]
-                            ]
-                        ]
-                        [ img
-                            [ css
-                                [ Tw.w_full
-                                , Tw.rounded_xl
-                                , Tw.shadow_xl
-                                , Tw.ring_1
-                                , Tw.ring_black
-                                , Tw.ring_opacity_5
-                                , Bp.lg
-                                    [ Tw.absolute
-                                    , Tw.right_0
-                                    , Tw.h_full
-                                    , Tw.w_auto
-                                    , Tw.max_w_none
-                                    ]
-                                ]
-                            , Attr.src "https://tailwindui.com/img/component-images/inbox-app-screenshot-2.jpg"
-                            , Attr.alt "Customer profile user interface"
-                            ]
-                            []
-                        ]
-                    ]
-                ]
-            ]
+        , firstSection
+            { heading = "Pull in typed Elm data to your pages"
+            , body = "Whether your data is coming from markdown files, APIs, a CMS, or all at once, elm-pages lets you pull in just the data you need for a page."
+            , buttonText = "Check out the Docs"
+            , buttonLink = Route.Docs__Section__ { section = Nothing }
+            , code =
+                ( "Page.Repo.Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
+
+type alias Data = Int
+type alias RouteParams = { name : String }
+
+page : Page RouteParams Data
+page =
+    Page.prerenderedRoute
+        { head = head
+        , routes = routes
+        , data = data
+        }
+        |> Page.buildNoState { view = view }
+
+routes : DataSource (List RouteParams)
+routes =
+    DataSource.succeed [ { name = "elm-pages" } ]
+
+data : RouteParams -> DataSource Data
+data routeParams =
+    DataSource.Http.get
+        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        (Decode.field "stargazer_count" Decode.int)
+
+view :
+    StaticPayload Data RouteParams
+    -> Document Msg
+view static =
+    { title = static.routeParams.name
+    , body =
+        [ h1 [] [ text static.routeParams.name ]
+        , p [] [ text ("Stars: " ++ String.fromInt static.data) ]
         ]
-
-
-
-{- Gradient Feature Section -}
+    }""" )
+            }
+        ]
 
 
 gradientFeatures =
     div
         [ css
             [ Tw.bg_gradient_to_r
-
-            --, Tw.from_purple_800
-            --, Tw.to_indigo_700
             , Tw.from_blue_800
             , Tw.to_blue_900
             ]
