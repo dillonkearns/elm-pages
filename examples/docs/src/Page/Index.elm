@@ -131,7 +131,7 @@ landingView =
             , buttonText = "Check out the Docs"
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , code =
-                ( "Page.Repo.Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
+                ( "src/Page/Repo/Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
                 
 type alias Data = Int
 type alias RouteParams = { name : String }
@@ -167,45 +167,41 @@ view static =
     }""" )
             }
         , firstSection
-            { heading = "Pull in typed Elm data to your pages"
-            , body = "Whether your data is coming from markdown files, APIs, a CMS, or all at once, elm-pages lets you pull in just the data you need for a page."
-            , buttonText = "Check out the Docs"
-            , buttonLink = Route.Docs__Section__ { section = Nothing }
+            { heading = "Combine data from multiple sources"
+            , body = "Wherever the data came from, you can transform DataSources and combine multiple DataSources using the full power of Elm's type system."
+            , buttonText = "Learn more about DataSources"
+            , buttonLink = Route.Docs__Section__ { section = Just "data-sources" }
             , code =
-                ( "Page.Repo.Name_.elm", """module Page.Repo.Name_ exposing (Data, Model, Msg, page)
+                ( "src/Project.elm", """type alias Project =
+    { name : String
+    , description : String
+    , repo : Repo
+    }
 
-type alias Data = Int
-type alias RouteParams = { name : String }
 
-page : Page RouteParams Data
-page =
-    Page.prerenderedRoute
-        { head = head
-        , routes = routes
-        , data = data
-        }
-        |> Page.buildNoState { view = view }
+all : DataSource (List Project)
+all =
+    Glob.succeed
+        (\\projectName filePath ->
+            DataSource.map2 (Project projectName)
+                (DataSource.File.request filePath DataSource.File.body)
+                (repo projectName)
+        )
+        |> Glob.ignore (Glob.literal "projects/")
+        |> Glob.capture Glob.wildcard
+        |> Glob.ignore (Glob.literal ".txt")
+        |> Glob.capture Glob.fullFilePath
+        |> Glob.toDataSource
+        |> DataSource.resolve
 
-routes : DataSource (List RouteParams)
-routes =
-    DataSource.succeed [ { name = "elm-pages" } ]
 
-data : RouteParams -> DataSource Data
-data routeParams =
-    DataSource.Http.get
-        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (Decode.field "stargazer_count" Decode.int)
-
-view :
-    StaticPayload Data RouteParams
-    -> Document Msg
-view static =
-    { title = static.routeParams.name
-    , body =
-        [ h1 [] [ text static.routeParams.name ]
-        , p [] [ text ("Stars: " ++ String.fromInt static.data) ]
-        ]
-    }""" )
+repo : String -> DataSource Repo
+repo repoName =
+    DataSource.Http.get (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+        (OptimizedDecoder.map Repo
+            (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
+        )
+""" )
             }
         ]
 

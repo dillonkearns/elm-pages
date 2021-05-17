@@ -1,4 +1,4 @@
-module Document exposing (Document, View(..), map)
+module Document exposing (Document, View(..), map, placeholder)
 
 import Html.Styled as Html exposing (Html)
 
