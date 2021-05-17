@@ -7,6 +7,7 @@ import Head
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
+import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
 import Url exposing (Url)
@@ -14,7 +15,8 @@ import Url exposing (Url)
 
 type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     { init :
-        sharedData
+        Pages.Flags.Flags
+        -> sharedData
         -> pageData
         -> Maybe Browser.Navigation.Key
         ->

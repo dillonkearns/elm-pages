@@ -4,6 +4,7 @@ import Browser.Navigation
 import DataSource
 import Document exposing (Document)
 import Html exposing (Html)
+import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import SharedTemplate exposing (SharedTemplate)
 
@@ -44,6 +45,7 @@ type alias Model =
 
 init :
     Maybe Browser.Navigation.Key
+    -> Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -54,7 +56,7 @@ init :
             , metadata : route
             }
     -> ( Model, Cmd Msg )
-init _ maybePagePath =
+init navigationKey flags maybePagePath =
     ( { showMobileMenu = False }
     , Cmd.none
     )

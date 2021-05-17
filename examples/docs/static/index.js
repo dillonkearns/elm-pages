@@ -1,8 +1,11 @@
-import * as elmOembed from "/elm-oembed.js";
-// import "./lib/native-shim.js";
+/** @typedef {{load: (Promise<unknown>); flags: (unknown)}} ElmPagesInit */
 
-export default function (elmLoaded) {
-  document.addEventListener("DOMContentLoaded", function (event) {
-    elmOembed.setup();
-  });
-}
+/** @type ElmPagesInit */
+export default {
+  load: function (elmLoaded) {
+    document.addEventListener("DOMContentLoaded", function (event) {});
+  },
+  flags: function () {
+    return "Hello from flags!";
+  },
+};

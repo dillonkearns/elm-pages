@@ -4,6 +4,7 @@ import Browser.Navigation
 import DataSource
 import Document exposing (Document)
 import Html exposing (Html)
+import Pages.Flags exposing (Flags)
 import Pages.PagePath exposing (PagePath)
 import Route exposing (Route)
 
@@ -11,6 +12,7 @@ import Route exposing (Route)
 type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
     { init :
         Maybe Browser.Navigation.Key
+        -> Flags
         ->
             Maybe
                 { path :

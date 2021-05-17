@@ -8,7 +8,9 @@ import Html exposing (Html)
 import Html.Attributes
 import Http
 import Json.Decode as Decode
+import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
@@ -192,6 +194,14 @@ init config flags url key =
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData ) ->
                     let
+                        userFlags : Pages.Flags.Flags
+                        userFlags =
+                            flags
+                                |> Decode.decodeValue
+                                    (Decode.field "userFlags" Decode.value)
+                                |> Result.withDefault Json.Encode.null
+                                |> Pages.Flags.BrowserFlags
+
                         ( userModel, userCmd ) =
                             Just
                                 { path =
@@ -201,7 +211,7 @@ init config flags url key =
                                     }
                                 , metadata = config.urlToRoute url
                                 }
-                                |> config.init sharedData pageData (Just key)
+                                |> config.init userFlags sharedData pageData (Just key)
 
                         cmd =
                             [ userCmd

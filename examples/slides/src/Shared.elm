@@ -6,6 +6,7 @@ import DataSource
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
+import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
@@ -47,6 +48,7 @@ type alias Model =
 
 init :
     Maybe Browser.Navigation.Key
+    -> Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -57,7 +59,7 @@ init :
             , metadata : route
             }
     -> ( Model, Cmd Msg )
-init _ maybePagePath =
+init _ flags maybePagePath =
     ( { showMobileMenu = False }
     , Cmd.none
     )

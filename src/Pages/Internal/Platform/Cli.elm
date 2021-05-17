@@ -22,6 +22,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.Flags
 import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -147,6 +148,7 @@ cliApplication config =
 --gotStaticFileDecoder : Decode.Decoder Msg
 
 
+gotStaticFileDecoder : Decode.Decoder ( String, Decode.Value )
 gotStaticFileDecoder =
     Decode.field "data"
         (Decode.map2 Tuple.pair
@@ -848,6 +850,7 @@ sendSinglePageProgress toJsPayload config model =
                                                 pageModel : userModel
                                                 pageModel =
                                                     config.init
+                                                        Pages.Flags.PreRenderFlags
                                                         sharedData
                                                         pageData
                                                         Nothing
@@ -971,6 +974,7 @@ sendSinglePageProgress toJsPayload config model =
                             pageModel : userModel
                             pageModel =
                                 config.init
+                                    Pages.Flags.PreRenderFlags
                                     sharedData
                                     pageData
                                     Nothing

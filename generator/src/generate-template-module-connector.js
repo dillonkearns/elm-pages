@@ -46,6 +46,7 @@ import Route exposing (Route)
 import Document
 import Json.Decode
 import Json.Encode
+import Pages.Flags
 import ${
       phase === "browser"
         ? "Pages.Internal.Platform"
@@ -188,6 +189,7 @@ view page globalData pageData =
 
 init :
     Maybe Shared.Model
+    -> Pages.Flags.Flags
     -> Shared.Data
     -> PageData
     -> Maybe Browser.Navigation.Key
@@ -201,10 +203,10 @@ init :
             , metadata : Maybe Route
             }
     -> ( Model, Cmd Msg )
-init currentGlobalModel sharedData pageData navigationKey maybePagePath =
+init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey userFlags maybePagePath)
 
         ( templateModel, templateCmd ) =
             case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
@@ -255,7 +257,7 @@ update sharedData pageData navigationKey msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) sharedData pageData navigationKey <|
+            (init (Just model.global) Pages.Flags.PreRenderFlags sharedData pageData navigationKey <|
                 Just
                     { path =
                         { path = record.path

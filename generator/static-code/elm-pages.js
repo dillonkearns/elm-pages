@@ -3,9 +3,12 @@ import userInit from "/index.js";
 let prefetchedPages;
 let initialLocationHash;
 
-function pagesInit(
-  /** @type { mainElmModule: { init: any  } } */ { mainElmModule }
-) {
+/**
+ *
+ * @param { {mainElmModule: {init : any }}} mainElmModule
+ * @returns
+ */
+function pagesInit({ mainElmModule }) {
   prefetchedPages = [window.location.pathname];
   initialLocationHash = document.location.hash.replace(/^#/, "");
 
@@ -27,9 +30,12 @@ function getContentJsonPromise(path) {
   });
 }
 
-function loadContentAndInitializeApp(
-  /** @type { init: any  } */ mainElmModule
-) {
+/**
+ *
+ * @param { {init : any }} mainElmModule
+ * @returns
+ */
+function loadContentAndInitializeApp(mainElmModule) {
   let path = window.location.pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
     path = path + "/";
@@ -46,6 +52,7 @@ function loadContentAndInitializeApp(
         isDevServer: false,
         isElmDebugMode: false,
         contentJson,
+        userFlags: userInit.flags(),
       },
     });
 
@@ -99,10 +106,13 @@ function httpGet(/** @type string */ theUrl) {
   });
 }
 
-const appPromise = pagesInit({
-  mainElmModule: Elm.TemplateModulesBeta,
-});
-userInit(appPromise);
+const appPromise = pagesInit(
+  {
+    mainElmModule: Elm.TemplateModulesBeta,
+  },
+  {}
+);
+userInit.load(appPromise);
 
 if (typeof connect === "function") {
   connect(function (newContentJson) {

@@ -6,6 +6,8 @@ import DocsSection
 import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
+import Json.Decode
+import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
@@ -51,6 +53,7 @@ type alias Model =
 
 init :
     Maybe Browser.Navigation.Key
+    -> Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -61,7 +64,18 @@ init :
             , metadata : route
             }
     -> ( Model, Cmd Msg )
-init navigationKey maybePagePath =
+init navigationKey flags maybePagePath =
+    let
+        _ =
+            case flags of
+                Pages.Flags.PreRenderFlags ->
+                    Nothing
+
+                Pages.Flags.BrowserFlags browserFlags ->
+                    browserFlags
+                        |> Json.Decode.decodeValue Json.Decode.string
+                        |> Result.toMaybe
+    in
     ( { showMobileMenu = False
       , counter = 0
       , navigationKey = navigationKey
