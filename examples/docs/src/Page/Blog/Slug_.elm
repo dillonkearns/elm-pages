@@ -74,7 +74,7 @@ view :
     StaticPayload Data RouteParams
     -> Document Msg
 view static =
-    { title = static.data.frontmatter.title
+    { title = static.data.metadata.title
     , body =
         let
             author =
@@ -112,9 +112,9 @@ view static =
                                 , Tw.mb_8
                                 ]
                             ]
-                            [ text static.data.frontmatter.title
+                            [ text static.data.metadata.title
                             ]
-                        , authorView author static
+                        , authorView author static.data
                         , div
                             [ css
                                 [ Tw.prose
@@ -128,6 +128,7 @@ view static =
     }
 
 
+authorView : Author -> Data -> Html msg
 authorView author static =
     div
         [ css
@@ -177,7 +178,7 @@ authorView author static =
                 [ time
                     [ Attr.datetime "2020-03-16"
                     ]
-                    [ text (static.data.frontmatter.published |> Date.format "MMMM ddd, yyyy") ]
+                    [ text (static.metadata.published |> Date.format "MMMM ddd, yyyy") ]
                 ]
             ]
         ]
@@ -189,7 +190,7 @@ head :
 head static =
     let
         metadata =
-            static.data.frontmatter
+            static.data.metadata
     in
     Head.structuredData
         (StructuredData.article
@@ -234,7 +235,7 @@ head static =
 
 type alias Data =
     { body : List (Html Msg)
-    , frontmatter : ArticleMetadata
+    , metadata : ArticleMetadata
     }
 
 
