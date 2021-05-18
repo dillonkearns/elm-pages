@@ -9,8 +9,9 @@ import DocsSection exposing (Section)
 import Document exposing (Document)
 import Head
 import Head.Seo as Seo
+import Heroicon
 import Html.Styled as Html
-import Html.Styled.Attributes exposing (css)
+import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
@@ -70,10 +71,21 @@ routes =
 
 data : RouteParams -> DataSource Data
 data routeParams =
-    DataSource.map3 Data
+    DataSource.map4 Data
         (TableOfContents.dataSource DocsSection.all)
         (pageBody routeParams)
         (previousAndNextData routeParams)
+        (routeParams.section
+            |> Maybe.withDefault "what-is-elm-pages"
+            |> findBySlug
+            |> Glob.expectUniqueFile
+            |> DataSource.map filePathToEditUrl
+        )
+
+
+filePathToEditUrl : String -> String
+filePathToEditUrl filePath =
+    "https://github.com/dillonkearns/elm-pages/edit/static-files/examples/docs/" ++ filePath
 
 
 previousAndNextData : RouteParams -> DataSource { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
@@ -173,6 +185,7 @@ type alias Data =
     { toc : TableOfContents.TableOfContents TableOfContents.Data
     , body : List Block
     , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
+    , editUrl : String
     }
 
 
@@ -232,6 +245,28 @@ view model sharedModel static =
                             |> Result.withDefault [ Html.text "" ]
                          )
                             ++ [ NextPrevious.view static.data.titles.previousAndNext
+                               , Html.hr [] []
+                               , Html.footer
+                                    [ css [ Tw.text_right ]
+                                    ]
+                                    [ Html.a
+                                        [ Attr.href static.data.editUrl
+                                        , Attr.target "_blank"
+                                        , css
+                                            [ Tw.text_sm
+                                            , Css.hover
+                                                [ Tw.text_gray_800 |> Css.important
+                                                ]
+                                            , Tw.text_gray_500 |> Css.important
+                                            , Tw.flex
+                                            , Tw.items_center
+                                            , Tw.float_right
+                                            ]
+                                        ]
+                                        [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
+                                        , Heroicon.edit
+                                        ]
+                                    ]
                                ]
                         )
                     ]
