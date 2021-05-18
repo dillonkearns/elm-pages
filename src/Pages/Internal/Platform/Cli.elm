@@ -907,9 +907,16 @@ sendSinglePageProgress toJsPayload config model =
                             config.sharedData
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
+
+                    siteDataResult : Result BuildError siteData
+                    siteDataResult =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            (config.site allRoutes |> .data)
+                            (staticData |> Dict.map (\_ v -> Just v))
+                            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
-                case Result.map2 Tuple.pair pageFoundResult renderedResult of
-                    Ok ( pageFound, rendered ) ->
+                case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
+                    Ok ( pageFound, rendered, siteData ) ->
                         { route = page |> PagePath.toString
                         , contentJson =
                             toJsPayload.pages
@@ -917,7 +924,7 @@ sendSinglePageProgress toJsPayload config model =
                                 |> Maybe.withDefault Dict.empty
                         , html = rendered.view
                         , errors = []
-                        , head = rendered.head
+                        , head = rendered.head ++ (config.site allRoutes |> .head) siteData
                         , title = rendered.title
                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                         , is404 = not pageFound
@@ -967,9 +974,16 @@ sendSinglePageProgress toJsPayload config model =
                         , query = Nothing
                         , fragment = Nothing
                         }
+
+                    siteDataResult : Result BuildError siteData
+                    siteDataResult =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            (config.site allRoutes |> .data)
+                            (staticData |> Dict.map (\_ v -> Just v))
+                            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
-                case Result.map2 Tuple.pair sharedDataResult pageDataResult of
-                    Ok ( sharedData, pageData ) ->
+                case Result.map3 (\a b c -> ( a, b, c )) sharedDataResult pageDataResult siteDataResult of
+                    Ok ( sharedData, pageData, siteData ) ->
                         let
                             pageModel : userModel
                             pageModel =
@@ -995,7 +1009,8 @@ sendSinglePageProgress toJsPayload config model =
 
                             headTags : List Head.Tag
                             headTags =
-                                config.view currentPage sharedData pageData |> .head
+                                (config.view currentPage sharedData pageData |> .head)
+                                    ++ (siteData |> (config.site allRoutes |> .head))
                         in
                         { route = page |> PagePath.toString
                         , contentJson =
