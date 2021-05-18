@@ -151,6 +151,11 @@ async function start(options) {
       Object.keys(global.staticHttpCache).forEach((dataSourceKey) => {
         if (dataSourceKey.includes(`file://${changedPathRelative}`)) {
           delete global.staticHttpCache[dataSourceKey];
+        } else if (
+          eventName === "add" ||
+          (eventName === "unlink" && dataSourceKey.startsWith("glob://"))
+        ) {
+          delete global.staticHttpCache[dataSourceKey];
         }
       });
       clients.forEach((client) => {
