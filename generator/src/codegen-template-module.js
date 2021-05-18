@@ -31,7 +31,6 @@ function fileContent(pageModuleName) {
 function fileContentWithParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-import Element exposing (Element)
 import Document exposing (Document)
 import Pages.ImagePath as ImagePath
 import Head
@@ -110,7 +109,6 @@ view static =
 function fileContentWithoutParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-import Element exposing (Element)
 import Document exposing (Document)
 import Pages.ImagePath as ImagePath
 import Head
