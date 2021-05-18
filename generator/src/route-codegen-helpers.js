@@ -142,7 +142,22 @@ function routeVariantDefinition(name) {
  * @param {string[]} name
  */
 function paramsRecord(name) {
-  return `{ ${routeParams(name).map((param) => `${param} : String`)} }`;
+  return `{ ${parseRouteParams(name).map((param) => {
+    switch (param.kind) {
+      case "dynamic": {
+        return `${param.name} : String`;
+      }
+      case "optional": {
+        return `${param.name} : Maybe String`;
+      }
+      case "required-splat": {
+        return `splat : ( String , List String )`;
+      }
+      case "optional-splat": {
+        return `splat : List String`;
+      }
+    }
+  })} }`;
 }
 
 /**
