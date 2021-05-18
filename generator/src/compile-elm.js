@@ -10,11 +10,9 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
   const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
   await runElm(elmEntrypointPath, outputPath, cwd);
 
-  const elmFileContent = await fs.promises.readFile(fullOutputPath, "utf-8");
-
   await fs.promises.writeFile(
     fullOutputPath,
-    elmFileContent
+    (await fs.promises.readFile(fullOutputPath, "utf-8"))
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
         "return " + (debug ? "_Json_wrap(x)" : "x")
