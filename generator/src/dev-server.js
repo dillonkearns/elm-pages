@@ -116,6 +116,19 @@ async function start(options) {
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           try {
             await codegen.generate();
+            clientElmMakeProcess = compileElmForBrowser();
+            pendingCliCompile = compileCliApp();
+
+            Promise.all([clientElmMakeProcess, pendingCliCompile])
+              .then(() => {
+                elmMakeRunning = false;
+              })
+              .catch(() => {
+                elmMakeRunning = false;
+              });
+            clients.forEach((client) => {
+              client.response.write(`data: elm.js\n\n`);
+            });
           } catch (error) {
             codegenError = error;
           }
