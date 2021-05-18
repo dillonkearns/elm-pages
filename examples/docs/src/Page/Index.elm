@@ -304,478 +304,14 @@ gradientFeatures =
                         ]
                     ]
                 ]
-                [ div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/inbox -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Unlimited Inboxes" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/users -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Manage Team Members" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/trash -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Spam Report" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/pencil-alt -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Compose in Markdown" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/document-report -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Team Reporting" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/reply -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Saved Replies" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/chat-alt -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Email Commenting" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
-                , div []
-                    [ div []
-                        [ span
-                            [ css
-                                [ Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.bg_white
-                                , Tw.bg_opacity_10
-                                ]
-                            ]
-                            [ {- Heroicon name: outline/heart -}
-                              svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_white
-                                    ]
-                                , SvgAttr.fill "none"
-                                , SvgAttr.viewBox "0 0 24 24"
-                                , SvgAttr.stroke "currentColor"
-                                , Attr.attribute "aria-hidden" "true"
-                                ]
-                                [ path
-                                    [ SvgAttr.strokeLinecap "round"
-                                    , SvgAttr.strokeLinejoin "round"
-                                    , SvgAttr.strokeWidth "2"
-                                    , SvgAttr.d "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                                    ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
-                        ]
-                        [ h3
-                            [ css
-                                [ Tw.text_lg
-                                , Tw.font_medium
-                                , Tw.text_white
-                                ]
-                            ]
-                            [ text "Connect with Customers" ]
-                        , p
-                            [ css
-                                [ Tw.mt_2
-                                , Tw.text_base
-                                , Tw.text_purple_200
-                                ]
-                            ]
-                            [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
-                        ]
-                    ]
+                [ gridEntry
+                , gridEntry
+                , gridEntry
+                , gridEntry
+                , gridEntry
+                , gridEntry
+                , gridEntry
+                , gridEntry
                 ]
             ]
         ]
@@ -942,5 +478,68 @@ firstSection info =
                     [ CodeTab.view info.code
                     ]
                 ]
+            ]
+        ]
+
+
+gridEntry : Html msg
+gridEntry =
+    div []
+        [ div []
+            [ span
+                [ css
+                    [ Tw.flex
+                    , Tw.items_center
+                    , Tw.justify_center
+                    , Tw.h_12
+                    , Tw.w_12
+                    , Tw.rounded_md
+                    , Tw.bg_white
+                    , Tw.bg_opacity_10
+                    ]
+                ]
+                [ {- Heroicon name: outline/inbox -}
+                  svg
+                    [ SvgAttr.css
+                        [ Tw.h_6
+                        , Tw.w_6
+                        , Tw.text_white
+                        ]
+                    , SvgAttr.fill "none"
+                    , SvgAttr.viewBox "0 0 24 24"
+                    , SvgAttr.stroke "currentColor"
+                    , Attr.attribute "aria-hidden" "true"
+                    ]
+                    [ path
+                        [ SvgAttr.strokeLinecap "round"
+                        , SvgAttr.strokeLinejoin "round"
+                        , SvgAttr.strokeWidth "2"
+                        , SvgAttr.d "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                        ]
+                        []
+                    ]
+                ]
+            ]
+        , div
+            [ css
+                [ Tw.mt_6
+                ]
+            ]
+            [ h3
+                [ css
+                    [ Tw.text_lg
+                    , Tw.font_medium
+                    , Tw.text_white
+                    ]
+                ]
+                [ text "Unlimited Inboxes" ]
+            , p
+                [ css
+                    [ Tw.mt_2
+                    , Tw.text_base
+                    , Tw.text_purple_200
+                    ]
+                ]
+                [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
             ]
         ]
