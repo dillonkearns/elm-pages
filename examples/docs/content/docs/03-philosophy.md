@@ -22,3 +22,9 @@ Whether you're building a personal blog, a professional marketing site, or an eC
 I've spent too much time opening 1000 tabs to do these things. Elm is incredible at making it easy to structure data correctly with its nice type system and great package documentation.
 
 `elm-pages` makes SEO head tags, like [Open Graph](https://ogp.me/) and [Twitter Cards](https://developer.twitter.com/en/docs/twitter-for-websites/cards/guides/getting-started), a first-class type-safe API. The `head` function in a Page Module gets access to your `DataSource` for the page so you can easily use the data you pull in for that page in the pre-rendered head tags.
+
+## Let Elm Shine
+
+Some JAMstack frameworks have a layer of abstraction for building up a local GraphQL data mesh, then querying for it from a page. GraphQL is great for describing typed data and relationships in APIs. But we already have Elm's great type system and a full general purpose programming language!
+
+That's why the `DataSource` API doesn't add any additional levels of indirection. The goal is to feel like you're just using plain old Elm as much as possible. Of course we want powerful features like being able to pull in markdown files, glob to find files matching a pattern, get HTTP data, and remove unused JSON data. And we want to pull all of that in to the page so it's ready without any loading spinners or `Msg`s. That's where `elm-pages` comes in. But the goal is to create an abstraction that lets you do all those things with a minimal Elm abstraction that lets you just focus on your data modeling and transformations.
