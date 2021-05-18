@@ -15,7 +15,7 @@ async function start(options) {
   global.staticHttpCache = {};
   let elmMakeRunning = true;
 
-  const serve = serveStatic("static/", { index: false });
+  const serve = serveStatic("public/", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
   fs.mkdirSync(generatedFilesDirectory, { recursive: true });
   const serveGeneratedFiles = serveStatic(generatedFilesDirectory, {

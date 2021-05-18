@@ -279,7 +279,7 @@ async function copyAssets() {
     "dist/elm-pages.js",
     fs.readFileSync(path.join(__dirname, "../static-code/elm-pages.js"))
   );
-  fs.copyDirFlat("static", "dist");
+  fs.copyDirFlat("public", "dist");
 }
 
 async function compileCliApp(options) {
