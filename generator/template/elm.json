@@ -3,7 +3,7 @@
     "source-directories": [
         "src",
         "../../src",
-        "gen"
+        ".elm-pages"
     ],
     "elm-version": "0.19.1",
     "dependencies": {

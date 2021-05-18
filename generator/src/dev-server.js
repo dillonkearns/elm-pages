@@ -71,9 +71,9 @@ async function start(options) {
 
   async function compileCliApp() {
     await spawnElmMake(
-      "TemplateModulesBeta.elm",
+      ".elm-pages/TemplateModulesBeta.elm",
       "elm.js",
-      "elm-stuff/elm-pages"
+      "elm-stuff/elm-pages/"
     );
   }
 

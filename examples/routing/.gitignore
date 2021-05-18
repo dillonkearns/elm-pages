@@ -2,7 +2,7 @@ node_modules/
 elm-stuff/
 dist/
 .cache/
-gen/
+.elm-pages/
 functions/render/elm-pages-cli.js
 browser-elm.js
 

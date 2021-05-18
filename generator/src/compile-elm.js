@@ -33,7 +33,7 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
 }
 
 async function compileElmForBrowser() {
-  await runElm("gen/TemplateModulesBeta.elm", pathToClientElm);
+  await runElm("./.elm-pages/TemplateModulesBeta.elm", pathToClientElm);
   return inject(await fs.promises.readFile(pathToClientElm, "utf-8"));
 }
 

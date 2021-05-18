@@ -16,46 +16,51 @@ async function writeFiles() {
   const cliCode = generateTemplateModuleConnector("cli");
   const browserCode = generateTemplateModuleConnector("browser");
   ensureDirSync("./elm-stuff");
-  ensureDirSync("./gen");
-  ensureDirSync("./elm-stuff/elm-pages");
-  fs.copyFileSync(path.join(__dirname, `./Page.elm`), `./gen/Page.elm`);
+  ensureDirSync("./.elm-pages");
+  ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
+  fs.copyFileSync(path.join(__dirname, `./Page.elm`), `./.elm-pages/Page.elm`);
   fs.copyFileSync(
     path.join(__dirname, `./Page.elm`),
-    `./elm-stuff/elm-pages/Page.elm`
+    `./elm-stuff/elm-pages/.elm-pages/Page.elm`
   );
   fs.copyFileSync(
     path.join(__dirname, `./SharedTemplate.elm`),
-    `./gen/SharedTemplate.elm`
+    `./.elm-pages/SharedTemplate.elm`
   );
   fs.copyFileSync(
     path.join(__dirname, `./SharedTemplate.elm`),
-    `./elm-stuff/elm-pages/SharedTemplate.elm`
+    `./elm-stuff/elm-pages/.elm-pages/SharedTemplate.elm`
   );
   fs.copyFileSync(
     path.join(__dirname, `./SiteConfig.elm`),
-    `./gen/SiteConfig.elm`
+    `./.elm-pages/SiteConfig.elm`
   );
   fs.copyFileSync(
     path.join(__dirname, `./SiteConfig.elm`),
-    `./elm-stuff/elm-pages/SiteConfig.elm`
+    `./elm-stuff/elm-pages/.elm-pages/SiteConfig.elm`
   );
-
-  // prevent compilation errors if migrating from previous elm-pages version
-  deleteIfExists("./elm-stuff/elm-pages/Pages/ContentCache.elm");
-  deleteIfExists("./elm-stuff/elm-pages/Pages/Platform.elm");
 
   const uiFileContent = elmPagesUiFile();
-  fs.writeFileSync("./gen/Pages.elm", uiFileContent);
+  fs.writeFileSync("./.elm-pages/Pages.elm", uiFileContent);
 
   // write `Pages.elm` with cli interface
-  fs.writeFileSync("./elm-stuff/elm-pages/Pages.elm", elmPagesCliFile());
   fs.writeFileSync(
-    "./elm-stuff/elm-pages/TemplateModulesBeta.elm",
+    "./elm-stuff/elm-pages/.elm-pages/Pages.elm",
+    elmPagesCliFile()
+  );
+  fs.writeFileSync(
+    "./elm-stuff/elm-pages/.elm-pages/TemplateModulesBeta.elm",
     cliCode.mainModule
   );
-  fs.writeFileSync("./elm-stuff/elm-pages/Route.elm", cliCode.routesModule);
-  fs.writeFileSync("./gen/TemplateModulesBeta.elm", browserCode.mainModule);
-  fs.writeFileSync("./gen/Route.elm", browserCode.routesModule);
+  fs.writeFileSync(
+    "./elm-stuff/elm-pages/.elm-pages/Route.elm",
+    cliCode.routesModule
+  );
+  fs.writeFileSync(
+    "./.elm-pages/TemplateModulesBeta.elm",
+    browserCode.mainModule
+  );
+  fs.writeFileSync("./.elm-pages/Route.elm", browserCode.routesModule);
 
   // write modified elm.json to elm-stuff/elm-pages/
   copyModifiedElmJson();

@@ -168,7 +168,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
 async function compileElm(options) {
   const outputPath = `dist/elm.js`;
   const fullOutputPath = path.join(process.cwd(), `dist/elm.js`);
-  await spawnElmMake(options, "gen/TemplateModulesBeta.elm", outputPath);
+  await spawnElmMake(options, ".elm-pages/TemplateModulesBeta.elm", outputPath);
 
   if (!options.debug) {
     await runTerser(fullOutputPath);
@@ -285,7 +285,7 @@ async function copyAssets() {
 async function compileCliApp(options) {
   await spawnElmMake(
     options,
-    "TemplateModulesBeta.elm",
+    ".elm-pages/TemplateModulesBeta.elm",
     "elm.js",
     "./elm-stuff/elm-pages"
   );
