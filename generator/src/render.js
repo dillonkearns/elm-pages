@@ -81,6 +81,8 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;
 
+        app.die();
+        delete require.cache[require.resolve(compiledElmPath)];
         if (isJson) {
           resolve({
             kind: "json",

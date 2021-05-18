@@ -14,10 +14,23 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
 
   await fs.promises.writeFile(
     fullOutputPath,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return " + (debug ? "_Json_wrap(x)" : "x")
-    )
+    elmFileContent
+      .replace(
+        /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+        "return " + (debug ? "_Json_wrap(x)" : "x")
+      )
+      .replace(
+        "return ports ? { ports: ports } : {};",
+        `const die = function() {
+        console.log('App dying')
+        managers = null
+        model = null
+        stepper = null
+        ports = null
+      }
+
+      return ports ? { ports: ports, die: die } : { die: die };`
+      )
   );
 }
 
