@@ -1,6 +1,10 @@
 module Pages.Flags exposing (Flags(..))
 
-{-| -}
+{-|
+
+@docs Flags
+
+-}
 
 import Json.Decode
 
