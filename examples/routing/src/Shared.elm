@@ -8,6 +8,7 @@ import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
 import OptimizedDecoder as D
+import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
@@ -50,6 +51,7 @@ type alias Model =
 
 init :
     Maybe Browser.Navigation.Key
+    -> Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -60,7 +62,7 @@ init :
             , metadata : route
             }
     -> ( Model, Cmd Msg )
-init _ maybePagePath =
+init _ flags maybePagePath =
     ( { showMobileMenu = False }
     , Cmd.none
     )
