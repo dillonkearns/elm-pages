@@ -49,7 +49,8 @@
     "typescript": "^4.2.4"
   },
   "files": [
-    "generator/src/"
+    "generator/src/",
+    "generator/template/"
   ],
   "bin": {
     "elm-pages": "generator/src/cli.js"
