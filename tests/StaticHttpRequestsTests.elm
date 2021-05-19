@@ -812,7 +812,7 @@ startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
-            , init = \_ _ _ _ -> ( (), Cmd.none )
+            , init = \_ _ _ _ _ -> ( (), Cmd.none )
             , getStaticRoutes =
                 --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
                 --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
