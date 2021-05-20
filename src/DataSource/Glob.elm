@@ -96,7 +96,7 @@ int =
 
 
 {-| -}
-recursiveWildcard : Glob String
+recursiveWildcard : Glob (List String)
 recursiveWildcard =
     Glob "**"
         "(.*?)"
@@ -108,6 +108,7 @@ recursiveWildcard =
                 [] ->
                     ( "ERROR", [] )
         )
+        |> map (String.split "/")
 
 
 {-| -}
