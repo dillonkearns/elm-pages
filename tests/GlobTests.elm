@@ -111,7 +111,7 @@ all =
                     |> Glob.capture Glob.wildcard
                     |> Glob.match (Glob.literal ".txt")
                     |> expect "a/b/c/d.txt"
-                        { expectedMatch = ( "a/b/c", "d" )
+                        { expectedMatch = ( [ "a", "b", "c" ], "d" )
                         , expectedPattern = "**/*.txt"
                         }
         ]
