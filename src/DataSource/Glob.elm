@@ -1,8 +1,9 @@
 module DataSource.Glob exposing
     ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
     , wildcard, recursiveWildcard, int
-    , capture, ignore
+    , capture
     , expectUniqueFile
+    , match
     )
 
 {-|
@@ -147,7 +148,7 @@ regexEscaped : String -> String
 regexEscaped stringLiteral =
     --https://stackoverflow.com/a/6969486
     stringLiteral
-        |> Regex.replace regexEscapePattern (\match -> "\\" ++ match.match)
+        |> Regex.replace regexEscapePattern (\match_ -> "\\" ++ match_.match)
 
 
 regexEscapePattern : Regex.Regex
@@ -189,8 +190,8 @@ toPattern (Glob pattern regex applyCapture) =
 
 
 {-| -}
-ignore : Glob a -> Glob value -> Glob value
-ignore (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
+match : Glob a -> Glob value -> Glob value
+match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
         (pattern ++ matcherPattern)
         (regex2 ++ regex1)
@@ -240,11 +241,11 @@ oneOf ( defaultMatch, otherMatchers ) =
         )
         (\_ captures ->
             case captures of
-                match :: rest ->
+                match_ :: rest ->
                     ( allMatchers
                         |> List.Extra.findMap
                             (\( literalString, result ) ->
-                                if literalString == match then
+                                if literalString == match_ then
                                     Just result
 
                                 else
@@ -277,11 +278,11 @@ atLeastOne ( defaultMatch, otherMatchers ) =
         )
         (\_ captures ->
             case captures of
-                match :: rest ->
+                match_ :: rest ->
                     ( --( allMatchers
                       --        |> List.Extra.findMap
                       --            (\( literalString, result ) ->
-                      --                if literalString == match then
+                      --                if literalString == match_ then
                       --                    Just result
                       --
                       --                else
@@ -290,7 +291,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
                       --        |> Maybe.withDefault (defaultMatch |> Tuple.second)
                       --  , []
                       --  )
-                      extractMatches (defaultMatch |> Tuple.second) allMatchers match
+                      extractMatches (defaultMatch |> Tuple.second) allMatchers match_
                         |> toNonEmptyWithDefault (defaultMatch |> Tuple.second)
                     , rest
                     )
@@ -350,7 +351,7 @@ toDataSource glob =
 singleFile : String -> DataSource.DataSource (Maybe String)
 singleFile filePath =
     succeed identity
-        |> ignore (literal filePath)
+        |> match (literal filePath)
         |> capture fullFilePath
         |> toDataSource
         |> DataSource.andThen
@@ -371,7 +372,7 @@ singleFile filePath =
 expectUniqueFile : Glob a -> DataSource.DataSource String
 expectUniqueFile glob =
     succeed identity
-        |> ignore glob
+        |> match glob
         |> capture fullFilePath
         |> toDataSource
         |> DataSource.andThen

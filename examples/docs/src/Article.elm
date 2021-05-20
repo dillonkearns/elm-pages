@@ -21,9 +21,9 @@ blogPostsGlob : DataSource.DataSource (List { filePath : String, slug : String }
 blogPostsGlob =
     Glob.succeed BlogPost
         |> Glob.capture Glob.fullFilePath
-        |> Glob.ignore (Glob.literal "content/blog/")
+        |> Glob.match (Glob.literal "content/blog/")
         |> Glob.capture Glob.wildcard
-        |> Glob.ignore (Glob.literal ".md")
+        |> Glob.match (Glob.literal ".md")
         |> Glob.toDataSource
 
 

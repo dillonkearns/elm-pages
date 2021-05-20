@@ -318,9 +318,9 @@ articlesRequest : DataSource.DataSource (List ArticleMetadata)
 articlesRequest =
     Glob.succeed identity
         |> Glob.capture Glob.fullFilePath
-        |> Glob.ignore (Glob.literal "content/blog/")
-        |> Glob.ignore Glob.wildcard
-        |> Glob.ignore (Glob.literal ".md")
+        |> Glob.match (Glob.literal "content/blog/")
+        |> Glob.match Glob.wildcard
+        |> Glob.match (Glob.literal ".md")
         |> Glob.toDataSource
         |> DataSource.andThen
             (\articleFilePaths ->

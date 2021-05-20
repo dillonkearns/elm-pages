@@ -19,7 +19,7 @@ all =
             \() ->
                 Glob.succeed identity
                     |> Glob.capture Glob.wildcard
-                    |> Glob.ignore (Glob.literal ".txt")
+                    |> Glob.match (Glob.literal ".txt")
                     |> expect "my-file.txt"
                         { expectedMatch = "my-file"
                         , expectedPattern = "*.txt"
@@ -28,7 +28,7 @@ all =
             \() ->
                 Glob.succeed Tuple.pair
                     |> Glob.capture Glob.wildcard
-                    |> Glob.ignore (Glob.literal ".")
+                    |> Glob.match (Glob.literal ".")
                     |> Glob.capture
                         (Glob.oneOf
                             ( ( "yml", Yml )
@@ -44,8 +44,8 @@ all =
         , test "at least one" <|
             \() ->
                 Glob.succeed identity
-                    |> Glob.ignore Glob.wildcard
-                    |> Glob.ignore (Glob.literal ".")
+                    |> Glob.match Glob.wildcard
+                    |> Glob.match (Glob.literal ".")
                     |> Glob.capture
                         (Glob.atLeastOne
                             ( ( "yml", Yml )
@@ -96,9 +96,9 @@ all =
             \() ->
                 Glob.succeed Tuple.pair
                     |> Glob.capture Glob.wildcard
-                    |> Glob.ignore (Glob.literal "/")
+                    |> Glob.match (Glob.literal "/")
                     |> Glob.capture (Glob.wildcard |> Glob.map String.toUpper)
-                    |> Glob.ignore (Glob.literal ".txt")
+                    |> Glob.match (Glob.literal ".txt")
                     |> expect "before-slash/after-slash.txt"
                         { expectedMatch = ( "before-slash", "AFTER-SLASH" )
                         , expectedPattern = "*/*.txt"
@@ -107,9 +107,9 @@ all =
             \() ->
                 Glob.succeed Tuple.pair
                     |> Glob.capture Glob.recursiveWildcard
-                    |> Glob.ignore (Glob.literal "/")
+                    |> Glob.match (Glob.literal "/")
                     |> Glob.capture Glob.wildcard
-                    |> Glob.ignore (Glob.literal ".txt")
+                    |> Glob.match (Glob.literal ".txt")
                     |> expect "a/b/c/d.txt"
                         { expectedMatch = ( "a/b/c", "d" )
                         , expectedPattern = "**/*.txt"
@@ -120,9 +120,9 @@ all =
 zeroOrMoreGlob : Glob.Glob (Maybe String)
 zeroOrMoreGlob =
     Glob.succeed identity
-        |> Glob.ignore (Glob.literal "test/a")
+        |> Glob.match (Glob.literal "test/a")
         |> Glob.capture (Glob.zeroOrMore [ "a", "b" ])
-        |> Glob.ignore (Glob.literal "/x.js")
+        |> Glob.match (Glob.literal "/x.js")
 
 
 type DataExtension

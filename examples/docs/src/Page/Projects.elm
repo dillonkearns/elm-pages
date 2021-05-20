@@ -91,9 +91,9 @@ data =
                 (DataSource.File.request filePath DataSource.File.body)
                 (repo projectName)
         )
-        |> Glob.ignore (Glob.literal "projects/")
+        |> Glob.match (Glob.literal "projects/")
         |> Glob.capture Glob.wildcard
-        |> Glob.ignore (Glob.literal ".txt")
+        |> Glob.match (Glob.literal ".txt")
         |> Glob.capture Glob.fullFilePath
         |> Glob.toDataSource
         |> DataSource.resolve

@@ -15,11 +15,11 @@ all : DataSource (List Section)
 all =
     Glob.succeed Section
         |> Glob.capture Glob.fullFilePath
-        |> Glob.ignore (Glob.literal "content/docs/")
+        |> Glob.match (Glob.literal "content/docs/")
         |> Glob.capture Glob.int
-        |> Glob.ignore (Glob.literal "-")
+        |> Glob.match (Glob.literal "-")
         |> Glob.capture Glob.wildcard
-        |> Glob.ignore (Glob.literal ".md")
+        |> Glob.match (Glob.literal ".md")
         |> Glob.toDataSource
         |> DataSource.map
             (\sections ->

@@ -294,11 +294,11 @@ pageBody routeParams =
 findBySlug : String -> Glob ()
 findBySlug slug =
     Glob.succeed ()
-        |> Glob.ignore (Glob.literal "content/docs/")
-        |> Glob.ignore Glob.int
-        |> Glob.ignore (Glob.literal "-")
-        |> Glob.ignore (Glob.literal slug)
-        |> Glob.ignore (Glob.literal ".md")
+        |> Glob.match (Glob.literal "content/docs/")
+        |> Glob.match Glob.int
+        |> Glob.match (Glob.literal "-")
+        |> Glob.match (Glob.literal slug)
+        |> Glob.match (Glob.literal ".md")
 
 
 markdownBodyDecoder : OptimizedDecoder.Decoder (List Block)
