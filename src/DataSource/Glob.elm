@@ -165,7 +165,11 @@ run : String -> Glob a -> { match : a, pattern : String }
 run rawInput (Glob pattern regex applyCapture) =
     let
         fullRegex =
-            "^" ++ regex ++ "$"
+            "^"
+                ++ (regex
+                        |> String.replace "(.*?)/([^/]*?)" "(.*?)([^/]*?)"
+                   )
+                ++ "$"
 
         regexCaptures : List String
         regexCaptures =
