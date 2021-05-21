@@ -211,7 +211,7 @@ async function start(options) {
    * @param {connect.NextHandleFunction} next
    */
   async function handleNavigationRequest(req, res, next) {
-    const urlParts = url.parse(req.url || "");
+    const urlParts = new URL(req.url || "", `https://localhost:${port}`);
     const pathname = urlParts.pathname || "";
     try {
       await pendingCliCompile;
