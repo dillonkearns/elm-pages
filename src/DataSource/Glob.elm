@@ -69,7 +69,7 @@ fullFilePath =
 wildcard : Glob String
 wildcard =
     Glob "*"
-        "([^/]*?)"
+        wildcardRegex
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -78,6 +78,11 @@ wildcard =
                 [] ->
                     ( "ERROR", [] )
         )
+
+
+wildcardRegex : String
+wildcardRegex =
+    "([^/]*?)"
 
 
 {-| -}
@@ -99,7 +104,7 @@ int =
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
     Glob "**"
-        "(.*?)"
+        recursiveWildcardRegex
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -110,6 +115,11 @@ recursiveWildcard =
         )
         |> map (String.split "/")
         |> map (List.filter (not << String.isEmpty))
+
+
+recursiveWildcardRegex : String
+recursiveWildcardRegex =
+    "(.*?)"
 
 
 {-| -}
@@ -165,11 +175,7 @@ run : String -> Glob a -> { match : a, pattern : String }
 run rawInput (Glob pattern regex applyCapture) =
     let
         fullRegex =
-            "^"
-                ++ (regex
-                        |> String.replace "(.*?)/([^/]*?)" "(.*?)([^/]*?)"
-                   )
-                ++ "$"
+            "^" ++ regex ++ "$"
 
         regexCaptures : List String
         regexCaptures =
@@ -200,7 +206,7 @@ match : Glob a -> Glob value -> Glob value
 match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (regex2 ++ regex1)
+        (combineRegexes regex1 regex2)
         apply2
 
 
@@ -209,7 +215,7 @@ capture : Glob a -> Glob (a -> value) -> Glob value
 capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (regex2 ++ regex1)
+        (combineRegexes regex1 regex2)
         (\fullPath captures ->
             let
                 ( applied1, captured1 ) =
@@ -224,6 +230,21 @@ capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
             , captured2
             )
         )
+
+
+combineRegexes : String -> String -> String
+combineRegexes regex1 regex2 =
+    if isRecursiveWildcardSlashWildcard regex1 regex2 then
+        (regex2 |> String.dropRight 1) ++ regex1
+
+    else
+        regex2 ++ regex1
+
+
+isRecursiveWildcardSlashWildcard : String -> String -> Bool
+isRecursiveWildcardSlashWildcard regex1 regex2 =
+    (regex2 |> String.endsWith (recursiveWildcardRegex ++ "/"))
+        && (regex1 |> String.startsWith wildcardRegex)
 
 
 {-| -}
