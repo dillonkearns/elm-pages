@@ -320,12 +320,12 @@ function wrapHtml(fromElm, contentJsonString) {
   return `<!DOCTYPE html>
   ${seoData.rootElement}
   <head>
-    <link rel="stylesheet" href="/style.css"></link>
+    <link rel="stylesheet" href="/style.css">
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">
     <link rel="preload" href="/elm.js" as="script">
     <script defer="defer" src="/elm.js" type="text/javascript"></script>
-    <script defer="defer" src="/elm-pages.js" type="module"></script>
+    <script src="/elm-pages.js" type="module"></script>
     <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
