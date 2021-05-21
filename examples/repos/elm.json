@@ -9,7 +9,6 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "ThinkAlexandria/elm-html-in-elm": "1.0.1",
             "avh4/elm-color": "1.0.0",
             "billstclair/elm-xml-eeue56": "1.0.1",
             "danyx23/elm-mimetype": "4.0.1",
