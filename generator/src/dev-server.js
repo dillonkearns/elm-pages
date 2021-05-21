@@ -1,4 +1,5 @@
 const path = require("path");
+const url = require("url");
 const fs = require("fs");
 const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
@@ -210,11 +211,13 @@ async function start(options) {
    * @param {connect.NextHandleFunction} next
    */
   async function handleNavigationRequest(req, res, next) {
+    const urlParts = url.parse(req.url || "");
+    const pathname = urlParts.pathname || "";
     try {
       await pendingCliCompile;
       const renderResult = await renderer(
         compiledElmPath,
-        req.url,
+        pathname,
         req,
         function (pattern) {
           console.log(`Watching data source ${pattern}`);
@@ -238,7 +241,7 @@ async function start(options) {
           break;
         }
         case "api-response": {
-          let mimeType = serveStatic.mime.lookup(req.url || "text/html");
+          let mimeType = serveStatic.mime.lookup(pathname || "text/html");
           mimeType =
             mimeType === "application/octet-stream" ? "text/html" : mimeType;
           res.writeHead(renderResult.statusCode, {

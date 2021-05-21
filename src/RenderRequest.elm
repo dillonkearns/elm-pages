@@ -116,10 +116,19 @@ requestPayloadDecoder config =
                 in
                 case route of
                     Just justRoute ->
-                        Page
-                            { frontmatter = route
-                            , path = config.routeToPath route |> PagePath.build
-                            }
+                        if isFile rawPath then
+                            case apiRoute of
+                                Just justApi ->
+                                    ( path, justApi ) |> Api
+
+                                Nothing ->
+                                    NotFound
+
+                        else
+                            Page
+                                { frontmatter = route
+                                , path = config.routeToPath route |> PagePath.build
+                                }
 
                     Nothing ->
                         case apiRoute of
@@ -132,6 +141,12 @@ requestPayloadDecoder config =
     )
         |> Decode.field "path"
         |> Decode.field "payload"
+
+
+isFile : String -> Bool
+isFile rawPath =
+    rawPath
+        |> String.contains "."
 
 
 pathToUrl : String -> Url
