@@ -250,7 +250,22 @@ contextDecodeElmHtml context =
 -}
 decodeTextTag : Json.Decode.Decoder TextTagRecord
 decodeTextTag =
-    field "a" (Json.Decode.andThen (\text -> Json.Decode.succeed { text = text }) Json.Decode.string)
+    field "a"
+        (Json.Decode.andThen
+            (\text ->
+                Json.Decode.succeed
+                    { text =
+                        {- https://github.com/elm/virtual-dom/blob/5a5bcf48720bc7d53461b3cd42a9f19f119c5503/src/Elm/Kernel/VirtualDom.server.js#L8-L26 -}
+                        text
+                            |> String.replace "&" "&amp;"
+                            |> String.replace "<" "&lt;"
+                            |> String.replace ">" "&gt;"
+                            |> String.replace "\"" "&quot;"
+                            |> String.replace "'" "&#039;"
+                    }
+            )
+            Json.Decode.string
+        )
 
 
 {-| encode text tag
