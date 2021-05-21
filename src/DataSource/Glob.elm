@@ -109,6 +109,7 @@ recursiveWildcard =
                     ( "ERROR", [] )
         )
         |> map (String.split "/")
+        |> map (List.filter (not << String.isEmpty))
 
 
 {-| -}
