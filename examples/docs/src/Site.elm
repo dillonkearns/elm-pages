@@ -38,6 +38,7 @@ head static =
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
     , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+    , Head.rssLink "/blog/feed.xml"
     , Head.sitemapLink "/sitemap.xml"
     ]
 

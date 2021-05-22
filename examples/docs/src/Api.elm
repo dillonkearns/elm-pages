@@ -1,12 +1,18 @@
 module Api exposing (routes)
 
 import ApiRoute
+import Article
 import DataSource
 import DataSource.Http
 import Html exposing (Html)
 import Json.Encode
 import OptimizedDecoder as Decode
+import Pages
+import Route
+import Rss
 import Secrets
+import SiteOld
+import Time
 
 
 routes :
@@ -66,6 +72,14 @@ routes htmlToString =
                     [ route "elm-graphql"
                     ]
             )
+    , rss
+        { siteTagline = SiteOld.tagline
+        , siteUrl = SiteOld.canonicalUrl
+        , title = "elm-pages Blog"
+        , builtAt = Pages.builtAt
+        , indexPage = [ "blog" ]
+        }
+        postsDataSource
 
     --, ApiRoute.succeed
     --    (DataSource.succeed
@@ -84,3 +98,55 @@ routes htmlToString =
     --    |> ApiRoute.literal "sitemap.xml"
     --    |> ApiRoute.singleRoute
     ]
+
+
+postsDataSource : DataSource.DataSource (List Rss.Item)
+postsDataSource =
+    Article.allMetadata
+        |> DataSource.map
+            (List.map
+                (\( route, article ) ->
+                    { title = article.title
+                    , description = article.description
+                    , url =
+                        Just route
+                            |> Route.routeToPath
+                            |> String.join "/"
+                    , categories = []
+                    , author = "Dillon Kearns"
+                    , pubDate = Rss.Date article.published
+                    , content = Nothing
+                    }
+                )
+            )
+
+
+rss :
+    { siteTagline : String
+    , siteUrl : String
+    , title : String
+    , builtAt : Time.Posix
+    , indexPage : List String
+    }
+    -> DataSource.DataSource (List Rss.Item)
+    -> ApiRoute.Done ApiRoute.Response
+rss options itemsRequest =
+    ApiRoute.succeed
+        (itemsRequest
+            |> DataSource.map
+                (\items ->
+                    { body =
+                        Rss.generate
+                            { title = options.title
+                            , description = options.siteTagline
+                            , url = options.siteUrl ++ "/" ++ String.join "/" options.indexPage
+                            , lastBuildTime = options.builtAt
+                            , generator = Just "elm-pages"
+                            , items = items
+                            , siteUrl = options.siteUrl
+                            }
+                    }
+                )
+        )
+        |> ApiRoute.literal "blog/feed.xml"
+        |> ApiRoute.singleRoute
