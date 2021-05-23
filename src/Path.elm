@@ -1,6 +1,6 @@
 module Path exposing
     ( Path, join, fromString
-    , toAbsolute, toSegments
+    , toAbsolute, toRelative, toSegments
     )
 
 {-| Represents the path portion of a URL (not query parameters, fragment, protocol, port, etc.).
@@ -25,7 +25,7 @@ second does not.
 
 ## Turning Paths to String
 
-@docs toAbsolute, toSegments
+@docs toAbsolute, toRelative, toSegments
 
 -}
 
@@ -70,6 +70,13 @@ toSegments (Path path) =
 toAbsolute : Path -> String
 toAbsolute (Path path) =
     "/" ++ path
+
+
+{-| Turn a Path to a relative URL.
+-}
+toRelative : Path -> String
+toRelative (Path path) =
+    path
 
 
 normalize : String -> String

@@ -30,7 +30,6 @@ import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
-import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
@@ -52,8 +51,8 @@ type alias Model route =
     , allRawResponses : Dict String (Maybe String)
     , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
-    , unprocessedPages : List ( PagePath, route )
-    , staticRoutes : Maybe (List ( PagePath, route ))
+    , unprocessedPages : List ( Path, route )
+    , staticRoutes : Maybe (List ( Path, route ))
     , maybeRequestJson : RenderRequest route
     }
 
@@ -696,7 +695,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                             newRoutes
                                 |> List.map
                                     (\route ->
-                                        ( PagePath.build (config.routeToPath route)
+                                        ( Path.join (config.routeToPath route)
                                         , route
                                         )
                                     )
@@ -711,7 +710,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                             newRoutes
                                 |> List.map
                                     (\route ->
-                                        ( PagePath.build (config.routeToPath route)
+                                        ( Path.join (config.routeToPath route)
                                         , route
                                         )
                                     )
@@ -870,7 +869,7 @@ sendSinglePageProgress :
     ToJsSuccessPayload
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
-    -> ( PagePath, route )
+    -> ( Path, route )
     -> Effect
 sendSinglePageProgress toJsPayload config model =
     \( page, route ) ->
@@ -932,7 +931,7 @@ sendSinglePageProgress toJsPayload config model =
                         { protocol = Url.Https
                         , host = config.site allRoutes |> .canonicalUrl
                         , port_ = Nothing
-                        , path = page |> PagePath.toString
+                        , path = page |> Path.toRelative
                         , query = Nothing
                         , fragment = Nothing
                         }
@@ -940,12 +939,12 @@ sendSinglePageProgress toJsPayload config model =
                     staticData : Dict String String
                     staticData =
                         toJsPayload.pages
-                            |> Dict.get (PagePath.toString page)
+                            |> Dict.get (Path.toRelative page)
                             |> Maybe.withDefault Dict.empty
 
                     currentPage : { path : Path, frontmatter : route }
                     currentPage =
-                        { path = page |> PagePath.toPath |> Path.join, frontmatter = config.urlToRoute currentUrl }
+                        { path = page, frontmatter = config.urlToRoute currentUrl }
 
                     pageDataResult : Result BuildError pageData
                     pageDataResult =
@@ -970,10 +969,10 @@ sendSinglePageProgress toJsPayload config model =
                 in
                 case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
                     Ok ( pageFound, rendered, siteData ) ->
-                        { route = page |> PagePath.toString
+                        { route = page |> Path.toRelative
                         , contentJson =
                             toJsPayload.pages
-                                |> Dict.get (PagePath.toString page)
+                                |> Dict.get (Path.toRelative page)
                                 |> Maybe.withDefault Dict.empty
                         , html = rendered.view
                         , errors = []
@@ -994,12 +993,12 @@ sendSinglePageProgress toJsPayload config model =
                     staticData : Dict String String
                     staticData =
                         toJsPayload.pages
-                            |> Dict.get (PagePath.toString page)
+                            |> Dict.get (Path.toRelative page)
                             |> Maybe.withDefault Dict.empty
 
                     currentPage : { path : Path, frontmatter : route }
                     currentPage =
-                        { path = page |> PagePath.toPath |> Path.join, frontmatter = config.urlToRoute currentUrl }
+                        { path = page, frontmatter = config.urlToRoute currentUrl }
 
                     pageDataResult : Result BuildError pageData
                     pageDataResult =
@@ -1023,7 +1022,7 @@ sendSinglePageProgress toJsPayload config model =
                         { protocol = Url.Https
                         , host = config.site allRoutes |> .canonicalUrl
                         , port_ = Nothing
-                        , path = page |> PagePath.toString
+                        , path = page |> Path.toRelative
                         , query = Nothing
                         , fragment = Nothing
                         }
@@ -1065,10 +1064,10 @@ sendSinglePageProgress toJsPayload config model =
                                 (config.view currentPage sharedData pageData |> .head)
                                     ++ (siteData |> (config.site allRoutes |> .head))
                         in
-                        { route = page |> PagePath.toString
+                        { route = page |> Path.toRelative
                         , contentJson =
                             toJsPayload.pages
-                                |> Dict.get (PagePath.toString page)
+                                |> Dict.get (Path.toRelative page)
                                 |> Maybe.withDefault Dict.empty
                         , html = viewValue.body |> HtmlPrinter.htmlToString
                         , errors = []

@@ -11,10 +11,10 @@ import HtmlPrinter exposing (htmlToString)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
-import Pages.PagePath exposing (PagePath)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 import SecretsDict exposing (SecretsDict)
@@ -102,7 +102,7 @@ renderSingleRoute :
     { config
         | routeToPath : route -> List String
     }
-    -> { path : PagePath, frontmatter : route }
+    -> { path : Path, frontmatter : route }
     -> DataSource.DataSource a
     -> DataSource.DataSource b
     -> StaticResponses

@@ -3,23 +3,20 @@ module RenderRequest exposing (..)
 import ApiRoute
 import HtmlPrinter
 import Json.Decode as Decode
-import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
+import Path exposing (Path)
 import Regex
 import Url exposing (Url)
 
 
 type RequestPayload route
-    = Page { path : PagePath, frontmatter : route }
+    = Page { path : Path, frontmatter : route }
     | Api ( String, ApiRoute.Done ApiRoute.Response )
     | NotFound
 
 
 type RenderRequest route
     = SinglePage IncludeHtml (RequestPayload route) Decode.Value
-      --ServerOrBuild
-      --| SharedData
-      --| GenerateFiles
     | FullBuild
 
 
@@ -36,10 +33,6 @@ maybeRequestPayload renderRequest =
 type IncludeHtml
     = HtmlAndJson
     | OnlyJson
-
-
-type ServerOrBuild
-    = Server
 
 
 decoder :
@@ -127,7 +120,7 @@ requestPayloadDecoder config =
                         else
                             Page
                                 { frontmatter = route
-                                , path = config.routeToPath route |> PagePath.build
+                                , path = config.routeToPath route |> Path.join
                                 }
 
                     Nothing ->
