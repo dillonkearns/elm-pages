@@ -16,7 +16,6 @@ import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
-import Pages.PagePath as PagePath
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttp.Request as Request
 import PagesHttp

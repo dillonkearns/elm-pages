@@ -14,7 +14,6 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 
     import Pages.Manifest as Manifest
     import Pages.Manifest.Category
-    import Pages.PagePath as PagePath exposing (PagePath)
 
     manifest : Manifest.Config
     manifest =

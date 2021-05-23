@@ -13,7 +13,6 @@ import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.String as String
-import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
