@@ -8,7 +8,7 @@ import Html exposing (Html)
 import Html.Styled
 import OptimizedDecoder as D
 import Pages.Flags
-import Pages.PagePath exposing (PagePath)
+import Path exposing (Path)
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
@@ -29,7 +29,7 @@ template =
 
 type Msg
     = OnPageChange
-        { path : PagePath
+        { path : Path
         , query : Maybe String
         , fragment : Maybe String
         }
@@ -55,7 +55,7 @@ init :
     ->
         Maybe
             { path :
-                { path : PagePath
+                { path : Path
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -78,7 +78,7 @@ update msg model =
             ( model, Cmd.none )
 
 
-subscriptions : PagePath -> Model -> Sub Msg
+subscriptions : Path -> Model -> Sub Msg
 subscriptions _ _ =
     Sub.none
 
@@ -92,7 +92,7 @@ data =
 view :
     Data
     ->
-        { path : PagePath
+        { path : Path
         , frontmatter : route
         }
     -> Model
