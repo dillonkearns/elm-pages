@@ -18,7 +18,6 @@ import Markdown.Renderer
 import NextPrevious
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
 import Pages.Url
 import Shared
 import TableOfContents

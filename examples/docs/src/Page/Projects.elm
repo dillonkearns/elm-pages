@@ -10,7 +10,6 @@ import Html.Styled exposing (div, text)
 import Html.Styled.Attributes exposing (css)
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
 import Pages.Url
 import Path
 import Secrets

@@ -15,7 +15,6 @@ import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
-import Pages.ImagePath as ImagePath
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)

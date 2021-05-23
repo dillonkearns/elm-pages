@@ -8,7 +8,6 @@ import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Page exposing (DynamicContext, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
 import Pages.Url
 import Path
 import Route exposing (Route)

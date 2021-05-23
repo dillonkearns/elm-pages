@@ -4,7 +4,6 @@ import DataSource
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
 import Shared
 import View exposing (View)
 
