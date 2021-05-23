@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {
     "start": "cd examples/docs && npm start",
-    "test": "elm-test && (cd generator && mocha) && (cd examples/routing && npm i && npm run build -- --debug && elm-test)",
+    "test": "elm-verify-examples --run-tests && elm-test && (cd generator && mocha) && (cd examples/routing && npm i && npm run build -- --debug && elm-test)",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
@@ -45,6 +45,7 @@
     "elm-review": "^2.5.1",
     "elm-test": "^0.19.1-revision7",
     "elm-tooling": "^1.3.0",
+    "elm-verify-examples": "^5.0.0",
     "mocha": "^8.4.0",
     "typescript": "^4.2.4"
   },

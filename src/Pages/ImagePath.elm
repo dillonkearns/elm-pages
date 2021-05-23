@@ -50,6 +50,7 @@ Don't bother using these.
 
 -}
 
+import Pages.Internal.String as String
 import Path
 
 
@@ -101,12 +102,17 @@ toAbsoluteUrl : String -> ImagePath -> String
 toAbsoluteUrl canonicalSiteUrl path =
     case path of
         Internal rawPath ->
-            Path.join
+            join
                 canonicalSiteUrl
                 (String.join "/" rawPath)
 
         External url ->
             url
+
+
+join : String -> String -> String
+join base path =
+    String.chopEnd "/" base ++ "/" ++ String.chopStart "/" path
 
 
 {-| This is not useful except for the internal generated code to construct an `ImagePath`.
