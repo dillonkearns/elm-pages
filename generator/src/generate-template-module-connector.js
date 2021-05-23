@@ -385,7 +385,7 @@ main =
         , urlToRoute = Route.urlToRoute
         , routeToPath = Route.routeToPath
         , site = Site.config
-        , getStaticRoutes = getStaticRoutes
+        , getStaticRoutes = getStaticRoutes |> DataSource.map (List.map Just)
         , handleRoute = handleRoute
         , view = view
         , update = update
@@ -400,7 +400,7 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , apiRoutes = \\htmlToString -> manifestHandler :: Api.routes htmlToString
+        , apiRoutes = \\htmlToString -> manifestHandler :: Api.routes getStaticRoutes htmlToString
 
         }
 
@@ -441,7 +441,7 @@ handleRoute maybeRoute =
 
 
 
-getStaticRoutes : DataSource (List (Maybe Route))
+getStaticRoutes : DataSource (List Route)
 getStaticRoutes =
     DataSource.combine
         [ ${templates
@@ -455,13 +455,13 @@ getStaticRoutes =
           .join("\n        , ")}
         ]
         |> DataSource.map List.concat
-        |> DataSource.map (List.map Just)
 
 
 manifestHandler : ApiRoute.Done ApiRoute.Response
 manifestHandler =
     ApiRoute.succeed
         (getStaticRoutes
+            |> DataSource.map (List.map Just)
             |> DataSource.andThen
                 (\\resolvedRoutes ->
                     Site.config resolvedRoutes

@@ -2,23 +2,25 @@ module Api exposing (routes)
 
 import ApiRoute
 import Article
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.Http
 import Html exposing (Html)
 import Json.Encode
 import OptimizedDecoder as Decode
 import Pages
-import Route
+import Route exposing (Route)
 import Rss
 import Secrets
 import SiteOld
+import Sitemap
 import Time
 
 
 routes :
-    (Html Never -> String)
+    DataSource (List Route)
+    -> (Html Never -> String)
     -> List (ApiRoute.Done ApiRoute.Response)
-routes htmlToString =
+routes getStaticRoutes htmlToString =
     [ ApiRoute.succeed
         (\userId ->
             DataSource.succeed
@@ -80,23 +82,24 @@ routes htmlToString =
         , indexPage = [ "blog" ]
         }
         postsDataSource
-
-    --, ApiRoute.succeed
-    --    (DataSource.succeed
-    --        { body =
-    --            allRoutes
-    --                |> List.filterMap identity
-    --                |> List.map
-    --                    (\route ->
-    --                        { path = Route.routeToPath (Just route) |> String.join "/"
-    --                        , lastMod = Nothing
-    --                        }
-    --                    )
-    --                |> Sitemap.build { siteUrl = "https://elm-pages.com" }
-    --        }
-    --    )
-    --    |> ApiRoute.literal "sitemap.xml"
-    --    |> ApiRoute.singleRoute
+    , ApiRoute.succeed
+        (getStaticRoutes
+            |> DataSource.map
+                (\allRoutes ->
+                    { body =
+                        allRoutes
+                            |> List.map
+                                (\route ->
+                                    { path = Route.routeToPath (Just route) |> String.join "/"
+                                    , lastMod = Nothing
+                                    }
+                                )
+                            |> Sitemap.build { siteUrl = "https://elm-pages.com" }
+                    }
+                )
+        )
+        |> ApiRoute.literal "sitemap.xml"
+        |> ApiRoute.singleRoute
     ]
 
 
