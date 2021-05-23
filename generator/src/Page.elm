@@ -46,7 +46,7 @@ But before the user even requests the page, we have the following data:
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
-import Document exposing (Document)
+import View exposing (View)
 import Head
 import Pages.PagePath exposing (PagePath)
 import ServerRequest exposing (ServerRequest)
@@ -61,7 +61,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
         templateModel
         -> Shared.Model
         -> StaticPayload templateData routeParams
-        -> Document templateMsg
+        -> View templateMsg
     , head :
         StaticPayload templateData routeParams
         -> List Head.Tag
@@ -103,7 +103,7 @@ type Builder routeParams templateData
 buildNoState :
     { view :
         StaticPayload templateData routeParams
-        -> Document Never
+        -> View Never
     }
     -> Builder routeParams templateData
     -> PageWithState routeParams templateData () Never
@@ -127,7 +127,7 @@ buildWithLocalState :
         templateModel
         -> Shared.Model
         -> StaticPayload templateData routeParams
-        -> Document templateMsg
+        -> View templateMsg
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
@@ -177,7 +177,7 @@ buildWithSharedState :
         templateModel
         -> Shared.Model
         -> StaticPayload templateData routeParams
-        -> Document templateMsg
+        -> View templateMsg
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg

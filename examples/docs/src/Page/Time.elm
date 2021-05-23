@@ -2,7 +2,6 @@ module Page.Time exposing (Data, Model, Msg, page)
 
 import DataSource
 import DataSource.Http
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -11,6 +10,7 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Secrets
 import Shared
+import View exposing (View)
 
 
 type alias Model =
@@ -67,11 +67,10 @@ head static =
 
 view :
     StaticPayload Data {}
-    -> Document msg
+    -> View msg
 view static =
     { title = "TODO title"
     , body =
         [ Html.text static.data
         ]
-            |> Document.ElmCssView
     }

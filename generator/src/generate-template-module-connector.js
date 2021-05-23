@@ -43,7 +43,7 @@ import Api
 import ApiRoute
 import Browser.Navigation
 import Route exposing (Route)
-import Document
+import View
 import Json.Decode
 import Json.Encode
 import Pages.Flags
@@ -154,7 +154,7 @@ view page globalData pageData =
                                                   model.global
                                                   MsgGlobal
                                                   ({ title = title, body = body }
-                                                      |> Document.map Msg${pathNormalizedName(
+                                                      |> View.map Msg${pathNormalizedName(
                                                         name
                                                       )}
                                                   )

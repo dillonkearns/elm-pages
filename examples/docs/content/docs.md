@@ -92,7 +92,7 @@ You build the `template` using a builder chain, adding complexity as needed. You
 module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
 
 import DataSource
-import Document exposing (Document)
+import View exposing (View)
 import Head
 import Head.Seo as Seo
 import Html exposing (text)

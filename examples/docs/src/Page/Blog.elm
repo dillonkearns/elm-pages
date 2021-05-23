@@ -3,7 +3,6 @@ module Page.Blog exposing (Data, Model, Msg, page)
 import Article
 import DataSource
 import Date
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -15,6 +14,7 @@ import Shared
 import SiteOld
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import View exposing (View)
 
 
 type Msg
@@ -73,7 +73,7 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload Data {}
-    -> Document Msg
+    -> View Msg
 view thing model staticPayload =
     { title = "elm-pages blog"
     , body =
@@ -171,7 +171,6 @@ view thing model staticPayload =
                 ]
             ]
         ]
-            |> Document.ElmCssView
     }
 
 

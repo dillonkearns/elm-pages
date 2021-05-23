@@ -2,7 +2,6 @@ module Page.Index exposing (Data, Model, Msg, page)
 
 import Css
 import DataSource exposing (DataSource)
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -16,6 +15,7 @@ import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import View exposing (View)
 import View.CodeTab as CodeTab
 
 
@@ -86,14 +86,13 @@ head static =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
     , body =
         [ landingView
         , gradientFeatures
         ]
-            |> Document.ElmCssView
     }
 
 
@@ -158,7 +157,7 @@ data routeParams =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     { title = static.routeParams.name
     , body =

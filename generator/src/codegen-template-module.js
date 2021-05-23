@@ -31,7 +31,7 @@ function fileContent(pageModuleName) {
 function fileContentWithParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-import Document exposing (Document)
+import View exposing (View)
 import Pages.ImagePath as ImagePath
 import Head
 import Head.Seo as Seo
@@ -109,7 +109,7 @@ view static =
 function fileContentWithoutParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-import Document exposing (Document)
+import View exposing (View)
 import Pages.ImagePath as ImagePath
 import Head
 import Head.Seo as Seo

@@ -2,7 +2,6 @@ module Page.Showcase exposing (Data, Model, Msg, page)
 
 import Css
 import DataSource
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -13,6 +12,7 @@ import Showcase
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import Url
+import View exposing (View)
 
 
 type alias Model =
@@ -47,7 +47,7 @@ type alias Data =
 
 view :
     StaticPayload Data {}
-    -> Document Msg
+    -> View Msg
 view static =
     { title = "elm-pages blog"
     , body =
@@ -77,7 +77,6 @@ view static =
                 [ showcaseEntries static.data ]
             ]
         ]
-            |> Document.ElmCssView
     }
 
 

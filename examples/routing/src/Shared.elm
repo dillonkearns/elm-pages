@@ -4,7 +4,6 @@ import Browser.Navigation
 import Css.Global
 import DataSource
 import DataSource.Http
-import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
 import OptimizedDecoder as D
@@ -13,6 +12,7 @@ import Pages.PagePath exposing (PagePath)
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
+import View exposing (View)
 
 
 template : SharedTemplate Msg Model Data SharedMsg msg
@@ -97,7 +97,7 @@ view :
         }
     -> Model
     -> (Msg -> msg)
-    -> Document msg
+    -> View msg
     -> { body : Html msg, title : String }
 view stars page model toMsg pageView =
     { body =

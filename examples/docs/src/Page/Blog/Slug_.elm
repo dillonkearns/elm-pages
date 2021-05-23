@@ -8,7 +8,6 @@ import DataSource
 import DataSource.File as StaticFile
 import DataSource.Glob as Glob
 import Date exposing (Date)
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -25,6 +24,7 @@ import StructuredData
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
+import View exposing (View)
 
 
 type alias Model =
@@ -72,7 +72,7 @@ routes =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     { title = static.data.metadata.title
     , body =
@@ -80,51 +80,50 @@ view static =
             author =
                 Author.dillon
         in
-        Document.ElmCssView
+        [ div
+            [ css
+                [ Tw.min_h_screen
+                , Tw.w_full
+                , Tw.relative
+                ]
+            ]
             [ div
                 [ css
-                    [ Tw.min_h_screen
-                    , Tw.w_full
-                    , Tw.relative
+                    [ Tw.pt_32
+                    , Tw.pb_16
+                    , Tw.px_8
+                    , Tw.flex
+                    , Tw.flex_col
                     ]
                 ]
                 [ div
                     [ css
-                        [ Tw.pt_32
-                        , Tw.pb_16
-                        , Tw.px_8
-                        , Tw.flex
-                        , Tw.flex_col
+                        [ Bp.md [ Tw.mx_auto ]
                         ]
                     ]
-                    [ div
+                    [ h1
                         [ css
-                            [ Bp.md [ Tw.mx_auto ]
+                            [ Tw.text_center
+                            , Tw.text_4xl
+                            , Tw.font_bold
+                            , Tw.tracking_tight
+                            , Tw.mt_2
+                            , Tw.mb_8
                             ]
                         ]
-                        [ h1
-                            [ css
-                                [ Tw.text_center
-                                , Tw.text_4xl
-                                , Tw.font_bold
-                                , Tw.tracking_tight
-                                , Tw.mt_2
-                                , Tw.mb_8
-                                ]
-                            ]
-                            [ text static.data.metadata.title
-                            ]
-                        , authorView author static.data
-                        , div
-                            [ css
-                                [ Tw.prose
-                                ]
-                            ]
-                            static.data.body
+                        [ text static.data.metadata.title
                         ]
+                    , authorView author static.data
+                    , div
+                        [ css
+                            [ Tw.prose
+                            ]
+                        ]
+                        static.data.body
                     ]
                 ]
             ]
+        ]
     }
 
 

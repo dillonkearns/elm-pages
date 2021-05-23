@@ -3,7 +3,6 @@ module Shared exposing (Data, Model, Msg, SharedMsg(..), template)
 import Browser.Navigation
 import DataSource
 import DocsSection
-import Document exposing (Document)
 import Html exposing (Html)
 import Html.Styled
 import Json.Decode
@@ -11,6 +10,7 @@ import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
+import View exposing (View)
 import View.Header
 
 
@@ -119,19 +119,17 @@ view :
         }
     -> Model
     -> (Msg -> msg)
-    -> Document msg
+    -> View msg
     -> { body : Html msg, title : String }
 view tableOfContents page model toMsg pageView =
     { body =
-        case pageView.body of
-            Document.ElmCssView elements ->
-                ((View.Header.view ToggleMobileMenu 123 page.path
-                    |> Html.Styled.map toMsg
-                 )
-                    :: TableOfContents.view model.showMobileMenu False Nothing tableOfContents
-                    :: elements
-                )
-                    |> Html.Styled.div []
-                    |> Html.Styled.toUnstyled
+        ((View.Header.view ToggleMobileMenu 123 page.path
+            |> Html.Styled.map toMsg
+         )
+            :: TableOfContents.view model.showMobileMenu False Nothing tableOfContents
+            :: pageView.body
+        )
+            |> Html.Styled.div []
+            |> Html.Styled.toUnstyled
     , title = pageView.title
     }

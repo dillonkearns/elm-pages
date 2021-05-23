@@ -4,7 +4,6 @@ import Browser.Events
 import Browser.Navigation
 import DataSource
 import DataSource.File
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -19,6 +18,7 @@ import Page exposing (Page, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
 import Tailwind.Utilities as Tw
+import View exposing (View)
 
 
 type alias Model =
@@ -237,7 +237,7 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view model sharedModel static =
     { title = "TODO title"
     , body =

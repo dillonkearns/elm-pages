@@ -1,12 +1,12 @@
 module Page.Slide exposing (Data, Model, Msg, page)
 
 import DataSource
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Shared
+import View exposing (View)
 
 
 type alias Model =
@@ -56,7 +56,7 @@ type alias Data =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     { title = "TODO title"
     , body = []

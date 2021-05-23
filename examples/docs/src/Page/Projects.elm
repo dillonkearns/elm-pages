@@ -4,7 +4,6 @@ import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Glob as Glob
 import DataSource.Http
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (div, text)
@@ -14,6 +13,7 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
 import Secrets
 import Tailwind.Utilities as Tw
+import View exposing (View)
 
 
 type alias Model =
@@ -134,22 +134,21 @@ type alias Data =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     { title = "Projects"
     , body =
-        Document.ElmCssView
-            [ div
-                [ css
-                    [ Tw.pt_32
-                    , Tw.px_16
-                    ]
+        [ div
+            [ css
+                [ Tw.pt_32
+                , Tw.px_16
                 ]
-                (static.data
-                    |> List.map
-                        (\project ->
-                            text (project.name ++ ": " ++ project.description)
-                        )
-                )
             ]
+            (static.data
+                |> List.map
+                    (\project ->
+                        text (project.name ++ ": " ++ project.description)
+                    )
+            )
+        ]
     }

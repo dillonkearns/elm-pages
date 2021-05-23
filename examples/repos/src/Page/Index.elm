@@ -1,13 +1,13 @@
-module Page.Index exposing (Model, Msg, Data, page)
+module Page.Index exposing (Data, Model, Msg, page)
 
+import DataSource exposing (DataSource)
 import Element exposing (Element)
-import Document exposing (Document)
-import Pages.ImagePath as ImagePath
 import Head
 import Head.Seo as Seo
-import DataSource exposing (DataSource)
+import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.ImagePath as ImagePath
 import Shared
-import Page exposing (StaticPayload, Page, PageWithState)
+import View exposing (View)
 
 
 type alias Model =
@@ -17,8 +17,10 @@ type alias Model =
 type alias Msg =
     Never
 
+
 type alias RouteParams =
     {}
+
 
 page : Page RouteParams Data
 page =
@@ -32,7 +34,6 @@ page =
 data : DataSource Data
 data =
     DataSource.succeed ()
-
 
 
 head :
@@ -61,6 +62,6 @@ type alias Data =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     Document.placeholder "Index"

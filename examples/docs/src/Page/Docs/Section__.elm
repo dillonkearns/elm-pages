@@ -6,7 +6,6 @@ import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Glob as Glob exposing (Glob)
 import DocsSection exposing (Section)
-import Document exposing (Document)
 import Head
 import Head.Seo as Seo
 import Heroicon
@@ -25,6 +24,7 @@ import TableOfContents
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
+import View exposing (View)
 
 
 type alias Model =
@@ -193,85 +193,84 @@ view :
     Model
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view model sharedModel static =
     { title = static.data.titles.title ++ " - elm-pages docs"
     , body =
-        Document.ElmCssView
-            [ Css.Global.global
-                [ Css.Global.selector ".anchor-icon"
-                    [ Css.opacity Css.zero
-                    ]
-                , Css.Global.selector "h2:hover .anchor-icon"
-                    [ Css.opacity (Css.num 100)
-                    ]
+        [ Css.Global.global
+            [ Css.Global.selector ".anchor-icon"
+                [ Css.opacity Css.zero
                 ]
-            , Html.div
-                [ css
-                    [ Tw.flex
-                    , Tw.flex_1
-                    , Tw.h_full
-                    ]
-                ]
-                [ TableOfContents.view sharedModel.showMobileMenu True static.routeParams.section static.data.toc
-                , Html.article
-                    [ css
-                        [ Tw.prose
-                        , Tw.max_w_xl
-
-                        --, Tw.whitespace_normal
-                        --, Tw.mx_auto
-                        , Tw.relative
-                        , Tw.pt_20
-                        , Tw.pb_16
-                        , Tw.px_6
-                        , Tw.w_full
-                        , Tw.max_w_full
-                        , Tw.overflow_x_hidden
-                        , Bp.md
-                            [ Tw.px_8
-                            ]
-                        ]
-                    ]
-                    [ Html.div
-                        [ css
-                            [ Tw.max_w_screen_md
-                            , Tw.mx_auto
-                            , Bp.xl [ Tw.pr_36 ]
-                            ]
-                        ]
-                        ((static.data.body
-                            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                            |> Result.withDefault [ Html.text "" ]
-                         )
-                            ++ [ NextPrevious.view static.data.titles.previousAndNext
-                               , Html.hr [] []
-                               , Html.footer
-                                    [ css [ Tw.text_right ]
-                                    ]
-                                    [ Html.a
-                                        [ Attr.href static.data.editUrl
-                                        , Attr.target "_blank"
-                                        , css
-                                            [ Tw.text_sm
-                                            , Css.hover
-                                                [ Tw.text_gray_800 |> Css.important
-                                                ]
-                                            , Tw.text_gray_500 |> Css.important
-                                            , Tw.flex
-                                            , Tw.items_center
-                                            , Tw.float_right
-                                            ]
-                                        ]
-                                        [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
-                                        , Heroicon.edit
-                                        ]
-                                    ]
-                               ]
-                        )
-                    ]
+            , Css.Global.selector "h2:hover .anchor-icon"
+                [ Css.opacity (Css.num 100)
                 ]
             ]
+        , Html.div
+            [ css
+                [ Tw.flex
+                , Tw.flex_1
+                , Tw.h_full
+                ]
+            ]
+            [ TableOfContents.view sharedModel.showMobileMenu True static.routeParams.section static.data.toc
+            , Html.article
+                [ css
+                    [ Tw.prose
+                    , Tw.max_w_xl
+
+                    --, Tw.whitespace_normal
+                    --, Tw.mx_auto
+                    , Tw.relative
+                    , Tw.pt_20
+                    , Tw.pb_16
+                    , Tw.px_6
+                    , Tw.w_full
+                    , Tw.max_w_full
+                    , Tw.overflow_x_hidden
+                    , Bp.md
+                        [ Tw.px_8
+                        ]
+                    ]
+                ]
+                [ Html.div
+                    [ css
+                        [ Tw.max_w_screen_md
+                        , Tw.mx_auto
+                        , Bp.xl [ Tw.pr_36 ]
+                        ]
+                    ]
+                    ((static.data.body
+                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                        |> Result.withDefault [ Html.text "" ]
+                     )
+                        ++ [ NextPrevious.view static.data.titles.previousAndNext
+                           , Html.hr [] []
+                           , Html.footer
+                                [ css [ Tw.text_right ]
+                                ]
+                                [ Html.a
+                                    [ Attr.href static.data.editUrl
+                                    , Attr.target "_blank"
+                                    , css
+                                        [ Tw.text_sm
+                                        , Css.hover
+                                            [ Tw.text_gray_800 |> Css.important
+                                            ]
+                                        , Tw.text_gray_500 |> Css.important
+                                        , Tw.flex
+                                        , Tw.items_center
+                                        , Tw.float_right
+                                        ]
+                                    ]
+                                    [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
+                                    , Heroicon.edit
+                                    ]
+                                ]
+                           ]
+                    )
+                ]
+            ]
+        ]
     }
 
 

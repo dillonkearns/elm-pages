@@ -2,7 +2,7 @@ module SharedTemplate exposing (SharedTemplate)
 
 import Browser.Navigation
 import DataSource
-import Document exposing (Document)
+import View exposing (View)
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
 import Pages.PagePath exposing (PagePath)
@@ -32,7 +32,7 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
             }
         -> sharedModel
         -> (msg -> mappedMsg)
-        -> Document mappedMsg
+        -> View mappedMsg
         -> { body : Html mappedMsg, title : String }
     , data : DataSource.DataSource sharedData
     , subscriptions : PagePath -> sharedModel -> Sub msg

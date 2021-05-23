@@ -1,7 +1,7 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Document exposing (Document)
+import View exposing (View)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, StaticPayload)
@@ -60,6 +60,6 @@ type alias Data =
 
 view :
     StaticPayload Data RouteParams
-    -> Document Msg
+    -> View Msg
 view static =
     Document.placeholder "Index"

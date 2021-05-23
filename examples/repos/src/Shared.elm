@@ -2,11 +2,11 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import Browser.Navigation
 import DataSource
-import Document exposing (Document)
 import Html exposing (Html)
 import Pages.Flags
 import Pages.PagePath exposing (PagePath)
 import SharedTemplate exposing (SharedTemplate)
+import View exposing (View)
 
 
 template : SharedTemplate Msg Model Data SharedMsg msg
@@ -90,7 +90,7 @@ view :
         }
     -> Model
     -> (Msg -> msg)
-    -> Document msg
+    -> View Msg
     -> { body : Html msg, title : String }
 view sharedData page model toMsg pageView =
     { body = Html.div [] pageView.body
