@@ -1,13 +1,11 @@
 module Site exposing (config)
 
 import Cloudinary
-import Color
 import DataSource
 import Head
 import MimeType
-import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
-import Pages.Manifest.Category
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
 import Sitemap
@@ -104,7 +102,7 @@ siteMap allRoutes =
         |> List.filterMap identity
         |> List.map
             (\route ->
-                { path = Route.routeToPath (Just route) |> String.join "/"
+                { path = Route.routeToPath route |> String.join "/"
                 , lastMod = Nothing
                 }
             )
