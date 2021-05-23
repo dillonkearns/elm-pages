@@ -133,7 +133,8 @@ nodeRecordToString options { tag, children, facts } =
             Dict.toList facts.boolAttributes
                 |> List.map
                     (\( k, v ) ->
-                        k ++ "="
+                        k
+                            ++ "="
                             ++ (if v then
                                     "true"
 
