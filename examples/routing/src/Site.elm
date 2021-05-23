@@ -105,7 +105,7 @@ siteMap allRoutes =
         |> List.filterMap identity
         |> List.map
             (\route ->
-                { path = Route.routeToPath (Just route) |> String.join "/"
+                { path = Route.routeToPath route |> String.join "/"
                 , lastMod = Nothing
                 }
             )

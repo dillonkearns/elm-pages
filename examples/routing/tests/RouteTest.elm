@@ -32,7 +32,7 @@ all =
             \route ->
                 let
                     asUrl =
-                        Just route
+                        route
                             |> Route.routeToPath
                             |> (\path ->
                                     { path = path |> String.join "/" }

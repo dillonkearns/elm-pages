@@ -383,7 +383,7 @@ main =
     }
         { init = init Nothing
         , urlToRoute = Route.urlToRoute
-        , routeToPath = Route.routeToPath
+        , routeToPath = \\route -> route |> Maybe.map Route.routeToPath |> Maybe.withDefault []
         , site = Site.config
         , getStaticRoutes = getStaticRoutes |> DataSource.map (List.map Just)
         , handleRoute = handleRoute
@@ -535,17 +535,15 @@ matchers =
 
 
 {-| -}
-routeToPath : Maybe Route -> List String
-routeToPath maybeRoute =
-    case maybeRoute of
-        Nothing ->
-            []
+routeToPath : Route -> List String
+routeToPath route =
+    case route of
         ${templates
           .map(
             (name) =>
-              `Just (${routeHelpers.routeVariant(
+              `${routeHelpers.routeVariant(
                 name
-              )} params) ->\n           List.concat [ ${routeHelpers
+              )} params ->\n           List.concat [ ${routeHelpers
                 .parseRouteParamsWithStatic(name)
                 .map((param) => {
                   switch (param.kind) {
@@ -575,7 +573,7 @@ routeToPath maybeRoute =
 toLink : (List (Attribute msg) -> tag) -> Route -> tag
 toLink toAnchorTag route =
     toAnchorTag
-        [ Attr.href ("/" ++ (routeToPath (Just route) |> String.join "/"))
+        [ Attr.href ("/" ++ (routeToPath route |> String.join "/"))
         , Attr.attribute "elm-pages:prefetch" ""
         ]
 

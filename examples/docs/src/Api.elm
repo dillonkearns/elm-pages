@@ -90,7 +90,7 @@ routes getStaticRoutes htmlToString =
                         allRoutes
                             |> List.map
                                 (\route ->
-                                    { path = Route.routeToPath (Just route) |> String.join "/"
+                                    { path = Route.routeToPath route |> String.join "/"
                                     , lastMod = Nothing
                                     }
                                 )
@@ -112,7 +112,7 @@ postsDataSource =
                     { title = article.title
                     , description = article.description
                     , url =
-                        Just route
+                        route
                             |> Route.routeToPath
                             |> String.join "/"
                     , categories = []
