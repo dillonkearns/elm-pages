@@ -1040,7 +1040,7 @@ manifest =
     Manifest.init
         { description = "elm-pages - A statically typed site generator."
         , name = "elm-pages docs"
-        , startUrl = PagePath.external ""
+        , startUrl = Path.join []
         , icons = []
         }
 
