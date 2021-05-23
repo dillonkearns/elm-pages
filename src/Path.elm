@@ -34,6 +34,9 @@ type Path
     = Path String
 
 
+{-| Create a Path from multiple path parts. Each part can either be a single path segment, like `blog`, or a
+multi-part path part, like `blog/post-1`.
+-}
 join : List String -> Path
 join parts =
     parts
@@ -56,6 +59,8 @@ fromString path =
         |> Path
 
 
+{-| Turn a Path to an absolute URL (with no trailing slash).
+-}
 toAbsolute : Path -> String
 toAbsolute (Path path) =
     "/" ++ path
