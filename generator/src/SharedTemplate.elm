@@ -2,11 +2,11 @@ module SharedTemplate exposing (SharedTemplate)
 
 import Browser.Navigation
 import DataSource
-import View exposing (View)
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
-import Pages.PagePath exposing (PagePath)
+import Path exposing (Path)
 import Route exposing (Route)
+import View exposing (View)
 
 
 type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
@@ -16,7 +16,7 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
         ->
             Maybe
                 { path :
-                    { path : PagePath
+                    { path : Path
                     , query : Maybe String
                     , fragment : Maybe String
                     }
@@ -27,7 +27,7 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
     , view :
         sharedData
         ->
-            { path : PagePath
+            { path : Path
             , frontmatter : Maybe Route
             }
         -> sharedModel
@@ -35,10 +35,10 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
         -> View mappedMsg
         -> { body : Html mappedMsg, title : String }
     , data : DataSource.DataSource sharedData
-    , subscriptions : PagePath -> sharedModel -> Sub msg
+    , subscriptions : Path -> sharedModel -> Sub msg
     , onPageChange :
         Maybe
-            ({ path : PagePath
+            ({ path : Path
              , query : Maybe String
              , fragment : Maybe String
              }

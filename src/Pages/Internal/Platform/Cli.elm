@@ -33,6 +33,7 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
 import SecretsDict exposing (SecretsDict)
 import Task
@@ -942,9 +943,9 @@ sendSinglePageProgress toJsPayload config model =
                             |> Dict.get (PagePath.toString page)
                             |> Maybe.withDefault Dict.empty
 
-                    currentPage : { path : PagePath, frontmatter : route }
+                    currentPage : { path : Path, frontmatter : route }
                     currentPage =
-                        { path = page, frontmatter = config.urlToRoute currentUrl }
+                        { path = page |> PagePath.toPath |> Path.join, frontmatter = config.urlToRoute currentUrl }
 
                     pageDataResult : Result BuildError pageData
                     pageDataResult =
@@ -996,9 +997,9 @@ sendSinglePageProgress toJsPayload config model =
                             |> Dict.get (PagePath.toString page)
                             |> Maybe.withDefault Dict.empty
 
-                    currentPage : { path : PagePath, frontmatter : route }
+                    currentPage : { path : Path, frontmatter : route }
                     currentPage =
-                        { path = page, frontmatter = config.urlToRoute currentUrl }
+                        { path = page |> PagePath.toPath |> Path.join, frontmatter = config.urlToRoute currentUrl }
 
                     pageDataResult : Result BuildError pageData
                     pageDataResult =

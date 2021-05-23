@@ -18,6 +18,7 @@ import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.PagePath as PagePath exposing (PagePath)
+import Path
 import Rss
 import SiteOld
 import StructuredData
@@ -197,7 +198,7 @@ head static =
             , description = metadata.description
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = SiteOld.canonicalUrl ++ "/" ++ PagePath.toString static.path
+            , url = SiteOld.canonicalUrl ++ Path.toAbsolute static.path
             , imageUrl = SiteOld.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
             , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =

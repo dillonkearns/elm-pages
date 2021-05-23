@@ -7,7 +7,7 @@ import Html exposing (Html)
 import Html.Styled
 import Json.Decode
 import Pages.Flags
-import Pages.PagePath exposing (PagePath)
+import Path exposing (Path)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
 import View exposing (View)
@@ -28,7 +28,7 @@ template =
 
 type Msg
     = OnPageChange
-        { path : PagePath
+        { path : Path
         , query : Maybe String
         , fragment : Maybe String
         }
@@ -57,7 +57,7 @@ init :
     ->
         Maybe
             { path :
-                { path : PagePath
+                { path : Path
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -99,7 +99,7 @@ update msg model =
                     ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
-subscriptions : PagePath -> Model -> Sub Msg
+subscriptions : Path -> Model -> Sub Msg
 subscriptions _ _ =
     Sub.none
 
@@ -114,7 +114,7 @@ data =
 view :
     Data
     ->
-        { path : PagePath
+        { path : Path
         , frontmatter : route
         }
     -> Model

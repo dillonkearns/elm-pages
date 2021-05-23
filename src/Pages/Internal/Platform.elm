@@ -16,6 +16,7 @@ import Pages.Internal.String as String
 import Pages.PagePath as PagePath exposing (PagePath)
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
 import Task
 import Url exposing (Url)
@@ -46,7 +47,7 @@ mainView config model =
         case model.pageData of
             Ok pageData ->
                 (config.view
-                    { path = ContentCache.pathForUrl urls |> PagePath.build
+                    { path = ContentCache.pathForUrl urls |> Path.join
                     , frontmatter = config.urlToRoute model.url
                     }
                     pageData.sharedData
@@ -62,28 +63,28 @@ mainView config model =
                 }
 
 
-urlToPagePath : Url -> Url -> PagePath
-urlToPagePath url baseUrl =
+urlToPath : Url -> Url -> Path
+urlToPath url baseUrl =
     url.path
         |> String.dropLeft (String.length baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
-        |> PagePath.build
+        |> Path.join
 
 
 urlsToPagePath :
     { currentUrl : Url
     , baseUrl : Url
     }
-    -> PagePath
+    -> Path
 urlsToPagePath urls =
     urls.currentUrl.path
         |> String.dropLeft (String.length urls.baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
-        |> PagePath.build
+        |> Path.join
 
 
 view :
@@ -345,7 +346,7 @@ update config appMsg model =
                                         pageData.pageData
                                         (Just model.key)
                                         (config.onPageChange
-                                            { path = urlToPagePath url model.baseUrl
+                                            { path = urlToPath url model.baseUrl
                                             , query = url.query
                                             , fragment = url.fragment
                                             , metadata = config.urlToRoute url
@@ -432,7 +433,7 @@ update config appMsg model =
                                 (updatedPageStaticData |> Result.withDefault pageData.pageData)
                                 (Just model.key)
                                 (config.onPageChange
-                                    { path = urlToPagePath url model.baseUrl
+                                    { path = urlToPath url model.baseUrl
                                     , query = url.query
                                     , fragment = url.fragment
                                     , metadata = config.urlToRoute url
@@ -496,7 +497,7 @@ update config appMsg model =
                                             pageData
                                             (Just model.key)
                                             (config.onPageChange
-                                                { path = urlToPagePath model.url model.baseUrl
+                                                { path = urlToPath model.url model.baseUrl
                                                 , query = model.url.query
                                                 , fragment = model.url.fragment
                                                 , metadata = config.urlToRoute model.url

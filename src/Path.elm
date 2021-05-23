@@ -1,6 +1,6 @@
 module Path exposing
     ( Path, join, fromString
-    , toAbsolute
+    , toAbsolute, toSegments
     )
 
 {-| Represents the path portion of a URL (not query parameters, fragment, protocol, port, etc.).
@@ -25,7 +25,7 @@ second does not.
 
 ## Turning Paths to String
 
-@docs toAbsolute
+@docs toAbsolute, toSegments
 
 -}
 
@@ -57,6 +57,12 @@ fromString path =
     path
         |> normalize
         |> Path
+
+
+{-| -}
+toSegments : Path -> List String
+toSegments (Path path) =
+    path |> String.split "/"
 
 
 {-| Turn a Path to an absolute URL (with no trailing slash).

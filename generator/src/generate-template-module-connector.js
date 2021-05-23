@@ -57,7 +57,7 @@ import Shared
 import Site
 import Head
 import Html exposing (Html)
-import Pages.PagePath exposing (PagePath)
+import Path exposing (Path)
 import DataSource exposing (DataSource)
 
 ${templates.map((name) => `import Page.${name.join(".")}`).join("\n")}
@@ -69,7 +69,7 @@ type alias Model =
     , current :
         Maybe
             { path :
-                { path : PagePath
+                { path : Path
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -93,7 +93,7 @@ type PageModel
 type Msg
     = MsgGlobal Shared.Msg
     | OnPageChange
-        { path : PagePath
+        { path : Path
         , query : Maybe String
         , fragment : Maybe String
         , metadata : Maybe Route
@@ -118,7 +118,7 @@ type PageData
 
 
 view :
-    { path : PagePath
+    { path : Path
     , frontmatter : Maybe Route
     }
     -> Shared.Data
@@ -196,7 +196,7 @@ init :
     ->
         Maybe
             { path :
-                { path : PagePath
+                { path : Path
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -344,7 +344,7 @@ type alias SiteConfig =
     , manifest : Manifest.Config
     }
 
-templateSubscriptions : Maybe Route -> PagePath -> Model -> Sub Msg
+templateSubscriptions : Maybe Route -> Path -> Model -> Sub Msg
 templateSubscriptions route path model =
     case ( model.page, route ) of
         ${templates
@@ -496,17 +496,18 @@ mapBoth : (a -> b) -> (c -> d) -> ( a, c, e ) -> ( b, d, e )
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `,
-    routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute)
+    routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
 
 {-|
 
-@docs Route, link, matchers, routeToPath, toLink, urlToRoute
+@docs Route, link, matchers, routeToPath, toLink, urlToRoute, toPath
 
 -}
 
 
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attr
+import Path exposing (Path)
 import Router
 
 
@@ -568,6 +569,11 @@ routeToPath route =
                 })} ]`
           )
           .join("\n        ")}
+
+{-| -}
+toPath : Route -> Path
+toPath route =
+    route |> routeToPath |> String.join "/" |> Path.fromString
 
 {-| -}
 toLink : (List (Attribute msg) -> tag) -> Route -> tag

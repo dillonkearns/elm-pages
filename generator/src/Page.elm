@@ -46,11 +46,11 @@ But before the user even requests the page, we have the following data:
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
-import View exposing (View)
 import Head
-import Pages.PagePath exposing (PagePath)
+import Path exposing (Path)
 import ServerRequest exposing (ServerRequest)
 import Shared
+import View exposing (View)
 
 
 {-| -}
@@ -67,7 +67,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
         -> List Head.Tag
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
+    , subscriptions : routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     , handleRoute : routeParams -> DataSource Bool
     }
 
@@ -82,7 +82,7 @@ type alias StaticPayload data routeParams =
     { data : data
     , sharedData : Shared.Data
     , routeParams : routeParams
-    , path : PagePath
+    , path : Path
     }
 
 
@@ -130,7 +130,7 @@ buildWithLocalState :
         -> View templateMsg
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
-    , subscriptions : routeParams -> PagePath -> templateModel -> Sub templateMsg
+    , subscriptions : routeParams -> Path -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateData
     -> PageWithState routeParams templateData templateModel templateMsg
@@ -180,7 +180,7 @@ buildWithSharedState :
         -> View templateMsg
     , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : routeParams -> PagePath -> templateModel -> Shared.Model -> Sub templateMsg
+    , subscriptions : routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateData
     -> PageWithState routeParams templateData templateModel templateMsg
