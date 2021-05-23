@@ -15,7 +15,7 @@ import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
-import Pages.ImagePath as ImagePath
+import Pages.Url
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -215,7 +215,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

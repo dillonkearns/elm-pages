@@ -4,8 +4,7 @@ import DataSource
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
-import Shared
+import Pages.Url
 import View exposing (View)
 
 
@@ -38,7 +37,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

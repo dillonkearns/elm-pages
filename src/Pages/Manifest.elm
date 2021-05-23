@@ -59,7 +59,6 @@ import LanguageTag exposing (LanguageTag, emptySubtags)
 import LanguageTag.Country as Country
 import LanguageTag.Language
 import MimeType
-import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
 import Pages.Url
 import Path exposing (Path)
