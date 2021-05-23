@@ -174,6 +174,7 @@ type ToJsSuccessPayloadNewCombined
     | SendApiResponse { body : String, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
+    | Port String
 
 
 type alias InitialDataRecord =
@@ -184,7 +185,7 @@ type alias InitialDataRecord =
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\success initialData vReadFile vGlob vSendApiResponse value ->
+        (\success initialData vReadFile vGlob vSendApiResponse vPort value ->
             case value of
                 PageProgress payload ->
                     success payload
@@ -200,6 +201,9 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
 
                 SendApiResponse record ->
                     vSendApiResponse record
+
+                Port string ->
+                    vPort string
         )
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
         |> Codec.variant1 "InitialData" InitialData initialDataCodec
@@ -215,6 +219,7 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                 |> Codec.field "statusCode" .statusCode Codec.int
                 |> Codec.buildObject
             )
+        |> Codec.variant1 "Port" Port Codec.string
         |> Codec.buildCustom
 
 

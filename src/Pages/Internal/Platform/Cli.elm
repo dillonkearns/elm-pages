@@ -59,6 +59,7 @@ type alias Model route =
 
 type Msg
     = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Pages.Http.Error String }
+    | GotPortResponse ( String, Decode.Value )
     | GotStaticFile ( String, Decode.Value )
     | GotBuildError BuildError
     | GotGlob ( String, Decode.Value )
@@ -125,6 +126,10 @@ cliApplication config =
                                                         gotStaticFileDecoder
                                                             |> Decode.map GotStaticFile
 
+                                                    "GotPort" ->
+                                                        gotPortDecoder
+                                                            |> Decode.map GotPortResponse
+
                                                     "GotGlob" ->
                                                         Decode.field "data"
                                                             (Decode.map2 Tuple.pair
@@ -154,6 +159,15 @@ gotStaticFileDecoder =
         (Decode.map2 Tuple.pair
             (Decode.field "filePath" Decode.string)
             Decode.value
+        )
+
+
+gotPortDecoder : Decode.Decoder ( String, Decode.Value )
+gotPortDecoder =
+    Decode.field "data"
+        (Decode.map2 Tuple.pair
+            (Decode.field "portName" Decode.string)
+            (Decode.field "portResponse" Decode.value)
         )
 
 
@@ -214,6 +228,16 @@ perform renderRequest config toJsPort effect =
                         String.dropLeft 7 unmasked.url
                 in
                 ToJsPayload.Glob globPattern
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
+                    |> toJsPort
+                    |> Cmd.map never
+
+            else if unmasked.url |> String.startsWith "port://" then
+                let
+                    portName =
+                        String.dropLeft 7 unmasked.url
+                in
+                ToJsPayload.Port portName
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                     |> toJsPort
                     |> Cmd.map never
@@ -568,11 +592,6 @@ update contentCache config msg model =
 
         GotGlob ( globPattern, globResult ) ->
             let
-                --_ =
-                --    Debug.log "GotStaticFile"
-                --        { filePath = filePath
-                --        , pendingRequests = model.pendingRequests
-                --        }
                 updatedModel =
                     { model
                         | pendingRequests =
@@ -611,6 +630,39 @@ update contentCache config msg model =
                         | errors =
                             buildError :: model.errors
                     }
+            in
+            StaticResponses.nextStep config
+                updatedModel
+                Nothing
+                |> nextStepToEffect contentCache config updatedModel
+
+        GotPortResponse ( portName, portResponse ) ->
+            let
+                updatedModel =
+                    { model
+                        | pendingRequests =
+                            model.pendingRequests
+                                |> List.filter
+                                    (\pending -> pending.unmasked.url == ("port://" ++ portName))
+                    }
+                        |> StaticResponses.update
+                            -- TODO for hash pass in RequestDetails here
+                            { request =
+                                { masked =
+                                    { url = "port://" ++ portName
+                                    , method = "GET"
+                                    , headers = []
+                                    , body = StaticHttpBody.EmptyBody
+                                    }
+                                , unmasked =
+                                    { url = "port://" ++ portName
+                                    , method = "GET"
+                                    , headers = []
+                                    , body = StaticHttpBody.EmptyBody
+                                    }
+                                }
+                            , response = Ok (Json.Encode.encode 0 portResponse)
+                            }
             in
             StaticResponses.nextStep config
                 updatedModel

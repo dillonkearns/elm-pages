@@ -128,6 +128,14 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
           tag: "GotGlob",
           data: { pattern: globPattern, result: matchedPaths },
         });
+      } else if (fromElm.tag === "Port") {
+        const portName = fromElm.args[0];
+        console.log({ portName });
+
+        app.ports.fromJsPort.send({
+          tag: "GotPort",
+          data: { portName, portResponse: "Hello from ports!" },
+        });
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         reject(fromElm.args[0]);
