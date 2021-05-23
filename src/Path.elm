@@ -30,6 +30,8 @@ second does not.
 -}
 
 
+{-| The path portion of the URL, normalized to ensure that path segments are joined with `/`s in the right places (no doubled up or missing slashes).
+-}
 type Path
     = Path String
 

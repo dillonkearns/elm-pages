@@ -7,12 +7,15 @@ then the canonicalUrl will not be prepended when it is used in a head tag.
 
 If you refer to a local page, like `Route.Index {} |> Route.toPath |> Pages.Url.fromPath`, or `Pages.Url.fromPath`
 
+@docs Url, external, fromPath, toAbsoluteUrl, toString
+
 -}
 
 import Pages.Internal.String as String
 import Path exposing (Path)
 
 
+{-| -}
 type Url
     = Internal String
     | External String
@@ -41,6 +44,7 @@ toString path =
             url
 
 
+{-| -}
 toAbsoluteUrl : String -> Url -> String
 toAbsoluteUrl canonicalSiteUrl url =
     case url of

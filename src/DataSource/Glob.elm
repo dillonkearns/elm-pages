@@ -1,9 +1,8 @@
 module DataSource.Glob exposing
     ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
     , wildcard, recursiveWildcard, int
-    , capture
+    , capture, match
     , expectUniqueFile
-    , match
     )
 
 {-|
@@ -15,7 +14,7 @@ module DataSource.Glob exposing
 
 @docs wildcard, recursiveWildcard, int
 
-@docs capture, ignore
+@docs capture, match
 
 
 ## File Matching Helpers

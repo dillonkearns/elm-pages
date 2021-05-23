@@ -3,10 +3,9 @@ module Head exposing
     , rssLink, sitemapLink, rootLanguage
     , structuredData
     , AttributeValue
-    , currentPageFullUrl, raw
+    , currentPageFullUrl, urlAttribute, raw
     , appleTouchIcon, icon
     , toJson, canonicalLink
-    , urlAttribute
     )
 
 {-| This module contains low-level functions for building up
@@ -30,7 +29,7 @@ writing a plugin package to extend `elm-pages`.
 ## `AttributeValue`s
 
 @docs AttributeValue
-@docs currentPageFullUrl, fullImageUrl, fullPageUrl, raw
+@docs currentPageFullUrl, urlAttribute, raw
 
 
 ## Icons
