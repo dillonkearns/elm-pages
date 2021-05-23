@@ -3,7 +3,6 @@ module Site exposing (config)
 import DataSource
 import Head
 import Pages.Manifest as Manifest
-import Pages.PagePath as PagePath
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
 import Sitemap
@@ -39,7 +38,7 @@ manifest static =
     Manifest.init
         { name = "Site Name"
         , description = "Description"
-        , startUrl = PagePath.build []
+        , startUrl = Route.Index {} |> Route.toPath
         , icons = []
         }
 

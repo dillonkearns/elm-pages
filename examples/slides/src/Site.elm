@@ -8,7 +8,6 @@ import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
 import Pages.Manifest.Category
-import Pages.PagePath as PagePath
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
 import Sitemap
@@ -56,7 +55,7 @@ manifest static =
     Manifest.init
         { name = static.siteName
         , description = "elm-pages - " ++ tagline
-        , startUrl = PagePath.build []
+        , startUrl = Route.Slide__Number_ { number = "1" } |> Route.toPath
         , icons =
             [ icon webp 192
             , icon webp 512

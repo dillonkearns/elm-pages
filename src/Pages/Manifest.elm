@@ -21,7 +21,7 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
         Manifest.init
             { name = static.siteName
             , description = "elm-pages - " ++ tagline
-            , startUrl = PagePath.build []
+            , startUrl = Route.Index {} |> Route.toPath
             , icons =
                 [ icon webp 192
                 , icon webp 512
@@ -61,7 +61,7 @@ import LanguageTag.Language
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
-import Pages.PagePath as PagePath exposing (PagePath)
+import Path exposing (Path)
 
 
 
@@ -98,7 +98,7 @@ type Orientation
 init :
     { description : String
     , name : String
-    , startUrl : PagePath
+    , startUrl : Path
     , icons : List Icon
     }
     -> Config
@@ -225,7 +225,7 @@ type alias Config =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : PagePath
+    , startUrl : Path
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
@@ -384,7 +384,7 @@ toJson canonicalSiteUrl config =
             |> Maybe.map Encode.string
       )
     , ( "start_url"
-      , ("/" ++ PagePath.toString config.startUrl)
+      , Path.toAbsolute config.startUrl
             |> Encode.string
             |> Just
       )
