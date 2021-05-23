@@ -128,7 +128,16 @@ nodeRecordToString options { tag, children, facts } =
 
         boolAttributes =
             Dict.toList facts.boolAttributes
-                |> List.map (\( k, v ) -> "Html.Attributes.property \"" ++ k ++ "\" <| Json.Encode.bool " ++ (if v then "True" else "False"))
+                |> List.map
+                    (\( k, v ) ->
+                        "Html.Attributes.property \"" ++ k ++ "\" <| Json.Encode.bool "
+                            ++ (if v then
+                                    "True"
+
+                                else
+                                    "False"
+                               )
+                    )
                 |> String.join " "
                 |> Just
     in

@@ -20,9 +20,11 @@ eventKey : String
 eventKey =
     "a0"
 
+
 propertyKey : String
 propertyKey =
     "a2"
+
 
 {-| Internal key for attributes
 -}

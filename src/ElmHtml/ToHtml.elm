@@ -49,7 +49,7 @@ toHtml elmHtml =
 stylesToAttribute : Dict String String -> List (Html.Attribute msg)
 stylesToAttribute =
     Dict.toList
-        >> (List.map (\(k, v) -> Html.Attributes.style k v))
+        >> List.map (\( k, v ) -> Html.Attributes.style k v)
 
 
 eventsToAttributes : Dict String (Json.Decode.Decoder msg) -> List (Html.Attribute msg)
