@@ -1,4 +1,7 @@
-module Path exposing (Path, join, toAbsolute)
+module Path exposing
+    ( Path, join, fromString
+    , toAbsolute
+    )
 
 {-| Represents the path portion of a URL (not query parameters, fragment, protocol, port, etc.).
 
@@ -14,7 +17,15 @@ second does not.
         |> Path.toAbsolute
     --> "/blog/post-1"
 
-@docs Path, join, toAbsolute
+
+## Creating Paths
+
+@docs Path, join, fromString
+
+
+## Turning Paths to String
+
+@docs toAbsolute
 
 -}
 
@@ -28,6 +39,20 @@ join parts =
     parts
         |> List.map normalize
         |> String.join "/"
+        |> Path
+
+
+{-| Create a Path from a path String.
+
+    Path.fromString "blog/post-1/"
+        |> Path.toAbsolute
+        |> Expect.equal "/blog/post-1"
+
+-}
+fromString : String -> Path
+fromString path =
+    path
+        |> normalize
         |> Path
 
 

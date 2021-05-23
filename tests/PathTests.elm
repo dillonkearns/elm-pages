@@ -22,4 +22,14 @@ all =
                 Path.join [ "a/", "/b/", "/c/d/e/" ]
                     |> Path.toAbsolute
                     |> Expect.equal "/a/b/c/d/e"
+        , test "fromString with trailing and leading" <|
+            \() ->
+                Path.fromString "/blog/post-1/"
+                    |> Path.toAbsolute
+                    |> Expect.equal "/blog/post-1"
+        , test "fromString without trailing and leading" <|
+            \() ->
+                Path.fromString "blog/post-1"
+                    |> Path.toAbsolute
+                    |> Expect.equal "/blog/post-1"
         ]
