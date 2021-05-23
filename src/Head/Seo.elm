@@ -52,7 +52,6 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 import Head
 import Head.Twitter as Twitter
 import Pages.ImagePath exposing (ImagePath)
-import Pages.PagePath exposing (PagePath)
 
 
 {-| Will be displayed as a large card in twitter
@@ -65,7 +64,7 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summaryLarge :
-    { canonicalUrlOverride : Maybe PagePath
+    { canonicalUrlOverride : Maybe String
     , siteName : String
     , image : Image
     , description : String
@@ -87,7 +86,7 @@ If you want one of those, use `audioPlayer` or `videoPlayer`
 
 -}
 summary :
-    { canonicalUrlOverride : Maybe PagePath
+    { canonicalUrlOverride : Maybe String
     , siteName : String
     , image : Image
     , description : String
@@ -107,7 +106,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 audioPlayer :
-    { canonicalUrlOverride : Maybe PagePath
+    { canonicalUrlOverride : Maybe String
     , siteName : String
     , image : Image
     , description : String
@@ -150,7 +149,7 @@ The options will also be used to build up the appropriate OpenGraph `<meta>` tag
 
 -}
 videoPlayer :
-    { canonicalUrlOverride : Maybe PagePath
+    { canonicalUrlOverride : Maybe String
     , siteName : String
     , image : Image
     , description : String
@@ -186,7 +185,7 @@ videoPlayer { title, image, canonicalUrlOverride, description, siteName, video, 
 
 
 buildSummary :
-    { canonicalUrlOverride : Maybe PagePath
+    { canonicalUrlOverride : Maybe String
     , siteName : String
     , image : Image
     , description : String
@@ -297,7 +296,7 @@ Skipping this for now, if there's a use case I can add it in:
 type alias Common =
     { title : String
     , image : Image
-    , canonicalUrlOverride : Maybe PagePath
+    , canonicalUrlOverride : Maybe String
     , description : String
     , siteName : String
     , audio : Maybe Audio
@@ -314,7 +313,7 @@ tagsForCommon common =
         ++ (common.audio |> Maybe.map tagsForAudio |> Maybe.withDefault [])
         ++ (common.video |> Maybe.map tagsForVideo |> Maybe.withDefault [])
         ++ [ ( "og:title", Just (Head.raw common.title) )
-           , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.fullPageUrl |> Maybe.withDefault Head.currentPageFullUrl |> Just )
+           , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.raw |> Maybe.withDefault Head.currentPageFullUrl |> Just )
            , ( "og:description", Just (Head.raw common.description) )
            , ( "og:site_name", Just (Head.raw common.siteName) )
            , ( "og:locale", common.locale |> Maybe.map Head.raw )

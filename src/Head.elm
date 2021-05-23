@@ -48,7 +48,7 @@ import LanguageTag exposing (LanguageTag)
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Internal.String as String
-import Pages.PagePath as PagePath exposing (PagePath)
+import Path exposing (Path)
 
 
 {-| Values that can be passed to the generated `Pages.application` config
@@ -176,9 +176,9 @@ fullImageUrl value =
 
 {-| Create an `AttributeValue` from a `PagePath`.
 -}
-fullPageUrl : PagePath -> AttributeValue
+fullPageUrl : Path -> AttributeValue
 fullPageUrl value =
-    FullUrl (PagePath.toString value)
+    FullUrl (Path.toAbsolute value)
 
 
 {-| Create an `AttributeValue` representing the current page's full url.
@@ -210,12 +210,12 @@ Example:
     Head.canonicalLink "https://elm-pages.com"
 
 -}
-canonicalLink : Maybe PagePath -> Tag
+canonicalLink : Maybe String -> Tag
 canonicalLink maybePath =
     node "link"
         [ ( "rel", raw "canonical" )
         , ( "href"
-          , maybePath |> Maybe.map fullPageUrl |> Maybe.withDefault currentPageFullUrl
+          , maybePath |> Maybe.map raw |> Maybe.withDefault currentPageFullUrl
           )
         ]
 
