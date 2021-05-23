@@ -7,7 +7,6 @@ import DataSource.Glob as Glob
 import Date exposing (Date)
 import OptimizedDecoder
 import Pages.ImagePath exposing (ImagePath)
-import Pages.PagePath as PagePath exposing (PagePath)
 import Route
 
 

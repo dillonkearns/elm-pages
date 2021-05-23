@@ -17,7 +17,6 @@ import Markdown.Renderer
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath exposing (ImagePath)
-import Pages.PagePath as PagePath exposing (PagePath)
 import Path
 import Rss
 import SiteOld
