@@ -2,7 +2,6 @@ module Page.Blog.Slug_ exposing (Data, Model, Msg, page, toRssItem)
 
 import Article
 import Cloudinary
-import Css
 import Data.Author as Author exposing (Author)
 import DataSource
 import DataSource.File as StaticFile
@@ -16,7 +15,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.Url
 import Path
 import Rss
 import SiteOld
@@ -37,16 +36,6 @@ type alias Msg =
 
 type alias RouteParams =
     { slug : String }
-
-
-type alias BlogPost =
-    { title : String
-    , description : String
-    , published : Date
-    , author : Author
-    , image : ImagePath
-    , draft : Bool
-    }
 
 
 page : Page RouteParams Data
@@ -138,7 +127,7 @@ authorView author static =
             ]
         ]
         [ img
-            [ Attr.src (author.avatar |> ImagePath.toString)
+            [ Attr.src (author.avatar |> Pages.Url.toString)
             , css
                 [ Tw.rounded_full
                 , Tw.h_10
@@ -198,7 +187,7 @@ head static =
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
             , url = SiteOld.canonicalUrl ++ Path.toAbsolute static.path
-            , imageUrl = SiteOld.canonicalUrl ++ "/" ++ ImagePath.toString metadata.image
+            , imageUrl = metadata.image
             , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =
                 StructuredData.softwareSourceCode
@@ -262,7 +251,7 @@ type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , image : ImagePath
+    , image : Pages.Url.Url
     , draft : Bool
     }
 
@@ -288,7 +277,7 @@ frontmatterDecoder =
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder ImagePath
+imageDecoder : OptimizedDecoder.Decoder Pages.Url.Url
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

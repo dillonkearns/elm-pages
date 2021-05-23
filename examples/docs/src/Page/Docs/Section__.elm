@@ -19,6 +19,7 @@ import NextPrevious
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
+import Pages.Url
 import Shared
 import TableOfContents
 import Tailwind.Breakpoints as Bp
@@ -169,7 +170,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

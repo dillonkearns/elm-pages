@@ -51,7 +51,7 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 
 import Head
 import Head.Twitter as Twitter
-import Pages.ImagePath exposing (ImagePath)
+import Pages.Url
 
 
 {-| Will be displayed as a large card in twitter
@@ -408,7 +408,7 @@ type alias MimeType =
 {-| See <https://ogp.me/#structured>
 -}
 type alias Image =
-    { url : ImagePath
+    { url : Pages.Url.Url
     , alt : String
     , dimensions : Maybe { width : Int, height : Int }
     , mimeType : Maybe MimeType
@@ -417,8 +417,8 @@ type alias Image =
 
 tagsForImage : Image -> List ( String, Maybe Head.AttributeValue )
 tagsForImage image =
-    [ ( "og:image", Just (Head.fullImageUrl image.url) )
-    , ( "og:image:secure_url", Just (Head.fullImageUrl image.url) )
+    [ ( "og:image", Just (Head.urlAttribute image.url) )
+    , ( "og:image:secure_url", Just (Head.urlAttribute image.url) )
     , ( "og:image:alt", image.alt |> Head.raw |> Just )
     , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )

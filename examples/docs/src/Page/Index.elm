@@ -8,7 +8,8 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Link
 import Page exposing (Page, StaticPayload)
-import Pages.ImagePath as ImagePath
+import Pages.Url
+import Path
 import Route exposing (Route)
 import SiteOld
 import Svg.Styled exposing (path, svg)
@@ -72,7 +73,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "images", "icon-png.png" ]
+            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

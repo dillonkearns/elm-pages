@@ -6,7 +6,7 @@ import DataSource.File as StaticFile
 import DataSource.Glob as Glob
 import Date exposing (Date)
 import OptimizedDecoder
-import Pages.ImagePath exposing (ImagePath)
+import Pages.Url exposing (Url)
 import Route
 
 
@@ -59,7 +59,7 @@ type alias ArticleMetadata =
     { title : String
     , description : String
     , published : Date
-    , image : ImagePath
+    , image : Url
     , draft : Bool
     }
 
@@ -89,7 +89,7 @@ frontmatterDecoder =
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder ImagePath
+imageDecoder : OptimizedDecoder.Decoder Url
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

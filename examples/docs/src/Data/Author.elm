@@ -3,12 +3,12 @@ module Data.Author exposing (Author, all, decoder, dillon)
 import Cloudinary
 import Json.Decode as Decode exposing (Decoder)
 import List.Extra
-import Pages.ImagePath exposing (ImagePath)
+import Pages.Url exposing (Url)
 
 
 type alias Author =
     { name : String
-    , avatar : ImagePath
+    , avatar : Url
     , bio : String
     }
 

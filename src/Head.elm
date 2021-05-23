@@ -3,9 +3,10 @@ module Head exposing
     , rssLink, sitemapLink, rootLanguage
     , structuredData
     , AttributeValue
-    , currentPageFullUrl, fullImageUrl, fullPageUrl, raw
+    , currentPageFullUrl, raw
     , appleTouchIcon, icon
     , toJson, canonicalLink
+    , urlAttribute
     )
 
 {-| This module contains low-level functions for building up
@@ -46,9 +47,8 @@ writing a plugin package to extend `elm-pages`.
 import Json.Encode
 import LanguageTag exposing (LanguageTag)
 import MimeType
-import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Internal.String as String
-import Path exposing (Path)
+import Pages.Url
 
 
 {-| Values that can be passed to the generated `Pages.application` config
@@ -169,16 +169,9 @@ raw value =
 
 {-| Create an `AttributeValue` from an `ImagePath`.
 -}
-fullImageUrl : ImagePath -> AttributeValue
-fullImageUrl value =
-    FullImageUrl value
-
-
-{-| Create an `AttributeValue` from a `PagePath`.
--}
-fullPageUrl : Path -> AttributeValue
-fullPageUrl value =
-    FullUrl (Path.toAbsolute value)
+urlAttribute : Pages.Url.Url -> AttributeValue
+urlAttribute value =
+    FullUrl value
 
 
 {-| Create an `AttributeValue` representing the current page's full url.
@@ -197,8 +190,7 @@ currentPageFullUrl =
 -}
 type AttributeValue
     = Raw String
-    | FullUrl String
-    | FullImageUrl ImagePath
+    | FullUrl Pages.Url.Url
     | FullUrlToCurrentPage
 
 
@@ -241,8 +233,8 @@ rssLink url =
 
 
 {-| -}
-icon : List ( Int, Int ) -> MimeType.MimeImage -> ImagePath -> Tag
-icon sizes imageMimeType image =
+icon : List ( Int, Int ) -> MimeType.MimeImage -> Pages.Url.Url -> Tag
+icon sizes imageMimeType imageUrl =
     -- TODO allow "any" for sizes value
     [ ( "rel", raw "icon" |> Just )
     , ( "sizes"
@@ -252,7 +244,7 @@ icon sizes imageMimeType image =
             |> Maybe.map raw
       )
     , ( "type", imageMimeType |> MimeType.Image |> MimeType.toString |> raw |> Just )
-    , ( "href", fullImageUrl image |> Just )
+    , ( "href", urlAttribute imageUrl |> Just )
     ]
         |> filterMaybeValues
         |> node "link"
@@ -275,15 +267,15 @@ If a size is provided, it will be turned into square dimensions as per the recom
 Images must be png's, and non-transparent images are recommended. Current recommended dimensions are 180px and 192px.
 
 -}
-appleTouchIcon : Maybe Int -> ImagePath -> Tag
-appleTouchIcon maybeSize image =
+appleTouchIcon : Maybe Int -> Pages.Url.Url -> Tag
+appleTouchIcon maybeSize imageUrl =
     [ ( "rel", raw "apple-touch-icon" |> Just )
     , ( "sizes"
       , maybeSize
             |> Maybe.map (\size -> sizesToString [ ( size, size ) ])
             |> Maybe.map raw
       )
-    , ( "href", fullImageUrl image |> Just )
+    , ( "href", urlAttribute imageUrl |> Just )
     ]
         |> filterMaybeValues
         |> node "link"
@@ -437,14 +429,11 @@ encodeProperty canonicalSiteUrl currentPagePath ( name, value ) =
         Raw rawValue ->
             Json.Encode.list Json.Encode.string [ name, rawValue ]
 
-        FullUrl urlPath ->
-            Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl urlPath ]
-
         FullUrlToCurrentPage ->
             Json.Encode.list Json.Encode.string [ name, joinPaths canonicalSiteUrl currentPagePath ]
 
-        FullImageUrl imagePath ->
-            Json.Encode.list Json.Encode.string [ name, ImagePath.toAbsoluteUrl canonicalSiteUrl imagePath ]
+        FullUrl url ->
+            Json.Encode.list Json.Encode.string [ name, Pages.Url.toAbsoluteUrl canonicalSiteUrl url ]
 
 
 joinPaths : String -> String -> String

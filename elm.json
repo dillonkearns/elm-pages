@@ -10,7 +10,7 @@
         "Path",
         "OptimizedDecoder",
         "OptimizedDecoder.Pipeline",
-        "Pages.ImagePath",
+        "Pages.Url",
         "DataSource",
         "DataSource.Glob",
         "DataSource.Http",

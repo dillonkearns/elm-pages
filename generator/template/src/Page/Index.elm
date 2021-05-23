@@ -5,7 +5,7 @@ import View exposing (View)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, StaticPayload)
-import Pages.ImagePath as ImagePath
+import Pages.Url
 
 
 type alias Model =
@@ -42,7 +42,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

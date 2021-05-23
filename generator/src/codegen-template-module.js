@@ -32,7 +32,7 @@ function fileContentWithParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
 import View exposing (View)
-import Pages.ImagePath as ImagePath
+import Pages.Url
 import Head
 import Head.Seo as Seo
 import DataSource exposing (DataSource)
@@ -79,7 +79,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
@@ -110,7 +110,7 @@ function fileContentWithoutParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
 import View exposing (View)
-import Pages.ImagePath as ImagePath
+import Pages.Url
 import Head
 import Head.Seo as Seo
 import DataSource exposing (DataSource)
@@ -151,7 +151,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

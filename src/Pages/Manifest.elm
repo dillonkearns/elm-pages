@@ -61,6 +61,7 @@ import LanguageTag.Language
 import MimeType
 import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
+import Pages.Url
 import Path exposing (Path)
 
 
@@ -237,7 +238,7 @@ type alias Config =
 {-| <https://developer.mozilla.org/en-US/docs/Web/Manifest/icons>
 -}
 type alias Icon =
-    { src : ImagePath
+    { src : Pages.Url.Url
     , sizes : List ( Int, Int )
     , mimeType : Maybe MimeType.MimeImage
     , purposes : List IconPurpose
@@ -271,7 +272,7 @@ displayModeToAttribute displayMode =
 encodeIcon : String -> Icon -> Encode.Value
 encodeIcon canonicalSiteUrl icon =
     encodeMaybeObject
-        [ ( "src", icon.src |> ImagePath.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )
+        [ ( "src", icon.src |> Pages.Url.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )
         , ( "type", icon.mimeType |> Maybe.map MimeType.Image |> Maybe.map MimeType.toString |> Maybe.map Encode.string )
         , ( "sizes", icon.sizes |> nonEmptyList |> Maybe.map sizesString |> Maybe.map Encode.string )
         , ( "purpose", icon.purposes |> nonEmptyList |> Maybe.map purposesString |> Maybe.map Encode.string )

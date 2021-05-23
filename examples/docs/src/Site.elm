@@ -4,9 +4,8 @@ import Cloudinary
 import DataSource exposing (DataSource)
 import Head
 import MimeType
-import Pages.ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
-import Pages.PagePath as PagePath
+import Pages.Url
 import Route
 import SiteConfig exposing (SiteConfig)
 
@@ -90,6 +89,6 @@ icon format width =
 cloudinaryIcon :
     MimeType.MimeImage
     -> Int
-    -> ImagePath
+    -> Pages.Url.Url
 cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width

@@ -7,7 +7,8 @@ import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css, href)
 import Page exposing (PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
+import Pages.Url
+import Path
 import Showcase
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -86,7 +87,7 @@ head staticPayload =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "images", "icon-png.png" ]
+            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

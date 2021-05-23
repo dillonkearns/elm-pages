@@ -11,6 +11,8 @@ import Html.Styled.Attributes exposing (css)
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.ImagePath as ImagePath
+import Pages.Url
+import Path
 import Secrets
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -116,7 +118,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

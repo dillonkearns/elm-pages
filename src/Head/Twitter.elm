@@ -1,7 +1,7 @@
 module Head.Twitter exposing (SummarySize(..), TwitterCard(..), rawTags)
 
 import Head
-import Pages.ImagePath exposing (ImagePath)
+import Pages.Url
 
 
 type SummarySize
@@ -10,7 +10,7 @@ type SummarySize
 
 
 type alias Image =
-    { url : ImagePath
+    { url : Pages.Url.Url
     , alt : String
     }
 
@@ -59,7 +59,7 @@ rawTags card =
                     [ ( "twitter:title", details.title |> Head.raw |> Just )
                     , ( "twitter:site", details.siteUser |> Maybe.map Head.raw )
                     , ( "twitter:description", details.description |> Maybe.map Head.raw )
-                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.fullImageUrl )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.urlAttribute )
                     , ( "twitter:image:alt", details.image |> Maybe.map .alt |> Maybe.map Head.raw )
                     ]
 
@@ -67,7 +67,7 @@ rawTags card =
                     [ ( "twitter:title", details.title |> Head.raw |> Just )
                     , ( "twitter:site", details.siteUser |> Head.raw |> Just )
                     , ( "twitter:description", details.description |> Maybe.map Head.raw )
-                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.fullImageUrl )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.urlAttribute )
                     , ( "twitter:image:alt", details.image |> Maybe.map .alt |> Maybe.map Head.raw )
                     , ( "twitter:app:name:iphone", details.appNameIphone |> Maybe.map Head.raw )
                     , ( "twitter:app:name:ipad", details.appNameIpad |> Maybe.map Head.raw )
@@ -85,7 +85,7 @@ rawTags card =
                     [ ( "twitter:title", details.title |> Head.raw |> Just )
                     , ( "twitter:site", details.siteUser |> Head.raw |> Just )
                     , ( "twitter:description", details.description |> Maybe.map Head.raw )
-                    , ( "twitter:image", Just (Head.fullImageUrl details.image.url) )
+                    , ( "twitter:image", Just (Head.urlAttribute details.image.url) )
                     , ( "twitter:image:alt", details.image.alt |> Head.raw |> Just )
                     ]
            )
