@@ -1,12 +1,10 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
-import Shared
+import Pages.Url
 import View exposing (View)
 
 
@@ -44,7 +42,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = ImagePath.build [ "TODO" ]
+            { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
@@ -64,4 +62,4 @@ view :
     StaticPayload Data RouteParams
     -> View Msg
 view static =
-    Document.placeholder "Index"
+    View.placeholder "Index"
