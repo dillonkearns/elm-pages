@@ -20,6 +20,7 @@ import Pages.PagePath as PagePath
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttp.Request as Request
 import PagesHttp
+import Path
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
@@ -857,11 +858,7 @@ startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
                             pages
                                 |> Dict.fromList
                                 |> Dict.get
-                                    (page.path
-                                        |> PagePath.toString
-                                        |> String.split "/"
-                                        |> List.filter (\pathPart -> pathPart /= "")
-                                    )
+                                    (page.path |> Path.toSegments)
                     in
                     case thing of
                         Just _ ->
