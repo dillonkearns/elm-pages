@@ -1,13 +1,9 @@
 module Page.SPLAT__ exposing (Data, Model, Msg, page)
 
 import DataSource
-import Element exposing (Element)
 import Head
-import Head.Seo as Seo
 import Html.Styled exposing (text)
 import Page exposing (Page, PageWithState, StaticPayload)
-import Pages.ImagePath as ImagePath
-import Shared
 import View exposing (View)
 
 
