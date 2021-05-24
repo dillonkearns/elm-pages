@@ -42,4 +42,24 @@ all =
                             [ ( "q", [ "mySearch1", "mySearch2" ] )
                             ]
                         )
+        , test "oneOf with no parsers" <|
+            \() ->
+                "q=mySearch1&q=mySearch2"
+                    |> QueryParams.fromString
+                    |> QueryParams.parse (QueryParams.oneOf [])
+                    |> Expect.equal (Err "")
+        , test "oneOf with two parsers" <|
+            \() ->
+                "first=Jane&last=Doe"
+                    |> QueryParams.fromString
+                    |> QueryParams.parse
+                        (QueryParams.oneOf
+                            [ QueryParams.string "fullName"
+                            , QueryParams.map2
+                                (\first last -> first ++ " " ++ last)
+                                (QueryParams.string "first")
+                                (QueryParams.string "last")
+                            ]
+                        )
+                    |> Expect.equal (Ok "Jane Doe")
         ]

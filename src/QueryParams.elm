@@ -1,4 +1,4 @@
-module QueryParams exposing (Parser, QueryParams, fromString, optionalString, parse, string, strings, toDict)
+module QueryParams exposing (Parser, QueryParams, fail, fromString, map2, oneOf, optionalString, parse, string, strings, succeed, toDict)
 
 import Dict exposing (Dict)
 import Url
@@ -10,6 +10,44 @@ type QueryParams
 
 type Parser a
     = Parser (Dict String (List String) -> Result String a)
+
+
+succeed : a -> Parser a
+succeed value =
+    Parser (\_ -> Ok value)
+
+
+fail : String -> Parser a
+fail errorMessage =
+    Parser (\_ -> Err errorMessage)
+
+
+oneOf : List (Parser a) -> Parser a
+oneOf parsers =
+    Parser
+        (tryParser parsers)
+
+
+tryParser : List (Parser a) -> Dict String (List String) -> Result String a
+tryParser parsers dict =
+    case parsers of
+        [] ->
+            Err ""
+
+        (Parser nextParser) :: otherParsers ->
+            case nextParser dict of
+                Ok okValue ->
+                    Ok okValue
+
+                Err _ ->
+                    tryParser otherParsers dict
+
+
+map2 : (a -> b -> combined) -> Parser a -> Parser b -> Parser combined
+map2 func (Parser a) (Parser b) =
+    Parser <|
+        \dict ->
+            Result.map2 func (a dict) (b dict)
 
 
 optionalString : String -> Parser (Maybe String)
