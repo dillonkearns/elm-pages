@@ -25,7 +25,7 @@ and passing in data from your content's metadata.
 
 The metadata is just Elm data that you define
 however you want, using a Json Decoder to grab
-data out of your markdown frontmatter.
+data out of your markdown formatter.
 
 ```elm
 import MyMetadata exposing (MyMetadata)
