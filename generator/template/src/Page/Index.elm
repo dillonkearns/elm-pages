@@ -1,11 +1,13 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import View exposing (View)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Shared
+import View exposing (View)
 
 
 type alias Model =
@@ -59,7 +61,9 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
     -> View Msg
-view static =
-    Document.placeholder "Index"
+view maybeUrl sharedModel static =
+    View.placeholder "Index"
