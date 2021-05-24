@@ -2,16 +2,14 @@ module QueryParams exposing (Parser, QueryParams, fromString, optionalString, pa
 
 import Dict exposing (Dict)
 import Url
-import Url.Parser exposing ((<?>))
-import Url.Parser.Query
 
 
 type QueryParams
     = QueryParams String
 
 
-type alias Parser a =
-    Url.Parser.Query.Parser (Result String a)
+type Parser a
+    = Parser (Dict String (List String) -> Result String a)
 
 
 optionalString : String -> Parser (Maybe String)
@@ -42,7 +40,9 @@ string key =
 
 custom : String -> (List String -> Result String a) -> Parser a
 custom key customFn =
-    Url.Parser.Query.custom key customFn
+    Parser <|
+        \dict ->
+            customFn (Maybe.withDefault [] (Dict.get key dict))
 
 
 strings : String -> Parser (List String)
@@ -56,18 +56,11 @@ fromString =
     QueryParams
 
 
-parse : Url.Parser.Query.Parser (Result String a) -> QueryParams -> Result String a
-parse queryParser (QueryParams queryParams) =
-    Url.Parser.parse (Url.Parser.top <?> queryParser)
-        { protocol = Url.Https
-        , host = ""
-        , port_ = Nothing
-        , path = "/"
-        , query = Just queryParams
-        , fragment = Nothing
-        }
-        |> Result.fromMaybe "Top-level parser failed unexpectedly."
-        |> Result.andThen identity
+parse : Parser a -> QueryParams -> Result String a
+parse (Parser queryParser) queryParams =
+    queryParams
+        |> toDict
+        |> queryParser
 
 
 toDict : QueryParams -> Dict String (List String)
