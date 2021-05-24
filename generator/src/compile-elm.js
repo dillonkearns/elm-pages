@@ -4,7 +4,11 @@ const path = require("path");
 const kleur = require("kleur");
 const debug = true;
 const { inject } = require("elm-hot");
-const pathToClientElm = path.join(process.cwd(), "browser-elm.js");
+const pathToClientElm = path.join(
+  process.cwd(),
+  "elm-stuff/elm-pages/",
+  "browser-elm.js"
+);
 
 async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
   const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
