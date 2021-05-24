@@ -8,6 +8,8 @@
         "Head",
         "Head.Seo",
         "Path",
+        "Pages.PageUrl",
+        "QueryParams",
         "OptimizedDecoder",
         "OptimizedDecoder.Pipeline",
         "Pages.Url",

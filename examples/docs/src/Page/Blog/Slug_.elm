@@ -15,6 +15,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Rss
@@ -60,9 +61,10 @@ routes =
 
 
 view :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> StaticPayload Data RouteParams
     -> View Msg
-view static =
+view maybeUrl static =
     { title = static.data.metadata.title
     , body =
         let

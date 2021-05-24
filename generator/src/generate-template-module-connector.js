@@ -57,8 +57,11 @@ import Shared
 import Site
 import Head
 import Html exposing (Html)
+import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import Url
 import DataSource exposing (DataSource)
+import QueryParams
 
 ${templates.map((name) => `import Page.${name.join(".")}`).join("\n")}
 
@@ -74,6 +77,7 @@ type alias Model =
                 , fragment : Maybe String
                 }
             , metadata : Maybe Route
+            , pageUrl : Maybe PageUrl
             }
     }
 
@@ -93,7 +97,10 @@ type PageModel
 type Msg
     = MsgGlobal Shared.Msg
     | OnPageChange
-        { path : Path
+        { protocol : Url.Protocol
+        , host : String
+        , port_ : Maybe Int
+        , path : Path
         , query : Maybe String
         , fragment : Maybe String
         , metadata : Maybe Route
@@ -121,13 +128,14 @@ view :
     { path : Path
     , frontmatter : Maybe Route
     }
+    -> Maybe PageUrl
     -> Shared.Data
     -> PageData
     ->
         { view : Model -> { title : String, body : Html Msg }
         , head : List Head.Tag
         }
-view page globalData pageData =
+view page maybePageUrl globalData pageData =
     case ( page.frontmatter, pageData ) of
         ${templates
           .map(
@@ -140,6 +148,7 @@ view page globalData pageData =
                           case model.page of
                               Model${pathNormalizedName(name)} subModel ->
                                   Page.${moduleName(name)}.page.view
+                                      maybePageUrl
                                       subModel
                                       model.global
                                       { data = data
@@ -201,6 +210,7 @@ init :
                 , fragment : Maybe String
                 }
             , metadata : Maybe Route
+            , pageUrl : Maybe PageUrl
             }
     -> ( Model, Cmd Msg )
 init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePath =
@@ -218,6 +228,7 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                       name
                     )} thisPageData ) ->
                     Page.${moduleName(name)}.page.init
+                        (Maybe.andThen .pageUrl maybePagePath)
                         { data = thisPageData
                         , sharedData = sharedData
                         , routeParams = routeParams
@@ -265,6 +276,15 @@ update sharedData pageData navigationKey msg model =
                         , fragment = record.fragment
                         }
                     , metadata = record.metadata
+                    , pageUrl =
+                        Just
+                            { protocol = record.protocol
+                            , host = record.host
+                            , port_ = record.port_
+                            , path = record.path
+                            , query = record.query |> Maybe.map QueryParams.fromString
+                            , fragment = record.fragment
+                            }
                     }
             )
                 |> (\\( updatedModel, cmd ) ->
@@ -298,15 +318,16 @@ update sharedData pageData navigationKey msg model =
         Msg${pathNormalizedName(name)} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
-                    case ( model.page, pageData, Maybe.map2 Tuple.pair (model.current |> Maybe.andThen .metadata) (model.current |> Maybe.map .path) ) of
+                    case ( model.page, pageData, Maybe.map3 (\\a b c -> ( a, b, c )) (model.current |> Maybe.andThen .metadata) (model.current |> Maybe.andThen .pageUrl) (model.current |> Maybe.map .path) ) of
                         ( Model${pathNormalizedName(
                           name
                         )} pageModel, Data${pathNormalizedName(
               name
             )} thisPageData, Just ( (Route.${routeHelpers.routeVariant(
               name
-            )} routeParams), justPage ) ) ->
+            )} routeParams), pageUrl, justPage ) ) ->
                             Page.${moduleName(name)}.page.update
+                                pageUrl
                                 { data = thisPageData
                                 , sharedData = sharedData
                                 , routeParams = routeParams
@@ -356,6 +377,7 @@ templateSubscriptions route path model =
               name
             )} routeParams) ) ->
             Page.${moduleName(name)}.page.subscriptions
+                Nothing -- TODO wire through value
                 routeParams
                 path
                 templateModel

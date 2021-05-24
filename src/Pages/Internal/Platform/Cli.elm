@@ -913,15 +913,16 @@ sendSinglePageProgress toJsPayload config model =
                                                                 , fragment = Nothing
                                                                 }
                                                             , metadata = currentPage.frontmatter
+                                                            , pageUrl = Nothing
                                                             }
                                                         )
                                                         |> Tuple.first
 
                                                 viewValue : { title : String, body : Html userMsg }
                                                 viewValue =
-                                                    (config.view currentPage sharedData pageData |> .view) pageModel
+                                                    (config.view currentPage Nothing sharedData pageData |> .view) pageModel
                                             in
-                                            { head = config.view currentPage sharedData pageData |> .head
+                                            { head = config.view currentPage Nothing sharedData pageData |> .head
                                             , view = viewValue.body |> HtmlPrinter.htmlToString
                                             , title = viewValue.title
                                             }
@@ -1051,17 +1052,18 @@ sendSinglePageProgress toJsPayload config model =
                                             , fragment = Nothing
                                             }
                                         , metadata = currentPage.frontmatter
+                                        , pageUrl = Nothing
                                         }
                                     )
                                     |> Tuple.first
 
                             viewValue : { title : String, body : Html userMsg }
                             viewValue =
-                                (config.view currentPage sharedData pageData |> .view) pageModel
+                                (config.view currentPage Nothing sharedData pageData |> .view) pageModel
 
                             headTags : List Head.Tag
                             headTags =
-                                (config.view currentPage sharedData pageData |> .head)
+                                (config.view currentPage Nothing sharedData pageData |> .head)
                                     ++ (siteData |> (config.site allRoutes |> .head))
                         in
                         { route = page |> Path.toRelative

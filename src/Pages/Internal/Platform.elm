@@ -16,6 +16,7 @@ import Pages.Internal.String as String
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
+import QueryParams
 import RequestsAndPending exposing (RequestsAndPending)
 import Task
 import Url exposing (Url)
@@ -49,6 +50,7 @@ mainView config model =
                     { path = ContentCache.pathForUrl urls |> Path.join
                     , frontmatter = config.urlToRoute model.url
                     }
+                    Nothing
                     pageData.sharedData
                     pageData.pageData
                     |> .view
@@ -210,6 +212,15 @@ init config flags url key =
                                     , fragment = url.fragment
                                     }
                                 , metadata = config.urlToRoute url
+                                , pageUrl =
+                                    Just
+                                        { protocol = url.protocol
+                                        , host = url.host
+                                        , port_ = url.port_
+                                        , path = pagePath
+                                        , query = url.query |> Maybe.map QueryParams.fromString
+                                        , fragment = url.fragment
+                                        }
                                 }
                                 |> config.init userFlags sharedData pageData (Just key)
 
@@ -345,7 +356,10 @@ update config appMsg model =
                                         pageData.pageData
                                         (Just model.key)
                                         (config.onPageChange
-                                            { path = urlToPath url model.baseUrl
+                                            { protocol = model.url.protocol
+                                            , host = model.url.host
+                                            , port_ = model.url.port_
+                                            , path = urlToPath url model.baseUrl
                                             , query = url.query
                                             , fragment = url.fragment
                                             , metadata = config.urlToRoute url
@@ -432,7 +446,10 @@ update config appMsg model =
                                 (updatedPageStaticData |> Result.withDefault pageData.pageData)
                                 (Just model.key)
                                 (config.onPageChange
-                                    { path = urlToPath url model.baseUrl
+                                    { protocol = model.url.protocol
+                                    , host = model.url.host
+                                    , port_ = model.url.port_
+                                    , path = urlToPath url model.baseUrl
                                     , query = url.query
                                     , fragment = url.fragment
                                     , metadata = config.urlToRoute url
@@ -496,7 +513,10 @@ update config appMsg model =
                                             pageData
                                             (Just model.key)
                                             (config.onPageChange
-                                                { path = urlToPath model.url model.baseUrl
+                                                { protocol = model.url.protocol
+                                                , host = model.url.host
+                                                , port_ = model.url.port_
+                                                , path = urlToPath model.url model.baseUrl
                                                 , query = model.url.query
                                                 , fragment = model.url.fragment
                                                 , metadata = config.urlToRoute model.url

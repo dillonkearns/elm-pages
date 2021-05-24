@@ -7,6 +7,7 @@ import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css, href)
 import Page exposing (PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Showcase
@@ -47,9 +48,10 @@ type alias Data =
 
 
 view :
-    StaticPayload Data {}
+    Maybe PageUrl
+    -> StaticPayload Data {}
     -> View Msg
-view static =
+view maybeUrl static =
     { title = "elm-pages blog"
     , body =
         [ div

@@ -47,9 +47,12 @@ But before the user even requests the page, we have the following data:
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import Head
+import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import QueryParams exposing (QueryParams)
 import ServerRequest exposing (ServerRequest)
 import Shared
+import Url
 import View exposing (View)
 
 
@@ -58,16 +61,17 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     { data : routeParams -> DataSource templateData
     , staticRoutes : DataSource (List routeParams)
     , view :
-        templateModel
+        Maybe PageUrl
+        -> templateModel
         -> Shared.Model
         -> StaticPayload templateData routeParams
         -> View templateMsg
     , head :
         StaticPayload templateData routeParams
         -> List Head.Tag
-    , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : Maybe PageUrl -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     , handleRoute : routeParams -> DataSource Bool
     }
 
@@ -102,7 +106,8 @@ type Builder routeParams templateData
 {-| -}
 buildNoState :
     { view :
-        StaticPayload templateData routeParams
+        Maybe PageUrl
+        -> StaticPayload templateData routeParams
         -> View Never
     }
     -> Builder routeParams templateData
@@ -110,13 +115,13 @@ buildNoState :
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
-            { view = \() _ -> view
+            { view = \maybePageUrl () _ -> view maybePageUrl
             , head = record.head
             , data = record.data
             , staticRoutes = record.staticRoutes
-            , init = \_ -> ( (), Cmd.none )
-            , update = \_ _ _ _ _ -> ( (), Cmd.none, Nothing )
-            , subscriptions = \_ _ _ _ -> Sub.none
+            , init = \_ _ -> ( (), Cmd.none )
+            , update = \_ _ _ _ _ _ -> ( (), Cmd.none, Nothing )
+            , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
             }
 
@@ -124,13 +129,14 @@ buildNoState { view } builderState =
 {-| -}
 buildWithLocalState :
     { view :
-        templateModel
+        Maybe PageUrl
+        -> templateModel
         -> Shared.Model
         -> StaticPayload templateData routeParams
         -> View templateMsg
-    , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
-    , subscriptions : routeParams -> Path -> templateModel -> Sub templateMsg
+    , init : Maybe PageUrl -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : PageUrl -> DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateData
     -> PageWithState routeParams templateData templateModel templateMsg
@@ -145,10 +151,11 @@ buildWithLocalState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \staticPayload navigationKey msg templateModel sharedModel ->
+                \pageUrl staticPayload navigationKey msg templateModel sharedModel ->
                     let
                         ( updatedModel, cmd ) =
                             config.update
+                                pageUrl
                                 { navigationKey = navigationKey
                                 , sharedModel = sharedModel
                                 }
@@ -158,8 +165,8 @@ buildWithLocalState config builderState =
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
-                \routeParams path templateModel sharedModel ->
-                    config.subscriptions routeParams path templateModel
+                \maybePageUrl routeParams path templateModel sharedModel ->
+                    config.subscriptions maybePageUrl routeParams path templateModel
             , handleRoute = record.handleRoute
             }
 
@@ -174,13 +181,14 @@ type alias DynamicContext shared =
 {-| -}
 buildWithSharedState :
     { view :
-        templateModel
+        Maybe PageUrl
+        -> templateModel
         -> Shared.Model
         -> StaticPayload templateData routeParams
         -> View templateMsg
-    , init : StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
-    , subscriptions : routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : Maybe PageUrl -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : PageUrl -> DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateData
     -> PageWithState routeParams templateData templateModel templateMsg
@@ -193,8 +201,8 @@ buildWithSharedState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \staticPayload navigationKey msg templateModel sharedModel ->
-                    config.update
+                \pageUrl staticPayload navigationKey msg templateModel sharedModel ->
+                    config.update pageUrl
                         { navigationKey = navigationKey
                         , sharedModel = sharedModel
                         }

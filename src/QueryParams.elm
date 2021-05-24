@@ -1,4 +1,4 @@
-module QueryParams exposing (Parser, QueryParams, andThen, fail, fromResult, fromString, map2, oneOf, optionalString, parse, string, strings, succeed, toDict)
+module QueryParams exposing (Parser, QueryParams, andThen, fail, fromResult, fromString, map2, oneOf, optionalString, parse, string, strings, succeed, toDict, toString)
 
 import Dict exposing (Dict)
 import Url
@@ -110,6 +110,11 @@ strings key =
 fromString : String -> QueryParams
 fromString =
     QueryParams
+
+
+toString : QueryParams -> String
+toString (QueryParams queryParams) =
+    queryParams
 
 
 parse : Parser a -> QueryParams -> Result String a

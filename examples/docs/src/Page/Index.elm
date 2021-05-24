@@ -8,6 +8,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Link
 import Page exposing (Page, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Route exposing (Route)
@@ -86,9 +87,10 @@ head static =
 
 
 view :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> StaticPayload Data RouteParams
     -> View Msg
-view static =
+view maybeUrl static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
     , body =
         [ landingView

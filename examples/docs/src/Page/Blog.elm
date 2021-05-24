@@ -8,6 +8,7 @@ import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Page exposing (DynamicContext, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Route exposing (Route)
@@ -32,7 +33,7 @@ page =
             { view = view
             , init = init
             , update = update
-            , subscriptions = \_ _ _ -> Sub.none
+            , subscriptions = \_ _ _ _ -> Sub.none
             }
 
 
@@ -46,9 +47,10 @@ type alias Data =
 
 
 init :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> StaticPayload Data RouteParams
     -> ( Model, Cmd Msg )
-init _ =
+init maybeUrl _ =
     ( Model, Cmd.none )
 
 
@@ -57,12 +59,13 @@ type alias RouteParams =
 
 
 update :
-    DynamicContext Shared.Model
+    PageUrl
+    -> DynamicContext Shared.Model
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update dynamic static msg model =
+update url dynamic static msg model =
     ( model, Cmd.none )
 
 
@@ -71,11 +74,12 @@ type alias Model =
 
 
 view :
-    Model
+    Maybe PageUrl
+    -> Model
     -> Shared.Model
     -> StaticPayload Data {}
     -> View Msg
-view thing model staticPayload =
+view maybeUrl thing model staticPayload =
     { title = "elm-pages blog"
     , body =
         [ div

@@ -7,6 +7,7 @@ import Html exposing (Html)
 import Html.Styled
 import Json.Decode
 import Pages.Flags
+import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
@@ -62,6 +63,7 @@ init :
                 , fragment : Maybe String
                 }
             , metadata : route
+            , pageUrl : Maybe PageUrl
             }
     -> ( Model, Cmd Msg )
 init navigationKey flags maybePagePath =

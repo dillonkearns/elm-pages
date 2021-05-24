@@ -18,6 +18,7 @@ import Markdown.Renderer
 import NextPrevious
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
 import TableOfContents
@@ -48,9 +49,9 @@ page =
         }
         |> Page.buildWithLocalState
             { view = view
-            , init = \_ -> ( (), Cmd.none )
-            , update = \_ _ _ _ -> ( (), Cmd.none )
-            , subscriptions = \_ _ _ -> Sub.none
+            , init = \_ _ -> ( (), Cmd.none )
+            , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , subscriptions = \_ _ _ _ -> Sub.none
             }
 
 
@@ -190,11 +191,12 @@ type alias Data =
 
 
 view :
-    Model
+    Maybe PageUrl
+    -> Model
     -> Shared.Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view model sharedModel static =
+view maybeUrl model sharedModel static =
     { title = static.data.titles.title ++ " - elm-pages docs"
     , body =
         [ Css.Global.global

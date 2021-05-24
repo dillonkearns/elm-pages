@@ -8,6 +8,7 @@ import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
 import Pages.Flags
+import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
 import Url exposing (Url)
@@ -27,6 +28,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
                     , fragment : Maybe String
                     }
                 , metadata : route
+                , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, Cmd userMsg )
     , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
@@ -37,6 +39,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         { path : Path
         , frontmatter : route
         }
+        -> Maybe PageUrl
         -> sharedData
         -> pageData
         ->
@@ -51,7 +54,10 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , onPageChange :
-        { path : Path
+        { protocol : Url.Protocol
+        , host : String
+        , port_ : Maybe Int
+        , path : Path
         , query : Maybe String
         , fragment : Maybe String
         , metadata : route

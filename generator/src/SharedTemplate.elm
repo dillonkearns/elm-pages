@@ -4,6 +4,7 @@ import Browser.Navigation
 import DataSource
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
+import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Route exposing (Route)
 import View exposing (View)
@@ -21,6 +22,7 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
                     , fragment : Maybe String
                     }
                 , metadata : Maybe Route
+                , pageUrl : Maybe PageUrl
                 }
         -> ( sharedModel, Cmd msg )
     , update : msg -> sharedModel -> ( sharedModel, Cmd msg )

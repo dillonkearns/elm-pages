@@ -7,6 +7,7 @@ import Head.Seo as Seo
 import Html.Styled as Html
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Secrets
@@ -67,9 +68,10 @@ head static =
 
 
 view :
-    StaticPayload Data {}
+    Maybe PageUrl
+    -> StaticPayload Data {}
     -> View msg
-view static =
+view maybeUrl static =
     { title = "TODO title"
     , body =
         [ Html.text static.data

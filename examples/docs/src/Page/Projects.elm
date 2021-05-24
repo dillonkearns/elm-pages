@@ -10,6 +10,7 @@ import Html.Styled exposing (div, text)
 import Html.Styled.Attributes exposing (css)
 import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Secrets
@@ -134,9 +135,10 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> StaticPayload Data RouteParams
     -> View Msg
-view static =
+view maybeUrl static =
     { title = "Projects"
     , body =
         [ div
