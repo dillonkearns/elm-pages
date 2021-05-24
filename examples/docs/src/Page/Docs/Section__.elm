@@ -49,8 +49,8 @@ page =
         }
         |> Page.buildWithLocalState
             { view = view
-            , init = \_ _ -> ( (), Cmd.none )
-            , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , init = \_ _ _ -> ( (), Cmd.none )
+            , update = \_ _ _ _ _ _ -> ( (), Cmd.none )
             , subscriptions = \_ _ _ _ -> Sub.none
             }
 
@@ -192,11 +192,11 @@ type alias Data =
 
 view :
     Maybe PageUrl
-    -> Model
     -> Shared.Model
+    -> Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl model sharedModel static =
+view maybeUrl sharedModel model static =
     { title = static.data.titles.title ++ " - elm-pages docs"
     , body =
         [ Css.Global.global

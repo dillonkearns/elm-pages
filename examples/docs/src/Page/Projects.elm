@@ -14,6 +14,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Secrets
+import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)
 
@@ -136,9 +137,10 @@ type alias Data =
 
 view :
     Maybe PageUrl
+    -> Shared.Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl static =
+view maybeUrl sharedModel static =
     { title = "Projects"
     , body =
         [ div

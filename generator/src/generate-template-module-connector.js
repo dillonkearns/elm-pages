@@ -149,8 +149,8 @@ view page maybePageUrl globalData pageData =
                               Model${pathNormalizedName(name)} subModel ->
                                   Page.${moduleName(name)}.page.view
                                       maybePageUrl
-                                      subModel
                                       model.global
+                                      subModel
                                       { data = data
                                       , sharedData = globalData
                                       , routeParams = s
@@ -229,6 +229,7 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                     )} thisPageData ) ->
                     Page.${moduleName(name)}.page.init
                         (Maybe.andThen .pageUrl maybePagePath)
+                        sharedModel
                         { data = thisPageData
                         , sharedData = sharedData
                         , routeParams = routeParams

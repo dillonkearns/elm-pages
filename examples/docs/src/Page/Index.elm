@@ -12,6 +12,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Route exposing (Route)
+import Shared
 import SiteOld
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
@@ -88,9 +89,10 @@ head static =
 
 view :
     Maybe PageUrl
+    -> Shared.Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl static =
+view maybeUrl sharedModel static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
     , body =
         [ landingView

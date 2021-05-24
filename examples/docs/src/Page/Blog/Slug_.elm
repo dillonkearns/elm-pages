@@ -19,6 +19,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Rss
+import Shared
 import SiteOld
 import StructuredData
 import Tailwind.Breakpoints as Bp
@@ -62,9 +63,10 @@ routes =
 
 view :
     Maybe PageUrl
+    -> Shared.Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl static =
+view maybeUrl sharedModel static =
     { title = static.data.metadata.title
     , body =
         let

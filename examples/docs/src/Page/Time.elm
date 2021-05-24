@@ -69,9 +69,10 @@ head static =
 
 view :
     Maybe PageUrl
+    -> Shared.Model
     -> StaticPayload Data {}
     -> View msg
-view maybeUrl static =
+view maybeUrl sharedModel static =
     { title = "TODO title"
     , body =
         [ Html.text static.data

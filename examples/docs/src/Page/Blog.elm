@@ -1,13 +1,14 @@
 module Page.Blog exposing (Data, Model, Msg, page)
 
 import Article
+import Browser.Navigation
 import DataSource
 import Date
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Page exposing (DynamicContext, PageWithState, StaticPayload)
+import Page exposing (PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -48,9 +49,10 @@ type alias Data =
 
 init :
     Maybe PageUrl
+    -> Shared.Model
     -> StaticPayload Data RouteParams
     -> ( Model, Cmd Msg )
-init maybeUrl _ =
+init maybeUrl sharedModel _ =
     ( Model, Cmd.none )
 
 
@@ -60,12 +62,13 @@ type alias RouteParams =
 
 update :
     PageUrl
-    -> DynamicContext Shared.Model
+    -> Maybe Browser.Navigation.Key
+    -> Shared.Model
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update url dynamic static msg model =
+update url maybeNavigationKey sharedModel static msg model =
     ( model, Cmd.none )
 
 
@@ -75,11 +78,11 @@ type alias Model =
 
 view :
     Maybe PageUrl
-    -> Model
     -> Shared.Model
+    -> Model
     -> StaticPayload Data {}
     -> View Msg
-view maybeUrl thing model staticPayload =
+view maybeUrl sharedModel model staticPayload =
     { title = "elm-pages blog"
     , body =
         [ div

@@ -1,6 +1,6 @@
 module Page exposing
     ( Builder(..)
-    , StaticPayload, DynamicContext
+    , StaticPayload
     , prerenderedRoute, singleRoute, serverlessRoute
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
@@ -18,7 +18,7 @@ module Page exposing
 
 Every template will have access to a `StaticPayload`.
 
-@docs StaticPayload, DynamicContext
+@docs StaticPayload
 
 Since this data is _static_, you have access to it before the user has loaded the page, including at build time.
 An example of dynamic data would be keyboard input from the user, query params, or any other data that comes from the app running in the browser.
@@ -49,10 +49,8 @@ import DataSource exposing (DataSource)
 import Head
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import QueryParams exposing (QueryParams)
 import ServerRequest exposing (ServerRequest)
 import Shared
-import Url
 import View exposing (View)
 
 
@@ -62,14 +60,14 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
-        -> templateModel
         -> Shared.Model
+        -> templateModel
         -> StaticPayload templateData routeParams
         -> View templateMsg
     , head :
         StaticPayload templateData routeParams
         -> List Head.Tag
-    , init : Maybe PageUrl -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     , handleRoute : routeParams -> DataSource Bool
@@ -107,6 +105,7 @@ type Builder routeParams templateData
 buildNoState :
     { view :
         Maybe PageUrl
+        -> Shared.Model
         -> StaticPayload templateData routeParams
         -> View Never
     }
@@ -115,11 +114,11 @@ buildNoState :
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
-            { view = \maybePageUrl () _ -> view maybePageUrl
+            { view = \maybePageUrl sharedModel _ -> view maybePageUrl sharedModel
             , head = record.head
             , data = record.data
             , staticRoutes = record.staticRoutes
-            , init = \_ _ -> ( (), Cmd.none )
+            , init = \_ _ _ -> ( (), Cmd.none )
             , update = \_ _ _ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
@@ -130,12 +129,12 @@ buildNoState { view } builderState =
 buildWithLocalState :
     { view :
         Maybe PageUrl
-        -> templateModel
         -> Shared.Model
+        -> templateModel
         -> StaticPayload templateData routeParams
         -> View templateMsg
-    , init : Maybe PageUrl -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Sub templateMsg
     }
     -> Builder routeParams templateData
@@ -156,9 +155,8 @@ buildWithLocalState config builderState =
                         ( updatedModel, cmd ) =
                             config.update
                                 pageUrl
-                                { navigationKey = navigationKey
-                                , sharedModel = sharedModel
-                                }
+                                navigationKey
+                                sharedModel
                                 staticPayload
                                 msg
                                 templateModel
@@ -172,22 +170,15 @@ buildWithLocalState config builderState =
 
 
 {-| -}
-type alias DynamicContext shared =
-    { navigationKey : Maybe Browser.Navigation.Key
-    , sharedModel : shared
-    }
-
-
-{-| -}
 buildWithSharedState :
     { view :
         Maybe PageUrl
-        -> templateModel
         -> Shared.Model
+        -> templateModel
         -> StaticPayload templateData routeParams
         -> View templateMsg
-    , init : Maybe PageUrl -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> DynamicContext Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
+    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateData
@@ -203,9 +194,8 @@ buildWithSharedState config builderState =
             , update =
                 \pageUrl staticPayload navigationKey msg templateModel sharedModel ->
                     config.update pageUrl
-                        { navigationKey = navigationKey
-                        , sharedModel = sharedModel
-                        }
+                        navigationKey
+                        sharedModel
                         staticPayload
                         msg
                         templateModel

@@ -10,6 +10,7 @@ import Page exposing (PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
+import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -49,9 +50,10 @@ type alias Data =
 
 view :
     Maybe PageUrl
+    -> Shared.Model
     -> StaticPayload Data {}
     -> View Msg
-view maybeUrl static =
+view maybeUrl sharedModel static =
     { title = "elm-pages blog"
     , body =
         [ div
