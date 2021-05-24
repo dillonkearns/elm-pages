@@ -1,10 +1,17 @@
 module Pages.PageUrl exposing (PageUrl, toUrl)
 
+{-|
+
+@docs PageUrl, toUrl
+
+-}
+
 import Path exposing (Path)
 import QueryParams exposing (QueryParams)
 import Url
 
 
+{-| -}
 type alias PageUrl =
     { protocol : Url.Protocol
     , host : String
@@ -15,6 +22,7 @@ type alias PageUrl =
     }
 
 
+{-| -}
 toUrl : PageUrl -> Url.Url
 toUrl url =
     { protocol = url.protocol
