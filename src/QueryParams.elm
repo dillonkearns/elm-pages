@@ -1,4 +1,4 @@
-module QueryParams exposing (Parser, QueryParams, fail, fromString, map2, oneOf, optionalString, parse, string, strings, succeed, toDict)
+module QueryParams exposing (Parser, QueryParams, andThen, fail, fromResult, fromString, map2, oneOf, optionalString, parse, string, strings, succeed, toDict)
 
 import Dict exposing (Dict)
 import Url
@@ -20,6 +20,24 @@ succeed value =
 fail : String -> Parser a
 fail errorMessage =
     Parser (\_ -> Err errorMessage)
+
+
+fromResult : Result String a -> Parser a
+fromResult result =
+    Parser (\_ -> result)
+
+
+andThen : (a -> Parser b) -> Parser a -> Parser b
+andThen andThenFn (Parser parser) =
+    Parser
+        (\dict ->
+            case Result.map andThenFn (parser dict) of
+                Ok (Parser result) ->
+                    result dict
+
+                Err error ->
+                    Err error
+        )
 
 
 oneOf : List (Parser a) -> Parser a

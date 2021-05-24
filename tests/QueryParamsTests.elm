@@ -62,4 +62,34 @@ all =
                             ]
                         )
                     |> Expect.equal (Ok "Jane Doe")
+        , test "andThen success" <|
+            \() ->
+                "max=123"
+                    |> QueryParams.fromString
+                    |> QueryParams.parse
+                        (QueryParams.string "max"
+                            |> QueryParams.andThen
+                                (\value ->
+                                    value
+                                        |> String.toInt
+                                        |> Result.fromMaybe "Expected int"
+                                        |> QueryParams.fromResult
+                                )
+                        )
+                    |> Expect.equal (Ok 123)
+        , test "andThen failure" <|
+            \() ->
+                "max=abc"
+                    |> QueryParams.fromString
+                    |> QueryParams.parse
+                        (QueryParams.string "max"
+                            |> QueryParams.andThen
+                                (\value ->
+                                    value
+                                        |> String.toInt
+                                        |> Result.fromMaybe "Expected int"
+                                        |> QueryParams.fromResult
+                                )
+                        )
+                    |> Expect.equal (Err "Expected int")
         ]
