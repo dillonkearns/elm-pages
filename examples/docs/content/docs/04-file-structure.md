@@ -19,12 +19,12 @@ Must expose
 
 - `config : SiteConfig StaticData`
 
-## `Document.elm`
+## `View.elm`
 
-Defines the types for your applications view.
+Defines the types for your application's view type.
 Must expose
 
-- A type called `Document msg` (must have exactly one type variable)
+- A type called `View msg` (must have exactly one type variable)
 - `map : (msg1 -> msg2) -> Document msg1 -> Document msg2`
 
 - `static/index.js` - same as previous `beta-index.js`
