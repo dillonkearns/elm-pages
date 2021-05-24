@@ -8,6 +8,7 @@ import Html exposing (Html)
 import Html.Styled
 import OptimizedDecoder as D
 import Pages.Flags
+import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
@@ -60,6 +61,7 @@ init :
                 , fragment : Maybe String
                 }
             , metadata : route
+            , pageUrl : Maybe PageUrl
             }
     -> ( Model, Cmd Msg )
 init _ flags maybePagePath =

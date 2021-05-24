@@ -15,6 +15,7 @@ import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
 import Tailwind.Utilities as Tw
@@ -49,9 +50,9 @@ page =
         }
         |> Page.buildWithLocalState
             { view = view
-            , init = \staticPayload -> ( (), Cmd.none )
+            , init = \_ _ staticPayload -> ( (), Cmd.none )
             , update =
-                \sharedModel static msg model ->
+                \_ maybeNavigationKey sharedModel static msg model ->
                     case msg of
                         OnKeyPress (Just direction) ->
                             let
@@ -71,7 +72,7 @@ page =
                                         )
                             in
                             ( model
-                            , sharedModel.navigationKey
+                            , maybeNavigationKey
                                 |> Maybe.map
                                     (\navKey ->
                                         Browser.Navigation.pushUrl navKey
@@ -86,7 +87,7 @@ page =
                         _ ->
                             ( model, Cmd.none )
             , subscriptions =
-                \routeParams path model ->
+                \maybePageUrl routeParams path model ->
                     Browser.Events.onKeyDown keyDecoder |> Sub.map OnKeyPress
             }
 
@@ -234,11 +235,12 @@ type alias Data =
 
 
 view :
-    Model
+    Maybe PageUrl
     -> Shared.Model
+    -> Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view model sharedModel static =
+view maybeUrl sharedModel model static =
     { title = "TODO title"
     , body =
         [ Html.div

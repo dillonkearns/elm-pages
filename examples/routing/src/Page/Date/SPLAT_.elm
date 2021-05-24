@@ -4,6 +4,8 @@ import DataSource
 import Head
 import Html.Styled exposing (text)
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
+import Shared
 import View exposing (View)
 
 
@@ -58,9 +60,11 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
     -> View Msg
-view static =
+view maybeUrl sharedModel static =
     { body =
         [ Debug.toString static.routeParams |> text
         ]

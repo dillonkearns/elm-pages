@@ -4,7 +4,9 @@ import DataSource
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Shared
 import View exposing (View)
 
 
@@ -54,9 +56,11 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
     -> View Msg
-view static =
+view maybeUrl sharedModel static =
     { title = "TODO title"
     , body = []
     }
