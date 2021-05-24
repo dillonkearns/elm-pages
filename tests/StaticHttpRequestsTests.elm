@@ -851,7 +851,7 @@ startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
                     , head = \_ -> []
                     }
             , view =
-                \page ->
+                \page _ ->
                     let
                         thing =
                             pages
