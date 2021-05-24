@@ -5,6 +5,6 @@
     "build": "elm-pages build"
   },
   "devDependencies": {
-    "elm-pages": "file:../.."
+    "elm-pages": "file:elm-pages"
   }
 }
