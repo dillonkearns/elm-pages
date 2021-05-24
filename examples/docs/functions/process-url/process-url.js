@@ -6,10 +6,10 @@ cloudinary.config({
 });
 
 exports.handler = async function (event, ctx) {
-  const pathToScreenshot = event.path.replace(/^.*process-url\//, "");
+  const recordId = event.path.replace(/^.*process-url\//, "");
 
   try {
-    const screenshotUrl = `https://deploy-preview-176--elm-pages.netlify.app/screenshot/${pathToScreenshot}`;
+    const screenshotUrl = `https://deploy-preview-176--elm-pages.netlify.app/screenshot/${recordId}`;
     const imageUrl = cloudinary.url(
       `https://res.cloudinary.com/dillonkearns/image/upload/v1621026065/elm-pages/1x1-ff00007f_rd0kpy.png`,
       {

@@ -2,6 +2,11 @@
 // https://wesbos.com/new-wesbos-website
 const chrome = require("chrome-aws-lambda");
 const puppeteer = require("puppeteer-core");
+const Airtable = require("airtable");
+const base = new Airtable({ apiKey: process.env.AIRTABLE_TOKEN }).base(
+  "appDykQzbkQJAidjt"
+);
+
 // const wait = require('waait');
 
 const cached = new Map();
@@ -52,7 +57,11 @@ async function getScreenshot(url, isDev) {
 
 // Docs on event and context https://www.netlify.com/docs/functions/#the-handler-method
 exports.handler = async (event, context) => {
-  const url = decodeURIComponent(event.path.replace(/^.*\/screenshot\//, ""));
+  const recordId = decodeURIComponent(
+    event.path.replace(/^.*\/screenshot\//, "")
+  );
+  const record = await base("elm-pages showcase").find(recordId);
+  const url = record["fields"]["Screenshot URL"];
 
   console.log({ url });
   const photoBuffer = await getScreenshot(
