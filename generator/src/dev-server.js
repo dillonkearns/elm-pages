@@ -92,6 +92,7 @@ async function start(options) {
   async function processRequest(request, response, next) {
     if (request.url && request.url.startsWith("/elm.js")) {
       try {
+        await pendingCliCompile;
         const clientElmJs = await clientElmMakeProcess;
         response.writeHead(200, { "Content-Type": "text/javascript" });
         response.end(clientElmJs);
