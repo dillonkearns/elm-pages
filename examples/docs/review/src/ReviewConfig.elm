@@ -27,14 +27,16 @@ config =
     [ NoUnused.CustomTypeConstructors.rule []
     , NoUnused.CustomTypeConstructorArgs.rule
     , NoUnused.Dependencies.rule
-    , NoUnused.Exports.rule
+
+    --, NoUnused.Exports.rule
     , NoUnused.Modules.rule
-    , NoUnused.Parameters.rule
-    , NoUnused.Patterns.rule
-    , NoUnused.Variables.rule
+
+    --, NoUnused.Parameters.rule
+    --, NoUnused.Patterns.rule
+    --, NoUnused.Variables.rule
     ]
         |> List.map
             (\rule ->
                 rule
-                    |> Review.Rule.ignoreErrorsForDirectories [ "../../src" ]
+                    |> Review.Rule.ignoreErrorsForDirectories [ "../../src", ".elm-pages/" ]
             )

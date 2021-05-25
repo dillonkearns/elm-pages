@@ -8,7 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Page exposing (PageWithState, StaticPayload)
+import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -20,21 +20,18 @@ import Tailwind.Utilities as Tw
 import View exposing (View)
 
 
-type Msg
-    = Msg
+type alias Msg =
+    Never
 
 
-page : PageWithState RouteParams Data Model Msg
+page : Page RouteParams Data
 page =
     Page.singleRoute
         { head = head
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> Page.buildNoState
             { view = view
-            , init = init
-            , update = update
-            , subscriptions = \_ _ _ _ -> Sub.none
             }
 
 
@@ -79,10 +76,9 @@ type alias Model =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> Model
     -> StaticPayload Data {}
     -> View Msg
-view maybeUrl sharedModel model staticPayload =
+view maybeUrl sharedModel staticPayload =
     { title = "elm-pages blog"
     , body =
         [ div
