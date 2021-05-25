@@ -160,7 +160,7 @@ showcaseItem item =
                 ]
             ]
             [ img
-                [ Attr.src ("/screenshot/" ++ Url.percentEncode item.screenshotUrl)
+                [ Attr.src <| "https://image.thum.io/get/width/800/crop/800/" ++ item.screenshotUrl
                 , Attr.alt ""
                 , Attr.attribute "loading" "lazy"
                 , css
