@@ -1,7 +1,6 @@
 module Page.Blog exposing (Data, Model, Msg, page)
 
 import Article
-import Browser.Navigation
 import DataSource
 import Date
 import Head
@@ -44,40 +43,19 @@ type alias Data =
     List ( Route, Article.ArticleMetadata )
 
 
-init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> ( Model, Cmd Msg )
-init maybeUrl sharedModel _ =
-    ( Model, Cmd.none )
-
-
 type alias RouteParams =
     {}
 
 
-update :
-    PageUrl
-    -> Maybe Browser.Navigation.Key
-    -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> Msg
-    -> Model
-    -> ( Model, Cmd Msg )
-update url maybeNavigationKey sharedModel static msg model =
-    ( model, Cmd.none )
-
-
 type alias Model =
-    {}
+    ()
 
 
 view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data {}
-    -> View Msg
+    -> View msg
 view maybeUrl sharedModel staticPayload =
     { title = "elm-pages blog"
     , body =
