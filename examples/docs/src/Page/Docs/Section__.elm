@@ -47,11 +47,8 @@ page =
         , routes = routes
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> Page.buildNoState
             { view = view
-            , init = \_ _ _ -> ( (), Cmd.none )
-            , update = \_ _ _ _ _ _ -> ( (), Cmd.none )
-            , subscriptions = \_ _ _ _ -> Sub.none
             }
 
 
@@ -175,7 +172,7 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = static.data.titles.title ++ " | elm-pages docs"
         , locale = Nothing
         , title = static.data.titles.title
         }
@@ -193,10 +190,9 @@ type alias Data =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl sharedModel model static =
+view maybeUrl sharedModel static =
     { title = static.data.titles.title ++ " - elm-pages docs"
     , body =
         [ Css.Global.global
