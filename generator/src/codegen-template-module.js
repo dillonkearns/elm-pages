@@ -31,13 +31,14 @@ function fileContent(pageModuleName) {
 function fileContentWithParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-import View exposing (View)
-import Pages.Url
+import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import DataSource exposing (DataSource)
+import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
 import Shared
-import Page exposing (StaticPayload, Page, PageWithState)
+import View exposing (View)
 
 
 type alias Model =
@@ -96,10 +97,12 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
-    -> Document Msg
-view static =
-    Document.placeholder "${pageModuleName}"
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
+    -> View Msg
+view maybeUrl sharedModel static =
+    View.placeholder "${pageModuleName}"
 `;
 }
 
@@ -109,13 +112,14 @@ view static =
 function fileContentWithoutParams(pageModuleName) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-import View exposing (View)
-import Pages.Url
+import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import DataSource exposing (DataSource)
+import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
 import Shared
-import Page exposing (StaticPayload, Page, PageWithState)
+import View exposing (View)
 
 
 type alias Model =
@@ -168,10 +172,12 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
-    -> Document Msg
-view static =
-    Document.placeholder "${pageModuleName}"
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
+    -> View Msg
+view maybeUrl sharedModel static =
+    View.placeholder "${pageModuleName}"
 `;
 }
 
