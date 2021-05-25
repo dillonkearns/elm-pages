@@ -25,6 +25,7 @@ import TableOfContents
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
+import Url
 import View exposing (View)
 
 
@@ -172,7 +173,7 @@ head static =
                     "https://i.microlink.io/https%3A%2F%2Fcards.microlink.io%2F%3Fpreset%3Dtinybird%26p%3D2gXbPD4KICA8RmxleAogICAgc3g9e3sKICAgICAgZmxleERpcmVjdGlvbjogJ2NvbHVtbicsCiAgICAgIGp1c3RpZnlDb250ZW50OiAnY2VudGVyJywKICAgICAgYWxpZ25JdGVtczogJ2NlbnRlcicsCiAgICAgIGJnOiAnI2VhZWFlYScsCiAgICAgIHBsOiA1LAogICAgICBwcjogNSwKICAgIH19CiAgPgogICAgPExpbmsKICAgICAgaHJlZj0naHR0cHM6Ly9mb250cy5nb29nbGVhcGlzLmNvbS9jc3MyP2ZhbWlseT1JbnRlcjp3Z2h0QDQwMCZkaXNwbGF5PWJsb2NrJwogICAgICByZWw9J3N0eWxlc2hlZXQnCiAgICAvPgogICAgPEZsZXgKICAgICAgYXM9J2hlYWRlcicKICAgICAgc3g9e3sKICAgICAgICBwb3NpdGlvbjogJ2Fic29sdXRlJywKICAgICAgICB0b3A6IDAsCiAgICAgICAgbGVmdDogNSwKICAgICAgICBkaXNwbGF5OiAnZmxleCcsCiAgICAgICAgYWxpZ25JdGVtczogJ2NlbnRlcicsCiAgICAgICAgd2lkdGg6ICcxMDAlJywKICAgICAgICBtdDogJzNlbScsCiAgICAgIH19CiAgICA-CgogICAgICA8RmxleD4KICAgICAgICA8VGV4dAogICAgICAgICAgc3g9e3sKICAgICAgICAgICAgcGw6IDMsCiAgICAgICAgICAgIGRpc3BsYXk6ICdpbmxpbmUtYmxvY2snLAogICAgICAgICAgICBmb250V2VpZ2h0OiA0MDAsCiAgICAgICAgICAgIGZvbnRTaXplOiAnMjJweCcsCiAgICAgICAgICAgIGZvbnRGYW1pbHk6ICdJbnRlcicsCiAgICAgICAgICAgIGNvbG9yOiAnIzIyMicsCiAgICAgICAgICAgIGxpbmVIZWlnaHQ6ICcxNDAlJywKICAgICAgICAgIH19CiAgICAgICAgPgogICAgICAgICAgZWxtLXBhZ2VzCiAgICAgICAgPC9UZXh0PgogICAgICAgIHtxdWVyeS5zdWJ0aXRsZSAmJiAoCiAgICAgICAgICA8VGV4dAogICAgICAgICAgICBzdHlsZT17ewogICAgICAgICAgICAgIGRpc3BsYXk6ICdpbmxpbmUtYmxvY2snLAogICAgICAgICAgICAgIGZvbnRXZWlnaHQ6IDQwMCwKICAgICAgICAgICAgICBmb250U2l6ZTogJzIycHgnLAogICAgICAgICAgICAgIGZvbnRGYW1pbHk6ICdJbnRlcicsCiAgICAgICAgICAgICAgY29sb3I6ICcjMWQ0ZWQ4JywKICAgICAgICAgICAgICBsaW5lSGVpZ2h0OiAnMTQwJScsCiAgICAgICAgICAgIH19CiAgICAgICAgICA-CiAgICAgICAgICAgIC97cXVlcnkuc3VidGl0bGV9CiAgICAgICAgICA8L1RleHQ-CiAgICAgICAgKX0KICAgICAgPC9GbGV4PgogICAgPC9GbGV4PgoKICAgIDxGbGV4IGFzPSdjb250ZW50Jz4KICAgICAgPFRleHQKICAgICAgICBzeD17ewogICAgICAgICAgZGlzcGxheTogJ2lubGluZScsCiAgICAgICAgICBmb250V2VpZ2h0OiA0MDAsCiAgICAgICAgICBmb250U2l6ZTogJzQycHgnLAogICAgICAgICAgZm9udEZhbWlseTogJ0ludGVyJywKICAgICAgICAgIGNvbG9yOiAnIzExMScsCiAgICAgICAgICBsaW5lSGVpZ2h0OiAnMTQwJScsCiAgICAgICAgfX0KICAgICAgPgogICAgICAgIHtxdWVyeS50ZXh0fQogICAgICA8L1RleHQ-CiAgICA8L0ZsZXg-CiAgPC9GbGV4Pgo8Lz4%26subtitle%3D"
                         ++ "docs"
                         ++ "%26text%3D"
-                        ++ static.data.titles.title
+                        ++ Url.percentEncode static.data.titles.title
             , alt = "elm-pages docs section title"
             , dimensions = Nothing
             , mimeType = Nothing
