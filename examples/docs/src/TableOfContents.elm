@@ -1,13 +1,12 @@
 module TableOfContents exposing (..)
 
 import Css
-import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
 import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (class, css)
+import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
-import Markdown.Block as Block exposing (Block, HeadingLevel(..), Inline)
+import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
 import OptimizedDecoder
 import Tailwind.Breakpoints as Bp

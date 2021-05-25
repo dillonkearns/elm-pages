@@ -1,12 +1,9 @@
-module View.CodeTab exposing (codeTabs, iconArea, view)
+module View.CodeTab exposing (view)
 
 import Css
-import Dict
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr exposing (..)
-import Html.Styled.Events
 import SyntaxHighlight
-import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 
 

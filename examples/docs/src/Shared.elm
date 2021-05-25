@@ -5,7 +5,6 @@ import DataSource
 import DocsSection
 import Html exposing (Html)
 import Html.Styled
-import Json.Decode
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -67,17 +66,6 @@ init :
             }
     -> ( Model, Cmd Msg )
 init navigationKey flags maybePagePath =
-    let
-        _ =
-            case flags of
-                Pages.Flags.PreRenderFlags ->
-                    Nothing
-
-                Pages.Flags.BrowserFlags browserFlags ->
-                    browserFlags
-                        |> Json.Decode.decodeValue Json.Decode.string
-                        |> Result.toMaybe
-    in
     ( { showMobileMenu = False
       , counter = 0
       , navigationKey = navigationKey

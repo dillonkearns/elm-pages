@@ -1,11 +1,10 @@
-module Page.Blog.Slug_ exposing (Data, Model, Msg, page, toRssItem)
+module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
 
 import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource
 import DataSource.File as StaticFile
-import DataSource.Glob as Glob
 import Date exposing (Date)
 import Head
 import Head.Seo as Seo
@@ -14,11 +13,10 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Parser
 import Markdown.Renderer
 import OptimizedDecoder
-import Page exposing (Page, PageWithState, StaticPayload)
+import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
-import Rss
 import Shared
 import SiteOld
 import StructuredData
@@ -285,43 +283,3 @@ imageDecoder : OptimizedDecoder.Decoder Pages.Url.Url
 imageDecoder =
     OptimizedDecoder.string
         |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
-
-
-toRssItem :
-    ArticleMetadata
-    -> Maybe Rss.Item
-toRssItem article =
-    if article.draft then
-        Nothing
-
-    else
-        Just
-            { title = article.title
-            , description = article.description
-            , url = "TODO" --PagePath.toString page.path
-            , categories = []
-            , author = Author.dillon.name
-            , pubDate = Rss.Date article.published
-            , content = Nothing
-            }
-
-
-articlesRequest : DataSource.DataSource (List ArticleMetadata)
-articlesRequest =
-    Glob.succeed identity
-        |> Glob.capture Glob.fullFilePath
-        |> Glob.match (Glob.literal "content/blog/")
-        |> Glob.match Glob.wildcard
-        |> Glob.match (Glob.literal ".md")
-        |> Glob.toDataSource
-        |> DataSource.andThen
-            (\articleFilePaths ->
-                articleFilePaths
-                    |> List.filter (\filePath -> filePath |> String.contains "index" |> not)
-                    |> List.map
-                        (\articleFilePath ->
-                            StaticFile.request articleFilePath
-                                (StaticFile.frontmatter frontmatterDecoder)
-                        )
-                    |> DataSource.combine
-            )

@@ -1,8 +1,7 @@
 module TableOfContentsTests exposing (..)
 
-import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
-import Markdown.Block as Block exposing (..)
+import Expect
+import Markdown.Block exposing (..)
 import TableOfContents exposing (Entry(..))
 import Test exposing (..)
 

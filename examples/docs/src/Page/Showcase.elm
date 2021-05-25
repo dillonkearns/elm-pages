@@ -14,7 +14,6 @@ import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
-import Url
 import View exposing (View)
 
 

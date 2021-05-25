@@ -4,7 +4,7 @@ import Css
 import Ellie
 import Html.Styled as Html
 import Html.Styled.Attributes as Attr exposing (css)
-import Markdown.Block as Block exposing (ListItem(..), Task(..))
+import Markdown.Block as Block
 import Markdown.Html
 import Markdown.Renderer
 import Oembed
