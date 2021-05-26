@@ -206,7 +206,22 @@ match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
         (pattern ++ matcherPattern)
         (combineRegexes regex1 regex2)
-        apply2
+        (\fullPath captures ->
+            let
+                ( _, captured1 ) =
+                    -- apply to make sure we drop from the captures list for all capturing patterns
+                    -- but don't change the return value
+                    captures
+                        |> apply1 fullPath
+
+                ( applied2, captured2 ) =
+                    captured1
+                        |> apply2 fullPath
+            in
+            ( applied2
+            , captured2
+            )
+        )
 
 
 {-| -}
@@ -254,9 +269,9 @@ oneOf ( defaultMatch, otherMatchers ) =
             defaultMatch :: otherMatchers
     in
     Glob
-        ("("
-            ++ (allMatchers |> List.map Tuple.first |> String.join "|")
-            ++ ")"
+        ("{"
+            ++ (allMatchers |> List.map Tuple.first |> String.join ",")
+            ++ "}"
         )
         ("("
             ++ String.join "|"

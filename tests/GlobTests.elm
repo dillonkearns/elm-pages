@@ -39,8 +39,41 @@ all =
                     -- https://runkit.com/embed/05epbnc0c7g1
                     |> expect "data-file.json"
                         { expectedMatch = ( "data-file", Json )
-                        , expectedPattern = "*.(yml|json)"
+                        , expectedPattern = "*.{yml,json}"
                         }
+        , test "mix of match and capture with wildcards" <|
+            \() ->
+                Glob.succeed identity
+                    |> Glob.match Glob.wildcard
+                    |> Glob.match (Glob.literal "/")
+                    |> Glob.capture Glob.wildcard
+                    |> expectAll
+                        [ ( "match/capture", "capture" )
+                        ]
+        , test "mix of match and capture with wildcards 2" <|
+            \() ->
+                Glob.succeed identity
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.match (Glob.literal "/")
+                    |> Glob.match Glob.wildcard
+                    |> expectAll
+                        [ ( "capture/match", "capture" )
+                        ]
+        , test "oneOf with empty" <|
+            \() ->
+                Glob.succeed Tuple.pair
+                    |> Glob.capture Glob.wildcard
+                    |> Glob.capture
+                        (Glob.oneOf
+                            ( ( "/index", WithIndex )
+                            , [ ( "", NoIndex )
+                              ]
+                            )
+                        )
+                    |> expectAll
+                        [ ( "hello/index", ( "hello", WithIndex ) )
+                        , ( "hello", ( "hello", NoIndex ) )
+                        ]
         , test "at least one" <|
             \() ->
                 Glob.succeed identity
@@ -127,6 +160,11 @@ all =
                         , ( "content/community/meetups.md", ( [ "community" ], "meetups" ) )
                         ]
         ]
+
+
+type HasIndex
+    = WithIndex
+    | NoIndex
 
 
 zeroOrMoreGlob : Glob.Glob (Maybe String)
