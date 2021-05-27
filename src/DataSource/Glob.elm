@@ -8,7 +8,6 @@ module DataSource.Glob exposing
     , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
     , toNonEmptyWithDefault
     , run, extractMatches
-    , singleFile
     )
 
 {-|
