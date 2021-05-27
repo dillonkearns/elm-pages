@@ -9,13 +9,19 @@ This helper lets you combine together path parts without worrying about having t
 These two examples will result in the same URL, even though the first example has trailing and leading slashes, and the
 second does not.
 
-    join [ "/blog/", "/post-1/" ]
+    Path.join [ "/blog/", "/post-1/" ]
         |> Path.toAbsolute
     --> "/blog/post-1"
 
-    join [ "blog", "post-1" ]
+    Path.join [ "blog", "post-1" ]
         |> Path.toAbsolute
     --> "/blog/post-1"
+
+We can also safely join Strings that include multiple path parts, a single path part per string, or a mix of the two:
+
+    Path.join [ "/articles/archive/", "1977", "06", "10", "post-1" ]
+        |> Path.toAbsolute
+    --> "/articles/archive/1977/06/10/post-1"
 
 
 ## Creating Paths
