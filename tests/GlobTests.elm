@@ -1,6 +1,7 @@
 module GlobTests exposing (all)
 
 import DataSource.Glob as Glob
+import DataSource.Internal.Glob
 import Expect
 import Test exposing (Test, describe, test)
 
@@ -199,7 +200,7 @@ expect :
     -> Expect.Expectation
 expect filePath { expectedMatch, expectedPattern } glob =
     glob
-        |> Glob.run filePath
+        |> DataSource.Internal.Glob.run filePath
         |> Expect.equal
             { pattern = expectedPattern
             , match = expectedMatch
@@ -216,7 +217,7 @@ expectAll expectedPairs glob =
             (\( filePath, expectedMatch ) ->
                 ( filePath
                 , glob
-                    |> Glob.run filePath
+                    |> DataSource.Internal.Glob.run filePath
                     |> .match
                 )
             )

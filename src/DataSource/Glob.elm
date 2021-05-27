@@ -7,7 +7,6 @@ module DataSource.Glob exposing
     , literal
     , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
     , toNonEmptyWithDefault
-    , run, extractMatches
     )
 
 {-|
@@ -203,15 +202,11 @@ That will give us
 
 @docs toNonEmptyWithDefault
 
-
-## Internals - TODO Remove
-
-@docs run, extractMatches
-
 -}
 
 import DataSource
 import DataSource.Http
+import DataSource.Internal.Glob exposing (Glob(..))
 import List.Extra
 import OptimizedDecoder
 import Regex
@@ -219,8 +214,8 @@ import Secrets
 
 
 {-| -}
-type Glob a
-    = Glob String String (String -> List String -> ( a, List String ))
+type alias Glob a =
+    DataSource.Internal.Glob.Glob a
 
 
 {-| -}
@@ -292,7 +287,24 @@ int =
         )
 
 
-{-| -}
+{-| Matches any number of characters, including `/`, as long as it's the only thing in a path part.
+
+In contrast, `wildcard` will never match `/`, so it only matches within a single path part.
+
+This is the same as `**/*.txt`.
+
+    example =
+        Glob.succeed Tuple.pair
+            |> Glob.capture Glob.recursiveWildcard
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".txt")
+            |> expect "a/b/c/d.txt"
+                { expectedMatch = ( [ "a", "b", "c" ], "d" )
+                , expectedPattern = "**/*.txt"
+                }
+
+-}
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
     Glob "**"
@@ -360,37 +372,6 @@ regexEscapePattern =
     "[.*+?^${}()|[\\]\\\\]"
         |> Regex.fromString
         |> Maybe.withDefault Regex.never
-
-
-{-| -}
-run : String -> Glob a -> { match : a, pattern : String }
-run rawInput (Glob pattern regex applyCapture) =
-    let
-        fullRegex =
-            "^" ++ regex ++ "$"
-
-        regexCaptures : List String
-        regexCaptures =
-            Regex.find parsedRegex rawInput
-                |> List.concatMap .submatches
-                |> List.map (Maybe.withDefault "")
-
-        parsedRegex =
-            Regex.fromString fullRegex |> Maybe.withDefault Regex.never
-    in
-    { match =
-        regexCaptures
-            |> List.reverse
-            |> applyCapture rawInput
-            |> Tuple.first
-    , pattern = pattern
-    }
-
-
-{-| -}
-toPattern : Glob a -> String
-toPattern (Glob pattern regex applyCapture) =
-    pattern
 
 
 {-| -}
@@ -607,7 +588,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
                       --        |> Maybe.withDefault (defaultMatch |> Tuple.second)
                       --  , []
                       --  )
-                      extractMatches (defaultMatch |> Tuple.second) allMatchers match_
+                      DataSource.Internal.Glob.extractMatches (defaultMatch |> Tuple.second) allMatchers match_
                         |> toNonEmptyWithDefault (defaultMatch |> Tuple.second)
                     , rest
                     )
@@ -629,37 +610,13 @@ toNonEmptyWithDefault default list =
 
 
 {-| -}
-extractMatches : a -> List ( String, a ) -> String -> List a
-extractMatches defaultValue list string =
-    if string == "" then
-        []
-
-    else
-        let
-            ( matchedValue, updatedString ) =
-                List.Extra.findMap
-                    (\( literalString, value ) ->
-                        if string |> String.startsWith literalString then
-                            Just ( value, string |> String.dropLeft (String.length literalString) )
-
-                        else
-                            Nothing
-                    )
-                    list
-                    |> Maybe.withDefault ( defaultValue, "" )
-        in
-        matchedValue
-            :: extractMatches defaultValue list updatedString
-
-
-{-| -}
 toDataSource : Glob a -> DataSource.DataSource (List a)
 toDataSource glob =
-    DataSource.Http.get (Secrets.succeed <| "glob://" ++ toPattern glob)
+    DataSource.Http.get (Secrets.succeed <| "glob://" ++ DataSource.Internal.Glob.toPattern glob)
         (OptimizedDecoder.string
             |> OptimizedDecoder.list
             |> OptimizedDecoder.map
-                (\rawGlob -> rawGlob |> List.map (\matchedPath -> run matchedPath glob |> .match))
+                (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
         )
 
 
