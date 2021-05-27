@@ -431,7 +431,89 @@ isRecursiveWildcardSlashWildcard regex1 regex2 =
         && (regex1 |> String.startsWith wildcardRegex)
 
 
-{-| -}
+{-|
+
+    import DataSource.Glob as Glob
+
+    type Extension
+        = Json
+        | Yml
+
+    type alias DataFile =
+        { name : String
+        , extension : String
+        }
+
+    dataFiles : DataSource (List DataFile)
+    dataFiles =
+        Glob.succeed DataFile
+            |> Glob.match (Glob.literal "my-data/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".")
+            |> Glob.capture
+                (Glob.oneOf
+                    ( ( "yml", Yml )
+                    , [ ( "json", Json )
+                      ]
+                    )
+                )
+
+If we have the following files
+
+```shell
+- my-data/
+    - authors.yml
+    - events.json
+```
+
+That gives us
+
+    results : DataSource (List DataFile)
+    results =
+        DataSource.succeed
+            [ { name = "authors"
+              , extension = Yml
+              }
+            , { name = "events"
+              , extension = Json
+              }
+            ]
+
+You could also match an optional file path segment using `oneOf`.
+
+    rootFilesMd : DataSource (List String)
+    rootFilesMd =
+        Glob.succeed (\slug -> slug)
+            |> Glob.match (Glob.literal "blog/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match
+                (Glob.oneOf
+                    ( ( "", () )
+                    , [ ( "/index", () ) ]
+                    )
+                )
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+With these files:
+
+```markdown
+- blog/
+    - first-post.md
+    - second-post/
+        - index.md
+```
+
+This would give us:
+
+    results : DataSource (List String)
+    results =
+        DataSource.succeed
+            [ "first-post"
+            , "second-post"
+            ]
+
+-}
 oneOf : ( ( String, a ), List ( String, a ) ) -> Glob a
 oneOf ( defaultMatch, otherMatchers ) =
     let
