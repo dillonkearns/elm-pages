@@ -77,7 +77,7 @@ data routeParams =
         (routeParams.section
             |> Maybe.withDefault "what-is-elm-pages"
             |> findBySlug
-            |> Glob.expectUniqueFile
+            |> Glob.expectUniqueMatch
             |> DataSource.map filePathToEditUrl
         )
 
@@ -129,7 +129,7 @@ maybeDataSource fn maybe =
 
 titleForSection : Section -> DataSource NextPrevious.Item
 titleForSection section =
-    Glob.expectUniqueFile (findBySlug section.slug)
+    Glob.expectUniqueMatch (findBySlug section.slug)
         |> DataSource.andThen
             (\filePath ->
                 DataSource.File.request filePath
@@ -286,7 +286,7 @@ pageBody routeParams =
             routeParams.section
                 |> Maybe.withDefault "what-is-elm-pages"
     in
-    Glob.expectUniqueFile (findBySlug slug)
+    Glob.expectUniqueMatch (findBySlug slug)
         |> DataSource.andThen
             (\filePath ->
                 DataSource.File.request filePath
@@ -294,9 +294,10 @@ pageBody routeParams =
             )
 
 
-findBySlug : String -> Glob ()
+findBySlug : String -> Glob String
 findBySlug slug =
-    Glob.succeed ()
+    Glob.succeed identity
+        |> Glob.captureFilePath
         |> Glob.match (Glob.literal "content/docs/")
         |> Glob.match Glob.int
         |> Glob.match (Glob.literal "-")

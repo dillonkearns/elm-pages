@@ -3,7 +3,7 @@ module DataSource.Glob exposing
     , capture, match
     , captureFilePath
     , wildcard, recursiveWildcard, int
-    , expectUniqueFile
+    , expectUniqueMatch
     , literal
     , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
     , toNonEmptyWithDefault
@@ -188,7 +188,7 @@ That will give us
 
 ## Matching a Specific Number of Files
 
-@docs expectUniqueFile
+@docs expectUniqueMatch
 
 
 ## Glob Patterns
@@ -204,7 +204,7 @@ That will give us
 
 -}
 
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Glob exposing (Glob(..))
 import List.Extra
@@ -700,7 +700,8 @@ toNonEmptyWithDefault default list =
             ( default, [] )
 
 
-{-| -}
+{-| In order to get match data from your glob, turn it into a `DataSource` with this function.
+-}
 toDataSource : Glob a -> DataSource.DataSource (List a)
 toDataSource glob =
     DataSource.Http.get (Secrets.succeed <| "glob://" ++ DataSource.Internal.Glob.toPattern glob)
@@ -711,12 +712,62 @@ toDataSource glob =
         )
 
 
-{-| -}
-expectUniqueFile : Glob a -> DataSource.DataSource String
-expectUniqueFile glob =
-    succeed identity
-        |> match glob
-        |> captureFilePath
+{-| Sometimes you want to make sure there is a unique file matching a particular pattern.
+This is a simple helper that will give you a `DataSource` error if there isn't exactly 1 matching file.
+If there is exactly 1, then you successfully get back that single match.
+
+For example, maybe you can have
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    findBlogBySlug : String -> DataSource String
+    findBlogBySlug slug =
+        Glob.succeed identity
+            |> Glob.captureFilePath
+            |> Glob.match (Glob.literal "blog/")
+            |> Glob.capture (Glob.literal slug)
+            |> Glob.match
+                (Glob.oneOf
+                    ( ( "", () )
+                    , [ ( "/index", () ) ]
+                    )
+                )
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.expectUniqueMatch
+
+If we used `findBlogBySlug "first-post"` with these files:
+
+```markdown
+- blog/
+    - first-post/
+        - index.md
+```
+
+This would give us:
+
+    results : DataSource String
+    results =
+        DataSource.succeed "blog/first-post/index.md"
+
+If we used `findBlogBySlug "first-post"` with these files:
+
+```markdown
+- blog/
+    - first-post.md
+    - first-post/
+        - index.md
+```
+
+Then we will get a `DataSource` error saying `More than one file matched.` Keep in mind that `DataSource` failures
+in build-time routes will cause a build failure, giving you the opportunity to fix the problem before users see the issue,
+so it's ideal to make this kind of assertion rather than having fallback behavior that could silently cover up
+issues (like if we had instead ignored the case where there are two or more matching blog post files).
+
+-}
+expectUniqueMatch : Glob a -> DataSource a
+expectUniqueMatch glob =
+    glob
         |> toDataSource
         |> DataSource.andThen
             (\matchingFiles ->
