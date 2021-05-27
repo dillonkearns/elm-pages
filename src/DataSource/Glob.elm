@@ -230,20 +230,8 @@ fullFilePath =
 
 {-| -}
 captureFilePath : Glob (String -> value) -> Glob value
-captureFilePath (Glob pattern regex apply) =
-    Glob
-        pattern
-        regex
-        (\fullPath captures ->
-            let
-                ( applied1, captured1 ) =
-                    captures
-                        |> apply fullPath
-            in
-            ( applied1 fullPath
-            , captured1
-            )
-        )
+captureFilePath =
+    capture fullFilePath
 
 
 {-| -}
