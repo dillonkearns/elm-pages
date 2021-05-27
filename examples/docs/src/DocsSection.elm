@@ -14,7 +14,7 @@ type alias Section =
 all : DataSource (List Section)
 all =
     Glob.succeed Section
-        |> Glob.capture Glob.fullFilePath
+        |> Glob.captureFilePath
         |> Glob.match (Glob.literal "content/docs/")
         |> Glob.capture Glob.int
         |> Glob.match (Glob.literal "-")

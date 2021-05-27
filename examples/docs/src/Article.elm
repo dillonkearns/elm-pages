@@ -19,7 +19,7 @@ type alias BlogPost =
 blogPostsGlob : DataSource.DataSource (List { filePath : String, slug : String })
 blogPostsGlob =
     Glob.succeed BlogPost
-        |> Glob.capture Glob.fullFilePath
+        |> Glob.captureFilePath
         |> Glob.match (Glob.literal "content/blog/")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".md")

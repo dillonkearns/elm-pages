@@ -97,7 +97,7 @@ data =
         |> Glob.match (Glob.literal "projects/")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".txt")
-        |> Glob.capture Glob.fullFilePath
+        |> Glob.captureFilePath
         |> Glob.toDataSource
         |> DataSource.resolve
 

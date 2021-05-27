@@ -196,7 +196,7 @@ all =
         |> Glob.ignore (Glob.literal "projects/")
         |> Glob.capture Glob.wildcard
         |> Glob.ignore (Glob.literal ".txt")
-        |> Glob.capture Glob.fullFilePath
+        |> Glob.captureFilePath
         |> Glob.toDataSource
         |> DataSource.resolve
 
