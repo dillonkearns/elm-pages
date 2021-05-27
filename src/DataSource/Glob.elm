@@ -1,12 +1,21 @@
 module DataSource.Glob exposing
-    ( capture, match
+    ( Glob
+    , capture, match
     , captureFilePath
     , wildcard, recursiveWildcard, int
     , expectUniqueFile
-    , Glob, atLeastOne, extractMatches, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
+    , literal
+    , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
+    , toNonEmptyWithDefault
+    , run, extractMatches
+    , singleFile
     )
 
-{-| This module helps you get a List of matching file paths from your local file system as a `DataSource`. See the `DataSource` module documentation
+{-|
+
+@docs Glob
+
+This module helps you get a List of matching file paths from your local file system as a `DataSource`. See the `DataSource` module documentation
 for ways you can combine and map `DataSource`s.
 
 A common example would be to find all the markdown files of your blog posts. If you have all your blog posts in `content/blog/*.md`
@@ -179,11 +188,26 @@ That will give us
 @docs wildcard, recursiveWildcard, int
 
 
-## File Matching Helpers
+## Matching a Specific Number of Files
 
 @docs expectUniqueFile
 
-@docs Glob, atLeastOne, extractMatches, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
+
+## Glob Patterns
+
+@docs literal
+
+@docs atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
+
+
+## Is this useful/used?
+
+@docs toNonEmptyWithDefault
+
+
+## Internals - TODO Remove
+
+@docs run, extractMatches
 
 -}
 
@@ -638,27 +662,6 @@ toDataSource glob =
             |> OptimizedDecoder.map
                 (\rawGlob -> rawGlob |> List.map (\matchedPath -> run matchedPath glob |> .match))
         )
-
-
-{-| -}
-singleFile : String -> DataSource.DataSource (Maybe String)
-singleFile filePath =
-    succeed identity
-        |> match (literal filePath)
-        |> captureFilePath
-        |> toDataSource
-        |> DataSource.andThen
-            (\globResults ->
-                case globResults of
-                    [] ->
-                        DataSource.succeed Nothing
-
-                    [ single ] ->
-                        Just single |> DataSource.succeed
-
-                    multipleResults ->
-                        DataSource.fail <| "Unexpected - getSingleFile returned multiple results." ++ (multipleResults |> String.join ", ")
-            )
 
 
 {-| -}
