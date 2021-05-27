@@ -291,18 +291,59 @@ int =
 
 In contrast, `wildcard` will never match `/`, so it only matches within a single path part.
 
-This is the same as `**/*.txt`.
+This is the elm-pages equivalent of `**/*.txt` in standard shell syntax:
 
     example =
         Glob.succeed Tuple.pair
+            |> Glob.match (Glob.literal "articles/")
             |> Glob.capture Glob.recursiveWildcard
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".txt")
-            |> expect "a/b/c/d.txt"
-                { expectedMatch = ( [ "a", "b", "c" ], "d" )
-                , expectedPattern = "**/*.txt"
-                }
+
+With these files:
+
+```shell
+- articles/
+  - google-io-2021-recap.txt
+  - archive/
+    - 1977/
+      - 06/
+        - 10/
+          - apple-2-announced.txt
+```
+
+We would get the following matches:
+
+    matches : DataSource (List ( List String, String ))
+    matches =
+        DataSource.succeed
+            [ ( [ "archive", "1977", "06", "10" ], "apple-2-announced" )
+            , ( [], "google-io-2021-recap" )
+            ]
+
+Note that the recursive wildcard conveniently gives us a `List String`, where
+each String is a path part with no slashes (like `archive`).
+
+And also note that it matches 0 path parts into an empty list.
+
+If we didn't include the `wildcard` after the `recursiveWildcard`, then we would only get
+a single level of matches because it is followed by a file extension.
+
+    example : DataSource (List String)
+    example =
+        Glob.succeed identity
+            |> Glob.match (Glob.literal "articles/")
+            |> Glob.capture Glob.recursiveWildcard
+            |> Glob.match (Glob.literal ".txt")
+
+    matches : DataSource (List String)
+    matches =
+        DataSource.succeed
+            [ "google-io-2021-recap"
+            ]
+
+This is usually not what is intended. Using `recursiveWildcard` is usually followed by a `wildcard` for this reason.
 
 -}
 recursiveWildcard : Glob (List String)
