@@ -1,25 +1,189 @@
 module DataSource.Glob exposing
-    ( Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
+    ( capture, match
+    , fullFilePath, captureFilePath
     , wildcard, recursiveWildcard, int
-    , capture, match
     , expectUniqueFile
+    , Glob, atLeastOne, extractMatches, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
     )
 
-{-|
+{-| This module helps you get a List of matching file paths from your local file system as a `DataSource`. See the `DataSource` module documentation
+for ways you can combine and map `DataSource`s.
 
-@docs Glob, atLeastOne, extractMatches, fullFilePath, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
+A common example would be to find all the markdown files of your blog posts. If you have all your blog posts in `content/blog/*.md`
+, then you could use that glob pattern in most shells to refer to each of those files.
+
+With the `DataSource.Glob` API, you could get all of those files like so:
+
+    import DataSource exposing (DataSource)
+
+    blogPostsGlob : DataSource (List String)
+    blogPostsGlob =
+        Glob.succeed (\slug -> slug)
+            |> Glob.match (Glob.literal "content/blog/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+Let's say you have these files locally:
+
+```shell
+- elm.json
+- src/
+- content/
+  - blog/
+    - first-post.md
+    - second-post.md
+```
+
+We would end up with a `DataSource` like this:
+
+    DataSource.succeed [ "first-post", "second-post" ]
+
+Of course, if you add or remove matching files, the DataSource will get those new files (unlike `DataSource.succeed`). That's why we have Glob!
+
+You can even see the `elm-pages dev` server will automatically flow through any added/removed matching files with its hot module reloading.
+
+But why did we get `"first-post"` instead of a full file path, like `"content/blog/first-post.md"`? That's the difference between
+`capture` and `match`.
+
+
+## Capture and Match
+
+There are two functions for building up a Glob pattern. `capture` and `match`.
+
+Whether you use `capture` or `match`, the actual file paths that match the glob you build will not change. It's only the resulting
+Elm value you get from each matching file that will depend on `capture` or `match`.
+
+@docs capture, match
+
+`capture` is a lot like building up a JSON decoder with a pipeline.
+
+Let's try our blogPostsGlob from before, but change every `match` to `capture`.
+
+    import DataSource exposing (DataSource)
+
+    blogPostsGlob :
+        DataSource
+            (List
+                { filePath : String
+                , slug : String
+                }
+            )
+    blogPostsGlob =
+        Glob.succeed
+            (\capture1 capture2 capture3 ->
+                { filePath = capture1 ++ capture2 ++ capture3
+                , slug = capture2
+                }
+            )
+            |> Glob.capture (Glob.literal "content/blog/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.capture (Glob.literal ".md")
+            |> Glob.toDataSource
+
+Notice that we now need 3 arguments at the start of our pipeline instead of 1. That's because
+we apply 1 more argument every time we do a `Glob.capture`, much like `Json.Decode.Pipeline.required`, or other pipeline APIs.
+
+Now we actually have the full file path of our files. But having that slug (like `first-post`) is also very helpful sometimes, so
+we kept that in our record as well. So we'll now have the equivalent of this `DataSource` with the current `.md` files in our `blog` folder:
+
+    DataSource.succeed
+        [ { filePath = "content/blog/first-post.md"
+          , slug = "first-post"
+          }
+        , { filePath = "content/blog/second-post.md"
+          , slug = "second-post"
+          }
+        ]
+
+Having the full file path lets us read in files. But concatenating it manually is tedious
+and error prone. That's what the `fullFilePath` helper is for.
+
+
+## Reading matching files
+
+@docs fullFilePath, captureFilePath
+
+    import DataSource exposing (DataSource)
+
+    blogPosts :
+        DataSource
+            (List
+                { filePath : String
+                , slug : String
+                }
+            )
+    blogPosts =
+        Glob.succeed
+            (\filePath slug ->
+                { filePath = filePath
+                , slug = slug
+                }
+            )
+            |> Glob.captureFilePath
+            |> Glob.match (Glob.literal "content/blog/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+In many cases you will want to use a `Glob` `DataSource`, and then read the body or frontmatter from matching files.
+
+
+## Reading Metadata for each Glob Match
+
+For example, if we had files like this:
+
+```markdown
+---
+title: My First Post
+---
+This is my first post!
+```
+
+Then we could read that title for our blog post list page using our `blogPosts` `DataSource` that we defined above.
+
+    import DataSource.File
+    import OptimizedDecoder as Decode exposing (Decoder)
+
+    titles : DataSource (List BlogPost)
+    titles =
+        blogPosts
+            |> DataSource.map
+                (List.map
+                    (\blogPost ->
+                        DataSource.File.request
+                            blogPost.filePath
+                            (DataSource.File.frontmatter blogFrontmatterDecoder)
+                    )
+                )
+            |> DataSource.resolve
+
+    type alias BlogPost =
+        { title : String }
+
+    blogFrontmatterDecoder : Decoder BlogPost
+    blogFrontmatterDecoder =
+        Decode.map BlogPost
+            (Decode.field "title" Decode.string)
+
+That will give us
+
+    DataSource.succeed
+        [ { title = "My First Post" }
+        , { title = "My Second Post" }
+        ]
 
 
 ## Capturing Patterns
 
 @docs wildcard, recursiveWildcard, int
 
-@docs capture, match
-
 
 ## File Matching Helpers
 
 @docs expectUniqueFile
+
+@docs Glob, atLeastOne, extractMatches, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
 
 -}
 
@@ -61,6 +225,24 @@ fullFilePath =
         ""
         (\fullPath captures ->
             ( fullPath, captures )
+        )
+
+
+{-| -}
+captureFilePath : Glob (String -> value) -> Glob value
+captureFilePath (Glob pattern regex apply) =
+    Glob
+        pattern
+        regex
+        (\fullPath captures ->
+            let
+                ( applied1, captured1 ) =
+                    captures
+                        |> apply fullPath
+            in
+            ( applied1 fullPath
+            , captured1
+            )
         )
 
 

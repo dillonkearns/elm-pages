@@ -91,6 +91,15 @@ all =
                         { expectedMatch = ( Json, [ Yml, Json, Json ] )
                         , expectedPattern = "*.+(yml|json)"
                         }
+        , test "withFilePath" <|
+            \() ->
+                Glob.succeed identity
+                    |> Glob.captureFilePath
+                    |> Glob.match Glob.wildcard
+                    |> Glob.match (Glob.literal ".txt")
+                    |> expectAll
+                        [ ( "hello.txt", "hello.txt" )
+                        ]
         , test "optional group - no match" <|
             \() ->
                 zeroOrMoreGlob
