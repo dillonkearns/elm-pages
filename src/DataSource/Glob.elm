@@ -1,6 +1,6 @@
 module DataSource.Glob exposing
     ( capture, match
-    , fullFilePath, captureFilePath
+    , captureFilePath
     , wildcard, recursiveWildcard, int
     , expectUniqueFile
     , Glob, atLeastOne, extractMatches, literal, map, oneOf, run, singleFile, succeed, toNonEmptyWithDefault, toPattern, toDataSource, zeroOrMore
@@ -97,12 +97,12 @@ we kept that in our record as well. So we'll now have the equivalent of this `Da
         ]
 
 Having the full file path lets us read in files. But concatenating it manually is tedious
-and error prone. That's what the `fullFilePath` helper is for.
+and error prone. That's what the `captureFilePath` helper is for.
 
 
 ## Reading matching files
 
-@docs fullFilePath, captureFilePath
+@docs captureFilePath
 
     import DataSource exposing (DataSource)
 
@@ -563,7 +563,7 @@ singleFile : String -> DataSource.DataSource (Maybe String)
 singleFile filePath =
     succeed identity
         |> match (literal filePath)
-        |> capture fullFilePath
+        |> captureFilePath
         |> toDataSource
         |> DataSource.andThen
             (\globResults ->
@@ -584,7 +584,7 @@ expectUniqueFile : Glob a -> DataSource.DataSource String
 expectUniqueFile glob =
     succeed identity
         |> match glob
-        |> capture fullFilePath
+        |> captureFilePath
         |> toDataSource
         |> DataSource.andThen
             (\matchingFiles ->
