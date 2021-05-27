@@ -56,7 +56,7 @@ But why did we get `"first-post"` instead of a full file path, like `"content/bl
 
 ## Capture and Match
 
-There are two functions for building up a Glob pattern. `capture` and `match`.
+There are two functions for building up a Glob pattern: `capture` and `match`.
 
 Whether you use `capture` or `match`, the actual file paths that match the glob you build will not change. It's only the resulting
 Elm value you get from each matching file that will depend on `capture` or `match`.
@@ -415,7 +415,12 @@ regexEscapePattern =
         |> Maybe.withDefault Regex.never
 
 
-{-| -}
+{-| Adds on to the glob pattern, but does not capture it in the resulting Elm match value. That means this changes which
+files will match, but does not change the Elm data type you get for each matching file.
+
+Exactly the same as `capture` except it doesn't capture the matched sub-pattern.
+
+-}
 match : Glob a -> Glob value -> Glob value
 match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
@@ -439,7 +444,52 @@ match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
         )
 
 
-{-| -}
+{-| Adds on to the glob pattern, and captures it in the resulting Elm match value. That means this both changes which
+files will match, and gives you the sub-match as Elm data for each matching file.
+
+Exactly the same as `match` except it also captures the matched sub-pattern.
+
+    type alias ArchivesArticle =
+        { year : String
+        , month : String
+        , day : String
+        , slug : String
+        }
+
+    archives : DataSource ArchivesArticle
+    archives =
+        Glob.succeed ArchivesArticle
+            |> Glob.match (Glob.literal "archive/")
+            |> Glob.capture Glob.int
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.int
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.int
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> expectAll
+
+The file `archive/1977/06/10/apple-2-released.md` will give us this match:
+
+    matches : List ArchivesArticle
+    matches =
+        DataSource.succeed
+            [ { year = 1977
+              , month = 6
+              , day = 10
+              , slug = "apple-2-released"
+              }
+            ]
+
+When possible, it's best to grab data and turn it into structured Elm data when you have it. That way,
+you don't end up with duplicate validation logic and data normalization, and your code will be more robust.
+
+If you only care about getting the full matched file paths, you can use `match`. `capture` is very useful because
+you can pick apart structured data as you build up your glob pattern. This follows the principle of
+[Parse, Don't Validate](https://elm-radio.com/episode/parse-dont-validate/).
+
+-}
 capture : Glob a -> Glob (a -> value) -> Glob value
 capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
     Glob
