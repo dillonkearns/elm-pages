@@ -23,7 +23,7 @@ dataSource docFiles =
                 sections
                     |> List.map
                         (\section ->
-                            DataSource.File.request
+                            DataSource.File.read
                                 section.filePath
                                 (headingsDecoder section.slug)
                         )

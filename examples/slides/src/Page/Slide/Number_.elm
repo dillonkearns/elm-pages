@@ -122,7 +122,7 @@ data routeParams =
 
 slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
 slideBody route =
-    DataSource.File.request
+    DataSource.File.read
         "slides.md"
         (DataSource.File.body
             |> OptimizedDecoder.andThen
@@ -148,7 +148,7 @@ slideBody route =
 
 slideCount : DataSource.DataSource Int
 slideCount =
-    DataSource.File.request "slides.md"
+    DataSource.File.read "slides.md"
         (DataSource.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->

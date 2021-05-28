@@ -132,7 +132,7 @@ titleForSection section =
     Glob.expectUniqueMatch (findBySlug section.slug)
         |> DataSource.andThen
             (\filePath ->
-                DataSource.File.request filePath
+                DataSource.File.read filePath
                     (markdownBodyDecoder
                         |> OptimizedDecoder.map
                             (\blocks ->
@@ -289,7 +289,7 @@ pageBody routeParams =
     Glob.expectUniqueMatch (findBySlug slug)
         |> DataSource.andThen
             (\filePath ->
-                DataSource.File.request filePath
+                DataSource.File.read filePath
                     markdownBodyDecoder
             )
 

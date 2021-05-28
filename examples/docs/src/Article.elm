@@ -37,7 +37,7 @@ allMetadata =
                         (\{ filePath, slug } ->
                             DataSource.map2 Tuple.pair
                                 (DataSource.succeed <| Route.Blog__Slug_ { slug = slug })
-                                (StaticFile.request filePath (StaticFile.frontmatter frontmatterDecoder))
+                                (StaticFile.read filePath (StaticFile.frontmatter frontmatterDecoder))
                         )
             )
         |> DataSource.resolve

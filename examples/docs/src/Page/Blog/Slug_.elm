@@ -231,7 +231,7 @@ type alias Data =
 
 data : RouteParams -> DataSource.DataSource Data
 data route =
-    StaticFile.request
+    StaticFile.read
         ("content/blog/" ++ route.slug ++ ".md")
         (OptimizedDecoder.map2 Data
             (StaticFile.body
