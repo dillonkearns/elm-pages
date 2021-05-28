@@ -1,0 +1,9 @@
+{
+    "name": "user/elm-pages-local",
+    "summary": "elm-pages local generated module documentation",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Page",
+        "Route"
+    ]
+}

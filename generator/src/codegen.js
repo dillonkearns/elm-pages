@@ -18,7 +18,12 @@ async function writeFiles() {
   ensureDirSync("./elm-stuff");
   ensureDirSync("./.elm-pages");
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
+
   fs.copyFileSync(path.join(__dirname, `./Page.elm`), `./.elm-pages/Page.elm`);
+  fs.copyFileSync(
+    path.join(__dirname, `./elm-application.json`),
+    `./elm-stuff/elm-pages/elm-application.json`
+  );
   fs.copyFileSync(
     path.join(__dirname, `./Page.elm`),
     `./elm-stuff/elm-pages/.elm-pages/Page.elm`
