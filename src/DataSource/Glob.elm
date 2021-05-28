@@ -13,7 +13,7 @@ module DataSource.Glob exposing
 
 @docs Glob
 
-This module helps you get a List of matching file paths from your local file system as a `DataSource`. See the `DataSource` module documentation
+This module helps you get a List of matching file paths from your local file system as a [`DataSource`](DataSource#DataSource). See the [`DataSource`](DataSource) module documentation
 for ways you can combine and map `DataSource`s.
 
 A common example would be to find all the markdown files of your blog posts. If you have all your blog posts in `content/blog/*.md`
@@ -58,8 +58,30 @@ But why did we get `"first-post"` instead of a full file path, like `"content/bl
 
 There are two functions for building up a Glob pattern: `capture` and `match`.
 
-Whether you use `capture` or `match`, the actual file paths that match the glob you build will not change. It's only the resulting
-Elm value you get from each matching file that will depend on `capture` or `match`.
+`capture` and `match` both build up a `Glob` pattern that will match 0 or more files on your local file system.
+There will be one argument for every `capture` in your pipeline, whereas `match` does not apply any arguments.
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    blogPostsGlob : DataSource (List String)
+    blogPostsGlob =
+        Glob.succeed (\slug -> slug)
+            -- no argument from this, but we will only
+            -- match files that begin with `content/blog/`
+            |> Glob.match (Glob.literal "content/blog/")
+            -- we get the value of the `wildcard`
+            -- as the slug argument
+            |> Glob.capture Glob.wildcard
+            -- no argument from this, but we will only
+            -- match files that end with `.md`
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+So to understand _which_ files will match, you can ignore whether you are using `capture` or `match` and just read
+the patterns you're using in order to understand what will match. To understand what Elm data type you will get
+_for each matching file_, you need to see which parts are being captured and how each of those captured values are being
+used in the function you use in `Glob.succeed`.
 
 @docs capture, match
 
@@ -104,7 +126,7 @@ we kept that in our record as well. So we'll now have the equivalent of this `Da
         ]
 
 Having the full file path lets us read in files. But concatenating it manually is tedious
-and error prone. That's what the `captureFilePath` helper is for.
+and error prone. That's what the [`captureFilePath`](#captureFilePath) helper is for.
 
 
 ## Reading matching files
@@ -191,7 +213,8 @@ import Regex
 import Secrets
 
 
-{-| -}
+{-| A pattern to match local files and capture parts of the path into a nice Elm data type.
+-}
 type alias Glob a =
     DataSource.Internal.Glob.Glob a
 
