@@ -260,7 +260,59 @@ captureFilePath =
     capture fullFilePath
 
 
-{-| -}
+{-| Matches anything except for a `/` in a file path. You may be familiar with this syntax from shells like bash
+where you can run commands like `rm client/*.js` to remove all `.js` files in the `client` directory.
+
+Just like a `*` glob pattern in bash, this `Glob.wildcard` function will only match within a path part. If you need to
+match 0 or more path parts like, see `recursiveWildcard`.
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    type alias BlogPost =
+        { year : String
+        , month : String
+        , day : String
+        , slug : String
+        }
+
+    example : DataSource (List BlogPost)
+    example =
+        Glob.succeed BlogPost
+            |> Glob.match (Glob.literal "blog/")
+            |> Glob.match Glob.wildcard
+            |> Glob.match (Glob.literal "-")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal "-")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+```shell
+
+- blog/
+  - 2021-05-27/
+    - first-post.md
+```
+
+That will match to:
+
+    results : DataSource (List BlogPost)
+    results =
+        DataSource.succeed
+            [ { year = "2021"
+              , month = "05"
+              , day = "27"
+              , slug = "first-post"
+              }
+            ]
+
+Note that we can "destructure" the date part of this file path in the format `yyyy-mm-dd`. The `wildcard` matches
+will match _within_ a path part (think between the slashes of a file path). `recursiveWildcard` can match across path parts.
+
+-}
 wildcard : Glob String
 wildcard =
     Glob "*"
@@ -301,6 +353,10 @@ In contrast, `wildcard` will never match `/`, so it only matches within a single
 
 This is the elm-pages equivalent of `**/*.txt` in standard shell syntax:
 
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    example : DataSource (List ( List String, String ))
     example =
         Glob.succeed Tuple.pair
             |> Glob.match (Glob.literal "articles/")
@@ -308,6 +364,7 @@ This is the elm-pages equivalent of `**/*.txt` in standard shell syntax:
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".txt")
+            |> Glob.toDataSource
 
 With these files:
 
