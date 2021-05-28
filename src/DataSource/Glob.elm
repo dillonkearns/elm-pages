@@ -355,19 +355,77 @@ wildcardRegex =
     "([^/]*?)"
 
 
-{-| -}
-int : Glob Int
-int =
+{-| This is similar to [`wildcard`](#wildcard), but it will only match 1 or more digits (i.e. `[0-9]+`).
+
+See [`int`](#int) for a convenience function to get an Int value instead of a String of digits.
+
+-}
+digits : Glob String
+digits =
     Glob "[0-9]+"
         "([0-9]+?)"
         (\_ captures ->
             case captures of
                 first :: rest ->
-                    ( String.toInt first |> Maybe.withDefault -1, rest )
+                    ( first, rest )
 
                 [] ->
-                    ( -1, [] )
+                    ( "ERROR", [] )
         )
+
+
+{-| Same as [`digits`](#digits), but it safely turns the digits String into an `Int`.
+
+Leading 0's are ignored.
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    archives : DataSource (List Int)
+    archives =
+        Glob.succeed identity
+            |> Glob.match (Glob.literal "slide-")
+            |> Glob.capture Glob.int
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+With files
+
+```shell
+- slide-no-match.md
+- slide-.md
+- slide-1.md
+- slide-01.md
+- slide-2.md
+- slide-03.md
+- slide-4.md
+- slide-05.md
+- slide-06.md
+- slide-007.md
+- slide-08.md
+- slide-09.md
+- slide-10.md
+- slide-11.md
+```
+
+Yields
+
+    matches =
+        DataSource.succeed [ 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+
+Note that neither `slide-no-match.md` nor `slide-.md` match.
+And both `slide-1.md` and `slide-01.md` match and turn into `1`.
+
+-}
+int : Glob Int
+int =
+    digits
+        |> map
+            (\matchedDigits ->
+                matchedDigits
+                    |> String.toInt
+                    |> Maybe.withDefault -1
+            )
 
 
 {-| Matches any number of characters, including `/`, as long as it's the only thing in a path part.
@@ -556,7 +614,7 @@ Exactly the same as `match` except it also captures the matched sub-pattern.
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> expectAll
+            |> Glob.toDataSource
 
 The file `archive/1977/06/10/apple-2-released.md` will give us this match:
 
