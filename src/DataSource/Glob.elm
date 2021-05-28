@@ -6,7 +6,9 @@ module DataSource.Glob exposing
     , int, digits
     , expectUniqueMatch
     , literal
-    , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
+    , map, succeed, toDataSource
+    , oneOf
+    , zeroOrMore, atLeastOne
     )
 
 {-|
@@ -200,7 +202,11 @@ That will give us
 
 @docs literal
 
-@docs atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
+@docs map, succeed, toDataSource
+
+@docs oneOf
+
+@docs zeroOrMore, atLeastOne
 
 -}
 
@@ -430,8 +436,8 @@ Leading 0's are ignored.
     import DataSource exposing (DataSource)
     import DataSource.Glob as Glob
 
-    archives : DataSource (List Int)
-    archives =
+    slides : DataSource (List Int)
+    slides =
         Glob.succeed identity
             |> Glob.match (Glob.literal "slide-")
             |> Glob.capture Glob.int
@@ -459,8 +465,22 @@ With files
 
 Yields
 
+    matches : DataSource (List Int)
     matches =
-        DataSource.succeed [ 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+        DataSource.succeed
+            [ 1
+            , 1
+            , 2
+            , 3
+            , 4
+            , 5
+            , 6
+            , 7
+            , 8
+            , 9
+            , 10
+            , 11
+            ]
 
 Note that neither `slide-no-match.md` nor `slide-.md` match.
 And both `slide-1.md` and `slide-01.md` match and turn into `1`.
