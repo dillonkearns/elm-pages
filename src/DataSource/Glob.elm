@@ -7,7 +7,6 @@ module DataSource.Glob exposing
     , expectUniqueMatch
     , literal
     , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
-    , toNonEmptyWithDefault
     )
 
 {-|
@@ -202,11 +201,6 @@ That will give us
 @docs literal
 
 @docs atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
-
-
-## Is this useful/used?
-
-@docs toNonEmptyWithDefault
 
 -}
 
@@ -841,7 +835,6 @@ atLeastOne ( defaultMatch, otherMatchers ) =
         )
 
 
-{-| -}
 toNonEmptyWithDefault : a -> List a -> ( a, List a )
 toNonEmptyWithDefault default list =
     case list of
