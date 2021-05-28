@@ -2,7 +2,8 @@ module DataSource.Glob exposing
     ( Glob
     , capture, match
     , captureFilePath
-    , wildcard, recursiveWildcard, int
+    , wildcard, recursiveWildcard
+    , int, digits
     , expectUniqueMatch
     , literal
     , atLeastOne, map, oneOf, succeed, toDataSource, zeroOrMore
@@ -183,7 +184,12 @@ That will give us
 
 ## Capturing Patterns
 
-@docs wildcard, recursiveWildcard, int
+@docs wildcard, recursiveWildcard
+
+
+## Capturing Specific Characters
+
+@docs int, digits
 
 
 ## Matching a Specific Number of Files
