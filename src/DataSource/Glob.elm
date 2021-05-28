@@ -219,7 +219,56 @@ type alias Glob a =
     DataSource.Internal.Glob.Glob a
 
 
-{-| -}
+{-| A `Glob` can be mapped. This can be useful for transforming a sub-match in-place.
+
+For example, if you wanted to take the slugs for a blog post and make sure they are normalized to be all lowercase, you
+could use
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    blogPostsGlob : DataSource (List String)
+    blogPostsGlob =
+        Glob.succeed (\slug -> slug)
+            |> Glob.match (Glob.literal "content/blog/")
+            |> Glob.capture (Glob.wildcard |> Glob.map String.toLower)
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+If you want to validate file formats, you can combine that with some `DataSource` helpers to turn a `Glob (Result String value)` into
+a `DataSource (List value)`.
+
+For example, you could take a date and parse it.
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    example : DataSource (List ( String, String ))
+    example =
+        Glob.succeed
+            (\dateResult slug ->
+                dateResult
+                    |> Result.map (\okDate -> ( okDate, slug ))
+            )
+            |> Glob.match (Glob.literal "blog/")
+            |> Glob.capture (Glob.recursiveWildcard |> Glob.map expectDateFormat)
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+            |> DataSource.map (List.map DataSource.fromResult)
+            |> DataSource.resolve
+
+    expectDateFormat : List String -> Result String String
+    expectDateFormat dateParts =
+        case dateParts of
+            [ year, month, date ] ->
+                Ok (String.join "-" [ year, month, date ])
+
+            _ ->
+                Err "Unexpected date format, expected yyyy/mm/dd folder structure."
+
+-}
 map : (a -> b) -> Glob a -> Glob b
 map mapFn (Glob pattern regex applyCapture) =
     Glob pattern
@@ -231,13 +280,13 @@ map mapFn (Glob pattern regex applyCapture) =
         )
 
 
-{-| -}
+{-| `succeed` is how you start a pipeline for a `Glob`. You will need one argument for each `capture` in your `Glob`.
+-}
 succeed : constructor -> Glob constructor
 succeed constructor =
     Glob "" "" (\_ captures -> ( constructor, captures ))
 
 
-{-| -}
 fullFilePath : Glob String
 fullFilePath =
     Glob ""
@@ -541,7 +590,31 @@ zeroOrMore matchers =
         )
 
 
-{-| -}
+{-| Match a literal part of a path. Can include `/`s.
+
+Some common uses include
+
+  - The leading part of a pattern, to say "starts with `content/blog/`"
+  - The ending part of a pattern, to say "ends with `.md`"
+  - In-between wildcards, to say "these dynamic parts are separated by `/`"
+
+```elm
+import DataSource exposing (DataSource)
+import DataSource.Glob as Glob
+
+blogPosts =
+    Glob.succeed
+        (\section slug ->
+            { section = section, slug = slug }
+        )
+        |> Glob.match (Glob.literal "content/blog/")
+        |> Glob.capture Glob.wildcard
+        |> Glob.match (Glob.literal "/")
+        |> Glob.capture Glob.wildcard
+        |> Glob.match (Glob.literal ".md")
+```
+
+-}
 literal : String -> Glob String
 literal string =
     Glob string (regexEscaped string) (\_ captures -> ( string, captures ))
