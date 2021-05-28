@@ -111,29 +111,7 @@ and error prone. That's what the `captureFilePath` helper is for.
 
 @docs captureFilePath
 
-    import DataSource exposing (DataSource)
-
-    blogPosts :
-        DataSource
-            (List
-                { filePath : String
-                , slug : String
-                }
-            )
-    blogPosts =
-        Glob.succeed
-            (\filePath slug ->
-                { filePath = filePath
-                , slug = slug
-                }
-            )
-            |> Glob.captureFilePath
-            |> Glob.match (Glob.literal "content/blog/")
-            |> Glob.capture Glob.wildcard
-            |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
-
-In many cases you will want to use a `Glob` `DataSource`, and then read the body or frontmatter from matching files.
+In many cases you will want to take the matching files from a `Glob` and then read the body or frontmatter from matching files.
 
 
 ## Reading Metadata for each Glob Match
@@ -246,7 +224,37 @@ fullFilePath =
         )
 
 
-{-| -}
+{-|
+
+    import DataSource exposing (DataSource)
+    import DataSource.Glob as Glob
+
+    blogPosts :
+        DataSource
+            (List
+                { filePath : String
+                , slug : String
+                }
+            )
+    blogPosts =
+        Glob.succeed
+            (\filePath slug ->
+                { filePath = filePath
+                , slug = slug
+                }
+            )
+            |> Glob.captureFilePath
+            |> Glob.match (Glob.literal "content/blog/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+This function does not change which files will or will not match. It just gives you the full matching
+file path in your `Glob` pipeline.
+
+Whenever possible, it's a good idea to use function to make sure you have an accurate file path when you need to read a file.
+
+-}
 captureFilePath : Glob (String -> value) -> Glob value
 captureFilePath =
     capture fullFilePath
