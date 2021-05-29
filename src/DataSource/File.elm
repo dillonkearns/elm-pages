@@ -138,6 +138,59 @@ bodyWithFrontmatter filePath frontmatterDecoder =
 
 
 {-| Same as `bodyWithFrontmatter` except it doesn't include the body.
+
+This is often useful when you're aggregating data, for example getting a listing of blog posts and need to extract
+just the metadata.
+
+    import DataSource exposing (DataSource)
+    import DataSource.File as File
+    import OptimizedDecoder as Decode exposing (Decoder)
+
+    blogPost : DataSource BlogPostMetadata
+    blogPost =
+        File.onlyFrontmatter "blog/hello-world.md"
+            blogPostDecoder
+
+    type alias BlogPostMetadata =
+        { title : String
+        , tags : List String
+        }
+
+    blogPostDecoder : Decoder BlogPostMetadata
+    blogPostDecoder =
+        Decode.map2 BlogPostMetadata
+            (Decode.field "title" Decode.string)
+            (Decode.field "tags" (Decode.list Decode.string))
+
+If you wanted to use this to get this metadata for all blog posts in a folder, you could use
+the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource.Glob).
+
+    import DataSource exposing (DataSource)
+    import DataSource.File as File
+    import OptimizedDecoder as Decode exposing (Decoder)
+
+    blogPostFiles : DataSource (List String)
+    blogPostFiles =
+        Glob.succeed identity
+            |> Glob.captureFilePath
+            |> Glob.match (Glob.literal "content/blog/")
+            |> Glob.match Glob.wildcard
+            |> Glob.match (Glob.literal ".md")
+            |> Glob.toDataSource
+
+    allMetadata : DataSource (List BlogPostMetadata)
+    allMetadata =
+        blogPostFiles
+            |> DataSource.map
+                (List.map
+                    (\filePath ->
+                        File.onlyFrontmatter
+                            filePath
+                            blogPostDecoder
+                    )
+                )
+            |> DataSource.resolve
+
 -}
 onlyFrontmatter : String -> Decoder frontmatter -> DataSource frontmatter
 onlyFrontmatter filePath frontmatterDecoder =
