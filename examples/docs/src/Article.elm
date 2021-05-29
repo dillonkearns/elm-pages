@@ -28,7 +28,6 @@ blogPostsGlob =
 
 allMetadata : DataSource.DataSource (List ( Route.Route, ArticleMetadata ))
 allMetadata =
-    --StaticFile.glob "content/blog/*.md"
     blogPostsGlob
         |> DataSource.map
             (\paths ->
@@ -37,7 +36,7 @@ allMetadata =
                         (\{ filePath, slug } ->
                             DataSource.map2 Tuple.pair
                                 (DataSource.succeed <| Route.Blog__Slug_ { slug = slug })
-                                (File.onlyFrontmatter filePath frontmatterDecoder)
+                                (File.onlyFrontmatter frontmatterDecoder filePath)
                         )
             )
         |> DataSource.resolve

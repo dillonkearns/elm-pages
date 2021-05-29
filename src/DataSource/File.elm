@@ -4,6 +4,7 @@ module DataSource.File exposing
     )
 
 {-| This module lets you read files from the local filesystem as a [`DataSource`](DataSource#DataSource).
+File paths are relative to the root of your `elm-pages` project (next to the `elm.json` file and `src/` directory).
 
 
 ## Files With Frontmatter
@@ -15,7 +16,7 @@ For example, you might have a file called `blog/hello-world.md` with this conten
 ```markdown
 ---
 title: Hello, World!
-draft: true
+tags: elm
 ---
 Hey there! This is my first post :)
 ```
@@ -24,7 +25,7 @@ The frontmatter is in the [YAML format](https://en.wikipedia.org/wiki/YAML) here
 
 ```markdown
 ---
-{"title": "Hello, World!", "draft": true}
+{"title": "Hello, World!", "tags": "elm"}
 ---
 Hey there! This is my first post :)
 ```
@@ -60,27 +61,32 @@ frontmatter frontmatterDecoder =
 
     blogPost : DataSource ( String, BlogPostMetadata )
     blogPost =
-        File.bodyWithFrontmatter "blog/hello-world.md"
-            blogPostDecoder
+        File.bodyWithFrontmatter blogPostDecoder
+            "blog/hello-world.md"
 
     type alias BlogPostMetadata =
         { body : String
         , title : String
-        , draft : Bool
+        , tags : List String
         }
 
     blogPostDecoder : Decoder BlogPostMetadata
     blogPostDecoder body =
         Decode.map2 (BlogPostMetadata body)
             (Decode.field "title" Decode.string)
-            (Decode.field "draft" Decode.bool)
+            (Decode.field "tags" tagsDecoder)
+
+    tagsDecoder : Decoder (List String)
+    tagsDecoder =
+        Decode.map (String.split " ")
+            Decode.string
 
 This will give us a DataSource that results in the following value:
 
     value =
         { body = "Hey there! This is my first post :)"
         , title = "Hello, World!"
-        , draft = True
+        , tags = [ "elm" ]
         }
 
 It's common to parse the body with a markdown parser or other format.
@@ -96,7 +102,7 @@ It's common to parse the body with a markdown parser or other format.
             , body : List (Html msg)
             }
     example =
-        File.bodyWithFrontmatter "foo.md"
+        File.bodyWithFrontmatter
             (\markdownString ->
                 Decode.map2
                     (\title renderedMarkdown ->
@@ -110,6 +116,7 @@ It's common to parse the body with a markdown parser or other format.
                         |> Decode.fromResult
                     )
             )
+            "foo.md"
 
     markdownToView :
         String
@@ -126,8 +133,8 @@ It's common to parse the body with a markdown parser or other format.
                 )
 
 -}
-bodyWithFrontmatter : String -> (String -> Decoder frontmatter) -> DataSource frontmatter
-bodyWithFrontmatter filePath frontmatterDecoder =
+bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource frontmatter
+bodyWithFrontmatter frontmatterDecoder filePath =
     read filePath
         (body
             |> OptimizedDecoder.andThen
@@ -183,17 +190,15 @@ the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource.Glo
         blogPostFiles
             |> DataSource.map
                 (List.map
-                    (\filePath ->
-                        File.onlyFrontmatter
-                            filePath
-                            blogPostDecoder
+                    (File.onlyFrontmatter
+                        blogPostDecoder
                     )
                 )
             |> DataSource.resolve
 
 -}
-onlyFrontmatter : String -> Decoder frontmatter -> DataSource frontmatter
-onlyFrontmatter filePath frontmatterDecoder =
+onlyFrontmatter : Decoder frontmatter -> String -> DataSource frontmatter
+onlyFrontmatter frontmatterDecoder filePath =
     read filePath
         (frontmatter frontmatterDecoder)
 
@@ -204,7 +209,8 @@ For example, if you have a file called `blog/hello-world.md` with
 
 ```markdown
 ---
-{"title": "Hello, World!", "draft": true}
+title: Hello, World!
+tags: elm
 ---
 Hey there! This is my first post :)
 ```
@@ -232,6 +238,15 @@ have frontmatter.
 There's a special function for reading in JSON files, [`jsonFile`](#jsonFile). If you're reading a JSON file then be sure to
 use `jsonFile` to get the benefits of the `OptimizedDecoder` here.
 
+You could read a file called `hello.txt` in your root project directory like this:
+
+    import DataSource exposing (DataSource)
+    import DataSource.File as File
+
+    elmJsonFile : DataSource String
+    elmJsonFile =
+        File.rawFile "hello.txt"
+
 -}
 rawFile : String -> DataSource String
 rawFile filePath =
@@ -242,9 +257,21 @@ rawFile filePath =
 
 The OptimizedDecoder will strip off any unused JSON data.
 
+    import DataSource exposing (DataSource)
+    import DataSource.File as File
+
+    sourceDirectories : DataSource (List String)
+    sourceDirectories =
+        File.jsonFile
+            (Decode.field
+                "source-directories"
+                (Decode.list Decode.string)
+            )
+            "elm.json"
+
 -}
-jsonFile : String -> Decoder a -> DataSource a
-jsonFile filePath jsonFileDecoder =
+jsonFile : Decoder a -> String -> DataSource a
+jsonFile jsonFileDecoder filePath =
     read filePath (OptimizedDecoder.field "jsonFile" jsonFileDecoder)
 
 
@@ -255,28 +282,6 @@ body =
     OptimizedDecoder.field "withoutFrontmatter" OptimizedDecoder.string
 
 
-{-| Read a file in as a [`DataSource`](DataSource#DataSource). You can directly read a file path,
-relative to the root of your `elm-pages` project (next to the `elm.json` file and `src/` directory).
-
-You could read your `elm.json` file in your project like this:
-
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
-
-    elmJsonFile : DataSource String
-    elmJsonFile =
-        File.read "elm.json" File.rawFile
-
-The `OptimizedDecoder.Decoder` argument can use any of the `Decoder` types in this module:
-
-  - [`rawBody`](#rawBody)
-  - [`body`](#body)
-  - [`frontmatter`](#frontmatter)
-
-Often you'll want to combine two together. For example, if you're reading the `frontmatter` and `body` from a file
-(see the example for [`frontmatter`](#frontmatter)).
-
--}
 read : String -> Decoder a -> DataSource a
 read filePath =
     DataSource.Http.get (Secrets.succeed <| "file://" ++ filePath)
