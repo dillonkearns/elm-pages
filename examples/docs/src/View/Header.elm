@@ -155,10 +155,20 @@ linkInner currentPagePath linkTo name =
             [ Tw.text_sm
             , Tw.p_2
             , if isCurrentPath then
-                Tw.text_blue_700
+                Css.batch
+                    [ Tw.text_blue_600
+                    , Css.hover
+                        [ Tw.text_blue_700
+                        ]
+                    ]
 
               else
-                Tw.text_gray_700
+                Css.batch
+                    [ Tw.text_gray_600
+                    , Css.hover
+                        [ Tw.text_gray_900
+                        ]
+                    ]
             ]
         ]
         [ text name ]
