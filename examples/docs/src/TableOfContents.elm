@@ -23,27 +23,23 @@ dataSource docFiles =
                 sections
                     |> List.map
                         (\section ->
-                            DataSource.File.read
+                            DataSource.File.bodyWithoutFrontmatter
                                 section.filePath
-                                (headingsDecoder section.slug)
+                                |> DataSource.andThen (headingsDecoder section.slug)
                         )
             )
         |> DataSource.resolve
         |> DataSource.map List.reverse
 
 
-headingsDecoder : String -> OptimizedDecoder.Decoder (Entry Data)
-headingsDecoder slug =
-    DataSource.File.body
-        |> OptimizedDecoder.andThen
-            (\rawBody ->
-                rawBody
-                    |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> "Markdown parsing error")
-                    |> Result.map gatherHeadings
-                    |> Result.andThen (nameAndTopLevel slug)
-                    |> OptimizedDecoder.fromResult
-            )
+headingsDecoder : String -> String -> DataSource (Entry Data)
+headingsDecoder slug rawBody =
+    rawBody
+        |> Markdown.Parser.parse
+        |> Result.mapError (\_ -> "Markdown parsing error")
+        |> Result.map gatherHeadings
+        |> Result.andThen (nameAndTopLevel slug)
+        |> DataSource.fromResult
 
 
 nameAndTopLevel :

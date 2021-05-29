@@ -231,21 +231,18 @@ type alias Data =
 
 data : RouteParams -> DataSource.DataSource Data
 data route =
-    StaticFile.read
+    StaticFile.bodyWithFrontmatter
         ("content/blog/" ++ route.slug ++ ".md")
-        (OptimizedDecoder.map2 Data
-            (StaticFile.body
-                |> OptimizedDecoder.andThen
-                    (\rawBody ->
-                        rawBody
-                            |> Markdown.Parser.parse
-                            |> Result.mapError (\_ -> "Couldn't parse markdown.")
-                            |> Result.andThen (Markdown.Renderer.render TailwindMarkdownRenderer.renderer)
-                            --|> Result.map Tuple.second
-                            |> OptimizedDecoder.fromResult
-                    )
-            )
-            (StaticFile.frontmatter frontmatterDecoder)
+        (\rawBody ->
+            OptimizedDecoder.map2 Data
+                (rawBody
+                    |> Markdown.Parser.parse
+                    |> Result.mapError (\_ -> "Couldn't parse markdown.")
+                    |> Result.andThen (Markdown.Renderer.render TailwindMarkdownRenderer.renderer)
+                    --|> Result.map Tuple.second
+                    |> OptimizedDecoder.fromResult
+                )
+                frontmatterDecoder
         )
 
 

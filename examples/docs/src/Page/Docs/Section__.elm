@@ -132,25 +132,25 @@ titleForSection section =
     Glob.expectUniqueMatch (findBySlug section.slug)
         |> DataSource.andThen
             (\filePath ->
-                DataSource.File.read filePath
-                    (markdownBodyDecoder
-                        |> OptimizedDecoder.map
-                            (\blocks ->
-                                List.Extra.findMap
-                                    (\block ->
-                                        case block of
-                                            Block.Heading Block.H1 inlines ->
-                                                Just
-                                                    { title = Block.extractInlineText inlines
-                                                    , url = "/docs/" ++ section.slug
-                                                    }
+                DataSource.File.bodyWithoutFrontmatter filePath
+                    |> DataSource.andThen
+                        markdownBodyDecoder
+                    |> DataSource.map
+                        (\blocks ->
+                            List.Extra.findMap
+                                (\block ->
+                                    case block of
+                                        Block.Heading Block.H1 inlines ->
+                                            Just
+                                                { title = Block.extractInlineText inlines
+                                                , url = "/docs/" ++ section.slug
+                                                }
 
-                                            _ ->
-                                                Nothing
-                                    )
-                                    blocks
-                            )
-                    )
+                                        _ ->
+                                            Nothing
+                                )
+                                blocks
+                        )
             )
         |> DataSource.andThen
             (\maybeTitle ->
@@ -287,11 +287,8 @@ pageBody routeParams =
                 |> Maybe.withDefault "what-is-elm-pages"
     in
     Glob.expectUniqueMatch (findBySlug slug)
-        |> DataSource.andThen
-            (\filePath ->
-                DataSource.File.read filePath
-                    markdownBodyDecoder
-            )
+        |> DataSource.andThen DataSource.File.bodyWithoutFrontmatter
+        |> DataSource.andThen markdownBodyDecoder
 
 
 findBySlug : String -> Glob String
@@ -305,13 +302,9 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBodyDecoder : OptimizedDecoder.Decoder (List Block)
-markdownBodyDecoder =
-    DataSource.File.body
-        |> OptimizedDecoder.andThen
-            (\rawBody ->
-                rawBody
-                    |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> "Markdown parsing error")
-                    |> OptimizedDecoder.fromResult
-            )
+markdownBodyDecoder : String -> DataSource (List Block)
+markdownBodyDecoder rawBody =
+    rawBody
+        |> Markdown.Parser.parse
+        |> Result.mapError (\_ -> "Markdown parsing error")
+        |> DataSource.fromResult

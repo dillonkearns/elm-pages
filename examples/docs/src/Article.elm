@@ -2,7 +2,7 @@ module Article exposing (..)
 
 import Cloudinary
 import DataSource
-import DataSource.File as StaticFile
+import DataSource.File as File
 import DataSource.Glob as Glob
 import Date exposing (Date)
 import OptimizedDecoder
@@ -37,7 +37,7 @@ allMetadata =
                         (\{ filePath, slug } ->
                             DataSource.map2 Tuple.pair
                                 (DataSource.succeed <| Route.Blog__Slug_ { slug = slug })
-                                (StaticFile.read filePath (StaticFile.frontmatter frontmatterDecoder))
+                                (File.onlyFrontmatter filePath frontmatterDecoder)
                         )
             )
         |> DataSource.resolve

@@ -1,32 +1,14 @@
 module DataSource.File exposing
-    ( read
-    , body, frontmatter
+    ( bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
     , jsonFile, rawFile
     )
 
 {-| This module lets you read files from the local filesystem as a [`DataSource`](DataSource#DataSource).
 
-@docs read
 
+## Files With Frontmatter
 
-## Reading Frontmatter
-
-@docs body, frontmatter
-
-
-## Reading Files
-
-@docs jsonFile, rawFile
-
--}
-
-import DataSource exposing (DataSource)
-import DataSource.Http
-import OptimizedDecoder exposing (Decoder)
-import Secrets
-
-
-{-| Frontmatter is a convention used to keep metadata in a file between `---`'s.
+Frontmatter is a convention used to keep metadata at the top of a file between `---`'s.
 
 For example, you might have a file called `blog/hello-world.md` with this content:
 
@@ -38,11 +20,39 @@ draft: true
 Hey there! This is my first post :)
 ```
 
-The frontmatter is in the [YAML format](https://en.wikipedia.org/wiki/YAML) here.
-You can also use JSON in your elm-pages frontmatter.
+The frontmatter is in the [YAML format](https://en.wikipedia.org/wiki/YAML) here. You can also use JSON in your elm-pages frontmatter.
+
+```markdown
+---
+{"title": "Hello, World!", "draft": true}
+---
+Hey there! This is my first post :)
+```
 
 Whether it's YAML or JSON, you use an `OptimizedDecoder` to decode your frontmatter, so it feels just like using
 plain old JSON in Elm.
+
+@docs bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
+
+
+## Reading Files Without Frontmatter
+
+@docs jsonFile, rawFile
+
+-}
+
+import DataSource exposing (DataSource)
+import DataSource.Http
+import OptimizedDecoder exposing (Decoder)
+import Secrets
+
+
+frontmatter : Decoder frontmatter -> Decoder frontmatter
+frontmatter frontmatterDecoder =
+    OptimizedDecoder.field "parsedFrontmatter" frontmatterDecoder
+
+
+{-|
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
@@ -50,43 +60,124 @@ plain old JSON in Elm.
 
     blogPost : DataSource ( String, BlogPostMetadata )
     blogPost =
-        File.read "blog/hello-world.md"
-            (Decode.map2 Tuple.pair
-                (File.frontmatter blogPostDecoder)
-                File.body
-            )
+        File.bodyWithFrontmatter "blog/hello-world.md"
+            blogPostDecoder
 
     type alias BlogPostMetadata =
-        { title : String
+        { body : String
+        , title : String
         , draft : Bool
         }
 
     blogPostDecoder : Decoder BlogPostMetadata
-    blogPostDecoder =
-        Decode.map2 BlogPostMetadata
+    blogPostDecoder body =
+        Decode.map2 (BlogPostMetadata body)
             (Decode.field "title" Decode.string)
             (Decode.field "draft" Decode.bool)
 
 This will give us a DataSource that results in the following value:
 
     value =
-        ( "Hey there! This is my first post :)"
-        , { title = "Hello, World!"
-          , draft = True
-          }
+        { body = "Hey there! This is my first post :)"
+        , title = "Hello, World!"
+        , draft = True
+        }
+
+It's common to parse the body with a markdown parser or other format.
+
+    import DataSource exposing (DataSource)
+    import DataSource.File as File
+    import Html exposing (Html)
+    import OptimizedDecoder as Decode exposing (Decoder)
+
+    example :
+        DataSource
+            { title : String
+            , body : List (Html msg)
+            }
+    example =
+        File.bodyWithFrontmatter "foo.md"
+            (\markdownString ->
+                Decode.map2
+                    (\title renderedMarkdown ->
+                        { title = title
+                        , body = renderedMarkdown
+                        }
+                    )
+                    (Decode.field "title" Decode.string)
+                    (markdownString |> markdownToView |> Decode.fromResult)
+            )
+
+    markdownToView : String -> Result String (List (Html msg))
+    markdownToView markdownString =
+        markdownString
+            |> Markdown.Parser.parse
+            |> Result.mapError (\_ -> "Markdown parsing error.")
+            |> Result.andThen
+                (\blocks ->
+                    Markdown.Renderer.render
+                        Markdown.Renderer.defaultHtmlRenderer
+                        blocks
+                )
+
+-}
+bodyWithFrontmatter : String -> (String -> Decoder frontmatter) -> DataSource frontmatter
+bodyWithFrontmatter filePath frontmatterDecoder =
+    read filePath
+        (body
+            |> OptimizedDecoder.andThen
+                (\bodyString ->
+                    frontmatter (frontmatterDecoder bodyString)
+                )
         )
 
+
+{-| Same as `bodyWithFrontmatter` except it doesn't include the body.
 -}
-frontmatter : Decoder frontmatter -> Decoder frontmatter
-frontmatter frontmatterDecoder =
-    OptimizedDecoder.field "parsedFrontmatter" frontmatterDecoder
+onlyFrontmatter : String -> Decoder frontmatter -> DataSource frontmatter
+onlyFrontmatter filePath frontmatterDecoder =
+    read filePath
+        (frontmatter frontmatterDecoder)
 
 
-{-| Gives us the file's content without stripping off frontmatter.
+{-| Same as `bodyWithFrontmatter` except it doesn't include the frontmatter.
+
+For example, if you have a file called `blog/hello-world.md` with
+
+```markdown
+---
+{"title": "Hello, World!", "draft": true}
+---
+Hey there! This is my first post :)
+```
+
+    import DataSource exposing (DataSource)
+
+    data : DataSource String
+    data =
+        bodyWithoutFrontmatter "blog/hello-world.md"
+
+Then data will yield the value `"Hey there! This is my first post :)"`.
+
 -}
-rawFile : Decoder String
-rawFile =
-    OptimizedDecoder.field "rawFile" OptimizedDecoder.string
+bodyWithoutFrontmatter : String -> DataSource String
+bodyWithoutFrontmatter filePath =
+    read filePath
+        body
+
+
+{-| Get the raw file content. Unlike the frontmatter helpers in this module, this function will not strip off frontmatter if there is any.
+
+This is the function you want if you are reading in a file directly. For example, if you read in a CSV file, a raw text file, or any other file that doesn't
+have frontmatter.
+
+There's a special function for reading in JSON files, [`jsonFile`](#jsonFile). If you're reading a JSON file then be sure to
+use `jsonFile` to get the benefits of the `OptimizedDecoder` here.
+
+-}
+rawFile : String -> DataSource String
+rawFile filePath =
+    read filePath (OptimizedDecoder.field "rawFile" OptimizedDecoder.string)
 
 
 {-| Read a file as JSON.

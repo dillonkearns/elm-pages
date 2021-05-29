@@ -91,7 +91,7 @@ data =
     Glob.succeed
         (\projectName filePath ->
             DataSource.map2 (Project projectName)
-                (DataSource.File.read filePath DataSource.File.body)
+                (DataSource.File.rawFile filePath)
                 (repo projectName)
         )
         |> Glob.match (Glob.literal "projects/")
