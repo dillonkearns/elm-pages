@@ -105,14 +105,19 @@ It's common to parse the body with a markdown parser or other format.
                         }
                     )
                     (Decode.field "title" Decode.string)
-                    (markdownString |> markdownToView |> Decode.fromResult)
+                    (markdownString
+                        |> markdownToView
+                        |> Decode.fromResult
+                    )
             )
 
-    markdownToView : String -> Result String (List (Html msg))
+    markdownToView :
+        String
+        -> Result String (List (Html msg))
     markdownToView markdownString =
         markdownString
             |> Markdown.Parser.parse
-            |> Result.mapError (\_ -> "Markdown parsing error.")
+            |> Result.mapError (\_ -> "Markdown error.")
             |> Result.andThen
                 (\blocks ->
                     Markdown.Renderer.render
