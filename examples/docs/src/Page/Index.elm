@@ -82,7 +82,7 @@ head static =
             }
         , description = SiteOld.tagline
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = "elm-pages - " ++ SiteOld.tagline
         }
         |> Seo.website
 

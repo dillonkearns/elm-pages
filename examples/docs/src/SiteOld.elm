@@ -8,4 +8,4 @@ canonicalUrl =
 
 tagline : String
 tagline =
-    "A statically typed site generator - elm-pages"
+    "pull in typed elm data to your pages"

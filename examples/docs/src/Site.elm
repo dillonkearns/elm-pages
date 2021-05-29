@@ -21,15 +21,12 @@ config =
 
 
 type alias Data =
-    { siteName : String
-    }
+    ()
 
 
 data : DataSource.DataSource Data
 data =
-    DataSource.map Data
-        --(StaticFile.request "site-name.txt" StaticFile.body)
-        (DataSource.succeed "site-name")
+    DataSource.succeed ()
 
 
 head : Data -> List Head.Tag
@@ -51,7 +48,7 @@ canonicalUrl =
 manifest : Data -> Manifest.Config
 manifest static =
     Manifest.init
-        { name = static.siteName
+        { name = "elm-pages"
         , description = "elm-pages - " ++ tagline
         , startUrl = Route.Index {} |> Route.toPath
         , icons =
@@ -66,7 +63,7 @@ manifest static =
 
 tagline : String
 tagline =
-    "A statically typed site generator"
+    "pull in typed elm data to your pages"
 
 
 webp : MimeType.MimeImage
