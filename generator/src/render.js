@@ -111,6 +111,7 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
               parsedFrontmatter: parsedFile.data,
               withoutFrontmatter: parsedFile.content,
               rawFile: fileContents,
+              jsonFile: jsonOrNull(fileContents),
             },
           });
         } catch (error) {
@@ -280,4 +281,15 @@ async function writeGeneratedFiles(filesToGenerate) {
       );
     })
   );
+}
+
+/**
+ * @param {string} string
+ */
+function jsonOrNull(string) {
+  try {
+    return JSON.parse(string);
+  } catch (e) {
+    return { invalidJson: e.toString() };
+  }
 }

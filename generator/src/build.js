@@ -81,6 +81,7 @@ function runElmApp() {
               parsedFrontmatter: parsedFile.data,
               withoutFrontmatter: parsedFile.content,
               rawFile: fileContents,
+              jsonFile: jsonOrNull(fileContents),
             },
           });
         } catch (error) {
@@ -360,3 +361,14 @@ function wrapHtml(fromElm, contentJsonString) {
 }
 
 module.exports = { run };
+
+/**
+ * @param {string} string
+ */
+function jsonOrNull(string) {
+  try {
+    return JSON.parse(string);
+  } catch (e) {
+    return { invalidJson: e.toString() };
+  }
+}

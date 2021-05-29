@@ -1,13 +1,22 @@
 module DataSource.File exposing
     ( read
-    , body, frontmatter, rawFile
+    , body, frontmatter
+    , jsonFile, rawFile
     )
 
 {-| This module lets you read files from the local filesystem as a [`DataSource`](DataSource#DataSource).
 
 @docs read
 
-@docs body, frontmatter, rawFile
+
+## Reading Frontmatter
+
+@docs body, frontmatter
+
+
+## Reading Files
+
+@docs jsonFile, rawFile
 
 -}
 
@@ -80,7 +89,18 @@ rawFile =
     OptimizedDecoder.field "rawFile" OptimizedDecoder.string
 
 
-{-| -}
+{-| Read a file as JSON.
+
+The OptimizedDecoder will strip off any unused JSON data.
+
+-}
+jsonFile : String -> Decoder a -> DataSource a
+jsonFile filePath jsonFileDecoder =
+    read filePath (OptimizedDecoder.field "jsonFile" jsonFileDecoder)
+
+
+{-| Gives us the file's content without stripping off frontmatter.
+-}
 body : Decoder String
 body =
     OptimizedDecoder.field "withoutFrontmatter" OptimizedDecoder.string
