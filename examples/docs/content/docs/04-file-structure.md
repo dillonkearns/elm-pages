@@ -4,17 +4,6 @@ With `elm-pages`, you don't define the central `Main.elm` entrypoint. That's def
 
 It builds your app for you from these special files that you define:
 
-```
-- src/
-  - View.elm
-  - Shared.elm
-  - Api.elm
-  - Site.elm
-  - Page/
-    - Index.elm
-- public/
-```
-
 `src/`
 
 - [`View.elm`](/docs/file-structure#view.elm)
@@ -23,7 +12,14 @@ It builds your app for you from these special files that you define:
 - [`Site.elm`](/docs/file-structure#site.elm)
 - [`Page/`](/docs/file-structure#page-modules)
 
-[`public/`](/docs/file-structure#public)
+There is also a special `public/` folder that will directly copy assets without any processing.
+
+- [`public/`](/docs/file-structure#public)
+
+And entrypoint files for your CSS and JS.
+
+- [`index.js`](/docs/file-structure#index.js)
+- [`style.css`](/docs/file-structure#style.css)
 
 ## Page Modules
 
@@ -110,5 +106,6 @@ Files in this folder are copied directly into `dist/` when you run `elm-pages bu
 
 For example, if you had a file called `public/images/profile.jpg`, then you could access it at `http://localhost:1234/images/profile.jpg` in your dev server, or the corresponding path in your production domain.
 
-- `static/index.js` - same as previous `beta-index.js`
-- `static/style.css` - same as previous `beta-style.css`
+## `index.js`
+
+## `style.css`
