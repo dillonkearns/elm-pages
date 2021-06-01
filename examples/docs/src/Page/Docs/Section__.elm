@@ -16,7 +16,7 @@ import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
 import NextPrevious
-import OptimizedDecoder
+import OptimizedDecoder as Decode exposing (Decoder)
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -133,8 +133,7 @@ titleForSection section =
         |> DataSource.andThen
             (\filePath ->
                 DataSource.File.bodyWithoutFrontmatter filePath
-                    |> DataSource.andThen
-                        markdownBodyDecoder
+                    |> DataSource.andThen markdownBodyDecoder2
                     |> DataSource.map
                         (\blocks ->
                             List.Extra.findMap
@@ -178,16 +177,16 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = static.data.titles.title ++ " | elm-pages docs"
+        , description = static.data.body.description
         , locale = Nothing
-        , title = static.data.titles.title
+        , title = static.data.titles.title ++ " | elm-pages docs"
         }
         |> Seo.website
 
 
 type alias Data =
     { toc : TableOfContents.TableOfContents TableOfContents.Data
-    , body : List Block
+    , body : { description : String, body : List Block }
     , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
     , editUrl : String
     }
@@ -243,7 +242,7 @@ view maybeUrl sharedModel static =
                         , Bp.xl [ Tw.pr_36 ]
                         ]
                     ]
-                    ((static.data.body
+                    ((static.data.body.body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault [ Html.text "" ]
                      )
@@ -278,7 +277,7 @@ view maybeUrl sharedModel static =
     }
 
 
-pageBody : RouteParams -> DataSource (List Block)
+pageBody : RouteParams -> DataSource { description : String, body : List Block }
 pageBody routeParams =
     let
         slug : String
@@ -287,8 +286,19 @@ pageBody routeParams =
                 |> Maybe.withDefault "what-is-elm-pages"
     in
     Glob.expectUniqueMatch (findBySlug slug)
-        |> DataSource.andThen DataSource.File.bodyWithoutFrontmatter
-        |> DataSource.andThen markdownBodyDecoder
+        |> DataSource.andThen
+            (DataSource.File.bodyWithFrontmatter
+                (\body ->
+                    Decode.map2
+                        (\description parsedMarkdown ->
+                            { description = description
+                            , body = parsedMarkdown
+                            }
+                        )
+                        (Decode.field "description" Decode.string)
+                        (markdownBodyDecoder body)
+                )
+            )
 
 
 findBySlug : String -> Glob String
@@ -302,8 +312,16 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBodyDecoder : String -> DataSource (List Block)
+markdownBodyDecoder : String -> Decoder (List Block)
 markdownBodyDecoder rawBody =
+    rawBody
+        |> Markdown.Parser.parse
+        |> Result.mapError (\_ -> "Markdown parsing error")
+        |> Decode.fromResult
+
+
+markdownBodyDecoder2 : String -> DataSource (List Block)
+markdownBodyDecoder2 rawBody =
     rawBody
         |> Markdown.Parser.parse
         |> Result.mapError (\_ -> "Markdown parsing error")
