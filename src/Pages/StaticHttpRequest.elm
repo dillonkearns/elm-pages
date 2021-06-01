@@ -77,10 +77,13 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
 
                 Ok ( partiallyStrippedResponses, followupRequest ) ->
                     strippedResponsesHelp
-                        (((usedSoFar |> Dict.toList)
-                            ++ (partiallyStrippedResponses |> Dict.toList)
-                         )
-                            |> Dict.Extra.fromListDedupe merge
+                        (Dict.merge
+                            (\key a -> Dict.insert key a)
+                            (\key a b -> Dict.insert key (merge a b))
+                            (\key b -> Dict.insert key b)
+                            usedSoFar
+                            partiallyStrippedResponses
+                            Dict.empty
                         )
                         appType
                         followupRequest
