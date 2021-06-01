@@ -53,11 +53,22 @@ routes =
 
 data : RouteParams -> DataSource Data
 data routeParams =
-    DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexnumber))
-        (Decode.map2 Data
-            (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
-            (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
+    DataSource.map2 Data
+        (DataSource.Http.get (Secrets.succeed "https://60b6a60d2f0fd200088cda1d--nifty-montalcini-51c9a5.netlify.app/.netlify/functions/time")
+            Decode.string
         )
+        (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexnumber))
+            (Decode.map2 Pokemon
+                (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
+                (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
+            )
+        )
+
+
+type alias Pokemon =
+    { name : String
+    , abilities : List String
+    }
 
 
 head :
@@ -81,8 +92,8 @@ head static =
 
 
 type alias Data =
-    { name : String
-    , abilities : List String
+    { time : String
+    , pokemon : Pokemon
     }
 
 
@@ -92,15 +103,18 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
-    { title = static.data.name
+    { title = static.data.pokemon.name
     , body =
         [ h1 []
-            [ text static.data.name
+            [ text static.data.pokemon.name
             ]
-        , text (static.data.abilities |> String.join ", ")
+        , text (static.data.pokemon.abilities |> String.join ", ")
         , img
             [ src <| "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" ++ static.routeParams.pokedexnumber ++ ".png"
             ]
             []
+        , p []
+            [ text static.data.time
+            ]
         ]
     }
