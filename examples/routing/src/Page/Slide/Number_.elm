@@ -124,55 +124,41 @@ data routeParams =
 
 slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
 slideBody route =
-    DataSource.File.read
+    DataSource.File.bodyWithoutFrontmatter
         "slides.md"
-        (DataSource.File.body
-            |> OptimizedDecoder.andThen
-                (\rawBody ->
-                    case rawBody |> Markdown.Parser.parse of
-                        Ok okBlocks ->
-                            case
-                                okBlocks
-                                    |> markdownIndexedByHeading (route.number |> String.toInt |> Maybe.withDefault 1)
-                                    |> Markdown.Renderer.render MarkdownRenderer.renderer
-                            of
-                                Ok renderedBody ->
-                                    OptimizedDecoder.succeed renderedBody
-
-                                Err error ->
-                                    OptimizedDecoder.fail error
-
-                        Err _ ->
-                            OptimizedDecoder.fail ""
-                )
-        )
+        |> DataSource.andThen
+            (\rawBody ->
+                rawBody
+                    |> Markdown.Parser.parse
+                    |> Result.map (markdownIndexedByHeading (route.number |> String.toInt |> Maybe.withDefault 1))
+                    |> Result.mapError (\_ -> "Markdown parsing error.")
+                    |> Result.andThen (Markdown.Renderer.render MarkdownRenderer.renderer)
+                    |> DataSource.fromResult
+            )
 
 
 slideCount : DataSource.DataSource Int
 slideCount =
-    DataSource.File.read "slides.md"
-        (DataSource.File.body
-            |> OptimizedDecoder.andThen
-                (\rawBody ->
-                    case rawBody |> Markdown.Parser.parse of
-                        Ok okBlocks ->
-                            okBlocks
-                                |> Markdown.Block.foldl
-                                    (\block h2CountSoFar ->
-                                        case block of
-                                            Markdown.Block.Heading Markdown.Block.H2 _ ->
-                                                h2CountSoFar + 1
+    DataSource.File.bodyWithoutFrontmatter "slides.md"
+        |> DataSource.andThen
+            (\rawBody ->
+                rawBody
+                    |> Markdown.Parser.parse
+                    |> Result.mapError (\_ -> "Markdown parsing error.")
+                    |> Result.map
+                        (Markdown.Block.foldl
+                            (\block h2CountSoFar ->
+                                case block of
+                                    Markdown.Block.Heading Markdown.Block.H2 _ ->
+                                        h2CountSoFar + 1
 
-                                            _ ->
-                                                h2CountSoFar
-                                    )
-                                    0
-                                |> OptimizedDecoder.succeed
-
-                        Err _ ->
-                            OptimizedDecoder.fail ""
-                )
-        )
+                                    _ ->
+                                        h2CountSoFar
+                            )
+                            0
+                        )
+                    |> DataSource.fromResult
+            )
 
 
 markdownIndexedByHeading :
