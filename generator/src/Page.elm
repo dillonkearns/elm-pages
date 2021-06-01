@@ -71,6 +71,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     , handleRoute : routeParams -> DataSource Bool
+    , kind : String
     }
 
 
@@ -98,6 +99,7 @@ type Builder routeParams templateData
             -> List Head.Tag
         , serverless : Bool
         , handleRoute : routeParams -> DataSource Bool
+        , kind : String
         }
 
 
@@ -122,6 +124,7 @@ buildNoState { view } builderState =
             , update = \_ _ _ _ _ _ -> ( (), Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
+            , kind = record.kind
             }
 
 
@@ -166,6 +169,7 @@ buildWithLocalState config builderState =
                 \maybePageUrl routeParams path templateModel sharedModel ->
                     config.subscriptions maybePageUrl routeParams path templateModel
             , handleRoute = record.handleRoute
+            , kind = record.kind
             }
 
 
@@ -201,6 +205,7 @@ buildWithSharedState config builderState =
                         templateModel
             , subscriptions = config.subscriptions
             , handleRoute = record.handleRoute
+            , kind = record.kind
             }
 
 
@@ -217,6 +222,7 @@ singleRoute { data, head } =
         , head = head
         , serverless = False
         , handleRoute = \_ -> DataSource.succeed True
+        , kind = "static"
         }
 
 
@@ -234,6 +240,7 @@ prerenderedRoute { data, head, routes } =
         , head = head
         , serverless = False
         , handleRoute = \routeParams -> routes |> DataSource.map (List.member routeParams)
+        , kind = "prerender"
         }
 
 
@@ -268,6 +275,7 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
                                 -- not in on-demand builders
                                 routes |> DataSource.map (List.member routeParams)
                         )
+        , kind = "prerender-with-fallback"
         }
 
 
@@ -285,6 +293,7 @@ serverlessRoute { data, head, routeFound } =
         , head = head
         , serverless = True
         , handleRoute = routeFound
+        , kind = "serverless"
         }
 
 
