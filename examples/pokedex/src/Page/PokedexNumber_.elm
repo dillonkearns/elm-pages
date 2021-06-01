@@ -55,11 +55,7 @@ routes =
 data : RouteParams -> DataSource Data
 data routeParams =
     DataSource.map2 Data
-        (DataSource.Http.get
-            (Secrets.succeed
-                (\deployUrl -> deployUrl ++ "/.netlify/functions/time")
-                |> Secrets.with "DEPLOY_URL"
-            )
+        (DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
             Decode.string
         )
         (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexnumber))
