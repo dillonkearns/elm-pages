@@ -1,7 +1,7 @@
 module Page exposing
     ( Builder(..)
     , StaticPayload
-    , prerenderedRoute, singleRoute, serverlessRoute
+    , prerenderedRoute, prerenderedRouteWithFallback, singleRoute, serverlessRoute
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     )
@@ -30,7 +30,7 @@ But before the user even requests the page, we have the following data:
   - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
   - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
-@docs prerenderedRoute, singleRoute, serverlessRoute
+@docs prerenderedRoute, prerenderedRouteWithFallback, singleRoute, serverlessRoute
 
 
 ## Stateless Page Modules
@@ -234,6 +234,40 @@ prerenderedRoute { data, head, routes } =
         , head = head
         , serverless = False
         , handleRoute = \routeParams -> routes |> DataSource.map (List.member routeParams)
+        }
+
+
+{-| -}
+prerenderedRouteWithFallback :
+    { data : routeParams -> DataSource data
+    , routes : DataSource (List routeParams)
+    , handleFallback : routeParams -> DataSource Bool
+    , head : StaticPayload data routeParams -> List Head.Tag
+    }
+    -> Builder routeParams data
+prerenderedRouteWithFallback { data, head, routes, handleFallback } =
+    WithData
+        { data = data
+        , staticRoutes = routes
+        , head = head
+        , serverless = False
+        , handleRoute =
+            \routeParams ->
+                handleFallback routeParams
+                    |> DataSource.andThen
+                        (\handleFallbackResult ->
+                            if handleFallbackResult then
+                                DataSource.succeed True
+
+                            else
+                                -- we want to lazily evaluate this in our on-demand builders
+                                -- so we try handle fallback first and short-circuit in those cases
+                                -- TODO - we could make an optimization to handle this differently
+                                -- between on-demand builders and the dev server
+                                -- we only need to match the pre-rendered routes in the dev server,
+                                -- not in on-demand builders
+                                routes |> DataSource.map (List.member routeParams)
+                        )
         }
 
 
