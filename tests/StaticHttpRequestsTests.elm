@@ -78,6 +78,31 @@ all =
                             ]
                           )
                         ]
+        , test "the stripped JSON from the same request with different decoders is merged so the decoders succeed" <|
+            \() ->
+                start
+                    [ ( [ "post-1" ]
+                      , DataSource.map2 Tuple.pair
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                                (Decode.field "stargazer_count" Decode.int)
+                            )
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                                (Decode.field "language" Decode.string)
+                            )
+                      )
+                    ]
+                    |> ProgramTest.simulateHttpOk
+                        "GET"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        """{ "stargazer_count": 86, "language": "Elm" }"""
+                    |> expectSuccess
+                        [ ( "post-1"
+                          , [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                              , """{"stargazer_count":86,"language":"Elm"}"""
+                              )
+                            ]
+                          )
+                        ]
         , test "andThen" <|
             \() ->
                 start

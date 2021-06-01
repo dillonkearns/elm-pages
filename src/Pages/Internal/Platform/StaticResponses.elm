@@ -176,13 +176,13 @@ encode requestsAndPending mode staticResponses =
                     NotFetched request _ ->
                         case mode of
                             Mode.Dev ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
+                                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
 
                             Mode.Prod ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
+                                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
 
                             Mode.ElmToHtmlBeta ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
+                                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
             )
 
 

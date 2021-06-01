@@ -1,7 +1,11 @@
-module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, resolve, resolveUrls, strippedResponses, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), WhatToDo(..), cacheRequestResolution, merge, resolve, resolveUrls, strippedResponses, strippedResponsesEncode, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
+import Dict.Extra
+import Internal.OptimizedDecoder
+import Json.Decode.Exploration
+import OptimizedDecoder
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
@@ -12,17 +16,58 @@ import TerminalText as Terminal
 type RawRequest value
     = Request
         ( List (Secrets.Value Pages.StaticHttp.Request.Request)
-        , ApplicationType -> RequestsAndPending -> Result Error ( Dict String String, RawRequest value )
+        , ApplicationType -> RequestsAndPending -> Result Error ( Dict String WhatToDo, RawRequest value )
         )
     | Done value
 
 
-strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
+type WhatToDo
+    = UseRawResponse
+    | StripResponse (OptimizedDecoder.Decoder ())
+
+
+merge : WhatToDo -> WhatToDo -> WhatToDo
+merge whatToDo1 whatToDo2 =
+    case ( whatToDo1, whatToDo2 ) of
+        ( StripResponse strip1, StripResponse strip2 ) ->
+            StripResponse (OptimizedDecoder.map2 (\_ _ -> ()) strip1 strip2)
+
+        ( StripResponse strip1, _ ) ->
+            StripResponse strip1
+
+        ( _, StripResponse strip1 ) ->
+            StripResponse strip1
+
+        _ ->
+            UseRawResponse
+
+
+strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
 strippedResponses =
     strippedResponsesHelp Dict.empty
 
 
-strippedResponsesHelp : Dict String String -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
+strippedResponsesEncode : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
+strippedResponsesEncode appType rawRequest requestsAndPending =
+    strippedResponses appType rawRequest requestsAndPending
+        |> Dict.map
+            (\k whatToDo ->
+                case whatToDo of
+                    UseRawResponse ->
+                        Dict.get k requestsAndPending
+                            |> Maybe.withDefault Nothing
+                            |> Maybe.withDefault ""
+
+                    StripResponse decoder ->
+                        Dict.get k requestsAndPending
+                            |> Maybe.withDefault Nothing
+                            |> Maybe.withDefault ""
+                            |> Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder)
+                            |> Result.withDefault "ERROR"
+            )
+
+
+strippedResponsesHelp : Dict String WhatToDo -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
 strippedResponsesHelp usedSoFar appType request rawResponses =
     case request of
         Request ( _, lookupFn ) ->
@@ -31,7 +76,15 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
                     usedSoFar
 
                 Ok ( partiallyStrippedResponses, followupRequest ) ->
-                    strippedResponsesHelp (Dict.union usedSoFar partiallyStrippedResponses) appType followupRequest rawResponses
+                    strippedResponsesHelp
+                        (((usedSoFar |> Dict.toList)
+                            ++ (partiallyStrippedResponses |> Dict.toList)
+                         )
+                            |> Dict.Extra.fromListDedupe merge
+                        )
+                        appType
+                        followupRequest
+                        rawResponses
 
         Done _ ->
             usedSoFar

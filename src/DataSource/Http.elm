@@ -255,7 +255,10 @@ unoptimizedRequest requestWithSecrets expect =
                                         case maybeResponse of
                                             Just rawResponse ->
                                                 Ok
-                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
+                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                        (Pages.StaticHttpRequest.StripResponse
+                                                            (Decode.map (\_ -> ()) decoder)
+                                                        )
                                                     , rawResponse
                                                     )
 
@@ -267,17 +270,12 @@ unoptimizedRequest requestWithSecrets expect =
                                    )
                                 |> Result.andThen
                                     (\( strippedResponses, rawResponse ) ->
-                                        let
-                                            reduced =
-                                                Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder) rawResponse
-                                                    |> Result.withDefault "TODO"
-                                        in
                                         rawResponse
                                             |> Json.Decode.Exploration.decodeString (decoder |> Internal.OptimizedDecoder.jde)
                                             |> (\decodeResult ->
                                                     case decodeResult of
                                                         Json.Decode.Exploration.BadJson ->
-                                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
+                                                            Pages.StaticHttpRequest.DecoderError ("Payload sent back invalid JSON\n" ++ rawResponse) |> Err
 
                                                         Json.Decode.Exploration.Errors errors ->
                                                             errors
@@ -297,7 +295,9 @@ unoptimizedRequest requestWithSecrets expect =
                                                     ( strippedResponses
                                                         |> Dict.insert
                                                             (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                            reduced
+                                                            (Pages.StaticHttpRequest.StripResponse
+                                                                (Decode.map (\_ -> ()) decoder)
+                                                            )
                                                     , finalRequest
                                                     )
                                                 )
@@ -310,7 +310,8 @@ unoptimizedRequest requestWithSecrets expect =
                                         case maybeResponse of
                                             Just rawResponse ->
                                                 Ok
-                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
+                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                        Pages.StaticHttpRequest.UseRawResponse
                                                     , rawResponse
                                                     )
 
@@ -326,8 +327,15 @@ unoptimizedRequest requestWithSecrets expect =
                                             |> Json.Decode.decodeString (decoder |> Internal.OptimizedDecoder.jd)
                                             |> (\decodeResult ->
                                                     case decodeResult of
-                                                        Err _ ->
-                                                            Pages.StaticHttpRequest.DecoderError "Payload sent back invalid JSON" |> Err
+                                                        Err error ->
+                                                            Pages.StaticHttpRequest.DecoderError
+                                                                ("Payload sent back invalid JSON\n"
+                                                                    ++ rawResponse
+                                                                    ++ "\n KEYS"
+                                                                    ++ (Dict.keys strippedResponses |> String.join " - ")
+                                                                    ++ Json.Decode.errorToString error
+                                                                )
+                                                                |> Err
 
                                                         Ok a ->
                                                             Ok a
@@ -335,7 +343,9 @@ unoptimizedRequest requestWithSecrets expect =
                                             |> Result.map Done
                                             |> Result.map
                                                 (\finalRequest ->
-                                                    ( strippedResponses, finalRequest )
+                                                    ( strippedResponses
+                                                    , finalRequest
+                                                    )
                                                 )
                                     )
                 )
@@ -350,7 +360,8 @@ unoptimizedRequest requestWithSecrets expect =
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
-                                            ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
+                                            ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                Pages.StaticHttpRequest.UseRawResponse
                                             , rawResponse
                                             )
 
@@ -381,7 +392,7 @@ unoptimizedRequest requestWithSecrets expect =
                                             ( strippedResponses
                                                 |> Dict.insert
                                                     (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                    rawResponse
+                                                    Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
                                         )
@@ -398,7 +409,7 @@ unoptimizedRequest requestWithSecrets expect =
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
-                                            ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
+                                            ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
                                             , rawResponse
                                             )
 
@@ -417,7 +428,7 @@ unoptimizedRequest requestWithSecrets expect =
                                     |> Result.map
                                         (\finalRequest ->
                                             ( strippedResponses
-                                                |> Dict.insert (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) rawResponse
+                                                |> Dict.insert (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
                                         )

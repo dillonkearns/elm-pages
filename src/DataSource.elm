@@ -67,7 +67,7 @@ import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
-import Pages.StaticHttpRequest exposing (RawRequest(..))
+import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
 import RequestsAndPending exposing (RequestsAndPending)
 
 
@@ -226,7 +226,7 @@ map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
-                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, DataSource c )
+                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, DataSource c )
                 value appType rawResponses =
                     case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
                         ( Ok ( newDict1, newValue1 ), Ok ( newDict2, newValue2 ) ) ->
@@ -273,25 +273,18 @@ map2 fn request1 request2 =
 This is assuming that there are no duplicate URLs, so it can safely choose between either a raw or a reduced response.
 It would not work correctly if it chose between two responses that were reduced with different `Json.Decode.Exploration.Decoder`s.
 -}
-combineReducedDicts : Dict String String -> Dict String String -> Dict String String
+combineReducedDicts : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
 combineReducedDicts dict1 dict2 =
     (Dict.toList dict1 ++ Dict.toList dict2)
-        |> Dict.Extra.fromListDedupe
-            (\response1 response2 ->
-                if String.length response1 < String.length response2 then
-                    response1
-
-                else
-                    response2
-            )
+        |> Dict.Extra.fromListDedupe Pages.StaticHttpRequest.merge
 
 
-lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
 lookup =
     lookupHelp Dict.empty
 
 
-lookupHelp : Dict String String -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String String, value )
+lookupHelp : Dict String WhatToDo -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
 lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
         Request ( urls, lookupFn ) ->
