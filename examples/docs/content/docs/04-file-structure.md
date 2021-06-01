@@ -1,3 +1,7 @@
+---
+description: TODO
+---
+
 # File Structure
 
 With `elm-pages`, you don't define the central `Main.elm` entrypoint. That's defined under the hood by `elm-pages`.
