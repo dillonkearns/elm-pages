@@ -10,6 +10,7 @@ import OptimizedDecoder as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Path
 import Secrets
 import Shared
 import View exposing (View)
@@ -54,7 +55,11 @@ routes =
 data : RouteParams -> DataSource Data
 data routeParams =
     DataSource.map2 Data
-        (DataSource.Http.get (Secrets.succeed "https://60b6a60d2f0fd200088cda1d--nifty-montalcini-51c9a5.netlify.app/.netlify/functions/time")
+        (DataSource.Http.get
+            (Secrets.succeed
+                (\deployUrl -> deployUrl ++ "/.netlify/functions/time")
+                |> Secrets.with "DEPLOY_URL"
+            )
             Decode.string
         )
         (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexnumber))
