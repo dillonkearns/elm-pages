@@ -42,7 +42,7 @@ page =
                         String.toInt pokedexnumber |> Maybe.withDefault -1
                 in
                 DataSource.succeed
-                    (asNumber > 0 && asNumber < 150)
+                    (asNumber > 0 && asNumber <= 150)
         }
         |> Page.buildNoState { view = view }
 
