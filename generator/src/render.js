@@ -37,7 +37,7 @@ module.exports =
  * @param {string} pagePath
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
  * @param {(pattern: string) => void} addDataSourceWatcher
- * @returns {Promise<({ kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; })>}
+ * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
   return new Promise((resolve, reject) => {

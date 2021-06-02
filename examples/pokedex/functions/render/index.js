@@ -21,6 +21,8 @@ async function render(event, context) {
       function () {}
     );
 
+    const statusCode = renderResult.is404 ? 404 : 200;
+
     if (renderResult.kind === "json") {
       return {
         body: renderResult.contentJson,
@@ -28,7 +30,7 @@ async function render(event, context) {
           "Content-Type": "application/json",
           "x-powered-by": "elm-pages",
         },
-        statusCode: 200,
+        statusCode,
       };
     } else {
       return {
@@ -37,13 +39,13 @@ async function render(event, context) {
           "Content-Type": "text/html",
           "x-powered-by": "elm-pages",
         },
-        statusCode: 200,
+        statusCode,
       };
     }
   } catch (error) {
     console.error(error);
     return {
-      body: `<body><h1>Error</h1><pre>${error}</pre></body>`,
+      body: `<body><h1>Error</h1><pre>${error.toString()}</pre></body>`,
       statusCode: 500,
       headers: {
         "Content-Type": "text/html",
