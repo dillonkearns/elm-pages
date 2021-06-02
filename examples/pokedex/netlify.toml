@@ -1,13 +1,7 @@
 [build]
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js"
-
-
-[[redirects]]
-  from = "/:pokedex"
-  to = "/.netlify/functions/render"
-  status = 200
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && node adapter.js"
 
 [dev]
   command = "npm start"
