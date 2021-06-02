@@ -423,7 +423,7 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , apiRoutes = \\htmlToString -> manifestHandler :: Api.routes getStaticRoutes htmlToString
+        , apiRoutes = \\htmlToString -> routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
 
         }
 
@@ -462,6 +462,31 @@ handleRoute maybeRoute =
           )
           .join("\n        ")}
 
+routePatterns : ApiRoute.Done ApiRoute.Response
+routePatterns =
+    ApiRoute.succeed
+        (Json.Encode.list
+            (\\{ kind, pathPattern } ->
+                Json.Encode.object
+                    [ ( "kind", Json.Encode.string kind )
+                    , ( "pathPattern", Json.Encode.string pathPattern )
+                    ]
+            )
+            [ ${sortTemplates(templates)
+              .map((name) => {
+                return `{ kind = Page.${moduleName(
+                  name
+                )}.page.kind, pathPattern = "${routeHelpers.toPathPattern(
+                  name
+                )}" }`;
+              })
+              .join("\n            , ")}
+          
+            ]
+            |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
+        )
+        |> ApiRoute.literal "route-patterns.json"
+        |> ApiRoute.singleRoute
 
 
 getStaticRoutes : DataSource (List Route)

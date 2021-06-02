@@ -10,6 +10,7 @@ async function run({ renderFunctionFilePath, serverRoutes, fallbackRoutes }) {
   // TODO copy server-request render serverless function to functions folder
   // TODO rename functions/render to functions/fallback-render
 
+  // TODO prepend instead of writing file
   fs.writeFileSync(
     "dist/_redirects",
     `${fallbackRoutes.map(

@@ -76,7 +76,11 @@ function parseRouteParamsWithStatic(name) {
 
     // return maybeParam && toFieldName(maybeParam);
     if (routeParamMatch[2] === "") {
-      return [{ kind: "static", name: maybeParam }];
+      if (maybeParam === "Index") {
+        return [];
+      } else {
+        return [{ kind: "static", name: maybeParam }];
+      }
     } else if (routeParamMatch[2] === "_") {
       if (isSplat) {
         return [
@@ -140,6 +144,37 @@ function routeVariantDefinition(name) {
 
 /**
  * @param {string[]} name
+ * @returns {string}
+ */
+function toPathPattern(name) {
+  return (
+    "/" +
+    parseRouteParamsWithStatic(name)
+      .map((param) => {
+        switch (param.kind) {
+          case "static": {
+            return `${param.name}`;
+          }
+          case "dynamic": {
+            return `:${param.name}`;
+          }
+          case "optional": {
+            return `:TODO_OPTIONAL`;
+          }
+          case "required-splat": {
+            return `TODO_SPLAT`;
+          }
+          case "optional-splat": {
+            return `TODO_SPLAT`;
+          }
+        }
+      })
+      .join("/")
+  );
+}
+
+/**
+ * @param {string[]} name
  */
 function paramsRecord(name) {
   return `{ ${parseRouteParams(name).map((param) => {
@@ -180,6 +215,7 @@ module.exports = {
   routeVariant,
   toFieldName,
   paramsRecord,
+  toPathPattern,
   parseRouteParams,
   parseRouteParamsWithStatic,
 };
