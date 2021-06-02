@@ -1,9 +1,16 @@
-module ApiRoute exposing (..)
+module ApiRoute exposing (Done, Handler(..), Response, buildTimeRoutes, capture, firstMatch, int, literal, pathToMatches, singleRoute, slash, succeed, tryMatch, tryMatchDone, withRoutes, withRoutesNew)
+
+{-|
+
+@docs Done, Handler, Response, buildTimeRoutes, capture, firstMatch, int, literal, pathToMatches, singleRoute, slash, succeed, tryMatch, tryMatchDone, withRoutes, withRoutesNew
+
+-}
 
 import DataSource exposing (DataSource)
 import Regex exposing (Regex)
 
 
+{-| -}
 firstMatch : String -> List (Done response) -> Maybe (Done response)
 firstMatch path handlers =
     case handlers of
@@ -19,6 +26,7 @@ firstMatch path handlers =
                     firstMatch path rest
 
 
+{-| -}
 tryMatchDone : String -> Done response -> Maybe (Done response)
 tryMatchDone path handler =
     if Regex.contains handler.regex path then
@@ -28,6 +36,7 @@ tryMatchDone path handler =
         Nothing
 
 
+{-| -}
 withRoutesNew :
     (constructor -> List (List String))
     -> Handler a constructor
@@ -37,6 +46,7 @@ withRoutesNew buildUrls (Handler pattern handler toString constructor) =
         |> List.map toString
 
 
+{-| -}
 type alias Done response =
     { regex : Regex
     , matchesToResponse : String -> DataSource (Maybe response)
@@ -45,12 +55,14 @@ type alias Done response =
     }
 
 
+{-| -}
 singleRoute : Handler (DataSource Response) (List String) -> Done Response
 singleRoute handler =
     handler
         |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
 
 
+{-| -}
 buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler (DataSource Response) constructor -> Done Response
 buildTimeRoutes buildUrls ((Handler pattern handler toString constructor) as fullHandler) =
     let
@@ -98,6 +110,7 @@ buildTimeRoutes buildUrls ((Handler pattern handler toString constructor) as ful
     }
 
 
+{-| -}
 pathToMatches : String -> Handler a constructor -> List String
 pathToMatches path (Handler pattern handler toString constructor) =
     Regex.find
@@ -109,12 +122,14 @@ pathToMatches path (Handler pattern handler toString constructor) =
         |> List.filterMap identity
 
 
+{-| -}
 withRoutes : (constructor -> List (List String)) -> Handler a constructor -> List String
 withRoutes buildUrls (Handler pattern handler toString constructor) =
     buildUrls (constructor [])
         |> List.map toString
 
 
+{-| -}
 tryMatch : String -> Handler response constructor -> Maybe response
 tryMatch path (Handler pattern handler toString constructor) =
     let
@@ -131,29 +146,35 @@ tryMatch path (Handler pattern handler toString constructor) =
         |> Just
 
 
+{-| -}
 type Handler a constructor
     = Handler String (List String -> a) (List String -> String) (List String -> constructor)
 
 
+{-| -}
 type alias Response =
     { body : String }
 
 
+{-| -}
 succeed : a -> Handler a (List String)
 succeed a =
     Handler "" (\args -> a) (\_ -> "") (\list -> list)
 
 
+{-| -}
 literal : String -> Handler a constructor -> Handler a constructor
 literal segment (Handler pattern handler toString constructor) =
     Handler (pattern ++ segment) handler (\values -> toString values ++ segment) constructor
 
 
+{-| -}
 slash : Handler a constructor -> Handler a constructor
 slash (Handler pattern handler toString constructor) =
     Handler (pattern ++ "/") handler (\arg -> toString arg ++ "/") constructor
 
 
+{-| -}
 capture :
     Handler
         (String -> a)
@@ -187,6 +208,7 @@ capture (Handler pattern previousHandler toString constructor) =
         )
 
 
+{-| -}
 int :
     Handler
         (Int -> a)

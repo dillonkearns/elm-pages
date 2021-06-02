@@ -7,6 +7,7 @@
     "exposed-modules": [
         "Head",
         "Head.Seo",
+        "ApiRoute",
         "Path",
         "Pages.PageUrl",
         "QueryParams",
