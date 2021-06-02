@@ -5,7 +5,7 @@
 
 
 [[redirects]]
-  from = "/*"
+  from = "/:pokedex"
   to = "/.netlify/functions/render"
   status = 200
 
