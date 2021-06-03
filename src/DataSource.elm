@@ -377,8 +377,15 @@ andThen fn requestInfo =
                                 RequestError error
 
                             Ok ( strippedResponses, value ) ->
-                                -- TODO maybe use strippedResponses here?
-                                fn value
+                                case fn value of
+                                    Request dict ( values, function ) ->
+                                        Request (combineReducedDicts strippedResponses dict) ( values, function )
+
+                                    RequestError error ->
+                                        RequestError error
+
+                                    Done dict finalValue ->
+                                        Done (combineReducedDicts strippedResponses dict) finalValue
                    )
         )
 
