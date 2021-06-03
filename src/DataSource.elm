@@ -249,25 +249,26 @@ map2 fn request1 request2 =
             Request dict1
                 ( urls1
                 , \appType rawResponses ->
-                    lookupFn1 appType rawResponses
-                        |> (\value1 ->
-                                map2 fn value1 (Done stripped2 value2)
-                           )
+                    (\value1 ->
+                        map2 fn value1 (Done stripped2 value2)
+                    )
+                        (lookupFn1 appType rawResponses)
                 )
 
         ( Done stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
                 , \appType rawResponses ->
-                    lookupFn1 appType rawResponses
-                        |> (\value1 ->
-                                map2 fn (Done stripped2 value2) value1
-                           )
+                    (\value1 ->
+                        map2 fn (Done stripped2 value2) value1
+                    )
+                        (lookupFn1 appType rawResponses)
                 )
 
         ( Done stripped1 value1, Done stripped2 value2 ) ->
-            -- TODO do I need to merge safely with stripped2 here?
-            fn value1 value2 |> Done (combineReducedDicts stripped1 stripped2)
+            Done
+                (combineReducedDicts stripped1 stripped2)
+                (fn value1 value2)
 
 
 {-| Takes two dicts representing responses, some of which have been reduced, and picks the shorter of the two.
