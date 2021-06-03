@@ -525,9 +525,7 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
         -- TODO look for performance bottleneck in this double nesting
         |> List.map
             (\( _, request ) ->
-                allRawResponses
-                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                    |> Tuple.second
+                StaticHttpRequest.resolveUrls ApplicationType.Cli request allRawResponses
             )
         |> List.concat
         -- TODO prevent duplicates... can't because Set needs comparable

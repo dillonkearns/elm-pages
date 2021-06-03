@@ -152,23 +152,21 @@ resolve appType request rawResponses =
             Ok value
 
 
-resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
+resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request)
 resolveUrls appType request rawResponses =
     case request of
         RequestError _ ->
-            ( False
-            , []
-              -- TODO do I need to preserve the URLs here? -- urlList
+            ([]
+             -- TODO do I need to preserve the URLs here? -- urlList
             )
 
         Request _ ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
                 nextRequest ->
-                    resolveUrls appType nextRequest rawResponses
-                        |> Tuple.mapSecond ((++) urlList)
+                    urlList ++ resolveUrls appType nextRequest rawResponses
 
         Done _ _ ->
-            ( True, [] )
+            []
 
 
 cacheRequestResolution :

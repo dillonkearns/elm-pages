@@ -54,8 +54,8 @@ all =
                                     , ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( True, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen staring with done" <|
             \() ->
@@ -71,8 +71,8 @@ all =
                                     [ ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( True, [ getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "NEXT" ]
                        )
         , test "map" <|
             \() ->
@@ -91,8 +91,8 @@ all =
                                     , ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( True, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
             \() ->
@@ -108,8 +108,8 @@ all =
                                     [ ( get "first", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( False, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
             \() ->
@@ -130,8 +130,8 @@ all =
                                     [ ( get "first", "1" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( False, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         ]
 
