@@ -13,6 +13,7 @@ when inside the directory containing this file.
 
 import NoInconsistentAliases
 import NoModuleOnExposedNames
+import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
 import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
@@ -43,6 +44,8 @@ config =
         |> NoInconsistentAliases.noMissingAliases
         |> NoInconsistentAliases.rule
     , NoModuleOnExposedNames.rule
+    , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
+        |> Rule.ignoreErrorsForDirectories [ "tests", "src/ElmHtml" ]
     ]
         |> List.map
             (\rule ->

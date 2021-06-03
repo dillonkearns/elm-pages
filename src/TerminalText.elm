@@ -88,6 +88,7 @@ toString list =
 
 toString_ : Text -> String
 toString_ textValue =
+    -- elm-review: known-unoptimized-recursion
     case textValue of
         RawText content ->
             content

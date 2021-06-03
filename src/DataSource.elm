@@ -136,6 +136,7 @@ A common use for this is to map your data into your elm-pages view:
 -}
 map : (a -> b) -> DataSource a -> DataSource b
 map fn requestInfo =
+    -- elm-review: known-unoptimized-recursion
     case requestInfo of
         RequestError error ->
             RequestError error
@@ -222,6 +223,7 @@ combine =
 -}
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
+    -- elm-review: known-unoptimized-recursion
     case ( request1, request2 ) of
         ( RequestError error, _ ) ->
             RequestError error
