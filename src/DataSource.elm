@@ -233,9 +233,7 @@ map2 fn request1 request2 =
             Request (combineReducedDicts newDict1 newDict2)
                 ( urls1 ++ urls2
                 , \appType rawResponses ->
-                    case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
-                        ( newValue1, newValue2 ) ->
-                            map2 fn newValue1 newValue2
+                    map2 fn (lookupFn1 appType rawResponses) (lookupFn2 appType rawResponses)
                 )
 
         ( Request dict1 ( urls1, lookupFn1 ), Done stripped2 value2 ) ->
