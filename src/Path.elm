@@ -35,6 +35,8 @@ We can also safely join Strings that include multiple path parts, a single path 
 
 -}
 
+import Pages.Internal.String exposing (chopEnd, chopStart)
+
 
 {-| The path portion of the URL, normalized to ensure that path segments are joined with `/`s in the right places (no doubled up or missing slashes).
 -}
@@ -92,37 +94,3 @@ normalize pathPart =
     pathPart
         |> chopEnd "/"
         |> chopStart "/"
-
-
-{-| Remove a piece from the beginning of a string until it's not there anymore.
-
-    >>> chopStart "{" "{{{<-"
-    "<-"
-
--}
-chopStart : String -> String -> String
-chopStart needle string =
-    if String.startsWith needle string then
-        string
-            |> String.dropLeft (String.length needle)
-            |> chopStart needle
-
-    else
-        string
-
-
-{-| Remove a piece from the end of a string until it's not there anymore.
-
-    >>> chopEnd "}" "->}}}"
-    "->"
-
--}
-chopEnd : String -> String -> String
-chopEnd needle string =
-    if String.endsWith needle string then
-        string
-            |> String.dropRight (String.length needle)
-            |> chopEnd needle
-
-    else
-        string

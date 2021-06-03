@@ -11,9 +11,7 @@ module Pages.Internal.String exposing (..)
 chopStart : String -> String -> String
 chopStart needle string =
     if String.startsWith needle string then
-        string
-            |> String.dropLeft (String.length needle)
-            |> chopStart needle
+        chopStart needle (String.dropLeft (String.length needle) string)
 
     else
         string
@@ -28,9 +26,7 @@ chopStart needle string =
 chopEnd : String -> String -> String
 chopEnd needle string =
     if String.endsWith needle string then
-        string
-            |> String.dropRight (String.length needle)
-            |> chopEnd needle
+        chopEnd needle (String.dropRight (String.length needle) string)
 
     else
         string
