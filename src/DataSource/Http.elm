@@ -289,7 +289,6 @@ unoptimizedRequest requestWithSecrets expect =
                                                         Json.Decode.Exploration.Success a ->
                                                             Ok a
                                                )
-                                            |> Result.map Done
                                             |> Result.map
                                                 (\finalRequest ->
                                                     ( strippedResponses
@@ -341,7 +340,6 @@ unoptimizedRequest requestWithSecrets expect =
                                                         Ok a ->
                                                             Ok a
                                                )
-                                            |> Result.map Done
                                             |> Result.map
                                                 (\finalRequest ->
                                                     ( strippedResponses
@@ -388,7 +386,6 @@ unoptimizedRequest requestWithSecrets expect =
                                                 Ok a ->
                                                     Ok a
                                        )
-                                    |> Result.map Done
                                     |> Result.map
                                         (\finalRequest ->
                                             ( strippedResponses
@@ -427,7 +424,6 @@ unoptimizedRequest requestWithSecrets expect =
                                 rawResponse
                                     |> mapStringFn
                                     |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                    |> Result.map Done
                                     |> Result.map
                                         (\finalRequest ->
                                             ( strippedResponses
@@ -440,12 +436,11 @@ unoptimizedRequest requestWithSecrets expect =
                 )
 
 
-toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, RawRequest value ) -> RawRequest value
+toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, b ) -> RawRequest b
 toResult result =
     case result of
         Err error ->
             RequestError error
 
         Ok ( stripped, okValue ) ->
-            -- TODO do I need to use stripped here?
-            okValue
+            Done stripped okValue

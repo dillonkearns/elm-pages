@@ -19,7 +19,7 @@ type RawRequest value
         , ApplicationType -> RequestsAndPending -> RawRequest value
         )
     | RequestError Error
-    | Done value
+    | Done (Dict String WhatToDo) value
 
 
 type WhatToDo
@@ -90,8 +90,14 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
                         followupRequest
                         rawResponses
 
-        Done _ ->
-            usedSoFar
+        Done partiallyStrippedResponses _ ->
+            Dict.merge
+                (\key a -> Dict.insert key a)
+                (\key a b -> Dict.insert key (merge a b))
+                (\key b -> Dict.insert key b)
+                usedSoFar
+                partiallyStrippedResponses
+                Dict.empty
 
 
 type Error
@@ -142,7 +148,7 @@ resolve appType request rawResponses =
                 nextRequest ->
                     resolve appType nextRequest rawResponses
 
-        Done value ->
+        Done _ value ->
             Ok value
 
 
@@ -161,7 +167,7 @@ resolveUrls appType request rawResponses =
                     resolveUrls appType nextRequest rawResponses
                         |> Tuple.mapSecond ((++) urlList)
 
-        Done _ ->
+        Done _ _ ->
             ( True, [] )
 
 
@@ -205,5 +211,5 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                 nextRequest ->
                     cacheRequestResolutionHelp urlList appType nextRequest rawResponses
 
-        Done _ ->
+        Done _ _ ->
             Complete

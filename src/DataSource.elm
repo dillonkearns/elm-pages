@@ -150,8 +150,8 @@ map fn requestInfo =
                            )
                 )
 
-        Done value ->
-            fn value |> Done
+        Done stripped value ->
+            fn value |> Done stripped
 
 
 {-| Helper to remove an inner layer of Request wrapping.
@@ -245,28 +245,29 @@ map2 fn request1 request2 =
                 , value
                 )
 
-        ( Request dict1 ( urls1, lookupFn1 ), Done value2 ) ->
+        ( Request dict1 ( urls1, lookupFn1 ), Done stripped2 value2 ) ->
             Request dict1
                 ( urls1
                 , \appType rawResponses ->
                     lookupFn1 appType rawResponses
                         |> (\value1 ->
-                                map2 fn value1 (Done value2)
+                                map2 fn value1 (Done stripped2 value2)
                            )
                 )
 
-        ( Done value2, Request dict1 ( urls1, lookupFn1 ) ) ->
+        ( Done stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
                 , \appType rawResponses ->
                     lookupFn1 appType rawResponses
                         |> (\value1 ->
-                                map2 fn (Done value2) value1
+                                map2 fn (Done stripped2 value2) value1
                            )
                 )
 
-        ( Done value1, Done value2 ) ->
-            fn value1 value2 |> Done
+        ( Done stripped1 value1, Done stripped2 value2 ) ->
+            -- TODO do I need to merge safely with stripped2 here?
+            fn value1 value2 |> Done (combineReducedDicts stripped1 stripped2)
 
 
 {-| Takes two dicts representing responses, some of which have been reduced, and picks the shorter of the two.
@@ -293,14 +294,16 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
         Request strippedResponses ( urls, lookupFn ) ->
             lookupFn appType rawResponses
                 |> (\nextRequest ->
-                        lookupHelp (Dict.union strippedResponses strippedSoFar)
+                        -- TODO this should merge stripped
+                        lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
                             appType
                             (addUrls urls nextRequest)
                             rawResponses
                    )
 
-        Done value ->
-            Ok ( strippedSoFar, value )
+        Done stripped value ->
+            -- TODO this should merge stripped safely
+            Ok ( combineReducedDicts stripped strippedSoFar, value )
 
 
 addUrls : List (Pages.Secrets.Value HashRequest.Request) -> DataSource value -> DataSource value
@@ -312,8 +315,8 @@ addUrls urlsToAdd requestInfo =
         Request stripped ( initialUrls, function ) ->
             Request stripped ( initialUrls ++ urlsToAdd, function )
 
-        Done value ->
-            Done value
+        Done stripped value ->
+            Done stripped value
 
 
 {-| The full details to perform a StaticHttp request.
@@ -336,7 +339,7 @@ lookupUrls requestInfo =
         Request stripped ( urls, _ ) ->
             urls
 
-        Done _ ->
+        Done _ _ ->
             []
 
 
@@ -409,7 +412,7 @@ succeed value =
     Request Dict.empty
         ( []
         , \_ _ ->
-            Done value
+            Done Dict.empty value
         )
 
 
