@@ -284,13 +284,10 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
             Err error
 
         Request strippedResponses ( urls, lookupFn ) ->
-            lookupFn appType rawResponses
-                |> (\nextRequest ->
-                        lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
-                            appType
-                            (addUrls urls nextRequest)
-                            rawResponses
-                   )
+            lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
+                appType
+                (addUrls urls (lookupFn appType rawResponses))
+                rawResponses
 
         Done stripped value ->
             Ok ( combineReducedDicts stripped strippedSoFar, value )
