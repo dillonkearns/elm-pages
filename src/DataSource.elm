@@ -137,15 +137,17 @@ A common use for this is to map your data into your elm-pages view:
 map : (a -> b) -> DataSource a -> DataSource b
 map fn requestInfo =
     case requestInfo of
+        RequestError error ->
+            RequestError error
+
         Request ( urls, lookupFn ) ->
             Request
                 ( urls
                 , \appType rawResponses ->
                     lookupFn appType rawResponses
-                        |> Result.map
-                            (\( partiallyStripped, nextRequest ) ->
+                        |> (\( partiallyStripped, nextRequest ) ->
                                 ( partiallyStripped, map fn nextRequest )
-                            )
+                           )
                 )
 
         Done value ->
@@ -224,19 +226,19 @@ combine =
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
     case ( request1, request2 ) of
+        ( RequestError error, _ ) ->
+            RequestError error
+
+        ( _, RequestError error ) ->
+            RequestError error
+
         ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
             let
-                value : ApplicationType -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, DataSource c )
+                value : ApplicationType -> RequestsAndPending -> ( Dict String WhatToDo, DataSource c )
                 value appType rawResponses =
                     case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
-                        ( Ok ( newDict1, newValue1 ), Ok ( newDict2, newValue2 ) ) ->
-                            Ok ( combineReducedDicts newDict1 newDict2, map2 fn newValue1 newValue2 )
-
-                        ( Err error, _ ) ->
-                            Err error
-
-                        ( _, Err error ) ->
-                            Err error
+                        ( ( newDict1, newValue1 ), ( newDict2, newValue2 ) ) ->
+                            ( combineReducedDicts newDict1 newDict2, map2 fn newValue1 newValue2 )
             in
             Request
                 ( urls1 ++ urls2
@@ -248,10 +250,9 @@ map2 fn request1 request2 =
                 ( urls1
                 , \appType rawResponses ->
                     lookupFn1 appType rawResponses
-                        |> Result.map
-                            (\( dict1, value1 ) ->
+                        |> (\( dict1, value1 ) ->
                                 ( dict1, map2 fn value1 (Done value2) )
-                            )
+                           )
                 )
 
         ( Done value2, Request ( urls1, lookupFn1 ) ) ->
@@ -259,10 +260,9 @@ map2 fn request1 request2 =
                 ( urls1
                 , \appType rawResponses ->
                     lookupFn1 appType rawResponses
-                        |> Result.map
-                            (\( dict1, value1 ) ->
+                        |> (\( dict1, value1 ) ->
                                 ( dict1, map2 fn (Done value2) value1 )
-                            )
+                           )
                 )
 
         ( Done value1, Done value2 ) ->
@@ -287,15 +287,17 @@ lookup =
 lookupHelp : Dict String WhatToDo -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
 lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
+        RequestError error ->
+            Err error
+
         Request ( urls, lookupFn ) ->
             lookupFn appType rawResponses
-                |> Result.andThen
-                    (\( strippedResponses, nextRequest ) ->
+                |> (\( strippedResponses, nextRequest ) ->
                         lookupHelp (Dict.union strippedResponses strippedSoFar)
                             appType
                             (addUrls urls nextRequest)
                             rawResponses
-                    )
+                   )
 
         Done value ->
             Ok ( strippedSoFar, value )
@@ -304,6 +306,9 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
 addUrls : List (Pages.Secrets.Value HashRequest.Request) -> DataSource value -> DataSource value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
+        RequestError error ->
+            RequestError error
+
         Request ( initialUrls, function ) ->
             Request ( initialUrls ++ urlsToAdd, function )
 
@@ -324,6 +329,10 @@ type alias RequestDetails =
 lookupUrls : DataSource value -> List (Pages.Secrets.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
+        RequestError error ->
+            -- TODO should this have URLs passed through?
+            []
+
         Request ( urls, _ ) ->
             urls
 
@@ -359,10 +368,12 @@ andThen fn requestInfo =
                 |> (\result ->
                         case result of
                             Err error ->
-                                Err error
+                                -- TODO should I pass through strippedResponses here?
+                                --( strippedResponses, fn value )
+                                ( Dict.empty, RequestError error )
 
                             Ok ( strippedResponses, value ) ->
-                                ( strippedResponses, fn value ) |> Ok
+                                ( strippedResponses, fn value )
                    )
         )
 
@@ -396,7 +407,7 @@ succeed value =
     Request
         ( []
         , \_ _ ->
-            Ok ( Dict.empty, Done value )
+            ( Dict.empty, Done value )
         )
 
 
@@ -406,11 +417,7 @@ the terminal).
 -}
 fail : String -> DataSource a
 fail errorMessage =
-    Request
-        ( []
-        , \_ _ ->
-            Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail errorMessage)
-        )
+    RequestError (Pages.StaticHttpRequest.UserCalledStaticHttpFail errorMessage)
 
 
 {-| Turn an Err into a DataSource failure.

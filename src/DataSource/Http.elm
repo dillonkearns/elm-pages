@@ -302,6 +302,7 @@ unoptimizedRequest requestWithSecrets expect =
                                                     )
                                                 )
                                     )
+                                |> toResult
 
                         ApplicationType.Browser ->
                             rawResponseDict
@@ -348,6 +349,7 @@ unoptimizedRequest requestWithSecrets expect =
                                                     )
                                                 )
                                     )
+                                |> toResult
                 )
 
         ExpectUnoptimizedJson decoder ->
@@ -397,6 +399,7 @@ unoptimizedRequest requestWithSecrets expect =
                                             )
                                         )
                             )
+                        |> toResult
                 )
 
         ExpectString mapStringFn ->
@@ -433,4 +436,15 @@ unoptimizedRequest requestWithSecrets expect =
                                             )
                                         )
                             )
+                        |> toResult
                 )
+
+
+toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict k v, RawRequest value ) -> ( Dict.Dict k v, RawRequest value )
+toResult result =
+    case result of
+        Err error ->
+            ( Dict.empty, RequestError error )
+
+        Ok okValue ->
+            okValue

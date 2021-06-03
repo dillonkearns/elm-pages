@@ -2,7 +2,6 @@ module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), 
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
-import Dict.Extra
 import Internal.OptimizedDecoder
 import Json.Decode.Exploration
 import OptimizedDecoder
@@ -16,8 +15,9 @@ import TerminalText as Terminal
 type RawRequest value
     = Request
         ( List (Secrets.Value Pages.StaticHttp.Request.Request)
-        , ApplicationType -> RequestsAndPending -> Result Error ( Dict String WhatToDo, RawRequest value )
+        , ApplicationType -> RequestsAndPending -> ( Dict String WhatToDo, RawRequest value )
         )
+    | RequestError Error
     | Done value
 
 
@@ -70,12 +70,12 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
 strippedResponsesHelp : Dict String WhatToDo -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
 strippedResponsesHelp usedSoFar appType request rawResponses =
     case request of
+        RequestError error ->
+            usedSoFar
+
         Request ( _, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Err _ ->
-                    usedSoFar
-
-                Ok ( partiallyStrippedResponses, followupRequest ) ->
+                ( partiallyStrippedResponses, followupRequest ) ->
                     strippedResponsesHelp
                         (Dict.merge
                             (\key a -> Dict.insert key a)
@@ -133,13 +133,13 @@ toBuildError path error =
 resolve : ApplicationType -> RawRequest value -> RequestsAndPending -> Result Error value
 resolve appType request rawResponses =
     case request of
+        RequestError error ->
+            Err error
+
         Request ( _, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Ok ( _, nextRequest ) ->
+                ( _, nextRequest ) ->
                     resolve appType nextRequest rawResponses
-
-                Err error ->
-                    Err error
 
         Done value ->
             Ok value
@@ -148,16 +148,17 @@ resolve appType request rawResponses =
 resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> ( Bool, List (Secrets.Value Pages.StaticHttp.Request.Request) )
 resolveUrls appType request rawResponses =
     case request of
+        RequestError _ ->
+            ( False
+            , []
+              -- TODO do I need to preserve the URLs here? -- urlList
+            )
+
         Request ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Ok ( _, nextRequest ) ->
+                ( _, nextRequest ) ->
                     resolveUrls appType nextRequest rawResponses
                         |> Tuple.mapSecond ((++) urlList)
-
-                Err _ ->
-                    ( False
-                    , urlList
-                    )
 
         Done _ ->
             ( True, [] )
@@ -186,21 +187,22 @@ cacheRequestResolutionHelp :
     -> Status value
 cacheRequestResolutionHelp foundUrls appType request rawResponses =
     case request of
+        RequestError error ->
+            case error of
+                MissingHttpResponse _ ->
+                    -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
+                    Incomplete foundUrls
+
+                DecoderError _ ->
+                    HasPermanentError error
+
+                UserCalledStaticHttpFail _ ->
+                    HasPermanentError error
+
         Request ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
-                Ok ( _, nextRequest ) ->
+                ( _, nextRequest ) ->
                     cacheRequestResolutionHelp urlList appType nextRequest rawResponses
-
-                Err error ->
-                    case error of
-                        MissingHttpResponse _ ->
-                            Incomplete (urlList ++ foundUrls)
-
-                        DecoderError _ ->
-                            HasPermanentError error
-
-                        UserCalledStaticHttpFail _ ->
-                            HasPermanentError error
 
         Done _ ->
             Complete
