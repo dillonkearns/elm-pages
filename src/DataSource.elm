@@ -295,7 +295,6 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
         Request strippedResponses ( urls, lookupFn ) ->
             lookupFn appType rawResponses
                 |> (\nextRequest ->
-                        -- TODO this should merge stripped
                         lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
                             appType
                             (addUrls urls nextRequest)
@@ -303,7 +302,6 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
                    )
 
         Done stripped value ->
-            -- TODO this should merge stripped safely
             Ok ( combineReducedDicts stripped strippedSoFar, value )
 
 
