@@ -233,26 +233,26 @@ map2 fn request1 request2 =
             Request (combineReducedDicts newDict1 newDict2)
                 ( urls1 ++ urls2
                 , \appType rawResponses ->
-                    map2 fn (lookupFn1 appType rawResponses) (lookupFn2 appType rawResponses)
+                    map2 fn
+                        (lookupFn1 appType rawResponses)
+                        (lookupFn2 appType rawResponses)
                 )
 
         ( Request dict1 ( urls1, lookupFn1 ), Done stripped2 value2 ) ->
             Request dict1
                 ( urls1
                 , \appType rawResponses ->
-                    (\value1 ->
-                        map2 fn value1 (Done stripped2 value2)
-                    )
+                    map2 fn
                         (lookupFn1 appType rawResponses)
+                        (Done stripped2 value2)
                 )
 
         ( Done stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
                 , \appType rawResponses ->
-                    (\value1 ->
-                        map2 fn (Done stripped2 value2) value1
-                    )
+                    map2 fn
+                        (Done stripped2 value2)
                         (lookupFn1 appType rawResponses)
                 )
 
