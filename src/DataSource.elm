@@ -140,13 +140,13 @@ map fn requestInfo =
         RequestError error ->
             RequestError error
 
-        Request ( urls, lookupFn ) ->
-            Request
+        Request partiallyStripped ( urls, lookupFn ) ->
+            Request partiallyStripped
                 ( urls
                 , \appType rawResponses ->
                     lookupFn appType rawResponses
-                        |> (\( partiallyStripped, nextRequest ) ->
-                                ( partiallyStripped, map fn nextRequest )
+                        |> (\nextRequest ->
+                                map fn nextRequest
                            )
                 )
 
@@ -232,36 +232,36 @@ map2 fn request1 request2 =
         ( _, RequestError error ) ->
             RequestError error
 
-        ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
+        ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
             let
-                value : ApplicationType -> RequestsAndPending -> ( Dict String WhatToDo, DataSource c )
+                value : ApplicationType -> RequestsAndPending -> DataSource c
                 value appType rawResponses =
                     case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
-                        ( ( newDict1, newValue1 ), ( newDict2, newValue2 ) ) ->
-                            ( combineReducedDicts newDict1 newDict2, map2 fn newValue1 newValue2 )
+                        ( newValue1, newValue2 ) ->
+                            map2 fn newValue1 newValue2
             in
-            Request
+            Request (combineReducedDicts newDict1 newDict2)
                 ( urls1 ++ urls2
                 , value
                 )
 
-        ( Request ( urls1, lookupFn1 ), Done value2 ) ->
-            Request
+        ( Request dict1 ( urls1, lookupFn1 ), Done value2 ) ->
+            Request dict1
                 ( urls1
                 , \appType rawResponses ->
                     lookupFn1 appType rawResponses
-                        |> (\( dict1, value1 ) ->
-                                ( dict1, map2 fn value1 (Done value2) )
+                        |> (\value1 ->
+                                map2 fn value1 (Done value2)
                            )
                 )
 
-        ( Done value2, Request ( urls1, lookupFn1 ) ) ->
-            Request
+        ( Done value2, Request dict1 ( urls1, lookupFn1 ) ) ->
+            Request dict1
                 ( urls1
                 , \appType rawResponses ->
                     lookupFn1 appType rawResponses
-                        |> (\( dict1, value1 ) ->
-                                ( dict1, map2 fn (Done value2) value1 )
+                        |> (\value1 ->
+                                map2 fn (Done value2) value1
                            )
                 )
 
@@ -290,9 +290,9 @@ lookupHelp strippedSoFar appType requestInfo rawResponses =
         RequestError error ->
             Err error
 
-        Request ( urls, lookupFn ) ->
+        Request strippedResponses ( urls, lookupFn ) ->
             lookupFn appType rawResponses
-                |> (\( strippedResponses, nextRequest ) ->
+                |> (\nextRequest ->
                         lookupHelp (Dict.union strippedResponses strippedSoFar)
                             appType
                             (addUrls urls nextRequest)
@@ -309,8 +309,8 @@ addUrls urlsToAdd requestInfo =
         RequestError error ->
             RequestError error
 
-        Request ( initialUrls, function ) ->
-            Request ( initialUrls ++ urlsToAdd, function )
+        Request stripped ( initialUrls, function ) ->
+            Request stripped ( initialUrls ++ urlsToAdd, function )
 
         Done value ->
             Done value
@@ -333,7 +333,7 @@ lookupUrls requestInfo =
             -- TODO should this have URLs passed through?
             []
 
-        Request ( urls, _ ) ->
+        Request stripped ( urls, _ ) ->
             urls
 
         Done _ ->
@@ -359,7 +359,8 @@ from the previous response to build up the URL, headers, etc. that you send to t
 -}
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
-    Request
+    -- TODO should this be non-empty Dict? Or should it be passed down some other way?
+    Request Dict.empty
         ( lookupUrls requestInfo
         , \appType rawResponses ->
             lookup appType
@@ -370,10 +371,11 @@ andThen fn requestInfo =
                             Err error ->
                                 -- TODO should I pass through strippedResponses here?
                                 --( strippedResponses, fn value )
-                                ( Dict.empty, RequestError error )
+                                RequestError error
 
                             Ok ( strippedResponses, value ) ->
-                                ( strippedResponses, fn value )
+                                -- TODO maybe use strippedResponses here?
+                                fn value
                    )
         )
 
@@ -404,10 +406,10 @@ andThen fn requestInfo =
 -}
 succeed : a -> DataSource a
 succeed value =
-    Request
+    Request Dict.empty
         ( []
         , \_ _ ->
-            ( Dict.empty, Done value )
+            Done value
         )
 
 

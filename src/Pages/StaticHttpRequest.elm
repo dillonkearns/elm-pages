@@ -14,8 +14,9 @@ import TerminalText as Terminal
 
 type RawRequest value
     = Request
+        (Dict String WhatToDo)
         ( List (Secrets.Value Pages.StaticHttp.Request.Request)
-        , ApplicationType -> RequestsAndPending -> ( Dict String WhatToDo, RawRequest value )
+        , ApplicationType -> RequestsAndPending -> RawRequest value
         )
     | RequestError Error
     | Done value
@@ -73,9 +74,9 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
         RequestError error ->
             usedSoFar
 
-        Request ( _, lookupFn ) ->
+        Request partiallyStrippedResponses ( _, lookupFn ) ->
             case lookupFn appType rawResponses of
-                ( partiallyStrippedResponses, followupRequest ) ->
+                followupRequest ->
                     strippedResponsesHelp
                         (Dict.merge
                             (\key a -> Dict.insert key a)
@@ -136,9 +137,9 @@ resolve appType request rawResponses =
         RequestError error ->
             Err error
 
-        Request ( _, lookupFn ) ->
+        Request _ ( _, lookupFn ) ->
             case lookupFn appType rawResponses of
-                ( _, nextRequest ) ->
+                nextRequest ->
                     resolve appType nextRequest rawResponses
 
         Done value ->
@@ -154,9 +155,9 @@ resolveUrls appType request rawResponses =
               -- TODO do I need to preserve the URLs here? -- urlList
             )
 
-        Request ( urlList, lookupFn ) ->
+        Request _ ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
-                ( _, nextRequest ) ->
+                nextRequest ->
                     resolveUrls appType nextRequest rawResponses
                         |> Tuple.mapSecond ((++) urlList)
 
@@ -199,9 +200,9 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                 UserCalledStaticHttpFail _ ->
                     HasPermanentError error
 
-        Request ( urlList, lookupFn ) ->
+        Request _ ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
-                ( _, nextRequest ) ->
+                nextRequest ->
                     cacheRequestResolutionHelp urlList appType nextRequest rawResponses
 
         Done _ ->

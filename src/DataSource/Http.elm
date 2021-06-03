@@ -244,7 +244,7 @@ unoptimizedRequest :
 unoptimizedRequest requestWithSecrets expect =
     case expect of
         ExpectJson decoder ->
-            Request
+            Request Dict.empty
                 ( [ requestWithSecrets ]
                 , \appType rawResponseDict ->
                     case appType of
@@ -353,7 +353,7 @@ unoptimizedRequest requestWithSecrets expect =
                 )
 
         ExpectUnoptimizedJson decoder ->
-            Request
+            Request Dict.empty
                 ( [ requestWithSecrets ]
                 , \_ rawResponseDict ->
                     rawResponseDict
@@ -403,7 +403,7 @@ unoptimizedRequest requestWithSecrets expect =
                 )
 
         ExpectString mapStringFn ->
-            Request
+            Request Dict.empty
                 ( [ requestWithSecrets ]
                 , \_ rawResponseDict ->
                     rawResponseDict
@@ -440,11 +440,12 @@ unoptimizedRequest requestWithSecrets expect =
                 )
 
 
-toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict k v, RawRequest value ) -> ( Dict.Dict k v, RawRequest value )
+toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, RawRequest value ) -> RawRequest value
 toResult result =
     case result of
         Err error ->
-            ( Dict.empty, RequestError error )
+            RequestError error
 
-        Ok okValue ->
+        Ok ( stripped, okValue ) ->
+            -- TODO do I need to use stripped here?
             okValue
