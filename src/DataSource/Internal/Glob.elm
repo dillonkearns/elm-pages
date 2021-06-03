@@ -47,8 +47,13 @@ toPattern (Glob pattern regex applyCapture) =
 {-| -}
 extractMatches : a -> List ( String, a ) -> String -> List a
 extractMatches defaultValue list string =
+    extractMatchesHelp defaultValue list string []
+
+
+extractMatchesHelp : a -> List ( String, a ) -> String -> List a -> List a
+extractMatchesHelp defaultValue list string soFar =
     if string == "" then
-        []
+        List.reverse soFar
 
     else
         let
@@ -64,5 +69,4 @@ extractMatches defaultValue list string =
                     list
                     |> Maybe.withDefault ( defaultValue, "" )
         in
-        matchedValue
-            :: extractMatches defaultValue list updatedString
+        extractMatchesHelp defaultValue list updatedString (matchedValue :: soFar)
