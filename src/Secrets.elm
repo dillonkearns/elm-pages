@@ -62,11 +62,7 @@ buildError secretName secretsDict =
 
 underlineText : Int -> String
 underlineText length =
-    if length == 0 then
-        ""
-
-    else
-        "^" ++ underlineText (length - 1)
+    String.repeat length "^"
 
 
 sortMatches missingSecret availableSecrets =
