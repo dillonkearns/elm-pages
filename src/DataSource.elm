@@ -144,14 +144,11 @@ map fn requestInfo =
             Request partiallyStripped
                 ( urls
                 , \appType rawResponses ->
-                    lookupFn appType rawResponses
-                        |> (\nextRequest ->
-                                map fn nextRequest
-                           )
+                    map fn (lookupFn appType rawResponses)
                 )
 
         Done stripped value ->
-            fn value |> Done stripped
+            Done stripped (fn value)
 
 
 {-| Helper to remove an inner layer of Request wrapping.
@@ -233,16 +230,12 @@ map2 fn request1 request2 =
             RequestError error
 
         ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
-            let
-                value : ApplicationType -> RequestsAndPending -> DataSource c
-                value appType rawResponses =
+            Request (combineReducedDicts newDict1 newDict2)
+                ( urls1 ++ urls2
+                , \appType rawResponses ->
                     case ( lookupFn1 appType rawResponses, lookupFn2 appType rawResponses ) of
                         ( newValue1, newValue2 ) ->
                             map2 fn newValue1 newValue2
-            in
-            Request (combineReducedDicts newDict1 newDict2)
-                ( urls1 ++ urls2
-                , value
                 )
 
         ( Request dict1 ( urls1, lookupFn1 ), Done stripped2 value2 ) ->
