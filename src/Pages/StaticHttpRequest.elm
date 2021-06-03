@@ -154,19 +154,24 @@ resolve appType request rawResponses =
 
 resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request)
 resolveUrls appType request rawResponses =
+    resolveUrlsHelp appType request rawResponses []
+
+
+resolveUrlsHelp : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request) -> List (Secrets.Value Pages.StaticHttp.Request.Request)
+resolveUrlsHelp appType request rawResponses soFar =
     case request of
         RequestError _ ->
-            ([]
+            (soFar
              -- TODO do I need to preserve the URLs here? -- urlList
             )
 
         Request _ ( urlList, lookupFn ) ->
             case lookupFn appType rawResponses of
                 nextRequest ->
-                    urlList ++ resolveUrls appType nextRequest rawResponses
+                    resolveUrlsHelp appType nextRequest rawResponses (soFar ++ urlList)
 
         Done _ _ ->
-            []
+            soFar
 
 
 cacheRequestResolution :
