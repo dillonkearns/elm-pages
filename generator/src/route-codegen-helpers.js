@@ -203,10 +203,10 @@ function routeVariant(name) {
 }
 
 /**
- * @param {string } name
+ * @param {string} name
  */
 function toFieldName(name) {
-  return name.toLowerCase();
+  return name.charAt(0).toLowerCase() + name.slice(1);
 }
 
 module.exports = {

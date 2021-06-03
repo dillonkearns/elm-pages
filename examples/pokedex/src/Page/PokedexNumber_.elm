@@ -25,7 +25,7 @@ type alias Msg =
 
 
 type alias RouteParams =
-    { pokedexnumber : String }
+    { pokedexNumber : String }
 
 
 page : Page RouteParams Data
@@ -35,11 +35,11 @@ page =
         , routes = routes
         , data = data
         , handleFallback =
-            \{ pokedexnumber } ->
+            \{ pokedexNumber } ->
                 let
                     asNumber : Int
                     asNumber =
-                        String.toInt pokedexnumber |> Maybe.withDefault -1
+                        String.toInt pokedexNumber |> Maybe.withDefault -1
                 in
                 DataSource.succeed
                     (asNumber > 0 && asNumber <= 150)
@@ -58,7 +58,7 @@ data routeParams =
         (DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
             Decode.string
         )
-        (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexnumber))
+        (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexNumber))
             (Decode.map2 Pokemon
                 (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
                 (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
@@ -111,7 +111,7 @@ view maybeUrl sharedModel static =
             ]
         , text (static.data.pokemon.abilities |> String.join ", ")
         , img
-            [ src <| "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" ++ static.routeParams.pokedexnumber ++ ".png"
+            [ src <| "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" ++ static.routeParams.pokedexNumber ++ ".png"
             ]
             []
         , p []
