@@ -206,7 +206,11 @@ function routeVariant(name) {
  * @param {string} name
  */
 function toFieldName(name) {
-  return name.charAt(0).toLowerCase() + name.slice(1);
+  if (name === "SPLAT") {
+    return "splat";
+  } else {
+    return name.charAt(0).toLowerCase() + name.slice(1);
+  }
 }
 
 module.exports = {
