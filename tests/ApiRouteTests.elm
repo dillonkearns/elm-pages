@@ -2,9 +2,10 @@ module ApiRouteTests exposing (..)
 
 import ApiRoute exposing (..)
 import Expect
-import Test exposing (describe, test)
+import Test exposing (Test, describe, test)
 
 
+all : Test
 all =
     describe "api routes"
         [ test "match top-level file with no extension" <|

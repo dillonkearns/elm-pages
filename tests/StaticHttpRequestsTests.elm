@@ -1054,10 +1054,12 @@ normalizeNewlines string =
             (\_ -> " ")
 
 
+toJsPort : a -> Cmd msg
 toJsPort _ =
     Cmd.none
 
 
+fromJsPort : Sub msg
 fromJsPort =
     Sub.none
 

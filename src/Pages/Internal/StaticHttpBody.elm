@@ -26,6 +26,7 @@ encode body =
                 ]
 
 
+encodeWithType : String -> List ( String, Encode.Value ) -> Encode.Value
 encodeWithType typeName otherFields =
     Encode.object <|
         ( "type", Encode.string typeName )

@@ -2,9 +2,10 @@ module PathTests exposing (all)
 
 import Expect
 import Path
-import Test exposing (describe, test)
+import Test exposing (Test, describe, test)
 
 
+all : Test
 all =
     describe "Path"
         [ test "join two segments" <|

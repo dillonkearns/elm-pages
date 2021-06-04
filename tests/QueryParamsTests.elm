@@ -3,9 +3,10 @@ module QueryParamsTests exposing (all)
 import Dict
 import Expect
 import QueryParams
-import Test exposing (describe, test)
+import Test exposing (Test, describe, test)
 
 
+all : Test
 all =
     describe "QueryParams"
         [ test "run Url.Parser.Query" <|

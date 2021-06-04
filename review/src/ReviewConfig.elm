@@ -34,8 +34,8 @@ config : List Rule
 config =
     [ -- NoExposingEverything.rule
       --, NoImportingEverything.rule []
-      --, NoMissingTypeAnnotation.rule
-      NoMissingTypeAnnotationInLetIn.rule
+      NoMissingTypeAnnotation.rule
+    , NoMissingTypeAnnotationInLetIn.rule
     , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"

@@ -66,6 +66,7 @@ underlineText length =
     String.repeat length "^"
 
 
+sortMatches : String -> List String -> List String
 sortMatches missingSecret availableSecrets =
     let
         simpleMatch : List Fuzzy.Config -> List String -> String -> String -> Int

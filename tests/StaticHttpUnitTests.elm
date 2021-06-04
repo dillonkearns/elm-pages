@@ -12,10 +12,12 @@ import Secrets
 import Test exposing (Test, describe, test)
 
 
+getWithoutSecrets : String -> Decode.Decoder a -> DataSource.DataSource a
 getWithoutSecrets url =
     DataSource.Http.get (Secrets.succeed url)
 
 
+requestsDict : List ( Request.Request, b ) -> Dict.Dict String (Maybe b)
 requestsDict requestMap =
     requestMap
         |> List.map

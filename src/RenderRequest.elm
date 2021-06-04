@@ -171,6 +171,7 @@ optionalField fieldName decoder_ =
         |> Decode.andThen finishDecoding
 
 
+dropTrailingIndexHtml : String -> String
 dropTrailingIndexHtml =
     Regex.replace (Regex.fromString "/index\\.html$" |> Maybe.withDefault Regex.never)
         (\_ -> "")

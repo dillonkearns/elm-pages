@@ -51,10 +51,12 @@ resetColors =
     ansi "[0m"
 
 
+ansi : String -> String
 ansi code =
     ansiPrefix ++ code
 
 
+ansiPrefix : String
 ansiPrefix =
     "\u{001B}"
 
