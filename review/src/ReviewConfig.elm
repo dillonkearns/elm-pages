@@ -37,11 +37,15 @@ config =
       --, NoMissingTypeAnnotation.rule
       --, NoMissingTypeAnnotationInLetIn.rule,
       --NoMissingTypeExpose.rule
-      --, NoUnused.CustomTypeConstructors.rule []
-      --, NoUnused.CustomTypeConstructorArgs.rule
-      --, NoUnused.Dependencies.rule
-      NoUnused.Exports.rule
-        |> Rule.ignoreErrorsForDirectories [ "tests" ]
+      --NoUnused.CustomTypeConstructors.rule []
+      NoUnused.CustomTypeConstructorArgs.rule
+        |> ignoreInTest
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Pages/Http.elm" -- Error type mirrors elm/http Error type
+            ]
+    , NoUnused.Dependencies.rule
+    , NoUnused.Exports.rule
+        |> ignoreInTest
     , NoUnused.Modules.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/StructuredData.elm"
@@ -69,7 +73,7 @@ config =
               "src/DataSource/Glob.elm"
             ]
     , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
-        |> Rule.ignoreErrorsForDirectories [ "tests" ]
+        |> ignoreInTest
     ]
         |> List.map
             (\rule ->
@@ -85,3 +89,9 @@ config =
                         [ "src/ElmHtml"
                         ]
             )
+
+
+ignoreInTest : Rule -> Rule
+ignoreInTest rule =
+    rule
+        |> Rule.ignoreErrorsForDirectories [ "tests" ]

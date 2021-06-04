@@ -1,4 +1,4 @@
-module Pages.Http exposing (..)
+module Pages.Http exposing (Error(..), expectString)
 
 import Http
 
