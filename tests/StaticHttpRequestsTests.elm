@@ -2,7 +2,7 @@ module StaticHttpRequestsTests exposing (all)
 
 import ApiRoute
 import Codec
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.Http
 import Dict
 import Expect
@@ -10,7 +10,7 @@ import Html
 import Json.Decode as JD
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
-import Pages.ContentCache as ContentCache
+import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -136,12 +136,13 @@ all =
         , test "andThen chain avoids repeat requests" <|
             \() ->
                 let
+                    getReq : String -> Decoder a -> DataSource a
                     getReq url decoder =
                         DataSource.Http.request
                             (Secrets.succeed (get url))
                             decoder
 
-                    pokemonDetailRequest : DataSource.DataSource ()
+                    pokemonDetailRequest : DataSource ()
                     pokemonDetailRequest =
                         getReq
                             "https://pokeapi.co/api/v2/pokemon/"
@@ -808,14 +809,14 @@ type Route
     = Route String
 
 
-start : List ( List String, DataSource.DataSource a ) -> ProgramTest (Model Route) Msg Effect
+start : List ( List String, DataSource a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
     startWithHttpCache [] pages
 
 
 startWithHttpCache :
     List ( Request.Request, String )
-    -> List ( List String, DataSource.DataSource a )
+    -> List ( List String, DataSource a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
     startLowLevel []
@@ -824,10 +825,11 @@ startWithHttpCache =
 startLowLevel :
     List (ApiRoute.Done ApiRoute.Response)
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource.DataSource a )
+    -> List ( List String, DataSource a )
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel apiRoutes staticHttpCache pages =
     let
+        contentCache : ContentCache
         contentCache =
             ContentCache.init Nothing
 
@@ -850,6 +852,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , data =
                 \(Route pageRoute) ->
                     let
+                        thing : Maybe (DataSource a)
                         thing =
                             pages
                                 |> Dict.fromList
@@ -861,7 +864,6 @@ startLowLevel apiRoutes staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            --\_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
                             request |> DataSource.map (\_ -> ())
 
                         Nothing ->
@@ -876,6 +878,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , view =
                 \page _ ->
                     let
+                        thing : Maybe (DataSource a)
                         thing =
                             pages
                                 |> Dict.fromList
@@ -895,6 +898,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , apiRoutes = \_ -> apiRoutes
             }
 
+        encodedFlags : Encode.Value
         encodedFlags =
             --{"secrets":
             --        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}, "mode": "prod", "staticHttpCache": {}
@@ -911,6 +915,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                 , ( "staticHttpCache", encodedStaticHttpCache )
                 ]
 
+        encodedStaticHttpCache : Encode.Value
         encodedStaticHttpCache =
             staticHttpCache
                 |> List.map

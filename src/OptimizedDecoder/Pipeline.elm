@@ -172,9 +172,11 @@ optionalAt path valDecoder fallback decoder =
 optionalDecoder : Decoder Decode.Value -> Decoder a -> a -> Decoder a
 optionalDecoder pathDecoder valDecoder fallback =
     let
+        nullOr : Decoder a -> Decoder a
         nullOr decoder =
             Decode.oneOf [ decoder, Decode.null fallback ]
 
+        handleResult : Decode.Value -> Decoder a
         handleResult input =
             case Decode.decodeValue pathDecoder input of
                 Ok rawValue ->

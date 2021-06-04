@@ -156,6 +156,7 @@ pathToUrl path =
 optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
 optionalField fieldName decoder_ =
     let
+        finishDecoding : Decode.Value -> Decode.Decoder (Maybe a)
         finishDecoding json =
             case Decode.decodeValue (Decode.field fieldName Decode.value) json of
                 Ok _ ->

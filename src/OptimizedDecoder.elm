@@ -490,6 +490,7 @@ Definition from the json-extra package: <https://github.com/elm-community/json-e
 optionalField : String -> Decoder a -> Decoder (Maybe a)
 optionalField fieldName decoder_ =
     let
+        finishDecoding : Value -> Decoder (Maybe a)
         finishDecoding json =
             case decodeValue (field fieldName value) json of
                 Ok _ ->
@@ -546,6 +547,7 @@ If all fail, the errors are collected into a `BadOneOf`.
 oneOf : List (Decoder a) -> Decoder a
 oneOf decoders =
     let
+        jds : List (JD.Decoder a)
         jds =
             List.map
                 (\(OptimizedDecoder jd _) ->
@@ -553,6 +555,7 @@ oneOf decoders =
                 )
                 decoders
 
+        jdes : List (JDE.Decoder a)
         jdes =
             List.map
                 (\(OptimizedDecoder _ jde) ->

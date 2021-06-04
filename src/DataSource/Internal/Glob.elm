@@ -6,7 +6,7 @@ module DataSource.Internal.Glob exposing
     )
 
 import List.Extra
-import Regex
+import Regex exposing (Regex)
 
 
 {-| -}
@@ -17,6 +17,7 @@ type Glob a
 run : String -> Glob a -> { match : a, pattern : String }
 run rawInput (Glob pattern regex applyCapture) =
     let
+        fullRegex : String
         fullRegex =
             "^" ++ regex ++ "$"
 
@@ -26,6 +27,7 @@ run rawInput (Glob pattern regex applyCapture) =
                 |> List.concatMap .submatches
                 |> List.map (Maybe.withDefault "")
 
+        parsedRegex : Regex
         parsedRegex =
             Regex.fromString fullRegex |> Maybe.withDefault Regex.never
     in

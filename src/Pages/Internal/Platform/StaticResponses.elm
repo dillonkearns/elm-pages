@@ -18,7 +18,7 @@ import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 import SecretsDict exposing (SecretsDict)
-import Set
+import Set exposing (Set)
 import TerminalText as Terminal
 
 
@@ -150,6 +150,7 @@ update :
         }
 update newEntry model =
     let
+        updatedAllResponses : Dict String (Maybe String)
         updatedAllResponses =
             -- @@@@@@@@@ TODO handle errors here, change Dict to have `Result` instead of `Maybe`
             Dict.insert
@@ -216,6 +217,7 @@ nextStep :
     -> ( StaticResponses, NextStep route )
 nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoutes =
     let
+        staticResponses : Dict String StaticHttpResult
         staticResponses =
             case model.staticResponses of
                 StaticResponses s ->
@@ -275,6 +277,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
         allErrors =
             errors ++ failedRequests ++ generatedFileErrors
 
+        pendingRequests : Bool
         pendingRequests =
             staticResponses
                 |> Dict.Extra.any
@@ -282,10 +285,12 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                         case entry of
                             NotFetched request rawResponses ->
                                 let
+                                    staticRequestsStatus : StaticHttpRequest.Status ()
                                     staticRequestsStatus =
                                         allRawResponses
                                             |> StaticHttpRequest.cacheRequestResolution ApplicationType.Cli request
 
+                                    hasPermanentError : Bool
                                     hasPermanentError =
                                         case staticRequestsStatus of
                                             StaticHttpRequest.HasPermanentError _ ->
@@ -294,6 +299,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                             _ ->
                                                 False
 
+                                    hasPermanentHttpError : Bool
                                     hasPermanentHttpError =
                                         not (List.isEmpty errors)
 
@@ -305,6 +311,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                             _ ->
                                                 ( True, [] )
 
+                                    fetchedAllKnownUrls : Bool
                                     fetchedAllKnownUrls =
                                         (rawResponses
                                             |> Dict.keys
@@ -326,12 +333,14 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                     True
                     )
 
+        failedRequests : List BuildError
         failedRequests =
             staticResponses
                 |> Dict.toList
                 |> List.concatMap
                     (\( path, NotFetched request _ ) ->
                         let
+                            staticRequestsStatus : StaticHttpRequest.Status ()
                             staticRequestsStatus =
                                 StaticHttpRequest.cacheRequestResolution
                                     ApplicationType.Cli
@@ -342,6 +351,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                             usableRawResponses =
                                 allRawResponses
 
+                            maybePermanentError : Maybe StaticHttpRequest.Error
                             maybePermanentError =
                                 case staticRequestsStatus of
                                     StaticHttpRequest.HasPermanentError theError ->
@@ -350,6 +360,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                     _ ->
                                         Nothing
 
+                            decoderErrors : List BuildError
                             decoderErrors =
                                 maybePermanentError
                                     |> Maybe.map (StaticHttpRequest.toBuildError path)
@@ -375,9 +386,11 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
         of
             Ok urlsToPerform ->
                 let
+                    newAllRawResponses : Dict String (Maybe String)
                     newAllRawResponses =
                         Dict.union allRawResponses dictOfNewUrlsToPerform
 
+                    dictOfNewUrlsToPerform : Dict String (Maybe String)
                     dictOfNewUrlsToPerform =
                         urlsToPerform
                             |> List.map .masked
@@ -396,11 +409,13 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                 )
                             |> Dict.fromList
 
+                    alreadyPerformed : Set String
                     alreadyPerformed =
                         allRawResponses
                             |> Dict.keys
                             |> Set.fromList
 
+                    newThing : List { masked : RequestDetails, unmasked : RequestDetails }
                     newThing =
                         maskedToUnmasked
                             |> Dict.Extra.removeMany alreadyPerformed
@@ -435,11 +450,13 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                 case resolvedRoutes of
                     Ok staticRoutes ->
                         let
+                            newState : StaticResponses
                             newState =
                                 staticRoutes
                                     |> List.map
                                         (\route ->
                                             let
+                                                entry : StaticHttpResult
                                                 entry =
                                                     NotFetched
                                                         (DataSource.map2 (\_ _ -> ())
@@ -455,6 +472,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                                     |> Dict.fromList
                                     |> StaticResponses
 
+                            newThing : List { masked : RequestDetails, unmasked : RequestDetails }
                             newThing =
                                 []
                         in

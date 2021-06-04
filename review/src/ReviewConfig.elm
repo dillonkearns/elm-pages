@@ -35,9 +35,15 @@ config =
     [ -- NoExposingEverything.rule
       --, NoImportingEverything.rule []
       --, NoMissingTypeAnnotation.rule
-      --, NoMissingTypeAnnotationInLetIn.rule,
-      --NoMissingTypeExpose.rule
-      NoUnused.CustomTypeConstructors.rule []
+      NoMissingTypeAnnotationInLetIn.rule
+    , NoMissingTypeExpose.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Head/Seo.elm"
+            , "src/DataSource/Glob.elm" -- incorrect result,
+
+            -- alias is exposed - see https://github.com/jfmengels/elm-review-common/issues/1
+            ]
+    , NoUnused.CustomTypeConstructors.rule []
         |> ignoreInTest
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API

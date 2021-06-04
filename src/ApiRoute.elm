@@ -66,6 +66,7 @@ singleRoute handler =
 buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler (DataSource Response) constructor -> Done Response
 buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandler) =
     let
+        buildTimeRoutes__ : DataSource (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
@@ -102,6 +103,7 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
     , handleRoute =
         \path ->
             let
+                matches : List String
                 matches =
                     pathToMatches path fullHandler
             in
@@ -133,6 +135,7 @@ withRoutes buildUrls (Handler _ _ toString constructor) =
 tryMatch : String -> Handler response constructor -> Maybe response
 tryMatch path (Handler pattern handler _ _) =
     let
+        matches : List String
         matches =
             Regex.find
                 (Regex.fromString pattern

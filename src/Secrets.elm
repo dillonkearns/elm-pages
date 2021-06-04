@@ -41,6 +41,7 @@ succeed value =
 buildError : String -> SecretsDict -> BuildError
 buildError secretName secretsDict =
     let
+        availableEnvironmentVariables : List String
         availableEnvironmentVariables =
             SecretsDict.available secretsDict
     in
@@ -67,6 +68,7 @@ underlineText length =
 
 sortMatches missingSecret availableSecrets =
     let
+        simpleMatch : List Fuzzy.Config -> List String -> String -> String -> Int
         simpleMatch config separators needle hay =
             Fuzzy.match config separators needle hay |> .score
     in

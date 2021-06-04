@@ -851,6 +851,7 @@ This would give us:
 oneOf : ( ( String, a ), List ( String, a ) ) -> Glob a
 oneOf ( defaultMatch, otherMatchers ) =
     let
+        allMatchers : List ( String, a )
         allMatchers =
             defaultMatch :: otherMatchers
     in
@@ -891,6 +892,7 @@ oneOf ( defaultMatch, otherMatchers ) =
 atLeastOne : ( ( String, a ), List ( String, a ) ) -> Glob ( a, List a )
 atLeastOne ( defaultMatch, otherMatchers ) =
     let
+        allMatchers : List ( String, a )
         allMatchers =
             defaultMatch :: otherMatchers
     in
