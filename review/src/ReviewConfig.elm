@@ -37,8 +37,12 @@ config =
       --, NoMissingTypeAnnotation.rule
       --, NoMissingTypeAnnotationInLetIn.rule,
       --NoMissingTypeExpose.rule
-      --NoUnused.CustomTypeConstructors.rule []
-      NoUnused.CustomTypeConstructorArgs.rule
+      NoUnused.CustomTypeConstructors.rule []
+        |> ignoreInTest
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
+            ]
+    , NoUnused.CustomTypeConstructorArgs.rule
         |> ignoreInTest
         |> Rule.ignoreErrorsForFiles
             [ "src/Pages/Http.elm" -- Error type mirrors elm/http Error type
