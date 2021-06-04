@@ -1,50 +1,14 @@
-module ApiRoute exposing (Done, Handler(..), Response, buildTimeRoutes, capture, firstMatch, int, literal, pathToMatches, singleRoute, slash, succeed, tryMatch, tryMatchDone, withRoutes, withRoutesNew)
+module ApiRoute exposing (Done, Handler, Response, buildTimeRoutes, capture, int, literal, singleRoute, slash, succeed)
 
 {-|
 
-@docs Done, Handler, Response, buildTimeRoutes, capture, firstMatch, int, literal, pathToMatches, singleRoute, slash, succeed, tryMatch, tryMatchDone, withRoutes, withRoutesNew
+@docs Done, Handler, Response, buildTimeRoutes, capture, int, literal, singleRoute, slash, succeed
 
 -}
 
 import DataSource exposing (DataSource)
-import Internal.ApiRoute exposing (Done(..))
-import Regex exposing (Regex)
-
-
-{-| -}
-firstMatch : String -> List (Done response) -> Maybe (Done response)
-firstMatch path handlers =
-    case handlers of
-        [] ->
-            Nothing
-
-        first :: rest ->
-            case tryMatchDone path first of
-                Just response ->
-                    Just response
-
-                Nothing ->
-                    firstMatch path rest
-
-
-{-| -}
-tryMatchDone : String -> Done response -> Maybe (Done response)
-tryMatchDone path (Done handler) =
-    if Regex.contains handler.regex path then
-        Just (Done handler)
-
-    else
-        Nothing
-
-
-{-| -}
-withRoutesNew :
-    (constructor -> List (List String))
-    -> Handler a constructor
-    -> List String
-withRoutesNew buildUrls (Handler _ _ toString constructor) =
-    buildUrls (constructor [])
-        |> List.map toString
+import Internal.ApiRoute exposing (Done(..), Handler(..))
+import Regex
 
 
 {-| -}
@@ -79,7 +43,7 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
                 let
                     matches : List String
                     matches =
-                        pathToMatches path fullHandler
+                        Internal.ApiRoute.pathToMatches path fullHandler
 
                     routeFound : DataSource Bool
                     routeFound =
@@ -90,7 +54,7 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
                     |> DataSource.andThen
                         (\found ->
                             if found then
-                                tryMatch path fullHandler
+                                Internal.ApiRoute.tryMatch path fullHandler
                                     |> Maybe.map (DataSource.map Just)
                                     |> Maybe.withDefault (DataSource.succeed Nothing)
 
@@ -103,7 +67,7 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
                 let
                     matches : List String
                     matches =
-                        pathToMatches path fullHandler
+                        Internal.ApiRoute.pathToMatches path fullHandler
                 in
                 preBuiltMatches
                     |> DataSource.map (List.member matches)
@@ -111,45 +75,8 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
 
 
 {-| -}
-pathToMatches : String -> Handler a constructor -> List String
-pathToMatches path (Handler pattern _ _ _) =
-    Regex.find
-        (Regex.fromString pattern
-            |> Maybe.withDefault Regex.never
-        )
-        path
-        |> List.concatMap .submatches
-        |> List.filterMap identity
-
-
-{-| -}
-withRoutes : (constructor -> List (List String)) -> Handler a constructor -> List String
-withRoutes buildUrls (Handler _ _ toString constructor) =
-    buildUrls (constructor [])
-        |> List.map toString
-
-
-{-| -}
-tryMatch : String -> Handler response constructor -> Maybe response
-tryMatch path (Handler pattern handler _ _) =
-    let
-        matches : List String
-        matches =
-            Regex.find
-                (Regex.fromString pattern
-                    |> Maybe.withDefault Regex.never
-                )
-                path
-                |> List.concatMap .submatches
-                |> List.filterMap identity
-    in
-    handler matches
-        |> Just
-
-
-{-| -}
-type Handler a constructor
-    = Handler String (List String -> a) (List String -> String) (List String -> constructor)
+type alias Handler a constructor =
+    Internal.ApiRoute.Handler a constructor
 
 
 {-| -}

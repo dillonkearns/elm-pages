@@ -8,6 +8,7 @@ module RenderRequest exposing
 
 import ApiRoute
 import HtmlPrinter
+import Internal.ApiRoute
 import Json.Decode as Decode
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Path exposing (Path)
@@ -110,7 +111,7 @@ requestPayloadDecoder config =
 
                     apiRoute : Maybe (ApiRoute.Done ApiRoute.Response)
                     apiRoute =
-                        ApiRoute.firstMatch (String.dropLeft 1 path)
+                        Internal.ApiRoute.firstMatch (String.dropLeft 1 path)
                             (config.apiRoutes HtmlPrinter.htmlToString)
                 in
                 case route of

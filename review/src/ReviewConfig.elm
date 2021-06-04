@@ -43,6 +43,7 @@ config =
             , "src/DataSource/Glob.elm" -- incorrect result,
 
             -- alias is exposed - see https://github.com/jfmengels/elm-review-common/issues/1
+            , "src/ApiRoute.elm" -- incorrect result
             ]
     , NoUnused.CustomTypeConstructors.rule []
         |> ignoreInTest
@@ -85,6 +86,7 @@ config =
         |> Rule.ignoreErrorsForFiles
             [ -- Glob module ignored because of https://github.com/sparksp/elm-review-imports/issues/3#issuecomment-854262659
               "src/DataSource/Glob.elm"
+            , "src/ApiRoute.elm"
             ]
     , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
         |> ignoreInTest

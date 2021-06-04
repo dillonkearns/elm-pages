@@ -2,6 +2,7 @@ module ApiRouteTests exposing (all)
 
 import ApiRoute exposing (..)
 import Expect
+import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Test exposing (Test, describe, test)
 
 
