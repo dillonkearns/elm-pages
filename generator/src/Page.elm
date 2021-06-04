@@ -49,7 +49,7 @@ import DataSource exposing (DataSource)
 import Head
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import ServerRequest exposing (ServerRequest)
+import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Shared
 import View exposing (View)
 

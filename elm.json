@@ -8,7 +8,7 @@
         "Head",
         "Head.Seo",
         "ApiRoute",
-        "ServerRequest",
+        "DataSource.ServerRequest",
         "Path",
         "Pages.PageUrl",
         "QueryParams",

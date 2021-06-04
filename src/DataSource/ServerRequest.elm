@@ -1,4 +1,4 @@
-module ServerRequest exposing (ServerRequest, expectHeader, init, optionalHeader, staticData, toStaticHttp)
+module DataSource.ServerRequest exposing (ServerRequest, expectHeader, init, optionalHeader, staticData, toStaticHttp)
 
 {-|
 
