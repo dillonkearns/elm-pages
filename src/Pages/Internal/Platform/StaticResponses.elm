@@ -8,6 +8,7 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
+import Internal.ApiRoute exposing (Done(..))
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -73,7 +74,7 @@ buildTimeFilesRequest :
 buildTimeFilesRequest config =
     config.apiRoutes htmlToString
         |> List.map
-            (\handler ->
+            (\(Done handler) ->
                 handler.buildTimeRoutes
                     |> DataSource.andThen
                         (\paths ->

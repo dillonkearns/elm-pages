@@ -1,13 +1,23 @@
-module ApiRoute exposing (Done, Handler(..), Response, buildTimeRoutes, capture, firstMatch, int, literal, pathToMatches, singleRoute, slash, succeed, tryMatch, tryMatchDone, withRoutes, withRoutesNew)
-
-{-|
-
-@docs Done, Handler, Response, buildTimeRoutes, capture, firstMatch, int, literal, pathToMatches, singleRoute, slash, succeed, tryMatch, tryMatchDone, withRoutes, withRoutesNew
-
--}
+module Internal.ApiRoute exposing
+    ( Done(..)
+    , Handler(..)
+    , Response
+    , buildTimeRoutes
+    , capture
+    , firstMatch
+    , int
+    , literal
+    , pathToMatches
+    , singleRoute
+    , slash
+    , succeed
+    , tryMatch
+    , tryMatchDone
+    , withRoutes
+    , withRoutesNew
+    )
 
 import DataSource exposing (DataSource)
-import Internal.ApiRoute exposing (Done(..))
 import Regex exposing (Regex)
 
 
@@ -48,8 +58,13 @@ withRoutesNew buildUrls (Handler _ _ toString constructor) =
 
 
 {-| -}
-type alias Done response =
-    Internal.ApiRoute.Done response
+type Done response
+    = Done
+        { regex : Regex
+        , matchesToResponse : String -> DataSource (Maybe response)
+        , buildTimeRoutes : DataSource (List String)
+        , handleRoute : String -> DataSource Bool
+        }
 
 
 {-| -}

@@ -19,6 +19,7 @@ import Head
 import Html exposing (Html)
 import HtmlPrinter
 import Http
+import Internal.ApiRoute exposing (Done(..))
 import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
@@ -398,7 +399,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                                 )
                                 (config.handleRoute serverRequestPayload.frontmatter)
 
-                        RenderRequest.Api ( path, apiRequest ) ->
+                        RenderRequest.Api ( path, Done apiRequest ) ->
                             StaticResponses.renderApiRequest
                                 (apiRequest.matchesToResponse path)
 
@@ -783,7 +784,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                     case model.maybeRequestJson of
                                         RenderRequest.SinglePage includeHtml requestPayload value ->
                                             case requestPayload of
-                                                RenderRequest.Api ( path, apiHandler ) ->
+                                                RenderRequest.Api ( path, Done apiHandler ) ->
                                                     let
                                                         thing : DataSource (Maybe ApiRoute.Response)
                                                         thing =
