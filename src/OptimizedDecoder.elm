@@ -127,7 +127,7 @@ This will directly call the raw `elm/json` decoder that is stored under the hood
 
 -}
 decodeValue : Decoder a -> Value -> Result Error a
-decodeValue (OptimizedDecoder jd jde) =
+decodeValue (OptimizedDecoder jd _) =
     JD.decodeValue jd
 
 

@@ -268,7 +268,7 @@ expectAll :
 expectAll expectedPairs glob =
     expectedPairs
         |> List.map
-            (\( filePath, expectedMatch ) ->
+            (\( filePath, _ ) ->
                 ( filePath
                 , glob
                     |> DataSource.Internal.Glob.run filePath

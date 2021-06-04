@@ -667,7 +667,7 @@ TODO
         , describe "staticHttpCache"
             [ test "it doesn't perform http requests that are provided in the http cache flag" <|
                 \() ->
-                    startWithHttpCache (Ok ())
+                    startWithHttpCache
                         [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , method = "GET"
                             , headers = []
@@ -690,7 +690,7 @@ TODO
                             ]
             , test "it ignores unused cache" <|
                 \() ->
-                    startWithHttpCache (Ok ())
+                    startWithHttpCache
                         [ ( { url = "https://this-is-never-used.example.com/"
                             , method = "GET"
                             , headers = []
@@ -733,7 +733,6 @@ TODO
                             |> ApiRoute.literal "test.txt"
                             |> ApiRoute.singleRoute
                         ]
-                        (Ok ())
                         []
                         []
                         |> ProgramTest.simulateHttpOk
@@ -766,7 +765,6 @@ TODO
                             |> ApiRoute.literal "test.txt"
                             |> ApiRoute.singleRoute
                         ]
-                        (Ok ())
                         [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , method = "GET"
                             , headers = []
@@ -812,12 +810,11 @@ type Route
 
 start : List ( List String, DataSource.DataSource a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
-    startWithHttpCache (Ok ()) [] pages
+    startWithHttpCache [] pages
 
 
 startWithHttpCache :
-    Result String ()
-    -> List ( Request.Request, String )
+    List ( Request.Request, String )
     -> List ( List String, DataSource.DataSource a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
@@ -826,11 +823,10 @@ startWithHttpCache =
 
 startLowLevel :
     List (ApiRoute.Done ApiRoute.Response)
-    -> Result String ()
     -> List ( Request.Request, String )
     -> List ( List String, DataSource.DataSource a )
     -> ProgramTest (Model Route) Msg Effect
-startLowLevel apiRoutes documentBodyResult staticHttpCache pages =
+startLowLevel apiRoutes staticHttpCache pages =
     let
         contentCache =
             ContentCache.init Nothing

@@ -74,7 +74,7 @@ all =
             [ test "multi-level routes" <|
                 \() ->
                     succeed
-                        (\userName repoName ->
+                        (\_ _ ->
                             { body = "Data for user" }
                         )
                         |> literal "repos"

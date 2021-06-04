@@ -159,7 +159,7 @@ type alias Response =
 {-| -}
 succeed : a -> Handler a (List String)
 succeed a =
-    Handler "" (\args -> a) (\_ -> "") (\list -> list)
+    Handler "" (\_ -> a) (\_ -> "") (\list -> list)
 
 
 {-| -}
