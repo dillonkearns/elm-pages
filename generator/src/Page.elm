@@ -46,10 +46,10 @@ But before the user even requests the page, we have the following data:
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
+import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Head
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Shared
 import View exposing (View)
 
