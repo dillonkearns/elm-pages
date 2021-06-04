@@ -1,4 +1,10 @@
-module RenderRequest exposing (..)
+module RenderRequest exposing
+    ( IncludeHtml(..)
+    , RenderRequest(..)
+    , RequestPayload(..)
+    , decoder
+    , maybeRequestPayload
+    )
 
 import ApiRoute
 import HtmlPrinter

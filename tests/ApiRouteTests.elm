@@ -1,4 +1,4 @@
-module ApiRouteTests exposing (..)
+module ApiRouteTests exposing (all)
 
 import ApiRoute exposing (..)
 import Expect

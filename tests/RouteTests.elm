@@ -1,4 +1,4 @@
-module RouteTests exposing (..)
+module RouteTests exposing (all)
 
 import Expect
 import List.Extra

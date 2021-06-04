@@ -1,4 +1,4 @@
-module Pages.Internal.String exposing (..)
+module Pages.Internal.String exposing (chopEnd, chopForwardSlashes, chopStart)
 
 {-| Remove a piece from the beginning of a string until it's not there anymore.
 

@@ -32,9 +32,10 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ -- NoExposingEverything.rule
-      --, NoImportingEverything.rule []
-      NoMissingTypeAnnotation.rule
+    [ NoExposingEverything.rule
+
+    --NoImportingEverything.rule []
+    , NoMissingTypeAnnotation.rule
     , NoMissingTypeAnnotationInLetIn.rule
     , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles

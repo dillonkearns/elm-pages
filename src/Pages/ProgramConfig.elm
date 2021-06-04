@@ -1,4 +1,4 @@
-module Pages.ProgramConfig exposing (..)
+module Pages.ProgramConfig exposing (ProgramConfig)
 
 import ApiRoute
 import Browser.Navigation

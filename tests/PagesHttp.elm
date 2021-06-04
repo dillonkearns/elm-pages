@@ -1,4 +1,4 @@
-module PagesHttp exposing (..)
+module PagesHttp exposing (expectString)
 
 import Http exposing (Response(..))
 import Pages.Http exposing (..)

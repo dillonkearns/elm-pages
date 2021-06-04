@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.Mode exposing (..)
+module Pages.Internal.Platform.Mode exposing (Mode(..), modeDecoder)
 
 import Json.Decode as Decode exposing (Decoder)
 
