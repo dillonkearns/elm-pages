@@ -43,8 +43,11 @@ config =
       --, NoUnused.Exports.rule
       --, NoUnused.Modules.rule
       --    |> Rule.ignoreErrorsForFiles [ "src/StructuredData.elm" ]
-      --NoUnused.Parameters.rule
-      NoUnused.Patterns.rule
+      NoUnused.Parameters.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "src/HtmlPrinter.elm" -- magic argument in the HtmlPrinter
+            ]
+    , NoUnused.Patterns.rule
     , NoUnused.Variables.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/DataSource/Glob.elm"

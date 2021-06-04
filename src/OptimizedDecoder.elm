@@ -107,7 +107,7 @@ errorToString =
 But if you want to re-use your decoder somewhere else, it may be useful to turn it into a plain `elm/json` decoder.
 -}
 decoder : Decoder a -> JD.Decoder a
-decoder (OptimizedDecoder jd jde) =
+decoder (OptimizedDecoder jd _) =
     jd
 
 
@@ -117,7 +117,7 @@ This will directly call the raw `elm/json` decoder that is stored under the hood
 
 -}
 decodeString : Decoder a -> String -> Result Error a
-decodeString (OptimizedDecoder jd jde) =
+decodeString (OptimizedDecoder jd _) =
     JD.decodeString jd
 
 

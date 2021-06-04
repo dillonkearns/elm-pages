@@ -123,10 +123,9 @@ renderSingleRoute config pathAndRoute request cliData =
 
 
 renderApiRequest :
-    config
-    -> DataSource response
+    DataSource response
     -> StaticResponses
-renderApiRequest config request =
+renderApiRequest request =
     ApiRequest
         (NotFetched
             (request |> DataSource.map (\_ -> ()))

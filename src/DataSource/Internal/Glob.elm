@@ -40,7 +40,7 @@ run rawInput (Glob pattern regex applyCapture) =
 
 {-| -}
 toPattern : Glob a -> String
-toPattern (Glob pattern regex applyCapture) =
+toPattern (Glob pattern _ _) =
     pattern
 
 

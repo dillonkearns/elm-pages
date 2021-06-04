@@ -41,7 +41,7 @@ withRoutesNew :
     (constructor -> List (List String))
     -> Handler a constructor
     -> List String
-withRoutesNew buildUrls (Handler pattern handler toString constructor) =
+withRoutesNew buildUrls (Handler _ _ toString constructor) =
     buildUrls (constructor [])
         |> List.map toString
 
@@ -64,7 +64,7 @@ singleRoute handler =
 
 {-| -}
 buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler (DataSource Response) constructor -> Done Response
-buildTimeRoutes buildUrls ((Handler pattern handler toString constructor) as fullHandler) =
+buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ =
             buildUrls (constructor [])
@@ -112,7 +112,7 @@ buildTimeRoutes buildUrls ((Handler pattern handler toString constructor) as ful
 
 {-| -}
 pathToMatches : String -> Handler a constructor -> List String
-pathToMatches path (Handler pattern handler toString constructor) =
+pathToMatches path (Handler pattern _ _ _) =
     Regex.find
         (Regex.fromString pattern
             |> Maybe.withDefault Regex.never
@@ -124,14 +124,14 @@ pathToMatches path (Handler pattern handler toString constructor) =
 
 {-| -}
 withRoutes : (constructor -> List (List String)) -> Handler a constructor -> List String
-withRoutes buildUrls (Handler pattern handler toString constructor) =
+withRoutes buildUrls (Handler _ _ toString constructor) =
     buildUrls (constructor [])
         |> List.map toString
 
 
 {-| -}
 tryMatch : String -> Handler response constructor -> Maybe response
-tryMatch path (Handler pattern handler toString constructor) =
+tryMatch path (Handler pattern handler _ _) =
     let
         matches =
             Regex.find

@@ -399,11 +399,11 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                                 (config.handleRoute serverRequestPayload.frontmatter)
 
                         RenderRequest.Api ( path, apiRequest ) ->
-                            StaticResponses.renderApiRequest config
+                            StaticResponses.renderApiRequest
                                 (apiRequest.matchesToResponse path)
 
                         RenderRequest.NotFound ->
-                            StaticResponses.renderApiRequest config
+                            StaticResponses.renderApiRequest
                                 (DataSource.succeed [])
 
                 RenderRequest.FullBuild ->
