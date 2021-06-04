@@ -40,8 +40,9 @@ config =
       --, NoUnused.CustomTypeConstructors.rule []
       --, NoUnused.CustomTypeConstructorArgs.rule
       --, NoUnused.Dependencies.rule
-      --, NoUnused.Exports.rule
-      NoUnused.Modules.rule
+      NoUnused.Exports.rule
+        |> Rule.ignoreErrorsForDirectories [ "tests" ]
+    , NoUnused.Modules.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/StructuredData.elm"
             , "src/Router.elm" -- used in generated code
@@ -78,6 +79,7 @@ config =
                         , "src/Pages/Internal/Platform.elm"
                         , "src/Pages/Internal/Platform/Cli.elm"
                         , "src/SecretsDict.elm"
+                        , "src/Router.elm" -- used in generated code
                         ]
                     |> Rule.ignoreErrorsForDirectories
                         [ "src/ElmHtml"
