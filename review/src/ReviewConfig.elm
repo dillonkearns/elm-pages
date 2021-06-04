@@ -41,9 +41,12 @@ config =
       --, NoUnused.CustomTypeConstructorArgs.rule
       --, NoUnused.Dependencies.rule
       --, NoUnused.Exports.rule
-      --, NoUnused.Modules.rule
-      --    |> Rule.ignoreErrorsForFiles [ "src/StructuredData.elm" ]
-      NoUnused.Parameters.rule
+      NoUnused.Modules.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "src/StructuredData.elm"
+            , "src/Router.elm" -- used in generated code
+            ]
+    , NoUnused.Parameters.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/HtmlPrinter.elm" -- magic argument in the HtmlPrinter
             ]
