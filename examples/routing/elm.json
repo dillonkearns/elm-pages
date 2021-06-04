@@ -38,7 +38,7 @@
             "elm/random": "1.0.0",
             "elm/virtual-dom": "1.0.2",
             "fredcy/elm-parseint": "2.0.1",
-            "mgold/elm-nonempty-list": "4.1.0",
+            "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-hex": "1.0.0"
         }
     },
