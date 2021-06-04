@@ -1,4 +1,21 @@
-module TerminalText exposing (..)
+module TerminalText exposing
+    ( Color(..)
+    , Text(..)
+    , ansi
+    , ansiPrefix
+    , blue
+    , colorToString
+    , cyan
+    , encoder
+    , getString
+    , green
+    , red
+    , resetColors
+    , text
+    , toString
+    , toString_
+    , yellow
+    )
 
 import Json.Encode as Encode
 

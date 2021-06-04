@@ -57,6 +57,9 @@ config =
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
         |> ignoreInTest
+        |> Rule.ignoreErrorsForFiles
+            [ "src/TerminalText.elm" -- allow some unused exports for colors that could be used later
+            ]
     , NoUnused.Modules.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/StructuredData.elm"
