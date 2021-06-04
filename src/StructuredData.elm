@@ -134,10 +134,14 @@ encode (StructuredData typeName fields) =
 
 
 
---example : StructuredDataHelper { personOrOrganization : () } { address : (), affiliation : () }
+--example :
+--    StructuredData
+--        { personOrOrganization : () }
+--        { address : ()
+--        , affiliation : ()
+--        }
 
 
-example : StructuredData { personOrOrganization : () } { additionalName : (), address : (), affiliation : () }
 example =
     person { name = "Dillon Kearns" }
         |> additionalName "Cornelius"

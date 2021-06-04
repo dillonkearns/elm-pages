@@ -94,6 +94,7 @@ config =
                         , "src/Pages/Internal/Platform.elm"
                         , "src/Pages/Internal/Platform/Cli.elm"
                         , "src/SecretsDict.elm"
+                        , "src/StructuredData.elm"
                         , "src/Router.elm" -- used in generated code
                         ]
                     |> Rule.ignoreErrorsForDirectories
