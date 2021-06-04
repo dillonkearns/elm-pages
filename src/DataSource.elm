@@ -321,11 +321,11 @@ type alias RequestDetails =
 lookupUrls : DataSource value -> List (Pages.Secrets.Value RequestDetails)
 lookupUrls requestInfo =
     case requestInfo of
-        RequestError error ->
+        RequestError _ ->
             -- TODO should this have URLs passed through?
             []
 
-        Request stripped ( urls, _ ) ->
+        Request _ ( urls, _ ) ->
             urls
 
         Done _ _ ->

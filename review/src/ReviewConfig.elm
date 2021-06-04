@@ -11,7 +11,12 @@ when inside the directory containing this file.
 
 -}
 
+import NoExposingEverything
+import NoImportingEverything
 import NoInconsistentAliases
+import NoMissingTypeAnnotation
+import NoMissingTypeAnnotationInLetIn
+import NoMissingTypeExpose
 import NoModuleOnExposedNames
 import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
@@ -27,25 +32,37 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ NoUnused.CustomTypeConstructors.rule []
-    , NoUnused.CustomTypeConstructorArgs.rule
-    , NoUnused.Dependencies.rule
-    , NoUnused.Exports.rule
-    , NoUnused.Modules.rule
-        |> Rule.ignoreErrorsForFiles [ "src/StructuredData.elm" ]
-    , NoUnused.Parameters.rule
-    , NoUnused.Patterns.rule
+    [ -- NoExposingEverything.rule
+      --, NoImportingEverything.rule []
+      --, NoMissingTypeAnnotation.rule
+      --, NoMissingTypeAnnotationInLetIn.rule,
+      --NoMissingTypeExpose.rule
+      --, NoUnused.CustomTypeConstructors.rule []
+      --, NoUnused.CustomTypeConstructorArgs.rule
+      --, NoUnused.Dependencies.rule
+      --, NoUnused.Exports.rule
+      --, NoUnused.Modules.rule
+      --    |> Rule.ignoreErrorsForFiles [ "src/StructuredData.elm" ]
+      --NoUnused.Parameters.rule
+      NoUnused.Patterns.rule
     , NoUnused.Variables.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "src/DataSource/Glob.elm"
+            ]
     , NoInconsistentAliases.config
-        [--( "Html.Attributes", "Attr" )
-         --, ( "Json.Decode", "Decode" )
-         --, ( "Json.Encode", "Encode" )
+        [ ( "Html.Attributes", "Attr" )
+
+        --, ( "Json.Encode", "Encode" )
         ]
         |> NoInconsistentAliases.noMissingAliases
         |> NoInconsistentAliases.rule
     , NoModuleOnExposedNames.rule
+        |> Rule.ignoreErrorsForFiles
+            [ -- Glob module ignored because of https://github.com/sparksp/elm-review-imports/issues/3#issuecomment-854262659
+              "src/DataSource/Glob.elm"
+            ]
     , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
-        |> Rule.ignoreErrorsForDirectories [ "tests", "src/ElmHtml" ]
+        |> Rule.ignoreErrorsForDirectories [ "tests" ]
     ]
         |> List.map
             (\rule ->
@@ -55,5 +72,8 @@ config =
                         , "src/Pages/Internal/Platform.elm"
                         , "src/Pages/Internal/Platform/Cli.elm"
                         , "src/SecretsDict.elm"
+                        ]
+                    |> Rule.ignoreErrorsForDirectories
+                        [ "src/ElmHtml"
                         ]
             )

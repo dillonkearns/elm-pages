@@ -940,7 +940,7 @@ toNonEmptyWithDefault default list =
 
 {-| In order to get match data from your glob, turn it into a `DataSource` with this function.
 -}
-toDataSource : Glob a -> DataSource.DataSource (List a)
+toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
     DataSource.Http.get (Secrets.succeed <| "glob://" ++ DataSource.Internal.Glob.toPattern glob)
         (OptimizedDecoder.string

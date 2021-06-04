@@ -112,7 +112,7 @@ optionalString key =
     custom key
         (\stringList ->
             case stringList of
-                str :: rest ->
+                str :: _ ->
                     Ok (Just str)
 
                 _ ->

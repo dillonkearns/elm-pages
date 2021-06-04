@@ -71,7 +71,7 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
 strippedResponsesHelp : Dict String WhatToDo -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
 strippedResponsesHelp usedSoFar appType request rawResponses =
     case request of
-        RequestError error ->
+        RequestError _ ->
             usedSoFar
 
         Request partiallyStrippedResponses ( _, lookupFn ) ->

@@ -108,7 +108,7 @@ requestPayloadDecoder config =
                             (config.apiRoutes HtmlPrinter.htmlToString)
                 in
                 case route of
-                    Just justRoute ->
+                    Just _ ->
                         if isFile rawPath then
                             case apiRoute of
                                 Just justApi ->

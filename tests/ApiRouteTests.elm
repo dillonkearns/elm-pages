@@ -2,7 +2,7 @@ module ApiRouteTests exposing (..)
 
 import ApiRoute exposing (..)
 import Expect
-import Test exposing (describe, only, test)
+import Test exposing (describe, test)
 
 
 all =

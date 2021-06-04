@@ -10,9 +10,10 @@
             "elm/json": "1.1.3",
             "elm/project-metadata-utils": "1.0.1",
             "jfmengels/elm-review": "2.4.0",
+            "jfmengels/elm-review-common": "1.0.4",
             "jfmengels/elm-review-performance": "1.0.0",
             "jfmengels/elm-review-unused": "1.1.8",
-            "sparksp/elm-review-imports": "1.0.0",
+            "sparksp/elm-review-imports": "1.0.1",
             "stil4m/elm-syntax": "7.2.3"
         },
         "indirect": {
