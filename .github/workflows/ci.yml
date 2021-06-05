@@ -65,6 +65,8 @@ jobs:
         uses: cypress-io/github-action@v2
         with:
           start: npm start
+          wait-on: "http://localhost:1234"
+          wait-on-timeout: 60
 
       - name: Elm Publish
         uses: dillonkearns/elm-publish-action@v1
