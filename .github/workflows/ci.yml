@@ -61,6 +61,11 @@ jobs:
       - name: Build elm docs
         id: docs
         run: npx --no-install elm make --docs docs.json
+      - name: Cypress tests
+        uses: cypress-io/github-action@v2
+        with:
+          start: npm start
+
       - name: Elm Publish
         uses: dillonkearns/elm-publish-action@v1
         with:
