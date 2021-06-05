@@ -14,8 +14,8 @@
             "dillonkearns/elm-bcp47-language-tag": "1.0.1",
             "dillonkearns/elm-markdown": "6.0.1",
             "dillonkearns/elm-oembed": "1.0.0",
-            "dillonkearns/elm-rss": "2.0.1",
-            "dillonkearns/elm-sitemap": "1.0.1",
+            "dillonkearns/elm-rss": "2.0.2",
+            "dillonkearns/elm-sitemap": "1.0.2",
             "elm/browser": "1.0.2",
             "elm/core": "1.0.5",
             "elm/html": "1.0.0",
@@ -36,7 +36,7 @@
             "zwilias/json-decode-exploration": "6.0.0"
         },
         "indirect": {
-            "billstclair/elm-xml-eeue56": "1.0.3",
+            "billstclair/elm-xml-eeue56": "2.0.0",
             "dmy/elm-imf-date-time": "1.0.1",
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
