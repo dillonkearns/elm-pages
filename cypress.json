@@ -1,1 +1,3 @@
-{}
+{
+    "defaultCommandTimeout": 60000
+}
