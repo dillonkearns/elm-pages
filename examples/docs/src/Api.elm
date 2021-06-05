@@ -119,6 +119,8 @@ postsDataSource =
                     , author = "Dillon Kearns"
                     , pubDate = Rss.Date article.published
                     , content = Nothing
+                    , contentEncoded = Nothing
+                    , enclosure = Nothing
                     }
                 )
             )
