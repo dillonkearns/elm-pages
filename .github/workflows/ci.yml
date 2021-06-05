@@ -64,7 +64,7 @@ jobs:
       - name: Cypress tests
         uses: cypress-io/github-action@v2
         with:
-          start: npm start
+          start: (cd examples/docs && npm install && npx elm-tooling install && npm start)
           wait-on: "http://localhost:1234"
           wait-on-timeout: 60
 
