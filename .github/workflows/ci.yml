@@ -61,10 +61,12 @@ jobs:
       - name: Build elm docs
         id: docs
         run: npx --no-install elm make --docs docs.json
+      - name: Setup for cypress
+        run: (cd examples/docs && npm install && npx elm-tooling install)
       - name: Cypress tests
         uses: cypress-io/github-action@v2
         with:
-          start: (cd examples/docs && npm install && npx elm-tooling install && npm start)
+          start: npm start
           wait-on: "http://localhost:1234"
           wait-on-timeout: 60
 
