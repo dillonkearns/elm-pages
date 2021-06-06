@@ -4,6 +4,6 @@ context("dev server 404 page", () => {
   });
 
   it("page not found", () => {
-    cy.contains("Page not found");
+    cy.contains("No route found for /asdf");
   });
 });

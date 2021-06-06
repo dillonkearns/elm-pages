@@ -9,7 +9,8 @@ import Html.Attributes
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import Pages.ContentCache as ContentCache exposing (ContentCache)
+import NotFoundReason
+import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson, contentJsonDecoder)
 import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.String as String
@@ -37,31 +38,29 @@ mainView config model =
             , baseUrl = model.baseUrl
             }
     in
-    if ContentCache.is404 model.contentCache urls then
-        { title = "Page not found"
-        , body =
-            Html.div [] [ Html.text "Page not found." ]
-        }
+    case ContentCache.notFoundReason model.contentCache urls of
+        Just notFoundReason ->
+            NotFoundReason.document config.pathPatterns notFoundReason
 
-    else
-        case model.pageData of
-            Ok pageData ->
-                (config.view
-                    { path = ContentCache.pathForUrl urls |> Path.join
-                    , frontmatter = config.urlToRoute model.url
+        Nothing ->
+            case model.pageData of
+                Ok pageData ->
+                    (config.view
+                        { path = ContentCache.pathForUrl urls |> Path.join
+                        , frontmatter = config.urlToRoute model.url
+                        }
+                        Nothing
+                        pageData.sharedData
+                        pageData.pageData
+                        |> .view
+                    )
+                        pageData.userModel
+
+                Err error ->
+                    { title = "Page Data Error"
+                    , body =
+                        Html.div [] [ Html.text error ]
                     }
-                    Nothing
-                    pageData.sharedData
-                    pageData.pageData
-                    |> .view
-                )
-                    pageData.userModel
-
-            Err error ->
-                { title = "Page Data Error"
-                , body =
-                    Html.div [] [ Html.text error ]
-                }
 
 
 urlToPath : Url -> Url -> Path
@@ -122,19 +121,6 @@ type alias Flags =
     Decode.Value
 
 
-type alias ContentJson =
-    { staticData : RequestsAndPending
-    , is404 : Bool
-    }
-
-
-contentJsonDecoder : Decode.Decoder ContentJson
-contentJsonDecoder =
-    Decode.map2 ContentJson
-        (Decode.field "staticData" RequestsAndPending.decoder)
-        (Decode.field "is404" Decode.bool)
-
-
 init :
     ProgramConfig userMsg userModel route staticData pageData sharedData
     -> Flags
@@ -158,6 +144,7 @@ init config flags url key =
         contentJson =
             flags
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
+                |> Debug.log "init contentJson"
                 |> Result.toMaybe
 
         baseUrl =

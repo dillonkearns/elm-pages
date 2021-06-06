@@ -424,7 +424,7 @@ main =
         , data = dataForRoute
         , sharedData = Shared.template.data
         , apiRoutes = \\htmlToString -> routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
-
+        , pathPatterns = routePatterns2
         }
 
 dataForRoute : Maybe Route -> DataSource PageData
@@ -487,6 +487,16 @@ routePatterns =
         )
         |> ApiRoute.literal "route-patterns.json"
         |> ApiRoute.singleRoute
+
+
+routePatterns2 : List String
+routePatterns2 =
+    [ ${sortTemplates(templates)
+      .map((name) => {
+        return `"${routeHelpers.toPathPattern(name)}"`;
+      })
+      .join("\n    , ")}
+    ]
 
 
 getStaticRoutes : DataSource (List Route)

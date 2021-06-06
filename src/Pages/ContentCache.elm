@@ -1,18 +1,23 @@
 module Pages.ContentCache exposing
     ( ContentCache
+    , ContentJson
     , Entry(..)
     , Path
+    , contentJsonDecoder
     , init
     , is404
     , lazyLoad
+    , notFoundReason
     , pathForUrl
     )
 
 import BuildError exposing (BuildError)
+import Codec
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
 import Json.Decode as Decode
+import NotFoundReason
 import Pages.Internal.String as String
 import RequestsAndPending exposing (RequestsAndPending)
 import Task exposing (Task)
@@ -136,14 +141,47 @@ httpTask url =
 type alias ContentJson =
     { staticData : RequestsAndPending
     , is404 : Bool
+    , notFoundReason : Maybe NotFoundReason.Payload
     }
 
 
 contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map2 ContentJson
-        (Decode.field "staticData" RequestsAndPending.decoder)
-        (Decode.field "is404" Decode.bool)
+    Decode.field "is404" Decode.bool
+        |> Decode.andThen
+            (\is404Value ->
+                if is404Value then
+                    Decode.map3 ContentJson
+                        (Decode.succeed Dict.empty)
+                        (Decode.succeed is404Value)
+                        (Decode.at [ "staticData", "notFoundReason" ]
+                            (Decode.string
+                                |> Decode.andThen
+                                    (\jsonString ->
+                                        case
+                                            Decode.decodeString
+                                                (Codec.decoder NotFoundReason.codec
+                                                    |> Decode.map Just
+                                                )
+                                                jsonString
+                                        of
+                                            Ok okValue ->
+                                                Decode.succeed okValue
+
+                                            Err error ->
+                                                Decode.fail
+                                                    (Decode.errorToString error)
+                                    )
+                            )
+                        )
+
+                else
+                    Decode.map3 ContentJson
+                        (Decode.field "staticData" RequestsAndPending.decoder)
+                        (Decode.succeed is404Value)
+                        (Decode.succeed Nothing)
+            )
+        |> Decode.map (Debug.log "contentJsonDecoder")
 
 
 update :
@@ -162,6 +200,7 @@ update cache urls rawContent =
                 Nothing ->
                     { staticData = rawContent.staticData
                     , is404 = rawContent.is404
+                    , notFoundReason = rawContent.notFoundReason
                     }
                         |> Parsed
                         |> Just
@@ -192,3 +231,19 @@ is404 dict urls =
                         data.is404
             )
         |> Maybe.withDefault True
+
+
+notFoundReason :
+    ContentCache
+    -> { currentUrl : Url, baseUrl : Url }
+    -> Maybe NotFoundReason.Payload
+notFoundReason dict urls =
+    dict
+        |> Dict.get (pathForUrl urls)
+        |> Maybe.map
+            (\entry ->
+                case entry of
+                    Parsed data ->
+                        data.notFoundReason
+            )
+        |> Maybe.withDefault Nothing

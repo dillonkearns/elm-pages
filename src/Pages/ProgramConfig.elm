@@ -66,4 +66,5 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , apiRoutes :
         (Html Never -> String)
         -> List (ApiRoute.Done ApiRoute.Response)
+    , pathPatterns : List String
     }

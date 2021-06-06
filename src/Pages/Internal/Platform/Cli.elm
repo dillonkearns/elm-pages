@@ -22,6 +22,7 @@ import Http
 import Internal.ApiRoute exposing (Done(..))
 import Json.Decode as Decode
 import Json.Encode
+import NotFoundReason
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Flags
 import Pages.Http
@@ -403,7 +404,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                             StaticResponses.renderApiRequest
                                 (apiRequest.matchesToResponse path)
 
-                        RenderRequest.NotFound ->
+                        RenderRequest.NotFound path ->
                             StaticResponses.renderApiRequest
                                 (DataSource.succeed [])
 
@@ -420,7 +421,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                         RenderRequest.Api _ ->
                             []
 
-                        RenderRequest.NotFound ->
+                        RenderRequest.NotFound path ->
                             []
 
                 RenderRequest.FullBuild ->
@@ -436,7 +437,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                         RenderRequest.Api _ ->
                             Nothing
 
-                        RenderRequest.NotFound ->
+                        RenderRequest.NotFound path ->
                             Just []
 
                 RenderRequest.FullBuild ->
@@ -805,7 +806,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                             |> Effect.SendSinglePage True
 
                                                                     Ok Nothing ->
-                                                                        { body = "Not found"
+                                                                        { body = "Hello1!"
                                                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                         , statusCode = 404
                                                                         }
@@ -821,12 +822,37 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                 RenderRequest.Page _ ->
                                                     [] |> ToJsPayload.Errors |> Effect.SendJsData
 
-                                                RenderRequest.NotFound ->
-                                                    { body = "Not found"
+                                                RenderRequest.NotFound path ->
+                                                    let
+                                                        notFoundDocument : { title : String, body : Html msg }
+                                                        notFoundDocument =
+                                                            { path = path
+                                                            , reason = NotFoundReason.NoMatchingRoute
+                                                            }
+                                                                |> NotFoundReason.document config.pathPatterns
+                                                    in
+                                                    { route = Path.toAbsolute path
+                                                    , contentJson =
+                                                        Dict.fromList
+                                                            [ ( "notFoundReason"
+                                                              , Json.Encode.encode 0
+                                                                    (Codec.encoder NotFoundReason.codec
+                                                                        { path = path
+                                                                        , reason = NotFoundReason.NoMatchingRoute
+                                                                        }
+                                                                    )
+                                                              )
+                                                            ]
+
+                                                    -- TODO include the needed info for content.json?
+                                                    , html = HtmlPrinter.htmlToString notFoundDocument.body
+                                                    , errors = []
+                                                    , head = []
+                                                    , title = notFoundDocument.title
                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                    , statusCode = 404
+                                                    , is404 = True
                                                     }
-                                                        |> ToJsPayload.SendApiResponse
+                                                        |> ToJsPayload.PageProgress
                                                         |> Effect.SendSinglePage True
 
                                         RenderRequest.FullBuild ->

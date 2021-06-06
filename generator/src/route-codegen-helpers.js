@@ -153,13 +153,13 @@ function toPathPattern(name) {
       .map((param) => {
         switch (param.kind) {
           case "static": {
-            return `${param.name}`;
+            return camelToKebab(param.name);
           }
           case "dynamic": {
             return `:${param.name}`;
           }
           case "optional": {
-            return `:TODO_OPTIONAL`;
+            return `[:${param.name}]`;
           }
           case "required-splat": {
             return `TODO_SPLAT`;
@@ -171,6 +171,14 @@ function toPathPattern(name) {
       })
       .join("/")
   );
+}
+/**
+ * Convert Strings from camelCase to kebab-case
+ * @param {string} input
+ * @returns {string}
+ */
+function camelToKebab(input) {
+  return input.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
 /**
