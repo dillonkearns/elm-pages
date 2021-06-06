@@ -156,18 +156,8 @@ view page maybePageUrl globalData pageData =
                                       , routeParams = s
                                       , path = page.path
                                       }
-                                      |> (\\{ title, body } ->
-                                              Shared.template.view
-                                                  globalData
-                                                  page
-                                                  model.global
-                                                  MsgGlobal
-                                                  ({ title = title, body = body }
-                                                      |> View.map Msg${pathNormalizedName(
-                                                        name
-                                                      )}
-                                                  )
-                                          )
+                                      |> View.map Msg${pathNormalizedName(name)}
+                                      |> Shared.template.view globalData page model.global MsgGlobal
 
                               _ ->
                                   { title = "Model mismatch", body = Html.text <| "Model mismatch" }
