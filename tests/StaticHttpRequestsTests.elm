@@ -896,6 +896,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , sharedData = DataSource.succeed ()
             , onPageChange = \_ -> Continue
             , apiRoutes = \_ -> apiRoutes
+            , pathPatterns = []
             }
 
         encodedFlags : Encode.Value
