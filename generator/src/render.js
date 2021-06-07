@@ -226,6 +226,11 @@ function wrapHtml(fromElm, contentJsonString) {
       transform: scale(1.5);
     }
   }
+
+#not-found-reason code {
+    color: rgb(226, 0, 124) !important;
+}
+
     </style>
     <link rel="preload" href="/elm-pages.js" as="script">
     <link rel="preload" href="/index.js" as="script">

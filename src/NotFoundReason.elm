@@ -32,7 +32,9 @@ document pathPatterns payload =
     { title = "Page not found"
     , body =
         Html.div
-            [ Attr.style "padding" "30px" ]
+            [ Attr.id "not-found-reason"
+            , Attr.style "padding" "30px"
+            ]
             (case payload.reason of
                 NoMatchingRoute ->
                     [ Html.text <| "No route found for "
