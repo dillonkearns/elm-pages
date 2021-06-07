@@ -181,7 +181,6 @@ contentJsonDecoder =
                         (Decode.succeed is404Value)
                         (Decode.succeed Nothing)
             )
-        |> Decode.map (Debug.log "contentJsonDecoder")
 
 
 update :
