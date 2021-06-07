@@ -4,6 +4,7 @@ import Codec exposing (Codec)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Path exposing (Path)
+import RoutePattern exposing (RoutePattern)
 
 
 type alias Payload =
@@ -24,7 +25,7 @@ type Route
 
 
 document :
-    List String
+    List RoutePattern
     -> Payload
     -> { title : String, body : Html msg }
 document pathPatterns payload =
@@ -51,7 +52,9 @@ document pathPatterns payload =
                                     Html.li
                                         [ Attr.style "list-style" "inside"
                                         ]
-                                        [ Html.text route ]
+                                        [ route
+                                            |> RoutePattern.view
+                                        ]
                                 )
                         )
                     ]

@@ -172,6 +172,61 @@ function toPathPattern(name) {
       .join("/")
   );
 }
+
+/**
+ * @param {string[]} name
+ * @returns {string}
+ */
+function toElmPathPattern(name) {
+  const parsedSegments = parseRouteParamsWithStatic(name);
+
+  const foundEndings = parsedSegments.flatMap((segment) => {
+    switch (segment.kind) {
+      case "static": {
+        return [];
+      }
+      case "dynamic": {
+        return [];
+      }
+      case "optional": {
+        return [`( RoutePattern.Optional "${segment.name}" )`];
+      }
+      case "required-splat": {
+        return [`RoutePattern.RequiredSplat`];
+      }
+      case "optional-splat": {
+        return [`RoutePattern.OptionalSplat`];
+      }
+    }
+  });
+  const maybeEnding = foundEndings[0];
+  const ending = maybeEnding ? `Just ${maybeEnding}` : "Nothing";
+
+  const segments = parseRouteParamsWithStatic(name)
+    .flatMap((param) => {
+      switch (param.kind) {
+        case "static": {
+          return [`RoutePattern.StaticSegment "${camelToKebab(param.name)}"`];
+        }
+        case "dynamic": {
+          return [`RoutePattern.DynamicSegment "${param.name}"`];
+        }
+        case "optional": {
+          return [];
+        }
+        case "required-splat": {
+          return [];
+        }
+        case "optional-splat": {
+          return [];
+        }
+      }
+    })
+
+    .join(", ");
+  return `{ segments = [ ${segments} ], ending = ${ending} }`;
+}
+
 /**
  * Convert Strings from camelCase to kebab-case
  * @param {string} input
@@ -230,4 +285,5 @@ module.exports = {
   toPathPattern,
   parseRouteParams,
   parseRouteParamsWithStatic,
+  toElmPathPattern,
 };

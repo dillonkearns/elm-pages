@@ -59,6 +59,7 @@ import Head
 import Html exposing (Html)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import RoutePattern
 import Url
 import DataSource exposing (DataSource)
 import QueryParams
@@ -414,7 +415,7 @@ main =
         , data = dataForRoute
         , sharedData = Shared.template.data
         , apiRoutes = \\htmlToString -> routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
-        , pathPatterns = routePatterns2
+        , pathPatterns = routePatterns3
         }
 
 dataForRoute : Maybe Route -> DataSource PageData
@@ -488,6 +489,15 @@ routePatterns2 =
       .join("\n    , ")}
     ]
 
+
+routePatterns3 : List RoutePattern.RoutePattern
+routePatterns3 =
+    [ ${sortTemplates(templates)
+      .map((name) => {
+        return `${routeHelpers.toElmPathPattern(name)}`;
+      })
+      .join("\n    , ")}
+    ]
 
 getStaticRoutes : DataSource (List Route)
 getStaticRoutes =

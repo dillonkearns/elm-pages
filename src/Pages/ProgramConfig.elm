@@ -11,6 +11,7 @@ import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
+import RoutePattern exposing (RoutePattern)
 import Url exposing (Url)
 
 
@@ -66,5 +67,5 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , apiRoutes :
         (Html Never -> String)
         -> List (ApiRoute.Done ApiRoute.Response)
-    , pathPatterns : List String
+    , pathPatterns : List RoutePattern
     }
