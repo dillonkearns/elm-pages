@@ -1,4 +1,4 @@
-module StructuredData exposing (StructuredData(..), additionalName, article, article_, computerLanguage, elmLang, encode, episode, example, person, series, softwareSourceCode)
+module StructuredData exposing (StructuredData(..), additionalName, article, article_, computerLanguage, elmLang, encode, episode, person, series, softwareSourceCode)
 
 import Json.Encode as Encode
 import Pages.Url

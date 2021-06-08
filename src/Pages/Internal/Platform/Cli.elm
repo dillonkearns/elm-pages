@@ -1258,7 +1258,7 @@ sendProgress singlePage =
 
 
 render404Page :
-    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> Path
     -> NotFoundReason
