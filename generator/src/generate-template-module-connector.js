@@ -940,10 +940,10 @@ function paramAsElmString(param) {
       return "maybeToString";
     }
     case "required-splat": {
-      return "listToString";
+      return "nonEmptyToString";
     }
     case "optional-splat": {
-      return "nonEmptyToString";
+      return "listToString";
     }
   }
 }
