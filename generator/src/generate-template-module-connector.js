@@ -450,9 +450,57 @@ handleRoute maybeRoute =
                 name
               )} routeParams) ->\n            Page.${name.join(
                 "."
-              )}.page.handleRoute routeParams`
+              )}.page.handleRoute (\\param -> [ ${routeHelpers
+                .parseRouteParams(name)
+                .map(
+                  (param) =>
+                    `( "${param.name}", ${paramAsElmString(param)} param.${
+                      param.name
+                    } )`
+                )
+                .join(", ")} ]) routeParams`
           )
           .join("\n        ")}
+
+
+stringToString : String -> String
+stringToString string =
+    "\\"" ++ string ++ "\\""
+
+
+nonEmptyToString : ( String, List String ) -> String
+nonEmptyToString ( first, rest ) =
+    "( "
+        ++ stringToString first
+        ++ ", [ "
+        ++ (rest
+                |> List.map stringToString
+                |> String.join ", "
+           )
+        ++ " ] )"
+
+
+listToString : List String -> String
+listToString strings =
+    "[ "
+        ++ (strings
+                |> List.map stringToString
+                |> String.join ", "
+           )
+        ++ " ]"
+
+
+maybeToString : Maybe String -> String
+maybeToString maybeString =
+    case maybeString of
+        Just string ->
+            "Just " ++ stringToString string
+
+        Nothing ->
+            "Nothing"
+
+
+
 
 routePatterns : ApiRoute.Done ApiRoute.Response
 routePatterns =
@@ -881,6 +929,23 @@ function pathNormalizedName(name) {
  */
 function moduleName(name) {
   return name.join(".");
+}
+
+function paramAsElmString(param) {
+  switch (param.kind) {
+    case "dynamic": {
+      return "stringToString";
+    }
+    case "optional": {
+      return "maybeToString";
+    }
+    case "required-splat": {
+      return "listToString";
+    }
+    case "optional-splat": {
+      return "nonEmptyToString";
+    }
+  }
 }
 
 module.exports = { generateTemplateModuleConnector, sortTemplates };

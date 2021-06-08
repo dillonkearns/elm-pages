@@ -13,10 +13,14 @@ type alias Payload =
     }
 
 
+type alias Record =
+    List ( String, String )
+
+
 type NotFoundReason
     = NoMatchingRoute
-    | NotPrerendered (List String)
-    | NotPrerenderedOrHandledByFallback (List String)
+    | NotPrerendered (List Record)
+    | NotPrerenderedOrHandledByFallback (List Record)
     | UnhandledServerRoute
 
 
@@ -81,12 +85,12 @@ document pathPatterns payload =
                         ]
                         (routes
                             |> List.map
-                                (\route ->
+                                (\record ->
                                     Html.li
                                         [ Attr.style "list-style" "inside"
                                         ]
                                         [ Html.code []
-                                            [ Html.text route
+                                            [ Html.text (recordToString record)
                                             ]
                                         ]
                                 )
@@ -136,7 +140,25 @@ reasonCodec =
                     vUnhandledServerRoute
         )
         |> Codec.variant0 "NoMatchingRoute" NoMatchingRoute
-        |> Codec.variant1 "NotPrerendered" NotPrerendered (Codec.list Codec.string)
-        |> Codec.variant1 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback (Codec.fail "")
+        |> Codec.variant1 "NotPrerendered" NotPrerendered (Codec.list recordCodec)
+        |> Codec.variant1 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback (Codec.list recordCodec)
         |> Codec.variant0 "UnhandledServerRoute" UnhandledServerRoute
         |> Codec.buildCustom
+
+
+recordCodec : Codec (List ( String, String ))
+recordCodec =
+    Codec.list (Codec.tuple Codec.string Codec.string)
+
+
+recordToString : List ( String, String ) -> String
+recordToString fields =
+    "{ "
+        ++ (fields
+                |> List.map
+                    (\( key, value ) ->
+                        key ++ " = " ++ value
+                    )
+                |> String.join ", "
+           )
+        ++ " }"

@@ -71,7 +71,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
-    , handleRoute : routeParams -> DataSource (Maybe NotFoundReason)
+    , handleRoute : (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
     }
 
@@ -99,7 +99,7 @@ type Builder routeParams templateData
             StaticPayload templateData routeParams
             -> List Head.Tag
         , serverless : Bool
-        , handleRoute : routeParams -> DataSource (Maybe NotFoundReason)
+        , handleRoute : (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
         , kind : String
         }
 
@@ -222,7 +222,7 @@ singleRoute { data, head } =
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
-        , handleRoute = \_ -> DataSource.succeed Nothing
+        , handleRoute = \_ _ -> DataSource.succeed Nothing
         , kind = "static"
         }
 
@@ -241,7 +241,7 @@ prerenderedRoute { data, head, routes } =
         , head = head
         , serverless = False
         , handleRoute =
-            \routeParams ->
+            \toRecord routeParams ->
                 routes
                     |> DataSource.map
                         (\allRoutes ->
@@ -250,7 +250,11 @@ prerenderedRoute { data, head, routes } =
 
                             else
                                 -- TODO pass in toString function, and use a custom one to avoid Debug.toString
-                                Just <| NotFoundReason.NotPrerendered (allRoutes |> List.map Debug.toString)
+                                Just <|
+                                    NotFoundReason.NotPrerendered
+                                        (allRoutes
+                                            |> List.map toRecord
+                                        )
                         )
         , kind = "prerender"
         }
@@ -271,7 +275,7 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
         , head = head
         , serverless = False
         , handleRoute =
-            \routeParams ->
+            \toRecord routeParams ->
                 handleFallback routeParams
                     |> DataSource.andThen
                         (\handleFallbackResult ->
@@ -295,7 +299,7 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
                                                 Just <|
                                                     NotFoundReason.NotPrerenderedOrHandledByFallback
                                                         (allRoutes
-                                                            |> List.map Debug.toString
+                                                            |> List.map toRecord
                                                         )
                                         )
                         )
@@ -317,7 +321,7 @@ serverlessRoute { data, head, routeFound } =
         , head = head
         , serverless = True
         , handleRoute =
-            \routeParams ->
+            \_ routeParams ->
                 routeFound routeParams
                     |> DataSource.map
                         (\found ->
