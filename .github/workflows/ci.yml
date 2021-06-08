@@ -79,6 +79,7 @@ jobs:
         with:
           name: cypress-videos
           path: cypress/videos
+      - run: npx elm-tooling install
       - name: Elm Publish
         uses: dillonkearns/elm-publish-action@v1
         with:
