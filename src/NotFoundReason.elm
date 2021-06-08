@@ -75,6 +75,7 @@ document pathPatterns payload =
                                 |> Path.toAbsolute
                             )
                         ]
+                    , Html.text ", but it was not in the list of pre-rendered RouteParams:"
                     , Html.ul
                         [ Attr.style "padding-top" "30px"
                         ]
