@@ -34,10 +34,58 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ NoExposingEverything.rule
+    ([ NoExposingEverything.rule
 
-    --NoImportingEverything.rule []
-    , NoMissingTypeAnnotation.rule
+     --NoImportingEverything.rule []
+     , NoInconsistentAliases.config
+        [ ( "Html.Attributes", "Attr" )
+
+        --, ( "Json.Encode", "Encode" )
+        ]
+        |> NoInconsistentAliases.noMissingAliases
+        |> NoInconsistentAliases.rule
+     , NoModuleOnExposedNames.rule
+        |> Rule.ignoreErrorsForFiles
+            [ -- Glob module ignored because of https://github.com/sparksp/elm-review-imports/issues/3#issuecomment-854262659
+              "src/DataSource/Glob.elm"
+            , "src/ApiRoute.elm"
+            ]
+     , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
+        |> ignoreInTest
+     , NoDebug.Log.rule
+        |> ignoreInTest
+     , NoDebug.TodoOrToString.rule
+        |> ignoreInTest
+     ]
+        ++ noUnusedRules
+        |> List.map
+            (\rule ->
+                rule
+                    |> Rule.ignoreErrorsForFiles
+                        [ "src/Pages/Internal/Platform/Effect.elm"
+                        , "src/Pages/Internal/Platform.elm"
+                        , "src/Pages/Internal/Platform/Cli.elm"
+                        , "src/SecretsDict.elm"
+                        , "src/StructuredData.elm"
+                        , "src/Router.elm" -- used in generated code
+                        ]
+                    |> Rule.ignoreErrorsForDirectories
+                        [ "src/ElmHtml"
+                        ]
+            )
+    )
+        |> List.map
+            (\rule ->
+                rule
+                    |> Rule.ignoreErrorsForDirectories
+                        [ "src/ElmHtml"
+                        ]
+            )
+
+
+noUnusedRules : List Rule
+noUnusedRules =
+    [ NoMissingTypeAnnotation.rule
     , NoMissingTypeAnnotationInLetIn.rule
     , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
@@ -78,41 +126,7 @@ config =
         |> Rule.ignoreErrorsForFiles
             [ "src/DataSource/Glob.elm"
             ]
-    , NoInconsistentAliases.config
-        [ ( "Html.Attributes", "Attr" )
-
-        --, ( "Json.Encode", "Encode" )
-        ]
-        |> NoInconsistentAliases.noMissingAliases
-        |> NoInconsistentAliases.rule
-    , NoModuleOnExposedNames.rule
-        |> Rule.ignoreErrorsForFiles
-            [ -- Glob module ignored because of https://github.com/sparksp/elm-review-imports/issues/3#issuecomment-854262659
-              "src/DataSource/Glob.elm"
-            , "src/ApiRoute.elm"
-            ]
-    , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
-        |> ignoreInTest
-    , NoDebug.Log.rule
-        |> ignoreInTest
-    , NoDebug.TodoOrToString.rule
-        |> ignoreInTest
     ]
-        |> List.map
-            (\rule ->
-                rule
-                    |> Rule.ignoreErrorsForFiles
-                        [ "src/Pages/Internal/Platform/Effect.elm"
-                        , "src/Pages/Internal/Platform.elm"
-                        , "src/Pages/Internal/Platform/Cli.elm"
-                        , "src/SecretsDict.elm"
-                        , "src/StructuredData.elm"
-                        , "src/Router.elm" -- used in generated code
-                        ]
-                    |> Rule.ignoreErrorsForDirectories
-                        [ "src/ElmHtml"
-                        ]
-            )
 
 
 ignoreInTest : Rule -> Rule
