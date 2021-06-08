@@ -9,6 +9,7 @@ import Expect
 import Html
 import Json.Decode as JD
 import Json.Encode as Encode
+import NotFoundReason
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.Platform.Cli exposing (..)
@@ -896,7 +897,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                     |> List.map (String.join "/")
                     |> List.map Route
                     |> DataSource.succeed
-            , handleRoute = \_ -> DataSource.succeed True
+            , handleRoute = \_ -> DataSource.succeed Nothing
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , data =
@@ -1019,6 +1020,13 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                     staticRoutes
                         |> List.map (String.join "/")
                         |> List.member route
+                        |> (\found ->
+                                if found then
+                                    Nothing
+
+                                else
+                                    Just NotFoundReason.NoMatchingRoute
+                           )
                         |> DataSource.succeed
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
