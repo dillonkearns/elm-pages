@@ -1,4 +1,4 @@
-module StructuredData exposing (..)
+module StructuredData exposing (StructuredData(..), additionalName, article, article_, computerLanguage, elmLang, encode, episode, example, person, series, softwareSourceCode)
 
 import Json.Encode as Encode
 import Pages.Url
@@ -140,14 +140,9 @@ encode (StructuredData typeName fields) =
 --        { address : ()
 --        , affiliation : ()
 --        }
-
-
-example =
-    person { name = "Dillon Kearns" }
-        |> additionalName "Cornelius"
-
-
-
+--example =
+--    person { name = "Dillon Kearns" }
+--        |> additionalName "Cornelius"
 --organization :
 --    {}
 --    -> StructuredDataHelper { personOrOrganization : () }

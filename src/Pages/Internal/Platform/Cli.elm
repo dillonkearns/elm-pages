@@ -77,6 +77,7 @@ cliApplication :
     -> Program (Maybe route)
 cliApplication config =
     let
+        contentCache : ContentCache
         contentCache =
             ContentCache.init Nothing
     in
@@ -84,6 +85,7 @@ cliApplication config =
         { init =
             \flags ->
                 let
+                    renderRequest : RenderRequest (Maybe route)
                     renderRequest =
                         Decode.decodeValue (RenderRequest.decoder config) flags
                             |> Result.withDefault RenderRequest.FullBuild
@@ -100,6 +102,7 @@ cliApplication config =
                     |> Sub.map
                         (\jsonValue ->
                             let
+                                decoder : Decode.Decoder Msg
                                 decoder =
                                     Decode.field "tag" Decode.string
                                         |> Decode.andThen
@@ -180,6 +183,7 @@ perform :
     -> Effect
     -> Cmd Msg
 perform renderRequest config toJsPort effect =
+    -- elm-review: known-unoptimized-recursion
     let
         canonicalSiteUrl : String
         canonicalSiteUrl =
@@ -216,6 +220,7 @@ perform renderRequest config toJsPort effect =
 
             else if unmasked.url |> String.startsWith "file://" then
                 let
+                    filePath : String
                     filePath =
                         String.dropLeft 7 unmasked.url
                 in
@@ -226,6 +231,7 @@ perform renderRequest config toJsPort effect =
 
             else if unmasked.url |> String.startsWith "glob://" then
                 let
+                    globPattern : String
                     globPattern =
                         String.dropLeft 7 unmasked.url
                 in
@@ -236,6 +242,7 @@ perform renderRequest config toJsPort effect =
 
             else if unmasked.url |> String.startsWith "port://" then
                 let
+                    portName : String
                     portName =
                         String.dropLeft 7 unmasked.url
                 in
@@ -282,6 +289,7 @@ perform renderRequest config toJsPort effect =
 
         Effect.SendSinglePage done info ->
             let
+                currentPagePath : String
                 currentPagePath =
                     case info of
                         ToJsPayload.PageProgress toJsSuccessPayloadNew ->
@@ -411,6 +419,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                 RenderRequest.FullBuild ->
                     StaticResponses.init config
 
+        unprocessedPages : List ( Path, route )
         unprocessedPages =
             case renderRequest of
                 RenderRequest.SinglePage _ serverRequestPayload _ ->
@@ -427,6 +436,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                 RenderRequest.FullBuild ->
                     []
 
+        unprocessedPagesState : Maybe (List ( Path, route ))
         unprocessedPagesState =
             case renderRequest of
                 RenderRequest.SinglePage _ serverRequestPayload _ ->
@@ -443,6 +453,7 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
                 RenderRequest.FullBuild ->
                     Nothing
 
+        initialModel : Model route
         initialModel =
             { staticResponses = staticResponses
             , secrets = secrets
@@ -484,6 +495,7 @@ update contentCache config msg model =
     case msg of
         GotStaticHttpResponse { request, response } ->
             let
+                updatedModel : Model route
                 updatedModel =
                     (case response of
                         Ok _ ->
@@ -548,6 +560,7 @@ update contentCache config msg model =
                 --        { filePath = filePath
                 --        , pendingRequests = model.pendingRequests
                 --        }
+                updatedModel : Model route
                 updatedModel =
                     { model
                         | pendingRequests =
@@ -584,6 +597,7 @@ update contentCache config msg model =
 
         Continue ->
             let
+                updatedModel : Model route
                 updatedModel =
                     model
             in
@@ -594,6 +608,7 @@ update contentCache config msg model =
 
         GotGlob ( globPattern, globResult ) ->
             let
+                updatedModel : Model route
                 updatedModel =
                     { model
                         | pendingRequests =
@@ -627,6 +642,7 @@ update contentCache config msg model =
 
         GotBuildError buildError ->
             let
+                updatedModel : Model route
                 updatedModel =
                     { model
                         | errors =
@@ -640,6 +656,7 @@ update contentCache config msg model =
 
         GotPortResponse ( portName, portResponse ) ->
             let
+                updatedModel : Model route
                 updatedModel =
                     { model
                         | pendingRequests =
@@ -682,15 +699,19 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
             let
+                nextAndPending : List { masked : RequestDetails, unmasked : RequestDetails }
                 nextAndPending =
                     model.pendingRequests ++ httpRequests
 
+                doNow : List { masked : RequestDetails, unmasked : RequestDetails }
                 doNow =
                     nextAndPending
 
+                pending : List { masked : RequestDetails, unmasked : RequestDetails }
                 pending =
                     []
 
+                updatedRoutes : Maybe (List ( Path, route ))
                 updatedRoutes =
                     case maybeRoutes of
                         Just newRoutes ->
@@ -706,6 +727,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                         Nothing ->
                             model.staticRoutes
 
+                updatedUnprocessedPages : List ( Path, route )
                 updatedUnprocessedPages =
                     case maybeRoutes of
                         Just newRoutes ->
@@ -720,6 +742,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                         Nothing ->
                             model.unprocessedPages
 
+                updatedModel : Model route
                 updatedModel =
                     { model
                         | allRawResponses = updatedAllRawResponses
@@ -750,6 +773,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
             case model.mode of
                 Mode.ElmToHtmlBeta ->
                     let
+                        sendManifestIfNeeded : Effect
                         sendManifestIfNeeded =
                             if
                                 List.length model.unprocessedPages
@@ -831,9 +855,11 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                     case pageFoundResult of
                                                         Ok Nothing ->
                                                             let
+                                                                allRoutes : List route
                                                                 allRoutes =
                                                                     []
 
+                                                                currentUrl : Url.Url
                                                                 currentUrl =
                                                                     { protocol = Url.Https
                                                                     , host = config.site [] |> .canonicalUrl
@@ -843,6 +869,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                     , fragment = Nothing
                                                                     }
 
+                                                                renderedResult : Result BuildError { head : List Head.Tag, view : String, title : String }
                                                                 renderedResult =
                                                                     case includeHtml of
                                                                         RenderRequest.OnlyJson ->
@@ -996,15 +1023,21 @@ sendSinglePageProgress toJsPayload config model =
         case model.maybeRequestJson of
             RenderRequest.SinglePage includeHtml _ _ ->
                 let
+                    pageFoundResult : Result BuildError (Maybe NotFoundReason)
                     pageFoundResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
                             (config.handleRoute route)
                             model.allRawResponses
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
+                    allRoutes : List route
                     allRoutes =
                         []
 
+                    renderedResult :
+                        Result
+                            BuildError
+                            { head : List Head.Tag, view : String, title : String }
                     renderedResult =
                         case includeHtml of
                             RenderRequest.OnlyJson ->
@@ -1048,6 +1081,7 @@ sendSinglePageProgress toJsPayload config model =
                                             }
                                         )
 
+                    currentUrl : Url.Url
                     currentUrl =
                         { protocol = Url.Https
                         , host = config.site allRoutes |> .canonicalUrl
@@ -1140,10 +1174,12 @@ sendSinglePageProgress toJsPayload config model =
                             (staticData |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
+                    allRoutes : List route
                     allRoutes =
                         -- TODO
                         []
 
+                    currentUrl : { protocol : Url.Protocol, host : String, port_ : Maybe Int, path : String, query : Maybe String, fragment : Maybe String }
                     currentUrl =
                         { protocol = Url.Https
                         , host = config.site allRoutes |> .canonicalUrl
@@ -1221,6 +1257,12 @@ sendProgress singlePage =
     singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage False
 
 
+render404Page :
+    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    -> Model route
+    -> Path
+    -> NotFoundReason
+    -> Effect
 render404Page config model path notFoundReason =
     let
         notFoundDocument : { title : String, body : Html msg }

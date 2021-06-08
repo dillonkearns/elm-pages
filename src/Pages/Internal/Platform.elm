@@ -5,7 +5,7 @@ import Browser.Dom as Dom
 import Browser.Navigation
 import BuildError exposing (BuildError)
 import Html exposing (Html)
-import Html.Attributes
+import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import Json.Encode
@@ -33,6 +33,7 @@ mainView :
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
+        urls : { currentUrl : Url, baseUrl : Url }
         urls =
             { currentUrl = model.url
             , baseUrl = model.baseUrl
@@ -111,8 +112,8 @@ onViewChangeElement currentUrl =
     -- check when Elm has changed pages
     -- (and completed rendering the view)
     Html.div
-        [ Html.Attributes.attribute "data-url" (Url.toString currentUrl)
-        , Html.Attributes.attribute "display" "none"
+        [ Attr.attribute "data-url" (Url.toString currentUrl)
+        , Attr.attribute "display" "none"
         ]
         []
 
@@ -129,6 +130,7 @@ init :
     -> ( Model userModel pageData sharedData, Cmd (Msg userMsg) )
 init config flags url key =
     let
+        contentCache : ContentCache
         contentCache =
             ContentCache.init
                 (Maybe.map
@@ -179,6 +181,7 @@ init config flags url key =
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
 
+                pagePath : Path
                 pagePath =
                     urlsToPagePath urls
             in
@@ -213,6 +216,7 @@ init config flags url key =
                                 }
                                 |> config.init userFlags sharedData pageData (Just key)
 
+                        cmd : Cmd (Msg userMsg)
                         cmd =
                             [ userCmd
                                 |> Cmd.map UserMsg
@@ -297,6 +301,7 @@ update config appMsg model =
             case urlRequest of
                 Browser.Internal url ->
                     let
+                        navigatingToSamePage : Bool
                         navigatingToSamePage =
                             (url.path == model.url.path) && (url /= model.url)
                     in
@@ -313,9 +318,11 @@ update config appMsg model =
 
         UrlChanged url ->
             let
+                navigatingToSamePage : Bool
                 navigatingToSamePage =
                     (url.path == model.url.path) && (url /= model.url)
 
+                urls : { currentUrl : Url, baseUrl : Url }
                 urls =
                     { currentUrl = url
                     , baseUrl = model.baseUrl
@@ -383,6 +390,7 @@ update config appMsg model =
                         ( userModel, userCmd ) =
                             config.update pageData.sharedData pageData.pageData (Just model.key) userMsg pageData.userModel
 
+                        updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
                         updatedPageData =
                             Ok { pageData | userModel = userModel }
                     in
@@ -423,6 +431,7 @@ update config appMsg model =
                                         }
                                     )
 
+                        updatedPageStaticData : Result String pageData
                         updatedPageStaticData =
                             StaticHttpRequest.resolve ApplicationType.Browser
                                 (config.data (config.urlToRoute url))
@@ -466,6 +475,7 @@ update config appMsg model =
 
         HotReloadComplete contentJson ->
             let
+                urls : { currentUrl : Url, baseUrl : Url }
                 urls =
                     { currentUrl = model.url, baseUrl = model.baseUrl }
 
@@ -483,16 +493,19 @@ update config appMsg model =
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
 
+                from404ToNon404 : Bool
                 from404ToNon404 =
                     not contentJson.is404
                         && was404
 
+                was404 : Bool
                 was404 =
                     ContentCache.is404 model.contentCache urls
             in
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData ) ->
                     let
+                        updateResult : Maybe ( userModel, Cmd userMsg )
                         updateResult =
                             if from404ToNon404 then
                                 case model.pageData of
@@ -578,9 +591,11 @@ application config =
         , subscriptions =
             \model ->
                 let
+                    urls : { currentUrl : Url, baseUrl : Url }
                     urls =
                         { currentUrl = model.url, baseUrl = model.baseUrl }
 
+                    pagePath : Path
                     pagePath =
                         urlsToPagePath urls
                 in

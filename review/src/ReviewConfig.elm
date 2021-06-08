@@ -56,23 +56,34 @@ config =
         |> ignoreInTest
      , NoDebug.TodoOrToString.rule
         |> ignoreInTest
+     , NoMissingTypeAnnotation.rule
+     , NoMissingTypeAnnotationInLetIn.rule
+     , NoMissingTypeExpose.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Head/Seo.elm"
+            , "src/DataSource/Glob.elm" -- incorrect result,
+
+            -- alias is exposed - see https://github.com/jfmengels/elm-review-common/issues/1
+            , "src/ApiRoute.elm" -- incorrect result
+            ]
      ]
-        ++ noUnusedRules
-        |> List.map
-            (\rule ->
-                rule
-                    |> Rule.ignoreErrorsForFiles
-                        [ "src/Pages/Internal/Platform/Effect.elm"
-                        , "src/Pages/Internal/Platform.elm"
-                        , "src/Pages/Internal/Platform/Cli.elm"
-                        , "src/SecretsDict.elm"
-                        , "src/StructuredData.elm"
-                        , "src/Router.elm" -- used in generated code
-                        ]
-                    |> Rule.ignoreErrorsForDirectories
-                        [ "src/ElmHtml"
-                        ]
-            )
+        ++ (noUnusedRules
+                |> List.map
+                    (\rule ->
+                        rule
+                            |> Rule.ignoreErrorsForFiles
+                                [ "src/Pages/Internal/Platform/Effect.elm"
+                                , "src/Pages/Internal/Platform.elm"
+                                , "src/Pages/Internal/Platform/Cli.elm"
+                                , "src/SecretsDict.elm"
+                                , "src/StructuredData.elm"
+                                , "src/Router.elm" -- used in generated code
+                                ]
+                            |> Rule.ignoreErrorsForDirectories
+                                [ "src/ElmHtml"
+                                ]
+                    )
+           )
     )
         |> List.map
             (\rule ->
@@ -85,17 +96,7 @@ config =
 
 noUnusedRules : List Rule
 noUnusedRules =
-    [ NoMissingTypeAnnotation.rule
-    , NoMissingTypeAnnotationInLetIn.rule
-    , NoMissingTypeExpose.rule
-        |> Rule.ignoreErrorsForFiles
-            [ "src/Head/Seo.elm"
-            , "src/DataSource/Glob.elm" -- incorrect result,
-
-            -- alias is exposed - see https://github.com/jfmengels/elm-review-common/issues/1
-            , "src/ApiRoute.elm" -- incorrect result
-            ]
-    , NoUnused.CustomTypeConstructors.rule []
+    [ NoUnused.CustomTypeConstructors.rule []
         |> ignoreInTest
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
