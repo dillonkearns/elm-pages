@@ -11,6 +11,8 @@ when inside the directory containing this file.
 
 -}
 
+import NoDebug.Log
+import NoDebug.TodoOrToString
 import NoExposingEverything
 import NoImportingEverything
 import NoInconsistentAliases
@@ -90,6 +92,10 @@ config =
             , "src/ApiRoute.elm"
             ]
     , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
+        |> ignoreInTest
+    , NoDebug.Log.rule
+        |> ignoreInTest
+    , NoDebug.TodoOrToString.rule
         |> ignoreInTest
     ]
         |> List.map

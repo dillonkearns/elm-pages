@@ -95,7 +95,7 @@ document pathPatterns payload =
 
                 _ ->
                     [ Html.text "Page not found"
-                    , Html.text <| Debug.toString payload
+                    , Html.text <| "TODO"
                     ]
             )
     }

@@ -11,6 +11,7 @@
             "elm/project-metadata-utils": "1.0.2",
             "jfmengels/elm-review": "2.4.2",
             "jfmengels/elm-review-common": "1.0.4",
+            "jfmengels/elm-review-debug": "1.0.6",
             "jfmengels/elm-review-performance": "1.0.0",
             "jfmengels/elm-review-unused": "1.1.11",
             "sparksp/elm-review-imports": "1.0.1",
