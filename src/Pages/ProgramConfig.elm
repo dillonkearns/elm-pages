@@ -7,6 +7,7 @@ import Head
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
+import NotFoundReason exposing (NotFoundReason)
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -47,7 +48,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
             { view : userModel -> { title : String, body : Html userMsg }
             , head : List Head.Tag
             }
-    , handleRoute : route -> DataSource.DataSource Bool
+    , handleRoute : route -> DataSource.DataSource (Maybe NotFoundReason)
     , getStaticRoutes : DataSource.DataSource (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String

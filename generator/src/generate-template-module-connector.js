@@ -57,6 +57,7 @@ import Shared
 import Site
 import Head
 import Html exposing (Html)
+import NotFoundReason
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import RoutePattern
@@ -436,11 +437,11 @@ dataForRoute route =
           )
           .join("\n        ")}
 
-handleRoute : Maybe Route -> DataSource Bool
+handleRoute : Maybe Route -> DataSource (Maybe NotFoundReason.NotFoundReason)
 handleRoute maybeRoute =
     case maybeRoute of
         Nothing ->
-            DataSource.succeed False
+            DataSource.succeed Nothing
 
         ${templates
           .map(

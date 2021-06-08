@@ -9,6 +9,7 @@ import Dict.Extra
 import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (Done(..))
+import NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
@@ -27,7 +28,7 @@ type StaticResponses
     = GettingInitialData StaticHttpResult
     | ApiRequest StaticHttpResult
     | StaticResponses (Dict String StaticHttpResult)
-    | CheckIfHandled (DataSource Bool) StaticHttpResult (Dict String StaticHttpResult)
+    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult (Dict String StaticHttpResult)
 
 
 type StaticHttpResult
@@ -106,7 +107,7 @@ renderSingleRoute :
     }
     -> { path : Path, frontmatter : route }
     -> DataSource a
-    -> DataSource Bool
+    -> DataSource (Maybe NotFoundReason)
     -> StaticResponses
 renderSingleRoute config pathAndRoute request cliData =
     CheckIfHandled cliData
@@ -538,17 +539,17 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
 
             CheckIfHandled pageFoundDataSource (NotFetched dataSource dict) andThenRequest ->
                 let
-                    pageFoundResult : Result StaticHttpRequest.Error Bool
+                    pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
                     pageFoundResult =
                         StaticHttpRequest.resolve ApplicationType.Cli
                             pageFoundDataSource
                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
                 in
                 case pageFoundResult of
-                    Ok True ->
+                    Ok Nothing ->
                         nextStep config { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
 
-                    Ok False ->
+                    Ok (Just notFoundReason) ->
                         ( StaticResponses Dict.empty
                         , Finish ToJsPayload.ApiResponse
                           -- TODO should there be a new type for 404response? Or something else?

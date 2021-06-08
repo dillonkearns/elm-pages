@@ -16,8 +16,8 @@ type alias Payload =
 type NotFoundReason
     = NoMatchingRoute
     | NotPrerendered (List String)
-    | NotPrerenderedOrHandledByFallback (List Route)
-    | UnhandledServerRoute (List Route)
+    | NotPrerenderedOrHandledByFallback (List String)
+    | UnhandledServerRoute
 
 
 type Route
@@ -84,7 +84,9 @@ document pathPatterns payload =
                                     Html.li
                                         [ Attr.style "list-style" "inside"
                                         ]
-                                        [ Html.text route
+                                        [ Html.code []
+                                            [ Html.text route
+                                            ]
                                         ]
                                 )
                         )
@@ -129,11 +131,11 @@ reasonCodec =
                 NotPrerenderedOrHandledByFallback prerenderedRoutes ->
                     vNotPrerenderedOrHandledByFallback prerenderedRoutes
 
-                UnhandledServerRoute prerenderedRoutes ->
-                    vUnhandledServerRoute prerenderedRoutes
+                UnhandledServerRoute ->
+                    vUnhandledServerRoute
         )
         |> Codec.variant0 "NoMatchingRoute" NoMatchingRoute
         |> Codec.variant1 "NotPrerendered" NotPrerendered (Codec.list Codec.string)
         |> Codec.variant1 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback (Codec.fail "")
-        |> Codec.variant1 "UnhandledServerRoute" UnhandledServerRoute (Codec.fail "")
+        |> Codec.variant0 "UnhandledServerRoute" UnhandledServerRoute
         |> Codec.buildCustom
