@@ -15,7 +15,7 @@ type alias Payload =
 
 type NotFoundReason
     = NoMatchingRoute
-    | NotPrerendered (List Route)
+    | NotPrerendered (List String)
     | NotPrerenderedOrHandledByFallback (List Route)
     | UnhandledServerRoute (List Route)
 
@@ -56,6 +56,35 @@ document pathPatterns payload =
                                         ]
                                         [ route
                                             |> RoutePattern.view
+                                        ]
+                                )
+                        )
+                    ]
+
+                NotPrerendered routes ->
+                    [ Html.code []
+                        [ Html.text
+                            (payload.path
+                                |> Path.toAbsolute
+                            )
+                        ]
+                    , Html.text " successfully matched the route "
+                    , Html.code []
+                        [ Html.text
+                            (Path.fromString "TODO"
+                                |> Path.toAbsolute
+                            )
+                        ]
+                    , Html.ul
+                        [ Attr.style "padding-top" "30px"
+                        ]
+                        (routes
+                            |> List.map
+                                (\route ->
+                                    Html.li
+                                        [ Attr.style "list-style" "inside"
+                                        ]
+                                        [ Html.text route
                                         ]
                                 )
                         )
@@ -104,7 +133,7 @@ reasonCodec =
                     vUnhandledServerRoute prerenderedRoutes
         )
         |> Codec.variant0 "NoMatchingRoute" NoMatchingRoute
-        |> Codec.variant1 "NotPrerendered" NotPrerendered (Codec.list routeCodec)
+        |> Codec.variant1 "NotPrerendered" NotPrerendered (Codec.list Codec.string)
         |> Codec.variant1 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback (Codec.fail "")
         |> Codec.variant1 "UnhandledServerRoute" UnhandledServerRoute (Codec.fail "")
         |> Codec.buildCustom

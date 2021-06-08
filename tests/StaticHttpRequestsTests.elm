@@ -78,6 +78,52 @@ all =
                             ]
                           )
                         ]
+        , describe "single page renders"
+            [ test "single pages that are pre-rendered" <|
+                \() ->
+                    startWithRoutes [ "post-1" ]
+                        [ [ "post-1" ]
+                        ]
+                        []
+                        [ ( [ "post-1" ]
+                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          )
+                        ]
+                        |> ProgramTest.expectOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ ToJsPayload.PageProgress portData ] ->
+                                        portData.is404
+                                            |> Expect.false "Expected page to be found and rendered"
+
+                                    _ ->
+                                        Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
+                            )
+            , test "data sources are not resolved 404 pages with matching route but not pre-rendered" <|
+                \() ->
+                    startWithRoutes [ "post-2" ]
+                        [ [ "post-1" ]
+                        ]
+                        []
+                        [ ( [ "post-2" ]
+                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                          )
+                        ]
+                        |> ProgramTest.expectOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ ToJsPayload.PageProgress portData ] ->
+                                        portData.is404
+                                            |> Expect.true "Expected 404 not found page"
+
+                                    _ ->
+                                        Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
+                            )
+            ]
         , test "the stripped JSON from the same request with different decoders is merged so the decoders succeed" <|
             \() ->
                 start
@@ -942,6 +988,148 @@ startLowLevel apiRoutes staticHttpCache pages =
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
+startWithRoutes :
+    List String
+    -> List (List String)
+    -> List ( Request.Request, String )
+    -> List ( List String, DataSource a )
+    -> ProgramTest (Model Route) Msg Effect
+startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
+    let
+        contentCache : ContentCache
+        contentCache =
+            ContentCache.init Nothing
+
+        config : ProgramConfig Msg () Route () () ()
+        config =
+            { toJsPort = toJsPort
+            , fromJsPort = fromJsPort
+            , init = \_ _ _ _ _ -> ( (), Cmd.none )
+            , getStaticRoutes =
+                --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
+                --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
+                staticRoutes
+                    |> List.map (String.join "/")
+                    |> List.map Route
+                    |> DataSource.succeed
+
+            --DataSource.succeed []
+            , handleRoute =
+                \(Route route) ->
+                    staticRoutes
+                        |> List.map (String.join "/")
+                        |> List.member (Debug.log "route" route)
+                        |> Debug.log "found"
+                        |> DataSource.succeed
+
+            --, handleRoute = \_ -> DataSource.succeed True
+            , urlToRoute = .path >> Route
+            , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , data =
+                \(Route pageRoute) ->
+                    let
+                        thing : Maybe (DataSource a)
+                        thing =
+                            pages
+                                |> Dict.fromList
+                                |> Dict.get
+                                    (pageRoute
+                                        |> String.split "/"
+                                        |> List.filter (\pathPart -> pathPart /= "")
+                                    )
+                    in
+                    case thing of
+                        Just request ->
+                            request |> DataSource.map (\_ -> ())
+
+                        Nothing ->
+                            DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
+            , site =
+                \_ ->
+                    { data = DataSource.succeed ()
+                    , canonicalUrl = "canonical-site-url"
+                    , manifest = \_ -> manifest
+                    , head = \_ -> []
+                    }
+            , view =
+                \page _ ->
+                    let
+                        thing : Maybe (DataSource a)
+                        thing =
+                            pages
+                                |> Dict.fromList
+                                |> Dict.get
+                                    (page.path |> Path.toSegments)
+                    in
+                    case thing of
+                        Just _ ->
+                            \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
+
+                        Nothing ->
+                            Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
+            , subscriptions = \_ _ _ -> Sub.none
+            , routeToPath = \(Route route) -> route |> String.split "/"
+            , sharedData = DataSource.succeed ()
+            , onPageChange = \_ -> Continue
+            , apiRoutes = \_ -> []
+            , pathPatterns = []
+            }
+
+        encodedFlags : Encode.Value
+        encodedFlags =
+            --{"secrets":
+            --        {"API_KEY": "ABCD1234","BEARER": "XYZ789"}, "mode": "prod", "staticHttpCache": {}
+            --        }
+            Encode.object
+                [ ( "secrets"
+                  , [ ( "API_KEY", "ABCD1234" )
+                    , ( "BEARER", "XYZ789" )
+                    ]
+                        |> Dict.fromList
+                        |> Encode.dict identity Encode.string
+                  )
+                , ( "mode", Encode.string "elm-to-html-beta" )
+                , ( "staticHttpCache", encodedStaticHttpCache )
+                ]
+
+        encodedStaticHttpCache : Encode.Value
+        encodedStaticHttpCache =
+            staticHttpCache
+                |> List.map
+                    (\( request, httpResponseString ) ->
+                        ( Request.hash request, Encode.string httpResponseString )
+                    )
+                |> Encode.object
+    in
+    {-
+       (Model -> model)
+       -> ContentCache.ContentCache metadata view
+       -> Result (List BuildError) (List ( PagePath, metadata ))
+       -> Config pathKey userMsg userModel metadata view
+       -> Decode.Value
+       -> ( model, Effect pathKey )
+    -}
+    ProgramTest.createDocument
+        { init =
+            init
+                (RenderRequest.SinglePage
+                    RenderRequest.OnlyJson
+                    (RenderRequest.Page
+                        { path = Path.fromString (pageToLoad |> String.join "/")
+                        , frontmatter = Route (pageToLoad |> String.join "/")
+                        }
+                    )
+                    (Encode.object [])
+                )
+                contentCache
+                config
+        , update = update contentCache config
+        , view = \_ -> { title = "", body = [] }
+        }
+        |> ProgramTest.withSimulatedEffects simulateEffects
+        |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
+
+
 flags : String -> JD.Value
 flags jsonString =
     case JD.decodeString JD.value jsonString of
@@ -994,18 +1182,20 @@ simulateEffects effect =
                 , tracker = Nothing
                 }
 
-        Effect.SendSinglePage _ info ->
+        Effect.SendSinglePage done info ->
             SimulatedEffect.Cmd.batch
                 [ info
                     |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
                     |> SimulatedEffect.Ports.send "toJsPort"
-                , SimulatedEffect.Task.succeed ()
-                    |> SimulatedEffect.Task.perform (\_ -> Continue)
+                , if done then
+                    SimulatedEffect.Cmd.none
+
+                  else
+                    SimulatedEffect.Task.succeed ()
+                        |> SimulatedEffect.Task.perform (\_ -> Continue)
                 ]
 
         Effect.Continue ->
-            --SimulatedEffect.Task.succeed ()
-            --    |> SimulatedEffect.Task.perform (\_ -> Continue)
             SimulatedEffect.Cmd.none
 
         Effect.ReadFile _ ->

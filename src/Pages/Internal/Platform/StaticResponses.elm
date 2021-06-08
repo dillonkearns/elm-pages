@@ -27,6 +27,7 @@ type StaticResponses
     = GettingInitialData StaticHttpResult
     | ApiRequest StaticHttpResult
     | StaticResponses (Dict String StaticHttpResult)
+    | CheckIfHandled (DataSource Bool) StaticHttpResult (Dict String StaticHttpResult)
 
 
 type StaticHttpResult
@@ -105,22 +106,22 @@ renderSingleRoute :
     }
     -> { path : Path, frontmatter : route }
     -> DataSource a
-    -> DataSource b
+    -> DataSource Bool
     -> StaticResponses
 renderSingleRoute config pathAndRoute request cliData =
-    [ ( config.routeToPath pathAndRoute.frontmatter |> String.join "/"
-      , NotFetched
-            (request |> DataSource.map (\_ -> ()))
+    CheckIfHandled cliData
+        (NotFetched
+            (cliData
+                |> DataSource.map (\_ -> ())
+            )
             Dict.empty
-      )
-    , ( cliDictKey
-      , NotFetched
-            (cliData |> DataSource.map (\_ -> ()))
-            Dict.empty
-      )
-    ]
-        |> Dict.fromList
-        |> StaticResponses
+        )
+        (Dict.fromList
+            [ ( config.routeToPath pathAndRoute.frontmatter |> String.join "/"
+              , NotFetched (DataSource.map (\_ -> ()) request) Dict.empty
+              )
+            ]
+        )
 
 
 renderApiRequest :
@@ -228,6 +229,9 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                     Dict.singleton cliDictKey initialData
 
                 ApiRequest staticHttpResult ->
+                    Dict.singleton cliDictKey staticHttpResult
+
+                CheckIfHandled _ staticHttpResult _ ->
                     Dict.singleton cliDictKey staticHttpResult
 
         generatedFiles : List (Result String { path : List String, content : String })
@@ -531,6 +535,39 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                 , ToJsPayload.ApiResponse
                     |> Finish
                 )
+
+            CheckIfHandled pageFoundDataSource (NotFetched dataSource dict) andThenRequest ->
+                let
+                    pageFoundResult : Result StaticHttpRequest.Error Bool
+                    pageFoundResult =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            pageFoundDataSource
+                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                in
+                case pageFoundResult of
+                    Ok True ->
+                        nextStep config { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
+
+                    Ok False ->
+                        ( StaticResponses Dict.empty
+                        , Finish ToJsPayload.ApiResponse
+                          -- TODO should there be a new type for 404response? Or something else?
+                        )
+
+                    Err error_ ->
+                        ( model.staticResponses
+                        , Finish
+                            (ToJsPayload.Errors <|
+                                ([ StaticHttpRequest.toBuildError
+                                    -- TODO give more fine-grained error reference
+                                    "get static routes"
+                                    error_
+                                 ]
+                                    ++ failedRequests
+                                    ++ errors
+                                )
+                            )
+                        )
 
 
 performStaticHttpRequests :
