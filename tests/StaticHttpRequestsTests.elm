@@ -89,6 +89,10 @@ all =
                           , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
                           )
                         ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
                             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
@@ -1006,23 +1010,16 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , fromJsPort = fromJsPort
             , init = \_ _ _ _ _ -> ( (), Cmd.none )
             , getStaticRoutes =
-                --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
-                --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
                 staticRoutes
                     |> List.map (String.join "/")
                     |> List.map Route
                     |> DataSource.succeed
-
-            --DataSource.succeed []
             , handleRoute =
                 \(Route route) ->
                     staticRoutes
                         |> List.map (String.join "/")
-                        |> List.member (Debug.log "route" route)
-                        |> Debug.log "found"
+                        |> List.member route
                         |> DataSource.succeed
-
-            --, handleRoute = \_ -> DataSource.succeed True
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , data =
