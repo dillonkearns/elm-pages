@@ -940,15 +940,10 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                     [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
 
                                                         Ok (Just notFoundReason) ->
-                                                            let
-                                                                prerenderedRoutes : List String
-                                                                prerenderedRoutes =
-                                                                    [ "TODO - get routes" ]
-                                                            in
                                                             render404Page config model payload.path notFoundReason
 
                                                         Err error ->
-                                                            Debug.todo ""
+                                                            [] |> ToJsPayload.Errors |> Effect.SendJsData
 
                                                 RenderRequest.NotFound path ->
                                                     render404Page config model path NotFoundReason.NoMatchingRoute
