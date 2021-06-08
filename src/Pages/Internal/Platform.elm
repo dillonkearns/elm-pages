@@ -141,12 +141,13 @@ init config flags url key =
                     contentJson
                 )
 
+        contentJson : Maybe ContentJson
         contentJson =
             flags
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
-                |> Debug.log "init contentJson"
                 |> Result.toMaybe
 
+        baseUrl : Url
         baseUrl =
             flags
                 |> Decode.decodeValue (Decode.field "baseUrl" Decode.string)
@@ -154,6 +155,7 @@ init config flags url key =
                 |> Maybe.andThen Url.fromString
                 |> Maybe.withDefault url
 
+        urls : { currentUrl : Url, baseUrl : Url }
         urls =
             -- @@@
             { currentUrl = url -- |> normalizeUrl baseUrl
