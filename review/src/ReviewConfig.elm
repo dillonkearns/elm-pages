@@ -49,6 +49,7 @@ config =
         |> ignoreInTest
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
+            , "src/RoutePattern.elm"
             ]
     , NoUnused.CustomTypeConstructorArgs.rule
         |> ignoreInTest

@@ -1,4 +1,4 @@
-module NotFoundReason exposing (NotFoundReason(..), Payload, Route(..), codec, document)
+module NotFoundReason exposing (NotFoundReason(..), Payload, codec, document)
 
 import Codec exposing (Codec)
 import Html exposing (Html)
@@ -22,10 +22,6 @@ type NotFoundReason
     | NotPrerendered (List Record)
     | NotPrerenderedOrHandledByFallback (List Record)
     | UnhandledServerRoute
-
-
-type Route
-    = Route
 
 
 document :
@@ -115,11 +111,6 @@ codec =
             )
         |> Codec.field "reason" .reason reasonCodec
         |> Codec.buildObject
-
-
-routeCodec : Codec Route
-routeCodec =
-    Codec.succeed Route
 
 
 reasonCodec : Codec NotFoundReason

@@ -537,7 +537,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                     |> Finish
                 )
 
-            CheckIfHandled pageFoundDataSource (NotFetched dataSource dict) andThenRequest ->
+            CheckIfHandled pageFoundDataSource (NotFetched _ _) andThenRequest ->
                 let
                     pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
                     pageFoundResult =
@@ -549,7 +549,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                     Ok Nothing ->
                         nextStep config { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
 
-                    Ok (Just notFoundReason) ->
+                    Ok (Just _) ->
                         ( StaticResponses Dict.empty
                         , Finish ToJsPayload.ApiResponse
                           -- TODO should there be a new type for 404response? Or something else?
