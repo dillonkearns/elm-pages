@@ -947,37 +947,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         render404Page config model payload.path (NotFoundReason.NotPrerendered prerenderedRoutes)
 
                                                 RenderRequest.NotFound path ->
-                                                    let
-                                                        notFoundDocument : { title : String, body : Html msg }
-                                                        notFoundDocument =
-                                                            { path = path
-                                                            , reason = NotFoundReason.NoMatchingRoute
-                                                            }
-                                                                |> NotFoundReason.document config.pathPatterns
-                                                    in
-                                                    { route = Path.toAbsolute path
-                                                    , contentJson =
-                                                        Dict.fromList
-                                                            [ ( "notFoundReason"
-                                                              , Json.Encode.encode 0
-                                                                    (Codec.encoder NotFoundReason.codec
-                                                                        { path = path
-                                                                        , reason = NotFoundReason.NoMatchingRoute
-                                                                        }
-                                                                    )
-                                                              )
-                                                            ]
-
-                                                    -- TODO include the needed info for content.json?
-                                                    , html = HtmlPrinter.htmlToString notFoundDocument.body
-                                                    , errors = []
-                                                    , head = []
-                                                    , title = notFoundDocument.title
-                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                    , is404 = True
-                                                    }
-                                                        |> ToJsPayload.PageProgress
-                                                        |> Effect.SendSinglePage True
+                                                    render404Page config model path NotFoundReason.NoMatchingRoute
 
                                         RenderRequest.FullBuild ->
                                             [] |> ToJsPayload.Errors |> Effect.SendJsData
@@ -1137,37 +1107,7 @@ sendSinglePageProgress toJsPayload config model =
                                 |> sendProgress
 
                         else
-                            let
-                                notFoundDocument : { title : String, body : Html msg }
-                                notFoundDocument =
-                                    { path = page
-                                    , reason = NotFoundReason.NoMatchingRoute
-                                    }
-                                        |> NotFoundReason.document config.pathPatterns
-                            in
-                            { route = Path.toRelative page
-                            , contentJson =
-                                Dict.fromList
-                                    [ ( "notFoundReason"
-                                      , Json.Encode.encode 0
-                                            (Codec.encoder NotFoundReason.codec
-                                                { path = page
-                                                , reason = NotFoundReason.NoMatchingRoute
-                                                }
-                                            )
-                                      )
-                                    ]
-
-                            -- TODO include the needed info for content.json?
-                            , html = HtmlPrinter.htmlToString notFoundDocument.body
-                            , errors = []
-                            , head = []
-                            , title = notFoundDocument.title
-                            , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                            , is404 = True
-                            }
-                                |> ToJsPayload.PageProgress
-                                |> Effect.SendSinglePage True
+                            render404Page config model page NotFoundReason.NoMatchingRoute
 
                     Err error ->
                         [ error ]
