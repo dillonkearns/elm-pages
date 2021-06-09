@@ -62,7 +62,10 @@ document pathPatterns payload =
                     ]
 
                 NotPrerendered routes ->
-                    [ Html.code []
+                    [ Html.h1 []
+                        [ Html.text "Page Not Found"
+                        ]
+                    , Html.code []
                         [ Html.text
                             (payload.path
                                 |> Path.toAbsolute
@@ -70,12 +73,26 @@ document pathPatterns payload =
                         ]
                     , Html.text " successfully matched the route "
                     , Html.code []
-                        [ Html.text
-                            (Path.fromString "TODO"
-                                |> Path.toAbsolute
-                            )
+                        [ Html.text routePattern
                         ]
-                    , Html.text ", but it was not in the list of pre-rendered RouteParams:"
+                    , Html.text " from the Page Module "
+                    , Html.code []
+                        [ Html.text routeThing
+                        ]
+                    , Html.br [] []
+                    , Html.br [] []
+                    , Html.text " but these RouteParams were not present "
+                    , Html.br [] []
+                    , Html.br [] []
+                    , Html.code
+                        [ Attr.style "border-bottom" "dotted 2px"
+                        , Attr.style "font-weight" "bold"
+                        ]
+                        [ Html.text """{ slug = "asdfqwer" }"""
+                        ]
+                    , Html.br [] []
+                    , Html.br [] []
+                    , Html.text "The following RouteParams are pre-rendered:"
                     , Html.ul
                         [ Attr.style "padding-top" "30px"
                         ]
@@ -85,12 +102,28 @@ document pathPatterns payload =
                                     Html.li
                                         [ Attr.style "list-style" "inside"
                                         ]
-                                        [ Html.code []
-                                            [ Html.text (recordToString record)
+                                        [ Html.a
+                                            [ Attr.href "/blog/extensible-markdown-parsing-in-elm"
+                                            ]
+                                            [ Html.code
+                                                []
+                                                [ Html.text (recordToString record)
+                                                ]
                                             ]
                                         ]
                                 )
                         )
+                    , Html.br [] []
+                    , Html.br [] []
+                    , Html.p []
+                        [ Html.text "Try changing "
+                        , Html.code [] [ Html.text "routes" ]
+                        , Html.text " in "
+                        , Html.code [] [ Html.text "src/Blog/Slug_.elm " ]
+                        , Html.text " to make sure it includes these "
+                        , Html.code [] [ Html.text "RouteParams" ]
+                        , Html.text "."
+                        ]
                     ]
 
                 _ ->
@@ -99,6 +132,16 @@ document pathPatterns payload =
                     ]
             )
     }
+
+
+routePattern : String
+routePattern =
+    "/blog/:slug"
+
+
+routeThing : String
+routeThing =
+    "src/Blog/Slug_.elm"
 
 
 codec : Codec Payload

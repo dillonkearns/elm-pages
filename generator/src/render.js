@@ -228,7 +228,17 @@ function wrapHtml(fromElm, contentJsonString) {
   }
 
 #not-found-reason code {
-    color: rgb(226, 0, 124) !important;
+  color: rgb(226, 0, 124);
+}
+
+#not-found-reason h1 {
+  font-size: 26px;
+  font-weight: bold;
+  padding-bottom: 15px;
+}
+
+#not-found-reason a:hover {
+  text-decoration: underline;
 }
 
     </style>
