@@ -15,7 +15,7 @@ There
 | `src/Page/Index.elm`               | `/`                                          | `{}`                                                                |
 | `src/Page/Blog.elm`                | `/blog`                                      | `{}`                                                                |
 | `src/Page/Blog/Slug_.elm`          | `/blog/:slug`                                | `{ slug : String }`                                                 |
-| `src/Page/Docs/Section__.elm`      | `/docs` and `/docs/:section`                 | `{ slug : Maybe String }`                                           |
+| `src/Page/Docs/Section__.elm`      | `/docs` and `/docs/:section`                 | `{ section : Maybe String }`                                        |
 | `src/Repo/User_/Name_/SPLAT_.elm`  | `/repo/dillonkearns/elm-markdown/elm.json`   | `{ user : String, name : String, splat : ( String, List String ) }` |
 | `src/Repo/User_/Name_/SPLAT__.elm` | Above and `/repo/dillonkearns/elm-markdown/` | `{ user : String, name : String, splat : List String }`             |
 
