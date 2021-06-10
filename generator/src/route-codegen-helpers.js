@@ -124,22 +124,27 @@ function parseRouteParamsWithStatic(name) {
  * @returns {string}
  */
 function routeVariantDefinition(name) {
-  return `${routeVariant(name)} { ${parseRouteParams(name).map((param) => {
-    switch (param.kind) {
-      case "dynamic": {
-        return `${param.name} : String`;
+  const newLocal = parseRouteParams(name);
+  if (newLocal.length == 0) {
+    return routeVariant(name);
+  } else {
+    return `${routeVariant(name)} { ${newLocal.map((param) => {
+      switch (param.kind) {
+        case "dynamic": {
+          return `${param.name} : String`;
+        }
+        case "optional": {
+          return `${param.name} : Maybe String`;
+        }
+        case "required-splat": {
+          return `splat : ( String , List String )`;
+        }
+        case "optional-splat": {
+          return `splat : List String`;
+        }
       }
-      case "optional": {
-        return `${param.name} : Maybe String`;
-      }
-      case "required-splat": {
-        return `splat : ( String , List String )`;
-      }
-      case "optional-splat": {
-        return `splat : List String`;
-      }
-    }
-  })} }`;
+    })} }`;
+  }
 }
 
 /**
@@ -266,6 +271,26 @@ function routeVariant(name) {
 }
 
 /**
+ * @param {string[]} name
+ * @param {string} paramsName
+ */
+function destructureRoute(name, paramsName) {
+  return emptyRouteParams(name)
+    ? `Route.${routeVariant(name)}`
+    : `(Route.${routeVariant(name)} ${paramsName})`;
+}
+
+function referenceRouteParams(name, paramsName) {
+  return emptyRouteParams(name) ? `{}` : paramsName;
+}
+/**
+ * @param {string[]} name
+ */
+function emptyRouteParams(name) {
+  return parseRouteParams(name).length === 0;
+}
+
+/**
  * @param {string} name
  */
 function toFieldName(name) {
@@ -286,4 +311,6 @@ module.exports = {
   parseRouteParams,
   parseRouteParamsWithStatic,
   toElmPathPattern,
+  destructureRoute,
+  referenceRouteParams,
 };

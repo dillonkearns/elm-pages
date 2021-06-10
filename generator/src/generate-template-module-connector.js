@@ -142,9 +142,11 @@ view page maybePageUrl globalData pageData =
         ${templates
           .map(
             (name) =>
-              `( Just (Route.${routeHelpers.routeVariant(
-                name
-              )} s), Data${routeHelpers.routeVariant(name)} data ) ->
+              `( Just ${
+                emptyRouteParams(name)
+                  ? `Route.${routeHelpers.routeVariant(name)}`
+                  : `(Route.${routeHelpers.routeVariant(name)} s)`
+              }, Data${routeHelpers.routeVariant(name)} data ) ->
                   { view =
                       \\model ->
                           case model.page of
@@ -155,7 +157,9 @@ view page maybePageUrl globalData pageData =
                                       subModel
                                       { data = data
                                       , sharedData = globalData
-                                      , routeParams = s
+                                      , routeParams = ${
+                                        emptyRouteParams(name) ? "{}" : "s"
+                                      }
                                       , path = page.path
                                       }
                                       |> View.map Msg${pathNormalizedName(name)}
@@ -166,7 +170,7 @@ view page maybePageUrl globalData pageData =
                   , head = Page.${moduleName(name)}.page.head
                       { data = data
                       , sharedData = globalData
-                      , routeParams = s
+                      , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
                       , path = page.path
                       }
                   }
@@ -214,9 +218,13 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
             case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
                 ${templates
                   .map(
-                    (name) => `( Just ( (Route.${routeHelpers.routeVariant(
-                      name
-                    )} routeParams), justPath ), Data${pathNormalizedName(
+                    (name) => `( Just ( ${
+                      emptyRouteParams(name)
+                        ? `Route.${routeHelpers.routeVariant(name)}`
+                        : `(Route.${routeHelpers.routeVariant(
+                            name
+                          )} routeParams)`
+                    }, justPath ), Data${pathNormalizedName(
                       name
                     )} thisPageData ) ->
                     Page.${moduleName(name)}.page.init
@@ -224,7 +232,9 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                         sharedModel
                         { data = thisPageData
                         , sharedData = sharedData
-                        , routeParams = routeParams
+                        , routeParams = ${
+                          emptyRouteParams(name) ? "{}" : "routeParams"
+                        }
                         , path = justPath.path
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
@@ -316,14 +326,18 @@ update sharedData pageData navigationKey msg model =
                           name
                         )} pageModel, Data${pathNormalizedName(
               name
-            )} thisPageData, Just ( (Route.${routeHelpers.routeVariant(
-              name
-            )} routeParams), pageUrl, justPage ) ) ->
+            )} thisPageData, Just ( ${routeHelpers.destructureRoute(
+              name,
+              "routeParams"
+            )}, pageUrl, justPage ) ) ->
                             Page.${moduleName(name)}.page.update
                                 pageUrl
                                 { data = thisPageData
                                 , sharedData = sharedData
-                                , routeParams = routeParams
+                                , routeParams = ${routeHelpers.referenceRouteParams(
+                                  name,
+                                  "routeParams"
+                                )}
                                 , path = justPage.path
                                 }
                                 navigationKey
@@ -366,12 +380,13 @@ templateSubscriptions route path model =
             (name) => `
         ( Model${pathNormalizedName(
           name
-        )} templateModel, Just (Route.${routeHelpers.routeVariant(
-              name
-            )} routeParams) ) ->
+        )} templateModel, Just ${routeHelpers.destructureRoute(
+              name,
+              "routeParams"
+            )} ) ->
             Page.${moduleName(name)}.page.subscriptions
                 Nothing -- TODO wire through value
-                routeParams
+                ${routeHelpers.referenceRouteParams(name, "routeParams")}
                 path
                 templateModel
                 model.global
@@ -427,13 +442,16 @@ dataForRoute route =
         ${templates
           .map(
             (name) =>
-              `Just (Route.${routeHelpers.routeVariant(
-                name
-              )} routeParams) ->\n            Page.${name.join(
+              `Just ${
+                emptyRouteParams(name)
+                  ? `Route.${routeHelpers.routeVariant(name)}`
+                  : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
+              } ->\n            Page.${name.join(
                 "."
-              )}.page.data routeParams |> DataSource.map Data${routeHelpers.routeVariant(
-                name
-              )}`
+              )}.page.data ${routeHelpers.referenceRouteParams(
+                name,
+                "routeParams"
+              )} |> DataSource.map Data${routeHelpers.routeVariant(name)}`
           )
           .join("\n        ")}
 
@@ -446,9 +464,11 @@ handleRoute maybeRoute =
         ${templates
           .map(
             (name) =>
-              `Just (Route.${routeHelpers.routeVariant(
-                name
-              )} routeParams) ->\n            Page.${name.join(
+              `Just (Route.${routeHelpers.routeVariant(name)}${
+                routeHelpers.parseRouteParams(name).length === 0
+                  ? ""
+                  : " routeParams"
+              }) ->\n            Page.${name.join(
                 "."
               )}.page.handleRoute { moduleName = [ ${name
                 .map((part) => `"${part}"`)
@@ -462,7 +482,10 @@ handleRoute maybeRoute =
                       param.name
                     } )`
                 )
-                .join(", ")} ]) routeParams`
+                .join(", ")} ]) ${routeHelpers.referenceRouteParams(
+                name,
+                "routeParams"
+              )}`
           )
           .join("\n        ")}
 
@@ -559,9 +582,11 @@ getStaticRoutes =
           .map((name) => {
             return `Page.${moduleName(
               name
-            )}.page.staticRoutes |> DataSource.map (List.map Route.${pathNormalizedName(
-              name
-            )})`;
+            )}.page.staticRoutes |> DataSource.map (List.map ${
+              emptyRouteParams(name)
+                ? `(\\_ -> Route.${pathNormalizedName(name)}))`
+                : `Route.${pathNormalizedName(name)})`
+            }`;
           })
           .join("\n        , ")}
         ]
@@ -653,9 +678,11 @@ routeToPath route =
         ${templates
           .map(
             (name) =>
-              `${routeHelpers.routeVariant(
-                name
-              )} params ->\n           List.concat [ ${routeHelpers
+              `${routeHelpers.routeVariant(name)}${
+                routeHelpers.parseRouteParams(name).length === 0
+                  ? ""
+                  : ` params`
+              } ->\n           List.concat [ ${routeHelpers
                 .parseRouteParamsWithStatic(name)
                 .map((param) => {
                   switch (param.kind) {
@@ -707,6 +734,10 @@ link route attributes children =
         route
 `,
   };
+}
+
+function emptyRouteParams(name) {
+  return routeHelpers.parseRouteParams(name).length === 0;
 }
 
 /**
@@ -852,11 +883,17 @@ function routeRegex(name) {
               }
             })
             .join(", ")} ] ->
-              Just (${pathNormalizedName(name)} { ${parsedParams.map(
-    (param) => {
-      return `${param.name} = ${prefixThing(param)}${param.name}`;
-    }
-  )} })
+              Just ${
+                parsedParams.length === 0
+                  ? pathNormalizedName(name)
+                  : `( ${pathNormalizedName(name)} { ${parsedParams.map(
+                      (param) => {
+                        return `${param.name} = ${prefixThing(param)}${
+                          param.name
+                        }`;
+                      }
+                    )} } )`
+              }
           _ ->
               Nothing
 

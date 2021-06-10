@@ -50,7 +50,7 @@ manifest static =
     Manifest.init
         { name = "elm-pages"
         , description = "elm-pages - " ++ tagline
-        , startUrl = Route.Index {} |> Route.toPath
+        , startUrl = Route.Index |> Route.toPath
         , icons =
             [ icon webp 192
             , icon webp 512
