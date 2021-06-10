@@ -78,6 +78,7 @@ config =
                                 , "src/SecretsDict.elm"
                                 , "src/StructuredData.elm"
                                 , "src/Router.elm" -- used in generated code
+                                , "src/RoutePattern.elm" -- used in generated code
                                 ]
                             |> Rule.ignoreErrorsForDirectories
                                 [ "src/ElmHtml"
