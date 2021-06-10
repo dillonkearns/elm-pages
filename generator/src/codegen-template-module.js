@@ -63,7 +63,7 @@ page =
 
 routes : DataSource (List RouteParams)
 routes =
-    DataSource.fail "Add some routes"
+    DataSource.succeed []
 
 
 data : RouteParams -> DataSource Data
