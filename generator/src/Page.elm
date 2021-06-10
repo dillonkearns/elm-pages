@@ -256,7 +256,11 @@ prerenderedRoute { data, head, routes } =
                             else
                                 -- TODO pass in toString function, and use a custom one to avoid Debug.toString
                                 Just <|
-                                    NotFoundReason.NotPrerendered moduleContext
+                                    NotFoundReason.NotPrerendered
+                                        { moduleName = moduleContext.moduleName
+                                        , routePattern = moduleContext.routePattern
+                                        , matchedRouteParams = toRecord routeParams
+                                        }
                                         (allRoutes
                                             |> List.map toRecord
                                         )
@@ -302,7 +306,11 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
 
                                             else
                                                 Just <|
-                                                    NotFoundReason.NotPrerenderedOrHandledByFallback moduleContext
+                                                    NotFoundReason.NotPrerenderedOrHandledByFallback
+                                                        { moduleName = moduleContext.moduleName
+                                                        , routePattern = moduleContext.routePattern
+                                                        , matchedRouteParams = toRecord routeParams
+                                                        }
                                                         (allRoutes
                                                             |> List.map toRecord
                                                         )
@@ -326,7 +334,7 @@ serverlessRoute { data, head, routeFound } =
         , head = head
         , serverless = True
         , handleRoute =
-            \moduleContext _ routeParams ->
+            \moduleContext toRecord routeParams ->
                 routeFound routeParams
                     |> DataSource.map
                         (\found ->
@@ -334,7 +342,13 @@ serverlessRoute { data, head, routeFound } =
                                 Nothing
 
                             else
-                                Just (NotFoundReason.UnhandledServerRoute moduleContext)
+                                Just
+                                    (NotFoundReason.UnhandledServerRoute
+                                        { moduleName = moduleContext.moduleName
+                                        , routePattern = moduleContext.routePattern
+                                        , matchedRouteParams = toRecord routeParams
+                                        }
+                                    )
                         )
         , kind = "serverless"
         }

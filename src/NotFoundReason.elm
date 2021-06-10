@@ -10,6 +10,7 @@ import RoutePattern exposing (RoutePattern)
 type alias ModuleContext =
     { moduleName : List String
     , routePattern : RoutePattern
+    , matchedRouteParams : Record
     }
 
 
@@ -100,7 +101,7 @@ document pathPatterns payload =
                         [ Attr.style "border-bottom" "dotted 2px"
                         , Attr.style "font-weight" "bold"
                         ]
-                        [ Html.text """{ slug = "asdfqwer" }"""
+                        [ Html.text <| recordToString moduleContext.matchedRouteParams
                         ]
                     , Html.br [] []
                     , Html.br [] []
@@ -187,6 +188,7 @@ moduleContextCodec =
     Codec.object ModuleContext
         |> Codec.field "moduleName" .moduleName (Codec.list Codec.string)
         |> Codec.field "routePattern" .routePattern RoutePattern.codec
+        |> Codec.field "matchedRouteParams" .matchedRouteParams recordCodec
         |> Codec.buildObject
 
 
