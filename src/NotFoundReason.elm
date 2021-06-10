@@ -92,51 +92,7 @@ document pathPatterns payload =
                     , Html.code []
                         [ Html.text (moduleName moduleContext)
                         ]
-                    , Html.br [] []
-                    , Html.br [] []
-                    , Html.text " but these RouteParams were not present "
-                    , Html.br [] []
-                    , Html.br [] []
-                    , Html.code
-                        [ Attr.style "border-bottom" "dotted 2px"
-                        , Attr.style "font-weight" "bold"
-                        ]
-                        [ Html.text <| recordToString moduleContext.matchedRouteParams
-                        ]
-                    , Html.br [] []
-                    , Html.br [] []
-                    , Html.text "The following RouteParams are pre-rendered:"
-                    , Html.ul
-                        [ Attr.style "padding-top" "30px"
-                        ]
-                        (routes
-                            |> List.map
-                                (\record ->
-                                    Html.li
-                                        [ Attr.style "list-style" "inside"
-                                        ]
-                                        [ Html.a
-                                            [ Attr.href "/blog/extensible-markdown-parsing-in-elm"
-                                            ]
-                                            [ Html.code
-                                                []
-                                                [ Html.text (recordToString record)
-                                                ]
-                                            ]
-                                        ]
-                                )
-                        )
-                    , Html.br [] []
-                    , Html.br [] []
-                    , Html.p []
-                        [ Html.text "Try changing "
-                        , Html.code [] [ Html.text "routes" ]
-                        , Html.text " in "
-                        , Html.code [] [ Html.text (moduleName moduleContext) ]
-                        , Html.text " to make sure it includes these "
-                        , Html.code [] [ Html.text "RouteParams" ]
-                        , Html.text "."
-                        ]
+                    , prerenderedOptionsView moduleContext routes
                     ]
 
                 _ ->
@@ -145,6 +101,76 @@ document pathPatterns payload =
                     ]
             )
     }
+
+
+prerenderedOptionsView : ModuleContext -> List Record -> Html msg
+prerenderedOptionsView moduleContext routes =
+    case routes of
+        [] ->
+            Html.div []
+                [ Html.br [] []
+                , Html.text "But this Page module has no pre-rendered routes! If you want to pre-render this page, add these "
+                , Html.code [] [ Html.text "RouteParams" ]
+                , Html.text " to the module's "
+                , Html.code [] [ Html.text "routes" ]
+                , Html.br [] []
+                , Html.br [] []
+                , Html.code
+                    [ Attr.style "border-bottom" "dotted 2px"
+                    , Attr.style "font-weight" "bold"
+                    ]
+                    [ Html.text <| recordToString moduleContext.matchedRouteParams
+                    ]
+                ]
+
+        _ ->
+            Html.div []
+                [ Html.br [] []
+                , Html.br [] []
+                , Html.text " but these RouteParams were not present "
+                , Html.br [] []
+                , Html.br [] []
+                , Html.code
+                    [ Attr.style "border-bottom" "dotted 2px"
+                    , Attr.style "font-weight" "bold"
+                    ]
+                    [ Html.text <| recordToString moduleContext.matchedRouteParams
+                    ]
+                , Html.br [] []
+                , Html.br [] []
+                , Html.text "The following RouteParams are pre-rendered:"
+                , Html.ul
+                    [ Attr.style "padding-top" "30px"
+                    ]
+                    (routes
+                        |> List.map
+                            (\record ->
+                                Html.li
+                                    [ Attr.style "list-style" "inside"
+                                    ]
+                                    [ Html.a
+                                        [ Attr.href "/blog/extensible-markdown-parsing-in-elm"
+                                        ]
+                                        [ Html.code
+                                            []
+                                            [ Html.text (recordToString record)
+                                            ]
+                                        ]
+                                    ]
+                            )
+                    )
+                , Html.br [] []
+                , Html.br [] []
+                , Html.p []
+                    [ Html.text "Try changing "
+                    , Html.code [] [ Html.text "routes" ]
+                    , Html.text " in "
+                    , Html.code [] [ Html.text (moduleName moduleContext) ]
+                    , Html.text " to make sure it includes these "
+                    , Html.code [] [ Html.text "RouteParams" ]
+                    , Html.text "."
+                    ]
+                ]
 
 
 codec : Codec Payload
