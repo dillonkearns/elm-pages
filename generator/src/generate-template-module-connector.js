@@ -450,7 +450,11 @@ handleRoute maybeRoute =
                 name
               )} routeParams) ->\n            Page.${name.join(
                 "."
-              )}.page.handleRoute (\\param -> [ ${routeHelpers
+              )}.page.handleRoute { moduleName = [ ${name
+                .map((part) => `"${part}"`)
+                .join(", ")} ], routePattern = ${routeHelpers.toElmPathPattern(
+                name
+              )} } (\\param -> [ ${routeHelpers
                 .parseRouteParams(name)
                 .map(
                   (param) =>

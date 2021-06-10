@@ -51,6 +51,7 @@ import Head
 import NotFoundReason exposing (NotFoundReason)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import RoutePattern exposing (RoutePattern)
 import Shared
 import View exposing (View)
 
@@ -71,7 +72,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
     , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
-    , handleRoute : (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
+    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
     }
 
@@ -99,7 +100,11 @@ type Builder routeParams templateData
             StaticPayload templateData routeParams
             -> List Head.Tag
         , serverless : Bool
-        , handleRoute : (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
+        , handleRoute :
+            { moduleName : List String, routePattern : RoutePattern }
+            -> (routeParams -> List ( String, String ))
+            -> routeParams
+            -> DataSource (Maybe NotFoundReason)
         , kind : String
         }
 
@@ -222,7 +227,7 @@ singleRoute { data, head } =
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
-        , handleRoute = \_ _ -> DataSource.succeed Nothing
+        , handleRoute = \_ _ _ -> DataSource.succeed Nothing
         , kind = "static"
         }
 
@@ -241,7 +246,7 @@ prerenderedRoute { data, head, routes } =
         , head = head
         , serverless = False
         , handleRoute =
-            \toRecord routeParams ->
+            \moduleContext toRecord routeParams ->
                 routes
                     |> DataSource.map
                         (\allRoutes ->
@@ -251,7 +256,7 @@ prerenderedRoute { data, head, routes } =
                             else
                                 -- TODO pass in toString function, and use a custom one to avoid Debug.toString
                                 Just <|
-                                    NotFoundReason.NotPrerendered
+                                    NotFoundReason.NotPrerendered moduleContext
                                         (allRoutes
                                             |> List.map toRecord
                                         )
@@ -275,7 +280,7 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
         , head = head
         , serverless = False
         , handleRoute =
-            \toRecord routeParams ->
+            \moduleContext toRecord routeParams ->
                 handleFallback routeParams
                     |> DataSource.andThen
                         (\handleFallbackResult ->
@@ -297,7 +302,7 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
 
                                             else
                                                 Just <|
-                                                    NotFoundReason.NotPrerenderedOrHandledByFallback
+                                                    NotFoundReason.NotPrerenderedOrHandledByFallback moduleContext
                                                         (allRoutes
                                                             |> List.map toRecord
                                                         )
@@ -321,7 +326,7 @@ serverlessRoute { data, head, routeFound } =
         , head = head
         , serverless = True
         , handleRoute =
-            \_ routeParams ->
+            \moduleContext _ routeParams ->
                 routeFound routeParams
                     |> DataSource.map
                         (\found ->
@@ -329,7 +334,7 @@ serverlessRoute { data, head, routeFound } =
                                 Nothing
 
                             else
-                                Just NotFoundReason.UnhandledServerRoute
+                                Just (NotFoundReason.UnhandledServerRoute moduleContext)
                         )
         , kind = "serverless"
         }

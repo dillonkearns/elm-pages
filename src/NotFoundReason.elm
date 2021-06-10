@@ -7,6 +7,12 @@ import Path exposing (Path)
 import RoutePattern exposing (RoutePattern)
 
 
+type alias ModuleContext =
+    { moduleName : List String
+    , routePattern : RoutePattern
+    }
+
+
 type alias Payload =
     { path : Path
     , reason : NotFoundReason
@@ -19,9 +25,9 @@ type alias Record =
 
 type NotFoundReason
     = NoMatchingRoute
-    | NotPrerendered (List Record)
-    | NotPrerenderedOrHandledByFallback (List Record)
-    | UnhandledServerRoute
+    | NotPrerendered ModuleContext (List Record)
+    | NotPrerenderedOrHandledByFallback ModuleContext (List Record)
+    | UnhandledServerRoute ModuleContext
 
 
 document :
@@ -61,7 +67,7 @@ document pathPatterns payload =
                         )
                     ]
 
-                NotPrerendered routes ->
+                NotPrerendered moduleContext routes ->
                     [ Html.h1 []
                         [ Html.text "Page Not Found"
                         ]
@@ -72,12 +78,18 @@ document pathPatterns payload =
                             )
                         ]
                     , Html.text " successfully matched the route "
+                    , Html.br [] []
+                    , Html.br [] []
                     , Html.code []
-                        [ Html.text routePattern
+                        [ RoutePattern.view moduleContext.routePattern
                         ]
+                    , Html.br [] []
+                    , Html.br [] []
                     , Html.text " from the Page Module "
+                    , Html.br [] []
+                    , Html.br [] []
                     , Html.code []
-                        [ Html.text routeThing
+                        [ Html.text (moduleName moduleContext)
                         ]
                     , Html.br [] []
                     , Html.br [] []
@@ -119,7 +131,7 @@ document pathPatterns payload =
                         [ Html.text "Try changing "
                         , Html.code [] [ Html.text "routes" ]
                         , Html.text " in "
-                        , Html.code [] [ Html.text "src/Blog/Slug_.elm " ]
+                        , Html.code [] [ Html.text (moduleName moduleContext) ]
                         , Html.text " to make sure it includes these "
                         , Html.code [] [ Html.text "RouteParams" ]
                         , Html.text "."
@@ -132,16 +144,6 @@ document pathPatterns payload =
                     ]
             )
     }
-
-
-routePattern : String
-routePattern =
-    "/blog/:slug"
-
-
-routeThing : String
-routeThing =
-    "src/Blog/Slug_.elm"
 
 
 codec : Codec Payload
@@ -164,20 +166,28 @@ reasonCodec =
                 NoMatchingRoute ->
                     vNoMatchingRoute
 
-                NotPrerendered prerenderedRoutes ->
-                    vNotPrerendered prerenderedRoutes
+                NotPrerendered moduleContext prerenderedRoutes ->
+                    vNotPrerendered moduleContext prerenderedRoutes
 
-                NotPrerenderedOrHandledByFallback prerenderedRoutes ->
-                    vNotPrerenderedOrHandledByFallback prerenderedRoutes
+                NotPrerenderedOrHandledByFallback moduleContext prerenderedRoutes ->
+                    vNotPrerenderedOrHandledByFallback moduleContext prerenderedRoutes
 
-                UnhandledServerRoute ->
-                    vUnhandledServerRoute
+                UnhandledServerRoute moduleContext ->
+                    vUnhandledServerRoute moduleContext
         )
         |> Codec.variant0 "NoMatchingRoute" NoMatchingRoute
-        |> Codec.variant1 "NotPrerendered" NotPrerendered (Codec.list recordCodec)
-        |> Codec.variant1 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback (Codec.list recordCodec)
-        |> Codec.variant0 "UnhandledServerRoute" UnhandledServerRoute
+        |> Codec.variant2 "NotPrerendered" NotPrerendered moduleContextCodec (Codec.list recordCodec)
+        |> Codec.variant2 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback moduleContextCodec (Codec.list recordCodec)
+        |> Codec.variant1 "UnhandledServerRoute" UnhandledServerRoute moduleContextCodec
         |> Codec.buildCustom
+
+
+moduleContextCodec : Codec ModuleContext
+moduleContextCodec =
+    Codec.object ModuleContext
+        |> Codec.field "moduleName" .moduleName (Codec.list Codec.string)
+        |> Codec.field "routePattern" .routePattern RoutePattern.codec
+        |> Codec.buildObject
 
 
 recordCodec : Codec (List ( String, String ))
@@ -196,3 +206,8 @@ recordToString fields =
                 |> String.join ", "
            )
         ++ " }"
+
+
+moduleName : ModuleContext -> String
+moduleName moduleContext =
+    ("src" :: moduleContext.moduleName |> String.join "/") ++ ".elm"

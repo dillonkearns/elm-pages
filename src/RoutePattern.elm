@@ -2,9 +2,11 @@ module RoutePattern exposing
     ( Ending(..)
     , RoutePattern
     , Segment(..)
+    , codec
     , view
     )
 
+import Codec exposing (Codec)
 import Html exposing (Html)
 
 
@@ -25,6 +27,50 @@ type Segment
     | DynamicSegment String
 
 
+codec : Codec RoutePattern
+codec =
+    Codec.object RoutePattern
+        |> Codec.field "segments" .segments (Codec.list segmentCodec)
+        |> Codec.field "ending" .ending (Codec.maybe endingCodec)
+        |> Codec.buildObject
+
+
+segmentCodec : Codec Segment
+segmentCodec =
+    Codec.custom
+        (\vStatic vDynamic value ->
+            case value of
+                StaticSegment string ->
+                    vStatic string
+
+                DynamicSegment string ->
+                    vDynamic string
+        )
+        |> Codec.variant1 "StaticSegment" StaticSegment Codec.string
+        |> Codec.variant1 "DynamicSegment" DynamicSegment Codec.string
+        |> Codec.buildCustom
+
+
+endingCodec : Codec Ending
+endingCodec =
+    Codec.custom
+        (\vOptional vRequiredSplat vOptionalSplat value ->
+            case value of
+                Optional string ->
+                    vOptional string
+
+                RequiredSplat ->
+                    vRequiredSplat
+
+                OptionalSplat ->
+                    vOptionalSplat
+        )
+        |> Codec.variant1 "Optional" Optional Codec.string
+        |> Codec.variant0 "RequiredSplat" RequiredSplat
+        |> Codec.variant0 "OptionalSplat" OptionalSplat
+        |> Codec.buildCustom
+
+
 segmentToString : Segment -> String
 segmentToString segment =
     case segment of
@@ -33,6 +79,12 @@ segmentToString segment =
 
         DynamicSegment name ->
             ":" ++ name
+
+
+type alias ModuleContext =
+    { moduleName : List String
+    , routePattern : RoutePattern
+    }
 
 
 view : RoutePattern -> Html msg
