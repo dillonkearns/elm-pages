@@ -2,8 +2,10 @@ module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), 
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
+import Dict.Extra
 import Internal.OptimizedDecoder
 import Json.Decode.Exploration
+import KeepOrDiscard exposing (KeepOrDiscard)
 import OptimizedDecoder
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
@@ -16,7 +18,7 @@ type RawRequest value
     = Request
         (Dict String WhatToDo)
         ( List (Secrets.Value Pages.StaticHttp.Request.Request)
-        , ApplicationType -> RequestsAndPending -> RawRequest value
+        , KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value
         )
     | RequestError Error
     | Done (Dict String WhatToDo) value
@@ -24,6 +26,7 @@ type RawRequest value
 
 type WhatToDo
     = UseRawResponse
+    | CliOnly
     | StripResponse (OptimizedDecoder.Decoder ())
 
 
@@ -39,7 +42,13 @@ merge whatToDo1 whatToDo2 =
         ( _, StripResponse strip1 ) ->
             StripResponse strip1
 
-        _ ->
+        ( _, CliOnly ) ->
+            whatToDo1
+
+        ( CliOnly, _ ) ->
+            whatToDo2
+
+        ( UseRawResponse, UseRawResponse ) ->
             UseRawResponse
 
 
@@ -51,13 +60,14 @@ strippedResponses =
 strippedResponsesEncode : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
 strippedResponsesEncode appType rawRequest requestsAndPending =
     strippedResponses appType rawRequest requestsAndPending
-        |> Dict.map
+        |> Dict.Extra.filterMap
             (\k whatToDo ->
                 case whatToDo of
                     UseRawResponse ->
                         Dict.get k requestsAndPending
                             |> Maybe.withDefault Nothing
                             |> Maybe.withDefault ""
+                            |> Just
 
                     StripResponse decoder ->
                         Dict.get k requestsAndPending
@@ -65,6 +75,10 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
                             |> Maybe.withDefault ""
                             |> Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder)
                             |> Result.withDefault "ERROR"
+                            |> Just
+
+                    CliOnly ->
+                        Nothing
             )
 
 
@@ -75,7 +89,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
             usedSoFar
 
         Request partiallyStrippedResponses ( _, lookupFn ) ->
-            case lookupFn appType rawResponses of
+            case lookupFn KeepOrDiscard.Keep appType rawResponses of
                 followupRequest ->
                     strippedResponsesHelp
                         (Dict.merge
@@ -144,7 +158,7 @@ resolve appType request rawResponses =
             Err error
 
         Request _ ( _, lookupFn ) ->
-            case lookupFn appType rawResponses of
+            case lookupFn KeepOrDiscard.Keep appType rawResponses of
                 nextRequest ->
                     resolve appType nextRequest rawResponses
 
@@ -166,7 +180,7 @@ resolveUrlsHelp appType request rawResponses soFar =
             )
 
         Request _ ( urlList, lookupFn ) ->
-            case lookupFn appType rawResponses of
+            case lookupFn KeepOrDiscard.Keep appType rawResponses of
                 nextRequest ->
                     resolveUrlsHelp appType nextRequest rawResponses (soFar ++ urlList)
 
@@ -210,7 +224,7 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                     HasPermanentError error
 
         Request _ ( urlList, lookupFn ) ->
-            case lookupFn appType rawResponses of
+            case lookupFn KeepOrDiscard.Keep appType rawResponses of
                 nextRequest ->
                     cacheRequestResolutionHelp urlList appType nextRequest rawResponses
 

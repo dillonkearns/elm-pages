@@ -29,7 +29,7 @@ import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, only, test)
 import Test.Http
 
 
@@ -767,6 +767,46 @@ TODO
                                 ]
                               )
                             ]
+            , test "validate DataSource is not stored for any pages" <|
+                \() ->
+                    startWithRoutes [ "hello" ]
+                        [ [ "hello" ] ]
+                        []
+                        [ ( [ "hello" ]
+                          , DataSource.succeed "hello"
+                                |> DataSource.validate identity
+                                    (\word ->
+                                        DataSource.Http.get (Secrets.succeed ("https://api.spellchecker.com?word=" ++ word))
+                                            (Decode.field "isCorrect" Decode.bool
+                                                |> Decode.map
+                                                    (\isCorrect ->
+                                                        if isCorrect then
+                                                            Ok ()
+
+                                                        else
+                                                            Err "Spelling error"
+                                                    )
+                                            )
+                                    )
+                                |> DataSource.map (\_ -> ())
+                          )
+                        ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.spellchecker.com?word=hello"
+                            """{ "isCorrect": true }"""
+                        |> ProgramTest.expectOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ ToJsPayload.PageProgress portData ] ->
+                                        portData.contentJson
+                                            |> Expect.equalDicts Dict.empty
+
+                                    _ ->
+                                        Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
+                            )
             ]
         , describe "generateFiles"
             [ test "initial requests are sent out" <|

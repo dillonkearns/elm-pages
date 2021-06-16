@@ -5,6 +5,7 @@ module DataSource exposing
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
+    , validate
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -63,7 +64,8 @@ and describe your use case!
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Encode as Encode
-import Pages.Internal.ApplicationType exposing (ApplicationType)
+import KeepOrDiscard exposing (KeepOrDiscard)
+import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
@@ -144,12 +146,54 @@ map fn requestInfo =
         Request partiallyStripped ( urls, lookupFn ) ->
             Request partiallyStripped
                 ( urls
-                , \appType rawResponses ->
-                    map fn (lookupFn appType rawResponses)
+                , \keepOrDiscard appType rawResponses ->
+                    map fn (lookupFn keepOrDiscard appType rawResponses)
                 )
 
         Done stripped value ->
             Done stripped (fn value)
+
+
+dontSaveData : DataSource a -> DataSource a
+dontSaveData requestInfo =
+    case requestInfo of
+        RequestError _ ->
+            requestInfo
+
+        Request partiallyStripped ( urls, lookupFn ) ->
+            Request partiallyStripped
+                ( urls
+                , \keepOrDiscard appType rawResponses ->
+                    lookupFn KeepOrDiscard.Discard appType rawResponses
+                )
+
+        Done _ _ ->
+            requestInfo
+
+
+validate :
+    (unvalidated -> validated)
+    -> (unvalidated -> DataSource (Result String ()))
+    -> DataSource unvalidated
+    -> DataSource validated
+validate markValidated validateDataSource unvalidatedDataSource =
+    unvalidatedDataSource
+        |> andThen
+            (\unvalidated ->
+                unvalidated
+                    |> validateDataSource
+                    |> andThen
+                        (\result ->
+                            case result of
+                                Ok () ->
+                                    succeed <| markValidated unvalidated
+
+                                Err error ->
+                                    fail error
+                        )
+                    |> dontSaveData
+            )
+        |> dontSaveData
 
 
 {-| Helper to remove an inner layer of Request wrapping.
@@ -234,28 +278,28 @@ map2 fn request1 request2 =
         ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
             Request (combineReducedDicts newDict1 newDict2)
                 ( urls1 ++ urls2
-                , \appType rawResponses ->
+                , \keepOrDiscard appType rawResponses ->
                     map2 fn
-                        (lookupFn1 appType rawResponses)
-                        (lookupFn2 appType rawResponses)
+                        (lookupFn1 keepOrDiscard appType rawResponses)
+                        (lookupFn2 keepOrDiscard appType rawResponses)
                 )
 
         ( Request dict1 ( urls1, lookupFn1 ), Done stripped2 value2 ) ->
             Request dict1
                 ( urls1
-                , \appType rawResponses ->
+                , \keepOrDiscard appType rawResponses ->
                     map2 fn
-                        (lookupFn1 appType rawResponses)
+                        (lookupFn1 keepOrDiscard appType rawResponses)
                         (Done stripped2 value2)
                 )
 
         ( Done stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
-                , \appType rawResponses ->
+                , \keepOrDiscard appType rawResponses ->
                     map2 fn
                         (Done stripped2 value2)
-                        (lookupFn1 appType rawResponses)
+                        (lookupFn1 keepOrDiscard appType rawResponses)
                 )
 
         ( Done stripped1 value1, Done stripped2 value2 ) ->
@@ -274,21 +318,22 @@ combineReducedDicts dict1 dict2 =
         |> Dict.Extra.fromListDedupe Pages.StaticHttpRequest.merge
 
 
-lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
+lookup : KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
 lookup =
     lookupHelp Dict.empty
 
 
-lookupHelp : Dict String WhatToDo -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
-lookupHelp strippedSoFar appType requestInfo rawResponses =
+lookupHelp : Dict String WhatToDo -> KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
+lookupHelp strippedSoFar keepOrDiscard appType requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
             Err error
 
         Request strippedResponses ( urls, lookupFn ) ->
             lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
+                keepOrDiscard
                 appType
-                (addUrls urls (lookupFn appType rawResponses))
+                (addUrls urls (lookupFn keepOrDiscard appType rawResponses))
                 rawResponses
 
         Done stripped value ->
@@ -354,8 +399,10 @@ andThen fn requestInfo =
     -- TODO should this be non-empty Dict? Or should it be passed down some other way?
     Request Dict.empty
         ( lookupUrls requestInfo
-        , \appType rawResponses ->
-            lookup appType
+        , \keepOrDiscard appType rawResponses ->
+            lookup
+                keepOrDiscard
+                appType
                 requestInfo
                 rawResponses
                 |> (\result ->
@@ -407,7 +454,7 @@ succeed : a -> DataSource a
 succeed value =
     Request Dict.empty
         ( []
-        , \_ _ ->
+        , \_ _ _ ->
             Done Dict.empty value
         )
 
