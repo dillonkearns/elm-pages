@@ -3,6 +3,7 @@ module NextPrevious exposing (..)
 import Css
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
+import Serialize as S
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Utilities as Tw
@@ -10,6 +11,14 @@ import Tailwind.Utilities as Tw
 
 type alias Item =
     { title : String, url : String }
+
+
+serialize : S.Codec Never { title : String, url : String }
+serialize =
+    S.record Item
+        |> S.field .title S.string
+        |> S.field .url S.string
+        |> S.finishRecord
 
 
 view : ( Maybe Item, Maybe Item ) -> Html msg

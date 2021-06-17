@@ -1,5 +1,6 @@
 module TableOfContents exposing (..)
 
+import Codec exposing (Codec)
 import Css
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -9,6 +10,7 @@ import List.Extra
 import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
 import OptimizedDecoder
+import Serialize as S
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 
@@ -30,6 +32,56 @@ dataSource docFiles =
             )
         |> DataSource.resolve
         |> DataSource.map List.reverse
+
+
+codec : Codec (TableOfContents Data)
+codec =
+    Codec.list entryCodec
+
+
+entryCodec : Codec (Entry Data)
+entryCodec =
+    Codec.custom
+        (\vEntry value ->
+            case value of
+                Entry data list ->
+                    vEntry data list
+        )
+        |> Codec.variant2 "Entry" Entry dataCodec (Codec.list (Codec.lazy (\() -> entryCodec)))
+        |> Codec.buildCustom
+
+
+dataCodec : Codec Data
+dataCodec =
+    Codec.object Data
+        |> Codec.field "anchorId" .anchorId Codec.string
+        |> Codec.field "name" .name Codec.string
+        |> Codec.field "level" .level Codec.int
+        |> Codec.buildObject
+
+
+serialize : S.Codec e (TableOfContents Data)
+serialize =
+    S.list serializeEntry
+
+
+serializeEntry =
+    S.customType
+        (\vEntry value ->
+            case value of
+                Entry data list ->
+                    vEntry data list
+        )
+        |> S.variant2 Entry serializeData (S.list (S.lazy (\() -> serializeEntry)))
+        |> S.finishCustomType
+
+
+serializeData =
+    S.record Data
+        |> S.field .anchorId S.string
+        |> S.field .name S.string
+        |> S.field .level S.int
+        |> S.finishRecord
 
 
 headingsDecoder : String -> String -> DataSource (Entry Data)

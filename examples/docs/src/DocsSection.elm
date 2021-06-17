@@ -1,5 +1,6 @@
-module DocsSection exposing (Section, all)
+module DocsSection exposing (Section, all, codec)
 
+import Codec exposing (Codec)
 import DataSource exposing (DataSource)
 import DataSource.Glob as Glob
 
@@ -9,6 +10,16 @@ type alias Section =
     , order : Int
     , slug : String
     }
+
+
+codec : Codec (List Section)
+codec =
+    Codec.object Section
+        |> Codec.field "filePath" .filePath Codec.string
+        |> Codec.field "order" .order Codec.int
+        |> Codec.field "slug" .slug Codec.string
+        |> Codec.buildObject
+        |> Codec.list
 
 
 all : DataSource (List Section)
