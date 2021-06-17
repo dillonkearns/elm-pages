@@ -106,6 +106,7 @@ data =
     DataSource.succeed ()
 
 
+landingView : Html Never
 landingView =
     div
         [ css
@@ -246,6 +247,7 @@ head static =
         ]
 
 
+gradientFeatures : Html msg
 gradientFeatures =
     div
         [ css
