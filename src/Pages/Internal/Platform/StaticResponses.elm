@@ -166,27 +166,22 @@ update newEntry model =
     }
 
 
-encode : RequestsAndPending -> Mode -> Dict String StaticHttpResult -> Dict String (Dict String String)
+encode : RequestsAndPending -> Mode -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
 encode requestsAndPending mode staticResponses =
     staticResponses
         |> Dict.filter
             (\key _ ->
                 key /= cliDictKey
             )
-        |> Dict.map
-            (\_ result ->
-                case result of
-                    NotFetched request _ ->
-                        case mode of
-                            Mode.Dev ->
-                                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
-
-                            Mode.Prod ->
-                                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
-
-                            Mode.ElmToHtmlBeta ->
-                                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
+        |> Dict.toList
+        |> List.map
+            (\( key, NotFetched request _ ) ->
+                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
+                    |> Result.map (Tuple.pair key)
             )
+        |> combineMultipleErrors
+        |> Result.mapError List.concat
+        |> Result.map Dict.fromList
 
 
 cliDictKey : String
@@ -522,13 +517,24 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                 --
                 --    Ok okSiteStaticData ->
                 ( model.staticResponses
-                , ToJsPayload.toJsPayload
-                    (encode allRawResponses mode staticResponses)
-                    generatedOkayFiles
-                    allRawResponses
-                    allErrors
-                    -- TODO send all global head tags on initial call
-                    |> Finish
+                , case encode allRawResponses mode staticResponses of
+                    Ok encodedResponses ->
+                        ToJsPayload.toJsPayload
+                            encodedResponses
+                            generatedOkayFiles
+                            allRawResponses
+                            allErrors
+                            -- TODO send all global head tags on initial call
+                            |> Finish
+
+                    Err buildErrors ->
+                        ToJsPayload.toJsPayload
+                            Dict.empty
+                            generatedOkayFiles
+                            allRawResponses
+                            (allErrors ++ buildErrors)
+                            -- TODO send all global head tags on initial call
+                            |> Finish
                 )
 
             ApiRequest _ ->

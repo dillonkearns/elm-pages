@@ -834,6 +834,43 @@ TODO
                                     _ ->
                                         Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
                             )
+            , test "distill gives an error if there are matching keys with different encoded JSON" <|
+                \() ->
+                    startWithRoutes [ "hello" ]
+                        [ [ "hello" ] ]
+                        []
+                        [ ( [ "hello" ]
+                          , DataSource.map2 (\_ _ -> ())
+                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                                    |> DataSource.distill "stars" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                                )
+                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown") starDecoder
+                                    |> DataSource.distill "stars" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                                )
+                          )
+                        ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-markdown"
+                            """{ "stargazer_count": 123 }"""
+                        |> ProgramTest.expectOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder ToJsPayload.toJsCodec)
+                            (expectErrorsPort """-- NON-UNIQUE DISTILL KEYS ----------------------------------------------------- elm-pages
+I encountered DataSource.distill with two matching keys that had differing encoded values.
+
+Look for DataSource.distill with the key "stars"
+
+The first encoded value was:
+86
+-------------------------------
+The second encoded value was:
+
+123""")
             ]
         , describe "generateFiles"
             [ test "initial requests are sent out" <|

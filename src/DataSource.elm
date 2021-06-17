@@ -391,7 +391,15 @@ It would not work correctly if it chose between two responses that were reduced 
 combineReducedDicts : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
 combineReducedDicts dict1 dict2 =
     (Dict.toList dict1 ++ Dict.toList dict2)
-        |> Dict.Extra.fromListDedupe Pages.StaticHttpRequest.merge
+        |> fromListDedupe Pages.StaticHttpRequest.merge
+
+
+fromListDedupe : (comparable -> a -> a -> a) -> List ( comparable, a ) -> Dict comparable a
+fromListDedupe combineFn xs =
+    List.foldl
+        (\( key, value ) acc -> Dict.Extra.insertDedupe (combineFn key) key value acc)
+        Dict.empty
+        xs
 
 
 lookup : KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )

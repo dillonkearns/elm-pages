@@ -30,11 +30,21 @@ type WhatToDo
     | CliOnly
     | StripResponse (OptimizedDecoder.Decoder ())
     | DistilledResponse Json.Encode.Value
+    | Error (List BuildError)
 
 
-merge : WhatToDo -> WhatToDo -> WhatToDo
-merge whatToDo1 whatToDo2 =
+merge : String -> WhatToDo -> WhatToDo -> WhatToDo
+merge key whatToDo1 whatToDo2 =
     case ( whatToDo1, whatToDo2 ) of
+        ( Error buildErrors1, Error buildErrors2 ) ->
+            Error (buildErrors1 ++ buildErrors2)
+
+        ( Error buildErrors1, _ ) ->
+            Error buildErrors1
+
+        ( _, Error buildErrors1 ) ->
+            Error buildErrors1
+
         ( StripResponse strip1, StripResponse strip2 ) ->
             StripResponse (OptimizedDecoder.map2 (\_ _ -> ()) strip1 strip2)
 
@@ -51,7 +61,25 @@ merge whatToDo1 whatToDo2 =
             whatToDo2
 
         ( DistilledResponse distilled1, DistilledResponse distilled2 ) ->
-            DistilledResponse distilled1
+            Error
+                [ { title = "Non-Unique Distill Keys"
+                  , message =
+                        [ Terminal.text "I encountered DataSource.distill with two matching keys that had differing encoded values.\n\n"
+                        , Terminal.text "Look for "
+                        , Terminal.red <| Terminal.text "DataSource.distill"
+                        , Terminal.text " with the key "
+                        , Terminal.red <| Terminal.text ("\"" ++ key ++ "\"")
+                        , Terminal.text "\n\n"
+                        , Terminal.yellow <| Terminal.text "The first encoded value was:\n"
+                        , Terminal.text <| Json.Encode.encode 2 distilled1
+                        , Terminal.text "\n\n-------------------------------\n\n"
+                        , Terminal.yellow <| Terminal.text "The second encoded value was:\n"
+                        , Terminal.text <| Json.Encode.encode 2 distilled2
+                        ]
+                  , path = "" -- TODO wire in path here?
+                  , fatal = True
+                  }
+                ]
 
         ( DistilledResponse distilled1, _ ) ->
             DistilledResponse distilled1
@@ -68,17 +96,19 @@ strippedResponses =
     strippedResponsesHelp Dict.empty
 
 
-strippedResponsesEncode : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String String
+strippedResponsesEncode : ApplicationType -> RawRequest value -> RequestsAndPending -> Result (List BuildError) (Dict String String)
 strippedResponsesEncode appType rawRequest requestsAndPending =
     strippedResponses appType rawRequest requestsAndPending
-        |> Dict.Extra.filterMap
-            (\k whatToDo ->
-                case whatToDo of
+        |> Dict.toList
+        |> List.map
+            (\( k, whatToDo ) ->
+                (case whatToDo of
                     UseRawResponse ->
                         Dict.get k requestsAndPending
                             |> Maybe.withDefault Nothing
                             |> Maybe.withDefault ""
                             |> Just
+                            |> Ok
 
                     StripResponse decoder ->
                         Dict.get k requestsAndPending
@@ -87,13 +117,51 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
                             |> Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder)
                             |> Result.withDefault "ERROR"
                             |> Just
+                            |> Ok
 
                     CliOnly ->
                         Nothing
+                            |> Ok
 
                     DistilledResponse value ->
-                        value |> Json.Encode.encode 0 |> Just
+                        value
+                            |> Json.Encode.encode 0
+                            |> Just
+                            |> Ok
+
+                    Error buildError ->
+                        Err buildError
+                )
+                    |> Result.map (Maybe.map (Tuple.pair k))
             )
+        |> combineMultipleErrors
+        |> Result.map (List.filterMap identity)
+        |> Result.map Dict.fromList
+
+
+combineMultipleErrors : List (Result (List error) a) -> Result (List error) (List a)
+combineMultipleErrors results =
+    List.foldr
+        (\result soFarResult ->
+            case soFarResult of
+                Ok soFarOk ->
+                    case result of
+                        Ok value ->
+                            value :: soFarOk |> Ok
+
+                        Err error_ ->
+                            Err error_
+
+                Err errorsSoFar ->
+                    case result of
+                        Ok _ ->
+                            Err errorsSoFar
+
+                        Err error_ ->
+                            Err <| error_ ++ errorsSoFar
+        )
+        (Ok [])
+        results
 
 
 strippedResponsesHelp : Dict String WhatToDo -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
@@ -108,7 +176,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
                     strippedResponsesHelp
                         (Dict.merge
                             (\key a -> Dict.insert key a)
-                            (\key a b -> Dict.insert key (merge a b))
+                            (\key a b -> Dict.insert key (merge key a b))
                             (\key b -> Dict.insert key b)
                             usedSoFar
                             partiallyStrippedResponses
@@ -121,7 +189,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
         Done partiallyStrippedResponses _ ->
             Dict.merge
                 (\key a -> Dict.insert key a)
-                (\key a b -> Dict.insert key (merge a b))
+                (\key a b -> Dict.insert key (merge key a b))
                 (\key b -> Dict.insert key b)
                 usedSoFar
                 partiallyStrippedResponses
