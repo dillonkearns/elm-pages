@@ -185,6 +185,7 @@ distill :
     -> DataSource raw
     -> DataSource distilled
 distill uniqueKey encode decode dataSource =
+    -- elm-review: known-unoptimized-recursion
     case dataSource of
         RequestError error ->
             RequestError error
@@ -192,7 +193,7 @@ distill uniqueKey encode decode dataSource =
         Request partiallyStripped ( urls, lookupFn ) ->
             Request partiallyStripped
                 ( urls
-                , \keepOrDiscard appType rawResponses ->
+                , \_ appType rawResponses ->
                     case appType of
                         ApplicationType.Browser ->
                             rawResponses
@@ -228,7 +229,7 @@ distill uniqueKey encode decode dataSource =
                         (Pages.StaticHttpRequest.DistilledResponse (encode value))
                 )
                 ( []
-                , \keepOrDiscard appType rawResponses ->
+                , \_ _ _ ->
                     value
                         |> encode
                         |> decode
@@ -236,7 +237,7 @@ distill uniqueKey encode decode dataSource =
                 )
 
 
-toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, b ) -> RawRequest b
+toResult : Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, b ) -> RawRequest b
 toResult result =
     case result of
         Err error ->

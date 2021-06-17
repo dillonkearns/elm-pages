@@ -11,7 +11,7 @@ import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (Done(..))
 import NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.Internal.Platform.Mode as Mode exposing (Mode)
+import Pages.Internal.Platform.Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
@@ -167,7 +167,7 @@ update newEntry model =
 
 
 encode : RequestsAndPending -> Mode -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
-encode requestsAndPending mode staticResponses =
+encode requestsAndPending _ staticResponses =
     staticResponses
         |> Dict.filter
             (\key _ ->

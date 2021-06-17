@@ -29,7 +29,7 @@ import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 import Test.Http
 
 

@@ -2,7 +2,6 @@ module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), 
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
-import Dict.Extra
 import Internal.OptimizedDecoder
 import Json.Decode.Exploration
 import Json.Encode

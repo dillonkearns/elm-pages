@@ -368,7 +368,7 @@ unoptimizedRequest requestWithSecrets expect =
         ExpectUnoptimizedJson decoder ->
             Request Dict.empty
                 ( [ requestWithSecrets ]
-                , \keepOrDiscard _ rawResponseDict ->
+                , \_ _ rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
@@ -419,7 +419,7 @@ unoptimizedRequest requestWithSecrets expect =
         ExpectString mapStringFn ->
             Request Dict.empty
                 ( [ requestWithSecrets ]
-                , \keepOrDiscard _ rawResponseDict ->
+                , \_ _ rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
