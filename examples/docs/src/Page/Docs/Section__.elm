@@ -70,8 +70,7 @@ routes =
 
 data : RouteParams -> DataSource Data
 data routeParams =
-    DataSource.map4 Data
-        (TableOfContents.dataSource DocsSection.all)
+    DataSource.map3 Data
         (pageBody routeParams)
         (previousAndNextData routeParams)
         (routeParams.section
@@ -185,8 +184,7 @@ head static =
 
 
 type alias Data =
-    { toc : TableOfContents.TableOfContents TableOfContents.Data
-    , body : { description : String, body : List Block }
+    { body : { description : String, body : List Block }
     , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
     , editUrl : String
     }
@@ -215,7 +213,7 @@ view maybeUrl sharedModel static =
                 , Tw.h_full
                 ]
             ]
-            [ TableOfContents.view sharedModel.showMobileMenu True static.routeParams.section static.data.toc
+            [ TableOfContents.view sharedModel.showMobileMenu True static.routeParams.section static.sharedData
             , Html.article
                 [ css
                     [ Tw.prose
