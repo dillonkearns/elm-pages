@@ -5,7 +5,7 @@ module DataSource exposing
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , validate
+    , distill, validate
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -59,10 +59,16 @@ and describe your use case!
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
+
+## Optimizing Page Data
+
+@docs distill, validate
+
 -}
 
 import Dict exposing (Dict)
 import Dict.Extra
+import Json.Decode as Decode
 import Json.Encode as Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
@@ -163,7 +169,7 @@ dontSaveData requestInfo =
         Request partiallyStripped ( urls, lookupFn ) ->
             Request partiallyStripped
                 ( urls
-                , \keepOrDiscard appType rawResponses ->
+                , \_ appType rawResponses ->
                     lookupFn KeepOrDiscard.Discard appType rawResponses
                 )
 
@@ -171,6 +177,76 @@ dontSaveData requestInfo =
             requestInfo
 
 
+{-| -}
+distill :
+    String
+    -> (raw -> Encode.Value)
+    -> (Decode.Value -> Result String distilled)
+    -> DataSource raw
+    -> DataSource distilled
+distill uniqueKey encode decode dataSource =
+    case dataSource of
+        RequestError error ->
+            RequestError error
+
+        Request partiallyStripped ( urls, lookupFn ) ->
+            Request partiallyStripped
+                ( urls
+                , \keepOrDiscard appType rawResponses ->
+                    case appType of
+                        ApplicationType.Browser ->
+                            rawResponses
+                                |> RequestsAndPending.get uniqueKey
+                                |> (\maybeResponse ->
+                                        case maybeResponse of
+                                            Just rawResponse ->
+                                                rawResponse
+                                                    |> Decode.decodeString Decode.value
+                                                    |> Result.mapError Decode.errorToString
+                                                    |> Result.andThen decode
+                                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                                                    |> Result.map (Tuple.pair Dict.empty)
+
+                                            Nothing ->
+                                                ("distill://" ++ uniqueKey)
+                                                    |> Pages.StaticHttpRequest.MissingHttpResponse
+                                                    |> Err
+                                   )
+                                |> toResult
+
+                        ApplicationType.Cli ->
+                            lookupFn KeepOrDiscard.Discard appType rawResponses
+                                |> distill uniqueKey encode decode
+                )
+
+        Done strippedResponses value ->
+            Request
+                (strippedResponses
+                    |> Dict.insert
+                        -- TODO should this include a prefix? Probably.
+                        uniqueKey
+                        (Pages.StaticHttpRequest.DistilledResponse (encode value))
+                )
+                ( []
+                , \keepOrDiscard appType rawResponses ->
+                    value
+                        |> encode
+                        |> decode
+                        |> fromResult
+                )
+
+
+toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, b ) -> RawRequest b
+toResult result =
+    case result of
+        Err error ->
+            RequestError error
+
+        Ok ( stripped, okValue ) ->
+            Done stripped okValue
+
+
+{-| -}
 validate :
     (unvalidated -> validated)
     -> (unvalidated -> DataSource (Result String ()))

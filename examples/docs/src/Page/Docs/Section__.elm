@@ -20,6 +20,7 @@ import OptimizedDecoder as Decode exposing (Decoder)
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Serialize
 import Shared
 import TableOfContents
 import Tailwind.Breakpoints as Bp
@@ -155,6 +156,12 @@ titleForSection section =
                 maybeTitle
                     |> Result.fromMaybe "Expected to find an H1 heading in this markdown."
                     |> DataSource.fromResult
+            )
+        |> DataSource.distill ("next-previous-" ++ section.slug)
+            (Serialize.encodeToJson NextPrevious.serialize)
+            (Serialize.decodeFromJson
+                NextPrevious.serialize
+                >> Result.mapError (\_ -> "Error")
             )
 
 

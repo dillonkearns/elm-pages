@@ -32,6 +32,9 @@ dataSource docFiles =
             )
         |> DataSource.resolve
         |> DataSource.map List.reverse
+        |> DataSource.distill "table-of-contents"
+            (S.encodeToJson serialize)
+            (S.decodeFromJson serialize >> Result.mapError (\_ -> "Error"))
 
 
 codec : Codec (TableOfContents Data)

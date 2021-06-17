@@ -5,6 +5,7 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Internal.OptimizedDecoder
 import Json.Decode.Exploration
+import Json.Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import OptimizedDecoder
 import Pages.Internal.ApplicationType exposing (ApplicationType)
@@ -28,6 +29,7 @@ type WhatToDo
     = UseRawResponse
     | CliOnly
     | StripResponse (OptimizedDecoder.Decoder ())
+    | DistilledResponse Json.Encode.Value
 
 
 merge : WhatToDo -> WhatToDo -> WhatToDo
@@ -47,6 +49,15 @@ merge whatToDo1 whatToDo2 =
 
         ( CliOnly, _ ) ->
             whatToDo2
+
+        ( DistilledResponse distilled1, DistilledResponse distilled2 ) ->
+            DistilledResponse distilled1
+
+        ( DistilledResponse distilled1, _ ) ->
+            DistilledResponse distilled1
+
+        ( _, DistilledResponse distilled1 ) ->
+            DistilledResponse distilled1
 
         ( UseRawResponse, UseRawResponse ) ->
             UseRawResponse
@@ -79,6 +90,9 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
 
                     CliOnly ->
                         Nothing
+
+                    DistilledResponse value ->
+                        value |> Json.Encode.encode 0 |> Just
             )
 
 
