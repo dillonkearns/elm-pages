@@ -96,8 +96,6 @@ subscriptions _ _ =
 
 data : DataSource.DataSource Data
 data =
-    --DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-    --    (D.field "stargazers_count" D.int)
     TableOfContents.dataSource DocsSection.all
 
 
