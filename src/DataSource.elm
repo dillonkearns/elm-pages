@@ -6,6 +6,7 @@ module DataSource exposing
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
     , distill, validate
+    , distillCodec, distillSerializeCodec
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -66,6 +67,7 @@ and describe your use case!
 
 -}
 
+import Codec
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode as Decode
@@ -77,6 +79,7 @@ import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
 import RequestsAndPending exposing (RequestsAndPending)
+import Serialize
 
 
 {-| Build an empty body for a StaticHttp request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
@@ -235,6 +238,43 @@ distill uniqueKey encode decode dataSource =
                         |> decode
                         |> fromResult
                 )
+
+
+{-| -}
+distillSerializeCodec :
+    String
+    -> Serialize.Codec error value
+    -> DataSource value
+    -> DataSource value
+distillSerializeCodec uniqueKey serializeCodec =
+    distill uniqueKey
+        (Serialize.encodeToJson serializeCodec)
+        (Serialize.decodeFromJson serializeCodec
+            >> Result.mapError
+                (\error ->
+                    case error of
+                        Serialize.DataCorrupted ->
+                            "DataCorrupted"
+
+                        Serialize.CustomError errorMessage ->
+                            "CustomError"
+
+                        Serialize.SerializerOutOfDate ->
+                            "SerializerOutOfDate"
+                )
+        )
+
+
+{-| -}
+distillCodec :
+    String
+    -> Codec.Codec value
+    -> DataSource value
+    -> DataSource value
+distillCodec uniqueKey codec =
+    distill uniqueKey
+        (Codec.encodeToValue codec)
+        (Codec.decodeValue codec >> Result.mapError Decode.errorToString)
 
 
 toResult : Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, b ) -> RawRequest b

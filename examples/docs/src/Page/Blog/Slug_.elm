@@ -244,9 +244,8 @@ data route =
                         |> DataSource.fromResult
                 )
          )
-            |> DataSource.distill ("markdown-blocks-" ++ route.slug)
-                (S.encodeToJson (S.list MarkdownCodec.codec))
-                (S.decodeFromJson (S.list MarkdownCodec.codec) >> Result.mapError (\_ -> "Error"))
+            |> DataSource.distillSerializeCodec ("markdown-blocks-" ++ route.slug)
+                (S.list MarkdownCodec.codec)
             |> DataSource.andThen
                 (\blocks ->
                     blocks

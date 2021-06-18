@@ -157,12 +157,7 @@ titleForSection section =
                     |> Result.fromMaybe "Expected to find an H1 heading in this markdown."
                     |> DataSource.fromResult
             )
-        |> DataSource.distill ("next-previous-" ++ section.slug)
-            (Serialize.encodeToJson NextPrevious.serialize)
-            (Serialize.decodeFromJson
-                NextPrevious.serialize
-                >> Result.mapError (\_ -> "Error")
-            )
+        |> DataSource.distillSerializeCodec ("next-previous-" ++ section.slug) NextPrevious.serialize
 
 
 head :
