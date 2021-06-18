@@ -60,25 +60,29 @@ merge key whatToDo1 whatToDo2 =
             whatToDo2
 
         ( DistilledResponse distilled1, DistilledResponse distilled2 ) ->
-            Error
-                [ { title = "Non-Unique Distill Keys"
-                  , message =
-                        [ Terminal.text "I encountered DataSource.distill with two matching keys that had differing encoded values.\n\n"
-                        , Terminal.text "Look for "
-                        , Terminal.red <| Terminal.text "DataSource.distill"
-                        , Terminal.text " with the key "
-                        , Terminal.red <| Terminal.text ("\"" ++ key ++ "\"")
-                        , Terminal.text "\n\n"
-                        , Terminal.yellow <| Terminal.text "The first encoded value was:\n"
-                        , Terminal.text <| Json.Encode.encode 2 distilled1
-                        , Terminal.text "\n\n-------------------------------\n\n"
-                        , Terminal.yellow <| Terminal.text "The second encoded value was:\n"
-                        , Terminal.text <| Json.Encode.encode 2 distilled2
-                        ]
-                  , path = "" -- TODO wire in path here?
-                  , fatal = True
-                  }
-                ]
+            if Json.Encode.encode 0 distilled1 == Json.Encode.encode 0 distilled2 then
+                DistilledResponse distilled1
+
+            else
+                Error
+                    [ { title = "Non-Unique Distill Keys"
+                      , message =
+                            [ Terminal.text "I encountered DataSource.distill with two matching keys that had differing encoded values.\n\n"
+                            , Terminal.text "Look for "
+                            , Terminal.red <| Terminal.text "DataSource.distill"
+                            , Terminal.text " with the key "
+                            , Terminal.red <| Terminal.text ("\"" ++ key ++ "\"")
+                            , Terminal.text "\n\n"
+                            , Terminal.yellow <| Terminal.text "The first encoded value was:\n"
+                            , Terminal.text <| Json.Encode.encode 2 distilled1
+                            , Terminal.text "\n\n-------------------------------\n\n"
+                            , Terminal.yellow <| Terminal.text "The second encoded value was:\n"
+                            , Terminal.text <| Json.Encode.encode 2 distilled2
+                            ]
+                      , path = "" -- TODO wire in path here?
+                      , fatal = True
+                      }
+                    ]
 
         ( DistilledResponse distilled1, _ ) ->
             DistilledResponse distilled1

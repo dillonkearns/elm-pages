@@ -834,6 +834,37 @@ TODO
                                     _ ->
                                         Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
                             )
+            , test "distill successfully merges data sources with same key and same encoded JSON" <|
+                \() ->
+                    startWithRoutes [ "hello" ]
+                        [ [ "hello" ] ]
+                        []
+                        [ ( [ "hello" ]
+                          , DataSource.map2 (\_ _ -> ())
+                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                                    |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                                )
+                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                                    |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                                )
+                          )
+                        ]
+                        |> ProgramTest.simulateHttpOk
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            """{ "stargazer_count": 86 }"""
+                        |> ProgramTest.expectOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ ToJsPayload.PageProgress portData ] ->
+                                        portData.contentJson
+                                            |> Expect.equalDicts (Dict.fromList [ ( "abc123", "86" ) ])
+
+                                    _ ->
+                                        Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
+                            )
             , test "distill gives an error if there are matching keys with different encoded JSON" <|
                 \() ->
                     startWithRoutes [ "hello" ]
