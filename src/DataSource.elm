@@ -62,7 +62,18 @@ and describe your use case!
 
 ## Optimizing Page Data
 
+Distilling data lets you reduce the amount of data loaded on the client. You can also use it to perform computations at
+build-time or server-request-time, store the result of the computation and then simply load that result on the client
+without needing redo the computation again on the client.
+
 @docs distill, validate, distillCodec, distillSerializeCodec
+
+
+### Ensuring Unique Distill Keys
+
+If you use the same string key for two different distilled values that have differing encoded JSON, then you
+will get a build error (and an error in the dev server for that page). That means you can safely distill values
+and let the build command tell you about these issues if they arise.
 
 -}
 
@@ -179,7 +190,10 @@ dontSaveData requestInfo =
             requestInfo
 
 
-{-| -}
+{-| This is the low-level `distill` function. In most cases, you'll want to use `distill` with a `Codec` from either
+[`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/) or
+[`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest/)
+-}
 distill :
     String
     -> (raw -> Encode.Value)
@@ -239,7 +253,30 @@ distill uniqueKey encode decode dataSource =
                 )
 
 
-{-| -}
+{-| [`distill`](#distill) with a `Serialize.Codec` from [`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest).
+
+    import DataSource
+    import DataSource.Http
+    import Secrets
+    import Serialize
+
+    millionRandomSum : DataSource Int
+    millionRandomSum =
+        DataSource.Http.get (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
+            (Decode.list Decode.int)
+            |> DataSource.map List.sum
+            -- all of this expensive computation and data will happen before it hits the client!
+            -- the user's browser simply loads up a single Int and runs an Int decoder to get it
+            |> DataSource.distillSerializeCodec "million-random-sum" Serialize.int
+
+If we didn't distill the data here, then all million Ints would have to be loaded in order to load the page.
+The reason the data for these `DataSource`s needs to be loaded is that `elm-pages` hydrates into an Elm app. If it
+output only HTML then we could build the HTML and throw away the data. But we need to ensure that the hydrated Elm app
+has all the data that a page depends on, even if it the HTML for the page is also pre-rendered.
+
+Using a `Codec` makes it safer to distill data because you know it is reversible.
+
+-}
 distillSerializeCodec :
     String
     -> Serialize.Codec error value
@@ -264,7 +301,30 @@ distillSerializeCodec uniqueKey serializeCodec =
         )
 
 
-{-| -}
+{-| [`distill`](#distill) with a `Codec` from [`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/).
+
+    import Codec
+    import DataSource
+    import DataSource.Http
+    import Secrets
+
+    millionRandomSum : DataSource Int
+    millionRandomSum =
+        DataSource.Http.get (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
+            (Decode.list Decode.int)
+            |> DataSource.map List.sum
+            -- all of this expensive computation and data will happen before it hits the client!
+            -- the user's browser simply loads up a single Int and runs an Int decoder to get it
+            |> DataSource.distillCodec "million-random-sum" Codec.int
+
+If we didn't distill the data here, then all million Ints would have to be loaded in order to load the page.
+The reason the data for these `DataSource`s needs to be loaded is that `elm-pages` hydrates into an Elm app. If it
+output only HTML then we could build the HTML and throw away the data. But we need to ensure that the hydrated Elm app
+has all the data that a page depends on, even if it the HTML for the page is also pre-rendered.
+
+Using a `Codec` makes it safer to distill data because you know it is reversible.
+
+-}
 distillCodec :
     String
     -> Codec.Codec value
