@@ -262,7 +262,8 @@ distill uniqueKey encode decode dataSource =
 
     millionRandomSum : DataSource Int
     millionRandomSum =
-        DataSource.Http.get (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
+        DataSource.Http.get
+            (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
             (Decode.list Decode.int)
             |> DataSource.map List.sum
             -- all of this expensive computation and data will happen before it hits the client!
@@ -310,7 +311,8 @@ distillSerializeCodec uniqueKey serializeCodec =
 
     millionRandomSum : DataSource Int
     millionRandomSum =
-        DataSource.Http.get (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
+        DataSource.Http.get
+            (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
             (Decode.list Decode.int)
             |> DataSource.map List.sum
             -- all of this expensive computation and data will happen before it hits the client!
