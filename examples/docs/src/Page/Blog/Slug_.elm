@@ -3,7 +3,7 @@ module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
 import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.File as StaticFile
 import Date exposing (Date)
 import Head
@@ -12,11 +12,13 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Markdown.Parser
 import Markdown.Renderer
+import MarkdownCodec
 import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
+import Serialize as S
 import Shared
 import SiteOld
 import StructuredData
@@ -229,20 +231,33 @@ type alias Data =
     }
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> DataSource Data
 data route =
-    StaticFile.bodyWithFrontmatter
-        (\rawBody ->
-            OptimizedDecoder.map2 Data
-                (rawBody
-                    |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> "Couldn't parse markdown.")
-                    |> Result.andThen (Markdown.Renderer.render TailwindMarkdownRenderer.renderer)
-                    |> OptimizedDecoder.fromResult
+    DataSource.map2 Data
+        ((StaticFile.bodyWithoutFrontmatter
+            ("content/blog/" ++ route.slug ++ ".md")
+            |> DataSource.andThen
+                (\rawBody ->
+                    rawBody
+                        |> Markdown.Parser.parse
+                        |> Result.mapError (\_ -> "Couldn't parse markdown.")
+                        |> DataSource.fromResult
                 )
-                frontmatterDecoder
+         )
+            |> DataSource.distill ("markdown-blocks-" ++ route.slug)
+                (S.encodeToJson (S.list MarkdownCodec.codec))
+                (S.decodeFromJson (S.list MarkdownCodec.codec) >> Result.mapError (\_ -> "Error"))
+            |> DataSource.andThen
+                (\blocks ->
+                    blocks
+                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                        |> DataSource.fromResult
+                )
         )
-        ("content/blog/" ++ route.slug ++ ".md")
+        (StaticFile.onlyFrontmatter
+            frontmatterDecoder
+            ("content/blog/" ++ route.slug ++ ".md")
+        )
 
 
 type alias ArticleMetadata =
