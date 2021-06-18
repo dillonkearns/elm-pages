@@ -293,7 +293,7 @@ distillSerializeCodec uniqueKey serializeCodec =
                         Serialize.DataCorrupted ->
                             "DataCorrupted"
 
-                        Serialize.CustomError errorMessage ->
+                        Serialize.CustomError _ ->
                             "CustomError"
 
                         Serialize.SerializerOutOfDate ->
