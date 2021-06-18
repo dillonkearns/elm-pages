@@ -1,5 +1,6 @@
 module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application)
 
+import AriaLiveAnnouncer
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
@@ -101,6 +102,7 @@ view config model =
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg
+        , AriaLiveAnnouncer.view title
         ]
     }
 
