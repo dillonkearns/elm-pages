@@ -5,8 +5,7 @@ module DataSource exposing
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , distill, validate
-    , distillCodec, distillSerializeCodec
+    , distill, validate, distillCodec, distillSerializeCodec
     )
 
 {-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -63,7 +62,7 @@ and describe your use case!
 
 ## Optimizing Page Data
 
-@docs distill, validate
+@docs distill, validate, distillCodec, distillSerializeCodec
 
 -}
 
