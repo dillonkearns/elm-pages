@@ -102,7 +102,7 @@ view config model =
     , body =
         [ onViewChangeElement model.url
         , body |> Html.map UserMsg
-        , AriaLiveAnnouncer.view title
+        , AriaLiveAnnouncer.view model.ariaNavigationAnnouncement
         ]
     }
 
@@ -230,17 +230,23 @@ init config flags url key =
                             ]
                                 |> List.filterMap identity
                                 |> Cmd.batch
+
+                        initialModel =
+                            { key = key
+                            , url = url
+                            , baseUrl = baseUrl
+                            , contentCache = contentCache
+                            , pageData =
+                                Ok
+                                    { pageData = pageData
+                                    , sharedData = sharedData
+                                    , userModel = userModel
+                                    }
+                            , ariaNavigationAnnouncement = ""
+                            }
                     in
-                    ( { key = key
-                      , url = url
-                      , baseUrl = baseUrl
-                      , contentCache = contentCache
-                      , pageData =
-                            Ok
-                                { pageData = pageData
-                                , sharedData = sharedData
-                                , userModel = userModel
-                                }
+                    ( { initialModel
+                        | ariaNavigationAnnouncement = mainView config initialModel |> .title
                       }
                     , cmd
                     )
@@ -251,6 +257,7 @@ init config flags url key =
                       , baseUrl = baseUrl
                       , contentCache = contentCache
                       , pageData = BuildError.errorToString error |> Err
+                      , ariaNavigationAnnouncement = "Error"
                       }
                     , Cmd.none
                     )
@@ -261,6 +268,7 @@ init config flags url key =
               , baseUrl = baseUrl
               , contentCache = contentCache
               , pageData = Err "TODO"
+              , ariaNavigationAnnouncement = "Error"
               }
             , Cmd.none
             )
@@ -282,6 +290,7 @@ type alias Model userModel pageData sharedData =
     , url : Url
     , baseUrl : Url
     , contentCache : ContentCache
+    , ariaNavigationAnnouncement : String
     , pageData :
         Result
             String
@@ -313,7 +322,9 @@ update config appMsg model =
                         ( model, Browser.Navigation.load (Url.toString url) )
 
                     else
-                        ( model, Browser.Navigation.pushUrl model.key (Url.toString url) )
+                        ( model
+                        , Browser.Navigation.pushUrl model.key (Url.toString url)
+                        )
 
                 Browser.External href ->
                     ( model, Browser.Navigation.load href )
@@ -456,11 +467,16 @@ update config appMsg model =
                                     }
                                 )
                                 pageData.userModel
+
+                        updatedModel =
+                            { model
+                                | url = url
+                                , contentCache = updatedCache
+                                , pageData = updatedPageData
+                            }
                     in
-                    ( { model
-                        | url = url
-                        , contentCache = updatedCache
-                        , pageData = updatedPageData
+                    ( { updatedModel
+                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                       }
                     , Cmd.batch
                         [ userCmd |> Cmd.map UserMsg
