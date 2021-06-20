@@ -10,6 +10,7 @@ const codegen = require("./codegen.js");
 const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
+let Elm;
 
 async function start(options) {
   const port = options.port;
@@ -70,12 +71,18 @@ async function start(options) {
     watcher.add(sourceDirs);
   }
 
+  function requireUncached() {
+    delete require.cache[require.resolve(compiledElmPath)];
+    Elm = require(compiledElmPath);
+  }
+
   async function compileCliApp() {
     await spawnElmMake(
       ".elm-pages/TemplateModulesBeta.elm",
       "elm.js",
       "elm-stuff/elm-pages/"
     );
+    requireUncached();
   }
 
   const app = connect()
@@ -217,7 +224,7 @@ async function start(options) {
     try {
       await pendingCliCompile;
       const renderResult = await renderer(
-        compiledElmPath,
+        Elm,
         pathname,
         req,
         function (pattern) {

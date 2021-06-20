@@ -15,16 +15,16 @@ process.on("unhandledRejection", (error) => {
 module.exports =
   /**
    *
-   * @param {string} compiledElmPath
+   * @param {Object} elmModule
    * @param {string} path
    * @param {import('aws-lambda').APIGatewayProxyEvent} request
    * @param {(pattern: string) => void} addDataSourceWatcher
    * @returns
    */
-  async function run(compiledElmPath, path, request, addDataSourceWatcher) {
+  async function run(elmModule, path, request, addDataSourceWatcher) {
     XMLHttpRequest = require("xhr2");
     const result = await runElmApp(
-      compiledElmPath,
+      elmModule,
       path,
       request,
       addDataSourceWatcher
@@ -33,13 +33,13 @@ module.exports =
   };
 
 /**
- * @param {string} compiledElmPath
+ * @param {Object} elmModule
  * @param {string} pagePath
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
  * @param {(pattern: string) => void} addDataSourceWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
-function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
+function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
   let app = null;
   let killApp;
   return new Promise((resolve, reject) => {
@@ -49,7 +49,7 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
     const mode = "elm-to-html-beta";
     const modifiedRequest = { ...request, path: route };
     // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
-    app = requireUncached(compiledElmPath).Elm.TemplateModulesBeta.init({
+    app = elmModule.Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
         mode,
