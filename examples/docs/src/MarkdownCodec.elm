@@ -11,11 +11,11 @@ import Serialize as S
 
 withFrontmatter :
     (frontmatter -> List view -> value)
-    -> String
     -> Decoder frontmatter
     -> Markdown.Renderer.Renderer view
+    -> String
     -> DataSource.DataSource value
-withFrontmatter constructor filePath frontmatterDecoder renderer =
+withFrontmatter constructor frontmatterDecoder renderer filePath =
     DataSource.map2 constructor
         (StaticFile.onlyFrontmatter
             frontmatterDecoder

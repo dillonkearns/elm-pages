@@ -234,9 +234,9 @@ type alias Data =
 data : RouteParams -> DataSource Data
 data route =
     MarkdownCodec.withFrontmatter Data
-        ("content/blog/" ++ route.slug ++ ".md")
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
+        ("content/blog/" ++ route.slug ++ ".md")
 
 
 type alias ArticleMetadata =

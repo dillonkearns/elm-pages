@@ -283,11 +283,9 @@ pageBody routeParams =
     in
     Glob.expectUniqueMatch (findBySlug slug)
         |> DataSource.andThen
-            (\filePath ->
-                MarkdownCodec.withFrontmatter (\description body -> { description = description, body = body })
-                    filePath
-                    (Decode.field "description" Decode.string)
-                    TailwindMarkdownRenderer.renderer
+            (MarkdownCodec.withFrontmatter (\description body -> { description = description, body = body })
+                (Decode.field "description" Decode.string)
+                TailwindMarkdownRenderer.renderer
             )
 
 
