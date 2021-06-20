@@ -24,7 +24,6 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
       .replace(
         "return ports ? { ports: ports } : {};",
         `const die = function() {
-        console.log('App dying')
         managers = null
         model = null
         stepper = null
