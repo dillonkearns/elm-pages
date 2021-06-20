@@ -9,18 +9,17 @@ import DocsSection exposing (Section)
 import Head
 import Head.Seo as Seo
 import Heroicon
-import Html.Styled as Html
+import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
-import Markdown.Renderer
+import MarkdownCodec
 import NextPrevious
 import OptimizedDecoder as Decode exposing (Decoder)
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Serialize
 import Shared
 import TableOfContents
 import Tailwind.Breakpoints as Bp
@@ -186,7 +185,7 @@ head static =
 
 
 type alias Data =
-    { body : { description : String, body : List Block }
+    { body : { description : String, body : List (Html Msg) }
     , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
     , editUrl : String
     }
@@ -242,10 +241,7 @@ view maybeUrl sharedModel static =
                         , Bp.xl [ Tw.pr_36 ]
                         ]
                     ]
-                    ((static.data.body.body
-                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                        |> Result.withDefault [ Html.text "" ]
-                     )
+                    (static.data.body.body
                         ++ [ NextPrevious.view static.data.titles.previousAndNext
                            , Html.hr [] []
                            , Html.footer
@@ -277,7 +273,7 @@ view maybeUrl sharedModel static =
     }
 
 
-pageBody : RouteParams -> DataSource { description : String, body : List Block }
+pageBody : RouteParams -> DataSource { description : String, body : List (Html msg) }
 pageBody routeParams =
     let
         slug : String
@@ -287,17 +283,11 @@ pageBody routeParams =
     in
     Glob.expectUniqueMatch (findBySlug slug)
         |> DataSource.andThen
-            (DataSource.File.bodyWithFrontmatter
-                (\body ->
-                    Decode.map2
-                        (\description parsedMarkdown ->
-                            { description = description
-                            , body = parsedMarkdown
-                            }
-                        )
-                        (Decode.field "description" Decode.string)
-                        (markdownBodyDecoder body)
-                )
+            (\filePath ->
+                MarkdownCodec.withFrontmatter (\description body -> { description = description, body = body })
+                    filePath
+                    (Decode.field "description" Decode.string)
+                    TailwindMarkdownRenderer.renderer
             )
 
 

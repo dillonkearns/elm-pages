@@ -1,7 +1,45 @@
-module MarkdownCodec exposing (codec)
+module MarkdownCodec exposing (codec, withFrontmatter)
 
+import DataSource
+import DataSource.File as StaticFile
 import Markdown.Block as Block exposing (Block)
+import Markdown.Parser
+import Markdown.Renderer
+import OptimizedDecoder exposing (Decoder)
 import Serialize as S
+
+
+withFrontmatter :
+    (frontmatter -> List view -> value)
+    -> String
+    -> Decoder frontmatter
+    -> Markdown.Renderer.Renderer view
+    -> DataSource.DataSource value
+withFrontmatter constructor filePath frontmatterDecoder renderer =
+    DataSource.map2 constructor
+        (StaticFile.onlyFrontmatter
+            frontmatterDecoder
+            filePath
+        )
+        ((StaticFile.bodyWithoutFrontmatter
+            filePath
+            |> DataSource.andThen
+                (\rawBody ->
+                    rawBody
+                        |> Markdown.Parser.parse
+                        |> Result.mapError (\_ -> "Couldn't parse markdown.")
+                        |> DataSource.fromResult
+                )
+         )
+            |> DataSource.distillSerializeCodec ("markdown-blocks-" ++ filePath)
+                (S.list codec)
+            |> DataSource.andThen
+                (\blocks ->
+                    blocks
+                        |> Markdown.Renderer.render renderer
+                        |> DataSource.fromResult
+                )
+        )
 
 
 codec : S.Codec Never Block

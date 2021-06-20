@@ -226,37 +226,17 @@ head static =
 
 
 type alias Data =
-    { body : List (Html Msg)
-    , metadata : ArticleMetadata
+    { metadata : ArticleMetadata
+    , body : List (Html Msg)
     }
 
 
 data : RouteParams -> DataSource Data
 data route =
-    DataSource.map2 Data
-        ((StaticFile.bodyWithoutFrontmatter
-            ("content/blog/" ++ route.slug ++ ".md")
-            |> DataSource.andThen
-                (\rawBody ->
-                    rawBody
-                        |> Markdown.Parser.parse
-                        |> Result.mapError (\_ -> "Couldn't parse markdown.")
-                        |> DataSource.fromResult
-                )
-         )
-            |> DataSource.distillSerializeCodec ("markdown-blocks-" ++ route.slug)
-                (S.list MarkdownCodec.codec)
-            |> DataSource.andThen
-                (\blocks ->
-                    blocks
-                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                        |> DataSource.fromResult
-                )
-        )
-        (StaticFile.onlyFrontmatter
-            frontmatterDecoder
-            ("content/blog/" ++ route.slug ++ ".md")
-        )
+    MarkdownCodec.withFrontmatter Data
+        ("content/blog/" ++ route.slug ++ ".md")
+        frontmatterDecoder
+        TailwindMarkdownRenderer.renderer
 
 
 type alias ArticleMetadata =
