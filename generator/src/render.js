@@ -40,14 +40,16 @@ module.exports =
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
+  let app = null;
+  let killApp;
   return new Promise((resolve, reject) => {
     const isJson = pagePath.match(/content\.json\/?$/);
     const route = pagePath.replace(/content\.json\/?$/, "");
 
     const mode = "elm-to-html-beta";
     const modifiedRequest = { ...request, path: route };
-    console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
-    const app = requireUncached(compiledElmPath).Elm.TemplateModulesBeta.init({
+    // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
+    app = requireUncached(compiledElmPath).Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
         mode,
@@ -60,7 +62,14 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
       },
     });
 
-    app.ports.toJsPort.subscribe(async (/** @type { FromElm }  */ fromElm) => {
+    killApp = () => {
+      // app.ports.toJsPort.unsubscribe(portHandler);
+      app.die();
+      app = null;
+      // delete require.cache[require.resolve(compiledElmPath)];
+    };
+
+    async function portHandler(/** @type { FromElm }  */ fromElm) {
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "InitialData") {
@@ -81,7 +90,6 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;
 
-        // app.die();
         // delete require.cache[require.resolve(compiledElmPath)];
         if (isJson) {
           resolve({
@@ -143,7 +151,11 @@ function runElmApp(compiledElmPath, pagePath, request, addDataSourceWatcher) {
       } else {
         console.log(fromElm);
       }
-    });
+    }
+    app.ports.toJsPort.subscribe(portHandler);
+  }).finally(() => {
+    killApp();
+    killApp = null;
   });
 }
 
