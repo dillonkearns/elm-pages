@@ -5,7 +5,7 @@ module Pages.Url exposing (Url, external, fromPath, toAbsoluteUrl, toString)
 That's the purpose for this type. If you have an external URL, like `Pages.Url.external "https://google.com"`,
 then the canonicalUrl will not be prepended when it is used in a head tag.
 
-If you refer to a local page, like `Route.Index {} |> Route.toPath |> Pages.Url.fromPath`, or `Pages.Url.fromPath`
+If you refer to a local page, like `Route.Index |> Route.toPath |> Pages.Url.fromPath`, or `Pages.Url.fromPath`
 
 @docs Url, external, fromPath, toAbsoluteUrl, toString
 
