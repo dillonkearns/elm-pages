@@ -4,6 +4,7 @@ module DataSource exposing
     , fromResult
     , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
+    , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , distill, validate, distillCodec, distillSerializeCodec
     )
@@ -56,6 +57,8 @@ and describe your use case!
 ## Chaining Requests
 
 @docs andThen, resolve, combine
+
+@docs andMap
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
@@ -610,6 +613,13 @@ andThen fn requestInfo =
                                         Done (combineReducedDicts strippedResponses dict) finalValue
                    )
         )
+
+
+{-| A helper for combining `DataSource`s in pipelines.
+-}
+andMap : DataSource a -> DataSource (a -> b) -> DataSource b
+andMap =
+    map2 (|>)
 
 
 {-| This is useful for prototyping with some hardcoded data, or for having a view that doesn't have any StaticHttp data.
