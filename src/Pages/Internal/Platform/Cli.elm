@@ -1030,10 +1030,7 @@ sendSinglePageProgress toJsPayload config model =
                     allRoutes =
                         []
 
-                    renderedResult :
-                        Result
-                            BuildError
-                            { head : List Head.Tag, view : String, title : String }
+                    renderedResult : Result BuildError { head : List Head.Tag, view : String, title : String }
                     renderedResult =
                         case includeHtml of
                             RenderRequest.OnlyJson ->
