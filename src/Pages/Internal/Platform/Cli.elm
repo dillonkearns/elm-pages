@@ -154,10 +154,6 @@ cliApplication config =
         }
 
 
-
---gotStaticFileDecoder : Decode.Decoder Msg
-
-
 gotStaticFileDecoder : Decode.Decoder ( String, Decode.Value )
 gotStaticFileDecoder =
     Decode.field "data"
