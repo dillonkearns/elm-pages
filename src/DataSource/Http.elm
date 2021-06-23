@@ -269,10 +269,11 @@ unoptimizedRequest requestWithSecrets expect =
                                                     )
 
                                             Nothing ->
-                                                Secrets.maskedLookup requestWithSecrets
-                                                    |> requestToString
-                                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                                    |> Err
+                                                Err
+                                                    (Pages.StaticHttpRequest.MissingHttpResponse
+                                                        (requestToString (Secrets.maskedLookup requestWithSecrets))
+                                                        [ requestWithSecrets ]
+                                                    )
                                    )
                                 |> Result.andThen
                                     (\( strippedResponses, rawResponse ) ->
@@ -331,10 +332,10 @@ unoptimizedRequest requestWithSecrets expect =
                                                     )
 
                                             Nothing ->
-                                                Secrets.maskedLookup requestWithSecrets
-                                                    |> requestToString
-                                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                                    |> Err
+                                                Err
+                                                    (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
+                                                        [ requestWithSecrets ]
+                                                    )
                                    )
                                 |> Result.andThen
                                     (\( strippedResponses, rawResponse ) ->
@@ -382,10 +383,10 @@ unoptimizedRequest requestWithSecrets expect =
                                             )
 
                                     Nothing ->
-                                        Secrets.maskedLookup requestWithSecrets
-                                            |> requestToString
-                                            |> Pages.StaticHttpRequest.MissingHttpResponse
-                                            |> Err
+                                        Err
+                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
+                                                [ requestWithSecrets ]
+                                            )
                            )
                         |> Result.andThen
                             (\( strippedResponses, rawResponse ) ->
@@ -432,10 +433,10 @@ unoptimizedRequest requestWithSecrets expect =
                                             )
 
                                     Nothing ->
-                                        Secrets.maskedLookup requestWithSecrets
-                                            |> requestToString
-                                            |> Pages.StaticHttpRequest.MissingHttpResponse
-                                            |> Err
+                                        Err
+                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
+                                                [ requestWithSecrets ]
+                                            )
                            )
                         |> Result.andThen
                             (\( strippedResponses, rawResponse ) ->

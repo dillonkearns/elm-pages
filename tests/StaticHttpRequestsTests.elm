@@ -3,12 +3,15 @@ module StaticHttpRequestsTests exposing (all)
 import ApiRoute
 import Codec
 import DataSource exposing (DataSource)
+import DataSource.File
+import DataSource.Glob as Glob
 import DataSource.Http
 import Dict
 import Expect
 import Html
 import Json.Decode as JD
 import Json.Encode as Encode
+import List.Extra
 import NotFoundReason
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
@@ -25,11 +28,12 @@ import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
 import Secrets
+import Serialize
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, only, test)
 import Test.Http
 
 
@@ -834,6 +838,121 @@ TODO
                                     _ ->
                                         Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
                             )
+            , test "distill with andThen chains resolves successfully" <|
+                \() ->
+                    let
+                        andThenExample : DataSource (List ( String, String ))
+                        andThenExample =
+                            Glob.succeed
+                                identity
+                                |> Glob.match (Glob.literal "content/glossary/")
+                                |> Glob.capture Glob.wildcard
+                                |> Glob.match (Glob.literal ".md")
+                                |> Glob.toDataSource
+                                |> DataSource.map
+                                    (List.map
+                                        (\topic ->
+                                            DataSource.File.bodyWithoutFrontmatter ("content/glossary/" ++ topic ++ ".md" |> Debug.log "glossary-file")
+                                                |> DataSource.map (Tuple.pair topic)
+                                        )
+                                    )
+                                |> DataSource.resolve
+                                |> DataSource.map
+                                    (\allNotes ->
+                                        allNotes
+                                            |> List.map
+                                                (\note ->
+                                                    DataSource.succeed note
+                                                )
+                                    )
+                                |> DataSource.resolve
+                    in
+                    startWithRoutes [ "hello" ]
+                        [ [ "hello" ] ]
+                        []
+                        [ ( [ "hello" ]
+                          , andThenExample
+                                |> DataSource.map (\_ -> ())
+                          )
+                        ]
+                        |> ProgramTest.ensureOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ ToJsPayload.Glob _ ] ->
+                                        Expect.pass
+
+                                    _ ->
+                                        Expect.fail <|
+                                            "Expected a glob, but got\n"
+                                                ++ (actualPorts
+                                                        |> List.indexedMap
+                                                            (\index item -> "(" ++ String.fromInt (index + 1) ++ ") " ++ Debug.toString item)
+                                                        |> String.join "\n\n"
+                                                   )
+                                                ++ "\n\n"
+                            )
+                        |> ProgramTest.simulateIncomingPort "fromJsPort"
+                            (Encode.object
+                                [ ( "tag", Encode.string "GotGlob" )
+                                , ( "data"
+                                  , Encode.object
+                                        [ ( "pattern", Encode.string "content/glossary/*.md" )
+                                        , ( "result", Encode.list Encode.string [ "content/glossary/hello.md" ] )
+                                        ]
+                                  )
+                                ]
+                            )
+                        |> ProgramTest.ensureOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ ToJsPayload.ReadFile _ ] ->
+                                        Expect.pass
+
+                                    _ ->
+                                        Expect.fail <|
+                                            "Expected a ReadFile, but got\n"
+                                                ++ (actualPorts
+                                                        |> List.indexedMap
+                                                            (\index item -> "(" ++ String.fromInt (index + 1) ++ ") " ++ Debug.toString item)
+                                                        |> String.join "\n\n"
+                                                   )
+                                                ++ "\n\n"
+                            )
+                        |> ProgramTest.simulateIncomingPort "fromJsPort"
+                            (Encode.object
+                                [ ( "tag", Encode.string "GotFile" )
+                                , ( "data"
+                                  , Encode.object
+                                        [ ( "filePath", Encode.string "content/glossary/hello.md" )
+                                        , ( "withoutFrontmatter", Encode.string "BODY" )
+                                        ]
+                                  )
+                                ]
+                            )
+                        |> ProgramTest.expectOutgoingPortValues
+                            "toJsPort"
+                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                            (\actualPorts ->
+                                case actualPorts of
+                                    [ {- ToJsPayload.Glob _, ToJsPayload.ReadFile _ -} ToJsPayload.PageProgress portData ] ->
+                                        portData.contentJson
+                                            |> Expect.equalDicts
+                                                (Dict.fromList [ ( "{\"method\":\"GET\",\"url\":\"file://content/glossary/hello.md\",\"headers\":[],\"body\":{\"type\":\"empty\"}}", "{\"withoutFrontmatter\":\"BODY\"}" ), ( "{\"method\":\"GET\",\"url\":\"glob://content/glossary/*.md\",\"headers\":[],\"body\":{\"type\":\"empty\"}}", "[\"content/glossary/hello.md\"]" ) ])
+
+                                    _ ->
+                                        Expect.fail <|
+                                            "Expected exactly 1 port of type PageProgress. Instead, got \n\n"
+                                                ++ (actualPorts
+                                                        |> List.indexedMap
+                                                            (\index item -> "(" ++ String.fromInt (index + 1) ++ ") " ++ Debug.toString item)
+                                                        |> String.join "\n\n"
+                                                   )
+                                                ++ "\n\n"
+                            )
             , test "distill successfully merges data sources with same key and same encoded JSON" <|
                 \() ->
                     startWithRoutes [ "hello" ]
@@ -1267,6 +1386,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
+        |> ProgramTest.withSimulatedSubscriptions simulateSubscriptions
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
@@ -1278,6 +1398,10 @@ flags jsonString =
 
         Err _ ->
             Debug.todo "Invalid JSON value."
+
+
+sendToJsPort value =
+    SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder (ToJsPayload.successCodecNew2 "" ""))
 
 
 simulateEffects : Effect -> ProgramTest.SimulatedEffect Msg
@@ -1296,31 +1420,70 @@ simulateEffects effect =
                 |> SimulatedEffect.Cmd.batch
 
         Effect.FetchHttp ({ unmasked } as requests) ->
-            Http.request
-                { method = unmasked.method
-                , url = unmasked.url
-                , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                , body =
-                    case unmasked.body of
-                        StaticHttpBody.EmptyBody ->
-                            Http.emptyBody
+            let
+                _ =
+                    Debug.log "Fetching " unmasked.url
+            in
+            if unmasked.url |> String.startsWith "file://" then
+                let
+                    filePath : String
+                    filePath =
+                        String.dropLeft 7 unmasked.url
+                in
+                ToJsPayload.ReadFile filePath
+                    |> sendToJsPort
+                    |> SimulatedEffect.Cmd.map never
 
-                        StaticHttpBody.StringBody contentType string ->
-                            Http.stringBody contentType string
+            else if unmasked.url |> String.startsWith "glob://" then
+                let
+                    globPattern : String
+                    globPattern =
+                        String.dropLeft 7 unmasked.url
+                in
+                ToJsPayload.Glob globPattern
+                    |> sendToJsPort
+                    |> SimulatedEffect.Cmd.map never
 
-                        StaticHttpBody.JsonBody value ->
-                            Http.jsonBody value
-                , expect =
-                    PagesHttp.expectString
-                        (\response ->
-                            GotStaticHttpResponse
-                                { request = requests
-                                , response = response
-                                }
-                        )
-                , timeout = Nothing
-                , tracker = Nothing
-                }
+            else if unmasked.url |> String.startsWith "port://" then
+                let
+                    portName : String
+                    portName =
+                        String.dropLeft 7 unmasked.url
+                in
+                ToJsPayload.Port portName
+                    |> sendToJsPort
+                    |> SimulatedEffect.Cmd.map never
+
+            else
+                let
+                    _ =
+                        Debug.log "Fetching" unmasked.url
+                in
+                Http.request
+                    { method = unmasked.method
+                    , url = unmasked.url
+                    , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
+                    , body =
+                        case unmasked.body of
+                            StaticHttpBody.EmptyBody ->
+                                Http.emptyBody
+
+                            StaticHttpBody.StringBody contentType string ->
+                                Http.stringBody contentType string
+
+                            StaticHttpBody.JsonBody value ->
+                                Http.jsonBody value
+                    , expect =
+                        PagesHttp.expectString
+                            (\response ->
+                                GotStaticHttpResponse
+                                    { request = requests
+                                    , response = response
+                                    }
+                            )
+                    , timeout = Nothing
+                    , tracker = Nothing
+                    }
 
         Effect.SendSinglePage done info ->
             SimulatedEffect.Cmd.batch
@@ -1453,6 +1616,36 @@ expectSuccessNew expectedRequests expectations previous =
                     _ ->
                         Expect.fail ("Expected ports to be called once, but instead there were " ++ String.fromInt (List.length value) ++ " calls.")
             )
+
+
+simulateSubscriptions : a -> ProgramTest.SimulatedSub Msg
+simulateSubscriptions _ =
+    SimulatedEffect.Ports.subscribe "fromJsPort"
+        (JD.field "tag" JD.string
+            |> JD.andThen
+                (\tag ->
+                    case tag of
+                        "GotGlob" ->
+                            JD.field "data"
+                                (JD.map2 Tuple.pair
+                                    (JD.field "pattern" JD.string)
+                                    (JD.field "result" JD.value)
+                                )
+                                |> JD.map GotGlob
+
+                        "GotFile" ->
+                            JD.field "data"
+                                (JD.map2 Tuple.pair
+                                    (JD.field "filePath" JD.string)
+                                    JD.value
+                                )
+                                |> JD.map GotStaticFile
+
+                        _ ->
+                            JD.fail "Unexpected subscription tag."
+                )
+        )
+        identity
 
 
 get : String -> Request.Request

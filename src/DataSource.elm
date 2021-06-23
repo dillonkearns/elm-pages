@@ -228,9 +228,7 @@ distill uniqueKey encode decode dataSource =
                                                     |> Result.map (Tuple.pair Dict.empty)
 
                                             Nothing ->
-                                                ("distill://" ++ uniqueKey)
-                                                    |> Pages.StaticHttpRequest.MissingHttpResponse
-                                                    |> Err
+                                                Err (Pages.StaticHttpRequest.MissingHttpResponse ("distill://" ++ uniqueKey) [])
                                    )
                                 |> toResult
 

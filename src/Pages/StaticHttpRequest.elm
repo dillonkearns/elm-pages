@@ -6,6 +6,7 @@ import Internal.OptimizedDecoder
 import Json.Decode.Exploration
 import Json.Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
+import List.Extra
 import OptimizedDecoder
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
@@ -200,7 +201,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
 
 
 type Error
-    = MissingHttpResponse String
+    = MissingHttpResponse String (List (Secrets.Value Pages.StaticHttp.Request.Request))
     | DecoderError String
     | UserCalledStaticHttpFail String
 
@@ -208,7 +209,7 @@ type Error
 toBuildError : String -> Error -> BuildError
 toBuildError path error =
     case error of
-        MissingHttpResponse missingKey ->
+        MissingHttpResponse missingKey _ ->
             { title = "Missing Http Response"
             , message =
                 [ Terminal.text missingKey
@@ -259,15 +260,27 @@ resolveUrls appType request rawResponses =
 resolveUrlsHelp : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request) -> List (Secrets.Value Pages.StaticHttp.Request.Request)
 resolveUrlsHelp appType request rawResponses soFar =
     case request of
-        RequestError _ ->
-            (soFar
-             -- TODO do I need to preserve the URLs here? -- urlList
-            )
+        RequestError error ->
+            case error of
+                MissingHttpResponse _ next ->
+                    let
+                        thing =
+                            next |> List.map Secrets.maskedLookup
+                    in
+                    (soFar ++ next)
+                        |> List.Extra.uniqueBy (Secrets.maskedLookup >> Pages.StaticHttp.Request.hash)
+
+                _ ->
+                    soFar
 
         Request _ ( urlList, lookupFn ) ->
-            case lookupFn KeepOrDiscard.Keep appType rawResponses of
-                nextRequest ->
-                    resolveUrlsHelp appType nextRequest rawResponses (soFar ++ urlList)
+            lookupFn KeepOrDiscard.Keep appType rawResponses
+                |> (\nextRequest ->
+                        resolveUrlsHelp appType
+                            nextRequest
+                            rawResponses
+                            (soFar ++ urlList)
+                   )
 
         Done _ _ ->
             soFar
@@ -298,7 +311,7 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
     case request of
         RequestError error ->
             case error of
-                MissingHttpResponse _ ->
+                MissingHttpResponse key _ ->
                     -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
                     Incomplete foundUrls
 
@@ -309,9 +322,10 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                     HasPermanentError error
 
         Request _ ( urlList, lookupFn ) ->
-            case lookupFn KeepOrDiscard.Keep appType rawResponses of
-                nextRequest ->
-                    cacheRequestResolutionHelp urlList appType nextRequest rawResponses
+            lookupFn KeepOrDiscard.Keep appType rawResponses
+                |> (\nextRequest ->
+                        cacheRequestResolutionHelp urlList appType nextRequest rawResponses
+                   )
 
         Done _ _ ->
             Complete
