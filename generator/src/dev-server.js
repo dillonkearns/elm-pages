@@ -10,6 +10,7 @@ const codegen = require("./codegen.js");
 const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
+const { restoreColor } = require("./error-formatter");
 let Elm;
 
 async function start(options) {
@@ -262,7 +263,8 @@ async function start(options) {
         }
       }
     } catch (error) {
-      console.log({ error });
+      console.log(restoreColor(error));
+
       if (req.url.includes("content.json")) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify(error.errorsJson));
