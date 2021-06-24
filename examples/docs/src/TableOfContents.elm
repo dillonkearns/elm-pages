@@ -66,6 +66,7 @@ serialize =
     S.list serializeEntry
 
 
+serializeEntry : S.Codec e (Entry Data)
 serializeEntry =
     S.customType
         (\vEntry value ->
@@ -77,6 +78,7 @@ serializeEntry =
         |> S.finishCustomType
 
 
+serializeData : S.Codec e Data
 serializeData =
     S.record Data
         |> S.field .anchorId S.string

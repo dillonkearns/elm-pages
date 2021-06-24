@@ -93,7 +93,7 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
-    { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
+    { title = "elm-pages - a statically typed site generator"
     , body =
         [ landingView
         ]

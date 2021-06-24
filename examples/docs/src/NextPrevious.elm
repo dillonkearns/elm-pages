@@ -80,10 +80,12 @@ link route attrs children =
         route
 
 
+empty : Html msg
 empty =
     div [] []
 
 
+linkStyle : Attribute msg
 linkStyle =
     css
         [ Tw.text_lg
