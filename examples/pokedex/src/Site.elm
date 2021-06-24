@@ -38,7 +38,7 @@ manifest static =
     Manifest.init
         { name = "Site Name"
         , description = "Description"
-        , startUrl = Route.Index {} |> Route.toPath
+        , startUrl = Route.Index |> Route.toPath
         , icons = []
         }
 
