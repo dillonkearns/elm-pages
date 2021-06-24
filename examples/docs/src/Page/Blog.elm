@@ -129,7 +129,7 @@ view maybeUrl sharedModel staticPayload =
                                 ]
                             ]
                         ]
-                        [ text "The latest elm-pages news and articles." ]
+                        [ text blogDescription ]
                     ]
                 , div
                     [ css
@@ -167,7 +167,7 @@ head staticPayload =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = SiteOld.tagline
+        , description = blogDescription
         , locale = Nothing
         , title = "elm-pages blog"
         }
@@ -261,3 +261,8 @@ blogCard ( route, info ) =
                 ]
             ]
         ]
+
+
+blogDescription : String
+blogDescription =
+    "The latest elm-pages news and articles."
