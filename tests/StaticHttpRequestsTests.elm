@@ -1037,7 +1037,7 @@ The second encoded value was:
                                 )
                             )
                             |> ApiRoute.literal "test.txt"
-                            |> ApiRoute.singleRoute
+                            |> ApiRoute.single
                         ]
                         []
                         []
@@ -1069,7 +1069,7 @@ The second encoded value was:
                                 )
                             )
                             |> ApiRoute.literal "test.txt"
-                            |> ApiRoute.singleRoute
+                            |> ApiRoute.single
                         ]
                         [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , method = "GET"

@@ -23,7 +23,7 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.serverlessRoute
+    Page.serverless
         { head = head
 
         --, routes = routes

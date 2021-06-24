@@ -30,7 +30,7 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.prerenderedRouteWithFallback
+    Page.prerenderWithFallback
         { head = head
         , routes = routes
         , data = data

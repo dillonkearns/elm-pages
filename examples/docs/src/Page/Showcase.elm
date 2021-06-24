@@ -31,7 +31,7 @@ type alias RouteParams =
 
 page : PageWithState RouteParams Data () Msg
 page =
-    Page.singleRoute
+    Page.single
         { head = head
         , data = data
         }

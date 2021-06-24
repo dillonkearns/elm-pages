@@ -1,7 +1,7 @@
 module Page exposing
     ( Builder(..)
     , StaticPayload
-    , prerenderedRoute, prerenderedRouteWithFallback, singleRoute, serverlessRoute
+    , prerender, prerenderWithFallback, single, serverless
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     )
@@ -30,7 +30,7 @@ But before the user even requests the page, we have the following data:
   - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
   - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
-@docs prerenderedRoute, prerenderedRouteWithFallback, singleRoute, serverlessRoute
+@docs prerender, prerenderWithFallback, single, serverless
 
 
 ## Stateless Page Modules
@@ -216,12 +216,12 @@ buildWithSharedState config builderState =
 
 
 {-| -}
-singleRoute :
+single :
     { data : DataSource data
     , head : StaticPayload data {} -> List Head.Tag
     }
     -> Builder {} data
-singleRoute { data, head } =
+single { data, head } =
     WithData
         { data = \_ -> data
         , staticRoutes = DataSource.succeed [ {} ]
@@ -233,13 +233,13 @@ singleRoute { data, head } =
 
 
 {-| -}
-prerenderedRoute :
+prerender :
     { data : routeParams -> DataSource data
     , routes : DataSource (List routeParams)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-prerenderedRoute { data, head, routes } =
+prerender { data, head, routes } =
     WithData
         { data = data
         , staticRoutes = routes
@@ -270,14 +270,14 @@ prerenderedRoute { data, head, routes } =
 
 
 {-| -}
-prerenderedRouteWithFallback :
+prerenderWithFallback :
     { data : routeParams -> DataSource data
     , routes : DataSource (List routeParams)
     , handleFallback : routeParams -> DataSource Bool
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-prerenderedRouteWithFallback { data, head, routes, handleFallback } =
+prerenderWithFallback { data, head, routes, handleFallback } =
     WithData
         { data = data
         , staticRoutes = routes
@@ -321,13 +321,13 @@ prerenderedRouteWithFallback { data, head, routes, handleFallback } =
 
 
 {-| -}
-serverlessRoute :
+serverless :
     { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
     , routeFound : routeParams -> DataSource Bool
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-serverlessRoute { data, head, routeFound } =
+serverless { data, head, routeFound } =
     WithData
         { data = data ServerRequest.toStaticHttp
         , staticRoutes = DataSource.succeed []

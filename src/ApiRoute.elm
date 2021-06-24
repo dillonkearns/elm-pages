@@ -1,8 +1,8 @@
-module ApiRoute exposing (Done, Handler, Response, buildTimeRoutes, capture, int, literal, singleRoute, slash, succeed)
+module ApiRoute exposing (Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed)
 
 {-|
 
-@docs Done, Handler, Response, buildTimeRoutes, capture, int, literal, singleRoute, slash, succeed
+@docs Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed
 
 -}
 
@@ -17,8 +17,8 @@ type alias Done response =
 
 
 {-| -}
-singleRoute : Handler (DataSource Response) (List String) -> Done Response
-singleRoute handler =
+single : Handler (DataSource Response) (List String) -> Done Response
+single handler =
     handler
         |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
 

@@ -99,7 +99,7 @@ routes getStaticRoutes htmlToString =
                 )
         )
         |> ApiRoute.literal "sitemap.xml"
-        |> ApiRoute.singleRoute
+        |> ApiRoute.single
     ]
 
 
@@ -154,4 +154,4 @@ rss options itemsRequest =
                 )
         )
         |> ApiRoute.literal "blog/feed.xml"
-        |> ApiRoute.singleRoute
+        |> ApiRoute.single

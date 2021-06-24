@@ -33,7 +33,7 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.singleRoute
+    Page.single
         { head = head
         , data = data
         }

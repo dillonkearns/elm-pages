@@ -553,7 +553,7 @@ routePatterns =
             |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
         )
         |> ApiRoute.literal "route-patterns.json"
-        |> ApiRoute.singleRoute
+        |> ApiRoute.single
 
 
 routePatterns2 : List String
@@ -610,7 +610,7 @@ manifestHandler =
                 )
         )
         |> ApiRoute.literal "manifest.json"
-        |> ApiRoute.singleRoute
+        |> ApiRoute.single
 
 
 manifestToFile : String -> Manifest.Config -> { body : String }

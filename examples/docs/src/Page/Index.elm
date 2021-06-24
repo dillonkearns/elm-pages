@@ -63,7 +63,7 @@ type alias Data =
 
 page : Page RouteParams Data
 page =
-    Page.singleRoute
+    Page.single
         { head = head
         , data = data
         }
@@ -147,7 +147,7 @@ type alias RouteParams = { name : String }
 
 page : Page RouteParams Data
 page =
-    Page.prerenderedRoute
+    Page.prerender
         { head = head
         , routes = routes
         , data = data
