@@ -141,10 +141,13 @@ page =
         |> Page.buildNoState { view = view }
 
 
+type alias Data =
+    ()
+
+
 data : DataSource Data
 data =
     DataSource.succeed ()
-
 
 
 head :
@@ -165,10 +168,6 @@ head static =
         , title = "TODO title" -- metadata.title -- TODO
         }
         |> Seo.website
-
-
-type alias Data =
-    ()
 
 
 view :
