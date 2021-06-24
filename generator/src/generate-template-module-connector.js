@@ -10,7 +10,7 @@ function generateTemplateModuleConnector(phase) {
   const templates = globby.sync(["src/Page/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("src/Page/**/*.elm", file);
     if (captures) {
-      return path.join(captures[0], captures[1]).split("/");
+      return path.join(captures[0], captures[1]).split(path.sep);
     } else {
       return [];
     }
