@@ -1,67 +1,33 @@
 import userInit from "/index.js";
 
-let prefetchedPages;
-let initialLocationHash;
+let prefetchedPages = [window.location.pathname];
+let initialLocationHash = document.location.hash.replace(/^#/, "");
 
 /**
- *
- * @param { {mainElmModule: {init : any }}} mainElmModule
  * @returns
  */
-function pagesInit({ mainElmModule }) {
-  prefetchedPages = [window.location.pathname];
-  initialLocationHash = document.location.hash.replace(/^#/, "");
-
-  return new Promise(function (resolve, reject) {
-    document.addEventListener("DOMContentLoaded", (_) => {
-      loadContentAndInitializeApp(mainElmModule).then(resolve, reject);
-    });
-  });
-}
-
-function getContentJsonPromise(path) {
-  return new Promise((resolve, reject) => {
-    if (window.__elmPagesContentJson__) {
-      console.log("GOT content.json from window");
-      resolve(window.__elmPagesContentJson__);
-    } else {
-      return httpGet(`${window.location.origin}${path}content.json`);
-    }
-  });
-}
-
-/**
- *
- * @param { {init : any }} mainElmModule
- * @returns
- */
-function loadContentAndInitializeApp(mainElmModule) {
+function loadContentAndInitializeApp() {
   let path = window.location.pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
     path = path + "/";
   }
-
-  return Promise.all([getContentJsonPromise(path)]).then(function (
-    /** @type {[JSON]} */ [contentJson]
-  ) {
-    const app = mainElmModule.init({
-      flags: {
-        secrets: null,
-        baseUrl: document.baseURI,
-        isPrerendering: false,
-        isDevServer: false,
-        isElmDebugMode: false,
-        contentJson,
-        userFlags: userInit.flags(),
-      },
-    });
-
-    app.ports.toJsPort.subscribe((fromElm) => {
-      loadNamedAnchor();
-    });
-
-    return app;
+  const app = Elm.TemplateModulesBeta.init({
+    flags: {
+      secrets: null,
+      baseUrl: document.baseURI,
+      isPrerendering: false,
+      isDevServer: false,
+      isElmDebugMode: false,
+      contentJson: window.__elmPagesContentJson__,
+      userFlags: userInit.flags(),
+    },
   });
+
+  app.ports.toJsPort.subscribe((fromElm) => {
+    loadNamedAnchor();
+  });
+
+  return app;
 }
 
 function loadNamedAnchor() {
@@ -72,46 +38,27 @@ function loadNamedAnchor() {
 }
 
 function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
-  if (target.host === window.location.host) {
-    if (prefetchedPages.includes(target.pathname)) {
-      // console.log("Already preloaded", target.href);
-      // console.log("Not a known route, skipping preload", target.pathname);
-    } else if (
-      // !allRoutes.includes(new URL(target.pathname, document.baseURI).href)
-      false
-    ) {
-    } else {
-      prefetchedPages.push(target.pathname);
-      // console.log("Preloading...", target.pathname);
-      const link = document.createElement("link");
-      link.setAttribute("as", "fetch");
+  if (
+    target.host === window.location.host &&
+    !prefetchedPages.includes(target.pathname)
+  ) {
+    prefetchedPages.push(target.pathname);
+    console.log("Preloading...", target.pathname);
+    const link = document.createElement("link");
+    link.setAttribute("as", "fetch");
 
-      link.setAttribute("rel", "prefetch");
-      link.setAttribute("href", origin + target.pathname + "/content.json");
-      document.head.appendChild(link);
-    }
+    link.setAttribute("rel", "prefetch");
+    link.setAttribute("href", origin + target.pathname + "/content.json");
+    document.head.appendChild(link);
   }
 }
 
-function httpGet(/** @type string */ theUrl) {
-  return new Promise(function (resolve, reject) {
-    const xmlHttp = new XMLHttpRequest();
-    xmlHttp.onreadystatechange = function () {
-      if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-        resolve(JSON.parse(xmlHttp.responseText));
-    };
-    xmlHttp.onerror = reject;
-    xmlHttp.open("GET", theUrl, true); // true for asynchronous
-    xmlHttp.send(null);
+const appPromise = new Promise(function (resolve, reject) {
+  document.addEventListener("DOMContentLoaded", (_) => {
+    resolve(loadContentAndInitializeApp());
   });
-}
+});
 
-const appPromise = pagesInit(
-  {
-    mainElmModule: Elm.TemplateModulesBeta,
-  },
-  {}
-);
 userInit.load(appPromise);
 
 if (typeof connect === "function") {
@@ -126,9 +73,7 @@ if (typeof connect === "function") {
 const trigger_prefetch = (event) => {
   const a = find_anchor(/** @type {Node} */ (event.target));
   if (a && a.href && a.hasAttribute("elm-pages:prefetch")) {
-    console.log("PREFETCH", a.href);
     prefetchIfNeeded(a);
-    // this.prefetch(new URL(/** @type {string} */ (a.href)));
   }
 };
 
@@ -153,6 +98,5 @@ addEventListener("mousemove", handle_mousemove);
  */
 function find_anchor(node) {
   while (node && node.nodeName.toUpperCase() !== "A") node = node.parentNode; // SVG <a> elements have a lowercase name
-  // return /** @type {HTMLAnchorElement | SVGAElement} */ (node);
   return /** @type {HTMLAnchorElement} */ (node);
 }
