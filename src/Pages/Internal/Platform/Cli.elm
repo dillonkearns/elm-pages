@@ -811,7 +811,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         thing =
                                                             apiHandler.matchesToResponse path
                                                     in
-                                                    StaticHttpRequest.resolve ApplicationType.Browser
+                                                    StaticHttpRequest.resolve ApplicationType.Cli
                                                         thing
                                                         model.allRawResponses
                                                         |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
