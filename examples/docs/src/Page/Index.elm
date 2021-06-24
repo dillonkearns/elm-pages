@@ -194,7 +194,7 @@ all =
     Glob.succeed
         (\\projectName filePath ->
             DataSource.map2 (Project projectName)
-                (DataSource.File.request filePath DataSource.File.body)
+                (DataSource.File.rawFile filePath DataSource.File.body)
                 (repo projectName)
         )
         |> Glob.match (Glob.literal "projects/")
