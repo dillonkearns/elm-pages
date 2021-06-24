@@ -169,7 +169,7 @@ head static =
         , image =
             { url =
                 Pages.Url.external <|
-                    "https://cards.microlink.io/editor?preset=contentz&title=elm-pages+docs&description="
+                    "https://i.microlink.io/https%3A%2F%2Fcards.microlink.io%2F%3Fpreset%3Dcontentz%26title%3Delm-pages%2Bdocs%26description%3D"
                         ++ Url.percentEncode static.data.titles.title
             , alt = "elm-pages docs section title"
             , dimensions = Nothing
