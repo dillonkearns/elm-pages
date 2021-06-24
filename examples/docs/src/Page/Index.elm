@@ -470,6 +470,7 @@ firstSection info =
                     [ css
                         [ Tw.pl_4
                         , Tw.neg_mr_48
+                        , Tw.pb_12
                         , Bp.lg
                             [ Tw.px_0
                             , Tw.m_0
