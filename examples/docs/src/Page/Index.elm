@@ -2,19 +2,16 @@ module Page.Index exposing (Data, Model, Msg, page)
 
 import Css
 import DataSource exposing (DataSource)
-import DataSource.Http
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Link
-import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Route exposing (Route)
-import Secrets
 import Shared
 import SiteOld
 import Svg.Styled exposing (path, svg)
@@ -99,7 +96,6 @@ view maybeUrl sharedModel static =
     { title = "elm-pages - a statically typed site generator" -- metadata.title -- TODO
     , body =
         [ landingView
-        , gradientFeatures
         ]
     }
 
@@ -135,7 +131,7 @@ landingView =
             []
         , firstSection
             { heading = "Pull in typed Elm data to your pages"
-            , body = "Whether your data is coming from markdown files, APIs, a CMS, or all of the above, elm-pages lets you pull in just the data you need for a page."
+            , body = "Whether your data is coming from markdown files, APIs, a CMS, or all of the above, elm-pages lets you pull in just the data you need for a page. No loading spinners, no Msg or update logic, just define your data and use it in your view."
             , buttonText = "Check out the Docs"
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , svgIcon = "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
@@ -247,82 +243,46 @@ head static =
 
 """ )
             }
-        ]
+        , firstSection
+            { heading = "Optimized Data"
+            , body = "Make sure your site previews look polished with the type-safe SEO API. elm-pages build pre-renders HTML for your pages. And your SEO tags get access to the page's DataSources."
+            , buttonText = "Learn about OptimizedDecoders"
+            , buttonLink = Route.Docs__Section__ { section = Nothing }
+            , svgIcon = "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            , code =
+                ( "src/Page/Blog/Slug_.elm", """import OptimizedDecoder
+
+data : RouteParams -> DataSource Data
+data routeParams =
+    DataSource.Http.get
+        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        (OptimizedDecoder.field "stargazer_count" OptimizedDecoder.int)
 
 
-gradientFeatures : Html msg
-gradientFeatures =
-    div
-        [ css
-            [ Tw.bg_gradient_to_r
-            , Tw.from_blue_800
-            , Tw.to_blue_900
-            ]
-        ]
-        [ div
-            [ css
-                [ Tw.max_w_4xl
-                , Tw.mx_auto
-                , Tw.px_4
-                , Tw.py_16
-                , Bp.lg
-                    [ Tw.max_w_7xl
-                    , Tw.pt_24
-                    , Tw.px_8
-                    ]
-                , Bp.sm
-                    [ Tw.px_6
-                    , Tw.pt_20
-                    , Tw.pb_24
-                    ]
-                ]
-            ]
-            [ h2
-                [ css
-                    [ Tw.text_3xl
-                    , Tw.font_extrabold
-                    , Tw.text_white
-                    , Tw.tracking_tight
-                    ]
-                ]
-                [ text "Inbox support built for efficiency" ]
-            , p
-                [ css
-                    [ Tw.mt_4
-                    , Tw.max_w_3xl
-                    , Tw.text_lg
-                    , Tw.text_purple_200
-                    ]
-                ]
-                [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis. Blandit aliquam sit nisl euismod mattis in." ]
-            , div
-                [ css
-                    [ Tw.mt_12
-                    , Tw.grid
-                    , Tw.grid_cols_1
-                    , Tw.gap_x_6
-                    , Tw.gap_y_12
-                    , Bp.lg
-                        [ Tw.mt_16
-                        , Tw.grid_cols_4
-                        , Tw.gap_x_8
-                        , Tw.gap_y_16
-                        ]
-                    , Bp.sm
-                        [ Tw.grid_cols_2
-                        ]
-                    ]
-                ]
-                [ gridEntry
-                , gridEntry
-                , gridEntry
-                , gridEntry
-                , gridEntry
-                , gridEntry
-                , gridEntry
-                , gridEntry
-                ]
-            ]
+{-
+Full API response from https://api.github.com/repos/dillonkearns/elm-pages
+{
+    "id": 198527910,
+    "node_id": "MDEwOlJlcG9zaXRvcnkxOTg1Mjc5MTA=",
+    "name": "elm-pages",
+    "full_name": "dillonkearns/elm-pages",
+    "private": false,
+    "owner": { ... },
+    .....
+    "stargazers_count": 394,
+    .....
+}
+
+Optimized data for initial page load:
+
+{
+    "stargazers_count": 394
+}
+
+-}
+
+            """ )
+            }
         ]
 
 
@@ -488,68 +448,5 @@ firstSection info =
                     [ CodeTab.view info.code
                     ]
                 ]
-            ]
-        ]
-
-
-gridEntry : Html msg
-gridEntry =
-    div []
-        [ div []
-            [ span
-                [ css
-                    [ Tw.flex
-                    , Tw.items_center
-                    , Tw.justify_center
-                    , Tw.h_12
-                    , Tw.w_12
-                    , Tw.rounded_md
-                    , Tw.bg_white
-                    , Tw.bg_opacity_10
-                    ]
-                ]
-                [ {- Heroicon name: outline/inbox -}
-                  svg
-                    [ SvgAttr.css
-                        [ Tw.h_6
-                        , Tw.w_6
-                        , Tw.text_white
-                        ]
-                    , SvgAttr.fill "none"
-                    , SvgAttr.viewBox "0 0 24 24"
-                    , SvgAttr.stroke "currentColor"
-                    , Attr.attribute "aria-hidden" "true"
-                    ]
-                    [ path
-                        [ SvgAttr.strokeLinecap "round"
-                        , SvgAttr.strokeLinejoin "round"
-                        , SvgAttr.strokeWidth "2"
-                        , SvgAttr.d "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                        ]
-                        []
-                    ]
-                ]
-            ]
-        , div
-            [ css
-                [ Tw.mt_6
-                ]
-            ]
-            [ h3
-                [ css
-                    [ Tw.text_lg
-                    , Tw.font_medium
-                    , Tw.text_white
-                    ]
-                ]
-                [ text "Unlimited Inboxes" ]
-            , p
-                [ css
-                    [ Tw.mt_2
-                    , Tw.text_base
-                    , Tw.text_purple_200
-                    ]
-                ]
-                [ text "Ac tincidunt sapien vehicula erat auctor pellentesque rhoncus. Et magna sit morbi lobortis." ]
             ]
         ]
