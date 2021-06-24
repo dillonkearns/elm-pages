@@ -3,6 +3,7 @@ module NextPrevious exposing (..)
 import Css
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
+import Route
 import Serialize as S
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
@@ -10,14 +11,14 @@ import Tailwind.Utilities as Tw
 
 
 type alias Item =
-    { title : String, url : String }
+    { title : String, slug : String }
 
 
-serialize : S.Codec Never { title : String, url : String }
+serialize : S.Codec Never { title : String, slug : String }
 serialize =
     S.record Item
         |> S.field .title S.string
-        |> S.field .url S.string
+        |> S.field .slug S.string
         |> S.finishRecord
 
 
@@ -40,10 +41,9 @@ view ( maybeLeft, maybeRight ) =
                 |> Maybe.map
                     (\left ->
                         div []
-                            [ a
+                            [ link (Route.Docs__Section__ { section = Just left.slug })
                                 [ linkStyle
                                 , Attr.title left.title
-                                , Attr.href left.url
                                 ]
                                 [ leftArrow
                                 , text left.title
@@ -55,10 +55,9 @@ view ( maybeLeft, maybeRight ) =
                 |> Maybe.map
                     (\right ->
                         div []
-                            [ a
+                            [ link (Route.Docs__Section__ { section = Just right.slug })
                                 [ linkStyle
                                 , Attr.title right.title
-                                , Attr.href right.url
                                 ]
                                 [ text right.title
                                 , rightArrow
@@ -68,6 +67,17 @@ view ( maybeLeft, maybeRight ) =
                 |> Maybe.withDefault empty
             ]
         ]
+
+
+link : Route.Route -> List (Attribute msg) -> List (Html msg) -> Html msg
+link route attrs children =
+    Route.toLink
+        (\anchorAttrs ->
+            a
+                (List.map Attr.fromUnstyled anchorAttrs ++ attrs)
+                children
+        )
+        route
 
 
 empty =

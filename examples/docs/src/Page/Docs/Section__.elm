@@ -141,7 +141,7 @@ titleForSection section =
                                         Block.Heading Block.H1 inlines ->
                                             Just
                                                 { title = Block.extractInlineText inlines
-                                                , url = "/docs/" ++ section.slug
+                                                , slug = section.slug
                                                 }
 
                                         _ ->
