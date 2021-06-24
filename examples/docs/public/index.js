@@ -2,10 +2,11 @@
 
 /** @type ElmPagesInit */
 export default {
-  load: function (elmLoaded) {
-    document.addEventListener("DOMContentLoaded", function (event) {});
+  load: async function (elmLoaded) {
+    const app = await elmLoaded;
+    // console.log("App loaded", app);
   },
   flags: function () {
-    return "Hello from flags!";
+    return "You can decode this in Shared.elm using Json.Decode.string!";
   },
 };
