@@ -35,7 +35,6 @@ module.exports =
 import userInit from"/index.js";
 ${elmPagesJsMinified}
     </script>
-    <script id="__ELM_PAGES_DATA__" type="application/json">${contentJsonString}</script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
     <link rel="manifest" href="manifest.json">
@@ -44,6 +43,7 @@ ${elmPagesJsMinified}
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     ${seoData.headTags}
+    <script id="__ELM_PAGES_DATA__" type="application/json">${contentJsonString}</script>
     </head>
     <body>
       <div data-url="" display="none"></div>
