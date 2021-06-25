@@ -247,6 +247,7 @@ view maybeUrl sharedModel static =
                                 ]
                                 [ Html.a
                                     [ Attr.href static.data.editUrl
+                                    , Attr.rel "noopener"
                                     , Attr.target "_blank"
                                     , css
                                         [ Tw.text_sm
