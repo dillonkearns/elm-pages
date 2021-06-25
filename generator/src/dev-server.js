@@ -1,5 +1,4 @@
 const path = require("path");
-const url = require("url");
 const fs = require("fs");
 const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
@@ -21,9 +20,6 @@ async function start(options) {
   const serve = serveStatic("public/", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
   fs.mkdirSync(generatedFilesDirectory, { recursive: true });
-  const serveGeneratedFiles = serveStatic(generatedFilesDirectory, {
-    index: false,
-  });
   const serveStaticCode = serveStatic(
     path.join(__dirname, "../static-code"),
     {}
