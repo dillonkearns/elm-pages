@@ -8,6 +8,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "MartinSStewart/elm-serialize": "1.2.5",
             "avh4/elm-color": "1.0.0",
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "1.0.1",
@@ -26,6 +27,8 @@
             "zwilias/json-decode-exploration": "6.0.0"
         },
         "indirect": {
+            "bburdette/toop": "1.0.1",
+            "danfishgold/base64-bytes": "1.1.0",
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
