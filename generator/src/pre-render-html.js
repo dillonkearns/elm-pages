@@ -9,42 +9,24 @@ module.exports =
   /**
    * @param {Arg} fromElm
    * @param {string} contentJsonString
-   * @returns
+   * @param {boolean} devServer
+   * @returns {string}
    */
-  function wrapHtml(fromElm, contentJsonString) {
+  function wrapHtml(fromElm, contentJsonString, devServer) {
+    const devServerOnly = (/** @type {string} */ devServerOnlyString) =>
+      devServer ? devServerOnlyString : "";
     const seoData = seo.gather(fromElm.head);
     /*html*/
     return `<!DOCTYPE html>
   ${seoData.rootElement}
   <head>
-    <link rel="stylesheet" href="/style.css"></link>
-    <style>
-@keyframes lds-default {
-    0%, 20%, 80%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.5);
-    }
-  }
-
-#not-found-reason code {
-  color: rgb(226, 0, 124);
-}
-
-#not-found-reason h1 {
-  font-size: 26px;
-  font-weight: bold;
-  padding-bottom: 15px;
-}
-
-#not-found-reason a:hover {
-  text-decoration: underline;
-}
-    </style>
+    <link rel="stylesheet" href="/style.css">
+    ${devServerOnly(devServerStyleTag())}
     <link rel="preload" href="/elm.js" as="script">
     <link rel="modulepreload" href="/index.js">
-    <script defer="defer" src="/hmr.js" type="text/javascript"></script>
+    ${devServerOnly(
+      /* html */ `<script defer="defer" src="/hmr.js" type="text/javascript"></script>`
+    )}
     <script defer="defer" src="/elm.js" type="text/javascript"></script>
     <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
@@ -61,7 +43,6 @@ ${elmPagesJsMinified}
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
     ${seoData.headTags}
     </head>
     <body>
@@ -98,4 +79,32 @@ function pathToRoot(cleanedRoute) {
         .map((_) => "..")
         .join("/")
         .replace(/\.$/, "./");
+}
+
+function devServerStyleTag() {
+  /*html*/
+  return `<style>
+@keyframes lds-default {
+    0%, 20%, 80%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.5);
+    }
+  }
+
+#not-found-reason code {
+  color: rgb(226, 0, 124);
+}
+
+#not-found-reason h1 {
+  font-size: 26px;
+  font-weight: bold;
+  padding-bottom: 15px;
+}
+
+#not-found-reason a:hover {
+  text-decoration: underline;
+}
+</style>`;
 }

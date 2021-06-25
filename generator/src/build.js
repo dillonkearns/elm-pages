@@ -1,13 +1,11 @@
-const cliVersion = require("../../package.json").version;
 const fs = require("./dir-helpers.js");
 const path = require("path");
-const seo = require("./seo-renderer.js");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const terser = require("terser");
 const matter = require("gray-matter");
 const globby = require("globby");
-const elmPagesJsMinified = require("./elm-pages-js-minified.js");
+const preRenderHtml = require("./pre-render-html.js");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -162,7 +160,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   });
   fs.writeFile(
     `dist/${normalizedRoute}/index.html`,
-    wrapHtml(args, contentJsonString)
+    preRenderHtml(args, contentJsonString, false)
   );
   fs.writeFile(`dist/${normalizedRoute}/content.json`, contentJsonString);
 }
@@ -316,43 +314,6 @@ async function compileCliApp(options) {
  * @param {string} contentJsonString
  * @returns {string}
  */
-function wrapHtml(fromElm, contentJsonString) {
-  const seoData = seo.gather(fromElm.head);
-  /*html*/
-  return `<!DOCTYPE html>
-  ${seoData.rootElement}
-  <head>
-    <link rel="stylesheet" href="/style.css">
-    <link rel="preload" href="/elm-pages.js" as="script">
-    <link rel="modulepreload" href="/index.js">
-    <link rel="preload" href="/elm.js" as="script">
-    <script defer="defer" src="/elm.js" type="text/javascript"></script>
-    <script src="/elm-pages.js" type="module"></script>
-    <base href="${baseRoute(fromElm.route)}">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <script>
-import userInit from"/index.js";
-window.__elmPagesContentJson__ = ${contentJsonString}
-${elmPagesJsMinified}
-    </script>
-    <title>${fromElm.title}</title>
-    <meta name="generator" content="elm-pages v${cliVersion}">
-    <link rel="manifest" href="manifest.json">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#ffffff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    ${seoData.headTags}
-    </head>
-    <body>
-      <div data-url="" display="none"></div>
-      ${fromElm.html}
-    </body>
-  </html>
-  `;
-}
 
 module.exports = { run };
 

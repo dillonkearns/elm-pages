@@ -169,7 +169,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(args, contentJsonString),
+    htmlString: preRenderHtml(args, contentJsonString, true),
     kind: "html",
   };
 }
