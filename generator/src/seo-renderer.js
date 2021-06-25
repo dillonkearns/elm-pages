@@ -52,7 +52,7 @@ function toString(/** @type { SeoTag[] }  */ tags) {
         throw new Error(`Unknown tag type ${JSON.stringify(headTag)}`);
       }
     })
-    .join("\n");
+    .join("");
 }
 
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
