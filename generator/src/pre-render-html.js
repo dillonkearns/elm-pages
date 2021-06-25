@@ -33,9 +33,9 @@ module.exports =
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script type="module">
 import userInit from"/index.js";
-window.__elmPagesContentJson__ = ${contentJsonString}
 ${elmPagesJsMinified}
     </script>
+    <script id="__ELM_PAGES_DATA__" type="application/json">${contentJsonString}</script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
     <link rel="manifest" href="manifest.json">
