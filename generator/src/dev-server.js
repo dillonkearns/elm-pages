@@ -171,8 +171,12 @@ async function start(options) {
         if (dataSourceKey.includes(`file://${changedPathRelative}`)) {
           delete global.staticHttpCache[dataSourceKey];
         } else if (
-          eventName === "add" ||
-          (eventName === "unlink" && dataSourceKey.startsWith("glob://"))
+          (eventName === "add" ||
+            eventName === "unlink" ||
+            eventName === "change" ||
+            eventName === "addDir" ||
+            eventName === "unlinkDir") &&
+          dataSourceKey.startsWith("glob://")
         ) {
           delete global.staticHttpCache[dataSourceKey];
         }
