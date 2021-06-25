@@ -40,11 +40,16 @@ function parseMsg(msg) {
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
 const restoreColor = (error) => {
-  return JSON.parse(error)
-    .errors.map(({ problems, path }) =>
-      problems.map(restoreProblem(path)).join("\n\n\n")
-    )
-    .join("\n\n\n\n\n");
+  console.log(error);
+  try {
+    return JSON.parse(error)
+      .errors.map(({ problems, path }) =>
+        problems.map(restoreProblem(path)).join("\n\n\n")
+      )
+      .join("\n\n\n\n\n");
+  } catch (error) {
+    return error.toString();
+  }
 };
 
 /**
@@ -52,7 +57,9 @@ const restoreColor = (error) => {
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
-const restoreProblem = (path) => ({ title, message }) =>
-  [parseHeader(title, path), ...message.map(parseMsg)].join("");
+const restoreProblem =
+  (path) =>
+  ({ title, message }) =>
+    [parseHeader(title, path), ...message.map(parseMsg)].join("");
 
 module.exports = { restoreColor };
