@@ -4,21 +4,17 @@ import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource exposing (DataSource)
-import DataSource.File as StaticFile
 import Date exposing (Date)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Markdown.Parser
-import Markdown.Renderer
 import MarkdownCodec
 import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
-import Serialize as S
 import Shared
 import SiteOld
 import StructuredData
