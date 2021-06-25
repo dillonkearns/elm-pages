@@ -7,6 +7,7 @@ const codegen = require("./codegen.js");
 const terser = require("terser");
 const matter = require("gray-matter");
 const globby = require("globby");
+const elmPagesJsMinified = require("./elm-pages-js-minified.js");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -323,7 +324,7 @@ function wrapHtml(fromElm, contentJsonString) {
   <head>
     <link rel="stylesheet" href="/style.css">
     <link rel="preload" href="/elm-pages.js" as="script">
-    <link rel="preload" href="/index.js" as="script">
+    <link rel="modulepreload" href="/index.js">
     <link rel="preload" href="/elm.js" as="script">
     <script defer="defer" src="/elm.js" type="text/javascript"></script>
     <script src="/elm-pages.js" type="module"></script>
@@ -331,16 +332,9 @@ function wrapHtml(fromElm, contentJsonString) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) {
-            registration.unregister()
-          } 
-        })
-      });
-    }
-    window.__elmPagesContentJson__ = ${contentJsonString}
+import userInit from"/index.js";
+window.__elmPagesContentJson__ = ${contentJsonString}
+${elmPagesJsMinified}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">

@@ -6,6 +6,7 @@ const seo = require("./seo-renderer.js");
 const matter = require("gray-matter");
 const globby = require("globby");
 const fsPromises = require("fs").promises;
+const elmPagesJsMinified = require("./elm-pages-js-minified.js");
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -252,28 +253,18 @@ function wrapHtml(fromElm, contentJsonString) {
 #not-found-reason a:hover {
   text-decoration: underline;
 }
-
     </style>
-    <link rel="preload" href="/elm-pages.js" as="script">
-    <link rel="preload" href="/index.js" as="script">
     <link rel="preload" href="/elm.js" as="script">
+    <link rel="modulepreload" href="/index.js">
     <script defer="defer" src="/hmr.js" type="text/javascript"></script>
     <script defer="defer" src="/elm.js" type="text/javascript"></script>
-    <script defer="defer" src="/elm-pages.js" type="module"></script>
     <base href="${baseRoute(fromElm.route)}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) {
-            registration.unregister()
-          } 
-        })
-      });
-    }
-    window.__elmPagesContentJson__ = ${contentJsonString}
+    <script type="module">
+import userInit from"/index.js";
+window.__elmPagesContentJson__ = ${contentJsonString}
+${elmPagesJsMinified}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
