@@ -47,3 +47,45 @@ Elm combined with a build phase, like `elm-pages` provides, is an incredible com
 ## Easier wiring
 
 Elm's sound type system, immutability, and explicitness (no magic) make it very easy to trace code. With `elm-pages`, you get those same benefits for reasoning about your code, but the abstraction of a `DataSource` gives you a declarative way to wire in that type-safe data with a lot less wiring.
+
+## Optimizing Data
+
+Because we write our JSON decoders explicitly in Elm, we can use the step of building up a Decoder to also keep track of which fields are used, then discard all unused data in our build step. This is exactly what the `OptimizedDecoder` API does in `elm-pages`. This also has the benefit that any sensitive data that comes back from an API response can only end up on a pre-rendered page if we explicitly include it in our JSON decoder, because we're not pulling in full API responses, we're pulling in just the data we decode from our API responses.
+
+Note: this is only for build-time data. Since there's a build step, and we're including our `DataSource`s on the page during this stage, we know at build time exactly what data we will use. At runtime, `elm-pages` gives you a regular Elm app, so you can pull in any data you want dynamically at runtime and it works exactly as it would in a vanilla Elm app.
+
+## Nice APIs for extracting the data you need
+
+I really enjoy working with data in Elm because you can think of individual parts independently, and compose them together. You can split off the data you want in a type-safe way.
+
+Take regex captures, for example.
+
+```js
+const regexpSize = /([0-9]+)×([0-9]+)/;
+const match = imageDescription.match(regexpSize);
+console.log(`Width: ${match[1]} / Height: ${match[2]}.`);
+```
+
+This is pretty quick to write, but becomes hard to maintain over time.
+
+In `elm-pages`, we could grab all of our blog post markdown files in our `my-blog-posts` folder, and we can also
+
+```elm
+blogPosts
+    Glob.succeed (\slug -> Route.Blog__Slug_ { slug = slug })
+        |> Glob.match (Glob.literal "my-blog-posts/")
+        |> Glob.capture Glob.wildcard
+        |> Glob.match (Glob.literal ".md")
+        |> Glob.toDataSource
+```
+
+If our filenames are in `snake_case`, but we want our URL slugs in `kebab-case`, then we could transform it in-place
+
+```elm
+blogPosts
+    Glob.succeed (\slug -> Route.Blog__Slug_ { slug = slug })
+        |> Glob.match (Glob.literal "my-blog-posts/")
+        |> Glob.capture (snakeCaseToKebabCase Glob.wildcard)
+        |> Glob.match (Glob.literal ".md")
+        |> Glob.toDataSource
+```
