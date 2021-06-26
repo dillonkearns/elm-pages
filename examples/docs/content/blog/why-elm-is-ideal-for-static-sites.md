@@ -71,7 +71,7 @@ This is pretty quick to write, but becomes hard to maintain over time.
 In `elm-pages`, we could grab all of our blog post markdown files in our `my-blog-posts` folder, and we can also
 
 ```elm
-blogPosts
+blogPosts =
     Glob.succeed (\slug -> Route.Blog__Slug_ { slug = slug })
         |> Glob.match (Glob.literal "my-blog-posts/")
         |> Glob.capture Glob.wildcard
@@ -82,10 +82,10 @@ blogPosts
 If our filenames are in `snake_case`, but we want our URL slugs in `kebab-case`, then we could transform it in-place
 
 ```elm
-blogPosts
+blogPosts =
     Glob.succeed (\slug -> Route.Blog__Slug_ { slug = slug })
         |> Glob.match (Glob.literal "my-blog-posts/")
-        |> Glob.capture (snakeCaseToKebabCase Glob.wildcard)
+        |> Glob.capture (Glob.map snakeCaseToKebabCase Glob.wildcard)
         |> Glob.match (Glob.literal ".md")
         |> Glob.toDataSource
 ```
