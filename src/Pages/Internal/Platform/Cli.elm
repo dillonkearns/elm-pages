@@ -512,6 +512,7 @@ update contentCache config msg model =
 
                                                 -- TODO include HTTP method, headers, and body
                                                 , Terminal.yellow <| Terminal.text request.masked.url
+                                                , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode request.masked.body
                                                 , Terminal.text "\n\n"
                                                 , case error of
                                                     Pages.Http.BadStatus metadata body ->
