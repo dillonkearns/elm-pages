@@ -6,6 +6,8 @@ const terser = require("terser");
 const matter = require("gray-matter");
 const globby = require("globby");
 const preRenderHtml = require("./pre-render-html.js");
+const { Worker } = require("worker_threads");
+const { StaticPool } = require("node-worker-threads-pool");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -42,7 +44,20 @@ async function run(options) {
 
 async function runCli(options) {
   await compileCliApp(options);
-  runElmApp();
+  // runElmApp();
+
+  const pool = new StaticPool({
+    size: 8,
+    task: path.join(__dirname, "./render-worker.js"),
+  });
+
+  let pages = JSON.parse(await pool.exec("/all-paths.json"));
+  await Promise.allSettled(
+    pages.map(async (/** @type {string} */ page) => {
+      await pool.exec(page);
+    })
+  );
+  pool.destroy();
 }
 
 function runElmApp() {

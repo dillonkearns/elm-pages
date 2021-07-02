@@ -430,7 +430,7 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , apiRoutes = \\htmlToString -> routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
+        , apiRoutes = \\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
         , pathPatterns = routePatterns3
         }
 
@@ -591,6 +591,31 @@ getStaticRoutes =
           .join("\n        , ")}
         ]
         |> DataSource.map List.concat
+
+
+pathsToGenerateHandler : ApiRoute.Done ApiRoute.Response
+pathsToGenerateHandler =
+    ApiRoute.succeed
+        (getStaticRoutes
+            |> DataSource.map
+                (List.map
+                    (\\route ->
+                        route
+                            |> Route.toPath
+                            |> Path.toAbsolute
+                    )
+                )
+            |> DataSource.map
+                (\\list ->
+                    { body =
+                        list
+                            |> Json.Encode.list Json.Encode.string
+                            |> Json.Encode.encode 0
+                    }
+                )
+        )
+        |> ApiRoute.literal "all-paths.json"
+        |> ApiRoute.single
 
 
 manifestHandler : ApiRoute.Done ApiRoute.Response

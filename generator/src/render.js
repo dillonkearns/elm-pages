@@ -63,7 +63,8 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
 
     killApp = () => {
       // app.ports.toJsPort.unsubscribe(portHandler);
-      app.die();
+      // TODO restore die() code after getting worker threads build working
+      // app.die();
       app = null;
       // delete require.cache[require.resolve(compiledElmPath)];
     };
@@ -170,6 +171,7 @@ async function outputString(/** @type { PageProgress } */ fromElm) {
     is404: args.is404,
     route: normalizedRoute,
     htmlString: preRenderHtml(args, contentJsonString, true),
+    contentJson: args.contentJson,
     kind: "html",
   };
 }
