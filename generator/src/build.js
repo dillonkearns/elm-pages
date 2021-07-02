@@ -6,8 +6,8 @@ const terser = require("terser");
 const matter = require("gray-matter");
 const globby = require("globby");
 const preRenderHtml = require("./pre-render-html.js");
-const { Worker } = require("worker_threads");
 const { StaticPool } = require("node-worker-threads-pool");
+const os = require("os");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -45,9 +45,11 @@ async function run(options) {
 async function runCli(options) {
   await compileCliApp(options);
   // runElmApp();
+  const cpuCount = os.cpus().length;
+  console.log("Threads: ", cpuCount);
 
   const pool = new StaticPool({
-    size: 8,
+    size: Math.max(1, cpuCount / 2 - 1),
     task: path.join(__dirname, "./render-worker.js"),
   });
 
