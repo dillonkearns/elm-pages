@@ -310,10 +310,22 @@ async function compileCliApp(options) {
   const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
   await fs.writeFile(
     ELM_FILE_PATH,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return " + (options.debug ? "_Json_wrap(x)" : "x")
-    )
+    elmFileContent
+      .replace(
+        /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+        "return " + (options.debug ? "_Json_wrap(x)" : "x")
+      )
+      .replace(
+        "return ports ? { ports: ports } : {};",
+        `const die = function() {
+        managers = null
+        model = null
+        stepper = null
+        ports = null
+      }
+
+      return ports ? { ports: ports, die: die } : { die: die };`
+      )
   );
 }
 

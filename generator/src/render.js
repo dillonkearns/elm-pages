@@ -64,7 +64,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
     killApp = () => {
       // app.ports.toJsPort.unsubscribe(portHandler);
       // TODO restore die() code after getting worker threads build working
-      // app.die();
+      app.die();
       app = null;
       // delete require.cache[require.resolve(compiledElmPath)];
     };
