@@ -2,6 +2,7 @@ const util = require("util");
 const fsSync = require("fs");
 const fs = {
   writeFile: util.promisify(fsSync.writeFile),
+  writeFileSync: fsSync.writeFileSync,
   rm: util.promisify(fsSync.unlinkSync),
   mkdir: util.promisify(fsSync.mkdir),
   readFile: util.promisify(fsSync.readFile),
@@ -61,6 +62,7 @@ async function copyDirNested(src, dest) {
 
 module.exports = {
   writeFile: fs.writeFile,
+  writeFileSync: fs.writeFileSync,
   readFile: fs.readFile,
   readFileSync: fsSync.readFileSync,
   copyFile: fs.copyFile,

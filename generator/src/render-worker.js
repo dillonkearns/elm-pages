@@ -34,8 +34,8 @@ async function outputString(
         is404: args.is404,
         staticData: args.contentJson,
       });
-      fs.writeFile(`dist/${normalizedRoute}/index.html`, args.htmlString);
-      await fs.writeFile(
+      fs.writeFileSync(`dist/${normalizedRoute}/index.html`, args.htmlString);
+      fs.writeFileSync(
         `dist/${normalizedRoute}/content.json`,
         contentJsonString
       );
@@ -45,7 +45,7 @@ async function outputString(
     case "api-response": {
       const body = fromElm.body;
       console.log(`Generated ${pathname}`);
-      await fs.writeFile(path.join("dist", pathname), body);
+      fs.writeFileSync(path.join("dist", pathname), body);
       if (pathname === "/all-paths.json") {
         parentPort.postMessage(body);
       } else {
