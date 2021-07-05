@@ -53,10 +53,12 @@ async function runCli(options) {
     task: path.join(__dirname, "./render-worker.js"),
   });
 
-  let pages = JSON.parse(await pool.exec("/all-paths.json"));
+  let pages = JSON.parse(
+    await pool.exec({ mode: "build", pathname: "/all-paths.json" })
+  );
   await Promise.allSettled(
     pages.map(async (/** @type {string} */ page) => {
-      await pool.exec(page);
+      await pool.exec({ mode: "build", pathname: page });
     })
   );
   pool.destroy();

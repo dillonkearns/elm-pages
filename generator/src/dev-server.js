@@ -2,7 +2,6 @@ const path = require("path");
 const fs = require("fs");
 const chokidar = require("chokidar");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
-const renderer = require("../../generator/src/render");
 const { spawnElmMake, compileElmForBrowser } = require("./compile-elm.js");
 const http = require("http");
 const codegen = require("./codegen.js");
@@ -10,9 +9,16 @@ const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
 const { restoreColor } = require("./error-formatter");
+const { StaticPool } = require("node-worker-threads-pool");
+const os = require("os");
 let Elm;
 
 async function start(options) {
+  const cpuCount = os.cpus().length;
+  const pool = new StaticPool({
+    size: Math.max(1, cpuCount / 2 - 1),
+    task: path.join(__dirname, "./render-worker.js"),
+  });
   const port = options.port;
   global.staticHttpCache = {};
   let elmMakeRunning = true;
@@ -224,15 +230,17 @@ async function start(options) {
     const pathname = urlParts.pathname || "";
     try {
       await pendingCliCompile;
-      const renderResult = await renderer(
-        Elm,
-        pathname,
-        req,
-        function (pattern) {
-          console.log(`Watching data source ${pattern}`);
-          watcher.add(pattern);
-        }
-      );
+      const renderResult = await pool.exec({ mode: "dev-server", pathname });
+      // TODO watch files from lookups in worker threads
+      // const renderResult = await renderer(
+      //   Elm,
+      //   pathname,
+      //   req,
+      //   function (pattern) {
+      //     console.log(`Watching data source ${pattern}`);
+      //     watcher.add(pattern);
+      //   }
+      // );
       const is404 = renderResult.is404;
       switch (renderResult.kind) {
         case "json": {

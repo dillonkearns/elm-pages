@@ -7,8 +7,9 @@ const { parentPort, threadId } = require("worker_threads");
 
 global.staticHttpCache = {};
 
-async function run(pathname) {
-  console.time(pathname);
+async function run({ mode, pathname }) {
+  console.log("Run", { mode, pathname });
+  console.time(`${threadId} ${pathname}`);
   const req = null;
   const renderResult = await renderer(
     Elm,
@@ -16,8 +17,15 @@ async function run(pathname) {
     req,
     function (pattern) {}
   );
-  outputString(renderResult, pathname);
-  console.timeEnd(pathname);
+
+  if (mode === "dev-server") {
+    parentPort.postMessage(renderResult);
+  } else if (mode === "build") {
+    outputString(renderResult, pathname);
+  } else {
+    throw `Unknown mode ${mode}`;
+  }
+  console.timeEnd(`${threadId} ${pathname}`);
 }
 
 async function outputString(
