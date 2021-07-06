@@ -1,5 +1,6 @@
-module Pages.StaticHttp.Request exposing (Request, hash)
+module Pages.StaticHttp.Request exposing (Request, codec, hash)
 
+import Codec exposing (Codec)
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as StaticHttpBody exposing (Body)
 
@@ -26,3 +27,13 @@ hash requestDetails =
 hashHeader : ( String, String ) -> Encode.Value
 hashHeader ( name, value ) =
     Encode.string <| name ++ ": " ++ value
+
+
+codec : Codec Request
+codec =
+    Codec.object Request
+        |> Codec.field "url" .url Codec.string
+        |> Codec.field "method" .method Codec.string
+        |> Codec.field "headers" .headers (Codec.list (Codec.tuple Codec.string Codec.string))
+        |> Codec.field "body" .body StaticHttpBody.codec
+        |> Codec.buildObject

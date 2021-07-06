@@ -1,5 +1,6 @@
-module Pages.Internal.StaticHttpBody exposing (Body(..), encode)
+module Pages.Internal.StaticHttpBody exposing (Body(..), codec, encode)
 
+import Codec exposing (Codec)
 import Json.Encode as Encode
 
 
@@ -31,3 +32,23 @@ encodeWithType typeName otherFields =
     Encode.object <|
         ( "type", Encode.string typeName )
             :: otherFields
+
+
+codec : Codec Body
+codec =
+    Codec.custom
+        (\vEmpty vString vJson value ->
+            case value of
+                EmptyBody ->
+                    vEmpty
+
+                StringBody a b ->
+                    vString a b
+
+                JsonBody body ->
+                    vJson body
+        )
+        |> Codec.variant0 "EmptyBody" EmptyBody
+        |> Codec.variant2 "StringBody" StringBody Codec.string Codec.string
+        |> Codec.variant1 "JsonBody" JsonBody Codec.value
+        |> Codec.buildCustom

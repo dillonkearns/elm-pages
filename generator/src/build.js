@@ -8,6 +8,7 @@ const globby = require("globby");
 const preRenderHtml = require("./pre-render-html.js");
 const { StaticPool } = require("node-worker-threads-pool");
 const os = require("os");
+const { ensureDirSync } = require("./file-helpers.js");
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -25,7 +26,8 @@ const ELM_FILE_PATH = path.join(
 );
 
 async function ensureRequiredDirs() {
-  await fs.tryMkdir(`dist`);
+  ensureDirSync(`dist`);
+  ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
 }
 
 async function run(options) {

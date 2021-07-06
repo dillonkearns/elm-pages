@@ -16,6 +16,7 @@ import Dict exposing (Dict)
 import Head
 import Json.Decode as Decode
 import Json.Encode
+import Pages.StaticHttp.Request
 
 
 type ToJsPayload
@@ -184,6 +185,7 @@ type ToJsSuccessPayloadNewCombined
     | SendApiResponse { body : String, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
+    | DoHttp { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
     | Port String
 
 
@@ -195,7 +197,7 @@ type alias InitialDataRecord =
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\success initialData vReadFile vGlob vSendApiResponse vPort value ->
+        (\success initialData vReadFile vGlob vDoHttp vSendApiResponse vPort value ->
             case value of
                 PageProgress payload ->
                     success payload
@@ -209,6 +211,9 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                 Glob globPattern ->
                     vGlob globPattern
 
+                DoHttp requestUrl ->
+                    vDoHttp requestUrl
+
                 SendApiResponse record ->
                     vSendApiResponse record
 
@@ -219,6 +224,13 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "InitialData" InitialData initialDataCodec
         |> Codec.variant1 "ReadFile" ReadFile Codec.string
         |> Codec.variant1 "Glob" Glob Codec.string
+        |> Codec.variant1 "DoHttp"
+            DoHttp
+            (Codec.object (\masked unmasked -> { masked = masked, unmasked = unmasked })
+                |> Codec.field "masked" .masked Pages.StaticHttp.Request.codec
+                |> Codec.field "unmasked" .unmasked Pages.StaticHttp.Request.codec
+                |> Codec.buildObject
+            )
         |> Codec.variant1 "ApiResponse"
             SendApiResponse
             (Codec.object (\body staticHttpCache statusCode -> { body = body, staticHttpCache = staticHttpCache, statusCode = statusCode })

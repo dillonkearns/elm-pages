@@ -33,6 +33,7 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (Stat
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.ProgramConfig exposing (ProgramConfig)
+import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
@@ -143,6 +144,22 @@ cliApplication config =
                                                             )
                                                             |> Decode.map GotGlob
 
+                                                    "GotHttp" ->
+                                                        Decode.field "data"
+                                                            (Decode.map2
+                                                                (\requests response ->
+                                                                    GotStaticHttpResponse
+                                                                        { request =
+                                                                            { masked = requests.masked
+                                                                            , unmasked = requests.unmasked
+                                                                            }
+                                                                        , response = Ok response
+                                                                        }
+                                                                )
+                                                                (Decode.field "request" requestDecoder)
+                                                                (Decode.field "result" Decode.string)
+                                                            )
+
                                                     _ ->
                                                         Decode.fail "Unhandled msg"
                                             )
@@ -152,6 +169,16 @@ cliApplication config =
                                 |> Result.withDefault Continue
                         )
         }
+
+
+requestDecoder : Decode.Decoder { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
+requestDecoder =
+    (Codec.object (\masked unmasked -> { masked = masked, unmasked = unmasked })
+        |> Codec.field "masked" .masked Pages.StaticHttp.Request.codec
+        |> Codec.field "unmasked" .unmasked Pages.StaticHttp.Request.codec
+        |> Codec.buildObject
+    )
+        |> Codec.decoder
 
 
 gotStaticFileDecoder : Decode.Decoder ( String, Decode.Value )
@@ -248,40 +275,10 @@ perform renderRequest config toJsPort effect =
                     |> Cmd.map never
 
             else
-                Cmd.batch
-                    [ Http.request
-                        { method = unmasked.method
-                        , url = unmasked.url
-                        , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                        , body =
-                            case unmasked.body of
-                                StaticHttpBody.EmptyBody ->
-                                    Http.emptyBody
-
-                                StaticHttpBody.StringBody contentType string ->
-                                    Http.stringBody contentType string
-
-                                StaticHttpBody.JsonBody value ->
-                                    Http.jsonBody value
-                        , expect =
-                            Pages.Http.expectString
-                                (\response ->
-                                    GotStaticHttpResponse
-                                        { request = requests
-                                        , response = response
-                                        }
-                                )
-                        , timeout = Nothing
-                        , tracker = Nothing
-                        }
-                    , toJsPort
-                        (Json.Encode.object
-                            [ ( "command", Json.Encode.string "log" )
-                            , ( "value", Json.Encode.string ("Fetching " ++ unmasked.method ++ " " ++ masked.url) )
-                            ]
-                        )
-                        |> Cmd.map never
-                    ]
+                ToJsPayload.DoHttp { masked = masked, unmasked = unmasked }
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
+                    |> toJsPort
+                    |> Cmd.map never
 
         Effect.SendSinglePage done info ->
             let
@@ -498,7 +495,10 @@ update contentCache config msg model =
                             { model
                                 | pendingRequests =
                                     model.pendingRequests
-                                        |> List.filter (\pending -> pending /= request)
+                                        |> List.filter
+                                            (\pending ->
+                                                pending /= request
+                                            )
                             }
 
                         Err error ->

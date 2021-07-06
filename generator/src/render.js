@@ -5,6 +5,7 @@ const matter = require("gray-matter");
 const globby = require("globby");
 const fsPromises = require("fs").promises;
 const preRenderHtml = require("./pre-render-html.js");
+const { lookupOrPerform } = require("./request-cache.js");
 
 let foundErrors = false;
 process.on("unhandledRejection", (error) => {
@@ -62,8 +63,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
     });
 
     killApp = () => {
-      // app.ports.toJsPort.unsubscribe(portHandler);
-      // TODO restore die() code after getting worker threads build working
+      app.ports.toJsPort.unsubscribe(portHandler);
       app.die();
       app = null;
       // delete require.cache[require.resolve(compiledElmPath)];
@@ -128,6 +128,22 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
             data: { filePath },
           });
         }
+      } else if (fromElm.tag === "DoHttp") {
+        const requestToPerform = fromElm.args[0];
+
+        const responseFilePath = await lookupOrPerform(
+          requestToPerform.unmasked
+        );
+
+        app.ports.fromJsPort.send({
+          tag: "GotHttp",
+          data: {
+            request: requestToPerform,
+            result: (
+              await fsPromises.readFile(responseFilePath, "utf8")
+            ).toString(),
+          },
+        });
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
         addDataSourceWatcher(globPattern);

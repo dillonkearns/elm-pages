@@ -11,9 +11,11 @@ const connect = require("connect");
 const { restoreColor } = require("./error-formatter");
 const { StaticPool } = require("node-worker-threads-pool");
 const os = require("os");
+const { ensureDirSync } = require("./file-helpers.js");
 let Elm;
 
 async function start(options) {
+  ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
   const pool = new StaticPool({
     size: Math.max(1, cpuCount / 2 - 1),

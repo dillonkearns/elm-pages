@@ -8,7 +8,6 @@ const { parentPort, threadId } = require("worker_threads");
 global.staticHttpCache = {};
 
 async function run({ mode, pathname }) {
-  console.log("Run", { mode, pathname });
   console.time(`${threadId} ${pathname}`);
   const req = null;
   const renderResult = await renderer(
