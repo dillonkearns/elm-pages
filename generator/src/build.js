@@ -53,6 +53,7 @@ async function runCli(options) {
   const pool = new StaticPool({
     size: Math.max(1, cpuCount / 2 - 1),
     task: path.join(__dirname, "./render-worker.js"),
+    shareEnv: true,
   });
 
   let pages = JSON.parse(
