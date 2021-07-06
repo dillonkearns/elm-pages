@@ -3,9 +3,10 @@ const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const terser = require("terser");
-const { StaticPool } = require("node-worker-threads-pool");
 const os = require("os");
+const { Worker, SHARE_ENV } = require("worker_threads");
 const { ensureDirSync } = require("./file-helpers.js");
+let pool = [];
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
@@ -41,26 +42,94 @@ async function run(options) {
   await Promise.all([copyDone, cliDone, compileClientDone]);
 }
 
+function initWorker() {
+  return new Promise((resolve, reject) => {
+    let newWorker = {
+      worker: new Worker(path.join(__dirname, "./render-worker.js"), {
+        env: SHARE_ENV,
+      }),
+      ready: false,
+    };
+    newWorker.worker.once("online", () => {
+      console.log(`${newWorker.worker.threadId} ready`);
+      newWorker.ready = true;
+      resolve(newWorker);
+    });
+  });
+}
+
+/**
+ */
+function prepareStaticPathsNew(thread) {
+  return new Promise((resolve, reject) => {
+    thread.ready = false;
+    thread.worker.postMessage({
+      mode: "build",
+      tag: "render",
+      pathname: "/all-paths.json",
+    });
+    thread.worker.once("message", (message) => {
+      resolve(JSON.parse(message));
+      thread.ready = true;
+    });
+  });
+}
+
+function delegateWork(pages) {
+  pool
+    .map((thread) => {
+      return [thread, pages.pop()];
+    })
+    .forEach(async ([threadPromise, nextPage]) => {
+      if (nextPage) {
+        const thread = await threadPromise;
+        thread.ready = false;
+        thread.worker.postMessage({
+          mode: "build",
+          tag: "render",
+          pathname: nextPage,
+        });
+        thread.worker.once("message", (message) => {
+          thread.ready = true;
+          buildNextPage(thread, pages);
+        });
+      }
+    });
+}
+
+function buildNextPage(thread, pages) {
+  let nextPage = pages.pop();
+  if (nextPage) {
+    thread.ready = false;
+    thread.worker.postMessage({
+      mode: "build",
+      tag: "render",
+      pathname: nextPage,
+    });
+    thread.worker.once("message", (message) => {
+      thread.ready = true;
+      buildNextPage(thread, pages);
+    });
+  } else {
+    console.log("@@@ DONE! NO NEXT PAGE!");
+    thread.worker.terminate();
+  }
+}
+
 async function runCli(options) {
   await compileCliApp(options);
   const cpuCount = os.cpus().length;
   console.log("Threads: ", cpuCount);
 
-  const pool = new StaticPool({
-    size: Math.max(1, cpuCount / 2 - 1),
-    task: path.join(__dirname, "./render-worker.js"),
-    shareEnv: true,
-  });
-
-  let pages = JSON.parse(
-    await pool.exec({ mode: "build", pathname: "/all-paths.json" })
-  );
-  await Promise.allSettled(
-    pages.map(async (/** @type {string} */ page) => {
-      await pool.exec({ mode: "build", pathname: page });
-    })
-  );
-  pool.destroy();
+  const getPathsWorker = initWorker();
+  const pagesPromise = getPathsWorker.then(prepareStaticPathsNew);
+  const threadsToCreate = Math.max(1, cpuCount / 2 - 1);
+  pool.push(getPathsWorker);
+  for (let index = 0; index < threadsToCreate - 1; index++) {
+    pool.push(initWorker());
+  }
+  const pages = await pagesPromise;
+  delegateWork(pages);
 }
 
 /**

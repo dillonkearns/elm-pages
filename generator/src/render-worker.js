@@ -8,6 +8,7 @@ const { parentPort, threadId } = require("worker_threads");
 global.staticHttpCache = {};
 
 async function run({ mode, pathname }) {
+  console.log(`${threadId}: Start ${pathname}`);
   console.time(`${threadId} ${pathname}`);
   const req = null;
   const renderResult = await renderer(
@@ -19,6 +20,8 @@ async function run({ mode, pathname }) {
 
   if (mode === "dev-server") {
     parentPort.postMessage(renderResult);
+
+    // parentPort.postMessage({ tag: "done", data: renderResult });
   } else if (mode === "build") {
     outputString(renderResult, pathname);
   } else {
@@ -46,6 +49,7 @@ async function outputString(
         `dist/${normalizedRoute}/content.json`,
         contentJsonString
       );
+      // parentPort.postMessage({ tag: "done" });
       parentPort.postMessage("Success");
       break;
     }
