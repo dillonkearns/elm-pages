@@ -3,9 +3,6 @@ const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const terser = require("terser");
-const matter = require("gray-matter");
-const globby = require("globby");
-const preRenderHtml = require("./pre-render-html.js");
 const { StaticPool } = require("node-worker-threads-pool");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
@@ -67,69 +64,6 @@ async function runCli(options) {
   pool.destroy();
 }
 
-function runElmApp() {
-  process.on("beforeExit", (code) => {
-    if (foundErrors) {
-      process.exitCode = 1;
-    } else {
-    }
-  });
-
-  return new Promise((resolve, _) => {
-    const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
-    const staticHttpCache = {};
-    const app = require(ELM_FILE_PATH).Elm.TemplateModulesBeta.init({
-      flags: { secrets: process.env, mode, staticHttpCache },
-    });
-
-    app.ports.toJsPort.subscribe(async (/** @type { FromElm }  */ fromElm) => {
-      // console.log({ fromElm });
-      if (fromElm.command === "log") {
-        console.log(fromElm.value);
-      } else if (fromElm.tag === "InitialData") {
-        generateFiles(fromElm.args[0].filesToGenerate);
-      } else if (fromElm.tag === "PageProgress") {
-        outputString(fromElm);
-      } else if (fromElm.tag === "ReadFile") {
-        const filePath = fromElm.args[0];
-        try {
-          const fileContents = (await fs.readFile(filePath)).toString();
-          const parsedFile = matter(fileContents);
-          app.ports.fromJsPort.send({
-            tag: "GotFile",
-            data: {
-              filePath,
-              parsedFrontmatter: parsedFile.data,
-              withoutFrontmatter: parsedFile.content,
-              rawFile: fileContents,
-              jsonFile: jsonOrNull(fileContents),
-            },
-          });
-        } catch (error) {
-          app.ports.fromJsPort.send({
-            tag: "BuildError",
-            data: { filePath },
-          });
-        }
-      } else if (fromElm.tag === "Glob") {
-        const globPattern = fromElm.args[0];
-        const matchedPaths = await globby(globPattern);
-
-        app.ports.fromJsPort.send({
-          tag: "GotGlob",
-          data: { pattern: globPattern, result: matchedPaths },
-        });
-      } else if (fromElm.tag === "Errors") {
-        console.error(fromElm.args[0].errorString);
-        foundErrors = true;
-      } else {
-        console.log(fromElm);
-        throw "Unknown port tag.";
-      }
-    });
-  });
-}
-
 /**
  * @param {{ path: string; content: string; }[]} filesToGenerate
  */
@@ -140,51 +74,6 @@ async function generateFiles(filesToGenerate) {
     await fs.tryMkdir(path.dirname(fullPath));
     fs.writeFile(fullPath, content);
   });
-}
-
-/**
- * @param {string} route
- */
-function cleanRoute(route) {
-  return route.replace(/(^\/|\/$)/, "");
-}
-
-/**
- * @param {string} cleanedRoute
- */
-function pathToRoot(cleanedRoute) {
-  return cleanedRoute === ""
-    ? cleanedRoute
-    : cleanedRoute
-        .split("/")
-        .map((_) => "..")
-        .join("/")
-        .replace(/\.$/, "./");
-}
-
-/**
- * @param {string} route
- */
-function baseRoute(route) {
-  const cleanedRoute = cleanRoute(route);
-  return cleanedRoute === "" ? "./" : pathToRoot(route);
-}
-
-async function outputString(/** @type { PageProgress } */ fromElm) {
-  const args = fromElm.args[0];
-  console.log(`Pre-rendered /${args.route}`);
-  const normalizedRoute = args.route.replace(/index$/, "");
-  // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
-  await fs.tryMkdir(`./dist/${normalizedRoute}`);
-  const contentJsonString = JSON.stringify({
-    is404: args.is404,
-    staticData: args.contentJson,
-  });
-  fs.writeFile(
-    `dist/${normalizedRoute}/index.html`,
-    preRenderHtml(args, contentJsonString, false)
-  );
-  fs.writeFile(`dist/${normalizedRoute}/content.json`, contentJsonString);
 }
 
 async function compileElm(options) {
@@ -350,14 +239,3 @@ async function compileCliApp(options) {
  */
 
 module.exports = { run };
-
-/**
- * @param {string} string
- */
-function jsonOrNull(string) {
-  try {
-    return JSON.parse(string);
-  } catch (e) {
-    return { invalidJson: e.toString() };
-  }
-}
