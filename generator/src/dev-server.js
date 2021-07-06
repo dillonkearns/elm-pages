@@ -9,19 +9,16 @@ const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
 const { restoreColor } = require("./error-formatter");
-const { StaticPool } = require("node-worker-threads-pool");
+const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
 let Elm;
+let pool = [];
 
 async function start(options) {
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
-  const pool = new StaticPool({
-    size: Math.max(1, cpuCount / 2 - 1),
-    task: path.join(__dirname, "./render-worker.js"),
-    shareEnv: true,
-  });
+
   const port = options.port;
   global.staticHttpCache = {};
   let elmMakeRunning = true;
@@ -63,6 +60,10 @@ async function start(options) {
         `<http://localhost:${port}>`
       )}`
     );
+    const poolSize = Math.max(1, cpuCount / 2 - 1);
+    for (let index = 0; index < poolSize; index++) {
+      pool.push(initWorker());
+    }
   }
 
   setup();
@@ -223,6 +224,25 @@ async function start(options) {
     );
   }
 
+  function runRenderThread(pathname) {
+    return new Promise((resolve, reject) => {
+      const readyThread = pool.find((thread) => thread.ready);
+      if (readyThread) {
+        readyThread.ready = false;
+        readyThread.worker.postMessage({
+          mode: "dev-server",
+          pathname,
+        });
+        readyThread.worker.once("message", (message) => {
+          readyThread.ready = true;
+          resolve(message);
+        });
+      } else {
+        console.error("TODO - running out of ready threads not yet handled");
+      }
+    });
+  }
+
   /**
    * @param {http.IncomingMessage} req
    * @param {http.ServerResponse} res
@@ -233,7 +253,7 @@ async function start(options) {
     const pathname = urlParts.pathname || "";
     try {
       await pendingCliCompile;
-      const renderResult = await pool.exec({ mode: "dev-server", pathname });
+      const renderResult = await runRenderThread(pathname);
       // TODO watch files from lookups in worker threads
       // const renderResult = await renderer(
       //   Elm,
@@ -285,6 +305,20 @@ async function start(options) {
       }
     }
   }
+}
+
+function initWorker() {
+  let newWorker = {
+    worker: new Worker(path.join(__dirname, "./render-worker.js"), {
+      env: SHARE_ENV,
+    }),
+    ready: false,
+  };
+  newWorker.worker.once("online", () => {
+    console.log(`${newWorker.worker.threadId} ready`);
+    newWorker.ready = true;
+  });
+  return newWorker;
 }
 
 function timeMiddleware() {
