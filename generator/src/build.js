@@ -43,7 +43,6 @@ async function run(options) {
 
 async function runCli(options) {
   await compileCliApp(options);
-  // runElmApp();
   const cpuCount = os.cpus().length;
   console.log("Threads: ", cpuCount);
 
