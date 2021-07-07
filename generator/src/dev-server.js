@@ -1,7 +1,6 @@
 const path = require("path");
 const fs = require("fs");
 const chokidar = require("chokidar");
-const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const { spawnElmMake, compileElmForBrowser } = require("./compile-elm.js");
 const http = require("http");
 const codegen = require("./codegen.js");
@@ -12,7 +11,6 @@ const { restoreColor } = require("./error-formatter");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
-let Elm;
 let pool = [];
 
 async function start(options) {
@@ -78,18 +76,12 @@ async function start(options) {
     watcher.add(sourceDirs);
   }
 
-  function requireUncached() {
-    delete require.cache[require.resolve(compiledElmPath)];
-    Elm = require(compiledElmPath);
-  }
-
   async function compileCliApp() {
     await spawnElmMake(
       ".elm-pages/TemplateModulesBeta.elm",
       "elm.js",
       "elm-stuff/elm-pages/"
     );
-    requireUncached();
   }
 
   const app = connect()
@@ -233,9 +225,16 @@ async function start(options) {
           mode: "dev-server",
           pathname,
         });
-        readyThread.worker.once("message", (message) => {
-          readyThread.ready = true;
-          resolve(message);
+        readyThread.worker.on("message", (message) => {
+          if (message.tag === "done") {
+            readyThread.ready = true;
+            readyThread.worker.removeAllListeners("message");
+            readyThread.worker.removeAllListeners("error");
+            resolve(message.data);
+          } else if (message.tag === "watch") {
+            console.log("@@@ WATCH", message.data);
+            message.data.forEach((pattern) => watcher.add(pattern));
+          }
         });
       } else {
         console.error("TODO - running out of ready threads not yet handled");
@@ -254,16 +253,6 @@ async function start(options) {
     try {
       await pendingCliCompile;
       const renderResult = await runRenderThread(pathname);
-      // TODO watch files from lookups in worker threads
-      // const renderResult = await renderer(
-      //   Elm,
-      //   pathname,
-      //   req,
-      //   function (pattern) {
-      //     console.log(`Watching data source ${pattern}`);
-      //     watcher.add(pattern);
-      //   }
-      // );
       const is404 = renderResult.is404;
       switch (renderResult.kind) {
         case "json": {

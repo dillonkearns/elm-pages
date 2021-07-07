@@ -2,7 +2,6 @@ const renderer = require("../../generator/src/render");
 const path = require("path");
 const fs = require("./dir-helpers.js");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
-let Elm = require(compiledElmPath);
 const { parentPort, threadId } = require("worker_threads");
 
 global.staticHttpCache = {};
@@ -12,22 +11,27 @@ async function run({ mode, pathname }) {
   console.time(`${threadId} ${pathname}`);
   const req = null;
   const renderResult = await renderer(
-    Elm,
+    uncachedElmRequire(),
     pathname,
     req,
-    function (pattern) {}
+    function (patterns) {
+      parentPort.postMessage({ tag: "watch", data: [...patterns] });
+    }
   );
 
   if (mode === "dev-server") {
-    parentPort.postMessage(renderResult);
-
-    // parentPort.postMessage({ tag: "done", data: renderResult });
+    parentPort.postMessage({ tag: "done", data: renderResult });
   } else if (mode === "build") {
     outputString(renderResult, pathname);
   } else {
     throw `Unknown mode ${mode}`;
   }
   console.timeEnd(`${threadId} ${pathname}`);
+}
+
+function uncachedElmRequire() {
+  delete require.cache[require.resolve(compiledElmPath)];
+  return require(compiledElmPath);
 }
 
 async function outputString(

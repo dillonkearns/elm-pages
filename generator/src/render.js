@@ -40,6 +40,7 @@ module.exports =
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
+  let patternsToWatch = new Set();
   let app = null;
   let killApp;
   return new Promise((resolve, reject) => {
@@ -90,7 +91,6 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;
 
-        // delete require.cache[require.resolve(compiledElmPath)];
         if (isJson) {
           resolve({
             kind: "json",
@@ -106,7 +106,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
         try {
-          addDataSourceWatcher(filePath);
+          patternsToWatch.add(filePath);
 
           const fileContents = (
             await fsPromises.readFile(path.join(process.cwd(), filePath))
@@ -146,7 +146,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         });
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
-        addDataSourceWatcher(globPattern);
+        patternsToWatch.add(globPattern);
         const matchedPaths = await globby(globPattern);
 
         app.ports.fromJsPort.send({
@@ -170,6 +170,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
     }
     app.ports.toJsPort.subscribe(portHandler);
   }).finally(() => {
+    addDataSourceWatcher(patternsToWatch);
     killApp();
     killApp = null;
   });
