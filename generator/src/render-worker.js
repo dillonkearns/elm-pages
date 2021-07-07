@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("./dir-helpers.js");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const { parentPort, threadId } = require("worker_threads");
+let Elm;
 
 global.staticHttpCache = {};
 
@@ -11,7 +12,7 @@ async function run({ mode, pathname }) {
   console.time(`${threadId} ${pathname}`);
   const req = null;
   const renderResult = await renderer(
-    uncachedElmRequire(),
+    requireElm(mode),
     pathname,
     req,
     function (patterns) {
@@ -31,9 +32,16 @@ async function run({ mode, pathname }) {
   console.timeEnd(`${threadId} ${pathname}`);
 }
 
-function uncachedElmRequire() {
-  delete require.cache[require.resolve(compiledElmPath)];
-  return require(compiledElmPath);
+function requireElm(mode) {
+  if (mode === "build") {
+    if (!Elm) {
+      Elm = require(compiledElmPath);
+    }
+    return Elm;
+  } else {
+    delete require.cache[require.resolve(compiledElmPath)];
+    return require(compiledElmPath);
+  }
 }
 
 async function outputString(
