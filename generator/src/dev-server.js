@@ -227,19 +227,27 @@ async function start(options) {
         });
         readyThread.worker.on("message", (message) => {
           if (message.tag === "done") {
-            readyThread.ready = true;
-            readyThread.worker.removeAllListeners("message");
-            readyThread.worker.removeAllListeners("error");
             resolve(message.data);
+            cleanUp(readyThread);
           } else if (message.tag === "watch") {
             // console.log("@@@ WATCH", message.data);
             message.data.forEach((pattern) => watcher.add(pattern));
           }
         });
+        readyThread.worker.once("error", (error) => {
+          reject(error.context);
+          cleanUp(readyThread);
+        });
       } else {
         console.error("TODO - running out of ready threads not yet handled");
       }
     });
+  }
+
+  function cleanUp(thread) {
+    thread.worker.removeAllListeners("message");
+    thread.worker.removeAllListeners("error");
+    thread.ready = true;
   }
 
   /**
