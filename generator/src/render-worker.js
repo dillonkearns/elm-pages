@@ -15,7 +15,9 @@ async function run({ mode, pathname }) {
     pathname,
     req,
     function (patterns) {
-      parentPort.postMessage({ tag: "watch", data: [...patterns] });
+      if (mode === "dev-server") {
+        parentPort.postMessage({ tag: "watch", data: [...patterns] });
+      }
     }
   );
 
