@@ -92,11 +92,23 @@ function delegateWork(pages) {
           pathname: nextPage,
         });
         thread.worker.once("message", (message) => {
-          thread.ready = true;
+          cleanUp(thread);
+          buildNextPage(thread, pages);
+        });
+        thread.worker.once("error", (error) => {
+          console.error(error.context.errorString);
+          process.exitCode = 1;
+          cleanUp(thread);
           buildNextPage(thread, pages);
         });
       }
     });
+}
+
+function cleanUp(thread) {
+  thread.worker.removeAllListeners("message");
+  thread.worker.removeAllListeners("error");
+  thread.ready = true;
 }
 
 function buildNextPage(thread, pages) {
@@ -110,6 +122,12 @@ function buildNextPage(thread, pages) {
     });
     thread.worker.once("message", (message) => {
       thread.ready = true;
+      buildNextPage(thread, pages);
+    });
+    thread.worker.once("error", (error) => {
+      console.error(error.context.errorString);
+      process.exitCode = 1;
+      cleanUp(thread);
       buildNextPage(thread, pages);
     });
   } else {
