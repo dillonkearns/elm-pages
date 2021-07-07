@@ -40,7 +40,6 @@ function parseMsg(msg) {
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
 const restoreColor = (error) => {
-  console.log(error);
   try {
     return JSON.parse(error)
       .errors.map(({ problems, path }) =>
