@@ -8,7 +8,6 @@ let Elm;
 global.staticHttpCache = {};
 
 async function run({ mode, pathname }) {
-  console.log(`${threadId}: Start ${pathname}`);
   console.time(`${threadId} ${pathname}`);
   const req = null;
   const renderResult = await renderer(

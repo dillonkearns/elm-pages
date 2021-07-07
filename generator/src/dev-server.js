@@ -232,7 +232,7 @@ async function start(options) {
             readyThread.worker.removeAllListeners("error");
             resolve(message.data);
           } else if (message.tag === "watch") {
-            console.log("@@@ WATCH", message.data);
+            // console.log("@@@ WATCH", message.data);
             message.data.forEach((pattern) => watcher.add(pattern));
           }
         });
