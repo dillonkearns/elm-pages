@@ -38,8 +38,7 @@
     "object-hash": "^2.2.0",
     "serve-static": "^1.14.1",
     "terser": "^5.7.0",
-    "undici": "^4.1.0",
-    "xhr2": "^0.2.1"
+    "undici": "^4.1.0"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.2",
