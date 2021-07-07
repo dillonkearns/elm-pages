@@ -596,8 +596,15 @@ getStaticRoutes =
 pathsToGenerateHandler : ApiRoute.Done ApiRoute.Response
 pathsToGenerateHandler =
     ApiRoute.succeed
-        (getStaticRoutes
-            |> DataSource.map
+        (DataSource.map2
+            (\\pageRoutes apiRoutes ->
+                { body =
+                    (pageRoutes ++ (apiRoutes |> List.map (\\api -> "/" ++ api)))
+                        |> Json.Encode.list Json.Encode.string
+                        |> Json.Encode.encode 0
+                }
+            )
+            (DataSource.map
                 (List.map
                     (\\route ->
                         route
@@ -605,14 +612,13 @@ pathsToGenerateHandler =
                             |> Path.toAbsolute
                     )
                 )
-            |> DataSource.map
-                (\\list ->
-                    { body =
-                        list
-                            |> Json.Encode.list Json.Encode.string
-                            |> Json.Encode.encode 0
-                    }
-                )
+                getStaticRoutes
+            )
+            (Api.routes getStaticRoutes (\\_ -> "")
+                |> List.map ApiRoute.getBuildTimeRoutes
+                |> DataSource.combine
+                |> DataSource.map List.concat
+            )
         )
         |> ApiRoute.literal "all-paths.json"
         |> ApiRoute.single
