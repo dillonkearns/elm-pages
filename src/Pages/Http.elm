@@ -1,4 +1,4 @@
-module Pages.Http exposing (..)
+module Pages.Http exposing (Error(..), expectString)
 
 import Http
 
@@ -27,5 +27,5 @@ expectString toMsg =
                 Http.BadStatus_ metadata body ->
                     Err (BadStatus metadata body)
 
-                Http.GoodStatus_ metadata body ->
+                Http.GoodStatus_ _ body ->
                     Ok body

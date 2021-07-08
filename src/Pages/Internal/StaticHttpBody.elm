@@ -15,7 +15,7 @@ encode body =
         EmptyBody ->
             encodeWithType "empty" []
 
-        StringBody contentType content ->
+        StringBody _ content ->
             encodeWithType "string"
                 [ ( "content", Encode.string content )
                 ]
@@ -26,6 +26,7 @@ encode body =
                 ]
 
 
+encodeWithType : String -> List ( String, Encode.Value ) -> Encode.Value
 encodeWithType typeName otherFields =
     Encode.object <|
         ( "type", Encode.string typeName )

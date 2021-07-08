@@ -1,6 +1,5 @@
 ---
 {
-  "type": "blog",
   "author": "Dillon Kearns",
   "title": "Extensible Markdown Parsing in Pure Elm",
   "description": "Introducing a new parser that extends your palette with no additional syntax",

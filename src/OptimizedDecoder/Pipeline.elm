@@ -169,12 +169,14 @@ optionalAt path valDecoder fallback decoder =
 -- source: https://github.com/NoRedInk/elm-json-decode-pipeline/blob/d9c10a2b388176569fe3e88ef0e2b6fc19d9beeb/src/Json/Decode/Pipeline.elm#L116-L148
 
 
-optionalDecoder : Decode.Decoder Decode.Value -> Decoder a -> a -> Decoder a
+optionalDecoder : Decoder Decode.Value -> Decoder a -> a -> Decoder a
 optionalDecoder pathDecoder valDecoder fallback =
     let
+        nullOr : Decoder a -> Decoder a
         nullOr decoder =
             Decode.oneOf [ decoder, Decode.null fallback ]
 
+        handleResult : Decode.Value -> Decoder a
         handleResult input =
             case Decode.decodeValue pathDecoder input of
                 Ok rawValue ->

@@ -9,10 +9,10 @@ type OptimizedDecoder a
 
 
 jd : OptimizedDecoder a -> Json.Decode.Decoder a
-jd (OptimizedDecoder jd_ jde_) =
+jd (OptimizedDecoder jd_ _) =
     jd_
 
 
 jde : OptimizedDecoder a -> Json.Decode.Exploration.Decoder a
-jde (OptimizedDecoder jd_ jde_) =
+jde (OptimizedDecoder _ jde_) =
     jde_

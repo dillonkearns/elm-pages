@@ -1,6 +1,5 @@
 ---
 {
-  "type": "blog",
   "author": "Dillon Kearns",
   "title": "Introducing elm-pages 🚀 - a type-centric static site generator",
   "description": "Elm is the perfect fit for a static site generator. Learn about some of the features and philosophy behind elm-pages.",

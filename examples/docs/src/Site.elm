@@ -1,39 +1,43 @@
-module Site exposing (canonicalUrl, config, tagline)
+module Site exposing (config)
 
 import Cloudinary
-import Color
+import DataSource exposing (DataSource)
+import Head
 import MimeType
-import Pages exposing (images, pages)
-import Pages.ImagePath exposing (ImagePath)
 import Pages.Manifest as Manifest
-import Pages.Manifest.Category
-import Pages.PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp
-import TemplateType exposing (TemplateType)
+import Pages.Url
+import Route
+import SiteConfig exposing (SiteConfig)
 
 
-type alias SiteConfig =
-    { canonicalUrl : String
-    , manifest : Manifest.Config Pages.PathKey
-    }
-
-
-config : SiteConfig
+config : SiteConfig Data
 config =
-    { canonicalUrl = canonicalUrl
-    , manifest = manifest
-    }
+    \routes ->
+        { data = data
+        , canonicalUrl = canonicalUrl
+        , manifest = manifest
+        , head = head
+        }
 
 
-type alias StaticData =
+type alias Data =
     ()
 
 
-staticData :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticHttp.Request StaticData
-staticData siteMetadata =
-    StaticHttp.succeed ()
+data : DataSource.DataSource Data
+data =
+    DataSource.succeed ()
+
+
+head : Data -> List Head.Tag
+head static =
+    [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+    , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+    , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+    , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+    , Head.rssLink "/blog/feed.xml"
+    , Head.sitemapLink "/sitemap.xml"
+    ]
 
 
 canonicalUrl : String
@@ -41,31 +45,25 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-manifest : Manifest.Config Pages.PathKey
-manifest =
-    { backgroundColor = Just Color.white
-    , categories = [ Pages.Manifest.Category.education ]
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
-    , iarcRatingId = Nothing
-    , name = "elm-pages docs"
-    , themeColor = Just Color.white
-    , startUrl = pages.index
-    , shortName = Just "elm-pages"
-    , sourceIcon = images.iconPng
-    , icons =
-        [ icon webp 192
-        , icon webp 512
-        , icon MimeType.Png 192
-        , icon MimeType.Png 512
-        ]
-    }
+manifest : Data -> Manifest.Config
+manifest static =
+    Manifest.init
+        { name = "elm-pages"
+        , description = "elm-pages - " ++ tagline
+        , startUrl = Route.Index |> Route.toPath
+        , icons =
+            [ icon webp 192
+            , icon webp 512
+            , icon MimeType.Png 192
+            , icon MimeType.Png 512
+            ]
+        }
+        |> Manifest.withShortName "elm-pages"
 
 
 tagline : String
 tagline =
-    "A statically typed site generator - elm-pages"
+    "pull in typed elm data to your pages"
 
 
 webp : MimeType.MimeImage
@@ -76,7 +74,7 @@ webp =
 icon :
     MimeType.MimeImage
     -> Int
-    -> Manifest.Icon pathKey
+    -> Manifest.Icon
 icon format width =
     { src = cloudinaryIcon format width
     , sizes = [ ( width, width ) ]
@@ -88,11 +86,6 @@ icon format width =
 cloudinaryIcon :
     MimeType.MimeImage
     -> Int
-    -> ImagePath pathKey
+    -> Pages.Url.Url
 cloudinaryIcon mimeType width =
     Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" (Just mimeType) width
-
-
-socialIcon : ImagePath pathKey
-socialIcon =
-    Cloudinary.urlSquare "v1603234028/elm-pages/elm-pages-icon" Nothing 250

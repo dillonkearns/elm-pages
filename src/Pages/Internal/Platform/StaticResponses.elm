@@ -1,33 +1,38 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, update)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderApiRequest, renderSingleRoute, update)
 
+import ApiRoute
 import BuildError exposing (BuildError)
+import DataSource exposing (DataSource)
+import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
+import Html exposing (Html)
+import HtmlPrinter exposing (htmlToString)
+import Internal.ApiRoute exposing (Done(..))
+import NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.Internal.Platform.Mode as Mode exposing (Mode)
+import Pages.Internal.Platform.Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
-import Pages.Manifest as Manifest
-import Pages.PagePath as PagePath exposing (PagePath)
-import Pages.StaticHttp as StaticHttp exposing (RequestDetails)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
 import Secrets
 import SecretsDict exposing (SecretsDict)
-import Set
+import Set exposing (Set)
 import TerminalText as Terminal
 
 
 type StaticResponses
-    = StaticResponses (Dict String StaticHttpResult)
+    = GettingInitialData StaticHttpResult
+    | ApiRequest StaticHttpResult
+    | StaticResponses (Dict String StaticHttpResult)
+    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult (Dict String StaticHttpResult)
 
 
 type StaticHttpResult
-    = NotFetched (StaticHttpRequest.Request ()) (Dict String (Result () String))
-
-
-type alias Content =
-    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
+    = NotFetched (DataSource ()) (Dict String (Result () String))
 
 
 error : StaticResponses
@@ -36,89 +41,99 @@ error =
 
 
 init :
-    Dict String (Maybe String)
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    ->
-        { config
-            | content : Content
-            , generateFiles :
-                List
-                    { path : PagePath pathKey
-                    , frontmatter : metadata
-                    , body : String
-                    }
-                ->
-                    StaticHttp.Request
-                        (List
-                            (Result String
-                                { path : List String
-                                , content : String
-                                }
-                            )
-                        )
-        }
-    -> List ( PagePath pathKey, StaticHttp.Request value )
+    { config
+        | getStaticRoutes : DataSource (List route)
+        , site : SiteConfig route siteData
+        , data : route -> DataSource pageData
+        , sharedData : DataSource sharedData
+        , apiRoutes :
+            (Html Never -> String) -> List (ApiRoute.Done ApiRoute.Response)
+    }
     -> StaticResponses
-init staticHttpCache siteMetadataResult config list =
-    let
-        generateFilesRequest : StaticHttp.Request (List (Result String { path : List String, content : String }))
-        generateFilesRequest =
-            config.generateFiles siteMetadataWithContent
-
-        generateFilesStaticRequest =
-            ( -- we don't want to include the CLI-only StaticHttp responses in the production bundle
-              -- since that data is only needed to run these functions during the build step
-              -- in the future, this could be refactored to have a type to represent this more clearly
-              cliDictKey
-            , NotFetched (generateFilesRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-            )
-
-        siteMetadataWithContent =
-            siteMetadataResult
-                |> Result.withDefault []
-                |> List.map
-                    (\( pagePath, metadata ) ->
-                        let
-                            contentForPage =
-                                config.content
-                                    |> List.filterMap
-                                        (\( path, { body } ) ->
-                                            let
-                                                pagePathToGenerate =
-                                                    PagePath.toString pagePath
-
-                                                currentContentPath =
-                                                    "/" ++ (path |> String.join "/")
-                                            in
-                                            if pagePathToGenerate == currentContentPath then
-                                                Just body
-
-                                            else
-                                                Nothing
-                                        )
-                                    |> List.head
-                                    |> Maybe.andThen identity
-                        in
-                        { path = pagePath
-                        , frontmatter = metadata
-                        , body = contentForPage |> Maybe.withDefault ""
-                        }
+init config =
+    NotFetched
+        (DataSource.map3 (\_ _ _ -> ())
+            (config.getStaticRoutes
+                |> DataSource.andThen
+                    (\resolvedRoutes ->
+                        config.site resolvedRoutes |> .data
                     )
-    in
-    list
-        |> List.map
-            (\( path, staticRequest ) ->
-                let
-                    entry =
-                        NotFetched (staticRequest |> StaticHttp.map (\_ -> ())) Dict.empty
-                in
-                ( PagePath.toString path
-                , entry
-                )
             )
-        |> List.append [ generateFilesStaticRequest ]
-        |> Dict.fromList
-        |> StaticResponses
+            (buildTimeFilesRequest config)
+            config.sharedData
+        )
+        Dict.empty
+        |> GettingInitialData
+
+
+buildTimeFilesRequest :
+    { config
+        | apiRoutes :
+            (Html Never -> String)
+            -> List (ApiRoute.Done ApiRoute.Response)
+    }
+    -> DataSource (List (Result String { path : List String, content : String }))
+buildTimeFilesRequest config =
+    config.apiRoutes htmlToString
+        |> List.map
+            (\(Done handler) ->
+                handler.buildTimeRoutes
+                    |> DataSource.andThen
+                        (\paths ->
+                            paths
+                                |> List.map
+                                    (\path ->
+                                        handler.matchesToResponse path
+                                            |> DataSource.map
+                                                (\maybeResponse ->
+                                                    case maybeResponse of
+                                                        Nothing ->
+                                                            Err ""
+
+                                                        Just response ->
+                                                            Ok { path = path |> String.split "/", content = response.body }
+                                                )
+                                    )
+                                |> DataSource.combine
+                        )
+            )
+        |> DataSource.combine
+        |> DataSource.map List.concat
+
+
+renderSingleRoute :
+    { config
+        | routeToPath : route -> List String
+    }
+    -> { path : Path, frontmatter : route }
+    -> DataSource a
+    -> DataSource (Maybe NotFoundReason)
+    -> StaticResponses
+renderSingleRoute config pathAndRoute request cliData =
+    CheckIfHandled cliData
+        (NotFetched
+            (cliData
+                |> DataSource.map (\_ -> ())
+            )
+            Dict.empty
+        )
+        (Dict.fromList
+            [ ( config.routeToPath pathAndRoute.frontmatter |> String.join "/"
+              , NotFetched (DataSource.map (\_ -> ()) request) Dict.empty
+              )
+            ]
+        )
+
+
+renderApiRequest :
+    DataSource response
+    -> StaticResponses
+renderApiRequest request =
+    ApiRequest
+        (NotFetched
+            (request |> DataSource.map (\_ -> ()))
+            Dict.empty
+        )
 
 
 update :
@@ -138,6 +153,7 @@ update :
         }
 update newEntry model =
     let
+        updatedAllResponses : Dict String (Maybe String)
         updatedAllResponses =
             -- @@@@@@@@@ TODO handle errors here, change Dict to have `Result` instead of `Maybe`
             Dict.insert
@@ -150,27 +166,22 @@ update newEntry model =
     }
 
 
-encode : RequestsAndPending -> Mode -> StaticResponses -> Dict String (Dict String String)
-encode requestsAndPending mode (StaticResponses staticResponses) =
+encode : RequestsAndPending -> Mode -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
+encode requestsAndPending _ staticResponses =
     staticResponses
         |> Dict.filter
-            (\key value ->
+            (\key _ ->
                 key /= cliDictKey
             )
-        |> Dict.map
-            (\path result ->
-                case result of
-                    NotFetched request _ ->
-                        case mode of
-                            Mode.Dev ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
-
-                            Mode.Prod ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
-
-                            Mode.ElmToHtmlBeta ->
-                                StaticHttpRequest.strippedResponses ApplicationType.Cli request requestsAndPending
+        |> Dict.toList
+        |> List.map
+            (\( key, NotFetched request _ ) ->
+                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
+                    |> Result.map (Tuple.pair key)
             )
+        |> combineMultipleErrors
+        |> Result.mapError List.concat
+        |> Result.map Dict.fromList
 
 
 cliDictKey : String
@@ -178,73 +189,46 @@ cliDictKey =
     "////elm-pages-CLI////"
 
 
-type NextStep pathKey
-    = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails })
-    | Finish (ToJsPayload pathKey)
+type NextStep route
+    = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails }) (Maybe (List route))
+    | Finish ToJsPayload
 
 
 nextStep :
     { config
-        | content : Content
-        , manifest : Manifest.Config pathKey
-        , generateFiles :
-            List
-                { path : PagePath pathKey
-                , frontmatter : metadata
-                , body : String
-                }
-            ->
-                StaticHttp.Request
-                    (List
-                        (Result String
-                            { path : List String
-                            , content : String
-                            }
-                        )
-                    )
+        | getStaticRoutes : DataSource (List route)
+        , routeToPath : route -> List String
+        , data : route -> DataSource pageData
+        , sharedData : DataSource sharedData
+        , site : SiteConfig route siteData
+        , apiRoutes : (Html Never -> String) -> List (ApiRoute.Done ApiRoute.Response)
     }
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Result (List BuildError) (List ( PagePath pathKey, metadata ))
-    -> Mode
-    -> SecretsDict
-    -> RequestsAndPending
-    -> List BuildError
-    -> StaticResponses
-    -> NextStep pathKey
-nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors (StaticResponses staticResponses) =
+    ->
+        { model
+            | staticResponses : StaticResponses
+            , secrets : SecretsDict
+            , errors : List BuildError
+            , allRawResponses : Dict String (Maybe String)
+            , mode : Mode
+        }
+    -> Maybe (List route)
+    -> ( StaticResponses, NextStep route )
+nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoutes =
     let
-        metadataForGenerateFiles =
-            allSiteMetadata
-                |> Result.withDefault []
-                |> List.map
-                    -- TODO extract helper function that processes next step *for a single page* at a time
-                    (\( pagePath, metadata ) ->
-                        let
-                            contentForPage =
-                                config.content
-                                    |> List.filterMap
-                                        (\( path, { body } ) ->
-                                            let
-                                                pagePathToGenerate =
-                                                    PagePath.toString pagePath
+        staticResponses : Dict String StaticHttpResult
+        staticResponses =
+            case model.staticResponses of
+                StaticResponses s ->
+                    s
 
-                                                currentContentPath =
-                                                    String.join "/" path
-                                            in
-                                            if pagePathToGenerate == currentContentPath then
-                                                Just body
+                GettingInitialData initialData ->
+                    Dict.singleton cliDictKey initialData
 
-                                            else
-                                                Nothing
-                                        )
-                                    |> List.head
-                                    |> Maybe.andThen identity
-                        in
-                        { path = pagePath
-                        , frontmatter = metadata
-                        , body = contentForPage |> Maybe.withDefault ""
-                        }
-                    )
+                ApiRequest staticHttpResult ->
+                    Dict.singleton cliDictKey staticHttpResult
+
+                CheckIfHandled _ staticHttpResult _ ->
+                    Dict.singleton cliDictKey staticHttpResult
 
         generatedFiles : List (Result String { path : List String, content : String })
         generatedFiles =
@@ -253,8 +237,8 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
         resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
         resolvedGenerateFilesResult =
             StaticHttpRequest.resolve ApplicationType.Cli
-                (config.generateFiles metadataForGenerateFiles)
-                (allRawResponses |> Dict.Extra.filterMap (\key value -> Just value))
+                (buildTimeFilesRequest config)
+                (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
 
         generatedOkayFiles : List { path : List String, content : String }
         generatedOkayFiles =
@@ -265,18 +249,17 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                             Ok ok ->
                                 Just ok
 
-                            Err error_ ->
-                                --Debug.todo (Debug.toString error_)
+                            Err _ ->
                                 Nothing
                     )
 
-        generatedFileErrors : List { title : String, message : List Terminal.Text, fatal : Bool }
+        generatedFileErrors : List BuildError
         generatedFileErrors =
             generatedFiles
                 |> List.filterMap
                     (\result ->
                         case result of
-                            Ok ok ->
+                            Ok _ ->
                                 Nothing
 
                             Err error_ ->
@@ -286,6 +269,7 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                                         [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
                                         , Terminal.text <| "Error: " ++ error_
                                         ]
+                                    , path = "Site.elm"
                                     , fatal = True
                                     }
                     )
@@ -294,17 +278,20 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
         allErrors =
             errors ++ failedRequests ++ generatedFileErrors
 
+        pendingRequests : Bool
         pendingRequests =
             staticResponses
                 |> Dict.Extra.any
-                    (\path entry ->
+                    (\_ entry ->
                         case entry of
                             NotFetched request rawResponses ->
                                 let
+                                    staticRequestsStatus : StaticHttpRequest.Status ()
                                     staticRequestsStatus =
                                         allRawResponses
                                             |> StaticHttpRequest.cacheRequestResolution ApplicationType.Cli request
 
+                                    hasPermanentError : Bool
                                     hasPermanentError =
                                         case staticRequestsStatus of
                                             StaticHttpRequest.HasPermanentError _ ->
@@ -313,6 +300,7 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                                             _ ->
                                                 False
 
+                                    hasPermanentHttpError : Bool
                                     hasPermanentHttpError =
                                         not (List.isEmpty errors)
 
@@ -324,6 +312,7 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                                             _ ->
                                                 ( True, [] )
 
+                                    fetchedAllKnownUrls : Bool
                                     fetchedAllKnownUrls =
                                         (rawResponses
                                             |> Dict.keys
@@ -345,12 +334,14 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                                     True
                     )
 
+        failedRequests : List BuildError
         failedRequests =
             staticResponses
                 |> Dict.toList
                 |> List.concatMap
                     (\( path, NotFetched request _ ) ->
                         let
+                            staticRequestsStatus : StaticHttpRequest.Status ()
                             staticRequestsStatus =
                                 StaticHttpRequest.cacheRequestResolution
                                     ApplicationType.Cli
@@ -361,6 +352,7 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                             usableRawResponses =
                                 allRawResponses
 
+                            maybePermanentError : Maybe StaticHttpRequest.Error
                             maybePermanentError =
                                 case staticRequestsStatus of
                                     StaticHttpRequest.HasPermanentError theError ->
@@ -369,6 +361,7 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                                     _ ->
                                         Nothing
 
+                            decoderErrors : List BuildError
                             decoderErrors =
                                 maybePermanentError
                                     |> Maybe.map (StaticHttpRequest.toBuildError path)
@@ -380,7 +373,7 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
     in
     if pendingRequests then
         let
-            requestContinuations : List ( String, StaticHttp.Request () )
+            requestContinuations : List ( String, DataSource () )
             requestContinuations =
                 staticResponses
                     |> Dict.toList
@@ -394,9 +387,11 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
         of
             Ok urlsToPerform ->
                 let
+                    newAllRawResponses : Dict String (Maybe String)
                     newAllRawResponses =
                         Dict.union allRawResponses dictOfNewUrlsToPerform
 
+                    dictOfNewUrlsToPerform : Dict String (Maybe String)
                     dictOfNewUrlsToPerform =
                         urlsToPerform
                             |> List.map .masked
@@ -415,48 +410,184 @@ nextStep config allSiteMetadata siteMetadata mode secrets allRawResponses errors
                                 )
                             |> Dict.fromList
 
+                    alreadyPerformed : Set String
                     alreadyPerformed =
                         allRawResponses
                             |> Dict.keys
                             |> Set.fromList
 
+                    newThing : List { masked : RequestDetails, unmasked : RequestDetails }
                     newThing =
                         maskedToUnmasked
                             |> Dict.Extra.removeMany alreadyPerformed
                             |> Dict.toList
                             |> List.map
-                                (\( maskedUrl, secureUrl ) ->
+                                (\( _, secureUrl ) ->
                                     secureUrl
                                 )
                 in
-                Continue newAllRawResponses newThing
+                ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
             Err error_ ->
-                Finish (ToJsPayload.Errors <| BuildError.errorsToString (error_ ++ failedRequests ++ errors))
+                ( model.staticResponses, Finish (ToJsPayload.Errors <| (error_ ++ failedRequests ++ errors)) )
 
     else
-        ToJsPayload.toJsPayload
-            (encode allRawResponses mode (StaticResponses staticResponses))
-            config.manifest
-            generatedOkayFiles
-            allRawResponses
-            allErrors
-            |> Finish
+        case model.staticResponses of
+            GettingInitialData (NotFetched _ _) ->
+                let
+                    resolvedRoutes : Result StaticHttpRequest.Error (List route)
+                    resolvedRoutes =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            (DataSource.map3
+                                (\routes _ _ ->
+                                    routes
+                                )
+                                config.getStaticRoutes
+                                (buildTimeFilesRequest config)
+                                config.sharedData
+                            )
+                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                in
+                case resolvedRoutes of
+                    Ok staticRoutes ->
+                        let
+                            newState : StaticResponses
+                            newState =
+                                staticRoutes
+                                    |> List.map
+                                        (\route ->
+                                            let
+                                                entry : StaticHttpResult
+                                                entry =
+                                                    NotFetched
+                                                        (DataSource.map2 (\_ _ -> ())
+                                                            config.sharedData
+                                                            (config.data route)
+                                                        )
+                                                        Dict.empty
+                                            in
+                                            ( config.routeToPath route |> String.join "/"
+                                            , entry
+                                            )
+                                        )
+                                    |> Dict.fromList
+                                    |> StaticResponses
+
+                            newThing : List { masked : RequestDetails, unmasked : RequestDetails }
+                            newThing =
+                                []
+                        in
+                        ( newState
+                        , Continue allRawResponses newThing (Just staticRoutes)
+                        )
+
+                    Err error_ ->
+                        ( model.staticResponses
+                        , Finish
+                            (ToJsPayload.Errors <|
+                                ([ StaticHttpRequest.toBuildError
+                                    -- TODO give more fine-grained error reference
+                                    "get static routes"
+                                    error_
+                                 ]
+                                    ++ failedRequests
+                                    ++ errors
+                                )
+                            )
+                        )
+
+            StaticResponses _ ->
+                --let
+                --    siteStaticData =
+                --        StaticHttpRequest.resolve ApplicationType.Cli
+                --            config.site.staticData
+                --            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                --            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
+                --in
+                --case siteStaticData of
+                --    Err siteStaticDataError ->
+                --        ( staticResponses_
+                --        , ToJsPayload.toJsPayload
+                --            (encode allRawResponses mode staticResponses)
+                --            generatedOkayFiles
+                --            allRawResponses
+                --            (siteStaticDataError :: allErrors)
+                --            |> Finish
+                --        )
+                --
+                --    Ok okSiteStaticData ->
+                ( model.staticResponses
+                , case encode allRawResponses mode staticResponses of
+                    Ok encodedResponses ->
+                        ToJsPayload.toJsPayload
+                            encodedResponses
+                            generatedOkayFiles
+                            allRawResponses
+                            allErrors
+                            -- TODO send all global head tags on initial call
+                            |> Finish
+
+                    Err buildErrors ->
+                        ToJsPayload.toJsPayload
+                            Dict.empty
+                            generatedOkayFiles
+                            allRawResponses
+                            (allErrors ++ buildErrors)
+                            -- TODO send all global head tags on initial call
+                            |> Finish
+                )
+
+            ApiRequest _ ->
+                ( model.staticResponses
+                , ToJsPayload.ApiResponse
+                    |> Finish
+                )
+
+            CheckIfHandled pageFoundDataSource (NotFetched _ _) andThenRequest ->
+                let
+                    pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
+                    pageFoundResult =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            pageFoundDataSource
+                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                in
+                case pageFoundResult of
+                    Ok Nothing ->
+                        nextStep config { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
+
+                    Ok (Just _) ->
+                        ( StaticResponses Dict.empty
+                        , Finish ToJsPayload.ApiResponse
+                          -- TODO should there be a new type for 404response? Or something else?
+                        )
+
+                    Err error_ ->
+                        ( model.staticResponses
+                        , Finish
+                            (ToJsPayload.Errors <|
+                                ([ StaticHttpRequest.toBuildError
+                                    -- TODO give more fine-grained error reference
+                                    "get static routes"
+                                    error_
+                                 ]
+                                    ++ failedRequests
+                                    ++ errors
+                                )
+                            )
+                        )
 
 
 performStaticHttpRequests :
     Dict String (Maybe String)
     -> SecretsDict
-    -> List ( String, StaticHttp.Request a )
+    -> List ( String, DataSource a )
     -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         -- TODO look for performance bottleneck in this double nesting
         |> List.map
-            (\( pagePath, request ) ->
-                allRawResponses
-                    |> StaticHttpRequest.resolveUrls ApplicationType.Cli request
-                    |> Tuple.second
+            (\( _, request ) ->
+                StaticHttpRequest.resolveUrls ApplicationType.Cli request allRawResponses
             )
         |> List.concat
         -- TODO prevent duplicates... can't because Set needs comparable

@@ -1,13 +1,13 @@
-module PagesHttp exposing (..)
+module PagesHttp exposing (expectString)
 
-import Http as H exposing (Response(..))
+import Http exposing (Response(..))
 import Pages.Http exposing (..)
-import SimulatedEffect.Http as Http
+import SimulatedEffect.Http
 
 
-expectString : (Result Pages.Http.Error String -> msg) -> Http.Expect msg
+expectString : (Result Error String -> msg) -> SimulatedEffect.Http.Expect msg
 expectString toMsg =
-    Http.expectStringResponse toMsg <|
+    SimulatedEffect.Http.expectStringResponse toMsg <|
         \response ->
             case response of
                 BadUrl_ url ->
@@ -22,5 +22,5 @@ expectString toMsg =
                 BadStatus_ metadata body ->
                     Err (BadStatus metadata body)
 
-                GoodStatus_ metadata body ->
+                GoodStatus_ _ body ->
                     Ok body

@@ -16,7 +16,7 @@ GITHUB_TOKEN=abcd1234 API_KEY=xyz789 elm-pages build
 And your StaticHttp request in your Elm code looks like this:
 
     import Pages.Secrets as Secrets
-    import Pages.StaticHttp as StaticHttp
+    import DataSource
 
     StaticHttp.request
         (Secrets.succeed
