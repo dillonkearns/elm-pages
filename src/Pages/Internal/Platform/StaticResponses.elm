@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, init, nextStep, renderApiRequest, renderSingleRoute, update)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, nextStep, renderApiRequest, renderSingleRoute, update)
 
 import ApiRoute
 import BuildError exposing (BuildError)
@@ -25,8 +25,7 @@ import TerminalText as Terminal
 
 
 type StaticResponses
-    = GettingInitialData StaticHttpResult
-    | ApiRequest StaticHttpResult
+    = ApiRequest StaticHttpResult
     | StaticResponses (Dict String StaticHttpResult)
     | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult (Dict String StaticHttpResult)
 
@@ -38,32 +37,6 @@ type StaticHttpResult
 error : StaticResponses
 error =
     StaticResponses Dict.empty
-
-
-init :
-    { config
-        | getStaticRoutes : DataSource (List route)
-        , site : SiteConfig route siteData
-        , data : route -> DataSource pageData
-        , sharedData : DataSource sharedData
-        , apiRoutes :
-            (Html Never -> String) -> List (ApiRoute.Done ApiRoute.Response)
-    }
-    -> StaticResponses
-init config =
-    NotFetched
-        (DataSource.map3 (\_ _ _ -> ())
-            (config.getStaticRoutes
-                |> DataSource.andThen
-                    (\resolvedRoutes ->
-                        config.site resolvedRoutes |> .data
-                    )
-            )
-            (buildTimeFilesRequest config)
-            config.sharedData
-        )
-        Dict.empty
-        |> GettingInitialData
 
 
 buildTimeFilesRequest :
@@ -220,9 +193,6 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
             case model.staticResponses of
                 StaticResponses s ->
                     s
-
-                GettingInitialData initialData ->
-                    Dict.singleton cliDictKey initialData
 
                 ApiRequest staticHttpResult ->
                     Dict.singleton cliDictKey staticHttpResult
@@ -433,69 +403,6 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
 
     else
         case model.staticResponses of
-            GettingInitialData (NotFetched _ _) ->
-                let
-                    resolvedRoutes : Result StaticHttpRequest.Error (List route)
-                    resolvedRoutes =
-                        StaticHttpRequest.resolve ApplicationType.Cli
-                            (DataSource.map3
-                                (\routes _ _ ->
-                                    routes
-                                )
-                                config.getStaticRoutes
-                                (buildTimeFilesRequest config)
-                                config.sharedData
-                            )
-                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
-                in
-                case resolvedRoutes of
-                    Ok staticRoutes ->
-                        let
-                            newState : StaticResponses
-                            newState =
-                                staticRoutes
-                                    |> List.map
-                                        (\route ->
-                                            let
-                                                entry : StaticHttpResult
-                                                entry =
-                                                    NotFetched
-                                                        (DataSource.map2 (\_ _ -> ())
-                                                            config.sharedData
-                                                            (config.data route)
-                                                        )
-                                                        Dict.empty
-                                            in
-                                            ( config.routeToPath route |> String.join "/"
-                                            , entry
-                                            )
-                                        )
-                                    |> Dict.fromList
-                                    |> StaticResponses
-
-                            newThing : List { masked : RequestDetails, unmasked : RequestDetails }
-                            newThing =
-                                []
-                        in
-                        ( newState
-                        , Continue allRawResponses newThing (Just staticRoutes)
-                        )
-
-                    Err error_ ->
-                        ( model.staticResponses
-                        , Finish
-                            (ToJsPayload.Errors <|
-                                ([ StaticHttpRequest.toBuildError
-                                    -- TODO give more fine-grained error reference
-                                    "get static routes"
-                                    error_
-                                 ]
-                                    ++ failedRequests
-                                    ++ errors
-                                )
-                            )
-                        )
-
             StaticResponses _ ->
                 --let
                 --    siteStaticData =
