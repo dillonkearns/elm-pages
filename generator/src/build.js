@@ -131,7 +131,6 @@ function buildNextPage(thread, pages) {
       buildNextPage(thread, pages);
     });
   } else {
-    console.log("@@@ DONE! NO NEXT PAGE!");
     thread.worker.terminate();
   }
 }
