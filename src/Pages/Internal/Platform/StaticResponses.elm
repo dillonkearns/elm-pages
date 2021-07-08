@@ -11,7 +11,6 @@ import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (Done(..))
 import NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.Internal.Platform.Mode exposing (Mode)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsPayload)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
@@ -139,8 +138,8 @@ update newEntry model =
     }
 
 
-encode : RequestsAndPending -> Mode -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
-encode requestsAndPending _ staticResponses =
+encode : RequestsAndPending -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
+encode requestsAndPending staticResponses =
     staticResponses
         |> Dict.filter
             (\key _ ->
@@ -182,11 +181,10 @@ nextStep :
             , secrets : SecretsDict
             , errors : List BuildError
             , allRawResponses : Dict String (Maybe String)
-            , mode : Mode
         }
     -> Maybe (List route)
     -> ( StaticResponses, NextStep route )
-nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoutes =
+nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
     let
         staticResponses : Dict String StaticHttpResult
         staticResponses =
@@ -424,7 +422,7 @@ nextStep config ({ mode, secrets, allRawResponses, errors } as model) maybeRoute
                 --
                 --    Ok okSiteStaticData ->
                 ( model.staticResponses
-                , case encode allRawResponses mode staticResponses of
+                , case encode allRawResponses staticResponses of
                     Ok encodedResponses ->
                         ToJsPayload.toJsPayload
                             encodedResponses

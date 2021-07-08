@@ -28,7 +28,6 @@ import Pages.Flags
 import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
-import Pages.Internal.Platform.Mode as Mode exposing (Mode)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
@@ -52,7 +51,6 @@ type alias Model route =
     , secrets : SecretsDict
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
-    , mode : Mode
     , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
     , unprocessedPages : List ( Path, route )
     , staticRoutes : Maybe (List ( Path, route ))
@@ -323,19 +321,16 @@ perform renderRequest config toJsPort effect =
 flagsDecoder :
     Decode.Decoder
         { secrets : SecretsDict
-        , mode : Mode
         , staticHttpCache : Dict String (Maybe String)
         }
 flagsDecoder =
-    Decode.map3
-        (\secrets mode staticHttpCache ->
+    Decode.map2
+        (\secrets staticHttpCache ->
             { secrets = secrets
-            , mode = mode
             , staticHttpCache = staticHttpCache
             }
         )
         (Decode.field "secrets" SecretsDict.decoder)
-        (Decode.field "mode" Mode.modeDecoder)
         (Decode.field "staticHttpCache"
             (Decode.dict
                 (Decode.string
@@ -353,8 +348,8 @@ init :
     -> ( Model route, Effect )
 init renderRequest contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
-        Ok { secrets, mode, staticHttpCache } ->
-            initLegacy renderRequest { secrets = secrets, mode = mode, staticHttpCache = staticHttpCache } contentCache config flags
+        Ok { secrets, staticHttpCache } ->
+            initLegacy renderRequest { secrets = secrets, staticHttpCache = staticHttpCache } contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -370,7 +365,6 @@ init renderRequest contentCache config flags =
                       }
                     ]
                 , allRawResponses = Dict.empty
-                , mode = Mode.Dev
                 , pendingRequests = []
                 , unprocessedPages = []
                 , staticRoutes = Just []
@@ -380,12 +374,12 @@ init renderRequest contentCache config flags =
 
 initLegacy :
     RenderRequest route
-    -> { a | secrets : SecretsDict, mode : Mode, staticHttpCache : Dict String (Maybe String) }
+    -> { a | secrets : SecretsDict, staticHttpCache : Dict String (Maybe String) }
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config flags =
+initLegacy renderRequest { secrets, staticHttpCache } contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -443,7 +437,6 @@ initLegacy renderRequest { secrets, mode, staticHttpCache } contentCache config 
             , secrets = secrets
             , errors = []
             , allRawResponses = staticHttpCache
-            , mode = mode
             , pendingRequests = []
             , unprocessedPages = unprocessedPages
             , staticRoutes = unprocessedPagesState
@@ -758,211 +751,206 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                 )
 
         StaticResponses.Finish toJsPayload ->
-            case model.mode of
-                Mode.ElmToHtmlBeta ->
-                    case toJsPayload of
-                        ToJsPayload.ApiResponse ->
-                            let
-                                apiResponse : Effect
-                                apiResponse =
-                                    case model.maybeRequestJson of
-                                        RenderRequest.SinglePage includeHtml requestPayload value ->
-                                            case requestPayload of
-                                                RenderRequest.Api ( path, Done apiHandler ) ->
-                                                    let
-                                                        thing : DataSource (Maybe ApiRoute.Response)
-                                                        thing =
-                                                            apiHandler.matchesToResponse path
-                                                    in
-                                                    StaticHttpRequest.resolve ApplicationType.Cli
-                                                        thing
+            case toJsPayload of
+                ToJsPayload.ApiResponse ->
+                    let
+                        apiResponse : Effect
+                        apiResponse =
+                            case model.maybeRequestJson of
+                                RenderRequest.SinglePage includeHtml requestPayload value ->
+                                    case requestPayload of
+                                        RenderRequest.Api ( path, Done apiHandler ) ->
+                                            let
+                                                thing : DataSource (Maybe ApiRoute.Response)
+                                                thing =
+                                                    apiHandler.matchesToResponse path
+                                            in
+                                            StaticHttpRequest.resolve ApplicationType.Cli
+                                                thing
+                                                model.allRawResponses
+                                                |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
+                                                |> (\response ->
+                                                        case response of
+                                                            Ok (Just okResponse) ->
+                                                                { body = okResponse.body
+                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                , statusCode = 200
+                                                                }
+                                                                    |> ToJsPayload.SendApiResponse
+                                                                    |> Effect.SendSinglePage True
+
+                                                            Ok Nothing ->
+                                                                { body = "Hello1!"
+                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                , statusCode = 404
+                                                                }
+                                                                    |> ToJsPayload.SendApiResponse
+                                                                    |> Effect.SendSinglePage True
+
+                                                            Err error ->
+                                                                [ error ]
+                                                                    |> ToJsPayload.Errors
+                                                                    |> Effect.SendJsData
+                                                   )
+
+                                        RenderRequest.Page payload ->
+                                            let
+                                                pageFoundResult : Result BuildError (Maybe NotFoundReason)
+                                                pageFoundResult =
+                                                    StaticHttpRequest.resolve ApplicationType.Browser
+                                                        (config.handleRoute payload.frontmatter)
                                                         model.allRawResponses
-                                                        |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                                        |> (\response ->
-                                                                case response of
-                                                                    Ok (Just okResponse) ->
-                                                                        { body = okResponse.body
-                                                                        , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                        , statusCode = 200
-                                                                        }
-                                                                            |> ToJsPayload.SendApiResponse
-                                                                            |> Effect.SendSinglePage True
-
-                                                                    Ok Nothing ->
-                                                                        { body = "Hello1!"
-                                                                        , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                        , statusCode = 404
-                                                                        }
-                                                                            |> ToJsPayload.SendApiResponse
-                                                                            |> Effect.SendSinglePage True
-
-                                                                    Err error ->
-                                                                        [ error ]
-                                                                            |> ToJsPayload.Errors
-                                                                            |> Effect.SendJsData
-                                                           )
-
-                                                RenderRequest.Page payload ->
+                                                        |> Result.mapError (StaticHttpRequest.toBuildError (payload.path |> Path.toAbsolute))
+                                            in
+                                            case pageFoundResult of
+                                                Ok Nothing ->
                                                     let
-                                                        pageFoundResult : Result BuildError (Maybe NotFoundReason)
-                                                        pageFoundResult =
-                                                            StaticHttpRequest.resolve ApplicationType.Browser
-                                                                (config.handleRoute payload.frontmatter)
-                                                                model.allRawResponses
-                                                                |> Result.mapError (StaticHttpRequest.toBuildError (payload.path |> Path.toAbsolute))
-                                                    in
-                                                    case pageFoundResult of
-                                                        Ok Nothing ->
-                                                            let
-                                                                allRoutes : List route
-                                                                allRoutes =
-                                                                    []
+                                                        allRoutes : List route
+                                                        allRoutes =
+                                                            []
 
-                                                                currentUrl : Url.Url
-                                                                currentUrl =
-                                                                    { protocol = Url.Https
-                                                                    , host = config.site [] |> .canonicalUrl
-                                                                    , port_ = Nothing
-                                                                    , path = payload.path |> Path.toRelative
-                                                                    , query = Nothing
-                                                                    , fragment = Nothing
-                                                                    }
+                                                        currentUrl : Url.Url
+                                                        currentUrl =
+                                                            { protocol = Url.Https
+                                                            , host = config.site [] |> .canonicalUrl
+                                                            , port_ = Nothing
+                                                            , path = payload.path |> Path.toRelative
+                                                            , query = Nothing
+                                                            , fragment = Nothing
+                                                            }
 
-                                                                renderedResult : Result BuildError { head : List Head.Tag, view : String, title : String }
-                                                                renderedResult =
-                                                                    case includeHtml of
-                                                                        RenderRequest.OnlyJson ->
-                                                                            Ok
-                                                                                { head = []
-                                                                                , view = "This page was not rendered because it is a JSON-only request."
-                                                                                , title = "This page was not rendered because it is a JSON-only request."
+                                                        renderedResult : Result BuildError { head : List Head.Tag, view : String, title : String }
+                                                        renderedResult =
+                                                            case includeHtml of
+                                                                RenderRequest.OnlyJson ->
+                                                                    Ok
+                                                                        { head = []
+                                                                        , view = "This page was not rendered because it is a JSON-only request."
+                                                                        , title = "This page was not rendered because it is a JSON-only request."
+                                                                        }
+
+                                                                RenderRequest.HtmlAndJson ->
+                                                                    Result.map2 Tuple.pair pageDataResult sharedDataResult
+                                                                        |> Result.map
+                                                                            (\( pageData, sharedData ) ->
+                                                                                let
+                                                                                    pageModel : userModel
+                                                                                    pageModel =
+                                                                                        config.init
+                                                                                            Pages.Flags.PreRenderFlags
+                                                                                            sharedData
+                                                                                            pageData
+                                                                                            Nothing
+                                                                                            (Just
+                                                                                                { path =
+                                                                                                    { path = currentPage.path
+                                                                                                    , query = Nothing
+                                                                                                    , fragment = Nothing
+                                                                                                    }
+                                                                                                , metadata = currentPage.frontmatter
+                                                                                                , pageUrl = Nothing
+                                                                                                }
+                                                                                            )
+                                                                                            |> Tuple.first
+
+                                                                                    viewValue : { title : String, body : Html userMsg }
+                                                                                    viewValue =
+                                                                                        (config.view currentPage Nothing sharedData pageData |> .view) pageModel
+                                                                                in
+                                                                                { head = config.view currentPage Nothing sharedData pageData |> .head
+                                                                                , view = viewValue.body |> HtmlPrinter.htmlToString
+                                                                                , title = viewValue.title
                                                                                 }
+                                                                            )
 
-                                                                        RenderRequest.HtmlAndJson ->
-                                                                            Result.map2 Tuple.pair pageDataResult sharedDataResult
-                                                                                |> Result.map
-                                                                                    (\( pageData, sharedData ) ->
-                                                                                        let
-                                                                                            pageModel : userModel
-                                                                                            pageModel =
-                                                                                                config.init
-                                                                                                    Pages.Flags.PreRenderFlags
-                                                                                                    sharedData
-                                                                                                    pageData
-                                                                                                    Nothing
-                                                                                                    (Just
-                                                                                                        { path =
-                                                                                                            { path = currentPage.path
-                                                                                                            , query = Nothing
-                                                                                                            , fragment = Nothing
-                                                                                                            }
-                                                                                                        , metadata = currentPage.frontmatter
-                                                                                                        , pageUrl = Nothing
-                                                                                                        }
-                                                                                                    )
-                                                                                                    |> Tuple.first
+                                                        staticData : Dict String String
+                                                        staticData =
+                                                            --toJsPayload.pages
+                                                            --    |> Dict.get (Path.toRelative page)
+                                                            --    |> Maybe.withDefault Dict.empty
+                                                            Dict.empty
 
-                                                                                            viewValue : { title : String, body : Html userMsg }
-                                                                                            viewValue =
-                                                                                                (config.view currentPage Nothing sharedData pageData |> .view) pageModel
-                                                                                        in
-                                                                                        { head = config.view currentPage Nothing sharedData pageData |> .head
-                                                                                        , view = viewValue.body |> HtmlPrinter.htmlToString
-                                                                                        , title = viewValue.title
-                                                                                        }
-                                                                                    )
+                                                        currentPage : { path : Path, frontmatter : route }
+                                                        currentPage =
+                                                            { path = payload.path, frontmatter = config.urlToRoute currentUrl }
 
-                                                                staticData : Dict String String
-                                                                staticData =
-                                                                    --toJsPayload.pages
-                                                                    --    |> Dict.get (Path.toRelative page)
-                                                                    --    |> Maybe.withDefault Dict.empty
-                                                                    Dict.empty
+                                                        pageDataResult : Result BuildError pageData
+                                                        pageDataResult =
+                                                            StaticHttpRequest.resolve ApplicationType.Browser
+                                                                (config.data (config.urlToRoute currentUrl))
+                                                                (staticData |> Dict.map (\_ v -> Just v))
+                                                                |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                                                                currentPage : { path : Path, frontmatter : route }
-                                                                currentPage =
-                                                                    { path = payload.path, frontmatter = config.urlToRoute currentUrl }
+                                                        sharedDataResult : Result BuildError sharedData
+                                                        sharedDataResult =
+                                                            StaticHttpRequest.resolve ApplicationType.Browser
+                                                                config.sharedData
+                                                                (staticData |> Dict.map (\_ v -> Just v))
+                                                                |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                                                                pageDataResult : Result BuildError pageData
-                                                                pageDataResult =
-                                                                    StaticHttpRequest.resolve ApplicationType.Browser
-                                                                        (config.data (config.urlToRoute currentUrl))
-                                                                        (staticData |> Dict.map (\_ v -> Just v))
-                                                                        |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
-
-                                                                sharedDataResult : Result BuildError sharedData
-                                                                sharedDataResult =
-                                                                    StaticHttpRequest.resolve ApplicationType.Browser
-                                                                        config.sharedData
-                                                                        (staticData |> Dict.map (\_ v -> Just v))
-                                                                        |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
-
-                                                                siteDataResult : Result BuildError siteData
-                                                                siteDataResult =
-                                                                    StaticHttpRequest.resolve ApplicationType.Cli
-                                                                        (config.site allRoutes |> .data)
-                                                                        (staticData |> Dict.map (\_ v -> Just v))
-                                                                        |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
-                                                            in
-                                                            case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
-                                                                Ok ( pageFound, rendered, siteData ) ->
-                                                                    { route = payload.path |> Path.toRelative
-                                                                    , contentJson =
-                                                                        --toJsPayload.pages
-                                                                        --    |> Dict.get (Path.toRelative page)
-                                                                        --    |> Maybe.withDefault Dict.empty
-                                                                        Dict.empty
-                                                                    , html = rendered.view
-                                                                    , errors = []
-                                                                    , head = rendered.head
-                                                                    , title = rendered.title
-                                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                    , is404 = False
-                                                                    }
-                                                                        |> ToJsPayload.PageProgress
-                                                                        |> Effect.SendSinglePage False
-
-                                                                Err error ->
-                                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
-
-                                                        Ok (Just notFoundReason) ->
-                                                            render404Page config model payload.path notFoundReason
+                                                        siteDataResult : Result BuildError siteData
+                                                        siteDataResult =
+                                                            StaticHttpRequest.resolve ApplicationType.Cli
+                                                                (config.site allRoutes |> .data)
+                                                                (staticData |> Dict.map (\_ v -> Just v))
+                                                                |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
+                                                    in
+                                                    case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
+                                                        Ok ( pageFound, rendered, siteData ) ->
+                                                            { route = payload.path |> Path.toRelative
+                                                            , contentJson =
+                                                                --toJsPayload.pages
+                                                                --    |> Dict.get (Path.toRelative page)
+                                                                --    |> Maybe.withDefault Dict.empty
+                                                                Dict.empty
+                                                            , html = rendered.view
+                                                            , errors = []
+                                                            , head = rendered.head
+                                                            , title = rendered.title
+                                                            , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                            , is404 = False
+                                                            }
+                                                                |> ToJsPayload.PageProgress
+                                                                |> Effect.SendSinglePage False
 
                                                         Err error ->
-                                                            [] |> ToJsPayload.Errors |> Effect.SendJsData
+                                                            [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
 
-                                                RenderRequest.NotFound path ->
-                                                    render404Page config model path NotFoundReason.NoMatchingRoute
-                            in
-                            ( { model | staticRoutes = Just [] }
-                            , apiResponse
-                            )
+                                                Ok (Just notFoundReason) ->
+                                                    render404Page config model payload.path notFoundReason
 
-                        _ ->
-                            model.unprocessedPages
-                                |> List.take 1
-                                |> List.filterMap
-                                    (\pageAndMetadata ->
-                                        case toJsPayload of
-                                            ToJsPayload.Success value ->
-                                                sendSinglePageProgress value config model pageAndMetadata
-                                                    |> Just
+                                                Err error ->
+                                                    [] |> ToJsPayload.Errors |> Effect.SendJsData
 
-                                            ToJsPayload.Errors errors ->
-                                                errors |> ToJsPayload.Errors |> Effect.SendJsData |> Just
-
-                                            ToJsPayload.ApiResponse ->
-                                                Nothing
-                                    )
-                                |> (\cmds ->
-                                        ( model
-                                            |> popProcessedRequest
-                                        , Effect.Batch cmds
-                                        )
-                                   )
+                                        RenderRequest.NotFound path ->
+                                            render404Page config model path NotFoundReason.NoMatchingRoute
+                    in
+                    ( { model | staticRoutes = Just [] }
+                    , apiResponse
+                    )
 
                 _ ->
-                    ( model, Effect.SendJsData toJsPayload )
+                    model.unprocessedPages
+                        |> List.take 1
+                        |> List.filterMap
+                            (\pageAndMetadata ->
+                                case toJsPayload of
+                                    ToJsPayload.Success value ->
+                                        sendSinglePageProgress value config model pageAndMetadata
+                                            |> Just
+
+                                    ToJsPayload.Errors errors ->
+                                        errors |> ToJsPayload.Errors |> Effect.SendJsData |> Just
+
+                                    ToJsPayload.ApiResponse ->
+                                        Nothing
+                            )
+                        |> (\cmds ->
+                                ( model
+                                    |> popProcessedRequest
+                                , Effect.Batch cmds
+                                )
+                           )
 
 
 sendSinglePageProgress :

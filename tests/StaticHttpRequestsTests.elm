@@ -1347,7 +1347,6 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                         |> Dict.fromList
                         |> Encode.dict identity Encode.string
                   )
-                , ( "mode", Encode.string "elm-to-html-beta" )
                 , ( "staticHttpCache", encodedStaticHttpCache )
                 ]
 

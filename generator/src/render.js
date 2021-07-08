@@ -49,13 +49,11 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
     const isJson = pagePath.match(/content\.json\/?$/);
     const route = pagePath.replace(/content\.json\/?$/, "");
 
-    const mode = "elm-to-html-beta";
     const modifiedRequest = { ...request, path: route };
     // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
     app = elmModule.Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
-        mode,
         staticHttpCache: global.staticHttpCache,
         request: {
           payload: modifiedRequest,
