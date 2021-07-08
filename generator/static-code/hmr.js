@@ -17,8 +17,8 @@ function connect(sendContentJsonPort, initialErrorPage) {
 }
 
 async function handleEvent(sendContentJsonPort, evt) {
-  showCompiling("");
   if (evt.data === "content.json") {
+    showCompiling("");
     const elmJsRequest = elmJsFetch();
     const fetchContentJson = fetchContentJsonForCurrentPage();
     updateAppContentJson = updateContentJsonWith(
@@ -37,8 +37,19 @@ async function handleEvent(sendContentJsonPort, evt) {
         errors: errorJson,
       });
     }
-  } else {
+  } else if (evt.data === "elm.js") {
+    showCompiling("");
     elmJsFetch().then(thenApplyHmr);
+  } else if (evt.data === "style.css") {
+    const links = document.getElementsByTagName("link");
+    for (var i = 0; i < links.length; i++) {
+      const link = links[i];
+      if (link.rel === "stylesheet") {
+        link.href += "";
+      }
+    }
+  } else {
+    console.log("Unhandled", evt.data);
   }
 }
 
