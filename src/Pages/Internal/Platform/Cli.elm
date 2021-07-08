@@ -60,6 +60,12 @@ type alias Model route =
 
 type Msg
     = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Pages.Http.Error String }
+    | GotDataBatch
+        (List
+            { request : { masked : RequestDetails, unmasked : RequestDetails }
+            , response : String
+            }
+        )
     | GotPortResponse ( String, Decode.Value )
     | GotStaticFile ( String, Decode.Value )
     | GotBuildError BuildError
@@ -141,6 +147,24 @@ cliApplication config =
                                                                 (Decode.field "result" Decode.value)
                                                             )
                                                             |> Decode.map GotGlob
+
+                                                    "GotBatch" ->
+                                                        Decode.field "data"
+                                                            (Decode.list
+                                                                (Decode.map2
+                                                                    (\requests response ->
+                                                                        { request =
+                                                                            { masked = requests.masked
+                                                                            , unmasked = requests.unmasked
+                                                                            }
+                                                                        , response = response
+                                                                        }
+                                                                    )
+                                                                    (Decode.field "request" requestDecoder)
+                                                                    (Decode.field "response" Decode.string)
+                                                                )
+                                                            )
+                                                            |> Decode.map GotDataBatch
 
                                                     "GotHttp" ->
                                                         Decode.field "data"
@@ -470,6 +494,32 @@ update :
     -> ( Model route, Effect )
 update contentCache config msg model =
     case msg of
+        GotDataBatch batch ->
+            let
+                updatedModel =
+                    (case batch of
+                        [ single ] ->
+                            { model
+                                | pendingRequests =
+                                    model.pendingRequests
+                                        |> List.filter
+                                            (\pending ->
+                                                pending /= single.request
+                                            )
+                            }
+
+                        _ ->
+                            { model
+                                | pendingRequests = [] -- TODO is it safe to clear it entirely?
+                            }
+                    )
+                        |> StaticResponses.batchUpdate batch
+            in
+            StaticResponses.nextStep config
+                updatedModel
+                Nothing
+                |> nextStepToEffect contentCache config updatedModel
+
         GotStaticHttpResponse { request, response } ->
             let
                 updatedModel : Model route

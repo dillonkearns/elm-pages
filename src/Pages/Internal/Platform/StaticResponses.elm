@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, error, nextStep, renderApiRequest, renderSingleRoute, update)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, batchUpdate, error, nextStep, renderApiRequest, renderSingleRoute, update)
 
 import ApiRoute
 import BuildError exposing (BuildError)
@@ -132,6 +132,47 @@ update newEntry model =
                 (HashRequest.hash newEntry.request.masked)
                 (Just <| Result.withDefault "TODO" newEntry.response)
                 model.allRawResponses
+    in
+    { model
+        | allRawResponses = updatedAllResponses
+    }
+
+
+batchUpdate :
+    List
+        { request :
+            { masked : RequestDetails, unmasked : RequestDetails }
+        , response : String
+        }
+    ->
+        { model
+            | staticResponses : StaticResponses
+            , allRawResponses : Dict String (Maybe String)
+        }
+    ->
+        { model
+            | staticResponses : StaticResponses
+            , allRawResponses : Dict String (Maybe String)
+        }
+batchUpdate newEntries model =
+    let
+        newResponses =
+            newEntries
+                |> List.map
+                    (\newEntry ->
+                        ( HashRequest.hash newEntry.request.masked, newEntry.response )
+                    )
+                |> Dict.fromList
+
+        updatedAllResponses : Dict String (Maybe String)
+        updatedAllResponses =
+            Dict.merge
+                (\key a -> Dict.insert key (Just a))
+                (\key a b -> Dict.insert key (Just a))
+                (\key b -> Dict.insert key b)
+                newResponses
+                model.allRawResponses
+                Dict.empty
     in
     { model
         | allRawResponses = updatedAllResponses

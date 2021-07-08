@@ -108,15 +108,43 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
             await fsPromises.readFile(path.join(process.cwd(), filePath))
           ).toString();
           const parsedFile = matter(fileContents);
+          // app.ports.fromJsPort.send({
+          //   tag: "GotFile",
+          //   data: {
+          //     filePath,
+          //     parsedFrontmatter: parsedFile.data,
+          //     withoutFrontmatter: parsedFile.content,
+          //     rawFile: fileContents,
+          //     jsonFile: jsonOrNull(fileContents),
+          //   },
+          // });
+
           app.ports.fromJsPort.send({
-            tag: "GotFile",
-            data: {
-              filePath,
-              parsedFrontmatter: parsedFile.data,
-              withoutFrontmatter: parsedFile.content,
-              rawFile: fileContents,
-              jsonFile: jsonOrNull(fileContents),
-            },
+            tag: "GotBatch",
+            data: [
+              {
+                request: {
+                  masked: {
+                    url: `file://${filePath}`,
+                    method: "GET",
+                    headers: [],
+                    body: { tag: "EmptyBody", args: [] },
+                  },
+                  unmasked: {
+                    url: `file://${filePath}`,
+                    method: "GET",
+                    headers: [],
+                    body: { tag: "EmptyBody", args: [] },
+                  },
+                },
+                response: JSON.stringify({
+                  parsedFrontmatter: parsedFile.data,
+                  withoutFrontmatter: parsedFile.content,
+                  rawFile: fileContents,
+                  jsonFile: jsonOrNull(fileContents),
+                }),
+              },
+            ],
           });
         } catch (error) {
           app.ports.fromJsPort.send({
