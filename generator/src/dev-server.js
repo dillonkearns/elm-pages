@@ -66,6 +66,7 @@ async function start(options) {
     ];
     console.log("Watching...", { sourceDirs });
     watcher.add(sourceDirs);
+    watcher.add("./public/*.css");
   }
 
   function requireUncached() {
@@ -115,6 +116,10 @@ async function start(options) {
     console.log({ pathThatChanged });
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs();
+    } else if (pathThatChanged.endsWith(".css")) {
+      clients.forEach((client) => {
+        client.response.write(`data: style.css\n\n`);
+      });
     } else if (pathThatChanged.endsWith(".elm")) {
       if (elmMakeRunning) {
       } else {
