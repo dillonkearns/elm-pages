@@ -1,6 +1,5 @@
 module Pages.Internal.Platform.ToJsPayload exposing
     ( FileToGenerate
-    , InitialDataRecord
     , ToJsPayload(..)
     , ToJsSuccessPayload
     , ToJsSuccessPayloadNew
@@ -181,7 +180,6 @@ headCodec canonicalSiteUrl currentPagePath =
 
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
-    | InitialData InitialDataRecord
     | SendApiResponse { body : String, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
@@ -189,21 +187,13 @@ type ToJsSuccessPayloadNewCombined
     | Port String
 
 
-type alias InitialDataRecord =
-    { filesToGenerate : List FileToGenerate
-    }
-
-
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\success initialData vReadFile vGlob vDoHttp vSendApiResponse vPort value ->
+        (\success vReadFile vGlob vDoHttp vSendApiResponse vPort value ->
             case value of
                 PageProgress payload ->
                     success payload
-
-                InitialData payload ->
-                    initialData payload
 
                 ReadFile filePath ->
                     vReadFile filePath
@@ -221,7 +211,6 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                     vPort string
         )
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
-        |> Codec.variant1 "InitialData" InitialData initialDataCodec
         |> Codec.variant1 "ReadFile" ReadFile Codec.string
         |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.variant1 "DoHttp"
@@ -243,33 +232,3 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
             )
         |> Codec.variant1 "Port" Port Codec.string
         |> Codec.buildCustom
-
-
-filesToGenerateCodec : Codec (List { path : List String, content : String })
-filesToGenerateCodec =
-    Codec.build
-        (\list ->
-            list
-                |> Json.Encode.list
-                    (\item ->
-                        Json.Encode.object
-                            [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
-                            , ( "content", item.content |> Json.Encode.string )
-                            ]
-                    )
-        )
-        (Decode.list
-            (Decode.map2 (\path content -> { path = path, content = content })
-                (Decode.string |> Decode.map (String.split "/") |> Decode.field "path")
-                (Decode.string |> Decode.field "content")
-            )
-        )
-
-
-initialDataCodec : Codec InitialDataRecord
-initialDataCodec =
-    Codec.object InitialDataRecord
-        |> Codec.field "filesToGenerate"
-            .filesToGenerate
-            filesToGenerateCodec
-        |> Codec.buildObject

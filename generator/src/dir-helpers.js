@@ -22,6 +22,15 @@ async function tryMkdir(dirName) {
   }
 }
 
+/**
+ * @param {string} filePath
+ * @param {string} data
+ */
+function writeFileSyncSafe(filePath, data) {
+  fsSync.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, data);
+}
+
 const path = require("path");
 
 /**
@@ -67,6 +76,7 @@ module.exports = {
   readFileSync: fsSync.readFileSync,
   copyFile: fs.copyFile,
   exists: fs.exists,
+  writeFileSyncSafe,
   tryMkdir,
   copyDirFlat,
   copyDirNested,

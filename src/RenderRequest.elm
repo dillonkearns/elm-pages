@@ -3,6 +3,7 @@ module RenderRequest exposing
     , RenderRequest(..)
     , RequestPayload(..)
     , decoder
+    , default
     , maybeRequestPayload
     )
 
@@ -10,6 +11,7 @@ import ApiRoute
 import HtmlPrinter
 import Internal.ApiRoute
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Path exposing (Path)
 import Regex
@@ -24,15 +26,19 @@ type RequestPayload route
 
 type RenderRequest route
     = SinglePage IncludeHtml (RequestPayload route) Decode.Value
-    | FullBuild
+
+
+default : RenderRequest route
+default =
+    SinglePage
+        HtmlAndJson
+        (NotFound (Path.fromString "/error"))
+        Encode.null
 
 
 maybeRequestPayload : RenderRequest route -> Maybe Decode.Value
 maybeRequestPayload renderRequest =
     case renderRequest of
-        FullBuild ->
-            Nothing
-
         SinglePage _ _ rawJson ->
             Just rawJson
 
@@ -46,7 +52,7 @@ decoder :
     ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
     -> Decode.Decoder (RenderRequest (Maybe route))
 decoder config =
-    optionalField "request"
+    Decode.field "request"
         (Decode.map3
             (\includeHtml requestThing payload ->
                 SinglePage includeHtml requestThing payload
@@ -73,15 +79,6 @@ decoder config =
             (requestPayloadDecoder config)
             (Decode.field "payload" Decode.value)
         )
-        |> Decode.map
-            (\maybeRequest ->
-                case maybeRequest of
-                    Just request ->
-                        request
-
-                    Nothing ->
-                        FullBuild
-            )
 
 
 

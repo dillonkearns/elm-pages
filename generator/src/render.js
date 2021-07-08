@@ -75,10 +75,6 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
     async function portHandler(/** @type { FromElm }  */ fromElm) {
       if (fromElm.command === "log") {
         console.log(fromElm.value);
-      } else if (fromElm.tag === "InitialData") {
-        const args = fromElm.args[0];
-        // console.log(`InitialData`, args);
-        writeGeneratedFiles(args.filesToGenerate);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
         global.staticHttpCache = args.staticHttpCache;

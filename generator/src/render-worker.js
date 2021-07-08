@@ -69,7 +69,7 @@ async function outputString(
     case "api-response": {
       const body = fromElm.body;
       console.log(`Generated ${pathname}`);
-      fs.writeFileSync(path.join("dist", pathname), body);
+      fs.writeFileSyncSafe(path.join("dist", pathname), body);
       if (pathname === "/all-paths.json") {
         parentPort.postMessage(body);
       } else {
