@@ -231,6 +231,7 @@ init config flags url key =
                                 |> List.filterMap identity
                                 |> Cmd.batch
 
+                        initialModel : Model userModel pageData sharedData
                         initialModel =
                             { key = key
                             , url = url
@@ -292,8 +293,7 @@ type alias Model userModel pageData sharedData =
     , contentCache : ContentCache
     , ariaNavigationAnnouncement : String
     , pageData :
-        Result
-            String
+        Result String
             { userModel : userModel
             , pageData : pageData
             , sharedData : sharedData
