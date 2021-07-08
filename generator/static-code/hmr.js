@@ -41,6 +41,7 @@ async function handleEvent(sendContentJsonPort, evt) {
     showCompiling("");
     elmJsFetch().then(thenApplyHmr);
   } else if (evt.data === "style.css") {
+    // https://stackoverflow.com/a/43161591
     const links = document.getElementsByTagName("link");
     for (var i = 0; i < links.length; i++) {
       const link = links[i];
