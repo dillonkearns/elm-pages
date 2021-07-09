@@ -24,12 +24,13 @@ module.exports =
    * @param {(pattern: string) => void} addDataSourceWatcher
    * @returns
    */
-  async function run(elmModule, path, request, addDataSourceWatcher) {
+  async function run(elmModule, mode, path, request, addDataSourceWatcher) {
     // since init/update are never called in pre-renders, and DataSource.Http is called using undici
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
     XMLHttpRequest = {};
     const result = await runElmApp(
       elmModule,
+      mode,
       path,
       request,
       addDataSourceWatcher
@@ -40,11 +41,12 @@ module.exports =
 /**
  * @param {Object} elmModule
  * @param {string} pagePath
+ * @param {string} mode
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
  * @param {(pattern: string) => void} addDataSourceWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
-function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
+function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
   let patternsToWatch = new Set();
   let app = null;
   let killApp;
@@ -57,7 +59,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
     app = elmModule.Elm.TemplateModulesBeta.init({
       flags: {
         secrets: process.env,
-        staticHttpCache: global.staticHttpCache,
+        staticHttpCache: global.staticHttpCache || {},
         request: {
           payload: modifiedRequest,
           kind: "single-page",
@@ -78,7 +80,9 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
-        global.staticHttpCache = args.staticHttpCache;
+        if (mode === "build") {
+          global.staticHttpCache = args.staticHttpCache;
+        }
 
         resolve({
           kind: "api-response",
@@ -88,7 +92,9 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        global.staticHttpCache = args.staticHttpCache;
+        if (mode === "build") {
+          global.staticHttpCache = args.staticHttpCache;
+        }
 
         if (isJson) {
           resolve({

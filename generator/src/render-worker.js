@@ -12,6 +12,7 @@ async function run({ mode, pathname }) {
   const req = null;
   const renderResult = await renderer(
     requireElm(mode),
+    mode,
     pathname,
     req,
     function (patterns) {
