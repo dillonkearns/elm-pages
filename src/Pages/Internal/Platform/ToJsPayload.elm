@@ -27,6 +27,7 @@ type ToJsPayload
 type alias ToJsSuccessPayload =
     { pages : Dict String (Dict String String)
     , filesToGenerate : List FileToGenerate
+    , staticHttpCache : Dict String String
     , errors : List BuildError
     }
 
@@ -38,6 +39,7 @@ type alias ToJsSuccessPayloadNew =
     , errors : List String
     , head : List Head.Tag
     , title : String
+    , staticHttpCache : Dict String String
     , is404 : Bool
     }
 
@@ -60,15 +62,15 @@ toJsPayload encodedStatic generated allRawResponses allErrors =
             (ToJsSuccessPayload
                 encodedStatic
                 generated
-                --(allRawResponses
-                --    |> Dict.toList
-                --    |> List.filterMap
-                --        (\( key, maybeValue ) ->
-                --            maybeValue
-                --                |> Maybe.map (\value -> ( key, value ))
-                --        )
-                --    |> Dict.fromList
-                --)
+                (allRawResponses
+                    |> Dict.toList
+                    |> List.filterMap
+                        (\( key, maybeValue ) ->
+                            maybeValue
+                                |> Maybe.map (\value -> ( key, value ))
+                        )
+                    |> Dict.fromList
+                )
                 allErrors
             )
 
@@ -84,8 +86,8 @@ toJsCodec =
                 Errors errorList ->
                     errorsTag errorList
 
-                Success { pages, filesToGenerate, errors } ->
-                    success (ToJsSuccessPayload pages filesToGenerate errors)
+                Success { pages, filesToGenerate, errors, staticHttpCache } ->
+                    success (ToJsSuccessPayload pages filesToGenerate staticHttpCache errors)
 
                 ApiResponse ->
                     vApiResponse
@@ -141,6 +143,9 @@ successCodec =
                     )
                 )
             )
+        |> Codec.field "staticHttpCache"
+            .staticHttpCache
+            (Codec.dict Codec.string)
         |> Codec.field "errors" .errors errorCodec
         |> Codec.buildObject
 
@@ -160,6 +165,9 @@ successCodecNew canonicalSiteUrl currentPagePath =
         |> Codec.field "errors" .errors (Codec.list Codec.string)
         |> Codec.field "head" .head (Codec.list (headCodec canonicalSiteUrl currentPagePath))
         |> Codec.field "title" .title Codec.string
+        |> Codec.field "staticHttpCache"
+            .staticHttpCache
+            (Codec.dict Codec.string)
         |> Codec.field "is404" .is404 Codec.bool
         |> Codec.buildObject
 
@@ -172,7 +180,7 @@ headCodec canonicalSiteUrl currentPagePath =
 
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
-    | SendApiResponse { body : String, statusCode : Int }
+    | SendApiResponse { body : String, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
     | DoHttp { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
@@ -214,8 +222,11 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
             )
         |> Codec.variant1 "ApiResponse"
             SendApiResponse
-            (Codec.object (\body statusCode -> { body = body, statusCode = statusCode })
+            (Codec.object (\body staticHttpCache statusCode -> { body = body, staticHttpCache = staticHttpCache, statusCode = statusCode })
                 |> Codec.field "body" .body Codec.string
+                |> Codec.field "staticHttpCache"
+                    .staticHttpCache
+                    (Codec.dict Codec.string)
                 |> Codec.field "statusCode" .statusCode Codec.int
                 |> Codec.buildObject
             )

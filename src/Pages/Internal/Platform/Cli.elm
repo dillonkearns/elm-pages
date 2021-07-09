@@ -345,10 +345,23 @@ perform renderRequest config toJsPort effect =
 flagsDecoder :
     Decode.Decoder
         { secrets : SecretsDict
+        , staticHttpCache : Dict String (Maybe String)
         }
 flagsDecoder =
-    Decode.map (\secrets -> { secrets = secrets })
+    Decode.map2
+        (\secrets staticHttpCache ->
+            { secrets = secrets
+            , staticHttpCache = staticHttpCache
+            }
+        )
         (Decode.field "secrets" SecretsDict.decoder)
+        (Decode.field "staticHttpCache"
+            (Decode.dict
+                (Decode.string
+                    |> Decode.map Just
+                )
+            )
+        )
 
 
 init :
@@ -359,8 +372,8 @@ init :
     -> ( Model route, Effect )
 init renderRequest contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
-        Ok { secrets } ->
-            initLegacy renderRequest { secrets = secrets } contentCache config flags
+        Ok { secrets, staticHttpCache } ->
+            initLegacy renderRequest { secrets = secrets, staticHttpCache = staticHttpCache } contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -385,12 +398,12 @@ init renderRequest contentCache config flags =
 
 initLegacy :
     RenderRequest route
-    -> { a | secrets : SecretsDict }
+    -> { a | secrets : SecretsDict, staticHttpCache : Dict String (Maybe String) }
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-initLegacy renderRequest { secrets } contentCache config flags =
+initLegacy renderRequest { secrets, staticHttpCache } contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -447,7 +460,7 @@ initLegacy renderRequest { secrets } contentCache config flags =
             { staticResponses = staticResponses
             , secrets = secrets
             , errors = []
-            , allRawResponses = Dict.empty
+            , allRawResponses = staticHttpCache
             , pendingRequests = []
             , unprocessedPages = unprocessedPages
             , staticRoutes = unprocessedPagesState
@@ -810,6 +823,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         case response of
                                                             Ok (Just okResponse) ->
                                                                 { body = okResponse.body
+                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                 , statusCode = 200
                                                                 }
                                                                     |> ToJsPayload.SendApiResponse
@@ -817,6 +831,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
                                                             Ok Nothing ->
                                                                 { body = "Hello1!"
+                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                 , statusCode = 404
                                                                 }
                                                                     |> ToJsPayload.SendApiResponse
@@ -942,6 +957,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                             , errors = []
                                                             , head = rendered.head
                                                             , title = rendered.title
+                                                            , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                             , is404 = False
                                                             }
                                                                 |> ToJsPayload.PageProgress
@@ -1107,6 +1123,7 @@ sendSinglePageProgress toJsPayload config model =
                                 , errors = []
                                 , head = rendered.head ++ (config.site allRoutes |> .head) siteData
                                 , title = rendered.title
+                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                 , is404 = False
                                 }
                                     |> sendProgress
@@ -1163,6 +1180,7 @@ render404Page config model path notFoundReason =
     , errors = []
     , head = []
     , title = notFoundDocument.title
+    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
     , is404 = True
     }
         |> ToJsPayload.PageProgress
