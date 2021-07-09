@@ -78,7 +78,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
-        // global.staticHttpCache = args.staticHttpCache;
+        global.staticHttpCache = args.staticHttpCache;
 
         resolve({
           kind: "api-response",
@@ -88,7 +88,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        // global.staticHttpCache = args.staticHttpCache;
+        global.staticHttpCache = args.staticHttpCache;
 
         if (isJson) {
           resolve({
