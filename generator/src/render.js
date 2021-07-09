@@ -200,12 +200,12 @@ function jsonOrNull(string) {
 }
 
 async function runJob(app, filePath) {
-  console.log(`Running job for ${filePath}`);
+  // console.log(`Running job for ${filePath}`);
 
   if (pendingDataSourceCount === 0) {
     queueStartTime = Date.now();
   } else {
-    console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
+    // console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
   }
   pendingDataSourceCount += 1;
   pendingDataSourceResponses.push(await readFileTask(filePath));
@@ -219,9 +219,9 @@ function flushIfDone(app) {
   if (pendingDataSourceCount === 0) {
     const timeUntilThreshold =
       minimumTimeThreshold - (Date.now() - queueStartTime);
-    console.log(
-      `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
-    );
+    // console.log(
+    //   `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
+    // );
     if (timeUntilThreshold > 0) {
       setTimeout(() => {
         flushIfDone(app);
@@ -235,7 +235,7 @@ function flushIfDone(app) {
 function flushQueue(app) {
   const temp = pendingDataSourceResponses;
   pendingDataSourceResponses = [];
-  console.log("@@@ FLUSHING", temp.length);
+  // console.log("@@@ FLUSHING", temp.length);
   app.ports.fromJsPort.send({
     tag: "GotBatch",
     data: temp,
@@ -247,11 +247,11 @@ function flushQueue(app) {
  * @returns {Promise<Object>}
  */
 async function readFileTask(filePath) {
-  console.log(`Read file ${filePath}`);
+  // console.log(`Read file ${filePath}`);
   const fileContents = (
     await fsPromises.readFile(path.join(process.cwd(), filePath))
   ).toString();
-  console.log(`DONE reading file ${filePath}`);
+  // console.log(`DONE reading file ${filePath}`);
   const parsedFile = matter(fileContents);
 
   return {
