@@ -11,6 +11,9 @@ let foundErrors = false;
 process.on("unhandledRejection", (error) => {
   console.error(error);
 });
+let pendingDataSourceResponses = [];
+let pendingDataSourceCount = 0;
+let queueStartTime;
 
 module.exports =
   /**
@@ -75,7 +78,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
-        global.staticHttpCache = args.staticHttpCache;
+        // global.staticHttpCache = args.staticHttpCache;
 
         resolve({
           kind: "api-response",
@@ -85,7 +88,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        global.staticHttpCache = args.staticHttpCache;
+        // global.staticHttpCache = args.staticHttpCache;
 
         if (isJson) {
           resolve({
@@ -104,48 +107,7 @@ function runElmApp(elmModule, pagePath, request, addDataSourceWatcher) {
         try {
           patternsToWatch.add(filePath);
 
-          const fileContents = (
-            await fsPromises.readFile(path.join(process.cwd(), filePath))
-          ).toString();
-          const parsedFile = matter(fileContents);
-          // app.ports.fromJsPort.send({
-          //   tag: "GotFile",
-          //   data: {
-          //     filePath,
-          //     parsedFrontmatter: parsedFile.data,
-          //     withoutFrontmatter: parsedFile.content,
-          //     rawFile: fileContents,
-          //     jsonFile: jsonOrNull(fileContents),
-          //   },
-          // });
-
-          app.ports.fromJsPort.send({
-            tag: "GotBatch",
-            data: [
-              {
-                request: {
-                  masked: {
-                    url: `file://${filePath}`,
-                    method: "GET",
-                    headers: [],
-                    body: { tag: "EmptyBody", args: [] },
-                  },
-                  unmasked: {
-                    url: `file://${filePath}`,
-                    method: "GET",
-                    headers: [],
-                    body: { tag: "EmptyBody", args: [] },
-                  },
-                },
-                response: JSON.stringify({
-                  parsedFrontmatter: parsedFile.data,
-                  withoutFrontmatter: parsedFile.content,
-                  rawFile: fileContents,
-                  jsonFile: jsonOrNull(fileContents),
-                }),
-              },
-            ],
-          });
+          runJob(app, filePath);
         } catch (error) {
           app.ports.fromJsPort.send({
             tag: "BuildError",
@@ -235,4 +197,83 @@ function jsonOrNull(string) {
   } catch (e) {
     return { invalidJson: e.toString() };
   }
+}
+
+async function runJob(app, filePath) {
+  console.log(`Running job for ${filePath}`);
+
+  if (pendingDataSourceCount === 0) {
+    queueStartTime = Date.now();
+  } else {
+    console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
+  }
+  pendingDataSourceCount += 1;
+  pendingDataSourceResponses.push(await readFileTask(filePath));
+  pendingDataSourceCount -= 1;
+  flushIfDone(app);
+}
+
+const minimumTimeThreshold = 0;
+
+function flushIfDone(app) {
+  if (pendingDataSourceCount === 0) {
+    const timeUntilThreshold =
+      minimumTimeThreshold - (Date.now() - queueStartTime);
+    console.log(
+      `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
+    );
+    if (timeUntilThreshold > 0) {
+      setTimeout(() => {
+        flushIfDone(app);
+      }, timeUntilThreshold);
+    } else {
+      flushQueue(app);
+    }
+  }
+}
+
+function flushQueue(app) {
+  const temp = pendingDataSourceResponses;
+  pendingDataSourceResponses = [];
+  console.log("@@@ FLUSHING", temp.length);
+  app.ports.fromJsPort.send({
+    tag: "GotBatch",
+    data: temp,
+  });
+}
+
+/**
+ * @param {string} filePath
+ * @returns {Promise<Object>}
+ */
+async function readFileTask(filePath) {
+  console.log(`Read file ${filePath}`);
+  const fileContents = (
+    await fsPromises.readFile(path.join(process.cwd(), filePath))
+  ).toString();
+  console.log(`DONE reading file ${filePath}`);
+  const parsedFile = matter(fileContents);
+
+  return {
+    request: {
+      masked: {
+        url: `file://${filePath}`,
+        method: "GET",
+        headers: [],
+        body: { tag: "EmptyBody", args: [] },
+      },
+      unmasked: {
+        url: `file://${filePath}`,
+        method: "GET",
+        headers: [],
+        body: { tag: "EmptyBody", args: [] },
+      },
+    },
+    response: JSON.stringify({
+      parsedFrontmatter: parsedFile.data,
+      withoutFrontmatter: parsedFile.content,
+      rawFile: fileContents,
+      jsonFile: jsonOrNull(fileContents),
+    }),
+  };
 }
