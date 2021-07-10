@@ -59,17 +59,13 @@ type alias Model route =
 
 
 type Msg
-    = GotStaticHttpResponse { request : { masked : RequestDetails, unmasked : RequestDetails }, response : Result Pages.Http.Error String }
-    | GotDataBatch
+    = GotDataBatch
         (List
             { request : { masked : RequestDetails, unmasked : RequestDetails }
             , response : String
             }
         )
-    | GotPortResponse ( String, Decode.Value )
-    | GotStaticFile ( String, Decode.Value )
     | GotBuildError BuildError
-    | GotGlob ( String, Decode.Value )
     | Continue
 
 
@@ -132,22 +128,6 @@ cliApplication config =
                                                             )
                                                             |> Decode.map GotBuildError
 
-                                                    "GotFile" ->
-                                                        gotStaticFileDecoder
-                                                            |> Decode.map GotStaticFile
-
-                                                    "GotPort" ->
-                                                        gotPortDecoder
-                                                            |> Decode.map GotPortResponse
-
-                                                    "GotGlob" ->
-                                                        Decode.field "data"
-                                                            (Decode.map2 Tuple.pair
-                                                                (Decode.field "pattern" Decode.string)
-                                                                (Decode.field "result" Decode.value)
-                                                            )
-                                                            |> Decode.map GotGlob
-
                                                     "GotBatch" ->
                                                         Decode.field "data"
                                                             (Decode.list
@@ -165,22 +145,6 @@ cliApplication config =
                                                                 )
                                                             )
                                                             |> Decode.map GotDataBatch
-
-                                                    "GotHttp" ->
-                                                        Decode.field "data"
-                                                            (Decode.map2
-                                                                (\requests response ->
-                                                                    GotStaticHttpResponse
-                                                                        { request =
-                                                                            { masked = requests.masked
-                                                                            , unmasked = requests.unmasked
-                                                                            }
-                                                                        , response = Ok response
-                                                                        }
-                                                                )
-                                                                (Decode.field "request" requestDecoder)
-                                                                (Decode.field "result" Decode.string)
-                                                            )
 
                                                     _ ->
                                                         Decode.fail "Unhandled msg"
@@ -251,17 +215,53 @@ perform renderRequest config toJsPort effect =
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
             if unmasked.url == "$$elm-pages$$headers" then
-                Cmd.batch
-                    [ Task.succeed
-                        { request = requests
-                        , response =
-                            renderRequest
-                                |> RenderRequest.maybeRequestPayload
-                                |> Maybe.map (Json.Encode.encode 0)
-                                |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
+                case
+                    renderRequest
+                        |> RenderRequest.maybeRequestPayload
+                        |> Maybe.map (Json.Encode.encode 0)
+                        |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
+                of
+                    Ok okResponse ->
+                        Task.succeed
+                            [ { request = requests
+                              , response = okResponse
+                              }
+                            ]
+                            |> Task.perform GotDataBatch
+
+                    Err error ->
+                        { title = "Static HTTP Error"
+                        , message =
+                            [ Terminal.text "I got an error making an HTTP request to this URL: "
+
+                            -- TODO include HTTP method, headers, and body
+                            , Terminal.yellow <| Terminal.text requests.masked.url
+                            , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode requests.masked.body
+                            , Terminal.text "\n\n"
+                            , case error of
+                                Pages.Http.BadStatus metadata body ->
+                                    Terminal.text <|
+                                        String.join "\n"
+                                            [ "Bad status: " ++ String.fromInt metadata.statusCode
+                                            , "Status message: " ++ metadata.statusText
+                                            , "Body: " ++ body
+                                            ]
+
+                                Pages.Http.BadUrl _ ->
+                                    -- TODO include HTTP method, headers, and body
+                                    Terminal.text <| "Invalid url: " ++ requests.masked.url
+
+                                Pages.Http.Timeout ->
+                                    Terminal.text "Timeout"
+
+                                Pages.Http.NetworkError ->
+                                    Terminal.text "Network error"
+                            ]
+                        , fatal = True
+                        , path = "" -- TODO wire in current path here
                         }
-                        |> Task.perform GotStaticHttpResponse
-                    ]
+                            |> Task.succeed
+                            |> Task.perform GotBuildError
 
             else if unmasked.url |> String.startsWith "file://" then
                 let
@@ -520,151 +520,11 @@ update contentCache config msg model =
                 Nothing
                 |> nextStepToEffect contentCache config updatedModel
 
-        GotStaticHttpResponse { request, response } ->
-            let
-                updatedModel : Model route
-                updatedModel =
-                    (case response of
-                        Ok _ ->
-                            { model
-                                | pendingRequests =
-                                    model.pendingRequests
-                                        |> List.filter
-                                            (\pending ->
-                                                pending /= request
-                                            )
-                            }
-
-                        Err error ->
-                            { model
-                                | errors =
-                                    List.append
-                                        model.errors
-                                        [ { title = "Static HTTP Error"
-                                          , message =
-                                                [ Terminal.text "I got an error making an HTTP request to this URL: "
-
-                                                -- TODO include HTTP method, headers, and body
-                                                , Terminal.yellow <| Terminal.text request.masked.url
-                                                , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode request.masked.body
-                                                , Terminal.text "\n\n"
-                                                , case error of
-                                                    Pages.Http.BadStatus metadata body ->
-                                                        Terminal.text <|
-                                                            String.join "\n"
-                                                                [ "Bad status: " ++ String.fromInt metadata.statusCode
-                                                                , "Status message: " ++ metadata.statusText
-                                                                , "Body: " ++ body
-                                                                ]
-
-                                                    Pages.Http.BadUrl _ ->
-                                                        -- TODO include HTTP method, headers, and body
-                                                        Terminal.text <| "Invalid url: " ++ request.masked.url
-
-                                                    Pages.Http.Timeout ->
-                                                        Terminal.text "Timeout"
-
-                                                    Pages.Http.NetworkError ->
-                                                        Terminal.text "Network error"
-                                                ]
-                                          , fatal = True
-                                          , path = "" -- TODO wire in current path here
-                                          }
-                                        ]
-                            }
-                    )
-                        |> StaticResponses.update
-                            -- TODO for hash pass in RequestDetails here
-                            { request = request
-                            , response = Result.mapError (\_ -> ()) response
-                            }
-            in
-            StaticResponses.nextStep config
-                updatedModel
-                Nothing
-                |> nextStepToEffect contentCache config updatedModel
-
-        GotStaticFile ( filePath, fileContent ) ->
-            let
-                --_ =
-                --    Debug.log "GotStaticFile"
-                --        { filePath = filePath
-                --        , pendingRequests = model.pendingRequests
-                --        }
-                updatedModel : Model route
-                updatedModel =
-                    { model
-                        | pendingRequests =
-                            model.pendingRequests
-                                |> List.filter
-                                    (\pending ->
-                                        pending.unmasked.url
-                                            == ("file://" ++ filePath)
-                                    )
-                    }
-                        |> StaticResponses.update
-                            -- TODO for hash pass in RequestDetails here
-                            { request =
-                                { masked =
-                                    { url = "file://" ++ filePath
-                                    , method = "GET"
-                                    , headers = []
-                                    , body = StaticHttpBody.EmptyBody
-                                    }
-                                , unmasked =
-                                    { url = "file://" ++ filePath
-                                    , method = "GET"
-                                    , headers = []
-                                    , body = StaticHttpBody.EmptyBody
-                                    }
-                                }
-                            , response = Ok (Json.Encode.encode 0 fileContent)
-                            }
-            in
-            StaticResponses.nextStep config
-                updatedModel
-                Nothing
-                |> nextStepToEffect contentCache config updatedModel
-
         Continue ->
             let
                 updatedModel : Model route
                 updatedModel =
                     model
-            in
-            StaticResponses.nextStep config
-                updatedModel
-                Nothing
-                |> nextStepToEffect contentCache config updatedModel
-
-        GotGlob ( globPattern, globResult ) ->
-            let
-                updatedModel : Model route
-                updatedModel =
-                    { model
-                        | pendingRequests =
-                            model.pendingRequests
-                                |> List.filter
-                                    (\pending -> pending.unmasked.url == ("glob://" ++ globPattern))
-                    }
-                        |> StaticResponses.update
-                            -- TODO for hash pass in RequestDetails here
-                            { request =
-                                { masked =
-                                    { url = "glob://" ++ globPattern
-                                    , method = "GET"
-                                    , headers = []
-                                    , body = StaticHttpBody.EmptyBody
-                                    }
-                                , unmasked =
-                                    { url = "glob://" ++ globPattern
-                                    , method = "GET"
-                                    , headers = []
-                                    , body = StaticHttpBody.EmptyBody
-                                    }
-                                }
-                            , response = Ok (Json.Encode.encode 0 globResult)
-                            }
             in
             StaticResponses.nextStep config
                 updatedModel
@@ -679,40 +539,6 @@ update contentCache config msg model =
                         | errors =
                             buildError :: model.errors
                     }
-            in
-            StaticResponses.nextStep config
-                updatedModel
-                Nothing
-                |> nextStepToEffect contentCache config updatedModel
-
-        GotPortResponse ( portName, portResponse ) ->
-            let
-                updatedModel : Model route
-                updatedModel =
-                    { model
-                        | pendingRequests =
-                            model.pendingRequests
-                                |> List.filter
-                                    (\pending -> pending.unmasked.url == ("port://" ++ portName))
-                    }
-                        |> StaticResponses.update
-                            -- TODO for hash pass in RequestDetails here
-                            { request =
-                                { masked =
-                                    { url = "port://" ++ portName
-                                    , method = "GET"
-                                    , headers = []
-                                    , body = StaticHttpBody.EmptyBody
-                                    }
-                                , unmasked =
-                                    { url = "port://" ++ portName
-                                    , method = "GET"
-                                    , headers = []
-                                    , body = StaticHttpBody.EmptyBody
-                                    }
-                                }
-                            , response = Ok (Json.Encode.encode 0 portResponse)
-                            }
             in
             StaticResponses.nextStep config
                 updatedModel
