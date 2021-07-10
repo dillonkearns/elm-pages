@@ -13,7 +13,6 @@ process.on("unhandledRejection", (error) => {
 });
 let pendingDataSourceResponses = [];
 let pendingDataSourceCount = 0;
-let queueStartTime;
 
 module.exports =
   /**
@@ -122,20 +121,7 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
         }
       } else if (fromElm.tag === "DoHttp") {
         const requestToPerform = fromElm.args[0];
-
-        const responseFilePath = await lookupOrPerform(
-          requestToPerform.unmasked
-        );
-
-        app.ports.fromJsPort.send({
-          tag: "GotHttp",
-          data: {
-            request: requestToPerform,
-            result: (
-              await fsPromises.readFile(responseFilePath, "utf8")
-            ).toString(),
-          },
-        });
+        runHttpJob(app, requestToPerform);
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
         patternsToWatch.add(globPattern);
@@ -206,42 +192,50 @@ function jsonOrNull(string) {
 }
 
 async function runJob(app, filePath) {
-  // console.log(`Running job for ${filePath}`);
-
-  if (pendingDataSourceCount === 0) {
-    queueStartTime = Date.now();
-  } else {
-    // console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
-  }
   pendingDataSourceCount += 1;
   pendingDataSourceResponses.push(await readFileTask(filePath));
   pendingDataSourceCount -= 1;
   flushIfDone(app);
 }
 
-const minimumTimeThreshold = 0;
+async function runHttpJob(app, requestToPerform) {
+  try {
+    // if (pendingDataSourceCount > 0) {
+    //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
+    // }
+    pendingDataSourceCount += 1;
+
+    const responseFilePath = await lookupOrPerform(requestToPerform.unmasked);
+
+    pendingDataSourceResponses.push({
+      request: requestToPerform,
+      response: (
+        await fsPromises.readFile(responseFilePath, "utf8")
+      ).toString(),
+    });
+  } catch (error) {
+    console.log(`Error running HTTP request ${requestToPerform}`);
+    throw error;
+  } finally {
+    pendingDataSourceCount -= 1;
+    flushIfDone(app);
+  }
+}
 
 function flushIfDone(app) {
   if (pendingDataSourceCount === 0) {
-    const timeUntilThreshold =
-      minimumTimeThreshold - (Date.now() - queueStartTime);
     // console.log(
     //   `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
     // );
-    if (timeUntilThreshold > 0) {
-      setTimeout(() => {
-        flushIfDone(app);
-      }, timeUntilThreshold);
-    } else {
-      flushQueue(app);
-    }
+
+    flushQueue(app);
   }
 }
 
 function flushQueue(app) {
   const temp = pendingDataSourceResponses;
   pendingDataSourceResponses = [];
-  // console.log("@@@ FLUSHING", temp.length);
+  console.log("@@@ FLUSHING", temp.length);
   app.ports.fromJsPort.send({
     tag: "GotBatch",
     data: temp,
@@ -254,32 +248,37 @@ function flushQueue(app) {
  */
 async function readFileTask(filePath) {
   // console.log(`Read file ${filePath}`);
-  const fileContents = (
-    await fsPromises.readFile(path.join(process.cwd(), filePath))
-  ).toString();
-  // console.log(`DONE reading file ${filePath}`);
-  const parsedFile = matter(fileContents);
+  try {
+    const fileContents = (
+      await fsPromises.readFile(path.join(process.cwd(), filePath))
+    ).toString();
+    // console.log(`DONE reading file ${filePath}`);
+    const parsedFile = matter(fileContents);
 
-  return {
-    request: {
-      masked: {
-        url: `file://${filePath}`,
-        method: "GET",
-        headers: [],
-        body: { tag: "EmptyBody", args: [] },
+    return {
+      request: {
+        masked: {
+          url: `file://${filePath}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
+        unmasked: {
+          url: `file://${filePath}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
       },
-      unmasked: {
-        url: `file://${filePath}`,
-        method: "GET",
-        headers: [],
-        body: { tag: "EmptyBody", args: [] },
-      },
-    },
-    response: JSON.stringify({
-      parsedFrontmatter: parsedFile.data,
-      withoutFrontmatter: parsedFile.content,
-      rawFile: fileContents,
-      jsonFile: jsonOrNull(fileContents),
-    }),
-  };
+      response: JSON.stringify({
+        parsedFrontmatter: parsedFile.data,
+        withoutFrontmatter: parsedFile.content,
+        rawFile: fileContents,
+        jsonFile: jsonOrNull(fileContents),
+      }),
+    };
+  } catch (e) {
+    console.log(`Error reading file at '${filePath}'`);
+    throw e;
+  }
 }
