@@ -53,7 +53,6 @@ function initWorker() {
       ready: false,
     };
     newWorker.worker.once("online", () => {
-      console.log(`${newWorker.worker.threadId} ready`);
       newWorker.ready = true;
       resolve(newWorker);
     });
