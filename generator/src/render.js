@@ -125,12 +125,7 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
         patternsToWatch.add(globPattern);
-        const matchedPaths = await globby(globPattern);
-
-        app.ports.fromJsPort.send({
-          tag: "GotGlob",
-          data: { pattern: globPattern, result: matchedPaths },
-        });
+        runGlobJob(app, globPattern);
       } else if (fromElm.tag === "Port") {
         const portName = fromElm.args[0];
         console.log({ portName });
@@ -222,6 +217,23 @@ async function runHttpJob(app, requestToPerform) {
   }
 }
 
+async function runGlobJob(app, globPattern) {
+  try {
+    // if (pendingDataSourceCount > 0) {
+    //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
+    // }
+    pendingDataSourceCount += 1;
+
+    pendingDataSourceResponses.push(await globTask(globPattern));
+  } catch (error) {
+    console.log(`Error running glob pattern ${globPattern}`);
+    throw error;
+  } finally {
+    pendingDataSourceCount -= 1;
+    flushIfDone(app);
+  }
+}
+
 function flushIfDone(app) {
   if (pendingDataSourceCount === 0) {
     // console.log(
@@ -279,6 +291,38 @@ async function readFileTask(filePath) {
     };
   } catch (e) {
     console.log(`Error reading file at '${filePath}'`);
+    throw e;
+  }
+}
+
+/**
+ * @param {string} globPattern
+ * @returns {Promise<Object>}
+ */
+async function globTask(globPattern) {
+  try {
+    const matchedPaths = await globby(globPattern);
+    // console.log("Got glob path", matchedPaths);
+
+    return {
+      request: {
+        masked: {
+          url: `glob://${globPattern}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
+        unmasked: {
+          url: `glob://${globPattern}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
+      },
+      response: JSON.stringify(matchedPaths),
+    };
+  } catch (e) {
+    console.log(`Error performing glob '${globPattern}'`);
     throw e;
   }
 }
