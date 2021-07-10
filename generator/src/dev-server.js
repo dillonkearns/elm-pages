@@ -36,14 +36,13 @@ async function start(options) {
     ignored: [/\.swp$/],
     ignoreInitial: true,
   });
-  watchElmSourceDirs();
 
   await codegen.generate();
   let clientElmMakeProcess = compileElmForBrowser();
   let pendingCliCompile = compileCliApp();
+  watchElmSourceDirs(true);
 
   async function setup() {
-    await codegen.generate();
     await Promise.all([clientElmMakeProcess, pendingCliCompile])
       .then(() => {
         elmMakeRunning = false;
@@ -64,13 +63,18 @@ async function start(options) {
 
   setup();
 
-  function watchElmSourceDirs() {
-    console.log("elm.json changed - reloading watchers");
-    watcher.removeAllListeners();
-    const sourceDirs = JSON.parse(fs.readFileSync("./elm.json").toString())[
-      "source-directories"
-    ];
-    // console.log("Watching...", { sourceDirs });
+  /**
+   * @param {boolean} initialRun
+   */
+  async function watchElmSourceDirs(initialRun) {
+    if (initialRun) {
+    } else {
+      console.log("elm.json changed - reloading watchers");
+      watcher.removeAllListeners();
+    }
+    const sourceDirs = JSON.parse(
+      (await fs.promises.readFile("./elm.json")).toString()
+    )["source-directories"];
     watcher.add(sourceDirs);
     watcher.add("./public/*.css");
   }
@@ -115,7 +119,7 @@ async function start(options) {
   watcher.on("all", async function (eventName, pathThatChanged) {
     // console.log({ pathThatChanged });
     if (pathThatChanged === "elm.json") {
-      watchElmSourceDirs();
+      watchElmSourceDirs(false);
     } else if (pathThatChanged.endsWith(".css")) {
       clients.forEach((client) => {
         client.response.write(`data: style.css\n\n`);
