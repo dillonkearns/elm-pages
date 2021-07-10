@@ -46,7 +46,6 @@ async function start(options) {
     await codegen.generate();
     await Promise.all([clientElmMakeProcess, pendingCliCompile])
       .then(() => {
-        console.log("Dev server ready");
         elmMakeRunning = false;
       })
       .catch(() => {
@@ -71,7 +70,7 @@ async function start(options) {
     const sourceDirs = JSON.parse(fs.readFileSync("./elm.json").toString())[
       "source-directories"
     ];
-    console.log("Watching...", { sourceDirs });
+    // console.log("Watching...", { sourceDirs });
     watcher.add(sourceDirs);
     watcher.add("./public/*.css");
   }
@@ -114,7 +113,7 @@ async function start(options) {
   }
 
   watcher.on("all", async function (eventName, pathThatChanged) {
-    console.log({ pathThatChanged });
+    // console.log({ pathThatChanged });
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs();
     } else if (pathThatChanged.endsWith(".css")) {
@@ -317,7 +316,6 @@ function initWorker() {
     ready: false,
   };
   newWorker.worker.once("online", () => {
-    console.log(`${newWorker.worker.threadId} ready`);
     newWorker.ready = true;
   });
   return newWorker;
