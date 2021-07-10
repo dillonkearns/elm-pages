@@ -28,7 +28,6 @@ async function main() {
     .description("start a dev server")
     .option("--port <number>", "serve site at localhost:<port>", "1234")
     .action(async (options) => {
-      console.log({ options });
       await dev.start(options);
     });
 
