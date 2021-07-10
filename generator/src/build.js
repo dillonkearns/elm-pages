@@ -1,4 +1,6 @@
 const fs = require("./dir-helpers.js");
+const fsPromises = require("fs").promises;
+
 const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
@@ -150,18 +152,6 @@ async function runCli(options) {
   delegateWork(pages);
 }
 
-/**
- * @param {{ path: string; content: string; }[]} filesToGenerate
- */
-async function generateFiles(filesToGenerate) {
-  filesToGenerate.forEach(async ({ path: pathToGenerate, content }) => {
-    const fullPath = `dist/${pathToGenerate}`;
-    console.log(`Generating file /${pathToGenerate}`);
-    await fs.tryMkdir(path.dirname(fullPath));
-    fs.writeFile(fullPath, content);
-  });
-}
-
 async function compileElm(options) {
   const outputPath = `dist/elm.js`;
   const fullOutputPath = path.join(process.cwd(), `dist/elm.js`);
@@ -173,18 +163,17 @@ async function compileElm(options) {
 }
 
 function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-    if (fs.existsSync(fullOutputPath)) {
-      fs.rmSync(fullOutputPath, {
+    if (await fs.fileExists(fullOutputPath)) {
+      await fsPromises.unlink(fullOutputPath, {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
     const subprocess = runElm(options, elmEntrypointPath, outputPath, cwd);
 
     subprocess.on("close", async (code) => {
-      const fileOutputExists = await fs.exists(fullOutputPath);
-      if (code == 0 && fileOutputExists) {
+      if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
         process.exitCode = 1;
@@ -231,7 +220,7 @@ function runElm(options, elmEntrypointPath, outputPath, cwd) {
 async function runTerser(filePath) {
   console.log("Running terser");
   const minifiedElm = await terser.minify(
-    (await fs.readFile(filePath)).toString(),
+    (await fsPromises.readFile(filePath)).toString(),
     {
       ecma: 5,
 
@@ -265,7 +254,7 @@ async function runTerser(filePath) {
     }
   );
   if (minifiedElm.code) {
-    await fs.writeFile(filePath, minifiedElm.code);
+    await fsPromises.writeFile(filePath, minifiedElm.code);
   } else {
     throw "Error running terser.";
   }

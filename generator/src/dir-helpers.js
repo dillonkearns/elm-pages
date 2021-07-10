@@ -22,6 +22,13 @@ async function tryMkdir(dirName) {
   }
 }
 
+function fileExists(file) {
+  return fsSync.promises
+    .access(file, fsSync.constants.F_OK)
+    .then(() => true)
+    .catch(() => false);
+}
+
 /**
  * @param {string} filePath
  * @param {string} data
@@ -83,4 +90,5 @@ module.exports = {
   rmSync: fs.rm,
   rm: fs.rm,
   existsSync: fs.existsSync,
+  fileExists: fileExists,
 };
