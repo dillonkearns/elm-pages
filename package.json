@@ -23,7 +23,7 @@
   "license": "BSD-3-Clause",
   "dependencies": {
     "chokidar": "^3.5.1",
-    "commander": "^7.2.0",
+    "commander": "8.0.0",
     "connect": "^3.7.0",
     "cross-spawn": "7.0.3",
     "elm-doc-preview": "^5.0.5",
