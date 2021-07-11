@@ -160,7 +160,6 @@ async function start(options) {
           clientElmMakeProcess = compileElmForBrowser();
           pendingCliCompile = compileCliApp();
         }
-        let timestamp = Date.now();
 
         Promise.all([clientElmMakeProcess, pendingCliCompile])
           .then(() => {
