@@ -7,11 +7,11 @@ import OptimizedDecoder exposing (Decoder)
 import Secrets
 
 
-send : Json.Encode.Value -> Decoder b -> DataSource.DataSource b
-send input decoder =
+send : String -> Json.Encode.Value -> Decoder b -> DataSource.DataSource b
+send portName input decoder =
     DataSource.Http.request
         (Secrets.succeed
-            { url = "port://port"
+            { url = "port://" ++ portName
             , method = "GET"
             , headers = []
             , body = DataSource.jsonBody input

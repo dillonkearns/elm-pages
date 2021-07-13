@@ -198,10 +198,21 @@ async function runHttpJob(app, requestToPerform) {
 
     if (requestToPerform.unmasked.url.startsWith("port://")) {
       try {
+        const portName = requestToPerform.unmasked.url.replace(
+          /^port:\/\//,
+          ""
+        );
+        if (!portDataSource[portName]) {
+          throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
+        } else if (typeof portDataSource[portName] !== "function") {
+          throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;
+        }
         pendingDataSourceResponses.push({
           request: requestToPerform,
           response: JSON.stringify(
-            await portDataSource(requestToPerform.unmasked.body.args[0])
+            await portDataSource[portName](
+              requestToPerform.unmasked.body.args[0]
+            )
           ),
         });
       } catch (error) {
