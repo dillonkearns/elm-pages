@@ -126,15 +126,6 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
         const globPattern = fromElm.args[0];
         patternsToWatch.add(globPattern);
         runGlobJob(app, globPattern);
-      } else if (fromElm.tag === "Port") {
-        const portName = fromElm.args[0];
-        console.log({ portName });
-
-        // TODO change to batch sending
-        // app.ports.fromJsPort.send({
-        //   tag: "GotPort",
-        //   data: { portName, portResponse: "Hello from ports!" },
-        // });
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         reject(fromElm.args[0]);
@@ -201,14 +192,27 @@ async function runHttpJob(app, requestToPerform) {
     // }
     pendingDataSourceCount += 1;
 
-    const responseFilePath = await lookupOrPerform(requestToPerform.unmasked);
+    const portDataSource = requireUncached(
+      path.join(process.cwd(), "port-data-source.js")
+    );
 
-    pendingDataSourceResponses.push({
-      request: requestToPerform,
-      response: (
-        await fsPromises.readFile(responseFilePath, "utf8")
-      ).toString(),
-    });
+    if (requestToPerform.unmasked.url.startsWith("port://")) {
+      pendingDataSourceResponses.push({
+        request: requestToPerform,
+        response: JSON.stringify(
+          await portDataSource(requestToPerform.unmasked.body.args[0])
+        ),
+      });
+    } else {
+      const responseFilePath = await lookupOrPerform(requestToPerform.unmasked);
+
+      pendingDataSourceResponses.push({
+        request: requestToPerform,
+        response: (
+          await fsPromises.readFile(responseFilePath, "utf8")
+        ).toString(),
+      });
+    }
   } catch (error) {
     console.log(`Error running HTTP request ${requestToPerform}`);
     throw error;
@@ -326,4 +330,9 @@ async function globTask(globPattern) {
     console.log(`Error performing glob '${globPattern}'`);
     throw e;
   }
+}
+
+function requireUncached(filePath) {
+  delete require.cache[require.resolve(filePath)];
+  return require(filePath);
 }

@@ -285,17 +285,6 @@ perform renderRequest config toJsPort effect =
                     |> toJsPort
                     |> Cmd.map never
 
-            else if unmasked.url |> String.startsWith "port://" then
-                let
-                    portName : String
-                    portName =
-                        String.dropLeft 7 unmasked.url
-                in
-                ToJsPayload.Port portName
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> toJsPort
-                    |> Cmd.map never
-
             else
                 ToJsPayload.DoHttp { masked = masked, unmasked = unmasked }
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")

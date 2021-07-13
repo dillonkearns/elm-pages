@@ -77,6 +77,7 @@ async function start(options) {
     )["source-directories"];
     watcher.add(sourceDirs);
     watcher.add("./public/*.css");
+    watcher.add("./port-data-source.js");
   }
 
   async function compileCliApp() {
