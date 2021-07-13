@@ -197,12 +197,19 @@ async function runHttpJob(app, requestToPerform) {
     );
 
     if (requestToPerform.unmasked.url.startsWith("port://")) {
-      pendingDataSourceResponses.push({
-        request: requestToPerform,
-        response: JSON.stringify(
-          await portDataSource(requestToPerform.unmasked.body.args[0])
-        ),
-      });
+      try {
+        pendingDataSourceResponses.push({
+          request: requestToPerform,
+          response: JSON.stringify(
+            await portDataSource(requestToPerform.unmasked.body.args[0])
+          ),
+        });
+      } catch (error) {
+        app.ports.fromJsPort.send({
+          tag: "BuildError",
+          data: { filePath: error.toString() },
+        });
+      }
     } else {
       const responseFilePath = await lookupOrPerform(requestToPerform.unmasked);
 
