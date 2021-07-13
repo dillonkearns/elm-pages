@@ -248,7 +248,7 @@ function flushIfDone(app) {
 function flushQueue(app) {
   const temp = pendingDataSourceResponses;
   pendingDataSourceResponses = [];
-  console.log("@@@ FLUSHING", temp.length);
+  // console.log("@@@ FLUSHING", temp.length);
   app.ports.fromJsPort.send({
     tag: "GotBatch",
     data: temp,

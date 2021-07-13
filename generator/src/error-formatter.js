@@ -39,10 +39,10 @@ function parseMsg(msg) {
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
-const restoreColor = (error) => {
+const restoreColor = (errors) => {
   try {
-    return JSON.parse(error)
-      .errors.map(({ problems, path }) =>
+    return errors
+      .map(({ problems, path }) =>
         problems.map(restoreProblem(path)).join("\n\n\n")
       )
       .join("\n\n\n\n\n");

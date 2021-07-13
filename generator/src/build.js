@@ -1,6 +1,7 @@
 const fs = require("./dir-helpers.js");
 const fsPromises = require("fs").promises;
 
+const { restoreColor } = require("./error-formatter");
 const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
@@ -9,13 +10,16 @@ const os = require("os");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const { ensureDirSync } = require("./file-helpers.js");
 let pool = [];
+let pagesReady;
+let pages = new Promise((resolve, reject) => {
+  pagesReady = resolve;
+});
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 
-let foundErrors = false;
 process.on("unhandledRejection", (error) => {
-  console.error(error);
+  console.error("Unhandled: ", error);
   process.exitCode = 1;
 });
 
@@ -52,10 +56,26 @@ function initWorker() {
       worker: new Worker(path.join(__dirname, "./render-worker.js"), {
         env: SHARE_ENV,
       }),
-      ready: false,
     };
     newWorker.worker.once("online", () => {
-      newWorker.ready = true;
+      newWorker.worker.on("message", (message) => {
+        if (message.tag === "all-paths") {
+          pagesReady(JSON.parse(message.data));
+        } else if (message.tag === "error") {
+          process.exitCode = 1;
+          console.error(restoreColor(message.data.errorsJson));
+          buildNextPage(newWorker);
+        } else if (message.tag === "done") {
+          buildNextPage(newWorker);
+        } else {
+          throw `Unhandled tag ${message.tag}`;
+        }
+      });
+      newWorker.worker.on("error", (error) => {
+        console.error("Unhandled worker exception", error.context.errorString);
+        process.exitCode = 1;
+        buildNextPage(newWorker);
+      });
       resolve(newWorker);
     });
   });
@@ -64,72 +84,20 @@ function initWorker() {
 /**
  */
 function prepareStaticPathsNew(thread) {
-  return new Promise((resolve, reject) => {
-    thread.ready = false;
-    thread.worker.postMessage({
-      mode: "build",
-      tag: "render",
-      pathname: "/all-paths.json",
-    });
-    thread.worker.once("message", (message) => {
-      resolve(JSON.parse(message));
-      thread.ready = true;
-    });
+  thread.worker.postMessage({
+    mode: "build",
+    tag: "render",
+    pathname: "/all-paths.json",
   });
 }
 
-function delegateWork(pages) {
-  pool
-    .map((thread) => {
-      return [thread, pages.pop()];
-    })
-    .forEach(async ([threadPromise, nextPage]) => {
-      if (nextPage) {
-        const thread = await threadPromise;
-        thread.ready = false;
-        thread.worker.postMessage({
-          mode: "build",
-          tag: "render",
-          pathname: nextPage,
-        });
-        thread.worker.once("message", (message) => {
-          cleanUp(thread);
-          buildNextPage(thread, pages);
-        });
-        thread.worker.once("error", (error) => {
-          console.error(error.context.errorString);
-          process.exitCode = 1;
-          cleanUp(thread);
-          buildNextPage(thread, pages);
-        });
-      }
-    });
-}
-
-function cleanUp(thread) {
-  thread.worker.removeAllListeners("message");
-  thread.worker.removeAllListeners("error");
-  thread.ready = true;
-}
-
-function buildNextPage(thread, pages) {
-  let nextPage = pages.pop();
+async function buildNextPage(thread) {
+  let nextPage = (await pages).pop();
   if (nextPage) {
-    thread.ready = false;
     thread.worker.postMessage({
       mode: "build",
       tag: "render",
       pathname: nextPage,
-    });
-    thread.worker.once("message", (message) => {
-      thread.ready = true;
-      buildNextPage(thread, pages);
-    });
-    thread.worker.once("error", (error) => {
-      console.error(error.context.errorString);
-      process.exitCode = 1;
-      cleanUp(thread);
-      buildNextPage(thread, pages);
     });
   } else {
     thread.worker.terminate();
@@ -142,14 +110,15 @@ async function runCli(options) {
   console.log("Threads: ", cpuCount);
 
   const getPathsWorker = initWorker();
-  const pagesPromise = getPathsWorker.then(prepareStaticPathsNew);
+  getPathsWorker.then(prepareStaticPathsNew);
   const threadsToCreate = Math.max(1, cpuCount / 2 - 1);
   pool.push(getPathsWorker);
   for (let index = 0; index < threadsToCreate - 1; index++) {
     pool.push(initWorker());
   }
-  const pages = await pagesPromise;
-  delegateWork(pages);
+  pool.forEach((threadPromise) => {
+    threadPromise.then(buildNextPage);
+  });
 }
 
 async function compileElm(options) {

@@ -9,25 +9,29 @@ global.staticHttpCache = {};
 
 async function run({ mode, pathname }) {
   console.time(`${threadId} ${pathname}`);
-  const req = null;
-  const renderResult = await renderer(
-    requireElm(mode),
-    mode,
-    pathname,
-    req,
-    function (patterns) {
-      if (mode === "dev-server" && patterns.size > 0) {
-        parentPort.postMessage({ tag: "watch", data: [...patterns] });
+  try {
+    const req = null;
+    const renderResult = await renderer(
+      requireElm(mode),
+      mode,
+      pathname,
+      req,
+      function (patterns) {
+        if (mode === "dev-server" && patterns.size > 0) {
+          parentPort.postMessage({ tag: "watch", data: [...patterns] });
+        }
       }
-    }
-  );
+    );
 
-  if (mode === "dev-server") {
-    parentPort.postMessage({ tag: "done", data: renderResult });
-  } else if (mode === "build") {
-    outputString(renderResult, pathname);
-  } else {
-    throw `Unknown mode ${mode}`;
+    if (mode === "dev-server") {
+      parentPort.postMessage({ tag: "done", data: renderResult });
+    } else if (mode === "build") {
+      outputString(renderResult, pathname);
+    } else {
+      throw `Unknown mode ${mode}`;
+    }
+  } catch (error) {
+    parentPort.postMessage({ tag: "error", data: error });
   }
   console.timeEnd(`${threadId} ${pathname}`);
 }
@@ -35,7 +39,11 @@ async function run({ mode, pathname }) {
 function requireElm(mode) {
   if (mode === "build") {
     if (!Elm) {
+      const warnOriginal = console.warn;
+      console.warn = function () {};
+
       Elm = require(compiledElmPath);
+      console.warn = warnOriginal;
     }
     return Elm;
   } else {
@@ -64,7 +72,7 @@ async function outputString(
         contentJsonString
       );
       // parentPort.postMessage({ tag: "done" });
-      parentPort.postMessage("Success");
+      parentPort.postMessage({ tag: "done" });
       break;
     }
     case "api-response": {
@@ -72,9 +80,9 @@ async function outputString(
       console.log(`Generated ${pathname}`);
       fs.writeFileSyncSafe(path.join("dist", pathname), body);
       if (pathname === "/all-paths.json") {
-        parentPort.postMessage(body);
+        parentPort.postMessage({ tag: "all-paths", data: body });
       } else {
-        parentPort.postMessage("Success");
+        parentPort.postMessage({ tag: "done" });
       }
 
       break;

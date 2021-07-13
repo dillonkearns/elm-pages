@@ -11,9 +11,9 @@ const { restoreColor } = require("./error-formatter");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
-let pool = [];
 
 async function start(options) {
+  let pool = [];
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
 
@@ -223,9 +223,15 @@ async function start(options) {
     );
   }
 
-  function runRenderThread(pathname) {
+  function runRenderThread(pathname, onOk, onErr) {
+    const readyThread = pool.find((thread) => thread.ready);
+    if (!readyThread) {
+      readyThread = pool[0];
+    }
+    const cleanUpThread = () => {
+      cleanUp(readyThread);
+    };
     return new Promise((resolve, reject) => {
-      const readyThread = pool.find((thread) => thread.ready);
       if (readyThread) {
         readyThread.ready = false;
         readyThread.worker.postMessage({
@@ -235,20 +241,27 @@ async function start(options) {
         readyThread.worker.on("message", (message) => {
           if (message.tag === "done") {
             resolve(message.data);
-            cleanUp(readyThread);
           } else if (message.tag === "watch") {
             // console.log("@@@ WATCH", message.data);
             message.data.forEach((pattern) => watcher.add(pattern));
+          } else if (message.tag === "error") {
+            reject(message.data);
+          } else {
+            throw `Unhandled message: ${message}`;
           }
         });
-        readyThread.worker.once("error", (error) => {
+        readyThread.worker.on("error", (error) => {
           reject(error.context);
-          cleanUp(readyThread);
         });
       } else {
         console.error("TODO - running out of ready threads not yet handled");
       }
-    });
+    })
+      .then(onOk)
+      .catch(onErr)
+      .finally(() => {
+        cleanUpThread();
+      });
   }
 
   function cleanUp(thread) {
@@ -267,38 +280,56 @@ async function start(options) {
     const pathname = urlParts.pathname || "";
     try {
       await pendingCliCompile;
-      const renderResult = await runRenderThread(pathname);
-      const is404 = renderResult.is404;
-      switch (renderResult.kind) {
-        case "json": {
-          res.writeHead(is404 ? 404 : 200, {
-            "Content-Type": "application/json",
-          });
-          res.end(renderResult.contentJson);
-          break;
+      runRenderThread(
+        pathname,
+        function (renderResult) {
+          const is404 = renderResult.is404;
+          switch (renderResult.kind) {
+            case "json": {
+              res.writeHead(is404 ? 404 : 200, {
+                "Content-Type": "application/json",
+              });
+              res.end(renderResult.contentJson);
+              break;
+            }
+            case "html": {
+              res.writeHead(is404 ? 404 : 200, {
+                "Content-Type": "text/html",
+              });
+              res.end(renderResult.htmlString);
+              break;
+            }
+            case "api-response": {
+              let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+              mimeType =
+                mimeType === "application/octet-stream"
+                  ? "text/html"
+                  : mimeType;
+              res.writeHead(renderResult.statusCode, {
+                "Content-Type": mimeType,
+              });
+              res.end(renderResult.body);
+              // TODO - if route is static, write file to api-route-cache/ directory
+              // TODO - get 404 or other status code from elm-pages renderer
+              break;
+            }
+          }
+        },
+
+        function (error) {
+          console.log(restoreColor(error.errorsJson));
+
+          if (req.url.includes("content.json")) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(error.errorsJson));
+          } else {
+            res.writeHead(500, { "Content-Type": "text/html" });
+            res.end(errorHtml());
+          }
         }
-        case "html": {
-          res.writeHead(is404 ? 404 : 200, {
-            "Content-Type": "text/html",
-          });
-          res.end(renderResult.htmlString);
-          break;
-        }
-        case "api-response": {
-          let mimeType = serveStatic.mime.lookup(pathname || "text/html");
-          mimeType =
-            mimeType === "application/octet-stream" ? "text/html" : mimeType;
-          res.writeHead(renderResult.statusCode, {
-            "Content-Type": mimeType,
-          });
-          res.end(renderResult.body);
-          // TODO - if route is static, write file to api-route-cache/ directory
-          // TODO - get 404 or other status code from elm-pages renderer
-          break;
-        }
-      }
+      );
     } catch (error) {
-      console.log(restoreColor(error));
+      console.log(restoreColor(error.errorsJson));
 
       if (req.url.includes("content.json")) {
         res.writeHead(500, { "Content-Type": "application/json" });
