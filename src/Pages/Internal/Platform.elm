@@ -484,9 +484,25 @@ update config appMsg model =
                         ]
                     )
 
-                Err _ ->
-                    -- TODO handle error
-                    ( { model | url = url }, Cmd.none )
+                Err error ->
+                    {-
+                       When there is an error loading the content.json, we are either
+                       1) in the dev server, and should show the relevant DataSource error for the page
+                          we're navigating to. This could be done more cleanly, but it's simplest to just
+                          do a fresh page load and use the code path for presenting an error for a fresh page.
+                       2) In a production app. That means we had a successful build, so there were no DataSource failures,
+                          so the app must be stale (unless it's in some unexpected state from a bug). In the future,
+                          it probably makes sense to include some sort of hash of the app version we are fetching, match
+                          it with the current version that's running, and perform this logic when we see there is a mismatch.
+                          But for now, if there is any error we do a full page load (not a single-page navigation), which
+                          gives us a fresh version of the app to make sure things are in sync.
+
+                    -}
+                    ( model
+                    , url
+                        |> Url.toString
+                        |> Browser.Navigation.load
+                    )
 
         PageScrollComplete ->
             ( model, Cmd.none )
