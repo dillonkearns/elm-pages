@@ -72,7 +72,7 @@ function initWorker() {
         }
       });
       newWorker.worker.on("error", (error) => {
-        console.error("Unhandled worker exception", error.context.errorString);
+        console.error("Unhandled worker exception", error);
         process.exitCode = 1;
         buildNextPage(newWorker);
       });
