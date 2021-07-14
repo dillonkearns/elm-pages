@@ -192,9 +192,14 @@ async function runHttpJob(app, requestToPerform) {
     // }
     pendingDataSourceCount += 1;
 
-    const portDataSource = requireUncached(
-      path.join(process.cwd(), "port-data-source.js")
-    );
+    let portDataSource = {};
+    let portDataSourceFound = false;
+    try {
+      portDataSource = requireUncached(
+        path.join(process.cwd(), "port-data-source.js")
+      );
+      portDataSourceFound = true;
+    } catch (e) {}
 
     if (requestToPerform.unmasked.url.startsWith("port://")) {
       try {
@@ -204,7 +209,11 @@ async function runHttpJob(app, requestToPerform) {
         );
         console.time(requestToPerform.masked.url);
         if (!portDataSource[portName]) {
-          throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
+          if (portDataSourceFound) {
+            throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
+          } else {
+            throw `DataSource.Port.send "${portName}" was called, but I couldn't find the port definitions file 'port-data-source.js'.`;
+          }
         } else if (typeof portDataSource[portName] !== "function") {
           throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;
         }
