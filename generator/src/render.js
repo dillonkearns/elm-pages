@@ -293,7 +293,6 @@ async function runHttpJob(app, mode, requestToPerform) {
       errorMessage = `Could not reach URL.`;
     }
 
-    console.log(`${kleur.cyan(requestToPerform.masked.url)} ${errorMessage}`);
     sendError(app, {
       title: "DataSource.Http Error",
       message: `${kleur.cyan(requestToPerform.masked.url)} ${errorMessage}`,
