@@ -113,18 +113,16 @@ cliApplication config =
                                                 case tag of
                                                     "BuildError" ->
                                                         Decode.field "data"
-                                                            (Decode.field "filePath" Decode.string
-                                                                |> Decode.map
-                                                                    (\filePath ->
-                                                                        { title = "File not found"
-                                                                        , message =
-                                                                            [ Terminal.text "A DataSource.File read failed because I couldn't find this file: "
-                                                                            , Terminal.yellow <| Terminal.text filePath
-                                                                            ]
-                                                                        , fatal = True
-                                                                        , path = "" -- TODO wire in current path here
-                                                                        }
-                                                                    )
+                                                            (Decode.map2
+                                                                (\message title ->
+                                                                    { title = title
+                                                                    , message = message
+                                                                    , fatal = True
+                                                                    , path = "" -- TODO wire in current path here
+                                                                    }
+                                                                )
+                                                                (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
+                                                                (Decode.field "title" Decode.string)
                                                             )
                                                             |> Decode.map GotBuildError
 

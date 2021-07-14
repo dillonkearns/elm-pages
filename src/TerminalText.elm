@@ -7,6 +7,7 @@ module TerminalText exposing
     , colorToString
     , cyan
     , encoder
+    , fromAnsiString
     , getString
     , green
     , red
@@ -17,6 +18,7 @@ module TerminalText exposing
     , yellow
     )
 
+import Ansi
 import Json.Encode as Encode
 
 
@@ -118,6 +120,54 @@ toString_ textValue =
                 , toString_ innerText
                 , resetColors
                 ]
+
+
+fromAnsiString : String -> List Text
+fromAnsiString ansiString =
+    Ansi.parseInto ( Nothing, [] ) parseInto ansiString
+        |> Tuple.second
+        |> List.reverse
+
+
+parseInto : Ansi.Action -> ( Maybe Color, List Text ) -> ( Maybe Color, List Text )
+parseInto action ( pendingStyle, soFar ) =
+    case action |> Debug.log "ACTION" of
+        Ansi.Print string ->
+            case pendingStyle of
+                Just pendingColor ->
+                    ( Nothing, Style Cyan (RawText string) :: soFar )
+
+                Nothing ->
+                    ( Nothing, RawText string :: soFar )
+
+        Ansi.Remainder string ->
+            ( pendingStyle, soFar )
+
+        Ansi.SetForeground maybeColor ->
+            case maybeColor of
+                Just newColor ->
+                    ( Just Cyan, soFar )
+
+                Nothing ->
+                    ( Nothing, soFar )
+
+        Ansi.SetBold bool ->
+            ( pendingStyle, soFar )
+
+        Ansi.SetFaint bool ->
+            ( pendingStyle, soFar )
+
+        Ansi.SetItalic bool ->
+            ( pendingStyle, soFar )
+
+        Ansi.SetUnderline bool ->
+            ( pendingStyle, soFar )
+
+        Ansi.SetBackground maybeColor ->
+            ( pendingStyle, soFar )
+
+        _ ->
+            ( pendingStyle, soFar )
 
 
 encoder : Text -> Encode.Value

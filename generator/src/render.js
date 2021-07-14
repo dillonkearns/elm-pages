@@ -6,13 +6,15 @@ const globby = require("globby");
 const fsPromises = require("fs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
+const kleur = require("kleur");
+kleur.enabled = true;
 
-let foundErrors = false;
 process.on("unhandledRejection", (error) => {
   console.error(error);
 });
-let pendingDataSourceResponses = [];
-let pendingDataSourceCount = 0;
+let foundErrors;
+let pendingDataSourceResponses;
+let pendingDataSourceCount;
 
 module.exports =
   /**
@@ -24,6 +26,9 @@ module.exports =
    * @returns
    */
   async function run(elmModule, mode, path, request, addDataSourceWatcher) {
+    foundErrors = false;
+    pendingDataSourceResponses = [];
+    pendingDataSourceCount = 0;
     // since init/update are never called in pre-renders, and DataSource.Http is called using undici
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
     XMLHttpRequest = {};
@@ -114,9 +119,11 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
 
           runJob(app, filePath);
         } catch (error) {
-          app.ports.fromJsPort.send({
-            tag: "BuildError",
-            data: { filePath },
+          sendError(app, {
+            title: "DataSource.File Error",
+            message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
+              filePath
+            )}`,
           });
         }
       } else if (fromElm.tag === "DoHttp") {
@@ -180,17 +187,53 @@ function jsonOrNull(string) {
 
 async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
-  pendingDataSourceResponses.push(await readFileTask(app, filePath));
-  pendingDataSourceCount -= 1;
-  flushIfDone(app);
+  try {
+    const fileContents = (
+      await fsPromises.readFile(path.join(process.cwd(), filePath))
+    ).toString();
+    const parsedFile = matter(fileContents);
+
+    pendingDataSourceResponses.push({
+      request: {
+        masked: {
+          url: `file://${filePath}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
+        unmasked: {
+          url: `file://${filePath}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
+      },
+      response: JSON.stringify({
+        parsedFrontmatter: parsedFile.data,
+        withoutFrontmatter: parsedFile.content,
+        rawFile: fileContents,
+        jsonFile: jsonOrNull(fileContents),
+      }),
+    });
+  } catch (e) {
+    sendError(app, {
+      title: "Error reading file",
+      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
+        filePath
+      )}`,
+    });
+  } finally {
+    pendingDataSourceCount -= 1;
+    flushIfDone(app);
+  }
 }
 
 async function runHttpJob(app, mode, requestToPerform) {
+  pendingDataSourceCount += 1;
   try {
     // if (pendingDataSourceCount > 0) {
     //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
     // }
-    pendingDataSourceCount += 1;
 
     let portDataSource = {};
     let portDataSourceFound = false;
@@ -229,9 +272,9 @@ async function runHttpJob(app, mode, requestToPerform) {
 
         console.timeEnd(requestToPerform.masked.url);
       } catch (error) {
-        app.ports.fromJsPort.send({
-          tag: "BuildError",
-          data: { filePath: error.toString() },
+        sendError(app, {
+          title: "DataSource.Port Error",
+          message: error.toString(),
         });
       }
     } else {
@@ -249,11 +292,11 @@ async function runHttpJob(app, mode, requestToPerform) {
     if (error.code === "ENOTFOUND") {
       errorMessage = `Could not reach URL.`;
     }
-    app.ports.fromJsPort.send({
-      tag: "BuildError",
-      data: {
-        filePath: `${requestToPerform.masked.url} ${errorMessage}`,
-      },
+
+    console.log(`${kleur.cyan(requestToPerform.masked.url)} ${errorMessage}`);
+    sendError(app, {
+      title: "DataSource.Http Error",
+      message: `${kleur.cyan(requestToPerform.masked.url)} ${errorMessage}`,
     });
   } finally {
     pendingDataSourceCount -= 1;
@@ -279,7 +322,9 @@ async function runGlobJob(app, globPattern) {
 }
 
 function flushIfDone(app) {
-  if (pendingDataSourceCount === 0) {
+  if (foundErrors) {
+    pendingDataSourceResponses = [];
+  } else if (pendingDataSourceCount === 0) {
     // console.log(
     //   `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
     // );
@@ -334,9 +379,11 @@ async function readFileTask(app, filePath) {
       }),
     };
   } catch (e) {
-    app.ports.fromJsPort.send({
-      tag: "BuildError",
-      data: { filePath },
+    sendError(app, {
+      title: "Error reading file",
+      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
+        filePath
+      )}`,
     });
   }
 }
@@ -380,4 +427,17 @@ function requireUncached(mode, filePath) {
     delete require.cache[require.resolve(filePath)];
   }
   return require(filePath);
+}
+
+/**
+ * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {{ message: string; title: string; }} error
+ */
+function sendError(app, error) {
+  foundErrors = true;
+
+  app.ports.fromJsPort.send({
+    tag: "BuildError",
+    data: error,
+  });
 }
