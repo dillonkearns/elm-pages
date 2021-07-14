@@ -202,6 +202,7 @@ async function runHttpJob(app, requestToPerform) {
           /^port:\/\//,
           ""
         );
+        console.time(requestToPerform.masked.url);
         if (!portDataSource[portName]) {
           throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
         } else if (typeof portDataSource[portName] !== "function") {
@@ -215,6 +216,8 @@ async function runHttpJob(app, requestToPerform) {
             )
           ),
         });
+
+        console.timeEnd(requestToPerform.masked.url);
       } catch (error) {
         app.ports.fromJsPort.send({
           tag: "BuildError",
