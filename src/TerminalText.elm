@@ -1,6 +1,5 @@
 module TerminalText exposing
-    ( Color(..)
-    , Text(..)
+    ( Text(..)
     , ansi
     , ansiPrefix
     , blue
@@ -24,15 +23,7 @@ import Json.Encode as Encode
 
 type Text
     = RawText String
-    | Style Color Text
-
-
-type Color
-    = Red
-    | Blue
-    | Green
-    | Yellow
-    | Cyan
+    | Style Ansi.Color Text
 
 
 text : String -> Text
@@ -42,27 +33,27 @@ text value =
 
 cyan : Text -> Text
 cyan inner =
-    Style Cyan inner
+    Style Ansi.Cyan inner
 
 
 green : Text -> Text
 green inner =
-    Style Green inner
+    Style Ansi.Green inner
 
 
 yellow : Text -> Text
 yellow inner =
-    Style Yellow inner
+    Style Ansi.Yellow inner
 
 
 red : Text -> Text
 red inner =
-    Style Red inner
+    Style Ansi.Red inner
 
 
 blue : Text -> Text
 blue inner =
-    Style Blue inner
+    Style Ansi.Blue inner
 
 
 resetColors : String
@@ -80,24 +71,28 @@ ansiPrefix =
     "\u{001B}"
 
 
-colorToString : Color -> String
+colorToString : Ansi.Color -> String
 colorToString color =
     ansi <|
         case color of
-            Red ->
+            Ansi.Red ->
                 "[31m"
 
-            Blue ->
+            Ansi.Blue ->
                 "[34m"
 
-            Green ->
+            Ansi.Green ->
                 "[32m"
 
-            Yellow ->
+            Ansi.Yellow ->
                 "[33m"
 
-            Cyan ->
+            Ansi.Cyan ->
                 "[36m"
+
+            _ ->
+                -- TODO
+                ""
 
 
 toString : List Text -> String
@@ -129,13 +124,13 @@ fromAnsiString ansiString =
         |> List.reverse
 
 
-parseInto : Ansi.Action -> ( Maybe Color, List Text ) -> ( Maybe Color, List Text )
+parseInto : Ansi.Action -> ( Maybe Ansi.Color, List Text ) -> ( Maybe Ansi.Color, List Text )
 parseInto action ( pendingStyle, soFar ) =
-    case action |> Debug.log "ACTION" of
+    case action of
         Ansi.Print string ->
             case pendingStyle of
                 Just pendingColor ->
-                    ( Nothing, Style Cyan (RawText string) :: soFar )
+                    ( Nothing, Style pendingColor (RawText string) :: soFar )
 
                 Nothing ->
                     ( Nothing, RawText string :: soFar )
@@ -146,7 +141,7 @@ parseInto action ( pendingStyle, soFar ) =
         Ansi.SetForeground maybeColor ->
             case maybeColor of
                 Just newColor ->
-                    ( Just Cyan, soFar )
+                    ( Just newColor, soFar )
 
                 Nothing ->
                     ( Nothing, soFar )
@@ -183,20 +178,56 @@ encoder node =
 
                     Style color _ ->
                         case color of
-                            Red ->
+                            Ansi.Red ->
                                 "red"
 
-                            Blue ->
+                            Ansi.Blue ->
                                 "blue"
 
-                            Green ->
+                            Ansi.Green ->
                                 "green"
 
-                            Yellow ->
+                            Ansi.Yellow ->
                                 "yellow"
 
-                            Cyan ->
+                            Ansi.Cyan ->
                                 "cyan"
+
+                            Ansi.Black ->
+                                "black"
+
+                            Ansi.Magenta ->
+                                "magenta"
+
+                            Ansi.White ->
+                                "white"
+
+                            Ansi.BrightBlack ->
+                                "BLACK"
+
+                            Ansi.BrightRed ->
+                                "RED"
+
+                            Ansi.BrightGreen ->
+                                "GREEN"
+
+                            Ansi.BrightYellow ->
+                                "YELLOW"
+
+                            Ansi.BrightBlue ->
+                                "BLUE"
+
+                            Ansi.BrightMagenta ->
+                                "MAGENTA"
+
+                            Ansi.BrightCyan ->
+                                "CYAN"
+
+                            Ansi.BrightWhite ->
+                                "WHITE"
+
+                            Ansi.Custom _ _ _ ->
+                                "NOTHANDLED"
           )
         , ( "string", Encode.string (getString node) )
         ]
