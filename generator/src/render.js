@@ -121,7 +121,7 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
         }
       } else if (fromElm.tag === "DoHttp") {
         const requestToPerform = fromElm.args[0];
-        runHttpJob(app, requestToPerform);
+        runHttpJob(app, mode, requestToPerform);
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
         patternsToWatch.add(globPattern);
@@ -185,7 +185,7 @@ async function runJob(app, filePath) {
   flushIfDone(app);
 }
 
-async function runHttpJob(app, requestToPerform) {
+async function runHttpJob(app, mode, requestToPerform) {
   try {
     // if (pendingDataSourceCount > 0) {
     //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
@@ -196,6 +196,7 @@ async function runHttpJob(app, requestToPerform) {
     let portDataSourceFound = false;
     try {
       portDataSource = requireUncached(
+        mode,
         path.join(process.cwd(), "port-data-source.js")
       );
       portDataSourceFound = true;
@@ -372,7 +373,11 @@ async function globTask(globPattern) {
   }
 }
 
-function requireUncached(filePath) {
-  delete require.cache[require.resolve(filePath)];
+function requireUncached(mode, filePath) {
+  if (mode === "dev-server") {
+    // for the build command, we can skip clearing the cache because it won't change while the build is running
+    // in the dev server, we want to clear the cache to get a the latest code each time it runs
+    delete require.cache[require.resolve(filePath)];
+  }
   return require(filePath);
 }
