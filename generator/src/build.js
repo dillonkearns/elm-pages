@@ -230,9 +230,11 @@ async function runTerser(filePath) {
 }
 
 async function copyAssets() {
-  fs.writeFile(
+  await fsPromises.writeFile(
     "dist/elm-pages.js",
-    fs.readFileSync(path.join(__dirname, "../static-code/elm-pages.js"))
+    await fsPromises.readFile(
+      path.join(__dirname, "../static-code/elm-pages.js")
+    )
   );
   fs.copyDirFlat("public", "dist");
 }
@@ -245,8 +247,8 @@ async function compileCliApp(options) {
     "./elm-stuff/elm-pages"
   );
 
-  const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
-  await fs.writeFile(
+  const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH, "utf-8");
+  await fsPromises.writeFile(
     ELM_FILE_PATH,
     elmFileContent
       .replace(
