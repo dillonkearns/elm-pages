@@ -180,7 +180,7 @@ function jsonOrNull(string) {
 
 async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
-  pendingDataSourceResponses.push(await readFileTask(filePath));
+  pendingDataSourceResponses.push(await readFileTask(app, filePath));
   pendingDataSourceCount -= 1;
   flushIfDone(app);
 }
@@ -284,7 +284,7 @@ function flushQueue(app) {
  * @param {string} filePath
  * @returns {Promise<Object>}
  */
-async function readFileTask(filePath) {
+async function readFileTask(app, filePath) {
   // console.log(`Read file ${filePath}`);
   try {
     const fileContents = (
@@ -316,8 +316,10 @@ async function readFileTask(filePath) {
       }),
     };
   } catch (e) {
-    console.log(`Error reading file at '${filePath}'`);
-    throw e;
+    app.ports.fromJsPort.send({
+      tag: "BuildError",
+      data: { filePath },
+    });
   }
 }
 
