@@ -38,25 +38,27 @@ function lookupOrPerform(rawRequest) {
       // console.log("Skipping request, found file.");
       resolve(responsePath);
     } else {
-      undici.stream(
-        request.url,
-        {
-          method: request.method,
-          body: request.body,
-          headers: {
-            "User-Agent": "request",
-            ...request.headers,
+      undici
+        .stream(
+          request.url,
+          {
+            method: request.method,
+            body: request.body,
+            headers: {
+              "User-Agent": "request",
+              ...request.headers,
+            },
           },
-        },
-        (response) => {
-          const writeStream = fs.createWriteStream(responsePath);
-          writeStream.on("finish", async () => {
-            resolve(responsePath);
-          });
+          (response) => {
+            const writeStream = fs.createWriteStream(responsePath);
+            writeStream.on("finish", async () => {
+              resolve(responsePath);
+            });
 
-          return writeStream;
-        }
-      );
+            return writeStream;
+          }
+        )
+        .catch(reject);
     }
   });
 }

@@ -235,8 +235,10 @@ async function runHttpJob(app, requestToPerform) {
       });
     }
   } catch (error) {
-    console.log(`Error running HTTP request ${requestToPerform}`);
-    throw error;
+    app.ports.fromJsPort.send({
+      tag: "BuildError",
+      data: { filePath: `${requestToPerform.masked.url} ${error.toString()}` },
+    });
   } finally {
     pendingDataSourceCount -= 1;
     flushIfDone(app);
