@@ -244,6 +244,7 @@ init config flags url key =
                                     , userModel = userModel
                                     }
                             , ariaNavigationAnnouncement = ""
+                            , userFlags = flags
                             }
                     in
                     ( { initialModel
@@ -259,6 +260,7 @@ init config flags url key =
                       , contentCache = contentCache
                       , pageData = BuildError.errorToString error |> Err
                       , ariaNavigationAnnouncement = "Error"
+                      , userFlags = flags
                       }
                     , Cmd.none
                     )
@@ -270,6 +272,7 @@ init config flags url key =
               , contentCache = contentCache
               , pageData = Err "TODO"
               , ariaNavigationAnnouncement = "Error"
+              , userFlags = flags
               }
             , Cmd.none
             )
@@ -298,6 +301,7 @@ type alias Model userModel pageData sharedData =
             , pageData : pageData
             , sharedData : sharedData
             }
+    , userFlags : Decode.Value
     }
 
 
@@ -584,6 +588,39 @@ update config appMsg model =
                             )
 
                         Nothing ->
+                            let
+                                pagePath : Path
+                                pagePath =
+                                    urlsToPagePath urls
+
+                                userFlags : Pages.Flags.Flags
+                                userFlags =
+                                    model.userFlags
+                                        |> Decode.decodeValue
+                                            (Decode.field "userFlags" Decode.value)
+                                        |> Result.withDefault Json.Encode.null
+                                        |> Pages.Flags.BrowserFlags
+
+                                ( userModel, userCmd ) =
+                                    Just
+                                        { path =
+                                            { path = pagePath
+                                            , query = model.url.query
+                                            , fragment = model.url.fragment
+                                            }
+                                        , metadata = config.urlToRoute model.url
+                                        , pageUrl =
+                                            Just
+                                                { protocol = model.url.protocol
+                                                , host = model.url.host
+                                                , port_ = model.url.port_
+                                                , path = pagePath
+                                                , query = model.url.query |> Maybe.map QueryParams.fromString
+                                                , fragment = model.url.fragment
+                                                }
+                                        }
+                                        |> config.init userFlags sharedData pageData (Just model.key)
+                            in
                             ( { model
                                 | contentCache =
                                     ContentCache.init (Just ( urls, contentJson ))
@@ -596,8 +633,14 @@ update config appMsg model =
                                                 , userModel = previousPageData.userModel
                                                 }
                                             )
+                                        |> Result.withDefault
+                                            { pageData = pageData
+                                            , sharedData = sharedData
+                                            , userModel = userModel
+                                            }
+                                        |> Ok
                               }
-                            , Cmd.none
+                            , userCmd |> Cmd.map UserMsg
                             )
 
                 Err error ->
