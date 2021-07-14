@@ -235,9 +235,15 @@ async function runHttpJob(app, requestToPerform) {
       });
     }
   } catch (error) {
+    let errorMessage = error.toString();
+    if (error.code === "ENOTFOUND") {
+      errorMessage = `Could not reach URL.`;
+    }
     app.ports.fromJsPort.send({
       tag: "BuildError",
-      data: { filePath: `${requestToPerform.masked.url} ${error.toString()}` },
+      data: {
+        filePath: `${requestToPerform.masked.url} ${errorMessage}`,
+      },
     });
   } finally {
     pendingDataSourceCount -= 1;
