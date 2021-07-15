@@ -135,27 +135,26 @@ async function compileElm(options) {
   }
 }
 
-function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  return new Promise(async (resolve, reject) => {
+function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
+  return new Promise((resolve, reject) => {
     const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-    if (await fs.fileExists(fullOutputPath)) {
-      await fsPromises.unlink(fullOutputPath, {
-        force: true /* ignore errors if file doesn't exist */,
-      });
-    }
-    const subprocess = runElm(options, elmEntrypointPath, outputPath, cwd);
-    let commandOutput = "";
+    const subprocess = spawnCallback(
+      `elm-optimize-level-2`,
+      [elmEntrypointPath, "--output", outputPath],
+      {
+        // ignore stdout
+        // stdio: ["inherit", "ignore", "inherit"],
 
-    subprocess.stderr.on("data", function (data) {
-      commandOutput += data;
-    });
+        cwd: cwd,
+      }
+    );
 
     subprocess.on("close", async (code) => {
       if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
         process.exitCode = 1;
-        reject(restoreColor(JSON.parse(commandOutput).errors));
+        reject();
       }
     });
   });
@@ -166,10 +165,21 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  * @param {string} outputPath
  * @param {string} cwd
  */
-function runElm(options, elmEntrypointPath, outputPath, cwd) {
+async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
-    // console.log("Running elm make");
-    return spawnCallback(
+    await runElmMake(elmEntrypointPath, outputPath, cwd);
+  } else {
+    try {
+      await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
+    } catch (error) {
+      await runElmMake(elmEntrypointPath, outputPath, cwd);
+    }
+  }
+}
+
+function runElmMake(elmEntrypointPath, outputPath, cwd) {
+  return new Promise(async (resolve, reject) => {
+    const subprocess = spawnCallback(
       `elm`,
       [
         "make",
@@ -187,19 +197,27 @@ function runElm(options, elmEntrypointPath, outputPath, cwd) {
         cwd: cwd,
       }
     );
-  } else {
-    // console.log("Running elm-optimize-level-2");
-    return spawnCallback(
-      `elm-optimize-level-2`,
-      [elmEntrypointPath, "--output", outputPath, "--report", "json"],
-      {
-        // ignore stdout
-        // stdio: ["inherit", "ignore", "inherit"],
+    const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
+    if (await fs.fileExists(fullOutputPath)) {
+      await fsPromises.unlink(fullOutputPath, {
+        force: true /* ignore errors if file doesn't exist */,
+      });
+    }
+    let commandOutput = "";
 
-        cwd: cwd,
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+
+    subprocess.on("close", async (code) => {
+      if (code == 0 && (await fs.fileExists(fullOutputPath))) {
+        resolve();
+      } else {
+        process.exitCode = 1;
+        reject(restoreColor(JSON.parse(commandOutput).errors));
       }
-    );
-  }
+    });
+  });
 }
 
 /**
