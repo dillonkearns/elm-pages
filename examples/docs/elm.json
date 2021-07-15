@@ -34,6 +34,7 @@
             "pablohirafuji/elm-syntax-highlight": "3.4.0",
             "rtfeldman/elm-css": "16.1.1",
             "tripokey/elm-fuzzy": "5.2.1",
+            "vito/elm-ansi": "10.0.1",
             "zwilias/json-decode-exploration": "6.0.0"
         },
         "indirect": {
