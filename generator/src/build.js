@@ -47,7 +47,11 @@ async function run(options) {
   const cliDone = runCli(options);
   const compileClientDone = compileElm(options);
 
-  await Promise.all([copyDone, cliDone, compileClientDone]);
+  try {
+    await Promise.all([copyDone, cliDone, compileClientDone]);
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 function initWorker() {
@@ -140,13 +144,18 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
       });
     }
     const subprocess = runElm(options, elmEntrypointPath, outputPath, cwd);
+    let commandOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
 
     subprocess.on("close", async (code) => {
       if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
         process.exitCode = 1;
-        reject();
+        reject(restoreColor(JSON.parse(commandOutput).errors));
       }
     });
   });
@@ -159,24 +168,34 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  */
 function runElm(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
-    console.log("Running elm make");
+    // console.log("Running elm make");
     return spawnCallback(
       `elm`,
-      ["make", elmEntrypointPath, "--output", outputPath, "--debug"],
+      [
+        "make",
+        elmEntrypointPath,
+        "--output",
+        outputPath,
+        "--debug",
+        "--report",
+        "json",
+      ],
       {
         // ignore stdout
-        stdio: ["inherit", "ignore", "inherit"],
+        // stdio: ["inherit", "ignore", "inherit"],
+
         cwd: cwd,
       }
     );
   } else {
-    console.log("Running elm-optimize-level-2");
+    // console.log("Running elm-optimize-level-2");
     return spawnCallback(
       `elm-optimize-level-2`,
-      [elmEntrypointPath, "--output", outputPath],
+      [elmEntrypointPath, "--output", outputPath, "--report", "json"],
       {
         // ignore stdout
-        stdio: ["inherit", "ignore", "inherit"],
+        // stdio: ["inherit", "ignore", "inherit"],
+
         cwd: cwd,
       }
     );
