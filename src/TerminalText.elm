@@ -7,7 +7,6 @@ module TerminalText exposing
     , cyan
     , encoder
     , fromAnsiString
-    , getString
     , green
     , red
     , resetColors
@@ -22,38 +21,37 @@ import Json.Encode as Encode
 
 
 type Text
-    = RawText String
-    | Style Ansi.Color Text
+    = Style AnsiStyle String
 
 
 text : String -> Text
 text value =
-    RawText value
+    Style blankStyle value
 
 
-cyan : Text -> Text
+cyan : String -> Text
 cyan inner =
-    Style Ansi.Cyan inner
+    Style { blankStyle | color = Just Ansi.Cyan } inner
 
 
-green : Text -> Text
+green : String -> Text
 green inner =
-    Style Ansi.Green inner
+    Style { blankStyle | color = Just Ansi.Green } inner
 
 
-yellow : Text -> Text
+yellow : String -> Text
 yellow inner =
-    Style Ansi.Yellow inner
+    Style { blankStyle | color = Just Ansi.Yellow } inner
 
 
-red : Text -> Text
+red : String -> Text
 red inner =
-    Style Ansi.Red inner
+    Style { blankStyle | color = Just Ansi.Red } inner
 
 
-blue : Text -> Text
+blue : String -> Text
 blue inner =
-    Style Ansi.Blue inner
+    Style { blankStyle | color = Just Ansi.Blue } inner
 
 
 resetColors : String
@@ -103,37 +101,41 @@ toString list =
 
 
 toString_ : Text -> String
-toString_ textValue =
-    -- elm-review: known-unoptimized-recursion
-    case textValue of
-        RawText content ->
-            content
-
-        Style color innerText ->
-            String.concat
-                [ colorToString color
-                , toString_ innerText
-                , resetColors
-                ]
+toString_ (Style ansiStyle innerText) =
+    String.concat
+        [ ansiStyle.color |> Maybe.withDefault Ansi.White |> colorToString
+        , innerText
+        , resetColors
+        ]
 
 
 fromAnsiString : String -> List Text
 fromAnsiString ansiString =
-    Ansi.parseInto ( Nothing, [] ) parseInto ansiString
+    Ansi.parseInto ( blankStyle, [] ) parseInto ansiString
         |> Tuple.second
         |> List.reverse
 
 
-parseInto : Ansi.Action -> ( Maybe Ansi.Color, List Text ) -> ( Maybe Ansi.Color, List Text )
+type alias AnsiStyle =
+    { bold : Bool
+    , underline : Bool
+    , color : Maybe Ansi.Color
+    }
+
+
+blankStyle : AnsiStyle
+blankStyle =
+    { bold = False
+    , underline = False
+    , color = Nothing
+    }
+
+
+parseInto : Ansi.Action -> ( AnsiStyle, List Text ) -> ( AnsiStyle, List Text )
 parseInto action ( pendingStyle, soFar ) =
     case action of
         Ansi.Print string ->
-            case pendingStyle of
-                Just pendingColor ->
-                    ( Nothing, Style pendingColor (RawText string) :: soFar )
-
-                Nothing ->
-                    ( Nothing, RawText string :: soFar )
+            ( blankStyle, Style pendingStyle string :: soFar )
 
         Ansi.Remainder string ->
             ( pendingStyle, soFar )
@@ -141,13 +143,17 @@ parseInto action ( pendingStyle, soFar ) =
         Ansi.SetForeground maybeColor ->
             case maybeColor of
                 Just newColor ->
-                    ( Just newColor, soFar )
+                    ( { pendingStyle
+                        | color = Just newColor
+                      }
+                    , soFar
+                    )
 
                 Nothing ->
-                    ( Nothing, soFar )
+                    ( blankStyle, soFar )
 
         Ansi.SetBold bool ->
-            ( pendingStyle, soFar )
+            ( { pendingStyle | bold = bool }, soFar )
 
         Ansi.SetFaint bool ->
             ( pendingStyle, soFar )
@@ -156,88 +162,81 @@ parseInto action ( pendingStyle, soFar ) =
             ( pendingStyle, soFar )
 
         Ansi.SetUnderline bool ->
-            ( pendingStyle, soFar )
+            ( { pendingStyle | underline = bool }, soFar )
 
         Ansi.SetBackground maybeColor ->
             ( pendingStyle, soFar )
+
+        Ansi.Linebreak ->
+            case soFar of
+                next :: rest ->
+                    ( pendingStyle, Style blankStyle "\n" :: next :: rest )
+
+                [] ->
+                    ( pendingStyle, soFar )
 
         _ ->
             ( pendingStyle, soFar )
 
 
 encoder : Text -> Encode.Value
-encoder node =
+encoder (Style ansiStyle string) =
     Encode.object
-        [ ( "bold", Encode.bool False )
-        , ( "underline", Encode.bool False )
+        [ ( "bold", Encode.bool ansiStyle.bold )
+        , ( "underline", Encode.bool ansiStyle.underline )
         , ( "color"
           , Encode.string <|
-                case node of
-                    RawText _ ->
+                case ansiStyle.color |> Maybe.withDefault Ansi.White of
+                    Ansi.Red ->
+                        "red"
+
+                    Ansi.Blue ->
+                        "blue"
+
+                    Ansi.Green ->
+                        "green"
+
+                    Ansi.Yellow ->
+                        "yellow"
+
+                    Ansi.Cyan ->
+                        "cyan"
+
+                    Ansi.Black ->
+                        "black"
+
+                    Ansi.Magenta ->
+                        "magenta"
+
+                    Ansi.White ->
+                        "white"
+
+                    Ansi.BrightBlack ->
+                        "BLACK"
+
+                    Ansi.BrightRed ->
+                        "RED"
+
+                    Ansi.BrightGreen ->
+                        "GREEN"
+
+                    Ansi.BrightYellow ->
+                        "YELLOW"
+
+                    Ansi.BrightBlue ->
+                        "BLUE"
+
+                    Ansi.BrightMagenta ->
+                        "MAGENTA"
+
+                    Ansi.BrightCyan ->
+                        "CYAN"
+
+                    Ansi.BrightWhite ->
                         "WHITE"
 
-                    Style color _ ->
-                        case color of
-                            Ansi.Red ->
-                                "red"
-
-                            Ansi.Blue ->
-                                "blue"
-
-                            Ansi.Green ->
-                                "green"
-
-                            Ansi.Yellow ->
-                                "yellow"
-
-                            Ansi.Cyan ->
-                                "cyan"
-
-                            Ansi.Black ->
-                                "black"
-
-                            Ansi.Magenta ->
-                                "magenta"
-
-                            Ansi.White ->
-                                "white"
-
-                            Ansi.BrightBlack ->
-                                "BLACK"
-
-                            Ansi.BrightRed ->
-                                "RED"
-
-                            Ansi.BrightGreen ->
-                                "GREEN"
-
-                            Ansi.BrightYellow ->
-                                "YELLOW"
-
-                            Ansi.BrightBlue ->
-                                "BLUE"
-
-                            Ansi.BrightMagenta ->
-                                "MAGENTA"
-
-                            Ansi.BrightCyan ->
-                                "CYAN"
-
-                            Ansi.BrightWhite ->
-                                "WHITE"
-
-                            Ansi.Custom _ _ _ ->
-                                "NOTHANDLED"
+                    Ansi.Custom _ _ _ ->
+                        ""
           )
-        , ( "string", Encode.string (getString node) )
+        , ( "string", Encode.string string )
         ]
-
-
-getString : Text -> String
-getString node =
-    case node of
-        RawText string ->
-            string
-
-        Style _ innerNode ->
-            getString innerNode

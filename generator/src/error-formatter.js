@@ -24,7 +24,9 @@ function parseMsg(msg) {
   if (typeof msg === "string") {
     return msg;
   } else {
-    if (msg.underline) {
+    if (msg.underline && msg.color) {
+      return kleur[msg.color.toLowerCase()]().underline(msg.string);
+    } else if (msg.underline) {
       return kleur.underline(msg.string);
     } else if (msg.color) {
       return kleur[msg.color.toLowerCase()](msg.string);

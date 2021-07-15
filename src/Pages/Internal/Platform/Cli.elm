@@ -233,7 +233,7 @@ perform renderRequest config toJsPort effect =
                             [ Terminal.text "I got an error making an HTTP request to this URL: "
 
                             -- TODO include HTTP method, headers, and body
-                            , Terminal.yellow <| Terminal.text requests.masked.url
+                            , Terminal.yellow requests.masked.url
                             , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode requests.masked.body
                             , Terminal.text "\n\n"
                             , case error of

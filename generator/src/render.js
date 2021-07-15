@@ -251,7 +251,7 @@ async function runHttpJob(app, mode, requestToPerform) {
           /^port:\/\//,
           ""
         );
-        console.time(requestToPerform.masked.url);
+        // console.time(requestToPerform.masked.url);
         if (!portDataSource[portName]) {
           if (portDataSourceFound) {
             throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
@@ -270,7 +270,7 @@ async function runHttpJob(app, mode, requestToPerform) {
           ),
         });
 
-        console.timeEnd(requestToPerform.masked.url);
+        // console.timeEnd(requestToPerform.masked.url);
       } catch (error) {
         sendError(app, {
           title: "DataSource.Port Error",
@@ -295,7 +295,9 @@ async function runHttpJob(app, mode, requestToPerform) {
 
     sendError(app, {
       title: "DataSource.Http Error",
-      message: `${kleur.cyan(requestToPerform.masked.url)} ${errorMessage}`,
+      message: `${kleur
+        .yellow()
+        .underline(requestToPerform.masked.url)} ${errorMessage}`,
     });
   } finally {
     pendingDataSourceCount -= 1;

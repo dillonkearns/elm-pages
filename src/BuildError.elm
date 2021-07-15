@@ -29,7 +29,7 @@ errorToString error =
 banner : String -> List Terminal.Text
 banner title =
     [ Terminal.cyan <|
-        Terminal.text ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages")
+        ("-- " ++ String.toUpper title ++ " ----------------------------------------------------- elm-pages")
     , Terminal.text "\n\n"
     ]
 
