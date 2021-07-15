@@ -32,6 +32,7 @@ fromOptionalSplat : Maybe String -> List String
 fromOptionalSplat maybeMatch =
     maybeMatch
         |> Maybe.map (\match -> match |> String.split "/")
+        |> Maybe.map (List.filter (\item -> item /= ""))
         |> Maybe.withDefault []
 
 
