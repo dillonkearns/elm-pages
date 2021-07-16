@@ -2,6 +2,7 @@ module Pages.StaticHttp.Request exposing (Request, codec, hash)
 
 import Codec exposing (Codec)
 import Json.Encode as Encode
+import Murmur3
 import Pages.Internal.StaticHttpBody as StaticHttpBody exposing (Body)
 
 
@@ -22,6 +23,8 @@ hash requestDetails =
         , ( "body", StaticHttpBody.encode requestDetails.body )
         ]
         |> Encode.encode 0
+        |> Murmur3.hashString 0
+        |> String.fromInt
 
 
 hashHeader : ( String, String ) -> Encode.Value
