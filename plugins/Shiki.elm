@@ -8,21 +8,23 @@ import OptimizedDecoder as Decode exposing (Decoder)
 
 type alias ShikiToken =
     { content : String
-    , color : String
+    , color : Maybe String
     , fontStyle : Maybe ( String, String )
     }
 
 
 type alias Highlighted =
     { lines : List (List ShikiToken)
+    , fg : String
     , bg : String
     }
 
 
 decoder : Decoder Highlighted
 decoder =
-    Decode.map2 Highlighted
+    Decode.map3 Highlighted
         (Decode.field "tokens" (Decode.list (Decode.list shikiTokenDecoder)))
+        (Decode.field "fg" Decode.string)
         (Decode.field "bg" Decode.string)
 
 
@@ -30,8 +32,8 @@ shikiTokenDecoder : Decode.Decoder ShikiToken
 shikiTokenDecoder =
     Decode.map3 ShikiToken
         (Decode.field "content" Decode.string)
-        (Decode.field "color" Decode.string)
-        (Decode.field "fontStyle" fontStyleDecoder)
+        (Decode.optionalField "color" Decode.string)
+        (Decode.optionalField "fontStyle" fontStyleDecoder |> Decode.map (Maybe.andThen identity))
 
 
 fontStyleDecoder : Decoder (Maybe ( String, String ))
@@ -70,7 +72,7 @@ view attrs highlighted =
                         |> List.map
                             (\token ->
                                 Html.span
-                                    [ Attr.style "color" token.color
+                                    [ Attr.style "color" (token.color |> Maybe.withDefault highlighted.fg)
                                     , token.fontStyle
                                         |> Maybe.map
                                             (\( key, value ) ->
