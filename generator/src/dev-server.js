@@ -74,7 +74,10 @@ async function start(options) {
     }
     const sourceDirs = JSON.parse(
       (await fs.promises.readFile("./elm.json")).toString()
-    )["source-directories"];
+    )["source-directories"].filter(
+      (sourceDir) => path.resolve(sourceDir) !== path.resolve(".elm-pages")
+    );
+
     watcher.add(sourceDirs);
     watcher.add("./public/*.css");
     watcher.add("./port-data-source.js");
