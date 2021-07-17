@@ -1567,7 +1567,7 @@ bumpHeadings by markdown =
 
 allStaticHttp : List (DataSource a) -> DataSource (List a)
 allStaticHttp =
-    List.foldl (DataSource.map2 (::)) (DataSource.succeed [])
+    List.foldr (DataSource.map2 (::)) (DataSource.succeed [])
 
 
 bumpHeadingLevel : Block.HeadingLevel -> Block.HeadingLevel
