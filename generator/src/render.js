@@ -231,74 +231,19 @@ async function runJob(app, filePath) {
 async function runHttpJob(app, mode, requestToPerform) {
   pendingDataSourceCount += 1;
   try {
-    // if (pendingDataSourceCount > 0) {
-    //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
-    // }
+    const responseFilePath = await lookupOrPerform(
+      mode,
+      requestToPerform.unmasked
+    );
 
-    let portDataSource = {};
-    let portDataSourceFound = false;
-    try {
-      portDataSource = requireUncached(
-        mode,
-        path.join(process.cwd(), "port-data-source.js")
-      );
-      portDataSourceFound = true;
-    } catch (e) {}
-
-    if (requestToPerform.unmasked.url.startsWith("port://")) {
-      try {
-        const portName = requestToPerform.unmasked.url.replace(
-          /^port:\/\//,
-          ""
-        );
-        // console.time(requestToPerform.masked.url);
-        if (!portDataSource[portName]) {
-          if (portDataSourceFound) {
-            throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
-          } else {
-            throw `DataSource.Port.send "${portName}" was called, but I couldn't find the port definitions file 'port-data-source.js'.`;
-          }
-        } else if (typeof portDataSource[portName] !== "function") {
-          throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;
-        }
-        pendingDataSourceResponses.push({
-          request: requestToPerform,
-          response: JSON.stringify(
-            await portDataSource[portName](
-              requestToPerform.unmasked.body.args[0]
-            )
-          ),
-        });
-
-        // console.timeEnd(requestToPerform.masked.url);
-      } catch (error) {
-        sendError(app, {
-          title: "DataSource.Port Error",
-          message: error.toString(),
-        });
-      }
-    } else {
-      const responseFilePath = await lookupOrPerform(requestToPerform.unmasked);
-
-      pendingDataSourceResponses.push({
-        request: requestToPerform,
-        response: (
-          await fsPromises.readFile(responseFilePath, "utf8")
-        ).toString(),
-      });
-    }
-  } catch (error) {
-    let errorMessage = error.toString();
-    if (error.code === "ENOTFOUND") {
-      errorMessage = `Could not reach URL.`;
-    }
-
-    sendError(app, {
-      title: "DataSource.Http Error",
-      message: `${kleur
-        .yellow()
-        .underline(requestToPerform.masked.url)} ${errorMessage}`,
+    pendingDataSourceResponses.push({
+      request: requestToPerform,
+      response: (
+        await fsPromises.readFile(responseFilePath, "utf8")
+      ).toString(),
     });
+  } catch (error) {
+    sendError(app, error);
   } finally {
     pendingDataSourceCount -= 1;
     flushIfDone(app);

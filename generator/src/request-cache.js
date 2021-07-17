@@ -2,6 +2,7 @@ const path = require("path");
 const undici = require("undici");
 const fs = require("fs");
 const objectHash = require("object-hash");
+const kleur = require("kleur");
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -26,11 +27,12 @@ function fullPath(request) {
 }
 
 /**
+ * @param {string} mode
  * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } rawRequest
  * @returns {Promise<string>}
  */
-function lookupOrPerform(rawRequest) {
-  return new Promise((resolve, reject) => {
+function lookupOrPerform(mode, rawRequest) {
+  return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request);
 
@@ -38,27 +40,79 @@ function lookupOrPerform(rawRequest) {
       // console.log("Skipping request, found file.");
       resolve(responsePath);
     } else {
-      undici
-        .stream(
-          request.url,
-          {
-            method: request.method,
-            body: request.body,
-            headers: {
-              "User-Agent": "request",
-              ...request.headers,
-            },
-          },
-          (response) => {
-            const writeStream = fs.createWriteStream(responsePath);
-            writeStream.on("finish", async () => {
-              resolve(responsePath);
-            });
+      let portDataSource = {};
+      let portDataSourceFound = false;
+      try {
+        portDataSource = requireUncached(
+          mode,
+          path.join(process.cwd(), "port-data-source.js")
+        );
+        portDataSourceFound = true;
+      } catch (e) {}
 
-            return writeStream;
+      if (request.url.startsWith("port://")) {
+        try {
+          const portName = request.url.replace(/^port:\/\//, "");
+          // console.time(JSON.stringify(request.url));
+          if (!portDataSource[portName]) {
+            if (portDataSourceFound) {
+              throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
+            } else {
+              throw `DataSource.Port.send "${portName}" was called, but I couldn't find the port definitions file 'port-data-source.js'.`;
+            }
+          } else if (typeof portDataSource[portName] !== "function") {
+            throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;
           }
-        )
-        .catch(reject);
+          await fs.promises.writeFile(
+            responsePath,
+            JSON.stringify(
+              await portDataSource[portName](rawRequest.body.args[0])
+            )
+          );
+          resolve(responsePath);
+
+          // console.timeEnd(JSON.stringify(requestToPerform.masked));
+        } catch (error) {
+          console.trace(error);
+          reject({
+            title: "DataSource.Port Error",
+            message: error.toString(),
+          });
+        }
+      } else {
+        undici
+          .stream(
+            request.url,
+            {
+              method: request.method,
+              body: request.body,
+              headers: {
+                "User-Agent": "request",
+                ...request.headers,
+              },
+            },
+            (response) => {
+              const writeStream = fs.createWriteStream(responsePath);
+              writeStream.on("finish", async () => {
+                resolve(responsePath);
+              });
+
+              return writeStream;
+            }
+          )
+          .catch((error) => {
+            let errorMessage = error.toString();
+            if (error.code === "ENOTFOUND") {
+              errorMessage = `Could not reach URL.`;
+            }
+            reject({
+              title: "DataSource.Http Error",
+              message: `${kleur
+                .yellow()
+                .underline(request.url)} ${errorMessage}`,
+            });
+          });
+      }
     }
   });
 }
@@ -114,5 +168,13 @@ function toContentType(body) {
 }
 
 /** @typedef { { tag: 'EmptyBody'} | { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
+function requireUncached(mode, filePath) {
+  if (mode === "dev-server") {
+    // for the build command, we can skip clearing the cache because it won't change while the build is running
+    // in the dev server, we want to clear the cache to get a the latest code each time it runs
+    delete require.cache[require.resolve(filePath)];
+  }
+  return require(filePath);
+}
 
 module.exports = { lookupOrPerform };
