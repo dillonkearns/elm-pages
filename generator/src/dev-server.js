@@ -21,6 +21,8 @@ async function start(options) {
   let elmMakeRunning = true;
 
   const serve = serveStatic("public/", { index: false });
+  fs.mkdirSync(".elm-pages/cache", { recursive: true });
+  const serveCachedFiles = serveStatic(".elm-pages/cache", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
   fs.mkdirSync(generatedFilesDirectory, { recursive: true });
   const serveStaticCode = serveStatic(
@@ -93,6 +95,8 @@ async function start(options) {
 
   const app = connect()
     .use(timeMiddleware())
+    .use(awaitElmMiddleware)
+    .use(serveCachedFiles)
     .use(serveStaticCode)
     .use(serve)
     .use(processRequest);
@@ -103,17 +107,7 @@ async function start(options) {
    * @param {connect.NextHandleFunction} next
    */
   async function processRequest(request, response, next) {
-    if (request.url && request.url.startsWith("/elm.js")) {
-      try {
-        await pendingCliCompile;
-        const clientElmJs = await clientElmMakeProcess;
-        response.writeHead(200, { "Content-Type": "text/javascript" });
-        response.end(clientElmJs);
-      } catch (elmCompilerError) {
-        response.writeHead(500, { "Content-Type": "application/json" });
-        response.end(elmCompilerError);
-      }
-    } else if (request.url && request.url.startsWith("/stream")) {
+    if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
     } else {
       handleNavigationRequest(request, response, next);
@@ -342,6 +336,20 @@ async function start(options) {
         res.writeHead(500, { "Content-Type": "text/html" });
         res.end(errorHtml());
       }
+    }
+  }
+  async function awaitElmMiddleware(req, res, next) {
+    if (req.url && req.url.startsWith("/elm.js")) {
+      try {
+        await pendingCliCompile;
+        await clientElmMakeProcess;
+        next();
+      } catch (elmCompilerError) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(elmCompilerError);
+      }
+    } else {
+      next();
     }
   }
 }

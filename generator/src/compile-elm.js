@@ -37,7 +37,10 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
 
 async function compileElmForBrowser() {
   await runElm("./.elm-pages/TemplateModulesBeta.elm", pathToClientElm);
-  return inject(await fs.promises.readFile(pathToClientElm, "utf-8"));
+  return fs.promises.writeFile(
+    "./.elm-pages/cache/elm.js",
+    inject(await fs.promises.readFile(pathToClientElm, "utf-8"))
+  );
 }
 
 /**
