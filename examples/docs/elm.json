@@ -32,6 +32,7 @@
             "miniBill/elm-codec": "2.0.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.4.0",
+            "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-css": "16.1.1",
             "tripokey/elm-fuzzy": "5.2.1",
             "vito/elm-ansi": "10.0.1",
