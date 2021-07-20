@@ -377,7 +377,12 @@ async function start(options) {
     readyThreads.forEach((readyThread) => {
       const startTask = threadReadyQueue.shift();
       if (startTask) {
-        startTask(readyThread);
+        // if we don't use setImmediate here, the remaining work will be done sequentially by a single worker
+        // using setImmediate delegates a ready thread to each pending task until it runs out of ready workers
+        // so the delegation is done sequentially, and the actual work is then executed
+        setImmediate(() => {
+          startTask(readyThread);
+        });
       }
     });
   }
