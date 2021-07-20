@@ -25,6 +25,7 @@ async function main() {
     )
     .description("run a full site build")
     .action(async (options) => {
+      options.base = normalizeUrl(options.base);
       await build.run(options);
     });
 
@@ -34,6 +35,7 @@ async function main() {
     .option("--port <number>", "serve site at localhost:<port>", "1234")
     .option("--base <basePath>", "serve site under a base path", "/")
     .action(async (options) => {
+      options.base = normalizeUrl(options.base);
       await dev.start(options);
     });
 
@@ -68,6 +70,19 @@ async function main() {
     });
 
   program.parse(process.argv);
+}
+
+/**
+ * @param {string} pagePath
+ */
+function normalizeUrl(pagePath) {
+  if (!pagePath.startsWith("/")) {
+    pagePath = "/" + pagePath;
+  }
+  if (!pagePath.endsWith("/")) {
+    pagePath = pagePath + "/";
+  }
+  return pagePath;
 }
 
 main();
