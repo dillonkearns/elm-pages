@@ -53,7 +53,7 @@ type alias Path =
 
 
 init :
-    Maybe ( { currentUrl : Url, baseUrl : Url }, ContentJson )
+    Maybe ( Path, ContentJson )
     -> ContentCache
 init maybeInitialPageContent =
     Dict.fromList []
@@ -64,7 +64,7 @@ init maybeInitialPageContent =
 
                     Just ( urls, contentJson ) ->
                         dict
-                            |> Dict.insert (pathForUrl urls) (Parsed contentJson)
+                            |> Dict.insert urls (Parsed contentJson)
            )
 
 
@@ -73,7 +73,7 @@ parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
     List String
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url }
     -> ContentCache
     -> Task Http.Error ( Url, ContentJson, ContentCache )
 lazyLoad path urls cache =
@@ -186,7 +186,7 @@ contentJsonDecoder =
 
 update :
     ContentCache
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url }
     -> ContentJson
     -> ContentCache
 update cache urls rawContent =
@@ -208,10 +208,10 @@ update cache urls rawContent =
         cache
 
 
-pathForUrl : { currentUrl : Url, baseUrl : Url } -> Path
-pathForUrl { currentUrl, baseUrl } =
+pathForUrl : { currentUrl : Url } -> Path
+pathForUrl { currentUrl } =
     currentUrl.path
-        |> String.dropLeft (String.length baseUrl.path)
+        --|> String.dropLeft (String.length baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
@@ -219,7 +219,7 @@ pathForUrl { currentUrl, baseUrl } =
 
 is404 :
     ContentCache
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url }
     -> Bool
 is404 dict urls =
     dict
@@ -235,7 +235,7 @@ is404 dict urls =
 
 notFoundReason :
     ContentCache
-    -> { currentUrl : Url, baseUrl : Url }
+    -> { currentUrl : Url }
     -> Maybe NotFoundReason.Payload
 notFoundReason dict urls =
     dict

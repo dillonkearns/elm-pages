@@ -14,7 +14,6 @@ function loadContentAndInitializeApp() {
   const app = Elm.TemplateModulesBeta.init({
     flags: {
       secrets: null,
-      baseUrl: document.baseURI,
       isPrerendering: false,
       isDevServer: false,
       isElmDebugMode: false,
