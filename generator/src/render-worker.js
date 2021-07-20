@@ -2,7 +2,7 @@ const renderer = require("../../generator/src/render");
 const path = require("path");
 const fs = require("./dir-helpers.js");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
-const { parentPort, threadId } = require("worker_threads");
+const { parentPort, threadId, workerData } = require("worker_threads");
 let Elm;
 
 global.staticHttpCache = {};
@@ -12,6 +12,7 @@ async function run({ mode, pathname }) {
   try {
     const req = null;
     const renderResult = await renderer(
+      workerData.basePath,
       requireElm(mode),
       mode,
       pathname,

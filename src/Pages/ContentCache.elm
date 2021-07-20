@@ -72,11 +72,12 @@ init maybeInitialPageContent =
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    { currentUrl : Url, baseUrl : Url }
+    List String
+    -> { currentUrl : Url, baseUrl : Url }
     -> ContentCache
     -> Task Http.Error ( Url, ContentJson, ContentCache )
-lazyLoad urls cache =
-    case Dict.get (pathForUrl urls) cache of
+lazyLoad path urls cache =
+    case Dict.get path cache of
         Just (Parsed contentJson) ->
             Task.succeed
                 ( urls.currentUrl

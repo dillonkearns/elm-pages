@@ -8,9 +8,12 @@ const path = require("path");
 const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 global.builtAt = new Date();
 
-async function generate() {
-  const cliCode = generateTemplateModuleConnector("cli");
-  const browserCode = generateTemplateModuleConnector("browser");
+/**
+ * @param {string} basePath
+ */
+async function generate(basePath) {
+  const cliCode = generateTemplateModuleConnector(basePath, "cli");
+  const browserCode = generateTemplateModuleConnector(basePath, "browser");
   ensureDirSync("./elm-stuff");
   ensureDirSync("./.elm-pages");
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");

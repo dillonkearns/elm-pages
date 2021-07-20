@@ -224,7 +224,7 @@ init config flags url key =
                                 |> Cmd.map UserMsg
                                 |> Just
                             , contentCache
-                                |> ContentCache.lazyLoad urls
+                                |> ContentCache.lazyLoad (config.urlToRoute urls.currentUrl |> config.routeToPath) urls
                                 |> Task.attempt UpdateCache
                                 |> Just
                             ]
@@ -396,7 +396,7 @@ update config appMsg model =
             else
                 ( model
                 , model.contentCache
-                    |> ContentCache.lazyLoad urls
+                    |> ContentCache.lazyLoad (config.urlToRoute urls.currentUrl |> config.routeToPath) urls
                     |> Task.attempt (UpdateCacheAndUrl url)
                 )
 

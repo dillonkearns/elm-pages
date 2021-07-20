@@ -18,6 +18,11 @@ async function main() {
   program
     .command("build")
     .option("--debug", "Skip terser and run elm make with --debug")
+    .option(
+      "--base <basePath>",
+      "build site to be served under a base path",
+      "/"
+    )
     .description("run a full site build")
     .action(async (options) => {
       await build.run(options);
@@ -27,6 +32,7 @@ async function main() {
     .command("dev")
     .description("start a dev server")
     .option("--port <number>", "serve site at localhost:<port>", "1234")
+    .option("--base <basePath>", "serve site under a base path", "/")
     .action(async (options) => {
       await dev.start(options);
     });
@@ -50,7 +56,7 @@ async function main() {
     .description("open the docs for locally generated modules")
     .option("--port <number>", "serve site at localhost:<port>", "8000")
     .action(async (options) => {
-      await codegen.generate();
+      await codegen.generate("/");
       const DocServer = require("elm-doc-preview");
       const server = new DocServer({
         port: options.port,

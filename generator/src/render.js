@@ -19,13 +19,21 @@ let pendingDataSourceCount;
 module.exports =
   /**
    *
+   * @param {string} basePath
    * @param {Object} elmModule
    * @param {string} path
    * @param {import('aws-lambda').APIGatewayProxyEvent} request
    * @param {(pattern: string) => void} addDataSourceWatcher
    * @returns
    */
-  async function run(elmModule, mode, path, request, addDataSourceWatcher) {
+  async function run(
+    basePath,
+    elmModule,
+    mode,
+    path,
+    request,
+    addDataSourceWatcher
+  ) {
     foundErrors = false;
     pendingDataSourceResponses = [];
     pendingDataSourceCount = 0;
@@ -33,6 +41,7 @@ module.exports =
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
     XMLHttpRequest = {};
     const result = await runElmApp(
+      basePath,
       elmModule,
       mode,
       path,
@@ -43,6 +52,7 @@ module.exports =
   };
 
 /**
+ * @param {string} basePath
  * @param {Object} elmModule
  * @param {string} pagePath
  * @param {string} mode
@@ -50,7 +60,14 @@ module.exports =
  * @param {(pattern: string) => void} addDataSourceWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
-function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
+function runElmApp(
+  basePath,
+  elmModule,
+  mode,
+  pagePath,
+  request,
+  addDataSourceWatcher
+) {
   let patternsToWatch = new Set();
   let app = null;
   let killApp;
@@ -110,7 +127,7 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
             }),
           });
         } else {
-          resolve(outputString(fromElm));
+          resolve(outputString(basePath, fromElm));
         }
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
@@ -147,19 +164,23 @@ function runElmApp(elmModule, mode, pagePath, request, addDataSourceWatcher) {
     killApp = null;
   });
 }
-
-async function outputString(/** @type { PageProgress } */ fromElm) {
+/**
+ * @param {string} basePath
+ * @param {PageProgress} fromElm
+ */
+async function outputString(basePath, /** @type { PageProgress } */ fromElm) {
   const args = fromElm.args[0];
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
   contentJson["is404"] = args.is404;
+  contentJson["path"] = args.route;
   const normalizedRoute = args.route.replace(/index$/, "");
   const contentJsonString = JSON.stringify(contentJson);
 
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(args, contentJsonString, true),
+    htmlString: preRenderHtml(basePath, args, contentJsonString, true),
     contentJson: args.contentJson,
     kind: "html",
   };

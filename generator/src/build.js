@@ -40,7 +40,7 @@ async function run(options) {
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   XMLHttpRequest = {};
 
-  const generateCode = codegen.generate();
+  const generateCode = codegen.generate(options.base);
 
   const copyDone = copyAssets();
   await generateCode;
@@ -54,11 +54,15 @@ async function run(options) {
   }
 }
 
-function initWorker() {
+/**
+ * @param {string} basePath
+ */
+function initWorker(basePath) {
   return new Promise((resolve, reject) => {
     let newWorker = {
       worker: new Worker(path.join(__dirname, "./render-worker.js"), {
         env: SHARE_ENV,
+        workerData: { basePath },
       }),
     };
     newWorker.worker.once("online", () => {
@@ -113,12 +117,12 @@ async function runCli(options) {
   const cpuCount = os.cpus().length;
   console.log("Threads: ", cpuCount);
 
-  const getPathsWorker = initWorker();
+  const getPathsWorker = initWorker(options.base);
   getPathsWorker.then(prepareStaticPathsNew);
   const threadsToCreate = Math.max(1, cpuCount / 2 - 1);
   pool.push(getPathsWorker);
   for (let index = 0; index < threadsToCreate - 1; index++) {
-    pool.push(initWorker());
+    pool.push(initWorker(options.base));
   }
   pool.forEach((threadPromise) => {
     threadPromise.then(buildNextPage);

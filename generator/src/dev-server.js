@@ -11,7 +11,11 @@ const { restoreColor } = require("./error-formatter");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
+const baseMiddleware = require("./basepath-middleware.js");
 
+/**
+ * @param {{ port: string; base: string }} options
+ */
 async function start(options) {
   let pool = [];
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
@@ -39,7 +43,7 @@ async function start(options) {
     ignoreInitial: true,
   });
 
-  await codegen.generate();
+  await codegen.generate(options.base);
   let clientElmMakeProcess = compileElmForBrowser();
   let pendingCliCompile = compileCliApp();
   watchElmSourceDirs(true);
@@ -59,7 +63,7 @@ async function start(options) {
     );
     const poolSize = Math.max(1, cpuCount / 2 - 1);
     for (let index = 0; index < poolSize; index++) {
-      pool.push(initWorker());
+      pool.push(initWorker(options.base));
     }
   }
 
@@ -95,6 +99,7 @@ async function start(options) {
 
   const app = connect()
     .use(timeMiddleware())
+    .use(baseMiddleware(options.base))
     .use(awaitElmMiddleware)
     .use(serveCachedFiles)
     .use(serveStaticCode)
@@ -128,7 +133,7 @@ async function start(options) {
         let codegenError = null;
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           try {
-            await codegen.generate();
+            await codegen.generate(options.base);
             clientElmMakeProcess = compileElmForBrowser();
             pendingCliCompile = compileCliApp();
 
@@ -353,11 +358,14 @@ async function start(options) {
     }
   }
 }
-
-function initWorker() {
+/**
+ * @param {string} basePath
+ */
+function initWorker(basePath) {
   let newWorker = {
     worker: new Worker(path.join(__dirname, "./render-worker.js"), {
       env: SHARE_ENV,
+      workerData: { basePath },
     }),
     ready: false,
   };

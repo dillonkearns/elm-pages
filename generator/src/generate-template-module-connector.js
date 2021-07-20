@@ -4,9 +4,10 @@ const mm = require("micromatch");
 const routeHelpers = require("./route-codegen-helpers");
 
 /**
+ * @param {string} basePath
  * @param {'browser' | 'cli'} phase
  */
-function generateTemplateModuleConnector(phase) {
+function generateTemplateModuleConnector(basePath, phase) {
   const templates = globby.sync(["src/Page/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("src/Page/**/*.elm", file);
     if (captures) {
@@ -686,8 +687,28 @@ type Route
 {-| -}
 urlToRoute : { url | path : String } -> Maybe Route
 urlToRoute url =
-    Router.firstMatch matchers url.path
+    url.path
+    |> withoutBaseUrl 
+    |> Router.firstMatch matchers 
 
+
+baseUrl : String
+baseUrl =
+    "${basePath}"
+
+
+baseUrlAsPath : List String
+baseUrlAsPath =
+    baseUrl
+    |> String.split "/"
+    |> List.filter (not << String.isEmpty)
+
+
+withoutBaseUrl path =
+    if (path |> String.startsWith baseUrl) then
+      String.dropLeft (String.length baseUrl) path
+    else
+      path
 
 {-| -}
 matchers : List (Router.Matcher Route)
@@ -742,13 +763,20 @@ routeToPath route =
 {-| -}
 toPath : Route -> Path
 toPath route =
-    route |> routeToPath |> String.join "/" |> Path.fromString
+    (baseUrlAsPath ++ (route |> routeToPath)) |> String.join "/" |> Path.fromString
+
+
+{-| -}
+toString : Route -> String
+toString route =
+    route |> toPath |> Path.toAbsolute
+
 
 {-| -}
 toLink : (List (Attribute msg) -> tag) -> Route -> tag
 toLink toAnchorTag route =
     toAnchorTag
-        [ Attr.href ("/" ++ (routeToPath route |> String.join "/"))
+        [ route |> toString |> Attr.href
         , Attr.attribute "elm-pages:prefetch" ""
         ]
 
