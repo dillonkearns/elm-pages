@@ -17,6 +17,7 @@ const baseMiddleware = require("./basepath-middleware.js");
  * @param {{ port: string; base: string }} options
  */
 async function start(options) {
+  let threadReadyQueue = [];
   let pool = [];
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
@@ -65,6 +66,7 @@ async function start(options) {
     for (let index = 0; index < poolSize; index++) {
       pool.push(initWorker(options.base));
     }
+    runPendingWork();
   }
 
   setup();
@@ -115,7 +117,7 @@ async function start(options) {
     if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
     } else {
-      handleNavigationRequest(request, response, next);
+      await handleNavigationRequest(request, response, next);
     }
   }
 
@@ -226,39 +228,40 @@ async function start(options) {
     );
   }
 
+  /**
+   * @param {string} pathname
+   * @param {((value: any) => any) | null | undefined} onOk
+   * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
+   */
   function runRenderThread(pathname, onOk, onErr) {
-    const readyThread = pool.find((thread) => thread.ready);
-    if (!readyThread) {
-      readyThread = pool[0];
-    }
-    const cleanUpThread = () => {
-      cleanUp(readyThread);
-    };
-    return new Promise((resolve, reject) => {
-      if (readyThread) {
-        readyThread.ready = false;
-        readyThread.worker.postMessage({
-          mode: "dev-server",
-          pathname,
-        });
-        readyThread.worker.on("message", (message) => {
-          if (message.tag === "done") {
-            resolve(message.data);
-          } else if (message.tag === "watch") {
-            // console.log("@@@ WATCH", message.data);
-            message.data.forEach((pattern) => watcher.add(pattern));
-          } else if (message.tag === "error") {
-            reject(message.data);
-          } else {
-            throw `Unhandled message: ${message}`;
-          }
-        });
-        readyThread.worker.on("error", (error) => {
-          reject(error.context);
-        });
-      } else {
-        console.error("TODO - running out of ready threads not yet handled");
-      }
+    let cleanUpThread = () => {};
+    return new Promise(async (resolve, reject) => {
+      const readyThread = await waitForThread();
+      console.log(`Rendering ${pathname}`, readyThread.worker.threadId);
+      cleanUpThread = () => {
+        cleanUp(readyThread);
+      };
+
+      readyThread.ready = false;
+      readyThread.worker.postMessage({
+        mode: "dev-server",
+        pathname,
+      });
+      readyThread.worker.on("message", (message) => {
+        if (message.tag === "done") {
+          resolve(message.data);
+        } else if (message.tag === "watch") {
+          // console.log("@@@ WATCH", message.data);
+          message.data.forEach((pattern) => watcher.add(pattern));
+        } else if (message.tag === "error") {
+          reject(message.data);
+        } else {
+          throw `Unhandled message: ${message}`;
+        }
+      });
+      readyThread.worker.on("error", (error) => {
+        reject(error.context);
+      });
     })
       .then(onOk)
       .catch(onErr)
@@ -271,6 +274,7 @@ async function start(options) {
     thread.worker.removeAllListeners("message");
     thread.worker.removeAllListeners("error");
     thread.ready = true;
+    runPendingWork();
   }
 
   /**
@@ -283,7 +287,7 @@ async function start(options) {
     const pathname = urlParts.pathname || "";
     try {
       await pendingCliCompile;
-      runRenderThread(
+      await runRenderThread(
         pathname,
         function (renderResult) {
           const is404 = renderResult.is404;
@@ -357,22 +361,43 @@ async function start(options) {
       next();
     }
   }
-}
-/**
- * @param {string} basePath
- */
-function initWorker(basePath) {
-  let newWorker = {
-    worker: new Worker(path.join(__dirname, "./render-worker.js"), {
-      env: SHARE_ENV,
-      workerData: { basePath },
-    }),
-    ready: false,
-  };
-  newWorker.worker.once("online", () => {
-    newWorker.ready = true;
-  });
-  return newWorker;
+
+  /**
+   * @returns {Promise<{ ready:boolean; worker: Worker }>}
+   * */
+  function waitForThread() {
+    return new Promise((resolve, reject) => {
+      threadReadyQueue.push(resolve);
+      runPendingWork();
+    });
+  }
+
+  function runPendingWork() {
+    const readyThreads = pool.filter((thread) => thread.ready);
+    readyThreads.forEach((readyThread) => {
+      const startTask = threadReadyQueue.shift();
+      if (startTask) {
+        startTask(readyThread);
+      }
+    });
+  }
+
+  /**
+   * @param {string} basePath
+   */
+  function initWorker(basePath) {
+    let newWorker = {
+      worker: new Worker(path.join(__dirname, "./render-worker.js"), {
+        env: SHARE_ENV,
+        workerData: { basePath },
+      }),
+      ready: false,
+    };
+    newWorker.worker.once("online", () => {
+      newWorker.ready = true;
+    });
+    return newWorker;
+  }
 }
 
 function timeMiddleware() {
