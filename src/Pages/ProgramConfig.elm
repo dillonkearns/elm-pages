@@ -39,7 +39,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , data : route -> DataSource.DataSource pageData
     , view :
         { path : Path
-        , frontmatter : route
+        , route : route
         }
         -> Maybe PageUrl
         -> sharedData

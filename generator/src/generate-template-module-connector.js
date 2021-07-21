@@ -129,7 +129,7 @@ type PageData
 
 view :
     { path : Path
-    , frontmatter : Maybe Route
+    , route : Maybe Route
     }
     -> Maybe PageUrl
     -> Shared.Data
@@ -139,7 +139,7 @@ view :
         , head : List Head.Tag
         }
 view page maybePageUrl globalData pageData =
-    case ( page.frontmatter, pageData ) of
+    case ( page.route, pageData ) of
         ${templates
           .map(
             (name) =>

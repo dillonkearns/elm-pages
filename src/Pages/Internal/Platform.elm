@@ -48,7 +48,7 @@ mainView config model =
                 Ok pageData ->
                     (config.view
                         { path = ContentCache.pathForUrl urls |> Path.join
-                        , frontmatter = config.urlToRoute model.url
+                        , route = config.urlToRoute model.url
                         }
                         Nothing
                         pageData.sharedData

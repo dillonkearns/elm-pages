@@ -710,7 +710,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                                                     , query = Nothing
                                                                                                     , fragment = Nothing
                                                                                                     }
-                                                                                                , metadata = currentPage.frontmatter
+                                                                                                , metadata = currentPage.route
                                                                                                 , pageUrl = Nothing
                                                                                                 }
                                                                                             )
@@ -733,9 +733,9 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                             --    |> Maybe.withDefault Dict.empty
                                                             Dict.empty
 
-                                                        currentPage : { path : Path, frontmatter : route }
+                                                        currentPage : { path : Path, route : route }
                                                         currentPage =
-                                                            { path = payload.path, frontmatter = config.urlToRoute currentUrl }
+                                                            { path = payload.path, route = config.urlToRoute currentUrl }
 
                                                         pageDataResult : Result BuildError pageData
                                                         pageDataResult =
@@ -866,7 +866,7 @@ sendSinglePageProgress toJsPayload config model =
                                                                 , query = Nothing
                                                                 , fragment = Nothing
                                                                 }
-                                                            , metadata = currentPage.frontmatter
+                                                            , metadata = currentPage.route
                                                             , pageUrl = Nothing
                                                             }
                                                         )
@@ -898,9 +898,9 @@ sendSinglePageProgress toJsPayload config model =
                             |> Dict.get (Path.toRelative page)
                             |> Maybe.withDefault Dict.empty
 
-                    currentPage : { path : Path, frontmatter : route }
+                    currentPage : { path : Path, route : route }
                     currentPage =
-                        { path = page, frontmatter = config.urlToRoute currentUrl }
+                        { path = page, route = config.urlToRoute currentUrl }
 
                     pageDataResult : Result BuildError pageData
                     pageDataResult =

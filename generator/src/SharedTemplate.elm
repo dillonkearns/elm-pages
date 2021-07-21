@@ -30,7 +30,7 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
         sharedData
         ->
             { path : Path
-            , frontmatter : Maybe Route
+            , route : Maybe Route
             }
         -> sharedModel
         -> (msg -> mappedMsg)
