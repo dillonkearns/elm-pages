@@ -52,7 +52,7 @@ manifest static =
     Manifest.init
         { name = static.siteName
         , description = "elm-pages - " ++ tagline
-        , startUrl = Route.Slide__Number_ { number = "1" } |> Route.toPath
+        , startUrl = Route.Index |> Route.toPath
         , icons =
             [ icon webp 192
             , icon webp 512
