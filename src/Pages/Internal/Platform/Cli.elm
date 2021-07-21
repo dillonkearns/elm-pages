@@ -986,6 +986,7 @@ render404Page config model path notFoundReason =
                         }
                     )
               )
+            , ( "path", Path.toAbsolute path )
             ]
 
     -- TODO include the needed info for content.json?

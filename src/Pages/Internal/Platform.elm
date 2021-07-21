@@ -33,9 +33,10 @@ mainView :
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
-        urls : { currentUrl : Url }
+        urls : { currentUrl : Url, basePath : List String }
         urls =
             { currentUrl = model.url
+            , basePath = config.basePath
             }
     in
     case ContentCache.notFoundReason model.contentCache urls of
@@ -63,26 +64,15 @@ mainView config model =
                     }
 
 
-urlToPath : Url -> Url -> Path
-urlToPath url baseUrl =
-    url.path
-        |> String.dropLeft (String.length baseUrl.path)
-        |> String.chopForwardSlashes
-        |> String.split "/"
-        |> List.filter ((/=) "")
-        |> Path.join
-
-
 urlsToPagePath :
-    { currentUrl : Url
-    }
+    { currentUrl : Url, basePath : List String }
     -> Path
 urlsToPagePath urls =
     urls.currentUrl.path
-        --|> String.dropLeft (String.length urls.baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
+        |> List.drop (List.length urls.basePath)
         |> Path.join
 
 
@@ -134,14 +124,26 @@ init config flags url key =
             ContentCache.init
                 (Maybe.map
                     (\cj ->
-                        ( urls.currentUrl
-                            |> config.urlToRoute
-                            |> config.routeToPath
+                        ( currentPath
                         , cj
                         )
                     )
                     contentJson
                 )
+
+        currentPath : List String
+        currentPath =
+            flags
+                |> Decode.decodeValue
+                    (Decode.at [ "contentJson", "staticData", "path" ]
+                        (Decode.string
+                            |> Decode.map Path.fromString
+                            |> Decode.map Path.toSegments
+                        )
+                    )
+                |> Result.mapError Decode.errorToString
+                |> Result.toMaybe
+                |> Maybe.withDefault []
 
         contentJson : Maybe ContentJson
         contentJson =
@@ -149,9 +151,10 @@ init config flags url key =
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
                 |> Result.toMaybe
 
-        urls : { currentUrl : Url }
+        urls : { currentUrl : Url, basePath : List String }
         urls =
             { currentUrl = url
+            , basePath = config.basePath
             }
     in
     case contentJson |> Maybe.map .staticData of
@@ -323,9 +326,10 @@ update config appMsg model =
                 navigatingToSamePage =
                     (url.path == model.url.path) && (url /= model.url)
 
-                urls : { currentUrl : Url }
+                urls : { currentUrl : Url, basePath : List String }
                 urls =
                     { currentUrl = url
+                    , basePath = config.basePath
                     }
             in
             if navigatingToSamePage then
@@ -496,9 +500,11 @@ update config appMsg model =
 
         HotReloadComplete contentJson ->
             let
-                urls : { currentUrl : Url }
+                urls : { currentUrl : Url, basePath : List String }
                 urls =
-                    { currentUrl = model.url }
+                    { currentUrl = model.url
+                    , basePath = config.basePath
+                    }
 
                 pageDataResult : Result BuildError pageData
                 pageDataResult =

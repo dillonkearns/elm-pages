@@ -66,6 +66,7 @@ async function outputString(
       const contentJsonString = JSON.stringify({
         is404: args.is404,
         staticData: args.contentJson,
+        path: args.route,
       });
       fs.writeFileSync(`dist/${normalizedRoute}/index.html`, args.htmlString);
       fs.writeFileSync(

@@ -73,7 +73,7 @@ parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
     List String
-    -> { currentUrl : Url }
+    -> { currentUrl : Url, basePath : List String }
     -> ContentCache
     -> Task Http.Error ( Url, ContentJson, ContentCache )
 lazyLoad path urls cache =
@@ -142,6 +142,7 @@ httpTask url =
 type alias ContentJson =
     { staticData : RequestsAndPending
     , is404 : Bool
+    , path : Maybe String
     , notFoundReason : Maybe NotFoundReason.Payload
     }
 
@@ -152,9 +153,10 @@ contentJsonDecoder =
         |> Decode.andThen
             (\is404Value ->
                 if is404Value then
-                    Decode.map3 ContentJson
+                    Decode.map4 ContentJson
                         (Decode.succeed Dict.empty)
                         (Decode.succeed is404Value)
+                        (Decode.field "path" Decode.string |> Decode.map Just)
                         (Decode.at [ "staticData", "notFoundReason" ]
                             (Decode.string
                                 |> Decode.andThen
@@ -177,16 +179,17 @@ contentJsonDecoder =
                         )
 
                 else
-                    Decode.map3 ContentJson
+                    Decode.map4 ContentJson
                         (Decode.field "staticData" RequestsAndPending.decoder)
                         (Decode.succeed is404Value)
+                        (Decode.succeed Nothing)
                         (Decode.succeed Nothing)
             )
 
 
 update :
     ContentCache
-    -> { currentUrl : Url }
+    -> { currentUrl : Url, basePath : List String }
     -> ContentJson
     -> ContentCache
 update cache urls rawContent =
@@ -200,6 +203,7 @@ update cache urls rawContent =
                 Nothing ->
                     { staticData = rawContent.staticData
                     , is404 = rawContent.is404
+                    , path = rawContent.path
                     , notFoundReason = rawContent.notFoundReason
                     }
                         |> Parsed
@@ -208,18 +212,18 @@ update cache urls rawContent =
         cache
 
 
-pathForUrl : { currentUrl : Url } -> Path
-pathForUrl { currentUrl } =
+pathForUrl : { currentUrl : Url, basePath : List String } -> Path
+pathForUrl { currentUrl, basePath } =
     currentUrl.path
-        --|> String.dropLeft (String.length baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
+        |> List.drop (List.length basePath)
 
 
 is404 :
     ContentCache
-    -> { currentUrl : Url }
+    -> { currentUrl : Url, basePath : List String }
     -> Bool
 is404 dict urls =
     dict
@@ -235,7 +239,7 @@ is404 dict urls =
 
 notFoundReason :
     ContentCache
-    -> { currentUrl : Url }
+    -> { currentUrl : Url, basePath : List String }
     -> Maybe NotFoundReason.Payload
 notFoundReason dict urls =
     dict
