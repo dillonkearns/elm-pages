@@ -433,6 +433,11 @@ main =
         , sharedData = Shared.template.data
         , apiRoutes = \\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
         , pathPatterns = routePatterns3
+        , basePath = [ ${basePath
+          .split("/")
+          .filter((segment) => segment !== "")
+          .map((segment) => `"${segment}"`)
+          .join(", ")} ]
         }
 
 dataForRoute : Maybe Route -> DataSource PageData
