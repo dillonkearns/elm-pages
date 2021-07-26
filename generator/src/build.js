@@ -152,7 +152,18 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
         cwd: cwd,
       }
     );
+    let commandOutput = "";
 
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+
+    subprocess.on("exit", async (code) => {
+      if (code !== 0) {
+        process.exitCode = 1;
+        reject(commandOutput);
+      }
+    });
     subprocess.on("close", async (code) => {
       if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
@@ -173,11 +184,7 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
     await runElmMake(elmEntrypointPath, outputPath, cwd);
   } else {
-    try {
-      await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
-    } catch (error) {
-      await runElmMake(elmEntrypointPath, outputPath, cwd);
-    }
+    await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
   }
 }
 
