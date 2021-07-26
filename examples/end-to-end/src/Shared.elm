@@ -10,6 +10,7 @@ import OptimizedDecoder as D
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import Route exposing (Route)
 import Secrets
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
@@ -94,7 +95,7 @@ view :
     Data
     ->
         { path : Path
-        , frontmatter : route
+        , route : Maybe Route
         }
     -> Model
     -> (Msg -> msg)
