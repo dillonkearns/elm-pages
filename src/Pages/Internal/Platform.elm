@@ -135,7 +135,7 @@ init config flags url key =
         currentPath =
             flags
                 |> Decode.decodeValue
-                    (Decode.at [ "contentJson", "staticData", "path" ]
+                    (Decode.at [ "contentJson", "path" ]
                         (Decode.string
                             |> Decode.map Path.fromString
                             |> Decode.map Path.toSegments
@@ -440,7 +440,12 @@ update config appMsg model =
                             StaticHttpRequest.resolve ApplicationType.Browser
                                 (config.data (config.urlToRoute url))
                                 contentJson.staticData
-                                |> Result.mapError (\_ -> "Http error")
+                                |> Result.mapError
+                                    (\error ->
+                                        error
+                                            |> StaticHttpRequest.toBuildError ""
+                                            |> BuildError.errorToString
+                                    )
 
                         ( userModel, userCmd ) =
                             config.update
