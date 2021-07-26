@@ -56,16 +56,12 @@ init :
     Maybe ( Path, ContentJson )
     -> ContentCache
 init maybeInitialPageContent =
-    Dict.fromList []
-        |> (\dict ->
-                case maybeInitialPageContent of
-                    Nothing ->
-                        dict
+    case maybeInitialPageContent of
+        Nothing ->
+            Dict.empty
 
-                    Just ( urls, contentJson ) ->
-                        dict
-                            |> Dict.insert urls (Parsed contentJson)
-           )
+        Just ( urls, contentJson ) ->
+            Dict.singleton urls (Parsed contentJson)
 
 
 {-| Get from the Cache... if it's not already parsed, it will
