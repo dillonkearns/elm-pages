@@ -68,6 +68,7 @@ function runElmApp(
   request,
   addDataSourceWatcher
 ) {
+  const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
   let app = null;
   let killApp;
@@ -127,7 +128,7 @@ function runElmApp(
             }),
           });
         } else {
-          resolve(outputString(basePath, fromElm));
+          resolve(outputString(basePath, fromElm, isDevServer));
         }
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
@@ -167,8 +168,13 @@ function runElmApp(
 /**
  * @param {string} basePath
  * @param {PageProgress} fromElm
+ * @param {boolean} isDevServer
  */
-async function outputString(basePath, /** @type { PageProgress } */ fromElm) {
+async function outputString(
+  basePath,
+  /** @type { PageProgress } */ fromElm,
+  isDevServer
+) {
   const args = fromElm.args[0];
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
@@ -180,7 +186,7 @@ async function outputString(basePath, /** @type { PageProgress } */ fromElm) {
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(basePath, args, contentJsonString, true),
+    htmlString: preRenderHtml(basePath, args, contentJsonString, isDevServer),
     contentJson: args.contentJson,
     kind: "html",
   };
