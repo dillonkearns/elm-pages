@@ -1,6 +1,7 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
+import DataSource.File
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -33,12 +34,12 @@ page =
 
 
 type alias Data =
-    ()
+    String
 
 
 data : DataSource Data
 data =
-    DataSource.succeed ()
+    DataSource.File.rawFile "greeting.txt"
 
 
 head :
@@ -68,5 +69,8 @@ view :
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Index page"
-    , body = [ text "This is the index page" ]
+    , body =
+        [ text "This is the index page."
+        , text <| "Greeting: " ++ static.data
+        ]
     }
