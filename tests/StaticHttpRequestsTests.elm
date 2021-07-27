@@ -1136,6 +1136,15 @@ startLowLevel apiRoutes staticHttpCache pages =
         contentCache =
             ContentCache.init Nothing
 
+        pageToLoad : List String
+        pageToLoad =
+            case pages |> List.head |> Maybe.map Tuple.first of
+                Just justPageToLoad ->
+                    justPageToLoad
+
+                Nothing ->
+                    Debug.todo "Error - no pages"
+
         config : ProgramConfig Msg () Route () () ()
         config =
             { toJsPort = toJsPort
@@ -1152,6 +1161,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , handleRoute = \_ -> DataSource.succeed Nothing
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , basePath = []
             , data =
                 \(Route pageRoute) ->
                     let
@@ -1237,7 +1247,19 @@ startLowLevel apiRoutes staticHttpCache pages =
        -> ( model, Effect pathKey )
     -}
     ProgramTest.createDocument
-        { init = init RenderRequest.FullBuild contentCache config
+        { init =
+            init
+                (RenderRequest.SinglePage
+                    RenderRequest.OnlyJson
+                    (RenderRequest.Page
+                        { path = Path.fromString (pageToLoad |> String.join "/")
+                        , frontmatter = Route (pageToLoad |> String.join "/")
+                        }
+                    )
+                    (Encode.object [])
+                )
+                contentCache
+                config
         , update = update contentCache config
         , view = \_ -> { title = "", body = [] }
         }
@@ -1282,6 +1304,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                         |> DataSource.succeed
             , urlToRoute = .path >> Route
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , basePath = []
             , data =
                 \(Route pageRoute) ->
                     let
@@ -1465,10 +1488,19 @@ simulateEffects effect =
                     , expect =
                         PagesHttp.expectString
                             (\response ->
-                                GotStaticHttpResponse
-                                    { request = requests
-                                    , response = response
-                                    }
+                                case response of
+                                    Ok okResponse ->
+                                        GotDataBatch
+                                            [ { request =
+                                                    { unmasked = unmasked
+                                                    , masked = unmasked -- TODO use masked
+                                                    }
+                                              , response = okResponse
+                                              }
+                                            ]
+
+                                    Err error ->
+                                        Debug.todo "Unhandled HTTP error."
                             )
                     , timeout = Nothing
                     , tracker = Nothing
@@ -1620,7 +1652,27 @@ simulateSubscriptions _ =
                                     (JD.field "pattern" JD.string)
                                     (JD.field "result" JD.value)
                                 )
-                                |> JD.map GotGlob
+                                |> JD.map
+                                    (\( globPattern, response ) ->
+                                        GotDataBatch
+                                            [ { request =
+                                                    { masked =
+                                                        { url = "glob://" ++ globPattern
+                                                        , method = "GET"
+                                                        , headers = []
+                                                        , body = StaticHttpBody.EmptyBody
+                                                        }
+                                                    , unmasked =
+                                                        { url = "glob://" ++ globPattern
+                                                        , method = "GET"
+                                                        , headers = []
+                                                        , body = StaticHttpBody.EmptyBody
+                                                        }
+                                                    }
+                                              , response = Encode.encode 0 response
+                                              }
+                                            ]
+                                    )
 
                         "GotFile" ->
                             JD.field "data"
@@ -1628,7 +1680,27 @@ simulateSubscriptions _ =
                                     (JD.field "filePath" JD.string)
                                     JD.value
                                 )
-                                |> JD.map GotStaticFile
+                                |> JD.map
+                                    (\( filePath, response ) ->
+                                        GotDataBatch
+                                            [ { request =
+                                                    { masked =
+                                                        { url = "file://" ++ filePath
+                                                        , method = "GET"
+                                                        , headers = []
+                                                        , body = StaticHttpBody.EmptyBody
+                                                        }
+                                                    , unmasked =
+                                                        { url = "file://" ++ filePath
+                                                        , method = "GET"
+                                                        , headers = []
+                                                        , body = StaticHttpBody.EmptyBody
+                                                        }
+                                                    }
+                                              , response = Encode.encode 0 response
+                                              }
+                                            ]
+                                    )
 
                         _ ->
                             JD.fail "Unexpected subscription tag."
