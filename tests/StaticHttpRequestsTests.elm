@@ -11,7 +11,6 @@ import Expect
 import Html
 import Json.Decode as JD
 import Json.Encode as Encode
-import List.Extra
 import NotFoundReason
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
@@ -28,12 +27,11 @@ import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
 import Secrets
-import Serialize
 import SimulatedEffect.Cmd
 import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 import Test.Http
 
 
@@ -1419,10 +1417,6 @@ simulateEffects effect =
                 |> SimulatedEffect.Cmd.batch
 
         Effect.FetchHttp ({ unmasked } as requests) ->
-            let
-                _ =
-                    Debug.log "Fetching " unmasked.url
-            in
             if unmasked.url |> String.startsWith "file://" then
                 let
                     filePath : String
@@ -1454,10 +1448,6 @@ simulateEffects effect =
                     |> SimulatedEffect.Cmd.map never
 
             else
-                let
-                    _ =
-                        Debug.log "Fetching" unmasked.url
-                in
                 Http.request
                     { method = unmasked.method
                     , url = unmasked.url

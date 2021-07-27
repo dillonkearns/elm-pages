@@ -137,7 +137,7 @@ parseInto action ( pendingStyle, soFar ) =
         Ansi.Print string ->
             ( blankStyle, Style pendingStyle string :: soFar )
 
-        Ansi.Remainder string ->
+        Ansi.Remainder _ ->
             ( pendingStyle, soFar )
 
         Ansi.SetForeground maybeColor ->
@@ -155,16 +155,16 @@ parseInto action ( pendingStyle, soFar ) =
         Ansi.SetBold bool ->
             ( { pendingStyle | bold = bool }, soFar )
 
-        Ansi.SetFaint bool ->
+        Ansi.SetFaint _ ->
             ( pendingStyle, soFar )
 
-        Ansi.SetItalic bool ->
+        Ansi.SetItalic _ ->
             ( pendingStyle, soFar )
 
         Ansi.SetUnderline bool ->
             ( { pendingStyle | underline = bool }, soFar )
 
-        Ansi.SetBackground maybeColor ->
+        Ansi.SetBackground _ ->
             ( pendingStyle, soFar )
 
         Ansi.Linebreak ->

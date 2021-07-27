@@ -303,7 +303,7 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
     case request of
         RequestError error ->
             case error of
-                MissingHttpResponse key _ ->
+                MissingHttpResponse _ _ ->
                     -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
                     Incomplete foundUrls
 
