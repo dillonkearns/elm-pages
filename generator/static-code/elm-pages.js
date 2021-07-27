@@ -44,7 +44,6 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     !prefetchedPages.includes(target.pathname)
   ) {
     prefetchedPages.push(target.pathname);
-    console.log("Preloading...", target.pathname);
     const link = document.createElement("link");
     link.setAttribute("as", "fetch");
 
