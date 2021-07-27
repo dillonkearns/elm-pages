@@ -72,7 +72,7 @@ fromString path =
 {-| -}
 toSegments : Path -> List String
 toSegments (Path path) =
-    path |> String.split "/"
+    path |> String.split "/" |> List.filter ((/=) "")
 
 
 {-| Turn a Path to an absolute URL (with no trailing slash).
