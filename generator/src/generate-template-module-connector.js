@@ -351,7 +351,7 @@ update sharedData pageData navigationKey msg model =
                                 |> (\\( a, b, c ) ->
                                         case c of
                                             Just sharedMsg ->
-                                                ( a, b, Shared.template.update (Shared.template.sharedMsg sharedMsg) model.global )
+                                                ( a, b, Shared.template.update sharedMsg model.global )
 
                                             Nothing ->
                                                 ( a, b, ( model.global, Cmd.none ) )
