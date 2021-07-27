@@ -1,4 +1,4 @@
-module DataSource.Port exposing (..)
+module DataSource.Port exposing (send)
 
 import DataSource
 import DataSource.Http
