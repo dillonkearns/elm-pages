@@ -23,7 +23,7 @@ module.exports = function baseMiddleware(base) {
       });
       res.end();
       return;
-    } else if (req.headers.accept?.includes("text/html")) {
+    } else if (req.headers.accept && req.headers.accept.includes("text/html")) {
       // non-based page visit
       res.statusCode = 404;
       res.end(
