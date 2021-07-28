@@ -787,18 +787,16 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                     )
 
                 StaticResponses.Page contentJson ->
-                    let
-                        pageAndMetadata =
-                            case model.unprocessedPages |> List.head of
-                                Just just1 ->
-                                    just1
+                    case model.unprocessedPages |> List.head of
+                        Just pageAndMetadata ->
+                            ( model
+                            , sendSinglePageProgress contentJson config model pageAndMetadata
+                            )
 
-                                Nothing ->
-                                    Debug.todo "TODO"
-                    in
-                    ( model
-                    , sendSinglePageProgress contentJson config model pageAndMetadata
-                    )
+                        Nothing ->
+                            ( model
+                            , [] |> ToJsPayload.Errors |> Effect.SendSinglePage True
+                            )
 
                 StaticResponses.Errors errors ->
                     ( model
