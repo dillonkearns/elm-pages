@@ -17,7 +17,7 @@ import Tailwind.Utilities
 import View exposing (View)
 
 
-template : SharedTemplate Msg Model Data SharedMsg msg
+template : SharedTemplate Msg Model Data msg
 template =
     { init = init
     , update = update
@@ -25,7 +25,6 @@ template =
     , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
-    , sharedMsg = SharedMsg
     }
 
 
@@ -35,7 +34,6 @@ type Msg
         , query : Maybe String
         , fragment : Maybe String
         }
-    | SharedMsg SharedMsg
 
 
 type alias Data =
@@ -76,9 +74,6 @@ update msg model =
     case msg of
         OnPageChange _ ->
             ( { model | showMobileMenu = False }, Cmd.none )
-
-        SharedMsg globalMsg ->
-            ( model, Cmd.none )
 
 
 subscriptions : Path -> Model -> Sub Msg
