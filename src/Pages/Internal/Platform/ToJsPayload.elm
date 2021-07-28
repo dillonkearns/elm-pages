@@ -1,8 +1,6 @@
 module Pages.Internal.Platform.ToJsPayload exposing
-    ( FileToGenerate
-    , ToJsSuccessPayloadNew
+    ( ToJsSuccessPayloadNew
     , ToJsSuccessPayloadNewCombined(..)
-    , successCodecNew
     , successCodecNew2
     )
 
@@ -24,12 +22,6 @@ type alias ToJsSuccessPayloadNew =
     , title : String
     , staticHttpCache : Dict String String
     , is404 : Bool
-    }
-
-
-type alias FileToGenerate =
-    { path : List String
-    , content : String
     }
 
 
