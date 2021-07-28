@@ -11,7 +11,7 @@ import SharedTemplate exposing (SharedTemplate)
 import View exposing (View)
 
 
-template : SharedTemplate Msg Model Data SharedMsg msg
+template : SharedTemplate Msg Model Data msg
 template =
     { init = init
     , update = update
@@ -19,7 +19,6 @@ template =
     , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
-    , sharedMsg = SharedMsg
     }
 
 
