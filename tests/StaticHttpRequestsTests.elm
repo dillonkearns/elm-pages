@@ -1398,7 +1398,7 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        Effect.FetchHttp ({ unmasked } as requests) ->
+        Effect.FetchHttp { unmasked } ->
             if unmasked.url |> String.startsWith "file://" then
                 let
                     filePath : String
@@ -1458,7 +1458,7 @@ simulateEffects effect =
                                               }
                                             ]
 
-                                    Err error ->
+                                    Err _ ->
                                         GotBuildError
                                             { title = "Static HTTP Error"
                                             , message = []
