@@ -418,7 +418,7 @@ resolve =
 -}
 combine : List (DataSource value) -> DataSource (List value)
 combine =
-    List.foldl (map2 (::)) (succeed [])
+    List.foldr (map2 (::)) (succeed [])
 
 
 {-| Like map, but it takes in two `Request`s.

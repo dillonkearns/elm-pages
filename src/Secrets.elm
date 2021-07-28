@@ -50,11 +50,11 @@ buildError secretName secretsDict =
         [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\n\nSecrets.get \""
         , Terminal.text secretName
         , Terminal.text "\"\n             "
-        , Terminal.red <| Terminal.text (underlineText (secretName |> String.length))
+        , Terminal.red <| underlineText (secretName |> String.length)
         , Terminal.text "\n\nSo maybe "
-        , Terminal.yellow <| Terminal.text secretName
+        , Terminal.yellow <| secretName
         , Terminal.text " should be "
-        , Terminal.green <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
+        , Terminal.green <| (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
         ]
     , path = "" -- TODO wire in path here?
     , fatal = True

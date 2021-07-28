@@ -70,7 +70,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
         StaticPayload templateData routeParams
         -> List Head.Tag
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
@@ -188,7 +188,7 @@ buildWithSharedState :
         -> StaticPayload templateData routeParams
         -> View templateMsg
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.SharedMsg )
+    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
     }
     -> Builder routeParams templateData

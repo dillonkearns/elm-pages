@@ -39,7 +39,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , data : route -> DataSource.DataSource pageData
     , view :
         { path : Path
-        , frontmatter : route
+        , route : route
         }
         -> Maybe PageUrl
         -> sharedData
@@ -69,4 +69,5 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         (Html Never -> String)
         -> List (ApiRoute.Done ApiRoute.Response)
     , pathPatterns : List RoutePattern
+    , basePath : List String
     }

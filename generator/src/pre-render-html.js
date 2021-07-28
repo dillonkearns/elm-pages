@@ -1,18 +1,20 @@
 const cliVersion = require("../../package.json").version;
 const seo = require("./seo-renderer.js");
 const elmPagesJsMinified = require("./elm-pages-js-minified.js");
+const path = require("path");
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
 
 module.exports =
   /**
+   * @param {string} basePath
    * @param {Arg} fromElm
    * @param {string} contentJsonString
    * @param {boolean} devServer
    * @returns {string}
    */
-  function wrapHtml(fromElm, contentJsonString, devServer) {
+  function wrapHtml(basePath, fromElm, contentJsonString, devServer) {
     const devServerOnly = (/** @type {string} */ devServerOnlyString) =>
       devServer ? devServerOnlyString : "";
     const seoData = seo.gather(fromElm.head);
@@ -20,24 +22,29 @@ module.exports =
     return `<!DOCTYPE html>
   ${seoData.rootElement}
   <head>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="${path.join(basePath, "style.css")}">
     ${devServerOnly(devServerStyleTag())}
-    <link rel="preload" href="/elm.js" as="script">
-    <link rel="modulepreload" href="/index.js">
+    <link rel="preload" href="${path.join(basePath, "elm.js")}" as="script">
+    <link rel="modulepreload" href="${path.join(basePath, "index.js")}">
     ${devServerOnly(
-      /* html */ `<script defer="defer" src="/hmr.js" type="text/javascript"></script>`
+      /* html */ `<script defer="defer" src="${path.join(
+        basePath,
+        "hmr.js"
+      )}" type="text/javascript"></script>`
     )}
-    <script defer="defer" src="/elm.js" type="text/javascript"></script>
-    <base href="${baseRoute(fromElm.route)}">
+    <script defer="defer" src="${path.join(
+      basePath,
+      "elm.js"
+    )}" type="text/javascript"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script type="module">
-import userInit from"/index.js";
+import userInit from"${path.join(basePath, "index.js")}";
 ${elmPagesJsMinified}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,14 +59,6 @@ ${elmPagesJsMinified}
   </html>
   `;
   };
-
-/**
- * @param {string} route
- */
-function baseRoute(route) {
-  const cleanedRoute = cleanRoute(route);
-  return cleanedRoute === "" ? "./" : pathToRoot(route);
-}
 
 /**
  * @param {string} route

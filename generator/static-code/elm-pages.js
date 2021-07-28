@@ -14,7 +14,6 @@ function loadContentAndInitializeApp() {
   const app = Elm.TemplateModulesBeta.init({
     flags: {
       secrets: null,
-      baseUrl: document.baseURI,
       isPrerendering: false,
       isDevServer: false,
       isElmDebugMode: false,
@@ -45,7 +44,6 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     !prefetchedPages.includes(target.pathname)
   ) {
     prefetchedPages.push(target.pathname);
-    console.log("Preloading...", target.pathname);
     const link = document.createElement("link");
     link.setAttribute("as", "fetch");
 

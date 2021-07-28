@@ -10,7 +10,7 @@ import Route exposing (Route)
 import View exposing (View)
 
 
-type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
+type alias SharedTemplate msg sharedModel sharedData mappedMsg =
     { init :
         Maybe Browser.Navigation.Key
         -> Flags
@@ -30,7 +30,7 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
         sharedData
         ->
             { path : Path
-            , frontmatter : Maybe Route
+            , route : Maybe Route
             }
         -> sharedModel
         -> (msg -> mappedMsg)
@@ -46,5 +46,4 @@ type alias SharedTemplate msg sharedModel sharedData sharedMsg mappedMsg =
              }
              -> msg
             )
-    , sharedMsg : sharedMsg -> msg
     }

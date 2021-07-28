@@ -148,14 +148,17 @@ prerenderedOptionsView moduleContext routes =
                                 Html.li
                                     [ Attr.style "list-style" "inside"
                                     ]
-                                    [ Html.a
-                                        [ Attr.href "/blog/extensible-markdown-parsing-in-elm"
+                                    [ --Html.a
+                                      --    [-- Attr.href "/blog/extensible-markdown-parsing-in-elm"
+                                      --     -- TODO get href data
+                                      --    ]
+                                      --    [
+                                      Html.code
+                                        []
+                                        [ Html.text (recordToString record)
                                         ]
-                                        [ Html.code
-                                            []
-                                            [ Html.text (recordToString record)
-                                            ]
-                                        ]
+
+                                    --]
                                     ]
                             )
                     )

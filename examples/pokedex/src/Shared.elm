@@ -6,11 +6,12 @@ import Html exposing (Html)
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import View exposing (View)
 
 
-template : SharedTemplate Msg Model Data SharedMsg msg
+template : SharedTemplate Msg Model Data msg
 template =
     { init = init
     , update = update
@@ -18,7 +19,6 @@ template =
     , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
-    , sharedMsg = SharedMsg
     }
 
 
@@ -88,7 +88,7 @@ view :
     Data
     ->
         { path : Path
-        , frontmatter : route
+        , route : Maybe Route
         }
     -> Model
     -> (Msg -> msg)

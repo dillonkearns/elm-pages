@@ -4,9 +4,10 @@ const mm = require("micromatch");
 const routeHelpers = require("./route-codegen-helpers");
 
 /**
+ * @param {string} basePath
  * @param {'browser' | 'cli'} phase
  */
-function generateTemplateModuleConnector(phase) {
+function generateTemplateModuleConnector(basePath, phase) {
   const templates = globby.sync(["src/Page/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("src/Page/**/*.elm", file);
     if (captures) {
@@ -128,7 +129,7 @@ type PageData
 
 view :
     { path : Path
-    , frontmatter : Maybe Route
+    , route : Maybe Route
     }
     -> Maybe PageUrl
     -> Shared.Data
@@ -138,7 +139,7 @@ view :
         , head : List Head.Tag
         }
 view page maybePageUrl globalData pageData =
-    case ( page.frontmatter, pageData ) of
+    case ( page.route, pageData ) of
         ${templates
           .map(
             (name) =>
@@ -350,7 +351,7 @@ update sharedData pageData navigationKey msg model =
                                 |> (\\( a, b, c ) ->
                                         case c of
                                             Just sharedMsg ->
-                                                ( a, b, Shared.template.update (Shared.template.sharedMsg sharedMsg) model.global )
+                                                ( a, b, Shared.template.update sharedMsg model.global )
 
                                             Nothing ->
                                                 ( a, b, ( model.global, Cmd.none ) )
@@ -430,8 +431,13 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , apiRoutes = \\htmlToString -> routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
+        , apiRoutes = \\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
         , pathPatterns = routePatterns3
+        , basePath = [ ${basePath
+          .split("/")
+          .filter((segment) => segment !== "")
+          .map((segment) => `"${segment}"`)
+          .join(", ")} ]
         }
 
 dataForRoute : Maybe Route -> DataSource PageData
@@ -593,6 +599,37 @@ getStaticRoutes =
         |> DataSource.map List.concat
 
 
+pathsToGenerateHandler : ApiRoute.Done ApiRoute.Response
+pathsToGenerateHandler =
+    ApiRoute.succeed
+        (DataSource.map2
+            (\\pageRoutes apiRoutes ->
+                { body =
+                    (pageRoutes ++ (apiRoutes |> List.map (\\api -> "/" ++ api)))
+                        |> Json.Encode.list Json.Encode.string
+                        |> Json.Encode.encode 0
+                }
+            )
+            (DataSource.map
+                (List.map
+                    (\\route ->
+                        route
+                            |> Route.toPath
+                            |> Path.toAbsolute
+                    )
+                )
+                getStaticRoutes
+            )
+            ((manifestHandler :: Api.routes getStaticRoutes (\\_ -> ""))
+                |> List.map ApiRoute.getBuildTimeRoutes
+                |> DataSource.combine
+                |> DataSource.map List.concat
+            )
+        )
+        |> ApiRoute.literal "all-paths.json"
+        |> ApiRoute.single
+
+
 manifestHandler : ApiRoute.Done ApiRoute.Response
 manifestHandler =
     ApiRoute.succeed
@@ -655,8 +692,28 @@ type Route
 {-| -}
 urlToRoute : { url | path : String } -> Maybe Route
 urlToRoute url =
-    Router.firstMatch matchers url.path
+    url.path
+    |> withoutBaseUrl 
+    |> Router.firstMatch matchers 
 
+
+baseUrl : String
+baseUrl =
+    "${basePath}"
+
+
+baseUrlAsPath : List String
+baseUrlAsPath =
+    baseUrl
+    |> String.split "/"
+    |> List.filter (not << String.isEmpty)
+
+
+withoutBaseUrl path =
+    if (path |> String.startsWith baseUrl) then
+      String.dropLeft (String.length baseUrl) path
+    else
+      path
 
 {-| -}
 matchers : List (Router.Matcher Route)
@@ -711,13 +768,20 @@ routeToPath route =
 {-| -}
 toPath : Route -> Path
 toPath route =
-    route |> routeToPath |> String.join "/" |> Path.fromString
+    (baseUrlAsPath ++ (route |> routeToPath)) |> String.join "/" |> Path.fromString
+
+
+{-| -}
+toString : Route -> String
+toString route =
+    route |> toPath |> Path.toAbsolute
+
 
 {-| -}
 toLink : (List (Attribute msg) -> tag) -> Route -> tag
 toLink toAnchorTag route =
     toAnchorTag
-        [ Attr.href ("/" ++ (routeToPath route |> String.join "/"))
+        [ route |> toString |> Attr.href
         , Attr.attribute "elm-pages:prefetch" ""
         ]
 

@@ -16,11 +16,7 @@ import TerminalText as Terminal
 
 
 type RawRequest value
-    = Request
-        (Dict String WhatToDo)
-        ( List (Secrets.Value Pages.StaticHttp.Request.Request)
-        , KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value
-        )
+    = Request (Dict String WhatToDo) ( List (Secrets.Value Pages.StaticHttp.Request.Request), KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value )
     | RequestError Error
     | Done (Dict String WhatToDo) value
 
@@ -70,14 +66,14 @@ merge key whatToDo1 whatToDo2 =
                       , message =
                             [ Terminal.text "I encountered DataSource.distill with two matching keys that had differing encoded values.\n\n"
                             , Terminal.text "Look for "
-                            , Terminal.red <| Terminal.text "DataSource.distill"
+                            , Terminal.red <| "DataSource.distill"
                             , Terminal.text " with the key "
-                            , Terminal.red <| Terminal.text ("\"" ++ key ++ "\"")
+                            , Terminal.red <| ("\"" ++ key ++ "\"")
                             , Terminal.text "\n\n"
-                            , Terminal.yellow <| Terminal.text "The first encoded value was:\n"
+                            , Terminal.yellow <| "The first encoded value was:\n"
                             , Terminal.text <| Json.Encode.encode 2 distilled1
                             , Terminal.text "\n\n-------------------------------\n\n"
-                            , Terminal.yellow <| Terminal.text "The second encoded value was:\n"
+                            , Terminal.yellow <| "The second encoded value was:\n"
                             , Terminal.text <| Json.Encode.encode 2 distilled2
                             ]
                       , path = "" -- TODO wire in path here?
@@ -263,10 +259,6 @@ resolveUrlsHelp appType request rawResponses soFar =
         RequestError error ->
             case error of
                 MissingHttpResponse _ next ->
-                    let
-                        thing =
-                            next |> List.map Secrets.maskedLookup
-                    in
                     (soFar ++ next)
                         |> List.Extra.uniqueBy (Secrets.maskedLookup >> Pages.StaticHttp.Request.hash)
 
@@ -311,7 +303,7 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
     case request of
         RequestError error ->
             case error of
-                MissingHttpResponse key _ ->
+                MissingHttpResponse _ _ ->
                     -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
                     Incomplete foundUrls
 

@@ -19,7 +19,6 @@ import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import QueryParams
-import RequestsAndPending exposing (RequestsAndPending)
 import Task
 import Url exposing (Url)
 
@@ -34,10 +33,10 @@ mainView :
     -> { title : String, body : Html userMsg }
 mainView config model =
     let
-        urls : { currentUrl : Url, baseUrl : Url }
+        urls : { currentUrl : Url, basePath : List String }
         urls =
             { currentUrl = model.url
-            , baseUrl = model.baseUrl
+            , basePath = config.basePath
             }
     in
     case ContentCache.notFoundReason model.contentCache urls of
@@ -49,7 +48,7 @@ mainView config model =
                 Ok pageData ->
                     (config.view
                         { path = ContentCache.pathForUrl urls |> Path.join
-                        , frontmatter = config.urlToRoute model.url
+                        , route = config.urlToRoute model.url
                         }
                         Nothing
                         pageData.sharedData
@@ -65,27 +64,15 @@ mainView config model =
                     }
 
 
-urlToPath : Url -> Url -> Path
-urlToPath url baseUrl =
-    url.path
-        |> String.dropLeft (String.length baseUrl.path)
-        |> String.chopForwardSlashes
-        |> String.split "/"
-        |> List.filter ((/=) "")
-        |> Path.join
-
-
 urlsToPagePath :
-    { currentUrl : Url
-    , baseUrl : Url
-    }
+    { currentUrl : Url, basePath : List String }
     -> Path
 urlsToPagePath urls =
     urls.currentUrl.path
-        |> String.dropLeft (String.length urls.baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
+        |> List.drop (List.length urls.basePath)
         |> Path.join
 
 
@@ -137,13 +124,26 @@ init config flags url key =
             ContentCache.init
                 (Maybe.map
                     (\cj ->
-                        -- TODO parse the page path to a list here
-                        ( urls
+                        ( currentPath
                         , cj
                         )
                     )
                     contentJson
                 )
+
+        currentPath : List String
+        currentPath =
+            flags
+                |> Decode.decodeValue
+                    (Decode.at [ "contentJson", "path" ]
+                        (Decode.string
+                            |> Decode.map Path.fromString
+                            |> Decode.map Path.toSegments
+                        )
+                    )
+                |> Result.mapError Decode.errorToString
+                |> Result.toMaybe
+                |> Maybe.withDefault []
 
         contentJson : Maybe ContentJson
         contentJson =
@@ -151,19 +151,10 @@ init config flags url key =
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
                 |> Result.toMaybe
 
-        baseUrl : Url
-        baseUrl =
-            flags
-                |> Decode.decodeValue (Decode.field "baseUrl" Decode.string)
-                |> Result.toMaybe
-                |> Maybe.andThen Url.fromString
-                |> Maybe.withDefault url
-
-        urls : { currentUrl : Url, baseUrl : Url }
+        urls : { currentUrl : Url, basePath : List String }
         urls =
-            -- @@@
-            { currentUrl = url -- |> normalizeUrl baseUrl
-            , baseUrl = baseUrl
+            { currentUrl = url
+            , basePath = config.basePath
             }
     in
     case contentJson |> Maybe.map .staticData of
@@ -231,10 +222,10 @@ init config flags url key =
                                 |> List.filterMap identity
                                 |> Cmd.batch
 
+                        initialModel : Model userModel pageData sharedData
                         initialModel =
                             { key = key
                             , url = url
-                            , baseUrl = baseUrl
                             , contentCache = contentCache
                             , pageData =
                                 Ok
@@ -243,6 +234,7 @@ init config flags url key =
                                     , userModel = userModel
                                     }
                             , ariaNavigationAnnouncement = ""
+                            , userFlags = flags
                             }
                     in
                     ( { initialModel
@@ -254,10 +246,10 @@ init config flags url key =
                 Err error ->
                     ( { key = key
                       , url = url
-                      , baseUrl = baseUrl
                       , contentCache = contentCache
                       , pageData = BuildError.errorToString error |> Err
                       , ariaNavigationAnnouncement = "Error"
+                      , userFlags = flags
                       }
                     , Cmd.none
                     )
@@ -265,10 +257,10 @@ init config flags url key =
         Nothing ->
             ( { key = key
               , url = url
-              , baseUrl = baseUrl
               , contentCache = contentCache
               , pageData = Err "TODO"
               , ariaNavigationAnnouncement = "Error"
+              , userFlags = flags
               }
             , Cmd.none
             )
@@ -288,16 +280,15 @@ type Msg userMsg
 type alias Model userModel pageData sharedData =
     { key : Browser.Navigation.Key
     , url : Url
-    , baseUrl : Url
     , contentCache : ContentCache
     , ariaNavigationAnnouncement : String
     , pageData :
-        Result
-            String
+        Result String
             { userModel : userModel
             , pageData : pageData
             , sharedData : sharedData
             }
+    , userFlags : Decode.Value
     }
 
 
@@ -335,10 +326,10 @@ update config appMsg model =
                 navigatingToSamePage =
                     (url.path == model.url.path) && (url /= model.url)
 
-                urls : { currentUrl : Url, baseUrl : Url }
+                urls : { currentUrl : Url, basePath : List String }
                 urls =
                     { currentUrl = url
-                    , baseUrl = model.baseUrl
+                    , basePath = config.basePath
                     }
             in
             if navigatingToSamePage then
@@ -368,7 +359,7 @@ update config appMsg model =
                                             { protocol = model.url.protocol
                                             , host = model.url.host
                                             , port_ = model.url.port_
-                                            , path = urlToPath url model.baseUrl
+                                            , path = urlPathToPath config urls.currentUrl
                                             , query = url.query
                                             , fragment = url.fragment
                                             , metadata = config.urlToRoute url
@@ -449,7 +440,12 @@ update config appMsg model =
                             StaticHttpRequest.resolve ApplicationType.Browser
                                 (config.data (config.urlToRoute url))
                                 contentJson.staticData
-                                |> Result.mapError (\_ -> "Http error")
+                                |> Result.mapError
+                                    (\error ->
+                                        error
+                                            |> StaticHttpRequest.toBuildError ""
+                                            |> BuildError.errorToString
+                                    )
 
                         ( userModel, userCmd ) =
                             config.update
@@ -460,7 +456,7 @@ update config appMsg model =
                                     { protocol = model.url.protocol
                                     , host = model.url.host
                                     , port_ = model.url.port_
-                                    , path = urlToPath url model.baseUrl
+                                    , path = url |> urlPathToPath config
                                     , query = url.query
                                     , fragment = url.fragment
                                     , metadata = config.urlToRoute url
@@ -484,18 +480,36 @@ update config appMsg model =
                         ]
                     )
 
-                Err _ ->
-                    -- TODO handle error
-                    ( { model | url = url }, Cmd.none )
+                Err error ->
+                    {-
+                       When there is an error loading the content.json, we are either
+                       1) in the dev server, and should show the relevant DataSource error for the page
+                          we're navigating to. This could be done more cleanly, but it's simplest to just
+                          do a fresh page load and use the code path for presenting an error for a fresh page.
+                       2) In a production app. That means we had a successful build, so there were no DataSource failures,
+                          so the app must be stale (unless it's in some unexpected state from a bug). In the future,
+                          it probably makes sense to include some sort of hash of the app version we are fetching, match
+                          it with the current version that's running, and perform this logic when we see there is a mismatch.
+                          But for now, if there is any error we do a full page load (not a single-page navigation), which
+                          gives us a fresh version of the app to make sure things are in sync.
+
+                    -}
+                    ( model
+                    , url
+                        |> Url.toString
+                        |> Browser.Navigation.load
+                    )
 
         PageScrollComplete ->
             ( model, Cmd.none )
 
         HotReloadComplete contentJson ->
             let
-                urls : { currentUrl : Url, baseUrl : Url }
+                urls : { currentUrl : Url, basePath : List String }
                 urls =
-                    { currentUrl = model.url, baseUrl = model.baseUrl }
+                    { currentUrl = model.url
+                    , basePath = config.basePath
+                    }
 
                 pageDataResult : Result BuildError pageData
                 pageDataResult =
@@ -536,7 +550,7 @@ update config appMsg model =
                                                 { protocol = model.url.protocol
                                                 , host = model.url.host
                                                 , port_ = model.url.port_
-                                                , path = urlToPath model.url model.baseUrl
+                                                , path = model.url |> urlPathToPath config
                                                 , query = model.url.query
                                                 , fragment = model.url.fragment
                                                 , metadata = config.urlToRoute model.url
@@ -554,7 +568,15 @@ update config appMsg model =
                     case updateResult of
                         Just ( userModel, userCmd ) ->
                             ( { model
-                                | contentCache = ContentCache.init (Just ( urls, contentJson ))
+                                | contentCache =
+                                    ContentCache.init
+                                        (Just
+                                            ( urls.currentUrl
+                                                |> config.urlToRoute
+                                                |> config.routeToPath
+                                            , contentJson
+                                            )
+                                        )
                                 , pageData =
                                     Ok
                                         { pageData = pageData
@@ -568,9 +590,49 @@ update config appMsg model =
                             )
 
                         Nothing ->
+                            let
+                                pagePath : Path
+                                pagePath =
+                                    urlsToPagePath urls
+
+                                userFlags : Pages.Flags.Flags
+                                userFlags =
+                                    model.userFlags
+                                        |> Decode.decodeValue
+                                            (Decode.field "userFlags" Decode.value)
+                                        |> Result.withDefault Json.Encode.null
+                                        |> Pages.Flags.BrowserFlags
+
+                                ( userModel, userCmd ) =
+                                    Just
+                                        { path =
+                                            { path = pagePath
+                                            , query = model.url.query
+                                            , fragment = model.url.fragment
+                                            }
+                                        , metadata = config.urlToRoute model.url
+                                        , pageUrl =
+                                            Just
+                                                { protocol = model.url.protocol
+                                                , host = model.url.host
+                                                , port_ = model.url.port_
+                                                , path = pagePath
+                                                , query = model.url.query |> Maybe.map QueryParams.fromString
+                                                , fragment = model.url.fragment
+                                                }
+                                        }
+                                        |> config.init userFlags sharedData pageData (Just model.key)
+                            in
                             ( { model
                                 | contentCache =
-                                    ContentCache.init (Just ( urls, contentJson ))
+                                    ContentCache.init
+                                        (Just
+                                            ( urls.currentUrl
+                                                |> config.urlToRoute
+                                                |> config.routeToPath
+                                            , contentJson
+                                            )
+                                        )
                                 , pageData =
                                     model.pageData
                                         |> Result.map
@@ -580,14 +642,27 @@ update config appMsg model =
                                                 , userModel = previousPageData.userModel
                                                 }
                                             )
+                                        |> Result.withDefault
+                                            { pageData = pageData
+                                            , sharedData = sharedData
+                                            , userModel = userModel
+                                            }
+                                        |> Ok
                               }
-                            , Cmd.none
+                            , userCmd |> Cmd.map UserMsg
                             )
 
                 Err error ->
                     ( { model
                         | contentCache =
-                            ContentCache.init (Just ( urls, contentJson ))
+                            ContentCache.init
+                                (Just
+                                    ( urls.currentUrl
+                                        |> config.urlToRoute
+                                        |> config.routeToPath
+                                    , contentJson
+                                    )
+                                )
                       }
                     , Cmd.none
                     )
@@ -609,18 +684,16 @@ application config =
         , subscriptions =
             \model ->
                 let
-                    urls : { currentUrl : Url, baseUrl : Url }
+                    urls : { currentUrl : Url }
                     urls =
-                        { currentUrl = model.url, baseUrl = model.baseUrl }
-
-                    pagePath : Path
-                    pagePath =
-                        urlsToPagePath urls
+                        { currentUrl = model.url }
                 in
                 case model.pageData of
                     Ok pageData ->
                         Sub.batch
-                            [ config.subscriptions (model.url |> config.urlToRoute) pagePath pageData.userModel
+                            [ config.subscriptions (model.url |> config.urlToRoute)
+                                (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> Path.join)
+                                pageData.userModel
                                 |> Sub.map UserMsg
                             , config.fromJsPort
                                 |> Sub.map
@@ -650,3 +723,8 @@ application config =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
+
+
+urlPathToPath : ProgramConfig userMsg userModel route siteData pageData sharedData -> Url -> Path
+urlPathToPath config urls =
+    urls.path |> Path.fromString

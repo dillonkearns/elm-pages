@@ -24,7 +24,9 @@ function parseMsg(msg) {
   if (typeof msg === "string") {
     return msg;
   } else {
-    if (msg.underline) {
+    if (msg.underline && msg.color) {
+      return kleur[msg.color.toLowerCase()]().underline(msg.string);
+    } else if (msg.underline) {
       return kleur.underline(msg.string);
     } else if (msg.color) {
       return kleur[msg.color.toLowerCase()](msg.string);
@@ -39,11 +41,10 @@ function parseMsg(msg) {
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
-const restoreColor = (error) => {
-  console.log(error);
+const restoreColor = (errors) => {
   try {
-    return JSON.parse(error)
-      .errors.map(({ problems, path }) =>
+    return errors
+      .map(({ problems, path }) =>
         problems.map(restoreProblem(path)).join("\n\n\n")
       )
       .join("\n\n\n\n\n");
@@ -57,9 +58,7 @@ const restoreColor = (error) => {
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
-const restoreProblem =
-  (path) =>
-  ({ title, message }) =>
-    [parseHeader(title, path), ...message.map(parseMsg)].join("");
+const restoreProblem = (path) => ({ title, message }) =>
+  [parseHeader(title, path), ...message.map(parseMsg)].join("");
 
 module.exports = { restoreColor };

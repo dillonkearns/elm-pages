@@ -1,4 +1,7 @@
-module ApiRoute exposing (Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed)
+module ApiRoute exposing
+    ( Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed
+    , getBuildTimeRoutes
+    )
 
 {-|
 
@@ -104,13 +107,8 @@ slash (Handler pattern handler toString constructor) =
 
 {-| -}
 capture :
-    Handler
-        (String -> a)
-        constructor
-    ->
-        Handler
-            a
-            (String -> constructor)
+    Handler (String -> a) constructor
+    -> Handler a (String -> constructor)
 capture (Handler pattern previousHandler toString constructor) =
     Handler
         (pattern ++ "(.*)")
@@ -138,13 +136,8 @@ capture (Handler pattern previousHandler toString constructor) =
 
 {-| -}
 int :
-    Handler
-        (Int -> a)
-        constructor
-    ->
-        Handler
-            a
-            (Int -> constructor)
+    Handler (Int -> a) constructor
+    -> Handler a (Int -> constructor)
 int (Handler pattern previousHandler toString constructor) =
     Handler
         (pattern ++ "(\\d+)")
@@ -168,6 +161,11 @@ int (Handler pattern previousHandler toString constructor) =
             \string ->
                 constructor (String.fromInt string :: matches)
         )
+
+
+getBuildTimeRoutes : Done response -> DataSource (List String)
+getBuildTimeRoutes (Done handler) =
+    handler.buildTimeRoutes
 
 
 

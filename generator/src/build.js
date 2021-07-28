@@ -1,18 +1,25 @@
 const fs = require("./dir-helpers.js");
+const fsPromises = require("fs").promises;
+
+const { restoreColor } = require("./error-formatter");
 const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
 const terser = require("terser");
-const matter = require("gray-matter");
-const globby = require("globby");
-const preRenderHtml = require("./pre-render-html.js");
+const os = require("os");
+const { Worker, SHARE_ENV } = require("worker_threads");
+const { ensureDirSync } = require("./file-helpers.js");
+let pool = [];
+let pagesReady;
+let pages = new Promise((resolve, reject) => {
+  pagesReady = resolve;
+});
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 
-let foundErrors = false;
 process.on("unhandledRejection", (error) => {
-  console.error(error);
+  console.error("Unhandled: ", error);
   process.exitCode = 1;
 });
 
@@ -23,146 +30,103 @@ const ELM_FILE_PATH = path.join(
 );
 
 async function ensureRequiredDirs() {
-  await fs.tryMkdir(`dist`);
+  ensureDirSync(`dist`);
+  ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
 }
 
 async function run(options) {
   await ensureRequiredDirs();
-  XMLHttpRequest = require("xhr2");
+  // since init/update are never called in pre-renders, and DataSource.Http is called using undici
+  // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
+  XMLHttpRequest = {};
 
-  const generateCode = codegen.generate();
+  const generateCode = codegen.generate(options.base);
 
   const copyDone = copyAssets();
   await generateCode;
   const cliDone = runCli(options);
   const compileClientDone = compileElm(options);
 
-  await Promise.all([copyDone, cliDone, compileClientDone]);
+  try {
+    await Promise.all([copyDone, cliDone, compileClientDone]);
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+/**
+ * @param {string} basePath
+ */
+function initWorker(basePath) {
+  return new Promise((resolve, reject) => {
+    let newWorker = {
+      worker: new Worker(path.join(__dirname, "./render-worker.js"), {
+        env: SHARE_ENV,
+        workerData: { basePath },
+      }),
+    };
+    newWorker.worker.once("online", () => {
+      newWorker.worker.on("message", (message) => {
+        if (message.tag === "all-paths") {
+          pagesReady(JSON.parse(message.data));
+        } else if (message.tag === "error") {
+          process.exitCode = 1;
+          console.error(restoreColor(message.data.errorsJson));
+          buildNextPage(newWorker);
+        } else if (message.tag === "done") {
+          buildNextPage(newWorker);
+        } else {
+          throw `Unhandled tag ${message.tag}`;
+        }
+      });
+      newWorker.worker.on("error", (error) => {
+        console.error("Unhandled worker exception", error);
+        process.exitCode = 1;
+        buildNextPage(newWorker);
+      });
+      resolve(newWorker);
+    });
+  });
+}
+
+/**
+ */
+function prepareStaticPathsNew(thread) {
+  thread.worker.postMessage({
+    mode: "build",
+    tag: "render",
+    pathname: "/all-paths.json",
+  });
+}
+
+async function buildNextPage(thread) {
+  let nextPage = (await pages).pop();
+  if (nextPage) {
+    thread.worker.postMessage({
+      mode: "build",
+      tag: "render",
+      pathname: nextPage,
+    });
+  } else {
+    thread.worker.terminate();
+  }
 }
 
 async function runCli(options) {
   await compileCliApp(options);
-  runElmApp();
-}
+  const cpuCount = os.cpus().length;
+  console.log("Threads: ", cpuCount);
 
-function runElmApp() {
-  process.on("beforeExit", (code) => {
-    if (foundErrors) {
-      process.exitCode = 1;
-    } else {
-    }
+  const getPathsWorker = initWorker(options.base);
+  getPathsWorker.then(prepareStaticPathsNew);
+  const threadsToCreate = Math.max(1, cpuCount / 2 - 1);
+  pool.push(getPathsWorker);
+  for (let index = 0; index < threadsToCreate - 1; index++) {
+    pool.push(initWorker(options.base));
+  }
+  pool.forEach((threadPromise) => {
+    threadPromise.then(buildNextPage);
   });
-
-  return new Promise((resolve, _) => {
-    const mode /** @type { "dev" | "prod" } */ = "elm-to-html-beta";
-    const staticHttpCache = {};
-    const app = require(ELM_FILE_PATH).Elm.TemplateModulesBeta.init({
-      flags: { secrets: process.env, mode, staticHttpCache },
-    });
-
-    app.ports.toJsPort.subscribe(async (/** @type { FromElm }  */ fromElm) => {
-      // console.log({ fromElm });
-      if (fromElm.command === "log") {
-        console.log(fromElm.value);
-      } else if (fromElm.tag === "InitialData") {
-        generateFiles(fromElm.args[0].filesToGenerate);
-      } else if (fromElm.tag === "PageProgress") {
-        outputString(fromElm);
-      } else if (fromElm.tag === "ReadFile") {
-        const filePath = fromElm.args[0];
-        try {
-          const fileContents = (await fs.readFile(filePath)).toString();
-          const parsedFile = matter(fileContents);
-          app.ports.fromJsPort.send({
-            tag: "GotFile",
-            data: {
-              filePath,
-              parsedFrontmatter: parsedFile.data,
-              withoutFrontmatter: parsedFile.content,
-              rawFile: fileContents,
-              jsonFile: jsonOrNull(fileContents),
-            },
-          });
-        } catch (error) {
-          app.ports.fromJsPort.send({
-            tag: "BuildError",
-            data: { filePath },
-          });
-        }
-      } else if (fromElm.tag === "Glob") {
-        const globPattern = fromElm.args[0];
-        const matchedPaths = await globby(globPattern);
-
-        app.ports.fromJsPort.send({
-          tag: "GotGlob",
-          data: { pattern: globPattern, result: matchedPaths },
-        });
-      } else if (fromElm.tag === "Errors") {
-        console.error(fromElm.args[0].errorString);
-        foundErrors = true;
-      } else {
-        console.log(fromElm);
-        throw "Unknown port tag.";
-      }
-    });
-  });
-}
-
-/**
- * @param {{ path: string; content: string; }[]} filesToGenerate
- */
-async function generateFiles(filesToGenerate) {
-  filesToGenerate.forEach(async ({ path: pathToGenerate, content }) => {
-    const fullPath = `dist/${pathToGenerate}`;
-    console.log(`Generating file /${pathToGenerate}`);
-    await fs.tryMkdir(path.dirname(fullPath));
-    fs.writeFile(fullPath, content);
-  });
-}
-
-/**
- * @param {string} route
- */
-function cleanRoute(route) {
-  return route.replace(/(^\/|\/$)/, "");
-}
-
-/**
- * @param {string} cleanedRoute
- */
-function pathToRoot(cleanedRoute) {
-  return cleanedRoute === ""
-    ? cleanedRoute
-    : cleanedRoute
-        .split("/")
-        .map((_) => "..")
-        .join("/")
-        .replace(/\.$/, "./");
-}
-
-/**
- * @param {string} route
- */
-function baseRoute(route) {
-  const cleanedRoute = cleanRoute(route);
-  return cleanedRoute === "" ? "./" : pathToRoot(route);
-}
-
-async function outputString(/** @type { PageProgress } */ fromElm) {
-  const args = fromElm.args[0];
-  console.log(`Pre-rendered /${args.route}`);
-  const normalizedRoute = args.route.replace(/index$/, "");
-  // await fs.mkdir(`./dist/${normalizedRoute}`, { recursive: true });
-  await fs.tryMkdir(`./dist/${normalizedRoute}`);
-  const contentJsonString = JSON.stringify({
-    is404: args.is404,
-    staticData: args.contentJson,
-  });
-  fs.writeFile(
-    `dist/${normalizedRoute}/index.html`,
-    preRenderHtml(args, contentJsonString, false)
-  );
-  fs.writeFile(`dist/${normalizedRoute}/content.json`, contentJsonString);
 }
 
 async function compileElm(options) {
@@ -175,19 +139,33 @@ async function compileElm(options) {
   }
 }
 
-function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
+function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-    if (fs.existsSync(fullOutputPath)) {
-      fs.rmSync(fullOutputPath, {
-        force: true /* ignore errors if file doesn't exist */,
-      });
-    }
-    const subprocess = runElm(options, elmEntrypointPath, outputPath, cwd);
+    const subprocess = spawnCallback(
+      `elm-optimize-level-2`,
+      [elmEntrypointPath, "--output", outputPath],
+      {
+        // ignore stdout
+        // stdio: ["inherit", "ignore", "inherit"],
 
+        cwd: cwd,
+      }
+    );
+    let commandOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+
+    subprocess.on("exit", async (code) => {
+      if (code !== 0) {
+        process.exitCode = 1;
+        reject(commandOutput);
+      }
+    });
     subprocess.on("close", async (code) => {
-      const fileOutputExists = await fs.exists(fullOutputPath);
-      if (code == 0 && fileOutputExists) {
+      if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
         process.exitCode = 1;
@@ -202,30 +180,55 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  * @param {string} outputPath
  * @param {string} cwd
  */
-function runElm(options, elmEntrypointPath, outputPath, cwd) {
+async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
-    console.log("Running elm make");
-    return spawnCallback(
-      `elm`,
-      ["make", elmEntrypointPath, "--output", outputPath, "--debug"],
-      {
-        // ignore stdout
-        stdio: ["inherit", "ignore", "inherit"],
-        cwd: cwd,
-      }
-    );
+    await runElmMake(elmEntrypointPath, outputPath, cwd);
   } else {
-    console.log("Running elm-optimize-level-2");
-    return spawnCallback(
-      `elm-optimize-level-2`,
-      [elmEntrypointPath, "--output", outputPath],
+    await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
+  }
+}
+
+function runElmMake(elmEntrypointPath, outputPath, cwd) {
+  return new Promise(async (resolve, reject) => {
+    const subprocess = spawnCallback(
+      `elm`,
+      [
+        "make",
+        elmEntrypointPath,
+        "--output",
+        outputPath,
+        "--debug",
+        "--report",
+        "json",
+      ],
       {
         // ignore stdout
-        stdio: ["inherit", "ignore", "inherit"],
+        // stdio: ["inherit", "ignore", "inherit"],
+
         cwd: cwd,
       }
     );
-  }
+    const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
+    if (await fs.fileExists(fullOutputPath)) {
+      await fsPromises.unlink(fullOutputPath, {
+        force: true /* ignore errors if file doesn't exist */,
+      });
+    }
+    let commandOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+
+    subprocess.on("close", async (code) => {
+      if (code == 0 && (await fs.fileExists(fullOutputPath))) {
+        resolve();
+      } else {
+        process.exitCode = 1;
+        reject(restoreColor(JSON.parse(commandOutput).errors));
+      }
+    });
+  });
 }
 
 /**
@@ -234,7 +237,7 @@ function runElm(options, elmEntrypointPath, outputPath, cwd) {
 async function runTerser(filePath) {
   console.log("Running terser");
   const minifiedElm = await terser.minify(
-    (await fs.readFile(filePath)).toString(),
+    (await fsPromises.readFile(filePath)).toString(),
     {
       ecma: 5,
 
@@ -268,16 +271,18 @@ async function runTerser(filePath) {
     }
   );
   if (minifiedElm.code) {
-    await fs.writeFile(filePath, minifiedElm.code);
+    await fsPromises.writeFile(filePath, minifiedElm.code);
   } else {
     throw "Error running terser.";
   }
 }
 
 async function copyAssets() {
-  fs.writeFile(
+  await fsPromises.writeFile(
     "dist/elm-pages.js",
-    fs.readFileSync(path.join(__dirname, "../static-code/elm-pages.js"))
+    await fsPromises.readFile(
+      path.join(__dirname, "../static-code/elm-pages.js")
+    )
   );
   fs.copyDirFlat("public", "dist");
 }
@@ -290,13 +295,25 @@ async function compileCliApp(options) {
     "./elm-stuff/elm-pages"
   );
 
-  const elmFileContent = await fs.readFile(ELM_FILE_PATH, "utf-8");
-  await fs.writeFile(
+  const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH, "utf-8");
+  await fsPromises.writeFile(
     ELM_FILE_PATH,
-    elmFileContent.replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-      "return " + (options.debug ? "_Json_wrap(x)" : "x")
-    )
+    elmFileContent
+      .replace(
+        /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+        "return " + (options.debug ? "_Json_wrap(x)" : "x")
+      )
+      .replace(
+        "return ports ? { ports: ports } : {};",
+        `const die = function() {
+        managers = null
+        model = null
+        stepper = null
+        ports = null
+      }
+
+      return ports ? { ports: ports, die: die } : { die: die };`
+      )
   );
 }
 
@@ -316,14 +333,3 @@ async function compileCliApp(options) {
  */
 
 module.exports = { run };
-
-/**
- * @param {string} string
- */
-function jsonOrNull(string) {
-  try {
-    return JSON.parse(string);
-  } catch (e) {
-    return { invalidJson: e.toString() };
-  }
-}

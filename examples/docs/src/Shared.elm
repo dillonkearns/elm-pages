@@ -1,4 +1,4 @@
-module Shared exposing (Data, Model, Msg, SharedMsg(..), template)
+module Shared exposing (Data, Model, Msg, template)
 
 import Browser.Navigation
 import DataSource
@@ -8,13 +8,14 @@ import Html.Styled
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
 import View exposing (View)
 import View.Header
 
 
-template : SharedTemplate Msg Model Data SharedMsg msg
+template : SharedTemplate Msg Model Data msg
 template =
     { init = init
     , update = update
@@ -22,7 +23,6 @@ template =
     , data = data
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
-    , sharedMsg = SharedMsg
     }
 
 
@@ -33,15 +33,11 @@ type Msg
         , fragment : Maybe String
         }
     | ToggleMobileMenu
-    | SharedMsg SharedMsg
+    | IncrementFromChild
 
 
 type alias Data =
     TableOfContents.TableOfContents TableOfContents.Data
-
-
-type SharedMsg
-    = IncrementFromChild
 
 
 type alias Model =
@@ -83,10 +79,8 @@ update msg model =
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
 
-        SharedMsg globalMsg ->
-            case globalMsg of
-                IncrementFromChild ->
-                    ( { model | counter = model.counter + 1 }, Cmd.none )
+        IncrementFromChild ->
+            ( { model | counter = model.counter + 1 }, Cmd.none )
 
 
 subscriptions : Path -> Model -> Sub Msg
@@ -103,7 +97,7 @@ view :
     Data
     ->
         { path : Path
-        , frontmatter : route
+        , route : Maybe Route
         }
     -> Model
     -> (Msg -> msg)

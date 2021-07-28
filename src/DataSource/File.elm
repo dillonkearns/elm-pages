@@ -59,7 +59,7 @@ frontmatter frontmatterDecoder =
     import DataSource.File as File
     import OptimizedDecoder as Decode exposing (Decoder)
 
-    blogPost : DataSource ( String, BlogPostMetadata )
+    blogPost : DataSource BlogPostMetadata
     blogPost =
         File.bodyWithFrontmatter blogPostDecoder
             "blog/hello-world.md"
@@ -70,7 +70,7 @@ frontmatter frontmatterDecoder =
         , tags : List String
         }
 
-    blogPostDecoder : Decoder BlogPostMetadata
+    blogPostDecoder : String -> Decoder BlogPostMetadata
     blogPostDecoder body =
         Decode.map2 (BlogPostMetadata body)
             (Decode.field "title" Decode.string)

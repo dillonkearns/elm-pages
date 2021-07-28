@@ -1,10 +1,13 @@
 const fs = require("fs");
 
-module.exports = function () {
-  var elmJson = JSON.parse(fs.readFileSync("./elm.json").toString());
+module.exports = async function () {
+  var elmJson = JSON.parse(
+    (await fs.promises.readFile("./elm.json")).toString()
+  );
 
   // write new elm.json
-  fs.writeFileSync(
+
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/elm.json",
     JSON.stringify(rewriteElmJson(elmJson))
   );
@@ -27,4 +30,19 @@ function rewriteElmJson(elmJson) {
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
   return elmJson;
+}
+
+async function writeFileIfChanged(filePath, content) {
+  if (
+    !(await fileExists(filePath)) ||
+    (await fs.promises.readFile(filePath, "utf8")) !== content
+  ) {
+    await fs.promises.writeFile(filePath, content);
+  }
+}
+function fileExists(file) {
+  return fs.promises
+    .access(file, fs.constants.F_OK)
+    .then(() => true)
+    .catch(() => false);
 }
