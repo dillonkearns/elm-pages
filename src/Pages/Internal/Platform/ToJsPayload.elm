@@ -1,12 +1,9 @@
 module Pages.Internal.Platform.ToJsPayload exposing
     ( FileToGenerate
-    , ToJsPayload(..)
-    , ToJsSuccessPayload
     , ToJsSuccessPayloadNew
     , ToJsSuccessPayloadNewCombined(..)
+    , successCodecNew
     , successCodecNew2
-    , toJsCodec
-    , toJsPayload
     )
 
 import BuildError exposing (BuildError)
@@ -16,20 +13,6 @@ import Head
 import Json.Decode as Decode
 import Json.Encode
 import Pages.StaticHttp.Request
-
-
-type ToJsPayload
-    = Errors (List BuildError)
-    | Success ToJsSuccessPayload
-    | ApiResponse
-
-
-type alias ToJsSuccessPayload =
-    { pages : Dict String (Dict String String)
-    , filesToGenerate : List FileToGenerate
-    , staticHttpCache : Dict String String
-    , errors : List BuildError
-    }
 
 
 type alias ToJsSuccessPayloadNew =
@@ -50,54 +33,6 @@ type alias FileToGenerate =
     }
 
 
-toJsPayload :
-    Dict String (Dict String String)
-    -> List FileToGenerate
-    -> Dict String (Maybe String)
-    -> List BuildError
-    -> ToJsPayload
-toJsPayload encodedStatic generated allRawResponses allErrors =
-    if allErrors |> List.filter .fatal |> List.isEmpty then
-        Success
-            (ToJsSuccessPayload
-                encodedStatic
-                generated
-                (allRawResponses
-                    |> Dict.toList
-                    |> List.filterMap
-                        (\( key, maybeValue ) ->
-                            maybeValue
-                                |> Maybe.map (\value -> ( key, value ))
-                        )
-                    |> Dict.fromList
-                )
-                allErrors
-            )
-
-    else
-        Errors <| allErrors
-
-
-toJsCodec : Codec ToJsPayload
-toJsCodec =
-    Codec.custom
-        (\errorsTag success vApiResponse value ->
-            case value of
-                Errors errorList ->
-                    errorsTag errorList
-
-                Success { pages, filesToGenerate, errors, staticHttpCache } ->
-                    success (ToJsSuccessPayload pages filesToGenerate staticHttpCache errors)
-
-                ApiResponse ->
-                    vApiResponse
-        )
-        |> Codec.variant1 "Errors" Errors errorCodec
-        |> Codec.variant1 "Success" Success successCodec
-        |> Codec.variant0 "ApiResponse" ApiResponse
-        |> Codec.buildCustom
-
-
 errorCodec : Codec (List BuildError)
 errorCodec =
     Codec.object (\errorString _ -> errorString)
@@ -114,39 +49,6 @@ errorCodec =
                 (Json.Encode.list BuildError.encode)
                 (Decode.succeed [ { title = "TODO", message = [], fatal = True, path = "" } ])
             )
-        |> Codec.buildObject
-
-
-successCodec : Codec ToJsSuccessPayload
-successCodec =
-    Codec.object ToJsSuccessPayload
-        |> Codec.field "pages"
-            .pages
-            (Codec.dict (Codec.dict Codec.string))
-        |> Codec.field "filesToGenerate"
-            .filesToGenerate
-            (Codec.build
-                (\list ->
-                    list
-                        |> Json.Encode.list
-                            (\item ->
-                                Json.Encode.object
-                                    [ ( "path", item.path |> String.join "/" |> Json.Encode.string )
-                                    , ( "content", item.content |> Json.Encode.string )
-                                    ]
-                            )
-                )
-                (Decode.list
-                    (Decode.map2 (\path content -> { path = path, content = content })
-                        (Decode.string |> Decode.map (String.split "/") |> Decode.field "path")
-                        (Decode.string |> Decode.field "content")
-                    )
-                )
-            )
-        |> Codec.field "staticHttpCache"
-            .staticHttpCache
-            (Codec.dict Codec.string)
-        |> Codec.field "errors" .errors errorCodec
         |> Codec.buildObject
 
 
@@ -185,13 +87,21 @@ type ToJsSuccessPayloadNewCombined
     | Glob String
     | DoHttp { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
     | Port String
+    | Errors (List BuildError)
+    | ApiResponse
 
 
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\success vReadFile vGlob vDoHttp vSendApiResponse vPort value ->
+        (\errorsTag vApiResponse success vReadFile vGlob vDoHttp vSendApiResponse vPort value ->
             case value of
+                ApiResponse ->
+                    vApiResponse
+
+                Errors errorList ->
+                    errorsTag errorList
+
                 PageProgress payload ->
                     success payload
 
@@ -210,6 +120,8 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                 Port string ->
                     vPort string
         )
+        |> Codec.variant1 "Errors" Errors errorCodec
+        |> Codec.variant0 "ApiResponse" ApiResponse
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
         |> Codec.variant1 "ReadFile" ReadFile Codec.string
         |> Codec.variant1 "Glob" Glob Codec.string

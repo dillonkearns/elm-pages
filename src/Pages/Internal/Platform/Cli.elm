@@ -29,7 +29,7 @@ import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
-import Pages.Internal.Platform.ToJsPayload as ToJsPayload exposing (ToJsSuccessPayload)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttp.Request
@@ -199,12 +199,6 @@ perform renderRequest config toJsPort effect =
     case effect of
         Effect.NoEffect ->
             Cmd.none
-
-        Effect.SendJsData value ->
-            value
-                |> Codec.encoder ToJsPayload.toJsCodec
-                |> toJsPort
-                |> Cmd.map never
 
         Effect.Batch list ->
             list
@@ -615,7 +609,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
         StaticResponses.Finish toJsPayload ->
             case toJsPayload of
-                ToJsPayload.ApiResponse ->
+                StaticResponses.ApiResponse ->
                     let
                         apiResponse : Effect
                         apiResponse =
@@ -653,7 +647,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                             Err error ->
                                                                 [ error ]
                                                                     |> ToJsPayload.Errors
-                                                                    |> Effect.SendJsData
+                                                                    |> Effect.SendSinglePage True
                                                    )
 
                                         RenderRequest.Page payload ->
@@ -777,13 +771,13 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                                 |> Effect.SendSinglePage False
 
                                                         Err error ->
-                                                            [ error ] |> ToJsPayload.Errors |> Effect.SendJsData
+                                                            [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage True
 
                                                 Ok (Just notFoundReason) ->
                                                     render404Page config model payload.path notFoundReason
 
                                                 Err error ->
-                                                    [] |> ToJsPayload.Errors |> Effect.SendJsData
+                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage True
 
                                         RenderRequest.NotFound path ->
                                             render404Page config model path NotFoundReason.NoMatchingRoute
@@ -792,37 +786,33 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                     , apiResponse
                     )
 
-                _ ->
-                    model.unprocessedPages
-                        |> List.take 1
-                        |> List.filterMap
-                            (\pageAndMetadata ->
-                                case toJsPayload of
-                                    ToJsPayload.Success value ->
-                                        sendSinglePageProgress value config model pageAndMetadata
-                                            |> Just
+                StaticResponses.Page contentJson ->
+                    let
+                        pageAndMetadata =
+                            case model.unprocessedPages |> List.head of
+                                Just just1 ->
+                                    just1
 
-                                    ToJsPayload.Errors errors ->
-                                        errors |> ToJsPayload.Errors |> Effect.SendJsData |> Just
+                                Nothing ->
+                                    Debug.todo "TODO"
+                    in
+                    ( model
+                    , sendSinglePageProgress contentJson config model pageAndMetadata
+                    )
 
-                                    ToJsPayload.ApiResponse ->
-                                        Nothing
-                            )
-                        |> (\cmds ->
-                                ( model
-                                    |> popProcessedRequest
-                                , Effect.Batch cmds
-                                )
-                           )
+                StaticResponses.Errors errors ->
+                    ( model
+                    , errors |> ToJsPayload.Errors |> Effect.SendSinglePage True
+                    )
 
 
 sendSinglePageProgress :
-    ToJsSuccessPayload
+    Dict String String
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( Path, route )
     -> Effect
-sendSinglePageProgress toJsPayload config model =
+sendSinglePageProgress contentJson config model =
     \( page, route ) ->
         case model.maybeRequestJson of
             RenderRequest.SinglePage includeHtml _ _ ->
@@ -892,12 +882,6 @@ sendSinglePageProgress toJsPayload config model =
                         , fragment = Nothing
                         }
 
-                    staticData : Dict String String
-                    staticData =
-                        toJsPayload.pages
-                            |> Dict.get (Path.toRelative page)
-                            |> Maybe.withDefault Dict.empty
-
                     currentPage : { path : Path, route : route }
                     currentPage =
                         { path = page, route = config.urlToRoute currentUrl }
@@ -906,21 +890,21 @@ sendSinglePageProgress toJsPayload config model =
                     pageDataResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
                             (config.data (config.urlToRoute currentUrl))
-                            (staticData |> Dict.map (\_ v -> Just v))
+                            (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     sharedDataResult : Result BuildError sharedData
                     sharedDataResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
                             config.sharedData
-                            (staticData |> Dict.map (\_ v -> Just v))
+                            (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     siteDataResult : Result BuildError siteData
                     siteDataResult =
                         StaticHttpRequest.resolve ApplicationType.Cli
                             (config.site allRoutes |> .data)
-                            (staticData |> Dict.map (\_ v -> Just v))
+                            (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
                 case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
@@ -928,10 +912,7 @@ sendSinglePageProgress toJsPayload config model =
                         case maybeNotFoundReason of
                             Nothing ->
                                 { route = page |> Path.toRelative
-                                , contentJson =
-                                    toJsPayload.pages
-                                        |> Dict.get (Path.toRelative page)
-                                        |> Maybe.withDefault Dict.empty
+                                , contentJson = contentJson
                                 , html = rendered.view
                                 , errors = []
                                 , head = rendered.head ++ (config.site allRoutes |> .head) siteData
@@ -939,7 +920,8 @@ sendSinglePageProgress toJsPayload config model =
                                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                 , is404 = False
                                 }
-                                    |> sendProgress
+                                    |> ToJsPayload.PageProgress
+                                    |> Effect.SendSinglePage True
 
                             Just notFoundReason ->
                                 render404Page config model page notFoundReason
@@ -947,17 +929,7 @@ sendSinglePageProgress toJsPayload config model =
                     Err error ->
                         [ error ]
                             |> ToJsPayload.Errors
-                            |> Effect.SendJsData
-
-
-popProcessedRequest : Model route -> Model route
-popProcessedRequest model =
-    { model | unprocessedPages = List.drop 1 model.unprocessedPages }
-
-
-sendProgress : ToJsPayload.ToJsSuccessPayloadNew -> Effect
-sendProgress singlePage =
-    singlePage |> ToJsPayload.PageProgress |> Effect.SendSinglePage False
+                            |> Effect.SendSinglePage True
 
 
 render404Page :
