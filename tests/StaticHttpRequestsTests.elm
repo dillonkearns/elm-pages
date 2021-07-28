@@ -882,7 +882,25 @@ So maybe MISSING should be API_KEY"""
                                     [ {- ToJsPayload.Glob _, ToJsPayload.ReadFile _ -} ToJsPayload.PageProgress portData ] ->
                                         portData.contentJson
                                             |> Expect.equalDicts
-                                                (Dict.fromList [ ( "{\"method\":\"GET\",\"url\":\"file://content/glossary/hello.md\",\"headers\":[],\"body\":{\"type\":\"empty\"}}", "{\"withoutFrontmatter\":\"BODY\"}" ), ( "{\"method\":\"GET\",\"url\":\"glob://content/glossary/*.md\",\"headers\":[],\"body\":{\"type\":\"empty\"}}", "[\"content/glossary/hello.md\"]" ) ])
+                                                (Dict.fromList
+                                                    [ ( Request.hash
+                                                            { method = "GET"
+                                                            , url = "file://content/glossary/hello.md"
+                                                            , headers = []
+                                                            , body = DataSource.Http.emptyBody
+                                                            }
+                                                      , "{\"withoutFrontmatter\":\"BODY\"}"
+                                                      )
+                                                    , ( Request.hash
+                                                            { method = "GET"
+                                                            , url = "glob://content/glossary/*.md"
+                                                            , headers = []
+                                                            , body = DataSource.Http.emptyBody
+                                                            }
+                                                      , "[\"content/glossary/hello.md\"]"
+                                                      )
+                                                    ]
+                                                )
 
                                     _ ->
                                         Expect.fail <|
