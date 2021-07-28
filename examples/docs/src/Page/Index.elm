@@ -110,7 +110,7 @@ landingView =
     div
         [ css
             [ Tw.relative
-            , Tw.pt_32
+            , Tw.pt_16
             , Tw.pb_32
             , Tw.overflow_hidden
             ]

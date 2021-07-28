@@ -19,7 +19,7 @@ view toggleMobileMenuMsg stars currentPath =
             , Tw.items_center
             , Tw.bg_white
             , Tw.z_20
-            , Tw.fixed
+            , Tw.sticky
             , Tw.top_0
             , Tw.left_0
             , Tw.right_0

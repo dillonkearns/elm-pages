@@ -64,11 +64,11 @@ view maybeUrl sharedModel staticPayload =
                 [ Tw.relative
                 , Tw.bg_gray_100
                 , Tw.min_h_screen
-                , Tw.pt_32
+                , Tw.pt_16
                 , Tw.pb_20
                 , Tw.px_4
                 , Bp.lg
-                    [ Tw.pt_24
+                    [ Tw.pt_16
                     , Tw.pb_28
                     , Tw.px_8
                     ]
