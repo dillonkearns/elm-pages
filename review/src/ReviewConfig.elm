@@ -62,6 +62,9 @@ config =
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"
             , "src/DataSource/Glob.elm" -- incorrect result,
+            , "src/Pages/Internal/Platform/Effect.elm"
+            , "src/Pages/Internal/Platform/Cli.elm"
+            , "src/Pages/Internal/Platform.elm"
 
             -- alias is exposed - see https://github.com/jfmengels/elm-review-common/issues/1
             , "src/ApiRoute.elm" -- incorrect result
@@ -79,6 +82,7 @@ config =
                                 , "src/StructuredData.elm"
                                 , "src/Router.elm" -- used in generated code
                                 , "src/RoutePattern.elm" -- used in generated code
+                                , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
                                 ]
                             |> Rule.ignoreErrorsForDirectories
                                 [ "src/ElmHtml"

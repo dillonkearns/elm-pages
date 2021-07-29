@@ -1,13 +1,10 @@
-module Pages.Internal.Platform.Cli exposing
-    ( Flags
-    , Model
-    , Msg(..)
-    , Program
-    , cliApplication
-    , init
-    , requestDecoder
-    , update
-    )
+module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cliApplication, init, requestDecoder, update)
+
+{-| Exposed for internal use only (used in generated code).
+
+@docs Flags, Model, Msg, Program, cliApplication, init, requestDecoder, update
+
+-}
 
 import ApiRoute
 import BuildError exposing (BuildError)
@@ -43,10 +40,12 @@ import TerminalText as Terminal
 import Url
 
 
+{-| -}
 type alias Flags =
     Decode.Value
 
 
+{-| -}
 type alias Model route =
     { staticResponses : StaticResponses
     , secrets : SecretsDict
@@ -59,6 +58,7 @@ type alias Model route =
     }
 
 
+{-| -}
 type Msg
     = GotDataBatch
         (List
@@ -70,10 +70,12 @@ type Msg
     | Continue
 
 
+{-| -}
 type alias Program route =
     Platform.Program Flags (Model route) Msg
 
 
+{-| -}
 cliApplication :
     ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
     -> Program (Maybe route)
@@ -156,6 +158,7 @@ cliApplication config =
         }
 
 
+{-| -}
 requestDecoder : Decode.Decoder { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
 requestDecoder =
     (Codec.object (\masked unmasked -> { masked = masked, unmasked = unmasked })
@@ -346,6 +349,7 @@ flagsDecoder =
         )
 
 
+{-| -}
 init :
     RenderRequest route
     -> ContentCache
@@ -468,6 +472,7 @@ updateAndSendPortIfDone contentCache config model =
         |> nextStepToEffect contentCache config model
 
 
+{-| -}
 update :
     ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData

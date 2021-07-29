@@ -1,5 +1,11 @@
 module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application)
 
+{-| Exposed for internal use only (used in generated code).
+
+@docs Flags, Model, Msg, Program, application
+
+-}
+
 import AriaLiveAnnouncer
 import Browser
 import Browser.Dom as Dom
@@ -23,6 +29,7 @@ import Task
 import Url exposing (Url)
 
 
+{-| -}
 type alias Program userModel userMsg pageData sharedData =
     Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg)
 
@@ -107,10 +114,12 @@ onViewChangeElement currentUrl =
         []
 
 
+{-| -}
 type alias Flags =
     Decode.Value
 
 
+{-| -}
 init :
     ProgramConfig userMsg userModel route staticData pageData sharedData
     -> Flags
@@ -266,6 +275,7 @@ init config flags url key =
             )
 
 
+{-| -}
 type Msg userMsg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
@@ -277,6 +287,7 @@ type Msg userMsg
     | NoOp
 
 
+{-| -}
 type alias Model userModel pageData sharedData =
     { key : Browser.Navigation.Key
     , url : Url
@@ -293,6 +304,7 @@ type alias Model userModel pageData sharedData =
     }
 
 
+{-| -}
 update :
     ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Msg userMsg
@@ -673,6 +685,7 @@ update config appMsg model =
             ( model, Cmd.none )
 
 
+{-| -}
 application :
     ProgramConfig userMsg userModel route staticData pageData sharedData
     -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg)

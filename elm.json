@@ -23,7 +23,9 @@
         "Pages.Secrets",
         "Pages.Manifest",
         "Pages.Manifest.Category",
-        "Pages.Flags"
+        "Pages.Flags",
+        "Pages.Internal.Platform",
+        "Pages.Internal.Platform.Cli"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
