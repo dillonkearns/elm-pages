@@ -543,27 +543,6 @@ Secrets.get "MISSING"
 
 So maybe MISSING should be API_KEY"""
                         )
-        , test "an error is sent for HTTP errors" <|
-            \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpResponse
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Test.Http.httpResponse
-                            { statusCode = 404
-                            , headers = []
-                            , body = ""
-                            }
-                        )
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                        (expectErrorsPort """-- STATIC HTTP ERROR ----------------------------------------------------- elm-pages
-""")
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
             \() ->
                 startSimple []
