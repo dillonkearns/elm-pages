@@ -85,6 +85,7 @@ config =
                                 , "src/Router.elm" -- used in generated code
                                 , "src/RoutePattern.elm" -- used in generated code
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
+                                , "src/DataSource/ServerRequest.elm" -- temporarily removed from exposed modules for alpha serverless
                                 ]
                             |> Rule.ignoreErrorsForDirectories
                                 [ "src/ElmHtml"
