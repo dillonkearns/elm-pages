@@ -1,32 +1,36 @@
-module RoutePattern exposing
-    ( Ending(..)
-    , RoutePattern
-    , Segment(..)
-    , codec
-    , view
-    )
+module RoutePattern exposing (Ending(..), RoutePattern, Segment(..), codec, view)
+
+{-| Exposed for internal use only (used in generated code).
+
+@docs Ending, RoutePattern, Segment, codec, view
+
+-}
 
 import Codec exposing (Codec)
 import Html exposing (Html)
 
 
+{-| -}
 type alias RoutePattern =
     { segments : List Segment
     , ending : Maybe Ending
     }
 
 
+{-| -}
 type Ending
     = Optional String
     | RequiredSplat
     | OptionalSplat
 
 
+{-| -}
 type Segment
     = StaticSegment String
     | DynamicSegment String
 
 
+{-| -}
 codec : Codec RoutePattern
 codec =
     Codec.object RoutePattern
@@ -87,6 +91,7 @@ type alias ModuleContext =
     }
 
 
+{-| -}
 view : RoutePattern -> Html msg
 view routePattern =
     Html.span []

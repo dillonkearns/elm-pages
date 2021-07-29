@@ -25,7 +25,10 @@
         "Pages.Manifest.Category",
         "Pages.Flags",
         "Pages.Internal.Platform",
-        "Pages.Internal.Platform.Cli"
+        "Pages.Internal.Platform.Cli",
+        "Router",
+        "RoutePattern",
+        "NotFoundReason"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {

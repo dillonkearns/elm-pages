@@ -1,4 +1,13 @@
-module NotFoundReason exposing (NotFoundReason(..), Payload, codec, document)
+module NotFoundReason exposing
+    ( codec, ModuleContext, Payload, Record, document
+    , NotFoundReason(..)
+    )
+
+{-| Exposed for internal use only (used in generated code).
+
+@docs codec, ModuleContext, NotFoundReason, Payload, Record, document
+
+-}
 
 import Codec exposing (Codec)
 import Html exposing (Html)
@@ -7,6 +16,7 @@ import Path exposing (Path)
 import RoutePattern exposing (RoutePattern)
 
 
+{-| -}
 type alias ModuleContext =
     { moduleName : List String
     , routePattern : RoutePattern
@@ -14,16 +24,19 @@ type alias ModuleContext =
     }
 
 
+{-| -}
 type alias Payload =
     { path : Path
     , reason : NotFoundReason
     }
 
 
+{-| -}
 type alias Record =
     List ( String, String )
 
 
+{-| -}
 type NotFoundReason
     = NoMatchingRoute
     | NotPrerendered ModuleContext (List Record)
@@ -31,6 +44,7 @@ type NotFoundReason
     | UnhandledServerRoute ModuleContext
 
 
+{-| -}
 document :
     List RoutePattern
     -> Payload
@@ -176,6 +190,7 @@ prerenderedOptionsView moduleContext routes =
                 ]
 
 
+{-| -}
 codec : Codec Payload
 codec =
     Codec.object Payload

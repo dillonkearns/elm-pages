@@ -1,9 +1,16 @@
 module Router exposing (Matcher, firstMatch, fromOptionalSplat, maybeToList, nonEmptyToList, toNonEmpty)
 
+{-| Exposed for internal use only (used in generated code).
+
+@docs Matcher, firstMatch, fromOptionalSplat, maybeToList, nonEmptyToList, toNonEmpty
+
+-}
+
 import List.Extra
 import Regex
 
 
+{-| -}
 firstMatch : List (Matcher route) -> String -> Maybe route
 firstMatch matchers path =
     List.Extra.findMap
@@ -23,11 +30,13 @@ toRegex pattern =
         |> Maybe.withDefault Regex.never
 
 
+{-| -}
 nonEmptyToList : ( String, List String ) -> List String
 nonEmptyToList ( string, strings ) =
     string :: strings
 
 
+{-| -}
 fromOptionalSplat : Maybe String -> List String
 fromOptionalSplat maybeMatch =
     maybeMatch
@@ -36,6 +45,7 @@ fromOptionalSplat maybeMatch =
         |> Maybe.withDefault []
 
 
+{-| -}
 maybeToList : Maybe String -> List String
 maybeToList maybeString =
     case maybeString of
@@ -46,6 +56,7 @@ maybeToList maybeString =
             []
 
 
+{-| -}
 toNonEmpty : String -> ( String, List String )
 toNonEmpty string =
     case string |> String.split "/" of
@@ -56,10 +67,12 @@ toNonEmpty string =
             ( first, rest )
 
 
+{-| -}
 type alias Matcher route =
     { pattern : String, toRoute : List (Maybe String) -> Maybe route }
 
 
+{-| -}
 tryMatch : { pattern : String, toRoute : List (Maybe String) -> Maybe route } -> String -> Maybe route
 tryMatch { pattern, toRoute } path =
     path
