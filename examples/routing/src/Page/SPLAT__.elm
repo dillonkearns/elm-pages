@@ -23,12 +23,12 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.serverless
+    Page.prerender
         { head = head
+        , routes = DataSource.succeed []
+        , data = data
 
-        --, routes = routes
-        , data = \_ -> data
-        , routeFound = \_ -> DataSource.succeed True
+        --, routeFound = \_ -> DataSource.succeed True
         }
         |> Page.buildNoState { view = view }
 
