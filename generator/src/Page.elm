@@ -1,7 +1,8 @@
 module Page exposing
     ( Builder(..)
     , StaticPayload
-    , prerender, prerenderWithFallback, single, serverless
+    , prerender,  single
+    --, serverless, prerenderWithFallback
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
     )
@@ -30,7 +31,7 @@ But before the user even requests the page, we have the following data:
   - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
   - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
 
-@docs prerender, prerenderWithFallback, single, serverless
+@docs prerender, single
 
 
 ## Stateless Page Modules
@@ -46,7 +47,7 @@ But before the user even requests the page, we have the following data:
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
+--import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Head
 import NotFoundReason exposing (NotFoundReason)
 import Pages.PageUrl exposing (PageUrl)
@@ -269,93 +270,89 @@ prerender { data, head, routes } =
         }
 
 
+--{-| -}
+--prerenderWithFallback :
+--    { data : routeParams -> DataSource data
+--    , routes : DataSource (List routeParams)
+--    , handleFallback : routeParams -> DataSource Bool
+--    , head : StaticPayload data routeParams -> List Head.Tag
+--    }
+--    -> Builder routeParams data
+--prerenderWithFallback { data, head, routes, handleFallback } =
+--    WithData
+--        { data = data
+--        , staticRoutes = routes
+--        , head = head
+--        , serverless = False
+--        , handleRoute =
+--            \moduleContext toRecord routeParams ->
+--                handleFallback routeParams
+--                    |> DataSource.andThen
+--                        (\handleFallbackResult ->
+--                            if handleFallbackResult then
+--                                DataSource.succeed Nothing
+--
+--                            else
+--                                -- we want to lazily evaluate this in our on-demand builders
+--                                -- so we try handle fallback first and short-circuit in those cases
+--                                -- TODO - we could make an optimization to handle this differently
+--                                -- between on-demand builders and the dev server
+--                                -- we only need to match the pre-rendered routes in the dev server,
+--                                -- not in on-demand builders
+--                                routes
+--                                    |> DataSource.map
+--                                        (\allRoutes ->
+--                                            if allRoutes |> List.member routeParams then
+--                                                Nothing
+--
+--                                            else
+--                                                Just <|
+--                                                    NotFoundReason.NotPrerenderedOrHandledByFallback
+--                                                        { moduleName = moduleContext.moduleName
+--                                                        , routePattern = moduleContext.routePattern
+--                                                        , matchedRouteParams = toRecord routeParams
+--                                                        }
+--                                                        (allRoutes
+--                                                            |> List.map toRecord
+--                                                        )
+--                                        )
+--                        )
+--        , kind = "prerender-with-fallback"
+--        }
+--
+--
+--{-| -}
+--serverless :
+--    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
+--    , routeFound : routeParams -> DataSource Bool
+--    , head : StaticPayload data routeParams -> List Head.Tag
+--    }
+--    -> Builder routeParams data
+--serverless { data, head, routeFound } =
+--    WithData
+--        { data = data ServerRequest.toStaticHttp
+--        , staticRoutes = DataSource.succeed []
+--        , head = head
+--        , serverless = True
+--        , handleRoute =
+--            \moduleContext toRecord routeParams ->
+--                routeFound routeParams
+--                    |> DataSource.map
+--                        (\found ->
+--                            if found then
+--                                Nothing
+--
+--                            else
+--                                Just
+--                                    (NotFoundReason.UnhandledServerRoute
+--                                        { moduleName = moduleContext.moduleName
+--                                        , routePattern = moduleContext.routePattern
+--                                        , matchedRouteParams = toRecord routeParams
+--                                        }
+--                                    )
+--                        )
+--        , kind = "serverless"
+--        }
+--
+--
 {-| -}
-prerenderWithFallback :
-    { data : routeParams -> DataSource data
-    , routes : DataSource (List routeParams)
-    , handleFallback : routeParams -> DataSource Bool
-    , head : StaticPayload data routeParams -> List Head.Tag
-    }
-    -> Builder routeParams data
-prerenderWithFallback { data, head, routes, handleFallback } =
-    WithData
-        { data = data
-        , staticRoutes = routes
-        , head = head
-        , serverless = False
-        , handleRoute =
-            \moduleContext toRecord routeParams ->
-                handleFallback routeParams
-                    |> DataSource.andThen
-                        (\handleFallbackResult ->
-                            if handleFallbackResult then
-                                DataSource.succeed Nothing
-
-                            else
-                                -- we want to lazily evaluate this in our on-demand builders
-                                -- so we try handle fallback first and short-circuit in those cases
-                                -- TODO - we could make an optimization to handle this differently
-                                -- between on-demand builders and the dev server
-                                -- we only need to match the pre-rendered routes in the dev server,
-                                -- not in on-demand builders
-                                routes
-                                    |> DataSource.map
-                                        (\allRoutes ->
-                                            if allRoutes |> List.member routeParams then
-                                                Nothing
-
-                                            else
-                                                Just <|
-                                                    NotFoundReason.NotPrerenderedOrHandledByFallback
-                                                        { moduleName = moduleContext.moduleName
-                                                        , routePattern = moduleContext.routePattern
-                                                        , matchedRouteParams = toRecord routeParams
-                                                        }
-                                                        (allRoutes
-                                                            |> List.map toRecord
-                                                        )
-                                        )
-                        )
-        , kind = "prerender-with-fallback"
-        }
-
-
-{-| -}
-serverless :
-    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
-    , routeFound : routeParams -> DataSource Bool
-    , head : StaticPayload data routeParams -> List Head.Tag
-    }
-    -> Builder routeParams data
-serverless { data, head, routeFound } =
-    WithData
-        { data = data ServerRequest.toStaticHttp
-        , staticRoutes = DataSource.succeed []
-        , head = head
-        , serverless = True
-        , handleRoute =
-            \moduleContext toRecord routeParams ->
-                routeFound routeParams
-                    |> DataSource.map
-                        (\found ->
-                            if found then
-                                Nothing
-
-                            else
-                                Just
-                                    (NotFoundReason.UnhandledServerRoute
-                                        { moduleName = moduleContext.moduleName
-                                        , routePattern = moduleContext.routePattern
-                                        , matchedRouteParams = toRecord routeParams
-                                        }
-                                    )
-                        )
-        , kind = "serverless"
-        }
-
-
-{-| -}
-type RouteFound
-    = Found
-      -- TODO other status codes, like 403?
-    | NotFound404
