@@ -21,7 +21,7 @@ send portName input decoder =
             { url = "port://" ++ portName
             , method = "GET"
             , headers = []
-            , body = DataSource.jsonBody input
+            , body = DataSource.Http.jsonBody input
             }
         )
         decoder

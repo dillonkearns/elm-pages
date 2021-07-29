@@ -2,56 +2,44 @@ module DataSource exposing
     ( DataSource
     , map, succeed, fail
     , fromResult
-    , Body, emptyBody, stringBody, jsonBody
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , distill, validate, distillCodec, distillSerializeCodec
     )
 
-{-| StaticHttp requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
+{-| In an `elm-pages` app, each page can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
+when the page's HTML is pre-rendered during the build step. You can also access the resolved data in `head` to use it for the page's SEO meta tags.
 
-The key differences are:
+A `DataSource` lets you pull in data from:
 
-  - `StaticHttp.Request`s are performed once at build time (`Http.Request`s are performed at runtime, at whenever point you perform them)
-  - `StaticHttp.Request`s strip out unused JSON data from the data your decoder doesn't touch to minimize the JSON payload
-  - `StaticHttp.Request`s can use [`Pages.Secrets`](Pages.Secrets) to securely use credentials from your environment variables which are completely masked in the production assets.
-  - `StaticHttp.Request`s have a built-in `StaticHttp.andThen` that allows you to perform follow-up requests without using tasks
-
-
-## Scenarios where StaticHttp is a good fit
-
-If you need data that is refreshed often you may want to do a traditional HTTP request with the `elm/http` package.
-The kinds of situations that are served well by static HTTP are with data that updates moderately frequently or infrequently (or never).
-A common pattern is to trigger a new build when data changes. Many JAMstack services
-allow you to send a WebHook to your host (for example, Netlify is a good static file host that supports triggering builds with webhooks). So
-you may want to have your site rebuild everytime your calendar feed has an event added, or whenever a page or article is added
-or updated on a CMS service like Contentful.
-
-In scenarios like this, you can serve data that is just as up-to-date as it would be using `elm/http`, but you get the performance
-gains of using `StaticHttp.Request`s as well as the simplicity and robustness that comes with it. Read more about these benefits
-in [this article introducing StaticHttp requests and some concepts around it](https://elm-pages.com/blog/static-http).
+  - Local files ([`DataSource.File`](DataSource-File))
+  - HTTP requests ([`DataSource.Http`](DataSource-Http))
+  - Globs, i.e. listing out local files based on a pattern like `content/*.txt` ([`DataSource.Glob`](DataSource-Glob))
+  - Ports, i.e. getting JSON data from running custom NodeJS, similar to a port in a vanilla Elm app except run at build-time in NodeJS, rather than at run-time in the browser ([`DataSource.Port`](DataSource-Port))
+  - Hardcoded data (`DataSource.succeed "Hello!"`)
+  - Or any combination of the above, using `DataSource.map2`, `DataSource.andThen`, or other combining/continuing helpers from this module
 
 
-## Scenarios where StaticHttp is not a good fit
+## Where Does DataSource Data Come From?
 
-  - Data that is specific to the logged-in user
-  - Data that needs to be the very latest and changes often (for example, sports scores)
+Data from a `DataSource` is resolved when you load a page in the `elm-pages` dev server, or when you run `elm-pages build`.
+
+Because `elm-pages` hydrates into a full Elm single-page app, it does need the data in order to initialize the Elm app.
+So why not just get the data the old-fashioned way, with `elm/http`, for example?
+
+A few reasons:
+
+1.  DataSource's allow you to pull in data that you wouldn't normally be able to access from an Elm app, like local files, or listings of files in a folder. Not only that, but the dev server knows to automatically hot reload the data when the files it depends on change, so you can edit the files you used in your DataSource and see the page hot reload as you save!
+2.  Because `elm-pages` has a build step, you know that your `DataSource.Http` requests succeeded, your decoders succeeded, your custom DataSource validations succeeded, and everything went smoothly. If something went wrong, you get a build failure and can deal with the issues before the site goes live. That means your users won't see those errors, and as a developer you don't need to handle those error cases in your code! Think of it as "parse, don't validate", but for your entire build.
+3.  You don't have to worry about an API being down, or hitting it repeatedly. You can build in data and it will end up as JSON files served up with all the other assets of your site. If your CDN (static site host) is down, then the rest of your site is probably down anyway. If your site host is up, then so is all of your `DataSource` data. Also, it will be served up extremely quickly without needing to wait for any database queries to be performed, `andThen` requests to be resolved, etc., because all of that work and waiting was done at build-time!
+4.  You can pre-render pages, including the SEO meta tags, with all that rich, well-typed Elm data available! That's something you can't accomplish with a vanilla Elm app, and it's one of the main use cases for elm-pages.
 
 @docs DataSource
 
 @docs map, succeed, fail
 
 @docs fromResult
-
-
-## Building a StaticHttp Request Body
-
-The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
-`stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
-and describe your use case!
-
-@docs Body, emptyBody, stringBody, jsonBody
 
 
 ## Chaining Requests
@@ -95,38 +83,6 @@ import RequestsAndPending exposing (RequestsAndPending)
 import Serialize
 
 
-{-| Build an empty body for a StaticHttp request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
--}
-emptyBody : Body
-emptyBody =
-    Body.EmptyBody
-
-
-{-| Builds a string body for a StaticHttp request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
-
-Note from the `elm/http` docs:
-
-> The first argument is a [MIME type](https://en.wikipedia.org/wiki/Media_type) of the body. Some servers are strict about this!
-
--}
-stringBody : String -> String -> Body
-stringBody contentType content =
-    Body.StringBody contentType content
-
-
-{-| Builds a JSON body for a StaticHttp request. See [elm/http's `Http.jsonBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#jsonBody).
--}
-jsonBody : Encode.Value -> Body
-jsonBody content =
-    Body.JsonBody content
-
-
-{-| A body for a StaticHttp request.
--}
-type alias Body =
-    Body.Body
-
-
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
 very similar to how you can manipulate values with Json Decoders in Elm.
 -}
@@ -143,10 +99,10 @@ A common use for this is to map your data into your elm-pages view:
     import Json.Decode as Decode exposing (Decoder)
 
     view =
-        StaticHttp.get
+        DataSource.Http.get
             (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
             (Decode.field "stargazers_count" Decode.int)
-            |> StaticHttp.map
+            |> DataSource.map
                 (\stars ->
                     { view =
                         \model viewForPage ->
@@ -546,7 +502,7 @@ type alias RequestDetails =
     { url : String
     , method : String
     , headers : List ( String, String )
-    , body : Body
+    , body : Body.Body
     }
 
 

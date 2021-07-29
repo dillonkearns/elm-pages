@@ -34,7 +34,7 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = DataSource.emptyBody
+    , body = DataSource.Http.emptyBody
     }
 
 
@@ -143,5 +143,5 @@ getReq url =
     { url = url
     , method = "GET"
     , headers = []
-    , body = DataSource.emptyBody
+    , body = DataSource.Http.emptyBody
     }

@@ -309,7 +309,7 @@ all =
                             { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , method = "GET"
                             , headers = []
-                            , body = DataSource.emptyBody
+                            , body = DataSource.Http.emptyBody
                             }
                         )
                         (DataSource.Http.expectUnoptimizedJson
@@ -332,7 +332,7 @@ all =
                             { url = "https://example.com/file.txt"
                             , method = "GET"
                             , headers = []
-                            , body = DataSource.emptyBody
+                            , body = DataSource.Http.emptyBody
                             }
                         )
                         (DataSource.Http.expectString Ok)
@@ -353,7 +353,7 @@ all =
                             { url = "https://example.com/file.txt"
                             , method = "GET"
                             , headers = []
-                            , body = DataSource.emptyBody
+                            , body = DataSource.Http.emptyBody
                             }
                         )
                         (DataSource.Http.expectString
@@ -387,7 +387,7 @@ String was not uppercased"""
                             { method = "POST"
                             , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , headers = []
-                            , body = DataSource.emptyBody
+                            , body = DataSource.Http.emptyBody
                             }
                         )
                         (Decode.field "stargazer_count" Decode.int)
@@ -399,7 +399,7 @@ String was not uppercased"""
                         [ ( { method = "POST"
                             , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                             , headers = []
-                            , body = DataSource.emptyBody
+                            , body = DataSource.Http.emptyBody
                             }
                           , """{"stargazer_count":86}"""
                           )
@@ -549,7 +549,7 @@ So maybe MISSING should be API_KEY"""
                                 { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                 , method = "GET"
                                 , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
-                                , body = DataSource.emptyBody
+                                , body = DataSource.Http.emptyBody
                                 }
                             )
                             |> Secrets.with "API_KEY"
@@ -563,7 +563,7 @@ So maybe MISSING should be API_KEY"""
                                 { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                                 , method = "GET"
                                 , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
-                                , body = DataSource.emptyBody
+                                , body = DataSource.Http.emptyBody
                                 }
                             )
                             |> Secrets.with "API_KEY"
@@ -585,7 +585,7 @@ So maybe MISSING should be API_KEY"""
                             , headers =
                                 [ ( "Authorization", "Bearer <BEARER>" )
                                 ]
-                            , body = DataSource.emptyBody
+                            , body = DataSource.Http.emptyBody
                             }
                           , """{}"""
                           )
@@ -1574,7 +1574,7 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = DataSource.emptyBody
+    , body = DataSource.Http.emptyBody
     }
 
 
@@ -1583,7 +1583,7 @@ post url =
     { method = "POST"
     , url = url
     , headers = []
-    , body = DataSource.emptyBody
+    , body = DataSource.Http.emptyBody
     }
 
 
