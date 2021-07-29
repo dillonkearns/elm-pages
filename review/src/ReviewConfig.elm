@@ -20,6 +20,7 @@ import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
 import NoModuleOnExposedNames
+import NoUnmatchedUnit
 import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
 import NoUnused.CustomTypeConstructors
@@ -69,6 +70,7 @@ config =
             -- alias is exposed - see https://github.com/jfmengels/elm-review-common/issues/1
             , "src/ApiRoute.elm" -- incorrect result
             ]
+     , NoUnmatchedUnit.rule
      ]
         ++ (noUnusedRules
                 |> List.map

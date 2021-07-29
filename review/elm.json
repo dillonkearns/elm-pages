@@ -14,6 +14,7 @@
             "jfmengels/elm-review-debug": "1.0.6",
             "jfmengels/elm-review-performance": "1.0.1",
             "jfmengels/elm-review-unused": "1.1.15",
+            "mthadley/elm-review-unit": "2.0.1",
             "sparksp/elm-review-imports": "1.0.1",
             "stil4m/elm-syntax": "7.2.6"
         },
