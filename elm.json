@@ -19,6 +19,7 @@
         "DataSource.Glob",
         "DataSource.Http",
         "DataSource.File",
+        "DataSource.Port",
         "Pages.Secrets",
         "Pages.Manifest",
         "Pages.Manifest.Category",
