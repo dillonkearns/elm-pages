@@ -1,10 +1,10 @@
 module Page exposing
     ( Builder(..)
     , StaticPayload
-    , prerender,  single
-    --, serverless, prerenderWithFallback
+    , prerender, single
     , Page, buildNoState
     , PageWithState, buildWithLocalState, buildWithSharedState
+    --, serverless, prerenderWithFallback
     )
 
 {-|
@@ -45,9 +45,10 @@ But before the user even requests the page, we have the following data:
 
 -}
 
+--import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
+
 import Browser.Navigation
 import DataSource exposing (DataSource)
---import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Head
 import NotFoundReason exposing (NotFoundReason)
 import Pages.PageUrl exposing (PageUrl)
@@ -268,6 +269,7 @@ prerender { data, head, routes } =
                         )
         , kind = "prerender"
         }
+
 
 
 --{-| -}
