@@ -478,6 +478,7 @@ update contentCache config msg model =
     case msg of
         GotDataBatch batch ->
             let
+                updatedModel : Model route
                 updatedModel =
                     (case batch of
                         [ single ] ->

@@ -465,6 +465,7 @@ update config appMsg model =
                                 )
                                 pageData.userModel
 
+                        updatedModel : Model userModel pageData sharedData
                         updatedModel =
                             { model
                                 | url = url

@@ -125,6 +125,7 @@ batchUpdate :
         }
 batchUpdate newEntries model =
     let
+        newResponses : Dict String String
         newResponses =
             newEntries
                 |> List.map
