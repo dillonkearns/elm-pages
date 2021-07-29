@@ -1,11 +1,8 @@
-module ApiRoute exposing
-    ( Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed
-    , getBuildTimeRoutes
-    )
+module ApiRoute exposing (Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes)
 
 {-|
 
-@docs Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed
+@docs Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
 
 -}
 
