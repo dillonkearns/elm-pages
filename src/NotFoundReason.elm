@@ -1,7 +1,4 @@
-module NotFoundReason exposing
-    ( codec, ModuleContext, Payload, Record, document
-    , NotFoundReason(..)
-    )
+module NotFoundReason exposing (codec, ModuleContext, NotFoundReason(..), Payload, Record, document)
 
 {-| Exposed for internal use only (used in generated code).
 
