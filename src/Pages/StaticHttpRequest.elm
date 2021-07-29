@@ -250,11 +250,11 @@ resolve appType request rawResponses =
 
 resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request)
 resolveUrls appType request rawResponses =
-    resolveUrlsHelp appType request rawResponses []
+    resolveUrlsHelp appType rawResponses [] request
 
 
-resolveUrlsHelp : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request) -> List (Secrets.Value Pages.StaticHttp.Request.Request)
-resolveUrlsHelp appType request rawResponses soFar =
+resolveUrlsHelp : ApplicationType -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request) -> RawRequest value -> List (Secrets.Value Pages.StaticHttp.Request.Request)
+resolveUrlsHelp appType rawResponses soFar request =
     case request of
         RequestError error ->
             case error of
@@ -266,13 +266,10 @@ resolveUrlsHelp appType request rawResponses soFar =
                     soFar
 
         Request _ ( urlList, lookupFn ) ->
-            lookupFn KeepOrDiscard.Keep appType rawResponses
-                |> (\nextRequest ->
-                        resolveUrlsHelp appType
-                            nextRequest
-                            rawResponses
-                            (soFar ++ urlList)
-                   )
+            resolveUrlsHelp appType
+                rawResponses
+                (soFar ++ urlList)
+                (lookupFn KeepOrDiscard.Keep appType rawResponses)
 
         Done _ _ ->
             soFar
