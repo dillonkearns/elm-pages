@@ -283,7 +283,8 @@ type alias Model userModel pageData sharedData =
     , contentCache : ContentCache
     , ariaNavigationAnnouncement : String
     , pageData :
-        Result String
+        Result
+            String
             { userModel : userModel
             , pageData : pageData
             , sharedData : sharedData
