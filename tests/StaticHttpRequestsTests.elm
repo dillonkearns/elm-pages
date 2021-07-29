@@ -21,18 +21,15 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttp.Request as Request
-import PagesHttp
 import Path
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
 import Secrets
 import SimulatedEffect.Cmd
-import SimulatedEffect.Http as Http
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
 import Test exposing (Test, describe, test)
-import Test.Http
 
 
 all : Test
@@ -1132,10 +1129,12 @@ startLowLevel apiRoutes staticHttpCache pages =
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
+startSimple : List String -> DataSource a -> ProgramTest (Model Route) Msg Effect
 startSimple route dataSources =
     startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
 
 
+startSimpleWithCache : List String -> DataSource a -> List ( Request.Request, String ) -> ProgramTest (Model Route) Msg Effect
 startSimpleWithCache route dataSources cache =
     startWithRoutes route [ route ] cache [ ( route, dataSources ) ]
 
@@ -1293,6 +1292,7 @@ flags jsonString =
             Debug.todo "Invalid JSON value."
 
 
+sendToJsPort : ToJsPayload.ToJsSuccessPayloadNewCombined -> ProgramTest.SimulatedEffect msg
 sendToJsPort value =
     SimulatedEffect.Ports.send "toJsPort" (value |> Codec.encoder (ToJsPayload.successCodecNew2 "" ""))
 
@@ -1587,6 +1587,7 @@ post url =
     }
 
 
+toRequest : Secrets.Value Request.Request -> { masked : Request.Request, unmasked : Request.Request }
 toRequest secretsValue =
     { masked = Secrets.maskedLookup secretsValue
     , unmasked = Secrets.maskedLookup secretsValue
@@ -1649,7 +1650,7 @@ simulateMultipleHttp requests program =
             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\actualPorts ->
                 case actualPorts of
-                    (ToJsPayload.DoHttp _) :: rest ->
+                    (ToJsPayload.DoHttp _) :: _ ->
                         -- TODO check count of HTTP requests, and check the URLs
                         Expect.pass
 

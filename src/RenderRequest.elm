@@ -157,24 +157,6 @@ pathToUrl path =
     }
 
 
-optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
-optionalField fieldName decoder_ =
-    let
-        finishDecoding : Decode.Value -> Decode.Decoder (Maybe a)
-        finishDecoding json =
-            case Decode.decodeValue (Decode.field fieldName Decode.value) json of
-                Ok _ ->
-                    -- The field is present, so run the decoder_ on it.
-                    Decode.map Just (Decode.field fieldName decoder_)
-
-                Err _ ->
-                    -- The field was missing, which is fine!
-                    Decode.succeed Nothing
-    in
-    Decode.value
-        |> Decode.andThen finishDecoding
-
-
 dropTrailingIndexHtml : String -> String
 dropTrailingIndexHtml =
     Regex.replace (Regex.fromString "/index\\.html$" |> Maybe.withDefault Regex.never)

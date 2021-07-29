@@ -283,8 +283,8 @@ cacheRequestResolution :
     -> RawRequest value
     -> RequestsAndPending
     -> Status value
-cacheRequestResolution =
-    cacheRequestResolutionHelp []
+cacheRequestResolution appType request rawResponses =
+    cacheRequestResolutionHelp [] appType rawResponses request
 
 
 type Status value
@@ -296,10 +296,10 @@ type Status value
 cacheRequestResolutionHelp :
     List (Secrets.Value Pages.StaticHttp.Request.Request)
     -> ApplicationType
-    -> RawRequest value
     -> RequestsAndPending
+    -> RawRequest value
     -> Status value
-cacheRequestResolutionHelp foundUrls appType request rawResponses =
+cacheRequestResolutionHelp foundUrls appType rawResponses request =
     case request of
         RequestError error ->
             case error of
@@ -314,10 +314,10 @@ cacheRequestResolutionHelp foundUrls appType request rawResponses =
                     HasPermanentError error
 
         Request _ ( urlList, lookupFn ) ->
-            lookupFn KeepOrDiscard.Keep appType rawResponses
-                |> (\nextRequest ->
-                        cacheRequestResolutionHelp urlList appType nextRequest rawResponses
-                   )
+            cacheRequestResolutionHelp urlList
+                appType
+                rawResponses
+                (lookupFn KeepOrDiscard.Keep appType rawResponses)
 
         Done _ _ ->
             Complete
