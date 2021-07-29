@@ -637,7 +637,8 @@ So maybe MISSING should be API_KEY"""
                             ]
             , test "it ignores unused cache" <|
                 \() ->
-                    startWithHttpCache
+                    startSimpleWithCache []
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder)
                         [ ( { url = "https://this-is-never-used.example.com/"
                             , method = "GET"
                             , headers = []
@@ -646,13 +647,8 @@ So maybe MISSING should be API_KEY"""
                           , """{"stargazer_count":86}"""
                           )
                         ]
-                        [ ( []
-                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                        |> simulateHttp
+                            (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                             """{ "stargazer_count": 86 }"""
                         |> expectSuccess
                             [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -696,18 +692,13 @@ So maybe MISSING should be API_KEY"""
                             )
             , test "distill stores encoded JSON but not original DataSource" <|
                 \() ->
-                    startWithRoutes [ "hello" ]
-                        [ [ "hello" ] ]
-                        []
-                        [ ( [ "hello" ]
-                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                                |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
-                                |> DataSource.map (\_ -> ())
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                    startSimple [ "hello" ]
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                            |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                            |> DataSource.map (\_ -> ())
+                        )
+                        |> simulateHttp
+                            (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                             """{ "stargazer_count": 86 }"""
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
@@ -856,22 +847,17 @@ So maybe MISSING should be API_KEY"""
                             )
             , test "distill successfully merges data sources with same key and same encoded JSON" <|
                 \() ->
-                    startWithRoutes [ "hello" ]
-                        [ [ "hello" ] ]
-                        []
-                        [ ( [ "hello" ]
-                          , DataSource.map2 (\_ _ -> ())
-                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                                    |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
-                                )
-                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                                    |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
-                                )
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                    startSimple [ "hello" ]
+                        (DataSource.map2 (\_ _ -> ())
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                                |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                            )
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                                |> DataSource.distill "abc123" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                            )
+                        )
+                        |> simulateHttp
+                            (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                             """{ "stargazer_count": 86 }"""
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
@@ -887,27 +873,23 @@ So maybe MISSING should be API_KEY"""
                             )
             , test "distill gives an error if there are matching keys with different encoded JSON" <|
                 \() ->
-                    startWithRoutes [ "hello" ]
-                        [ [ "hello" ] ]
-                        []
-                        [ ( [ "hello" ]
-                          , DataSource.map2 (\_ _ -> ())
-                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                                    |> DataSource.distill "stars" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
-                                )
-                                (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown") starDecoder
-                                    |> DataSource.distill "stars" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
-                                )
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
-                            """{ "stargazer_count": 86 }"""
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-markdown"
-                            """{ "stargazer_count": 123 }"""
+                    startSimple [ "hello" ]
+                        (DataSource.map2 (\_ _ -> ())
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+                                |> DataSource.distill "stars" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                            )
+                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown") starDecoder
+                                |> DataSource.distill "stars" Encode.int (JD.decodeValue JD.int >> Result.mapError JD.errorToString)
+                            )
+                        )
+                        |> simulateMultipleHttp
+                            [ ( Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                              , """{ "stargazer_count": 86 }"""
+                              )
+                            , ( Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-markdown")
+                              , """{ "stargazer_count": 123 }"""
+                              )
+                            ]
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
                             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
@@ -1173,6 +1155,10 @@ startLowLevel apiRoutes staticHttpCache pages =
 
 startSimple route dataSources =
     startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
+
+
+startSimpleWithCache route dataSources cache =
+    startWithRoutes route [ route ] cache [ ( route, dataSources ) ]
 
 
 startWithRoutes :
