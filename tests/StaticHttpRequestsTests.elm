@@ -40,14 +40,10 @@ all =
     describe "Static Http Requests"
         [ test "initial requests are sent out" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple []
+                    (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder)
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -56,19 +52,11 @@ all =
                         ]
         , test "StaticHttp request for initial are resolved" <|
             \() ->
-                start
-                    [ ( [ "post-1" ]
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                        --, StaticHttp.succeed 86
-                      )
-                    ]
-                    --|> ProgramTest.simulateHttpOk
-                    --    "GET"
-                    --    "https://my-cms.com/posts"
-                    --    """{ "posts": ["post-1"] }"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple
+                    [ "post-1" ]
+                    (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder)
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -78,17 +66,10 @@ all =
         , describe "single page renders"
             [ test "single pages that are pre-rendered" <|
                 \() ->
-                    startWithRoutes [ "post-1" ]
-                        [ [ "post-1" ]
-                        ]
-                        []
-                        [ ( [ "post-1" ]
-                          , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                    startSimple [ "post-1" ]
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder)
+                        |> simulateHttp
+                            (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                             """{ "stargazer_count": 86 }"""
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
@@ -127,20 +108,18 @@ all =
             ]
         , test "the stripped JSON from the same request with different decoders is merged so the decoders succeed" <|
             \() ->
-                start
-                    [ ( [ "post-1" ]
-                      , DataSource.map2 Tuple.pair
-                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                                (Decode.field "stargazer_count" Decode.int)
-                            )
-                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                                (Decode.field "language" Decode.string)
-                            )
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple
+                    [ "post-1" ]
+                    (DataSource.map2 Tuple.pair
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                            (Decode.field "stargazer_count" Decode.int)
+                        )
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                            (Decode.field "language" Decode.string)
+                        )
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86, "language": "Elm" }"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -149,22 +128,19 @@ all =
                         ]
         , test "andThen" <|
             \() ->
-                start
-                    [ ( [ "elm-pages" ]
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
-                            |> DataSource.andThen
-                                (\_ ->
-                                    DataSource.Http.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
-                                )
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple
+                    [ "elm-pages" ]
+                    (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.succeed ())
+                        |> DataSource.andThen
+                            (\_ ->
+                                DataSource.Http.get (Secrets.succeed "NEXT-REQUEST") (Decode.succeed ())
+                            )
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """null"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "NEXT-REQUEST"
+                    |> simulateHttp
+                        (Secrets.succeed (get "NEXT-REQUEST"))
                         """null"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -199,13 +175,12 @@ all =
                             |> DataSource.resolve
                             |> DataSource.map (\_ -> ())
                 in
-                start
-                    [ ( [ "elm-pages" ], pokemonDetailRequest )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://pokeapi.co/api/v2/pokemon/"
-                        """[
+                startSimple
+                    [ "elm-pages" ]
+                    pokemonDetailRequest
+                    |> simulateMultipleHttp
+                        [ ( Secrets.succeed (get "https://pokeapi.co/api/v2/pokemon/")
+                          , """[
                             {"url": "url1"},
                             {"url": "url2"},
                             {"url": "url3"},
@@ -217,46 +192,38 @@ all =
                             {"url": "url9"},
                             {"url": "url10"}
                             ]"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url1"
-                        """{"image": "image1.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url2"
-                        """{"image": "image2.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url3"
-                        """{"image": "image3.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url4"
-                        """{"image": "image4.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url5"
-                        """{"image": "image5.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url6"
-                        """{"image": "image6.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url7"
-                        """{"image": "image7.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url8"
-                        """{"image": "image8.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url9"
-                        """{"image": "image9.jpg"}"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "url10"
-                        """{"image": "image10.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url1")
+                          , """{"image": "image1.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url2")
+                          , """{"image": "image2.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url3")
+                          , """{"image": "image3.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url4")
+                          , """{"image": "image4.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url5")
+                          , """{"image": "image5.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url6")
+                          , """{"image": "image6.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url7")
+                          , """{"image": "image7.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url8")
+                          , """{"image": "image8.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url9")
+                          , """{"image": "image9.jpg"}"""
+                          )
+                        , ( Secrets.succeed (get "url10")
+                          , """{"image": "image10.jpg"}"""
+                          )
+                        ]
                     |> expectSuccess
                         [ ( get "https://pokeapi.co/api/v2/pokemon/"
                           , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
@@ -327,14 +294,10 @@ all =
         --                ]
         , test "reduced JSON is sent out" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple []
+                    (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -343,24 +306,21 @@ all =
                         ]
         , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.unoptimizedRequest
-                            (Secrets.succeed
-                                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                                , method = "GET"
-                                , headers = []
-                                , body = DataSource.emptyBody
-                                }
-                            )
-                            (DataSource.Http.expectUnoptimizedJson
-                                (JD.field "stargazer_count" JD.int)
-                            )
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple []
+                    (DataSource.Http.unoptimizedRequest
+                        (Secrets.succeed
+                            { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                            , method = "GET"
+                            , headers = []
+                            , body = DataSource.emptyBody
+                            }
+                        )
+                        (DataSource.Http.expectUnoptimizedJson
+                            (JD.field "stargazer_count" JD.int)
+                        )
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -369,22 +329,19 @@ all =
                         ]
         , test "plain string" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.unoptimizedRequest
-                            (Secrets.succeed
-                                { url = "https://example.com/file.txt"
-                                , method = "GET"
-                                , headers = []
-                                , body = DataSource.emptyBody
-                                }
-                            )
-                            (DataSource.Http.expectString Ok)
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://example.com/file.txt"
+                startSimple []
+                    (DataSource.Http.unoptimizedRequest
+                        (Secrets.succeed
+                            { url = "https://example.com/file.txt"
+                            , method = "GET"
+                            , headers = []
+                            , body = DataSource.emptyBody
+                            }
+                        )
+                        (DataSource.Http.expectString Ok)
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://example.com/file.txt"))
                         "This is a raw text file."
                     |> expectSuccess
                         [ ( get "https://example.com/file.txt"
@@ -393,30 +350,27 @@ all =
                         ]
         , test "Err in String to Result function turns into decode error" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.unoptimizedRequest
-                            (Secrets.succeed
-                                { url = "https://example.com/file.txt"
-                                , method = "GET"
-                                , headers = []
-                                , body = DataSource.emptyBody
-                                }
-                            )
-                            (DataSource.Http.expectString
-                                (\string ->
-                                    if String.toUpper string == string then
-                                        Ok string
+                startSimple []
+                    (DataSource.Http.unoptimizedRequest
+                        (Secrets.succeed
+                            { url = "https://example.com/file.txt"
+                            , method = "GET"
+                            , headers = []
+                            , body = DataSource.emptyBody
+                            }
+                        )
+                        (DataSource.Http.expectString
+                            (\string ->
+                                if String.toUpper string == string then
+                                    Ok string
 
-                                    else
-                                        Err "String was not uppercased"
-                                )
+                                else
+                                    Err "String was not uppercased"
                             )
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://example.com/file.txt"
+                        )
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://example.com/file.txt"))
                         "This is a raw text file."
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
@@ -430,22 +384,19 @@ String was not uppercased"""
                         )
         , test "POST method works" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.request
-                            (Secrets.succeed
-                                { method = "POST"
-                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                                , headers = []
-                                , body = DataSource.emptyBody
-                                }
-                            )
-                            (Decode.field "stargazer_count" Decode.int)
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "POST"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple []
+                    (DataSource.Http.request
+                        (Secrets.succeed
+                            { method = "POST"
+                            , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                            , headers = []
+                            , body = DataSource.emptyBody
+                            }
+                        )
+                        (Decode.field "stargazer_count" Decode.int)
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (post "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86, "unused_field": 123 }"""
                     |> expectSuccess
                         [ ( { method = "POST"
@@ -458,22 +409,18 @@ String was not uppercased"""
                         ]
         , test "json is reduced from andThen chains" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
-                            |> DataSource.andThen
-                                (\_ ->
-                                    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
-                                )
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple []
+                    (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int)
+                        |> DataSource.andThen
+                            (\_ ->
+                                DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int)
+                            )
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 100, "unused_field": 123 }"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages-starter"))
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -485,21 +432,19 @@ String was not uppercased"""
                         ]
         , test "reduced json is preserved by StaticHttp.map2" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.map2 (\_ _ -> ())
-                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
-                            (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
-                        """{ "stargazer_count": 100, "unused_field": 123 }"""
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                        """{ "stargazer_count": 50, "unused_field": 456 }"""
+                startSimple []
+                    (DataSource.map2 (\_ _ -> ())
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.field "stargazer_count" Decode.int))
+                        (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") (Decode.field "stargazer_count" Decode.int))
+                    )
+                    |> simulateMultipleHttp
+                        [ ( Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                          , """{ "stargazer_count": 100, "unused_field": 123 }"""
+                          )
+                        , ( Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                          , """{ "stargazer_count": 50, "unused_field": 456 }"""
+                          )
+                        ]
                     |> expectSuccess
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                           , """{"stargazer_count":100}"""
@@ -518,16 +463,13 @@ String was not uppercased"""
                     |> expectSuccess []
         , test "the port sends out when there are duplicate http requests for the same page" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.map2 (\_ _ -> ())
-                            (DataSource.Http.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
-                            (DataSource.Http.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "http://example.com"
+                startSimple []
+                    (DataSource.map2 (\_ _ -> ())
+                        (DataSource.Http.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                        (DataSource.Http.get (Secrets.succeed "http://example.com") (Decode.succeed ()))
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed (get "http://example.com"))
                         """null"""
                     |> expectSuccess
                         [ ( get "http://example.com"
@@ -536,14 +478,10 @@ String was not uppercased"""
                         ]
         , test "an error is sent out for decoder failures" <|
             \() ->
-                start
-                    [ ( [ "elm-pages" ]
-                      , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI.")
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                startSimple [ "elm-pages" ]
+                    (DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") (Decode.fail "The user should get this message from the CLI."))
+                    |> simulateHttp
+                        (Secrets.succeed (get "https://api.github.com/repos/dillonkearns/elm-pages"))
                         """{ "stargazer_count": 86 }"""
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
@@ -561,32 +499,36 @@ I encountered some errors while decoding this JSON:
                         )
         , test "an error is sent for missing secrets from continuation requests" <|
             \() ->
-                start
-                    [ ( [ "elm-pages" ]
-                      , DataSource.Http.get
-                            (Secrets.succeed
-                                (\apiKey ->
-                                    "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
-                                )
-                                |> Secrets.with "API_KEY"
+                startSimple
+                    [ "elm-pages" ]
+                    (DataSource.Http.get
+                        (Secrets.succeed
+                            (\apiKey ->
+                                "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                             )
-                            Decode.string
-                            |> DataSource.andThen
-                                (\url ->
-                                    DataSource.Http.get
-                                        (Secrets.succeed
-                                            (\missingSecret ->
-                                                url ++ "?apiKey=" ++ missingSecret
-                                            )
-                                            |> Secrets.with "MISSING"
+                            |> Secrets.with "API_KEY"
+                        )
+                        Decode.string
+                        |> DataSource.andThen
+                            (\url ->
+                                DataSource.Http.get
+                                    (Secrets.succeed
+                                        (\missingSecret ->
+                                            url ++ "?apiKey=" ++ missingSecret
                                         )
-                                        (Decode.succeed ())
-                                )
-                      )
-                    ]
-                    |> ProgramTest.simulateHttpOk
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
+                                        |> Secrets.with "MISSING"
+                                    )
+                                    (Decode.succeed ())
+                            )
+                    )
+                    |> simulateHttp
+                        (Secrets.succeed
+                            (\apiKey ->
+                                get
+                                    ("https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey)
+                            )
+                            |> Secrets.with "API_KEY"
+                        )
                         """ "continuation-url" """
                     |> ProgramTest.expectOutgoingPortValues
                         "toJsPort"
@@ -714,31 +656,26 @@ So maybe MISSING should be API_KEY"""
                             ]
             , test "validate DataSource is not stored for any pages" <|
                 \() ->
-                    startWithRoutes [ "hello" ]
-                        [ [ "hello" ] ]
-                        []
-                        [ ( [ "hello" ]
-                          , DataSource.succeed "hello"
-                                |> DataSource.validate identity
-                                    (\word ->
-                                        DataSource.Http.get (Secrets.succeed ("https://api.spellchecker.com?word=" ++ word))
-                                            (Decode.field "isCorrect" Decode.bool
-                                                |> Decode.map
-                                                    (\isCorrect ->
-                                                        if isCorrect then
-                                                            Ok ()
+                    startSimple [ "hello" ]
+                        (DataSource.succeed "hello"
+                            |> DataSource.validate identity
+                                (\word ->
+                                    DataSource.Http.get (Secrets.succeed ("https://api.spellchecker.com?word=" ++ word))
+                                        (Decode.field "isCorrect" Decode.bool
+                                            |> Decode.map
+                                                (\isCorrect ->
+                                                    if isCorrect then
+                                                        Ok ()
 
-                                                        else
-                                                            Err "Spelling error"
-                                                    )
-                                            )
-                                    )
-                                |> DataSource.map (\_ -> ())
-                          )
-                        ]
-                        |> ProgramTest.simulateHttpOk
-                            "GET"
-                            "https://api.spellchecker.com?word=hello"
+                                                    else
+                                                        Err "Spelling error"
+                                                )
+                                        )
+                                )
+                            |> DataSource.map (\_ -> ())
+                        )
+                        |> simulateHttp
+                            (Secrets.succeed (get "https://api.spellchecker.com?word=hello"))
                             """{ "isCorrect": true }"""
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
@@ -1229,6 +1166,10 @@ startLowLevel apiRoutes staticHttpCache pages =
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
+startSimple route dataSources =
+    startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
+
+
 startWithRoutes :
     List String
     -> List (List String)
@@ -1398,7 +1339,7 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        Effect.FetchHttp { unmasked } ->
+        Effect.FetchHttp { unmasked, masked } ->
             if unmasked.url |> String.startsWith "file://" then
                 let
                     filePath : String
@@ -1430,45 +1371,9 @@ simulateEffects effect =
                     |> SimulatedEffect.Cmd.map never
 
             else
-                Http.request
-                    { method = unmasked.method
-                    , url = unmasked.url
-                    , headers = unmasked.headers |> List.map (\( key, value ) -> Http.header key value)
-                    , body =
-                        case unmasked.body of
-                            StaticHttpBody.EmptyBody ->
-                                Http.emptyBody
-
-                            StaticHttpBody.StringBody contentType string ->
-                                Http.stringBody contentType string
-
-                            StaticHttpBody.JsonBody value ->
-                                Http.jsonBody value
-                    , expect =
-                        PagesHttp.expectString
-                            (\response ->
-                                case response of
-                                    Ok okResponse ->
-                                        GotDataBatch
-                                            [ { request =
-                                                    { unmasked = unmasked
-                                                    , masked = unmasked -- TODO use masked
-                                                    }
-                                              , response = okResponse
-                                              }
-                                            ]
-
-                                    Err _ ->
-                                        GotBuildError
-                                            { title = "Static HTTP Error"
-                                            , message = []
-                                            , fatal = True
-                                            , path = ""
-                                            }
-                            )
-                    , timeout = Nothing
-                    , tracker = Nothing
-                    }
+                ToJsPayload.DoHttp { masked = masked, unmasked = unmasked }
+                    |> sendToJsPort
+                    |> SimulatedEffect.Cmd.map never
 
         Effect.SendSinglePage done info ->
             SimulatedEffect.Cmd.batch
@@ -1495,14 +1400,14 @@ simulateEffects effect =
 
 expectErrorsPort : String -> List ToJsPayload.ToJsSuccessPayloadNewCombined -> Expect.Expectation
 expectErrorsPort expectedPlainString actualPorts =
-    case actualPorts of
-        [ ToJsPayload.Errors actualRichTerminalString ] ->
+    case actualPorts |> List.reverse |> List.head of
+        Just (ToJsPayload.Errors actualRichTerminalString) ->
             actualRichTerminalString
                 |> List.map .title
                 |> String.join "\n"
                 |> normalizeErrorExpectEqual expectedPlainString
 
-        [] ->
+        Nothing ->
             Expect.fail "Expected single error port. Didn't receive any ports."
 
         _ ->
@@ -1669,6 +1574,24 @@ simulateSubscriptions _ =
                                             ]
                                     )
 
+                        "GotBatch" ->
+                            JD.field "data"
+                                (JD.list
+                                    (JD.map2
+                                        (\requests response ->
+                                            { request =
+                                                { masked = requests.masked
+                                                , unmasked = requests.unmasked
+                                                }
+                                            , response = response
+                                            }
+                                        )
+                                        (JD.field "request" requestDecoder)
+                                        (JD.field "response" JD.string)
+                                    )
+                                )
+                                |> JD.map GotDataBatch
+
                         _ ->
                             JD.fail "Unexpected subscription tag."
                 )
@@ -1683,3 +1606,115 @@ get url =
     , headers = []
     , body = DataSource.emptyBody
     }
+
+
+post : String -> Request.Request
+post url =
+    { method = "POST"
+    , url = url
+    , headers = []
+    , body = DataSource.emptyBody
+    }
+
+
+toRequest secretsValue =
+    { masked = Secrets.maskedLookup secretsValue
+    , unmasked = Secrets.maskedLookup secretsValue
+    }
+
+
+simulateHttp : Secrets.Value Request.Request -> String -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateHttp request response program =
+    program
+        |> ProgramTest.ensureOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+            (\actualPorts ->
+                case actualPorts of
+                    [ ToJsPayload.DoHttp _ ] ->
+                        Expect.pass
+
+                    _ ->
+                        Expect.fail <|
+                            "Expected an HTTP request, got:\n"
+                                ++ Debug.toString actualPorts
+            )
+        |> ProgramTest.simulateIncomingPort "fromJsPort"
+            (Encode.object
+                [ ( "tag", Encode.string "GotBatch" )
+                , ( "data"
+                  , Encode.list
+                        (\req ->
+                            Encode.object
+                                [ ( "request"
+                                  , Encode.object
+                                        [ ( "masked"
+                                          , Codec.encodeToValue Request.codec
+                                                (toRequest req
+                                                    |> .masked
+                                                )
+                                          )
+                                        , ( "unmasked"
+                                          , Codec.encodeToValue Request.codec
+                                                (toRequest req
+                                                    |> .unmasked
+                                                )
+                                          )
+                                        ]
+                                  )
+                                , ( "response", Encode.string response )
+                                ]
+                        )
+                        [ request ]
+                  )
+                ]
+            )
+
+
+simulateMultipleHttp : List ( Secrets.Value Request.Request, String ) -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateMultipleHttp requests program =
+    program
+        |> ProgramTest.ensureOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+            (\actualPorts ->
+                case actualPorts of
+                    (ToJsPayload.DoHttp _) :: rest ->
+                        -- TODO check count of HTTP requests, and check the URLs
+                        Expect.pass
+
+                    _ ->
+                        Expect.fail <|
+                            "Expected an HTTP request, got:\n"
+                                ++ Debug.toString actualPorts
+            )
+        |> ProgramTest.simulateIncomingPort "fromJsPort"
+            (Encode.object
+                [ ( "tag", Encode.string "GotBatch" )
+                , ( "data"
+                  , Encode.list
+                        (\( req, response ) ->
+                            Encode.object
+                                [ ( "request"
+                                  , Encode.object
+                                        [ ( "masked"
+                                          , Codec.encodeToValue Request.codec
+                                                (toRequest req
+                                                    |> .masked
+                                                )
+                                          )
+                                        , ( "unmasked"
+                                          , Codec.encodeToValue Request.codec
+                                                (toRequest req
+                                                    |> .unmasked
+                                                )
+                                          )
+                                        ]
+                                  )
+                                , ( "response", Encode.string response )
+                                ]
+                        )
+                        requests
+                  )
+                ]
+            )

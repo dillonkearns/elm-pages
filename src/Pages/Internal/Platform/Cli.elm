@@ -5,6 +5,7 @@ module Pages.Internal.Platform.Cli exposing
     , Program
     , cliApplication
     , init
+    , requestDecoder
     , update
     )
 
