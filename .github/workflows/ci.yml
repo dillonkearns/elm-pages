@@ -62,7 +62,7 @@ jobs:
         id: docs
         run: npx --no-install elm make --docs docs.json
       - name: Setup for cypress
-        run: (cd examples/docs && npm install && npx elm-tooling install)
+        run: (cd examples/end-to-end && npm install && npx elm-tooling install)
       - name: Cypress tests
         uses: cypress-io/github-action@v2
         with:
