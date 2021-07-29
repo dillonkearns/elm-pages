@@ -4,3 +4,5 @@ dist/
 .cache/
 .elm-pages/
 functions/render/elm-pages-cli.js
+my-json-data.json
+
