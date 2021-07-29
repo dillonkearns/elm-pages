@@ -702,7 +702,7 @@ So maybe MISSING should be API_KEY"""
                                 |> DataSource.map
                                     (List.map
                                         (\topic ->
-                                            DataSource.File.bodyWithoutFrontmatter ("content/glossary/" ++ topic ++ ".md" |> Debug.log "glossary-file")
+                                            DataSource.File.bodyWithoutFrontmatter ("content/glossary/" ++ topic ++ ".md")
                                                 |> DataSource.map (Tuple.pair topic)
                                         )
                                     )
