@@ -566,37 +566,42 @@ So maybe MISSING should be API_KEY"""
 """)
         , test "uses real secrets to perform request and masked secrets to store and lookup response" <|
             \() ->
-                start
-                    [ ( []
-                      , DataSource.Http.request
-                            (Secrets.succeed
-                                (\apiKey bearer ->
-                                    { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
-                                    , method = "GET"
-                                    , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
-                                    , body = DataSource.emptyBody
-                                    }
-                                )
-                                |> Secrets.with "API_KEY"
-                                |> Secrets.with "BEARER"
+                startSimple []
+                    (DataSource.Http.request
+                        (Secrets.succeed
+                            (\apiKey bearer ->
+                                { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                , method = "GET"
+                                , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
+                                , body = DataSource.emptyBody
+                                }
                             )
-                            (Decode.succeed ())
-                      )
-                    ]
-                    |> ProgramTest.ensureHttpRequest "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
-                        (\request ->
-                            request.headers
-                                |> Expect.equal [ ( "Authorization", "Bearer XYZ789" ) ]
+                            |> Secrets.with "API_KEY"
+                            |> Secrets.with "BEARER"
                         )
-                    |> ProgramTest.simulateHttpResponse
-                        "GET"
-                        "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
-                        (Test.Http.httpResponse
-                            { statusCode = 200
-                            , headers = []
-                            , body = """{ "stargazer_count": 86 }"""
-                            }
+                        (Decode.succeed ())
+                    )
+                    |> simulateHttpAssert
+                        (Secrets.succeed
+                            (\apiKey bearer ->
+                                { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
+                                , method = "GET"
+                                , headers = [ ( "Authorization", "Bearer " ++ bearer ) ]
+                                , body = DataSource.emptyBody
+                                }
+                            )
+                            |> Secrets.with "API_KEY"
+                            |> Secrets.with "BEARER"
+                        )
+                        """{ "stargazer_count": 86 }"""
+                        (Expect.all
+                            [ \requests ->
+                                requests.unmasked.headers
+                                    |> Expect.equal [ ( "Authorization", "Bearer XYZ789" ) ]
+                            , \requests ->
+                                requests.unmasked.url
+                                    |> Expect.equal "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=ABCD1234"
+                            ]
                         )
                     |> expectSuccess
                         [ ( { method = "GET"
@@ -1715,6 +1720,55 @@ simulateMultipleHttp requests program =
                                 ]
                         )
                         requests
+                  )
+                ]
+            )
+
+
+simulateHttpAssert : Secrets.Value Request.Request -> String -> ({ masked : Request.Request, unmasked : Request.Request } -> Expect.Expectation) -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateHttpAssert request response checkRequest program =
+    program
+        |> ProgramTest.ensureOutgoingPortValues
+            "toJsPort"
+            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+            (\actualPorts ->
+                case actualPorts of
+                    [ ToJsPayload.DoHttp actualReq ] ->
+                        --Expect.pass
+                        checkRequest actualReq
+
+                    _ ->
+                        Expect.fail <|
+                            "Expected an HTTP request, got:\n"
+                                ++ Debug.toString actualPorts
+            )
+        |> ProgramTest.simulateIncomingPort "fromJsPort"
+            (Encode.object
+                [ ( "tag", Encode.string "GotBatch" )
+                , ( "data"
+                  , Encode.list
+                        (\req ->
+                            Encode.object
+                                [ ( "request"
+                                  , Encode.object
+                                        [ ( "masked"
+                                          , Codec.encodeToValue Request.codec
+                                                (toRequest req
+                                                    |> .masked
+                                                )
+                                          )
+                                        , ( "unmasked"
+                                          , Codec.encodeToValue Request.codec
+                                                (toRequest req
+                                                    |> .unmasked
+                                                )
+                                          )
+                                        ]
+                                  )
+                                , ( "response", Encode.string response )
+                                ]
+                        )
+                        [ request ]
                   )
                 ]
             )
