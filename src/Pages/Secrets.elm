@@ -1,7 +1,7 @@
 module Pages.Secrets exposing (Value, map, succeed, with)
 
-{-| Secrets are a secure way to use environment variables in your StaticHttp requests. The actual environment
-variable value is used to perform StaticHttp requests, while the masked value is the only thing that ends up in your
+{-| Secrets are a secure way to use environment variables in your DataSource.Http requests. The actual environment
+variable value is used to perform DataSource.Http requests, while the masked value is the only thing that ends up in your
 built site. Let's go through what happens in a concrete example:
 
 
@@ -13,17 +13,18 @@ Let's say you execute this from the shell:
 GITHUB_TOKEN=abcd1234 API_KEY=xyz789 elm-pages build
 ```
 
-And your StaticHttp request in your Elm code looks like this:
+And your DataSource.Http request in your Elm code looks like this:
 
     import Pages.Secrets as Secrets
-    import DataSource
+    import DataSource.Http
 
-    StaticHttp.request
+    DataSource.Http.request
         (Secrets.succeed
             (\apiKey githubToken ->
                 { url = "https://api.github.com/repos/dillonkearns/elm-pages?apiKey=" ++ apiKey
                 , method = "GET"
                 , headers = [ ( "Authorization", "Bearer " ++ githubToken ) ]
+                , body = DataSource.Http.emptyBody
                 }
             )
             |> Secrets.with "API_KEY"
@@ -36,7 +37,7 @@ The following masked values are what will be visible in your production bundle i
 
     [GET]https://api.github.com/repos/dillonkearns/elm-pages?apiKey=<API_KEY>Authorization : Bearer <BEARER>
 
-So the actual Secrets only exist for the duration of the build in order to perform the StaticHttp requests, but they
+So the actual Secrets only exist for the duration of the build in order to perform the DataSource.Http requests, but they
 are replaced with `<SECRET_NAME>` once that step is done and your assets are bundled.
 
 @docs Value, map, succeed, with
