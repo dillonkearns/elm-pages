@@ -58,7 +58,9 @@ const restoreColor = (errors) => {
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
-const restoreProblem = (path) => ({ title, message }) =>
-  [parseHeader(title, path), ...message.map(parseMsg)].join("");
+const restoreProblem =
+  (path) =>
+  ({ title, message }) =>
+    [parseHeader(title, path), ...message.map(parseMsg)].join("");
 
 module.exports = { restoreColor };
