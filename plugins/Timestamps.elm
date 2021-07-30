@@ -18,7 +18,7 @@ type alias Timestamps =
 
 data : String -> DataSource Timestamps
 data filePath =
-    DataSource.Port.send "gitTimestamps"
+    DataSource.Port.get "gitTimestamps"
         (Json.Encode.string filePath)
         (Decode.string
             |> Decode.map (String.trim >> String.split "\n")

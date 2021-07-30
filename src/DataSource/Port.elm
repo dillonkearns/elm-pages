@@ -1,8 +1,8 @@
-module DataSource.Port exposing (send)
+module DataSource.Port exposing (get)
 
 {-|
 
-@docs send
+@docs get
 
 -}
 
@@ -74,8 +74,8 @@ prefer to add ANSI color codes within the error string in an exception and it wi
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server.
 
 -}
-send : String -> Json.Encode.Value -> Decoder b -> DataSource.DataSource b
-send portName input decoder =
+get : String -> Json.Encode.Value -> Decoder b -> DataSource.DataSource b
+get portName input decoder =
     DataSource.Http.request
         (Secrets.succeed
             { url = "port://" ++ portName
