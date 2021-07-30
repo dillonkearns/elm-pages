@@ -10,9 +10,10 @@ A **statically typed** site generator, written with pure Elm.
 
 ## Getting Started Resources
 
+- [elm-pages Docs Site](https://elm-pages.com/docs)
+- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/)
 - [Quick start repo](https://github.com/dillonkearns/elm-pages-starter) [(live site hosted here)](https://elm-pages-starter.netlify.com)
 - [Introducing `elm-pages` blog post](https://elm-pages.com/blog/introducing-elm-pages)
-- [Quick Start page in docs site](https://elm-pages.com/docs)
 - [`examples` folder](https://github.com/dillonkearns/elm-pages/blob/master/examples/) (includes https://elm-pages.com site source)
 
 ## Key features
@@ -67,82 +68,6 @@ Try out `elm-pages`, open up Lighthouse, and
 see for yourself! Or check out https://elm-pages.com
 (find the source code in the [`examples/docs/`](https://github.com/dillonkearns/elm-pages/tree/master/examples/docs) folder).
 
-## Built-in type-safety
-
-`elm-pages` generates static Elm data for you
-to make sure you don't have any broken links or images.
-The SEO API even uses it to make sure you are only pointing to
-valid images and pages so you have valid metadata!
-
-For example, if you have a content folder like this:
-
-```shell
-- content
-  - blog
-    - index.md
-    - hello-world.md
-    - second-post.md
-```
-
-Then you will be able to access those pages in a
-type-safe way like this from Elm:
-
-```elm
--- this is a generated module
--- it is re-run whenever your `content` folder changes
--- just run `elm-pages develop` to start the watcher
-import Pages exposing (pages)
-import Pages.PagePath as PagePath exposing (PagePath)
-
-
-indexPage : PagePath Pages.PathKey
-indexPage =
-  pages.blog.index
-
-
-helloPostPage : PagePath Pages.PathKey
-helloPostPage =
-  pages.blog.helloWorld
-
-
-secondPost : PagePath Pages.PathKey
-secondPost =
-  pages.blog.secondPost
-```
-
-## Offline Support
-
-`elm-pages` uses pure elm configuration to setup
-your progressive web app settings. This includes
-a "source icon" which is used to generate your favicons
-and icons for the images following best practices for
-a progressive web app. The image is even a type-safe
-`ImagePath` that guarantees you are using an available
-image!
-
-```elm
-manifest : Manifest.Config Pages.PathKey
-manifest =
-    { backgroundColor = Just Color.white
-    , categories = [ Pages.Manifest.Category.education ]
-    , displayMode = Manifest.Standalone
-    , orientation = Manifest.Portrait
-    , description = "elm-pages - A statically typed site generator."
-    , iarcRatingId = Nothing
-    , name = "elm-pages docs"
-    , themeColor = Just Color.white
-    , startUrl = pages.index
-    , shortName = Just "elm-pages"
-    , sourceIcon = images.icon
-    }
-```
-
-It will also take care of setting up a service worker
-which will automatically cache the basic shell
-for your application's compiled Elm code and
-HTML container. The page content is currently cached
-as it is loaded, but in the future there will
-be an API to choose some pages to "warm up" in the cache.
 
 ## What's next?
 
