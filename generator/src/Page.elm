@@ -51,9 +51,9 @@ import Browser.Navigation
 import DataSource exposing (DataSource)
 import Head
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Shared
 import View exposing (View)
 
@@ -258,7 +258,7 @@ prerender { data, head, routes } =
                             else
                                 -- TODO pass in toString function, and use a custom one to avoid Debug.toString
                                 Just <|
-                                    NotFoundReason.NotPrerendered
+                                    Pages.Internal.NotFoundReason.NotPrerendered
                                         { moduleName = moduleContext.moduleName
                                         , routePattern = moduleContext.routePattern
                                         , matchedRouteParams = toRecord routeParams

@@ -194,13 +194,13 @@ function toElmPathPattern(name) {
         return [];
       }
       case "optional": {
-        return [`( RoutePattern.Optional "${segment.name}" )`];
+        return [`( Pages.Internal.RoutePattern.Optional "${segment.name}" )`];
       }
       case "required-splat": {
-        return [`RoutePattern.RequiredSplat`];
+        return [`Pages.Internal.RoutePattern.RequiredSplat`];
       }
       case "optional-splat": {
-        return [`RoutePattern.OptionalSplat`];
+        return [`Pages.Internal.RoutePattern.OptionalSplat`];
       }
     }
   });
@@ -211,10 +211,10 @@ function toElmPathPattern(name) {
     .flatMap((param) => {
       switch (param.kind) {
         case "static": {
-          return [`RoutePattern.StaticSegment "${camelToKebab(param.name)}"`];
+          return [`Pages.Internal.RoutePattern.StaticSegment "${camelToKebab(param.name)}"`];
         }
         case "dynamic": {
-          return [`RoutePattern.DynamicSegment "${param.name}"`];
+          return [`Pages.Internal.RoutePattern.DynamicSegment "${param.name}"`];
         }
         case "optional": {
           return [];

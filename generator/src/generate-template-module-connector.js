@@ -461,7 +461,7 @@ dataForRoute route =
           )
           .join("\n        ")}
 
-handleRoute : Maybe Route -> DataSource (Maybe NotFoundReason.NotFoundReason)
+handleRoute : Maybe Route -> DataSource (Maybe Pages.Internal.NotFoundReason.NotFoundReason)
 handleRoute maybeRoute =
     case maybeRoute of
         Nothing ->
@@ -572,7 +572,7 @@ routePatterns2 =
     ]
 
 
-routePatterns3 : List RoutePattern.RoutePattern
+routePatterns3 : List Pages.Internal.RoutePattern.RoutePattern
 routePatterns3 =
     [ ${sortTemplates(templates)
       .map((name) => {
