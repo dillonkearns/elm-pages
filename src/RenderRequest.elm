@@ -20,7 +20,7 @@ import Url exposing (Url)
 
 type RequestPayload route
     = Page { path : Path, frontmatter : route }
-    | Api ( String, ApiRoute.Done ApiRoute.Response )
+    | Api ( String, ApiRoute.ApiRoute ApiRoute.Response )
     | NotFound Path
 
 
@@ -106,7 +106,7 @@ requestPayloadDecoder config =
                     route =
                         pathToUrl path |> config.urlToRoute
 
-                    apiRoute : Maybe (ApiRoute.Done ApiRoute.Response)
+                    apiRoute : Maybe (ApiRoute.ApiRoute ApiRoute.Response)
                     apiRoute =
                         Internal.ApiRoute.firstMatch (String.dropLeft 1 path)
                             (config.apiRoutes HtmlPrinter.htmlToString)

@@ -9,6 +9,6 @@ import Route exposing (Route)
 routes :
     DataSource (List Route)
     -> (Html Never -> String)
-    -> List (ApiRoute.Done ApiRoute.Response)
+    -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     []

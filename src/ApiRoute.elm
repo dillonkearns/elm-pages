@@ -1,31 +1,31 @@
-module ApiRoute exposing (Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes)
+module ApiRoute exposing (ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes)
 
 {-|
 
-@docs Done, Handler, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
+@docs ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
 
 -}
 
 import DataSource exposing (DataSource)
-import Internal.ApiRoute exposing (Done(..), Handler(..))
+import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Regex
 
 
 {-| -}
-type alias Done response =
-    Internal.ApiRoute.Done response
+type alias ApiRoute response =
+    Internal.ApiRoute.ApiRoute response
 
 
 {-| -}
-single : Handler (DataSource Response) (List String) -> Done Response
+single : ApiRouteBuilder (DataSource Response) (List String) -> ApiRoute Response
 single handler =
     handler
         |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
 
 
 {-| -}
-buildTimeRoutes : (constructor -> DataSource (List (List String))) -> Handler (DataSource Response) constructor -> Done Response
-buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandler) =
+buildTimeRoutes : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource Response) constructor -> ApiRoute Response
+buildTimeRoutes buildUrls ((ApiRouteBuilder pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)
         buildTimeRoutes__ =
@@ -36,7 +36,7 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
         preBuiltMatches =
             buildUrls (constructor [])
     in
-    Done
+    ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \path ->
@@ -75,8 +75,8 @@ buildTimeRoutes buildUrls ((Handler pattern _ toString constructor) as fullHandl
 
 
 {-| -}
-type alias Handler a constructor =
-    Internal.ApiRoute.Handler a constructor
+type alias ApiRouteBuilder a constructor =
+    Internal.ApiRoute.ApiRouteBuilder a constructor
 
 
 {-| -}
@@ -85,29 +85,29 @@ type alias Response =
 
 
 {-| -}
-succeed : a -> Handler a (List String)
+succeed : a -> ApiRouteBuilder a (List String)
 succeed a =
-    Handler "" (\_ -> a) (\_ -> "") (\list -> list)
+    ApiRouteBuilder "" (\_ -> a) (\_ -> "") (\list -> list)
 
 
 {-| -}
-literal : String -> Handler a constructor -> Handler a constructor
-literal segment (Handler pattern handler toString constructor) =
-    Handler (pattern ++ segment) handler (\values -> toString values ++ segment) constructor
+literal : String -> ApiRouteBuilder a constructor -> ApiRouteBuilder a constructor
+literal segment (ApiRouteBuilder pattern handler toString constructor) =
+    ApiRouteBuilder (pattern ++ segment) handler (\values -> toString values ++ segment) constructor
 
 
 {-| -}
-slash : Handler a constructor -> Handler a constructor
-slash (Handler pattern handler toString constructor) =
-    Handler (pattern ++ "/") handler (\arg -> toString arg ++ "/") constructor
+slash : ApiRouteBuilder a constructor -> ApiRouteBuilder a constructor
+slash (ApiRouteBuilder pattern handler toString constructor) =
+    ApiRouteBuilder (pattern ++ "/") handler (\arg -> toString arg ++ "/") constructor
 
 
 {-| -}
 capture :
-    Handler (String -> a) constructor
-    -> Handler a (String -> constructor)
-capture (Handler pattern previousHandler toString constructor) =
-    Handler
+    ApiRouteBuilder (String -> a) constructor
+    -> ApiRouteBuilder a (String -> constructor)
+capture (ApiRouteBuilder pattern previousHandler toString constructor) =
+    ApiRouteBuilder
         (pattern ++ "(.*)")
         (\matches ->
             case matches of
@@ -133,10 +133,10 @@ capture (Handler pattern previousHandler toString constructor) =
 
 {-| -}
 int :
-    Handler (Int -> a) constructor
-    -> Handler a (Int -> constructor)
-int (Handler pattern previousHandler toString constructor) =
-    Handler
+    ApiRouteBuilder (Int -> a) constructor
+    -> ApiRouteBuilder a (Int -> constructor)
+int (ApiRouteBuilder pattern previousHandler toString constructor) =
+    ApiRouteBuilder
         (pattern ++ "(\\d+)")
         (\matches ->
             case matches of
@@ -161,12 +161,12 @@ int (Handler pattern previousHandler toString constructor) =
 
 
 {-| -}
-getBuildTimeRoutes : Done response -> DataSource (List String)
-getBuildTimeRoutes (Done handler) =
+getBuildTimeRoutes : ApiRoute response -> DataSource (List String)
+getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
 
 
 
---captureRest : Handler (List String -> a) b -> Handler a b
+--captureRest : ApiRouteBuilder (List String -> a) b -> ApiRouteBuilder a b
 --captureRest previousHandler =
 --    Debug.todo ""

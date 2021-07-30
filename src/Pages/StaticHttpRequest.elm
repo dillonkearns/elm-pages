@@ -18,7 +18,7 @@ import TerminalText as Terminal
 type RawRequest value
     = Request (Dict String WhatToDo) ( List (Secrets.Value Pages.StaticHttp.Request.Request), KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value )
     | RequestError Error
-    | Done (Dict String WhatToDo) value
+    | ApiRoute (Dict String WhatToDo) value
 
 
 type WhatToDo
@@ -186,7 +186,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
                         followupRequest
                         rawResponses
 
-        Done partiallyStrippedResponses _ ->
+        ApiRoute partiallyStrippedResponses _ ->
             Dict.merge
                 (\key a -> Dict.insert key a)
                 (\key a b -> Dict.insert key (merge key a b))
@@ -244,7 +244,7 @@ resolve appType request rawResponses =
                 nextRequest ->
                     resolve appType nextRequest rawResponses
 
-        Done _ value ->
+        ApiRoute _ value ->
             Ok value
 
 
@@ -271,7 +271,7 @@ resolveUrlsHelp appType rawResponses soFar request =
                 (soFar ++ urlList)
                 (lookupFn KeepOrDiscard.Keep appType rawResponses)
 
-        Done _ _ ->
+        ApiRoute _ _ ->
             soFar
 
 
@@ -316,5 +316,5 @@ cacheRequestResolutionHelp foundUrls appType rawResponses request =
                 rawResponses
                 (lookupFn KeepOrDiscard.Keep appType rawResponses)
 
-        Done _ _ ->
+        ApiRoute _ _ ->
             Complete

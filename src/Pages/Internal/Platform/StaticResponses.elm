@@ -8,7 +8,7 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
-import Internal.ApiRoute exposing (Done(..))
+import Internal.ApiRoute exposing (ApiRoute(..))
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -41,13 +41,13 @@ buildTimeFilesRequest :
     { config
         | apiRoutes :
             (Html Never -> String)
-            -> List (ApiRoute.Done ApiRoute.Response)
+            -> List (ApiRoute.ApiRoute ApiRoute.Response)
     }
     -> DataSource (List (Result String { path : List String, content : String }))
 buildTimeFilesRequest config =
     config.apiRoutes htmlToString
         |> List.map
-            (\(Done handler) ->
+            (\(ApiRoute handler) ->
                 handler.buildTimeRoutes
                     |> DataSource.andThen
                         (\paths ->
@@ -190,7 +190,7 @@ nextStep :
         , data : route -> DataSource pageData
         , sharedData : DataSource sharedData
         , site : SiteConfig route siteData
-        , apiRoutes : (Html Never -> String) -> List (ApiRoute.Done ApiRoute.Response)
+        , apiRoutes : (Html Never -> String) -> List (ApiRoute.ApiRoute ApiRoute.Response)
     }
     ->
         { model

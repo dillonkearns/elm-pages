@@ -160,8 +160,8 @@ map fn requestInfo =
                     map fn (lookupFn keepOrDiscard appType rawResponses)
                 )
 
-        Done stripped value ->
-            Done stripped (fn value)
+        ApiRoute stripped value ->
+            ApiRoute stripped (fn value)
 
 
 dontSaveData : DataSource a -> DataSource a
@@ -177,7 +177,7 @@ dontSaveData requestInfo =
                     lookupFn KeepOrDiscard.Discard appType rawResponses
                 )
 
-        Done _ _ ->
+        ApiRoute _ _ ->
             requestInfo
 
 
@@ -225,7 +225,7 @@ distill uniqueKey encode decode dataSource =
                                 |> distill uniqueKey encode decode
                 )
 
-        Done strippedResponses value ->
+        ApiRoute strippedResponses value ->
             Request
                 (strippedResponses
                     |> Dict.insert
@@ -334,7 +334,7 @@ toResult result =
             RequestError error
 
         Ok ( stripped, okValue ) ->
-            Done stripped okValue
+            ApiRoute stripped okValue
 
 
 {-| -}
@@ -451,26 +451,26 @@ map2 fn request1 request2 =
                         (lookupFn2 keepOrDiscard appType rawResponses)
                 )
 
-        ( Request dict1 ( urls1, lookupFn1 ), Done stripped2 value2 ) ->
+        ( Request dict1 ( urls1, lookupFn1 ), ApiRoute stripped2 value2 ) ->
             Request dict1
                 ( urls1
                 , \keepOrDiscard appType rawResponses ->
                     map2 fn
                         (lookupFn1 keepOrDiscard appType rawResponses)
-                        (Done stripped2 value2)
+                        (ApiRoute stripped2 value2)
                 )
 
-        ( Done stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
+        ( ApiRoute stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
                 , \keepOrDiscard appType rawResponses ->
                     map2 fn
-                        (Done stripped2 value2)
+                        (ApiRoute stripped2 value2)
                         (lookupFn1 keepOrDiscard appType rawResponses)
                 )
 
-        ( Done stripped1 value1, Done stripped2 value2 ) ->
-            Done
+        ( ApiRoute stripped1 value1, ApiRoute stripped2 value2 ) ->
+            ApiRoute
                 (combineReducedDicts stripped1 stripped2)
                 (fn value1 value2)
 
@@ -511,7 +511,7 @@ lookupHelp strippedSoFar keepOrDiscard appType requestInfo rawResponses =
                 (addUrls urls (lookupFn keepOrDiscard appType rawResponses))
                 rawResponses
 
-        Done stripped value ->
+        ApiRoute stripped value ->
             Ok ( combineReducedDicts stripped strippedSoFar, value )
 
 
@@ -524,8 +524,8 @@ addUrls urlsToAdd requestInfo =
         Request stripped ( initialUrls, function ) ->
             Request stripped ( initialUrls ++ urlsToAdd, function )
 
-        Done stripped value ->
-            Done stripped value
+        ApiRoute stripped value ->
+            ApiRoute stripped value
 
 
 {-| The full details to perform a StaticHttp request.
@@ -548,7 +548,7 @@ lookupUrls requestInfo =
         Request _ ( urls, _ ) ->
             urls
 
-        Done _ _ ->
+        ApiRoute _ _ ->
             []
 
 
@@ -595,8 +595,8 @@ andThen fn requestInfo =
                                     RequestError error ->
                                         RequestError error
 
-                                    Done dict finalValue ->
-                                        Done (combineReducedDicts strippedResponses dict) finalValue
+                                    ApiRoute dict finalValue ->
+                                        ApiRoute (combineReducedDicts strippedResponses dict) finalValue
                    )
         )
 
@@ -637,7 +637,7 @@ succeed value =
     Request Dict.empty
         ( []
         , \_ _ _ ->
-            Done Dict.empty value
+            ApiRoute Dict.empty value
         )
 
 

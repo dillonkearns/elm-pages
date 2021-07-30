@@ -535,7 +535,7 @@ maybeToString maybeString =
 
 
 
-routePatterns : ApiRoute.Done ApiRoute.Response
+routePatterns : ApiRoute.ApiRoute ApiRoute.Response
 routePatterns =
     ApiRoute.succeed
         (Json.Encode.list
@@ -599,7 +599,7 @@ getStaticRoutes =
         |> DataSource.map List.concat
 
 
-pathsToGenerateHandler : ApiRoute.Done ApiRoute.Response
+pathsToGenerateHandler : ApiRoute.ApiRoute ApiRoute.Response
 pathsToGenerateHandler =
     ApiRoute.succeed
         (DataSource.map2
@@ -630,7 +630,7 @@ pathsToGenerateHandler =
         |> ApiRoute.single
 
 
-manifestHandler : ApiRoute.Done ApiRoute.Response
+manifestHandler : ApiRoute.ApiRoute ApiRoute.Response
 manifestHandler =
     ApiRoute.succeed
         (getStaticRoutes

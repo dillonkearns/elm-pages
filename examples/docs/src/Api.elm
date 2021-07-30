@@ -19,7 +19,7 @@ import Time
 routes :
     DataSource (List Route)
     -> (Html Never -> String)
-    -> List (ApiRoute.Done ApiRoute.Response)
+    -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     [ ApiRoute.succeed
         (\userId ->
@@ -134,7 +134,7 @@ rss :
     , indexPage : List String
     }
     -> DataSource.DataSource (List Rss.Item)
-    -> ApiRoute.Done ApiRoute.Response
+    -> ApiRoute.ApiRoute ApiRoute.Response
 rss options itemsRequest =
     ApiRoute.succeed
         (itemsRequest

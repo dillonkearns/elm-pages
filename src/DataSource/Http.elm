@@ -464,4 +464,4 @@ toResult result =
             RequestError error
 
         Ok ( stripped, okValue ) ->
-            Done stripped okValue
+            ApiRoute stripped okValue
