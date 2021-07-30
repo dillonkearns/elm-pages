@@ -6,7 +6,8 @@ module QueryParams exposing
     , toDict, toString
     )
 
-{-|
+{-| Represents the query portion of a URL. You can use `toDict` or `toString` to turn it into basic types, or you can
+parse it into a custom type using the other functions in this module.
 
 @docs QueryParams
 
