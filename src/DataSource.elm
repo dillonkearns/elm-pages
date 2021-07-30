@@ -35,6 +35,38 @@ A few reasons:
 3.  You don't have to worry about an API being down, or hitting it repeatedly. You can build in data and it will end up as JSON files served up with all the other assets of your site. If your CDN (static site host) is down, then the rest of your site is probably down anyway. If your site host is up, then so is all of your `DataSource` data. Also, it will be served up extremely quickly without needing to wait for any database queries to be performed, `andThen` requests to be resolved, etc., because all of that work and waiting was done at build-time!
 4.  You can pre-render pages, including the SEO meta tags, with all that rich, well-typed Elm data available! That's something you can't accomplish with a vanilla Elm app, and it's one of the main use cases for elm-pages.
 
+
+## Mental Model
+
+You can think of a DataSource as a declarative (not imperative) definition of data. It represents where to get the data from, and how to transform it (map, combine with other DataSources, etc.).
+
+Even though an HTTP request is non-deterministic, you should think of it that way as much as possible with a DataSource because elm-pages will only perform a given DataSource.Http request once, and
+it will share the result between any other DataSource.Http requests that have the exact same URL, Method, Body, and Headers.
+
+So calling a function to increment a counter on a server through an HTTP request would not be a good fit for a `DataSource`. Let's imagine we have an HTTP endpoint that gives these stateful results when called repeatedly:
+
+<https://my-api.example.com/increment-counter>
+-> Returns 1
+<https://my-api.example.com/increment-counter>
+-> Returns 2
+<https://my-api.example.com/increment-counter>
+-> Returns 3
+
+If we define a `DataSource` that hits that endpoint:
+
+    data =
+        DataSource.Http.get
+            (Secrets.succeed "https://my-api.example.com/increment-counter")
+            Decode.int
+
+No matter how many places we use that `DataSource`, its response will be "locked in" (let's say the response was `3`, then every page would have the same value of `3` for that request).
+
+So even though HTTP requests, JavaScript code, etc. can be non-deterministic, a `DataSource` always represents a single snapshot of a resource, and those values will be re-used as if they were a deterministic, declarative resource.
+So it's best to use that mental model to avoid confusion.
+
+
+## Basics
+
 @docs DataSource
 
 @docs map, succeed, fail
