@@ -1,4 +1,4 @@
-module Router exposing (Matcher, firstMatch, fromOptionalSplat, maybeToList, nonEmptyToList, toNonEmpty)
+module Pages.Internal.Router exposing (Matcher, firstMatch, fromOptionalSplat, maybeToList, nonEmptyToList, toNonEmpty)
 
 {-| Exposed for internal use only (used in generated code).
 

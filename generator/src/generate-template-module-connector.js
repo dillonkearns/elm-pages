@@ -681,7 +681,7 @@ mapBoth fnA fnB ( a, b, c ) =
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attr
 import Path exposing (Path)
-import Router
+import Pages.Internal.Router
 
 
 {-| -}
@@ -694,7 +694,7 @@ urlToRoute : { url | path : String } -> Maybe Route
 urlToRoute url =
     url.path
     |> withoutBaseUrl 
-    |> Router.firstMatch matchers 
+    |> Pages.Internal.Router.firstMatch matchers
 
 
 baseUrl : String
@@ -716,7 +716,7 @@ withoutBaseUrl path =
       path
 
 {-| -}
-matchers : List (Router.Matcher Route)
+matchers : List (Pages.Internal.Router.Matcher Route)
 matchers =
     [ ${sortTemplates(templates)
       .map(
@@ -749,10 +749,10 @@ routeToPath route =
                         : `[ "${camelToKebab(param.name)}" ]`;
                     }
                     case "optional": {
-                      return `Router.maybeToList params.${param.name}`;
+                      return `Pages.Internal.Router.maybeToList params.${param.name}`;
                     }
                     case "required-splat": {
-                      return `Router.nonEmptyToList params.${param.name}`;
+                      return `Pages.Internal.Router.nonEmptyToList params.${param.name}`;
                     }
                     case "dynamic": {
                       return `[ params.${param.name} ]`;
@@ -969,10 +969,10 @@ function routeRegex(name) {
 function prefixThing(param) {
   switch (param.kind) {
     case "optional-splat": {
-      return "Router.fromOptionalSplat ";
+      return "Pages.Internal.Router.fromOptionalSplat ";
     }
     case "required-splat": {
-      return "Router.toNonEmpty ";
+      return "Pages.Internal.Router.toNonEmpty ";
     }
     default: {
       return "";

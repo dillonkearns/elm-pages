@@ -25,7 +25,7 @@
         "Pages.Flags",
         "Pages.Internal.Platform",
         "Pages.Internal.Platform.Cli",
-        "Router",
+        "Pages.Internal.Router",
         "Pages.Internal.RoutePattern",
         "Pages.Internal.NotFoundReason"
     ],
