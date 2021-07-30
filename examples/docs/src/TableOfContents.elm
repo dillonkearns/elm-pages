@@ -31,7 +31,6 @@ dataSource docFiles =
                         )
             )
         |> DataSource.resolve
-        |> DataSource.map List.reverse
         |> DataSource.distillSerializeCodec "table-of-contents" serialize
 
 
