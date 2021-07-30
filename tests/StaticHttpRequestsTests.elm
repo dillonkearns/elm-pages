@@ -11,9 +11,9 @@ import Expect
 import Html
 import Json.Decode as JD
 import Json.Encode as Encode
-import Pages.Internal.NotFoundReason
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
+import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
@@ -1171,7 +1171,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                                     Nothing
 
                                 else
-                                    Just NotFoundReason.NoMatchingRoute
+                                    Just Pages.Internal.NotFoundReason.NoMatchingRoute
                            )
                         |> DataSource.succeed
             , urlToRoute = .path >> Route
