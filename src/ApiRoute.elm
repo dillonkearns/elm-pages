@@ -1,6 +1,11 @@
 module ApiRoute exposing (ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes)
 
-{-|
+{-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
+to a DataSource so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
+the DataSource for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
+
+In a future release, ApiRoutes may be able to run at request-time in a serverless function, allowing you to use pure Elm code to create dynamic APIs, and even pulling in data from
+DataSources dynamically.
 
 @docs ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
 
@@ -160,7 +165,8 @@ int (ApiRouteBuilder pattern previousHandler toString constructor) =
         )
 
 
-{-| -}
+{-| For internal use by generated code. Not so useful in user-land.
+-}
 getBuildTimeRoutes : ApiRoute response -> DataSource (List String)
 getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
