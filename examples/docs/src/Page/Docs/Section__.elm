@@ -70,7 +70,7 @@ routes =
 
 data : RouteParams -> DataSource Data
 data routeParams =
-    DataSource.map3 Data
+    DataSource.map4 Data
         (pageBody routeParams)
         (previousAndNextData routeParams)
         (routeParams.section
@@ -79,6 +79,7 @@ data routeParams =
             |> Glob.expectUniqueMatch
             |> DataSource.map filePathToEditUrl
         )
+        (routeParams |> filePathDataSource |> DataSource.andThen MarkdownCodec.titleAndDescription)
 
 
 filePathToEditUrl : String -> String
@@ -175,7 +176,7 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = static.data.body.description
+        , description = static.data.metadata.description
         , locale = Nothing
         , title = static.data.titles.title ++ " | elm-pages docs"
         }
@@ -183,9 +184,10 @@ head static =
 
 
 type alias Data =
-    { body : { description : String, body : List (Html Msg) }
+    { body : List (Html Msg)
     , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
     , editUrl : String
+    , metadata : { title : String, description : String }
     }
 
 
@@ -239,7 +241,7 @@ view maybeUrl sharedModel static =
                         , Bp.xl [ Tw.pr_36 ]
                         ]
                     ]
-                    (static.data.body.body
+                    (static.data.body
                         ++ [ NextPrevious.view static.data.titles.previousAndNext
                            , Html.hr [] []
                            , Html.footer
@@ -272,8 +274,8 @@ view maybeUrl sharedModel static =
     }
 
 
-pageBody : RouteParams -> DataSource { description : String, body : List (Html msg) }
-pageBody routeParams =
+filePathDataSource : RouteParams -> DataSource String
+filePathDataSource routeParams =
     let
         slug : String
         slug =
@@ -281,11 +283,14 @@ pageBody routeParams =
                 |> Maybe.withDefault "what-is-elm-pages"
     in
     Glob.expectUniqueMatch (findBySlug slug)
+
+
+pageBody : RouteParams -> DataSource (List (Html msg))
+pageBody routeParams =
+    routeParams
+        |> filePathDataSource
         |> DataSource.andThen
-            (MarkdownCodec.withFrontmatter (\description body -> { description = description, body = body })
-                (Decode.field "description" Decode.string)
-                TailwindMarkdownRenderer.renderer
-            )
+            (MarkdownCodec.withoutFrontmatter TailwindMarkdownRenderer.renderer)
 
 
 findBySlug : String -> Glob String

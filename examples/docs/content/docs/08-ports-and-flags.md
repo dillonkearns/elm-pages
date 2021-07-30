@@ -1,7 +1,3 @@
----
-description: TODO
----
-
 # Ports and Flags
 
 You can handle ports and flags similar to how you would in a regular Elm application.
