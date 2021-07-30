@@ -20,11 +20,11 @@ import Http
 import Internal.ApiRoute exposing (Done(..))
 import Json.Decode as Decode
 import Json.Encode
-import NotFoundReason exposing (NotFoundReason)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Flags
 import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
+import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
@@ -787,7 +787,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                     [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage True
 
                                         RenderRequest.NotFound path ->
-                                            render404Page config model path NotFoundReason.NoMatchingRoute
+                                            render404Page config model path Pages.Internal.NotFoundReason.NoMatchingRoute
                     in
                     ( { model | staticRoutes = Just [] }
                     , apiResponse
@@ -950,14 +950,14 @@ render404Page config model path notFoundReason =
             { path = path
             , reason = notFoundReason
             }
-                |> NotFoundReason.document config.pathPatterns
+                |> Pages.Internal.NotFoundReason.document config.pathPatterns
     in
     { route = Path.toAbsolute path
     , contentJson =
         Dict.fromList
             [ ( "notFoundReason"
               , Json.Encode.encode 0
-                    (Codec.encoder NotFoundReason.codec
+                    (Codec.encoder Pages.Internal.NotFoundReason.codec
                         { path = path
                         , reason = notFoundReason
                         }

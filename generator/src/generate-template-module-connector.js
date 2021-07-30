@@ -58,7 +58,7 @@ import Shared
 import Site
 import Head
 import Html exposing (Html)
-import NotFoundReason
+import Pages.Internal.NotFoundReason
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Pages.Internal.RoutePattern

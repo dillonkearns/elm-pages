@@ -50,7 +50,7 @@ But before the user even requests the page, we have the following data:
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import Head
-import NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Pages.Internal.RoutePattern exposing (RoutePattern)

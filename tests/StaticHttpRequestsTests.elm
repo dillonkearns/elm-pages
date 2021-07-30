@@ -11,7 +11,7 @@ import Expect
 import Html
 import Json.Decode as JD
 import Json.Encode as Encode
-import NotFoundReason
+import Pages.Internal.NotFoundReason
 import OptimizedDecoder as Decode exposing (Decoder)
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.Platform.Cli exposing (..)

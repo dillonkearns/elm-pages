@@ -1,4 +1,4 @@
-module NotFoundReason exposing (codec, ModuleContext, NotFoundReason(..), Payload, Record, document)
+module Pages.Internal.NotFoundReason exposing (codec, ModuleContext, NotFoundReason(..), Payload, Record, document)
 
 {-| Exposed for internal use only (used in generated code).
 

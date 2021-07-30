@@ -16,10 +16,10 @@ import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import NotFoundReason
 import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson, contentJsonDecoder)
 import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
+import Pages.Internal.NotFoundReason
 import Pages.Internal.String as String
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -48,7 +48,7 @@ mainView config model =
     in
     case ContentCache.notFoundReason model.contentCache urls of
         Just notFoundReason ->
-            NotFoundReason.document config.pathPatterns notFoundReason
+            Pages.Internal.NotFoundReason.document config.pathPatterns notFoundReason
 
         Nothing ->
             case model.pageData of

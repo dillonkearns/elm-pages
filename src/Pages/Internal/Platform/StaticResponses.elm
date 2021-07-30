@@ -9,8 +9,8 @@ import Dict.Extra
 import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (Done(..))
-import NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ApplicationType as ApplicationType
+import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest

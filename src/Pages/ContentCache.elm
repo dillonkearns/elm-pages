@@ -17,7 +17,7 @@ import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
 import Json.Decode as Decode
-import NotFoundReason
+import Pages.Internal.NotFoundReason
 import Pages.Internal.String as String
 import RequestsAndPending exposing (RequestsAndPending)
 import Task exposing (Task)
@@ -138,7 +138,7 @@ type alias ContentJson =
     { staticData : RequestsAndPending
     , is404 : Bool
     , path : Maybe String
-    , notFoundReason : Maybe NotFoundReason.Payload
+    , notFoundReason : Maybe Pages.Internal.NotFoundReason.Payload
     }
 
 
@@ -158,7 +158,7 @@ contentJsonDecoder =
                                     (\jsonString ->
                                         case
                                             Decode.decodeString
-                                                (Codec.decoder NotFoundReason.codec
+                                                (Codec.decoder Pages.Internal.NotFoundReason.codec
                                                     |> Decode.map Just
                                                 )
                                                 jsonString
@@ -235,7 +235,7 @@ is404 dict urls =
 notFoundReason :
     ContentCache
     -> { currentUrl : Url, basePath : List String }
-    -> Maybe NotFoundReason.Payload
+    -> Maybe Pages.Internal.NotFoundReason.Payload
 notFoundReason dict urls =
     dict
         |> Dict.get (pathForUrl urls)
