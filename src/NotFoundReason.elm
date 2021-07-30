@@ -9,8 +9,8 @@ module NotFoundReason exposing (codec, ModuleContext, NotFoundReason(..), Payloa
 import Codec exposing (Codec)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Path exposing (Path)
-import RoutePattern exposing (RoutePattern)
 
 
 {-| -}
@@ -73,7 +73,7 @@ document pathPatterns payload =
                                         [ Attr.style "list-style" "inside"
                                         ]
                                         [ route
-                                            |> RoutePattern.view
+                                            |> Pages.Internal.RoutePattern.view
                                         ]
                                 )
                         )
@@ -93,7 +93,7 @@ document pathPatterns payload =
                     , Html.br [] []
                     , Html.br [] []
                     , Html.code []
-                        [ RoutePattern.view moduleContext.routePattern
+                        [ Pages.Internal.RoutePattern.view moduleContext.routePattern
                         ]
                     , Html.br [] []
                     , Html.br [] []
@@ -228,7 +228,7 @@ moduleContextCodec : Codec ModuleContext
 moduleContextCodec =
     Codec.object ModuleContext
         |> Codec.field "moduleName" .moduleName (Codec.list Codec.string)
-        |> Codec.field "routePattern" .routePattern RoutePattern.codec
+        |> Codec.field "routePattern" .routePattern Pages.Internal.RoutePattern.codec
         |> Codec.field "matchedRouteParams" .matchedRouteParams recordCodec
         |> Codec.buildObject
 

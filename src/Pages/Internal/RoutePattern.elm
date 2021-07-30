@@ -1,4 +1,4 @@
-module RoutePattern exposing (Ending(..), RoutePattern, Segment(..), codec, view)
+module Pages.Internal.RoutePattern exposing (Ending(..), RoutePattern, Segment(..), codec, view)
 
 {-| Exposed for internal use only (used in generated code).
 

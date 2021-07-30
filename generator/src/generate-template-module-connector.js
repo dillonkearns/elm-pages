@@ -61,7 +61,7 @@ import Html exposing (Html)
 import NotFoundReason
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import RoutePattern
+import Pages.Internal.RoutePattern
 import Url
 import DataSource exposing (DataSource)
 import QueryParams

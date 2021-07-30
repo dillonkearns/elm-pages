@@ -9,10 +9,10 @@ import Json.Decode as Decode
 import Json.Encode
 import NotFoundReason exposing (NotFoundReason)
 import Pages.Flags
+import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
-import RoutePattern exposing (RoutePattern)
 import Url exposing (Url)
 
 

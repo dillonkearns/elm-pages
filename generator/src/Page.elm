@@ -53,7 +53,7 @@ import Head
 import NotFoundReason exposing (NotFoundReason)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import RoutePattern exposing (RoutePattern)
+import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Shared
 import View exposing (View)
 
