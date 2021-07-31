@@ -1,7 +1,4 @@
----
-description: elm-pages is a framework for building an Elm single-page app with pre-rendered HTML pages.
----
-# What is elm-pages
+# What is elm-pages?
 
 `elm-pages` is a framework for building an Elm single-page app with pre-rendered HTML pages.
 

@@ -38,7 +38,7 @@ The goal of `elm-pages` is to get nicely typed data from the right sources (HTTP
 
 ## File Structure
 
-With `elm-pages`, you don't define the central `Main.elm` entrypoint. That's defined under the hood by `elm-pages`.
+With `elm-pages`, you don't define the central `main` entrypoint. That's defined under the hood by `elm-pages`.
 
 It builds your app for you from these special files that you define:
 
