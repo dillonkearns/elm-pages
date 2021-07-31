@@ -5,6 +5,8 @@ const dev = require("./dev-server.js");
 const generate = require("./codegen-template-module.js");
 const init = require("./init.js");
 const codegen = require("./codegen.js");
+const fs = require("fs");
+const path = require("path");
 
 const commander = require("commander");
 
@@ -23,8 +25,15 @@ async function main() {
       "build site to be served under a base path",
       "/"
     )
+    .option(
+      "--keep-cache",
+      "Preserve the HTTP and JS Port cache instead of deleting it on server start"
+    )
     .description("run a full site build")
     .action(async (options) => {
+      if (!options.keepCache) {
+        clearHttpAndPortCache();
+      }
       options.base = normalizeUrl(options.base);
       await build.run(options);
     });
@@ -33,8 +42,15 @@ async function main() {
     .command("dev")
     .description("start a dev server")
     .option("--port <number>", "serve site at localhost:<port>", "1234")
+    .option(
+      "--keep-cache",
+      "Preserve the HTTP and JS Port cache instead of deleting it on server start"
+    )
     .option("--base <basePath>", "serve site under a base path", "/")
     .action(async (options) => {
+      if (!options.keepCache) {
+        clearHttpAndPortCache();
+      }
       options.base = normalizeUrl(options.base);
       await dev.start(options);
     });
@@ -70,6 +86,19 @@ async function main() {
     });
 
   program.parse(process.argv);
+}
+
+function clearHttpAndPortCache() {
+  const directory = ".elm-pages/http-response-cache";
+  fs.readdir(directory, (err, files) => {
+    if (err) throw err;
+
+    for (const file of files) {
+      fs.unlink(path.join(directory, file), (err) => {
+        if (err) throw err;
+      });
+    }
+  });
 }
 
 /**
