@@ -3,18 +3,18 @@
   "author": "Dillon Kearns",
   "title": "Introducing elm-pages 2.0",
   "description": "",
-  "image": "v1603304397/elm-pages/article-covers/extensible-markdown-parsing_x9oolz.jpg",
+  "image": "v1627861555/elm-pages/article-covers/photo-1471107340929-a87cd0f5b5f3_mczjfg.jpg",
   "published": "2021-08-01",
 }
 ---
 
-This release represents a huge improvement for `elm-pages` in terms of features, developer experience, and performance. This release introduces a completely custom dev server with absolutely no webpack, that gives you hot module replacement as you change Elm code and data (like markdown files)! It also replaces some specific features with more flexible and universal building blocks, opening up a lot of new use cases, and using fewer core concepts to enable more possibilities. And all that with the type-safety and robust feedback we've come to expect in the Elm ecosystem.
+This release represents a huge improvement for `elm-pages` in terms of features, developer experience, and performance. It introduces a completely custom dev server with absolutely no webpack, that gives you hot module replacement as you change Elm code and data (like markdown files)! It also replaces some specific features with more flexible and universal building blocks, opening up a lot of new use cases, and using fewer core concepts to enable more possibilities. And all that with the type-safety and robust feedback we've come to expect in the Elm ecosystem.
 
 ## Features
 
 Before this release, the `StaticHttp` API let you pull in data and use it in pre-rendered pages and their SEO tags. That is, you could present data that is validated at build-time, with no loading spinners or error states. If there's a problem, you get a build error and can fix it before a user sees it.
 
-In v2, this API has been renmaed to `DataSource` to reflect the broader range of uses. Not only can you pull in data from more places than just API requests, but you can use that data in more places as well. If this concept was an important feature before v2, after the v2 release you can consider it to be the fundamental building block of the entire `elm-pages` platform.
+In v2, this API has been renamed to `DataSource` to reflect the broader range of uses. Not only can you pull in data from more places than just API requests, but you can use that data in more places as well. If this concept was an important feature before v2, after the v2 release you can consider it to be the fundamental building block of the entire `elm-pages` platform.
 
 ### Doubling down on DataSources
 
@@ -61,13 +61,19 @@ If we wanted to migrate our blog posts over to an external CMS and fetch the blo
 
 ```elm
 import OptimizedDecoder as Decode
+import DataSource.Http
+import Pages.Secrets
+
+
+type alias RouteParams =
+    { slug : String }
 
 
 routes : DataSource (List RouteParams)
 routes =
     DataSource.Http.get
         (Pages.Secrets.succeed ("https://api.my-cms.com/all-blog-posts"))
-        (Decode.list blogPostDecoder)
+        (Decode.list (blogPostDecoder |> Decode.map .slug |> Decode.map RouteParams))
 ```
 
 ### DataSource.Port
