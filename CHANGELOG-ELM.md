@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [8.0.0] - 2021-07-31
+
+### Added
+
+- You can now set the language of the root document with `Head.rootLanguage`.
+
+### Changed
+
+- Replaced `Pages.PagePath.PagePath pathKey` type with `Path`. The latest `elm-pages` generates a `Route` type for you, so you get
+  some type-safety from that already. In a future release, there will likely be a tool to help integrate DataSource values with `elm-review`
+  so you can check that programatically referenced pages exist (not just the route but the specific page).
+- `Pages.Platform.init` is no longer used to create the main entrypoint. Instead, `elm-pages` wires that up under the hood from the main files you write.
+- `StaticHttp` has been renamed to `DataSource.Http`. The core `DataSource` module has the `DataSource` type and the functions `map`, `andThen`,and other functions that aren't HTTP specific. There are additional modules now `DataSource.Glob`, `DataSource.Port`, and `DataSource.File`.
+
+### Removed
+
+- `Pages.ImagePath.ImagePath pathKey` has been removed - an `elm-review` integration could help users build checks for referencing valid files in the future,
+  but in a way that doesn't increase the bundle size (generating a record with entries for every page and every image file increases the Elm bundle size as the number of
+  pages/files grows, whereas using `elm-review` doesn't incur a runtime cost at all).
+
 ## [7.0.0] - 2020-10-26
 
 See the upgrade guide for some information for getting to the latest version, and how to try out the 2 new opt-in beta features: https://github.com/dillonkearns/elm-pages/blob/master/docs/7.0.0-elm-package-upgrade-guide.md.
