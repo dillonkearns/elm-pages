@@ -237,8 +237,7 @@ codec =
 
 
 tableHeaderCodec :
-    S.Codec
-        Never
+    S.Codec Never
         (List
             { label : List Block.Inline
             , alignment : Maybe Block.Alignment
