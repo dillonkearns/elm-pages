@@ -1,8 +1,18 @@
 module SiteConfig exposing (SiteConfig)
 
-import Pages.SiteConfig
+import DataSource exposing (DataSource)
+import Head
+import Pages.Manifest
 import Route exposing (Route)
 
 
 type alias SiteConfig data =
-    Pages.SiteConfig.SiteConfig (Maybe Route) data
+    List (Maybe Route)
+    ->
+        { data : DataSource data
+        , canonicalUrl : String
+        , manifest : data -> Pages.Manifest.Config
+        , head :
+            data
+            -> List Head.Tag
+        }
