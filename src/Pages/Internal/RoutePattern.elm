@@ -85,12 +85,6 @@ segmentToString segment =
             ":" ++ name
 
 
-type alias ModuleContext =
-    { moduleName : List String
-    , routePattern : RoutePattern
-    }
-
-
 {-| -}
 view : RoutePattern -> Html msg
 view routePattern =
