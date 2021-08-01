@@ -1044,12 +1044,11 @@ startLowLevel apiRoutes staticHttpCache pages =
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
             , site =
-                \_ ->
-                    { data = DataSource.succeed ()
-                    , canonicalUrl = "canonical-site-url"
-                    , manifest = \_ -> manifest
-                    , head = \_ -> []
-                    }
+                { data = DataSource.succeed ()
+                , canonicalUrl = "canonical-site-url"
+                , manifest = \_ -> manifest
+                , head = \_ -> []
+                }
             , view =
                 \page _ ->
                     let
@@ -1197,12 +1196,11 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                         Nothing ->
                             DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
             , site =
-                \_ ->
-                    { data = DataSource.succeed ()
-                    , canonicalUrl = "canonical-site-url"
-                    , manifest = \_ -> manifest
-                    , head = \_ -> []
-                    }
+                { data = DataSource.succeed ()
+                , canonicalUrl = "canonical-site-url"
+                , manifest = \_ -> manifest
+                , head = \_ -> []
+                }
             , view =
                 \page _ ->
                     let

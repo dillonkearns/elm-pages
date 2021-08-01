@@ -12,12 +12,11 @@ import SiteConfig exposing (SiteConfig)
 
 config : SiteConfig Data
 config =
-    \routes ->
-        { data = data
-        , canonicalUrl = canonicalUrl
-        , manifest = manifest
-        , head = head
-        }
+    { data = data
+    , canonicalUrl = canonicalUrl
+    , manifest = manifest
+    , head = head
+    }
 
 
 type alias Data =
