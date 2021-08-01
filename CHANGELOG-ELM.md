@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [8.0.1] - 2021-08-01
+
+### Fixed
+
+- `<style>` tags were escaping `>` characters when they should be preserved in that context. Fixed the pre-rendered HTML escaping to not escape for style tags.
+
+### Changed
+
+- Removed an argument from Site.config.
+
 ## [8.0.0] - 2021-07-31
 
 ### Added
