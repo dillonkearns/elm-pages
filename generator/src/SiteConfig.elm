@@ -7,12 +7,10 @@ import Route exposing (Route)
 
 
 type alias SiteConfig data =
-    List (Maybe Route)
-    ->
-        { data : DataSource data
-        , canonicalUrl : String
-        , manifest : data -> Pages.Manifest.Config
-        , head :
-            data
-            -> List Head.Tag
-        }
+    { data : DataSource data
+    , canonicalUrl : String
+    , manifest : data -> Pages.Manifest.Config
+    , head :
+        data
+        -> List Head.Tag
+    }

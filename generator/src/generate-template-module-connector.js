@@ -633,17 +633,12 @@ pathsToGenerateHandler =
 manifestHandler : ApiRoute.ApiRoute ApiRoute.Response
 manifestHandler =
     ApiRoute.succeed
-        (getStaticRoutes
-            |> DataSource.map (List.map Just)
-            |> DataSource.andThen
-                (\\resolvedRoutes ->
-                    Site.config resolvedRoutes
-                        |> .data
-                        |> DataSource.map
-                            (\\data ->
-                                (Site.config resolvedRoutes |> .manifest) data
-                                    |> manifestToFile (Site.config resolvedRoutes |> .canonicalUrl)
-                            )
+        (Site.config
+            |> .data
+            |> DataSource.map
+                (\\data ->
+                    Site.config.manifest data
+                        |> manifestToFile (Site.config.canonicalUrl)
                 )
         )
         |> ApiRoute.literal "manifest.json"

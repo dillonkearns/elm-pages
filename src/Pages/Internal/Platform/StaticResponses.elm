@@ -189,7 +189,7 @@ nextStep :
         , routeToPath : route -> List String
         , data : route -> DataSource pageData
         , sharedData : DataSource sharedData
-        , site : SiteConfig route siteData
+        , site : SiteConfig siteData
         , apiRoutes : (Html Never -> String) -> List (ApiRoute.ApiRoute ApiRoute.Response)
     }
     ->

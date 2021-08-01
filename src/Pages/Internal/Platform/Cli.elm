@@ -198,7 +198,7 @@ perform renderRequest config toJsPort effect =
     let
         canonicalSiteUrl : String
         canonicalSiteUrl =
-            config.site [] |> .canonicalUrl
+            config.site.canonicalUrl
     in
     case effect of
         Effect.NoEffect ->
@@ -669,14 +669,10 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                             case pageFoundResult of
                                                 Ok Nothing ->
                                                     let
-                                                        allRoutes : List route
-                                                        allRoutes =
-                                                            []
-
                                                         currentUrl : Url.Url
                                                         currentUrl =
                                                             { protocol = Url.Https
-                                                            , host = config.site [] |> .canonicalUrl
+                                                            , host = config.site.canonicalUrl
                                                             , port_ = Nothing
                                                             , path = payload.path |> Path.toRelative
                                                             , query = Nothing
@@ -755,7 +751,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         siteDataResult : Result BuildError siteData
                                                         siteDataResult =
                                                             StaticHttpRequest.resolve ApplicationType.Cli
-                                                                (config.site allRoutes |> .data)
+                                                                config.site.data
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                                                     in
@@ -829,10 +825,6 @@ sendSinglePageProgress contentJson config model =
                             model.allRawResponses
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                    allRoutes : List route
-                    allRoutes =
-                        []
-
                     renderedResult : Result BuildError { head : List Head.Tag, view : String, title : String }
                     renderedResult =
                         case includeHtml of
@@ -880,7 +872,7 @@ sendSinglePageProgress contentJson config model =
                     currentUrl : Url.Url
                     currentUrl =
                         { protocol = Url.Https
-                        , host = config.site allRoutes |> .canonicalUrl
+                        , host = config.site.canonicalUrl
                         , port_ = Nothing
                         , path = page |> Path.toRelative
                         , query = Nothing
@@ -908,7 +900,7 @@ sendSinglePageProgress contentJson config model =
                     siteDataResult : Result BuildError siteData
                     siteDataResult =
                         StaticHttpRequest.resolve ApplicationType.Cli
-                            (config.site allRoutes |> .data)
+                            config.site.data
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
@@ -920,7 +912,7 @@ sendSinglePageProgress contentJson config model =
                                 , contentJson = contentJson
                                 , html = rendered.view
                                 , errors = []
-                                , head = rendered.head ++ (config.site allRoutes |> .head) siteData
+                                , head = rendered.head ++ config.site.head siteData
                                 , title = rendered.title
                                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                 , is404 = False
