@@ -1,14 +1,14 @@
-module Pages.Internal.Platform.Effect exposing (..)
+module Pages.Internal.Platform.Effect exposing (Effect(..))
 
-import Pages.Internal.Platform.ToJsPayload exposing (FileToGenerate, ToJsPayload, ToJsSuccessPayloadNew, ToJsSuccessPayloadNewCombined)
-import Pages.Manifest as Manifest
-import Pages.StaticHttp exposing (RequestDetails)
+import DataSource.Http exposing (RequestDetails)
+import Pages.Internal.Platform.ToJsPayload exposing (ToJsSuccessPayloadNewCombined)
 
 
-type Effect pathKey
+type Effect
     = NoEffect
-    | SendJsData (ToJsPayload pathKey)
     | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
-    | Batch (List (Effect pathKey))
-    | SendSinglePage (ToJsSuccessPayloadNewCombined pathKey)
+    | ReadFile String
+    | GetGlob String
+    | Batch (List Effect)
+    | SendSinglePage Bool ToJsSuccessPayloadNewCombined
     | Continue

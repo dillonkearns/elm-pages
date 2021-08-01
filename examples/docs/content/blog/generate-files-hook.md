@@ -1,6 +1,5 @@
 ---
 {
-  "type": "blog",
   "draft": true,
   "author": "Dillon Kearns",
   "title": "Generating Files with Pure Elm",

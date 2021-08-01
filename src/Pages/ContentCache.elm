@@ -1,31 +1,26 @@
 module Pages.ContentCache exposing
     ( ContentCache
+    , ContentJson
     , Entry(..)
     , Path
-    , errorView
-    , extractMetadata
+    , contentJsonDecoder
     , init
+    , is404
     , lazyLoad
-    , lookup
-    , lookupMetadata
-    , pagesWithErrors
-    , parseContent
-    , routesForCache
-    , update
+    , notFoundReason
+    , pathForUrl
     )
 
 import BuildError exposing (BuildError)
+import Codec
 import Dict exposing (Dict)
 import Html exposing (Html)
-import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
-import Pages.Document as Document exposing (Document)
+import Pages.Internal.NotFoundReason
 import Pages.Internal.String as String
-import Pages.PagePath as PagePath exposing (PagePath)
 import RequestsAndPending exposing (RequestsAndPending)
 import Task exposing (Task)
-import TerminalText as Terminal
 import Url exposing (Url)
 
 
@@ -33,23 +28,20 @@ type alias Content =
     List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
 
 
-type alias ContentCache metadata view =
-    Result Errors (Dict Path (Entry metadata view))
+type alias ContentCache =
+    Dict Path Entry
 
 
 type alias Errors =
     List ( Html Never, BuildError )
 
 
-type alias ContentCacheInner metadata view =
-    Dict Path (Entry metadata view)
+type alias ContentCacheInner =
+    Dict Path Entry
 
 
-type Entry metadata view
-    = NeedContent String metadata
-    | Unparsed String metadata (ContentJson String)
-      -- TODO need to have an UnparsedMarkup entry type so the right parser is applied
-    | Parsed metadata String (ContentJson (Result ParseError view))
+type Entry
+    = Parsed ContentJson
 
 
 type alias ParseError =
@@ -60,324 +52,50 @@ type alias Path =
     List String
 
 
-extractMetadata : pathKey -> ContentCacheInner metadata view -> List ( PagePath pathKey, metadata )
-extractMetadata pathKey cache =
-    cache
-        |> Dict.toList
-        |> List.map (\( path, entry ) -> ( PagePath.build pathKey path, getMetadata entry ))
-
-
-getMetadata : Entry metadata view -> metadata
-getMetadata entry =
-    case entry of
-        NeedContent extension metadata ->
-            metadata
-
-        Unparsed extension metadata _ ->
-            metadata
-
-        Parsed metadata body _ ->
-            metadata
-
-
-pagesWithErrors : ContentCache metadata view -> List BuildError
-pagesWithErrors cache =
-    cache
-        |> Result.map
-            (\okCache ->
-                List.filterMap
-                    (\( path, value ) ->
-                        case value of
-                            Parsed metadata rawBody { body } ->
-                                case body of
-                                    Err parseError ->
-                                        createBuildError path parseError |> Just
-
-                                    _ ->
-                                        Nothing
-
-                            _ ->
-                                Nothing
-                    )
-                    (Dict.toList okCache)
-            )
-        |> Result.withDefault []
-
-
 init :
-    Document metadata view
-    -> Content
-    -> Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
-    -> ContentCache metadata view
-init document content maybeInitialPageContent =
-    content
-        |> parseMetadata maybeInitialPageContent document
-        |> List.map
-            (\tuple ->
-                tuple
-                    |> Tuple.first
-                    |> createErrors
-                    |> Result.mapError
-                    |> (\f -> Tuple.mapSecond f tuple)
-            )
-        |> combineTupleResults
-        |> Result.map Dict.fromList
-
-
-createErrors path decodeError =
-    ( createHtmlError path decodeError, createBuildError path decodeError )
-
-
-createBuildError : List String -> String -> BuildError
-createBuildError path decodeError =
-    { title = "Metadata Decode Error"
-    , message =
-        [ Terminal.text "I ran into a problem when parsing the metadata for the page with this path: "
-        , Terminal.text ("/" ++ String.join "/" path)
-        , Terminal.text "\n\n"
-        , Terminal.text decodeError
-        ]
-    , fatal = False
-    }
-
-
-parseMetadata :
-    Maybe { contentJson : ContentJson String, initialUrl : { url | path : String } }
-    -> Document metadata view
-    -> List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
-    -> List ( List String, Result String (Entry metadata view) )
-parseMetadata maybeInitialPageContent document content =
-    List.map
-        (\( path, { frontMatter, extension, body } ) ->
-            let
-                maybeDocumentEntry =
-                    Document.get extension document
-            in
-            case maybeDocumentEntry of
-                Just documentEntry ->
-                    frontMatter
-                        |> documentEntry.frontmatterParser
-                        |> Result.map
-                            (\metadata ->
-                                let
-                                    renderer value =
-                                        parseContent extension value document
-                                in
-                                case maybeInitialPageContent of
-                                    Just { contentJson, initialUrl } ->
-                                        if normalizePath initialUrl.path == (String.join "/" path |> normalizePath) then
-                                            Parsed metadata
-                                                contentJson.body
-                                                { body = renderer contentJson.body
-                                                , staticData = contentJson.staticData
-                                                }
-
-                                        else
-                                            NeedContent extension metadata
-
-                                    Nothing ->
-                                        case body of
-                                            -- the CLI generated content includes the body
-                                            -- the generated content for the dev and production browser mode does not
-                                            -- so we can ignore the StaticData here
-                                            -- TODO use types to make this more semantic
-                                            Just bodyFromCli ->
-                                                Parsed metadata
-                                                    bodyFromCli
-                                                    { body = renderer bodyFromCli
-                                                    , staticData = Dict.empty
-                                                    }
-
-                                            Nothing ->
-                                                NeedContent extension metadata
-                            )
-                        |> Tuple.pair path
-
-                Nothing ->
-                    Err ("Could not find extension '" ++ extension ++ "'")
-                        |> Tuple.pair path
-        )
-        content
-
-
-normalizePath : String -> String
-normalizePath pathString =
-    let
-        hasPrefix =
-            String.startsWith "/" pathString
-
-        hasSuffix =
-            String.endsWith "/" pathString
-    in
-    if pathString == "" then
-        pathString
-
-    else
-        String.concat
-            [ if hasPrefix then
-                String.dropLeft 1 pathString
-
-              else
-                pathString
-            , if hasSuffix then
-                ""
-
-              else
-                "/"
-            ]
-
-
-parseContent :
-    String
-    -> String
-    -> Document metadata view
-    -> Result String view
-parseContent extension body document =
-    let
-        maybeDocumentEntry =
-            Document.get extension document
-    in
-    case maybeDocumentEntry of
-        Just documentEntry ->
-            documentEntry.contentParser body
-
+    Maybe ( Path, ContentJson )
+    -> ContentCache
+init maybeInitialPageContent =
+    case maybeInitialPageContent of
         Nothing ->
-            Err ("Could not find extension '" ++ extension ++ "'")
+            Dict.empty
 
-
-errorView : Errors -> Html msg
-errorView errors =
-    errors
-        --        |> Dict.toList
-        |> List.map Tuple.first
-        |> List.map (Html.map never)
-        |> Html.div
-            [ Attr.style "padding" "20px 100px"
-            ]
-
-
-createHtmlError : List String -> String -> Html msg
-createHtmlError path error =
-    Html.div []
-        [ Html.h2 []
-            [ Html.text (String.join "/" path)
-            ]
-        , Html.p [] [ Html.text "I couldn't parse the frontmatter in this page. I ran into this error with your JSON decoder:" ]
-        , Html.pre [] [ Html.text error ]
-        ]
-
-
-routes : List ( List String, anything ) -> List String
-routes record =
-    record
-        |> List.map Tuple.first
-        |> List.map (String.join "/")
-
-
-routesForCache : ContentCache metadata view -> List String
-routesForCache cacheResult =
-    case cacheResult of
-        Ok cache ->
-            cache
-                |> Dict.toList
-                |> routes
-
-        Err _ ->
-            []
-
-
-combineTupleResults :
-    List ( List String, Result error success )
-    -> Result (List error) (List ( List String, success ))
-combineTupleResults input =
-    input
-        |> List.map
-            (\( path, result ) ->
-                result
-                    |> Result.map (\success -> ( path, success ))
-            )
-        |> combine
-
-
-combine : List (Result error ( List String, success )) -> Result (List error) (List ( List String, success ))
-combine list =
-    list
-        |> List.foldr resultFolder (Ok [])
-
-
-resultFolder : Result error a -> Result (List error) (List a) -> Result (List error) (List a)
-resultFolder current soFarResult =
-    case soFarResult of
-        Ok soFarOk ->
-            case current of
-                Ok currentOk ->
-                    currentOk
-                        :: soFarOk
-                        |> Ok
-
-                Err error ->
-                    Err [ error ]
-
-        Err soFarErr ->
-            case current of
-                Ok currentOk ->
-                    Err soFarErr
-
-                Err error ->
-                    error
-                        :: soFarErr
-                        |> Err
+        Just ( urls, contentJson ) ->
+            Dict.singleton urls (Parsed contentJson)
 
 
 {-| Get from the Cache... if it's not already parsed, it will
 parse it before returning it and store the parsed version in the Cache
 -}
 lazyLoad :
-    Document metadata view
-    -> { currentUrl : Url, baseUrl : Url }
-    -> ContentCache metadata view
-    -> Task Http.Error (ContentCache metadata view)
-lazyLoad document urls cacheResult =
-    case cacheResult of
-        Err _ ->
-            Task.succeed cacheResult
+    { currentUrl : Url, basePath : List String }
+    -> ContentCache
+    -> Task Http.Error ( Url, ContentJson, ContentCache )
+lazyLoad urls cache =
+    case Dict.get (pathForUrl urls) cache of
+        Just (Parsed contentJson) ->
+            Task.succeed
+                ( urls.currentUrl
+                , contentJson
+                , cache
+                )
 
-        Ok cache ->
-            case Dict.get (pathForUrl urls) cache of
-                Just entry ->
-                    case entry of
-                        NeedContent extension _ ->
-                            urls.currentUrl
-                                |> httpTask
-                                |> Task.map
-                                    (\downloadedContent ->
-                                        update
-                                            cacheResult
-                                            (\value ->
-                                                parseContent extension value document
-                                            )
-                                            urls
-                                            downloadedContent
-                                    )
-
-                        Unparsed extension metadata content ->
-                            content
-                                |> update
-                                    cacheResult
-                                    (\thing ->
-                                        parseContent extension thing document
-                                    )
-                                    urls
-                                |> Task.succeed
-
-                        Parsed _ _ _ ->
-                            Task.succeed cacheResult
-
-                Nothing ->
-                    Task.succeed cacheResult
+        Nothing ->
+            urls.currentUrl
+                |> httpTask
+                |> Task.map
+                    (\downloadedContent ->
+                        ( urls.currentUrl
+                        , downloadedContent
+                        , update
+                            cache
+                            urls
+                            downloadedContent
+                        )
+                    )
 
 
-httpTask : Url -> Task Http.Error (ContentJson String)
+httpTask : Url -> Task Http.Error ContentJson
 httpTask url =
     Http.task
         { method = "GET"
@@ -404,10 +122,10 @@ httpTask url =
                         Http.NetworkError_ ->
                             Err Http.NetworkError
 
-                        Http.BadStatus_ metadata body ->
+                        Http.BadStatus_ metadata _ ->
                             Err (Http.BadStatus metadata.statusCode)
 
-                        Http.GoodStatus_ metadata body ->
+                        Http.GoodStatus_ _ body ->
                             body
                                 |> Decode.decodeString contentJsonDecoder
                                 |> Result.mapError (\err -> Http.BadBody (Decode.errorToString err))
@@ -416,113 +134,115 @@ httpTask url =
         }
 
 
-type alias ContentJson body =
-    { body : body
-    , staticData : RequestsAndPending
+type alias ContentJson =
+    { staticData : RequestsAndPending
+    , is404 : Bool
+    , path : Maybe String
+    , notFoundReason : Maybe Pages.Internal.NotFoundReason.Payload
     }
 
 
-contentJsonDecoder : Decode.Decoder (ContentJson String)
+contentJsonDecoder : Decode.Decoder ContentJson
 contentJsonDecoder =
-    Decode.map2 ContentJson
-        (Decode.field "body" Decode.string)
-        (Decode.field "staticData" RequestsAndPending.decoder)
+    Decode.field "is404" Decode.bool
+        |> Decode.andThen
+            (\is404Value ->
+                if is404Value then
+                    Decode.map4 ContentJson
+                        (Decode.succeed Dict.empty)
+                        (Decode.succeed is404Value)
+                        (Decode.field "path" Decode.string |> Decode.map Just)
+                        (Decode.at [ "staticData", "notFoundReason" ]
+                            (Decode.string
+                                |> Decode.andThen
+                                    (\jsonString ->
+                                        case
+                                            Decode.decodeString
+                                                (Codec.decoder Pages.Internal.NotFoundReason.codec
+                                                    |> Decode.map Just
+                                                )
+                                                jsonString
+                                        of
+                                            Ok okValue ->
+                                                Decode.succeed okValue
+
+                                            Err error ->
+                                                Decode.fail
+                                                    (Decode.errorToString error)
+                                    )
+                            )
+                        )
+
+                else
+                    Decode.map4 ContentJson
+                        (Decode.field "staticData" RequestsAndPending.decoder)
+                        (Decode.succeed is404Value)
+                        (Decode.succeed Nothing)
+                        (Decode.succeed Nothing)
+            )
 
 
 update :
-    ContentCache metadata view
-    -> (String -> Result ParseError view)
-    -> { currentUrl : Url, baseUrl : Url }
-    -> ContentJson String
-    -> ContentCache metadata view
-update cacheResult renderer urls rawContent =
-    case cacheResult of
-        Ok cache ->
-            Dict.update
-                (pathForUrl urls)
-                (\entry ->
-                    case entry of
-                        Just (Parsed metadata rawBody view) ->
-                            entry
+    ContentCache
+    -> { currentUrl : Url, basePath : List String }
+    -> ContentJson
+    -> ContentCache
+update cache urls rawContent =
+    Dict.update
+        (pathForUrl urls)
+        (\entry ->
+            case entry of
+                Just (Parsed _) ->
+                    entry
 
-                        Just (Unparsed extension metadata content) ->
-                            Parsed metadata
-                                content.body
-                                { body = renderer content.body
-                                , staticData = content.staticData
-                                }
-                                |> Just
-
-                        Just (NeedContent extension metadata) ->
-                            Parsed metadata
-                                rawContent.body
-                                { body = renderer rawContent.body
-                                , staticData = rawContent.staticData
-                                }
-                                |> Just
-
-                        Nothing ->
-                            -- TODO this should never happen
-                            Nothing
-                )
-                cache
-                |> Ok
-
-        Err error ->
-            -- TODO update this ever???
-            -- Should this be something other than the raw HTML, or just concat the error HTML?
-            Err error
+                Nothing ->
+                    { staticData = rawContent.staticData
+                    , is404 = rawContent.is404
+                    , path = rawContent.path
+                    , notFoundReason = rawContent.notFoundReason
+                    }
+                        |> Parsed
+                        |> Just
+        )
+        cache
 
 
-pathForUrl : { currentUrl : Url, baseUrl : Url } -> Path
-pathForUrl { currentUrl, baseUrl } =
+pathForUrl : { currentUrl : Url, basePath : List String } -> Path
+pathForUrl { currentUrl, basePath } =
     currentUrl.path
-        |> String.dropLeft (String.length baseUrl.path)
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
+        |> List.drop (List.length basePath)
 
 
-lookup :
-    pathKey
-    -> ContentCache metadata view
-    -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, Entry metadata view )
-lookup pathKey content urls =
-    case content of
-        Ok dict ->
-            let
-                path =
-                    pathForUrl urls
-            in
-            dict
-                |> Dict.get path
-                |> Maybe.map
-                    (\entry ->
-                        ( PagePath.build pathKey path, entry )
-                    )
-
-        Err _ ->
-            Nothing
-
-
-lookupMetadata :
-    pathKey
-    -> ContentCache metadata view
-    -> { currentUrl : Url, baseUrl : Url }
-    -> Maybe ( PagePath pathKey, metadata )
-lookupMetadata pathKey content urls =
-    urls
-        |> lookup pathKey content
+is404 :
+    ContentCache
+    -> { currentUrl : Url, basePath : List String }
+    -> Bool
+is404 dict urls =
+    dict
+        |> Dict.get (pathForUrl urls)
         |> Maybe.map
-            (\( pagePath, entry ) ->
+            (\entry ->
                 case entry of
-                    NeedContent _ metadata ->
-                        ( pagePath, metadata )
-
-                    Unparsed _ metadata _ ->
-                        ( pagePath, metadata )
-
-                    Parsed metadata body _ ->
-                        ( pagePath, metadata )
+                    Parsed data ->
+                        data.is404
             )
+        |> Maybe.withDefault True
+
+
+notFoundReason :
+    ContentCache
+    -> { currentUrl : Url, basePath : List String }
+    -> Maybe Pages.Internal.NotFoundReason.Payload
+notFoundReason dict urls =
+    dict
+        |> Dict.get (pathForUrl urls)
+        |> Maybe.map
+            (\entry ->
+                case entry of
+                    Parsed data ->
+                        data.notFoundReason
+            )
+        |> Maybe.withDefault Nothing

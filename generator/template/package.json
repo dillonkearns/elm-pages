@@ -1,0 +1,10 @@
+{
+  "name": "elm-pages-app",
+  "scripts": {
+    "start": "elm-pages dev",
+    "build": "elm-pages build"
+  },
+  "devDependencies": {
+    "elm-pages": "file:elm-pages"
+  }
+}

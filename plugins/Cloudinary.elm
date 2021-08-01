@@ -1,14 +1,14 @@
 module Cloudinary exposing (url, urlSquare)
 
 import MimeType
-import Pages.ImagePath as ImagePath exposing (ImagePath)
+import Pages.Url
 
 
 url :
     String
     -> Maybe MimeType.MimeImage
     -> Int
-    -> ImagePath pathKey
+    -> Pages.Url.Url
 url asset format width =
     let
         base =
@@ -36,14 +36,14 @@ url asset format width =
             ]
                 |> String.join ","
     in
-    ImagePath.external (base ++ "/" ++ transforms ++ "/" ++ asset)
+    Pages.Url.external (base ++ "/" ++ transforms ++ "/" ++ asset)
 
 
 urlSquare :
     String
     -> Maybe MimeType.MimeImage
     -> Int
-    -> ImagePath pathKey
+    -> Pages.Url.Url
 urlSquare asset format width =
     let
         base =
@@ -72,4 +72,4 @@ urlSquare asset format width =
             ]
                 |> String.join ","
     in
-    ImagePath.external (base ++ "/" ++ transforms ++ "/" ++ asset)
+    Pages.Url.external (base ++ "/" ++ transforms ++ "/" ++ asset)

@@ -1,20 +1,23 @@
 module StaticHttpUnitTests exposing (all)
 
+import DataSource
+import DataSource.Http
 import Dict
 import Expect
 import OptimizedDecoder as Decode
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.StaticHttp as StaticHttp
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Secrets
 import Test exposing (Test, describe, test)
 
 
+getWithoutSecrets : String -> Decode.Decoder a -> DataSource.DataSource a
 getWithoutSecrets url =
-    StaticHttp.get (Secrets.succeed url)
+    DataSource.Http.get (Secrets.succeed url)
 
 
+requestsDict : List ( Request.Request, b ) -> Dict.Dict String (Maybe b)
 requestsDict requestMap =
     requestMap
         |> List.map
@@ -31,18 +34,18 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = StaticHttp.emptyBody
+    , body = DataSource.Http.emptyBody
     }
 
 
 all : Test
 all =
-    describe "Static Http Requests"
+    describe "Static Http Requests unit tests"
         [ test "andThen" <|
             \() ->
-                StaticHttp.get (Secrets.succeed "first") (Decode.succeed "NEXT")
-                    |> StaticHttp.andThen
-                        (\continueUrl ->
+                DataSource.Http.get (Secrets.succeed "first") (Decode.succeed "NEXT")
+                    |> DataSource.andThen
+                        (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
@@ -53,13 +56,13 @@ all =
                                     , ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( True, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen staring with done" <|
             \() ->
-                StaticHttp.succeed ()
-                    |> StaticHttp.andThen
+                DataSource.succeed ()
+                    |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
@@ -70,18 +73,18 @@ all =
                                     [ ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( True, [ getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "NEXT" ]
                        )
         , test "map" <|
             \() ->
                 getWithoutSecrets "first" (Decode.succeed "NEXT")
-                    |> StaticHttp.andThen
-                        (\continueUrl ->
+                    |> DataSource.andThen
+                        (\_ ->
                             --                                        StaticHttp.get continueUrl (Decode.succeed ())
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
-                    |> StaticHttp.map (\_ -> ())
+                    |> DataSource.map (\_ -> ())
                     |> (\request ->
                             StaticHttpRequest.resolveUrls ApplicationType.Cli
                                 request
@@ -90,14 +93,14 @@ all =
                                     , ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( True, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
             \() ->
                 getWithoutSecrets "first" (Decode.succeed "NEXT")
-                    |> StaticHttp.andThen
-                        (\continueUrl ->
+                    |> DataSource.andThen
+                        (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
@@ -107,16 +110,16 @@ all =
                                     [ ( get "first", "null" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( False, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
             \() ->
                 getWithoutSecrets "first" Decode.int
-                    |> StaticHttp.andThen
-                        (\continueUrl ->
+                    |> DataSource.andThen
+                        (\_ ->
                             getWithoutSecrets "NEXT" Decode.string
-                                |> StaticHttp.andThen
+                                |> DataSource.andThen
                                     (\_ ->
                                         getWithoutSecrets "LAST"
                                             Decode.string
@@ -129,16 +132,16 @@ all =
                                     [ ( get "first", "1" )
                                     ]
                                 )
-                                |> Tuple.mapSecond (List.map Secrets.maskedLookup)
-                                |> Expect.equal ( False, [ getReq "first", getReq "NEXT" ] )
+                                |> List.map Secrets.maskedLookup
+                                |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         ]
 
 
-getReq : String -> StaticHttp.RequestDetails
+getReq : String -> DataSource.Http.RequestDetails
 getReq url =
     { url = url
     , method = "GET"
     , headers = []
-    , body = StaticHttp.emptyBody
+    , body = DataSource.Http.emptyBody
     }

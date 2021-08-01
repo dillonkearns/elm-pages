@@ -1,6 +1,7 @@
-module StructuredData exposing (..)
+module StructuredData exposing (StructuredData(..), additionalName, article, article_, computerLanguage, elmLang, encode, episode, person, series, softwareSourceCode)
 
 import Json.Encode as Encode
+import Pages.Url
 
 
 {-| <https://schema.org/SoftwareSourceCode>
@@ -53,7 +54,7 @@ article :
     , author : StructuredData { authorMemberOf | personOrOrganization : () } authorPossibleFields
     , publisher : StructuredData { publisherMemberOf | personOrOrganization : () } publisherPossibleFields
     , url : String
-    , imageUrl : String
+    , imageUrl : Pages.Url.Url
     , datePublished : String
     , mainEntityOfPage : Encode.Value
     }
@@ -64,7 +65,7 @@ article info =
         , ( "@type", Encode.string "Article" )
         , ( "headline", Encode.string info.title )
         , ( "description", Encode.string info.description )
-        , ( "image", Encode.string info.imageUrl )
+        , ( "image", Encode.string (Pages.Url.toString info.imageUrl) )
         , ( "author", encode info.author )
         , ( "publisher", encode info.publisher )
         , ( "url", Encode.string info.url )
@@ -83,7 +84,8 @@ person :
     { name : String
     }
     ->
-        StructuredData { personOrOrganization : () }
+        StructuredData
+            { personOrOrganization : () }
             { additionalName : ()
             , address : ()
             , affiliation : ()
@@ -132,15 +134,15 @@ encode (StructuredData typeName fields) =
 
 
 
---example : StructuredDataHelper { personOrOrganization : () } { address : (), affiliation : () }
-
-
-example =
-    person { name = "Dillon Kearns" }
-        |> additionalName "Cornelius"
-
-
-
+--example :
+--    StructuredData
+--        { personOrOrganization : () }
+--        { address : ()
+--        , affiliation : ()
+--        }
+--example =
+--    person { name = "Dillon Kearns" }
+--        |> additionalName "Cornelius"
 --organization :
 --    {}
 --    -> StructuredDataHelper { personOrOrganization : () }

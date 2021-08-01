@@ -5,3 +5,7 @@ dist/
 generator/src/Main.js
 elm-pages-*.tgz
 coverage
+.netlify
+tests/VerifyExamples/
+cypress/videos
+cypress/screenshots

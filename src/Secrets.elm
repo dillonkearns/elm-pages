@@ -28,7 +28,7 @@ maskedLookup (Value lookupSecrets) =
         Ok value ->
             value
 
-        Err error ->
+        Err _ ->
             -- crash
             maskedLookup (Value lookupSecrets)
 
@@ -41,6 +41,7 @@ succeed value =
 buildError : String -> SecretsDict -> BuildError
 buildError secretName secretsDict =
     let
+        availableEnvironmentVariables : List String
         availableEnvironmentVariables =
             SecretsDict.available secretsDict
     in
@@ -49,27 +50,26 @@ buildError secretName secretsDict =
         [ Terminal.text "I expected to find this Secret in your environment variables but didn't find a match:\n\nSecrets.get \""
         , Terminal.text secretName
         , Terminal.text "\"\n             "
-        , Terminal.red <| Terminal.text (underlineText (secretName |> String.length))
+        , Terminal.red <| underlineText (secretName |> String.length)
         , Terminal.text "\n\nSo maybe "
-        , Terminal.yellow <| Terminal.text secretName
+        , Terminal.yellow <| secretName
         , Terminal.text " should be "
-        , Terminal.green <| Terminal.text (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
+        , Terminal.green <| (sortMatches secretName availableEnvironmentVariables |> List.head |> Maybe.withDefault "")
         ]
+    , path = "" -- TODO wire in path here?
     , fatal = True
     }
 
 
 underlineText : Int -> String
 underlineText length =
-    if length == 0 then
-        ""
-
-    else
-        "^" ++ underlineText (length - 1)
+    String.repeat length "^"
 
 
+sortMatches : String -> List String -> List String
 sortMatches missingSecret availableSecrets =
     let
+        simpleMatch : List Fuzzy.Config -> List String -> String -> String -> Int
         simpleMatch config separators needle hay =
             Fuzzy.match config separators needle hay |> .score
     in
@@ -100,7 +100,7 @@ with newSecret (Value lookupSecrets) =
 
                 Err error ->
                     case SecretsDict.get newSecret secrets of
-                        Just newValue ->
+                        Just _ ->
                             Err error
 
                         Nothing ->

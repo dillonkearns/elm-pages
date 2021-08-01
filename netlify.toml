@@ -1,5 +1,23 @@
 [build]
   base = "examples/docs/"
+  functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && cd ../../ && npm run build && cd examples/docs && npm install && npm run build"
-  ignore = "git diff --quiet HEAD^ HEAD `git rev-parse --show-toplevel`"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js && (cd functions/process-url && npm i)"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF elm.json elm-tooling.json netlify.toml generator package.json package-lock.json plugins src examples/docs"
+
+[[redirects]]
+  from = "/screenshot/*"
+  to = "/.netlify/functions/screenshot"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/render"
+  status = 200
+  # force = true
+
+[dev]
+  command = "npm start"
+  targetPort = 1234
+  autoLaunch = true
+  framework = "#custom"

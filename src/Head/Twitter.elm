@@ -1,7 +1,7 @@
 module Head.Twitter exposing (SummarySize(..), TwitterCard(..), rawTags)
 
 import Head
-import Pages.ImagePath exposing (ImagePath)
+import Pages.Url
 
 
 type SummarySize
@@ -9,25 +9,25 @@ type SummarySize
     | Large
 
 
-type alias Image pathKey =
-    { url : ImagePath pathKey
+type alias Image =
+    { url : Pages.Url.Url
     , alt : String
     }
 
 
-type TwitterCard pathKey
+type TwitterCard
     = Summary
         { title : String
         , description : Maybe String
         , siteUser : Maybe String
-        , image : Maybe (Image pathKey)
+        , image : Maybe Image
         , size : SummarySize
         }
     | App
         { title : String
         , description : Maybe String
         , siteUser : String
-        , image : Maybe (Image pathKey)
+        , image : Maybe Image
         , appIdIphone : Maybe Int
         , appIdIpad : Maybe Int
         , appIdGooglePlay : Maybe String
@@ -44,14 +44,14 @@ type TwitterCard pathKey
         { title : String
         , description : Maybe String
         , siteUser : String
-        , image : Image pathKey
+        , image : Image
         , player : String
         , width : Int
         , height : Int
         }
 
 
-rawTags : TwitterCard pathKey -> List ( String, Maybe (Head.AttributeValue pathKey) )
+rawTags : TwitterCard -> List ( String, Maybe Head.AttributeValue )
 rawTags card =
     ( "twitter:card", cardValue card |> Head.raw |> Just )
         :: (case card of
@@ -59,7 +59,7 @@ rawTags card =
                     [ ( "twitter:title", details.title |> Head.raw |> Just )
                     , ( "twitter:site", details.siteUser |> Maybe.map Head.raw )
                     , ( "twitter:description", details.description |> Maybe.map Head.raw )
-                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.fullImageUrl )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.urlAttribute )
                     , ( "twitter:image:alt", details.image |> Maybe.map .alt |> Maybe.map Head.raw )
                     ]
 
@@ -67,7 +67,7 @@ rawTags card =
                     [ ( "twitter:title", details.title |> Head.raw |> Just )
                     , ( "twitter:site", details.siteUser |> Head.raw |> Just )
                     , ( "twitter:description", details.description |> Maybe.map Head.raw )
-                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.fullImageUrl )
+                    , ( "twitter:image", details.image |> Maybe.map .url |> Maybe.map Head.urlAttribute )
                     , ( "twitter:image:alt", details.image |> Maybe.map .alt |> Maybe.map Head.raw )
                     , ( "twitter:app:name:iphone", details.appNameIphone |> Maybe.map Head.raw )
                     , ( "twitter:app:name:ipad", details.appNameIpad |> Maybe.map Head.raw )
@@ -85,13 +85,13 @@ rawTags card =
                     [ ( "twitter:title", details.title |> Head.raw |> Just )
                     , ( "twitter:site", details.siteUser |> Head.raw |> Just )
                     , ( "twitter:description", details.description |> Maybe.map Head.raw )
-                    , ( "twitter:image", Just (Head.fullImageUrl details.image.url) )
+                    , ( "twitter:image", Just (Head.urlAttribute details.image.url) )
                     , ( "twitter:image:alt", details.image.alt |> Head.raw |> Just )
                     ]
            )
 
 
-cardValue : TwitterCard pathKey -> String
+cardValue : TwitterCard -> String
 cardValue card =
     case card of
         Summary details ->
@@ -102,8 +102,8 @@ cardValue card =
                 Large ->
                     "summary_large_image"
 
-        App details ->
+        App _ ->
             "app"
 
-        Player details ->
+        Player _ ->
             "player"

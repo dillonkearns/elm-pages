@@ -1,32 +1,44 @@
-#!/usr/bin/env node
-
 const fs = require("./dir-helpers.js");
+const path = require("path");
+const routeHelpers = require("./route-codegen-helpers");
 
-if (process.argv.length === 3) {
-  const moduleName = process.argv[2];
-  if (!moduleName.match(/[A-Z][A-Za-z0-9]*/)) {
+async function run({ moduleName }) {
+  if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
     console.error("Invalid module name.");
     process.exit(1);
   }
   const content = fileContent(moduleName);
-  fs.tryMkdir("src/Template");
-  fs.writeFile(`src/Template/${moduleName}.elm`, content);
-} else {
-  console.error(`Unexpected CLI options: ${process.argv}`);
-  process.exit(1);
+  const fullFilePath = path.join(
+    `src/Page/`,
+    moduleName.replace(/\./g, "/") + ".elm"
+  );
+  await fs.tryMkdir(path.dirname(fullFilePath));
+  fs.writeFile(fullFilePath, content);
 }
 
-function fileContent(templateName) {
-  return `
-module Template.${templateName} exposing (Model, Msg, template)
+/**
+ * @param {string} pageModuleName
+ */
+function fileContent(pageModuleName) {
+  return routeHelpers.routeParams(pageModuleName.split(".")).length > 0
+    ? fileContentWithParams(pageModuleName)
+    : fileContentWithoutParams(pageModuleName);
+}
 
+/**
+ * @param {string} pageModuleName
+ */
+function fileContentWithParams(pageModuleName) {
+  return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
+
+import DataSource exposing (DataSource)
 import Head
-import Pages
-import Pages.PagePath exposing (PagePath)
+import Head.Seo as Seo
+import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
 import Shared
-import Template exposing (StaticPayload, Template)
-import TemplateMetadata exposing (${templateName})
-import TemplateType exposing (TemplateType)
+import View exposing (View)
 
 
 type alias Model =
@@ -36,34 +48,136 @@ type alias Model =
 type alias Msg =
     Never
 
+type alias RouteParams =
+    ${routeHelpers.paramsRecord(pageModuleName.split("."))}
 
-type alias StaticData =
-    ()
+page : Page RouteParams Data
+page =
+    Page.prerender
+        { head = head
+        , routes = routes
+        , data = data
+        }
+        |> Page.buildNoState { view = view }
 
 
-template : Template ${templateName} StaticData
-template =
-    Template.noStaticData { head = head }
-        |> Template.buildNoState { view = view }
+routes : DataSource (List RouteParams)
+routes =
+    DataSource.succeed []
+
+
+data : RouteParams -> DataSource Data
+data routeParams =
+    DataSource.succeed ()
+
 
 
 head :
-    StaticPayload ${templateName} StaticData
-    -> List (Head.Tag Pages.PathKey)
-head { metadata } =
-    []
+    StaticPayload Data RouteParams
+    -> List Head.Tag
+head static =
+    Seo.summary
+        { canonicalUrlOverride = Nothing
+        , siteName = "elm-pages"
+        , image =
+            { url = Pages.Url.external "TODO"
+            , alt = "elm-pages logo"
+            , dimensions = Nothing
+            , mimeType = Nothing
+            }
+        , description = "TODO"
+        , locale = Nothing
+        , title = "TODO title" -- metadata.title -- TODO
+        }
+        |> Seo.website
+
+
+type alias Data =
+    ()
 
 
 view :
-    List ( PagePath Pages.PathKey, TemplateType )
-    -> StaticPayload ${templateName} StaticData
-    -> Shared.RenderedBody
-    -> Shared.PageView msg
-view allMetadata static rendered =
-    { title = Debug.todo "Add title."
-    , body =
-        []
-    }
-
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
+    -> View Msg
+view maybeUrl sharedModel static =
+    View.placeholder "${pageModuleName}"
 `;
 }
+
+/**
+ * @param {string} pageModuleName
+ */
+function fileContentWithoutParams(pageModuleName) {
+  return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
+
+import DataSource exposing (DataSource)
+import Head
+import Head.Seo as Seo
+import Page exposing (Page, PageWithState, StaticPayload)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+    ()
+
+
+type alias Msg =
+    Never
+
+type alias RouteParams =
+    {}
+
+page : Page RouteParams Data
+page =
+    Page.single
+        { head = head
+        , data = data
+        }
+        |> Page.buildNoState { view = view }
+
+
+type alias Data =
+    ()
+
+
+data : DataSource Data
+data =
+    DataSource.succeed ()
+
+
+head :
+    StaticPayload Data RouteParams
+    -> List Head.Tag
+head static =
+    Seo.summary
+        { canonicalUrlOverride = Nothing
+        , siteName = "elm-pages"
+        , image =
+            { url = Pages.Url.external "TODO"
+            , alt = "elm-pages logo"
+            , dimensions = Nothing
+            , mimeType = Nothing
+            }
+        , description = "TODO"
+        , locale = Nothing
+        , title = "TODO title" -- metadata.title -- TODO
+        }
+        |> Seo.website
+
+
+view :
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
+    -> View Msg
+view maybeUrl sharedModel static =
+    View.placeholder "${pageModuleName}"
+`;
+}
+
+module.exports = { run };

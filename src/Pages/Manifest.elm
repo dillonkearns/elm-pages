@@ -1,5 +1,7 @@
 module Pages.Manifest exposing
     ( Config, Icon
+    , init
+    , withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
     , DisplayMode(..), Orientation(..), IconPurpose(..)
     , toJson
     )
@@ -10,41 +12,32 @@ module Pages.Manifest exposing
 You pass your `Pages.Manifest.Config` record into the `Pages.application` function
 (from your generated `Pages.elm` file).
 
-    import Pages
     import Pages.Manifest as Manifest
     import Pages.Manifest.Category
-    import Pages.PagePath as PagePath exposing (PagePath)
-    import Palette
 
-    manifest : Manifest.Config Pages.PathKey
+    manifest : Manifest.Config
     manifest =
-        { backgroundColor = Just Color.white
-        , categories = [ Pages.Manifest.Category.education ]
-        , displayMode = Manifest.Standalone
-        , orientation = Manifest.Portrait
-        , description = "elm-pages - A statically typed site generator."
-        , iarcRatingId = Nothing
-        , name = "elm-pages docs"
-        , themeColor = Just Color.white
-        , startUrl = Pages.pages.index
-        , shortName = Just "elm-pages"
-        , sourceIcon = Pages.images.icon
-        }
-
-    main : Pages.Program Model Msg Metadata (List (Element Msg))
-    main =
-        Pages.application
-            { init = init
-            , view = view
-            , update = update
-            , subscriptions = subscriptions
-            , documents = [ markdownDocument ]
-            , head = head
-            , manifest = manifest
-            , canonicalSiteUrl = canonicalSiteUrl
+        Manifest.init
+            { name = static.siteName
+            , description = "elm-pages - " ++ tagline
+            , startUrl = Route.Index {} |> Route.toPath
+            , icons =
+                [ icon webp 192
+                , icon webp 512
+                , icon MimeType.Png 192
+                , icon MimeType.Png 512
+                ]
             }
+            |> Manifest.withShortName "elm-pages"
 
 @docs Config, Icon
+
+
+## Builder options
+
+@docs init
+
+@docs withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
 
 
 ## Config options
@@ -61,10 +54,13 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 import Color exposing (Color)
 import Color.Convert
 import Json.Encode as Encode
+import LanguageTag exposing (LanguageTag, emptySubtags)
+import LanguageTag.Country as Country
+import LanguageTag.Language
 import MimeType
-import Pages.ImagePath as ImagePath exposing (ImagePath)
 import Pages.Manifest.Category as Category exposing (Category)
-import Pages.PagePath as PagePath exposing (PagePath)
+import Pages.Url
+import Path exposing (Path)
 
 
 
@@ -94,6 +90,96 @@ type Orientation
     | Portrait
     | PortraitPrimary
     | PortraitSecondary
+
+
+{-| Setup a minimal Manifest.Config. You can then use the `with...` builder functions to set additional options.
+-}
+init :
+    { description : String
+    , name : String
+    , startUrl : Path
+    , icons : List Icon
+    }
+    -> Config
+init options =
+    { backgroundColor = Nothing
+    , categories = []
+    , displayMode = Standalone
+    , orientation = Portrait
+    , description = options.description
+    , iarcRatingId = Nothing
+    , name = options.name
+    , themeColor = Nothing
+    , startUrl = options.startUrl
+    , shortName = Nothing
+    , icons = options.icons
+    , lang = usEnglish
+    }
+
+
+usEnglish : LanguageTag
+usEnglish =
+    LanguageTag.Language.en
+        |> LanguageTag.build
+            { emptySubtags
+                | region = Just Country.us
+            }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/background_color>.
+-}
+withBackgroundColor : Color -> Config -> Config
+withBackgroundColor color config =
+    { config | backgroundColor = Just color }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/categories>.
+-}
+withCategories : List Category -> Config -> Config
+withCategories categories config =
+    { config | categories = categories ++ config.categories }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/display>.
+-}
+withDisplayMode : DisplayMode -> Config -> Config
+withDisplayMode displayMode config =
+    { config | displayMode = displayMode }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/orientation>.
+-}
+withOrientation : Orientation -> Config -> Config
+withOrientation orientation config =
+    { config | orientation = orientation }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/iarc_rating_id>.
+-}
+withIarcRatingId : String -> Config -> Config
+withIarcRatingId iarcRatingId config =
+    { config | iarcRatingId = Just iarcRatingId }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/theme_color>.
+-}
+withThemeColor : Color -> Config -> Config
+withThemeColor themeColor config =
+    { config | themeColor = Just themeColor }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name>.
+-}
+withShortName : String -> Config -> Config
+withShortName shortName config =
+    { config | shortName = Just shortName }
+
+
+{-| Set <https://developer.mozilla.org/en-US/docs/Web/Manifest/lang>.
+-}
+withLang : LanguageTag -> Config -> Config
+withLang languageTag config =
+    { config | lang = languageTag }
 
 
 orientationToString : Orientation -> String
@@ -126,25 +212,8 @@ orientationToString orientation =
 
 {-| Represents a [web app manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest)
 (see above for how to use it).
-
-The `sourceIcon` is used to automatically generate all of the Favicons and manifest
-icons of the appropriate sizes (512x512, etc) for Android, iOS, etc. So you just
-point at a single image asset and you will have optimized images following all
-the best practices!
-
-
-## Type-safe static paths
-
-The `pathKey` in this type is used to ensure that you are using
-known static resources for any internal image or page paths.
-
-  - The `startUrl` is a type-safe `PagePath`, ensuring that any internal links
-    are present (not broken links).
-  - The `sourceIcon` is a type-safe `ImagePath`, ensuring that any internal images
-    are present (not broken images).
-
 -}
-type alias Config pathKey =
+type alias Config =
     { backgroundColor : Maybe Color
     , categories : List Category
     , displayMode : DisplayMode
@@ -155,19 +224,19 @@ type alias Config pathKey =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : PagePath pathKey
+    , startUrl : Path
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
-    , sourceIcon : ImagePath pathKey
-    , icons : List (Icon pathKey)
+    , icons : List Icon
+    , lang : LanguageTag
     }
 
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/Manifest/icons>
 -}
-type alias Icon pathKey =
-    { src : ImagePath pathKey
+type alias Icon =
+    { src : Pages.Url.Url
     , sizes : List ( Int, Int )
     , mimeType : Maybe MimeType.MimeImage
     , purposes : List IconPurpose
@@ -198,10 +267,10 @@ displayModeToAttribute displayMode =
             "browser"
 
 
-encodeIcon : String -> Icon pathKey -> Encode.Value
+encodeIcon : String -> Icon -> Encode.Value
 encodeIcon canonicalSiteUrl icon =
     encodeMaybeObject
-        [ ( "src", icon.src |> ImagePath.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )
+        [ ( "src", icon.src |> Pages.Url.toAbsoluteUrl canonicalSiteUrl |> Encode.string |> Just )
         , ( "type", icon.mimeType |> Maybe.map MimeType.Image |> Maybe.map MimeType.toString |> Maybe.map Encode.string )
         , ( "sizes", icon.sizes |> nonEmptyList |> Maybe.map sizesString |> Maybe.map Encode.string )
         , ( "purpose", icon.purposes |> nonEmptyList |> Maybe.map purposesString |> Maybe.map Encode.string )
@@ -247,11 +316,12 @@ nonEmptyList list =
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated
 code will run this for you to generate your `manifest.json` file automatically!
 -}
-toJson : String -> Config pathKey -> Encode.Value
+toJson : String -> Config -> Encode.Value
 toJson canonicalSiteUrl config =
-    [ ( "sourceIcon"
-      , config.sourceIcon
-            |> ImagePath.toString
+    [ ( "dir", Encode.string "auto" |> Just )
+    , ( "lang"
+      , config.lang
+            |> LanguageTag.toString
             |> Encode.string
             |> Just
       )
@@ -313,22 +383,15 @@ toJson canonicalSiteUrl config =
             |> Maybe.map Encode.string
       )
     , ( "start_url"
-      , config.startUrl
-            |> PagePath.toString
+      , Path.toAbsolute config.startUrl
             |> Encode.string
             |> Just
       )
     , ( "short_name"
       , config.shortName |> Maybe.map Encode.string
       )
-    , ( "serviceworker"
-      , Encode.object
-            [ ( "src", Encode.string "../service-worker.js" )
-            , ( "scope", Encode.string "/" )
-            , ( "type", Encode.string "" )
-            , ( "update_via_cache", Encode.string "none" )
-            ]
-            |> Just
+    , ( "scope"
+      , Encode.string "/" |> Just
       )
     ]
         |> encodeMaybeObject
