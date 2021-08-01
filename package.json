@@ -55,7 +55,8 @@
   },
   "files": [
     "generator/src/",
-    "generator/template/"
+    "generator/template/",
+    "generator/static-code/"
   ],
   "bin": {
     "elm-pages": "generator/src/cli.js"
