@@ -88,7 +88,7 @@ The core built-in `DataSource` modules let you pull in
 
 If that isn't enough to get you the data you need to pull in to your site, then there's an additional module that lets you build your own custom `DataSource`.
 
-[`DataSource.Port`](DataSource-Port) lets you decode JSON data that you call from custom NodeJS functions. As with any `DataSource`, you get this data in the build step and then it gets built in to yoru site, so these NodeJS functions, HTTP requests, file reads, etc. are not happening when a user opens a page in your live site that you built with `elm-pages build`.
+[`DataSource.Port`](DataSource-Port) lets you decode JSON data that you call from custom NodeJS functions. As with any `DataSource`, you get this data in the build step and then it gets built in to your site, so these NodeJS functions, HTTP requests, file reads, etc. are not happening when a user opens a page in your live site that you built with `elm-pages build`.
 
 ```elm
 data : DataSource String
@@ -125,7 +125,7 @@ There are a few benefits to this functionality:
 - It gives you the building block to add any DataSource you need, like calling shell scripts for example
 - If you throw an error, you get a nice error message when you run `elm-pages build` and in your dev server
 - You can leverage a huge ecosystem of tools, including ones with native dependencies, in the NPM ecosystem - for example, you could use `sharp` to get an image's width/height from your filesystem
-- You can shave off computation and data from the final site so user's get a snappier experience - one of the core principles of JAMstack. For example, I like using `shiki` to pull in all the syntax highlighting grammars from VS Code at build time, and distilling it down to the tokenized output that has already been parsed by the time the browser loads it (pulling in every VS Code language grammar to your bundle would not be viable!)
+- You can shave off computation and data from the final site so users get a snappier experience - one of the core principles of JAMstack. For example, I like using `shiki` to pull in all the syntax highlighting grammars from VS Code at build time, and distilling it down to the tokenized output that has already been parsed by the time the browser loads it (pulling in every VS Code language grammar to your bundle would not be viable!)
 
 ## Developer Experience
 
@@ -160,6 +160,6 @@ One of the core changes under the hood in v2 is that everything is built one pag
 
 This new architecture under the hood is also what powers some experimental functionality that will be the focus of the next `elm-pages` milestone: serverless rendering. Serverless functions let you run JavaScript code with minimal infrastructure setup, and respond to an HTTP request. This is essentially exactly what the dev server is doing, so it's not a big leap from that to rendering pages at request-time instead of pre-rendering them at build-time.
 
-Pre-rendering apges is still ideal in cases where you have the data you need ahead of time, but in some cases you may want to pull in data on-demand, or even use request headers when serving up the page. For example, you could use an authentication header to verify that a user is logged in, and do a redirect or serve up the user's page depending on the auth check. One of the challenges with traditional Jamstack sites is content that is user-specific, and this functionality can open up some use cases in this area.
+Pre-rendering pages is still ideal in cases where you have the data you need ahead of time, but in some cases you may want to pull in data on-demand, or even use request headers when serving up the page. For example, you could use an authentication header to verify that a user is logged in, and do a redirect or serve up the user's page depending on the auth check. One of the challenges with traditional Jamstack sites is content that is user-specific, and this functionality can open up some use cases in this area.
 
 Stay tuned for more on this front. For now, give the new v2 a try! You can set up a new app by running `npx elm-pages@latest init my-app`. You can also [read more in the elm-pages docs](https://elm-pages.com/docs), and check out [the `elm-pages` package documentation](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest). If you make a shiny new v2 site, submit it to [the showcase](https://elm-pages.com/showcase), I'd love to see what you build!
