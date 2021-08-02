@@ -2,7 +2,7 @@
 {
   "author": "Dillon Kearns",
   "title": "Introducing elm-pages 2.0",
-  "description": "",
+  "description": "This release represents a huge improvement for elm-pages in terms of features, developer experience, and performance.",
   "image": "v1627861555/elm-pages/article-covers/photo-1471107340929-a87cd0f5b5f3_mczjfg.jpg",
   "published": "2021-08-01",
 }
