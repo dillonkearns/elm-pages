@@ -52,6 +52,10 @@ allMetadata =
                                 Just ( route, metadata )
                         )
             )
+        |> DataSource.map
+            (List.sortBy
+                (\( route, metadata ) -> -(Date.toRataDie metadata.published))
+            )
 
 
 type alias ArticleMetadata =
