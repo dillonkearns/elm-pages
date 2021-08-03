@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [8.0.2] - 2021-08-03
+
+### Fixed
+
+- Change htmlFor HTML property to for HTML attribute in rendered HTML.
+
 ## [8.0.1] - 2021-08-01
 
 ### Fixed
