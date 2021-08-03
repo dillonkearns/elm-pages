@@ -51,6 +51,8 @@ jobs:
         run: npx --no-install elm-tooling install
       - name: Tests
         run: npm test
+      - name: HTML Escaping Tests
+        run: (cd examples/escaping && npm install && npm test)
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
       - uses: sparksp/elm-review-action@v1
