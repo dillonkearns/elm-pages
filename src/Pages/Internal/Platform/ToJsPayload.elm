@@ -38,7 +38,7 @@ errorCodec =
         |> Codec.field "errorsJson"
             identity
             (Codec.build
-                (Json.Encode.list BuildError.encode)
+                BuildError.encode
                 (Decode.succeed [ { title = "TODO", message = [], fatal = True, path = "" } ])
             )
         |> Codec.buildObject

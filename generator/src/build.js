@@ -71,7 +71,7 @@ function initWorker(basePath) {
           pagesReady(JSON.parse(message.data));
         } else if (message.tag === "error") {
           process.exitCode = 1;
-          console.error(restoreColor(message.data.errorsJson));
+          console.error(restoreColor(message.data));
           buildNextPage(newWorker);
         } else if (message.tag === "done") {
           buildNextPage(newWorker);
@@ -225,7 +225,7 @@ function runElmMake(elmEntrypointPath, outputPath, cwd) {
         resolve();
       } else {
         process.exitCode = 1;
-        reject(restoreColor(JSON.parse(commandOutput).errors));
+        reject(restoreColor(JSON.parse(commandOutput)));
       }
     });
   });

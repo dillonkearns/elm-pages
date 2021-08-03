@@ -288,11 +288,10 @@ async function start(options) {
     try {
       await pendingCliCompile;
     } catch (error) {
-      const parsedErrors = JSON.parse(error).errors;
+      console.log(restoreColor(JSON.parse(error)));
       if (req.url.includes("content.json")) {
-        console.log("@@@1A");
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(parsedErrors));
+        res.end(error);
       } else {
         res.writeHead(500, { "Content-Type": "text/html" });
         res.end(errorHtml());
@@ -335,10 +334,10 @@ async function start(options) {
       },
 
       function (error) {
-        console.log(restoreColor(error.errorsJson));
+        console.log(restoreColor(error));
         if (req.url.includes("content.json")) {
           res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(error.errorsJson));
+          res.end(JSON.stringify(error));
         } else {
           res.writeHead(500, { "Content-Type": "text/html" });
           res.end(errorHtml());

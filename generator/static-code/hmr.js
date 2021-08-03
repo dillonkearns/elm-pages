@@ -31,11 +31,19 @@ async function handleEvent(sendContentJsonPort, evt) {
       const elmJsResponse = await elmJsRequest;
       thenApplyHmr(elmJsResponse);
     } catch (errorJson) {
-      console.log({ errorJson });
-      showError({
-        type: "compile-errors",
-        errors: errorJson,
-      });
+      if (typeof errorJson === "string") {
+        errorJson = JSON.parse(errorJson)
+      }
+      if (errorJson.type) {
+        showError(errorJson);
+      } else if (errorJson.length > 0) {
+        showError({
+          type: "compile-errors",
+          errors: errorJson,
+        });
+      } else {
+          showError(JSON.parse(errorJson.errorsJson.errors));
+      }
     }
   } else if (evt.data === "elm.js") {
     showCompiling("");
@@ -74,10 +82,13 @@ async function updateContentJsonWith(
         hideCompiling("fast");
       });
     } catch (errorJson) {
-      showError({
-        type: "compile-errors",
-        errors: errorJson,
-      });
+      if (errorJson.type) {
+        showError(errorJson);
+      } else if (typeof errorJson === 'string') {
+        showError(JSON.parse(errorJson));
+      } else {
+        showError(errorJson);
+      }
     }
   });
 }
@@ -240,20 +251,35 @@ const consoleMsg = ({ error, style }, msg) => ({
 
 const joinMessage = ({ error, style }) => [error.join("")].concat(style);
 
-const parseConsoleErrors = (path) => ({ title, message }) =>
+const parseConsoleErrors = (path) => 
+/**
+ * @param {{ title: string; message: Message[]}} info
+ * */
+(info) =>
   joinMessage(
-    message.reduce(consoleMsg, {
-      error: [consoleHeader(title, path)],
+    info.message.reduce(consoleMsg, {
+      error: [consoleHeader(info.title, path)],
       style: [styleColor("blue")],
     })
   );
 
-const restoreColorConsole = ({ errors }) =>
-  errors.reduce(
-    (acc, { problems, path }) =>
-      acc.concat(problems.map(parseConsoleErrors(path))),
-    []
-  );
+  /**
+   * @param {RootObject} error
+   * */
+const restoreColorConsole = (error) => {
+
+  if (error.type === 'compile-errors' && error.errors) {
+    return error.errors.reduce(
+      (acc, { problems, path }) =>
+        acc.concat(problems.map(parseConsoleErrors(path))),
+      []
+    );
+  } else if (error.type === 'error') {
+      return parseConsoleErrors(error.path)(error)
+  } else {
+    console.error(`Unknown error type ${error}`);
+  }
+}
 
 /*
   |-------------------------------------------------------------------------------
@@ -275,12 +301,23 @@ const htmlMsg = (acc, msg) =>
 const parseHtmlErrors = (path) => ({ title, message }) =>
   message.reduce(htmlMsg, htmlHeader(title, path));
 
-const restoreColorHtml = ({ errors }) =>
-  errors.reduce(
-    (acc, { problems, path }) =>
-      acc.concat(problems.map(parseHtmlErrors(path))),
-    []
-  );
+const restoreColorHtml = 
+/** 
+ *  @param {RootObject} error
+ * */
+(error) => {
+  if (error.type === 'compile-errors') {
+    return error.errors.reduce(
+      (acc, { problems, path }) =>
+        acc.concat(problems.map(parseHtmlErrors(path))),
+      []
+    );
+  } else if (error.type === 'error') {
+    return parseHtmlErrors(error.path)(error);
+  } else {
+    throw new Error(`Unknown error type ${error}`);
+  }
+}
 
 /*
   |-------------------------------------------------------------------------------
@@ -291,6 +328,9 @@ const restoreColorHtml = ({ errors }) =>
 var speed = 400;
 var delay = 20;
 
+/**
+ * @param {RootObject} error
+ */
 function showError(error) {
   restoreColorConsole(error).forEach((error) => {
     console.log.apply(this, error);
@@ -575,3 +615,16 @@ function hideCompiling(velocity) {
     }
   }
 }
+
+/** @typedef { CompilerError | ReportError } RootObject */
+
+/** @typedef { { type: "compile-errors"; errors: Error_[]; } } CompilerError */
+/** @typedef { { type: "error"; path: string; title: string; message: Message[]; } } ReportError */
+
+/** @typedef { { line: number; column: number; } } CodeLocation */
+
+/** @typedef { { start: CodeLocation; end: CodeLocation; } }  Region */
+
+/** @typedef { { title: string; region: Region; message: Message[]; } } Problem */
+/** @typedef {string | {underline: boolean; color: string?; string: string}} Message */
+/** @typedef { { path: string; name: string; problems: Problem[]; } } Error_ */

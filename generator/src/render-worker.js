@@ -32,7 +32,11 @@ async function run({ mode, pathname }) {
       throw `Unknown mode ${mode}`;
     }
   } catch (error) {
-    parentPort.postMessage({ tag: "error", data: error });
+    if (error.errorsJson) {
+      parentPort.postMessage({ tag: "error", data: error.errorsJson });
+    } else {
+      parentPort.postMessage({ tag: "error", data: error });
+    }
   }
   console.timeEnd(`${threadId} ${pathname}`);
 }

@@ -34,12 +34,21 @@ banner title =
     ]
 
 
-encode : BuildError -> Encode.Value
-encode buildError =
+encode : List BuildError -> Encode.Value
+encode buildErrors =
     Encode.object
-        [ ( "path", Encode.string buildError.path )
-        , ( "name", Encode.string buildError.title )
-        , ( "problems", Encode.list (messagesEncoder buildError.title) [ buildError.message ] )
+        [ ( "type", Encode.string "compile-errors" )
+        , ( "errors"
+          , Encode.list
+                (\buildError ->
+                    Encode.object
+                        [ ( "path", Encode.string buildError.path )
+                        , ( "name", Encode.string buildError.title )
+                        , ( "problems", Encode.list (messagesEncoder buildError.title) [ buildError.message ] )
+                        ]
+                )
+                buildErrors
+          )
         ]
 
 
