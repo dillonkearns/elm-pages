@@ -1,9 +1,11 @@
 module Page.Escaping exposing (Data, Model, Msg, page)
 
+import Css exposing (..)
+import Css.Global
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import Html.Styled as Html
+import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
@@ -71,5 +73,22 @@ view maybeUrl sharedModel static =
     { title = ""
     , body =
         [ Html.label [ Attr.for "note" ] []
+        , div []
+            [ Css.Global.global
+                [ Css.Global.typeSelector "div"
+                    [ Css.Global.children
+                        [ Css.Global.typeSelector "p"
+                            [ fontSize (px 14)
+                            , color (rgb 255 0 0)
+                            ]
+                        ]
+                    ]
+                ]
+            , div []
+                [ p []
+                    [ text "Hello! 2 > 1"
+                    ]
+                ]
+            ]
         ]
     }
