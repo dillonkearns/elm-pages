@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.3] - 2021-08-02
+
+### Fixed
+
+- Cleaned up error printing in dev server and build to prevent some errors when presenting failure messages.
+
 ## [1.5.5] - 2020-02-16
 
 ### Fixed
