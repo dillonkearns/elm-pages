@@ -1,0 +1,9 @@
+node_modules/
+elm-stuff/
+dist/
+!dist/**/*.html
+.cache/
+.elm-pages/
+functions/render/elm-pages-cli.js
+my-json-data.json
+
