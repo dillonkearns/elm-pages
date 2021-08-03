@@ -5,6 +5,6 @@
     "build": "elm-pages build"
   },
   "devDependencies": {
-    "elm-pages": "^2.1.4"
+    "elm-pages": "^2.1.5"
   }
 }
