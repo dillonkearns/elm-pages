@@ -125,6 +125,7 @@ nodeRecordToString options { tag, children, facts } =
         stringAttributes =
             Dict.filter (\k v -> k /= "className") facts.stringAttributes
                 |> Dict.toList
+                |> List.map (Tuple.mapFirst propertyToAttributeName)
                 |> List.map (\( k, v ) -> k ++ "=\"" ++ v ++ "\"")
                 |> String.join " "
                 |> Just
@@ -156,6 +157,27 @@ nodeRecordToString options { tag, children, facts } =
             [ openTag [ classes, styles, stringAttributes, boolAttributes ] ]
                 ++ childrenStrings
                 ++ [ closeTag ]
+
+
+{-| <https://github.com/elm/virtual-dom/blob/5a5bcf48720bc7d53461b3cd42a9f19f119c5503/src/Elm/Kernel/VirtualDom.server.js#L196-L201>
+-}
+propertyToAttributeName : String.String -> String.String
+propertyToAttributeName propertyName =
+    case propertyName of
+        "className" ->
+            "class"
+
+        "htmlFor" ->
+            "for"
+
+        "httpEquiv" ->
+            "http-equiv"
+
+        "acceptCharset" ->
+            "accept-charset"
+
+        _ ->
+            propertyName
 
 
 escapeRawText : ElementKind -> String.String -> String.String
