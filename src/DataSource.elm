@@ -637,11 +637,7 @@ andMap =
 -}
 succeed : a -> DataSource a
 succeed value =
-    Request Dict.empty
-        ( []
-        , \_ _ _ ->
-            ApiRoute Dict.empty value
-        )
+    ApiRoute Dict.empty value
 
 
 {-| Stop the StaticHttp chain with the given error message. If you reach a `fail` in your request,
