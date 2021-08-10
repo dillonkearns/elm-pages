@@ -875,11 +875,11 @@ I encountered DataSource.distill with two matching keys that had differing encod
 Look for DataSource.distill with the key "stars"
 
 The first encoded value was:
-86
+123
 -------------------------------
 The second encoded value was:
 
-123""")
+86""")
             ]
 
         --, describe "generateFiles"
