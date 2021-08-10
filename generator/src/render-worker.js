@@ -64,7 +64,6 @@ async function outputString(
   switch (fromElm.kind) {
     case "html": {
       const args = fromElm;
-      console.log(`Pre-rendered /${args.route}`);
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
       const contentJsonString = JSON.stringify({

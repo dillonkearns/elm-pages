@@ -82,6 +82,7 @@ function runElmApp(
       flags: {
         secrets: process.env,
         staticHttpCache: global.staticHttpCache || {},
+        mode,
         request: {
           payload: modifiedRequest,
           kind: "single-page",

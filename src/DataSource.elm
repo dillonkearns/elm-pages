@@ -481,16 +481,19 @@ It would not work correctly if it chose between two responses that were reduced 
 -}
 combineReducedDicts : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
 combineReducedDicts dict1 dict2 =
-    (Dict.toList dict1 ++ Dict.toList dict2)
-        |> fromListDedupe Pages.StaticHttpRequest.merge
+    if Dict.size dict1 > Dict.size dict2 then
+        uniqueInsertAll dict2 dict1
+
+    else
+        uniqueInsertAll dict1 dict2
 
 
-fromListDedupe : (comparable -> a -> a -> a) -> List ( comparable, a ) -> Dict comparable a
-fromListDedupe combineFn xs =
-    List.foldl
-        (\( key, value ) acc -> Dict.Extra.insertDedupe (combineFn key) key value acc)
-        Dict.empty
-        xs
+uniqueInsertAll : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
+uniqueInsertAll dictToDedupeMerge startingDict =
+    Dict.foldl
+        (\key value acc -> Dict.Extra.insertDedupe (Pages.StaticHttpRequest.merge key) key value acc)
+        startingDict
+        dictToDedupeMerge
 
 
 lookup : KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
@@ -634,11 +637,7 @@ andMap =
 -}
 succeed : a -> DataSource a
 succeed value =
-    Request Dict.empty
-        ( []
-        , \_ _ _ ->
-            ApiRoute Dict.empty value
-        )
+    ApiRoute Dict.empty value
 
 
 {-| Stop the StaticHttp chain with the given error message. If you reach a `fail` in your request,
