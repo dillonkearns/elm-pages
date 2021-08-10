@@ -55,6 +55,7 @@ type alias Model route =
     , unprocessedPages : List ( Path, route )
     , staticRoutes : Maybe (List ( Path, route ))
     , maybeRequestJson : RenderRequest route
+    , isDevServer : Bool
     }
 
 
@@ -331,12 +332,14 @@ flagsDecoder :
     Decode.Decoder
         { secrets : SecretsDict
         , staticHttpCache : Dict String (Maybe String)
+        , isDevServer : Bool
         }
 flagsDecoder =
-    Decode.map2
-        (\secrets staticHttpCache ->
+    Decode.map3
+        (\secrets staticHttpCache isDevServer ->
             { secrets = secrets
             , staticHttpCache = staticHttpCache
+            , isDevServer = isDevServer
             }
         )
         (Decode.field "secrets" SecretsDict.decoder)
@@ -347,6 +350,7 @@ flagsDecoder =
                 )
             )
         )
+        (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
 
 
 {-| -}
@@ -358,8 +362,8 @@ init :
     -> ( Model route, Effect )
 init renderRequest contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
-        Ok { secrets, staticHttpCache } ->
-            initLegacy renderRequest { secrets = secrets, staticHttpCache = staticHttpCache } contentCache config flags
+        Ok { secrets, staticHttpCache, isDevServer } ->
+            initLegacy renderRequest { secrets = secrets, staticHttpCache = staticHttpCache, isDevServer = isDevServer } contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -379,17 +383,18 @@ init renderRequest contentCache config flags =
                 , unprocessedPages = []
                 , staticRoutes = Just []
                 , maybeRequestJson = renderRequest
+                , isDevServer = False
                 }
 
 
 initLegacy :
     RenderRequest route
-    -> { a | secrets : SecretsDict, staticHttpCache : Dict String (Maybe String) }
+    -> { secrets : SecretsDict, staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-initLegacy renderRequest { secrets, staticHttpCache } contentCache config flags =
+initLegacy renderRequest { secrets, staticHttpCache, isDevServer } contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -403,7 +408,12 @@ initLegacy renderRequest { secrets, staticHttpCache } contentCache config flags 
                                     (config.data serverRequestPayload.frontmatter)
                                     config.sharedData
                                 )
-                                (config.handleRoute serverRequestPayload.frontmatter)
+                                (if isDevServer then
+                                    config.handleRoute serverRequestPayload.frontmatter
+
+                                 else
+                                    DataSource.succeed Nothing
+                                )
 
                         RenderRequest.Api ( path, ApiRoute apiRequest ) ->
                             StaticResponses.renderApiRequest
@@ -451,6 +461,7 @@ initLegacy renderRequest { secrets, staticHttpCache } contentCache config flags 
             , unprocessedPages = unprocessedPages
             , staticRoutes = unprocessedPagesState
             , maybeRequestJson = renderRequest
+            , isDevServer = isDevServer
             }
     in
     StaticResponses.nextStep config initialModel Nothing
@@ -662,7 +673,12 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                 pageFoundResult : Result BuildError (Maybe NotFoundReason)
                                                 pageFoundResult =
                                                     StaticHttpRequest.resolve ApplicationType.Browser
-                                                        (config.handleRoute payload.frontmatter)
+                                                        (if model.isDevServer then
+                                                            config.handleRoute payload.frontmatter
+
+                                                         else
+                                                            DataSource.succeed Nothing
+                                                        )
                                                         model.allRawResponses
                                                         |> Result.mapError (StaticHttpRequest.toBuildError (payload.path |> Path.toAbsolute))
                                             in
@@ -821,7 +837,12 @@ sendSinglePageProgress contentJson config model =
                     pageFoundResult : Result BuildError (Maybe NotFoundReason)
                     pageFoundResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
-                            (config.handleRoute route)
+                            (if model.isDevServer then
+                                config.handleRoute route
+
+                             else
+                                DataSource.succeed Nothing
+                            )
                             model.allRawResponses
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
