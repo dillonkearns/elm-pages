@@ -1239,6 +1239,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                         |> Encode.dict identity Encode.string
                   )
                 , ( "staticHttpCache", encodedStaticHttpCache )
+                , ( "mode", Encode.string "dev-server" )
                 ]
 
         encodedStaticHttpCache : Encode.Value
