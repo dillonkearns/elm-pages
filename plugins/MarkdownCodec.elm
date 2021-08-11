@@ -1,4 +1,4 @@
-module MarkdownCodec exposing (noteTitle, titleAndDescription, withFrontmatter, withoutFrontmatter)
+module MarkdownCodec exposing (isPlaceholder, noteTitle, titleAndDescription, withFrontmatter, withoutFrontmatter)
 
 import DataSource exposing (DataSource)
 import DataSource.File as StaticFile
@@ -8,6 +8,41 @@ import Markdown.Parser
 import Markdown.Renderer
 import OptimizedDecoder exposing (Decoder)
 import Serialize as S
+
+
+isPlaceholder : String -> DataSource (Maybe ())
+isPlaceholder filePath =
+    filePath
+        |> StaticFile.bodyWithoutFrontmatter
+        |> DataSource.andThen
+            (\rawContent ->
+                Markdown.Parser.parse rawContent
+                    |> Result.mapError (\_ -> "Markdown error")
+                    |> Result.map
+                        (\blocks ->
+                            List.any
+                                (\block ->
+                                    case block of
+                                        Block.Heading _ inlines ->
+                                            False
+
+                                        _ ->
+                                            True
+                                )
+                                blocks
+                                |> not
+                        )
+                    |> DataSource.fromResult
+            )
+        |> DataSource.distillSerializeCodec (filePath ++ "-is-placeholder") S.bool
+        |> DataSource.map
+            (\bool ->
+                if bool then
+                    Nothing
+
+                else
+                    Just ()
+            )
 
 
 noteTitle : String -> DataSource String
@@ -134,8 +169,8 @@ withoutFrontmatter :
     -> String
     -> DataSource (List view)
 withoutFrontmatter renderer filePath =
-    (StaticFile.bodyWithoutFrontmatter
-        filePath
+    (filePath
+        |> StaticFile.bodyWithoutFrontmatter
         |> DataSource.andThen
             (\rawBody ->
                 rawBody
@@ -237,7 +272,8 @@ codec =
 
 
 tableHeaderCodec :
-    S.Codec Never
+    S.Codec
+        Never
         (List
             { label : List Block.Inline
             , alignment : Maybe Block.Alignment
