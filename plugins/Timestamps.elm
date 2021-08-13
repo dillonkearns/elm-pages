@@ -24,7 +24,12 @@ data filePath =
             |> Decode.map (String.trim >> String.split "\n")
             |> Decode.map (List.map secondsStringToPosix)
             |> Decode.map Result.Extra.combine
-            |> Decode.andThen Decode.fromResult
+            |> Decode.map
+                (Result.withDefault
+                    [ Time.millisToPosix 0
+                    , Time.millisToPosix 0
+                    ]
+                )
             |> Decode.map (firstAndLast Timestamps >> Result.fromMaybe "Error")
             |> Decode.andThen Decode.fromResult
         )
