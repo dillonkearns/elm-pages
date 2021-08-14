@@ -20,7 +20,7 @@ function requestToString(request) {
  */
 function fullPath(request) {
   return path.join(
-    process.cwd(),
+    __dirname,
     ".elm-pages",
     "http-response-cache",
     requestToString(request)
@@ -36,9 +36,7 @@ function lookupOrPerform(mode, rawRequest) {
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request);
-    await tryMkdir(
-      path.join(process.cwd(), ".elm-pages", "http-response-cache")
-    );
+    await tryMkdir(path.join(__dirname, ".elm-pages", "http-response-cache"));
 
     if (fs.existsSync(responsePath)) {
       // console.log("Skipping request, found file.");
@@ -49,7 +47,7 @@ function lookupOrPerform(mode, rawRequest) {
       try {
         portDataSource = requireUncached(
           mode,
-          path.join(process.cwd(), "port-data-source.js")
+          path.join(__dirname, "port-data-source.js")
         );
         portDataSourceFound = true;
       } catch (e) {}
