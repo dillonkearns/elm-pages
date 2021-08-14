@@ -100,6 +100,7 @@ function lookupOrPerform(mode, rawRequest) {
             (response) => {
               const writeStream = fs.createWriteStream(responsePath);
               writeStream.on("finish", async () => {
+                console.log("undici write finish", responsePath);
                 resolve(responsePath);
               });
 
@@ -107,6 +108,7 @@ function lookupOrPerform(mode, rawRequest) {
             }
           )
           .catch((error) => {
+            console.log("undici error", error);
             let errorMessage = error.toString();
             if (error.code === "ENOTFOUND") {
               errorMessage = `Could not reach URL.`;
