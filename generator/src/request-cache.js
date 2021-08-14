@@ -40,6 +40,7 @@ function lookupOrPerform(mode, rawRequest) {
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request);
+    console.log("lookupOrPerform", responsePath);
     // await tryMkdir(path.join(basePath(), ".elm-pages", "http-response-cache"));
 
     if (fs.existsSync(responsePath)) {

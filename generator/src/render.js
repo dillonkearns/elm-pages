@@ -271,6 +271,7 @@ async function runHttpJob(app, mode, requestToPerform) {
       ).toString(),
     });
   } catch (error) {
+    console.log("runHttpJob Error", error);
     sendError(app, error);
   } finally {
     pendingDataSourceCount -= 1;
