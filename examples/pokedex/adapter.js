@@ -5,9 +5,6 @@ async function run({ renderFunctionFilePath, serverRoutes, fallbackRoutes }) {
     renderFunctionFilePath,
     "./functions/render/elm-pages-cli.js"
   );
-  fs.mkdirSync("./functions/render/.elm-pages/http-response-cache", {
-    recursive: true,
-  });
   // TODO also copy renderFunctionFilePath to server-render function folder?
   // TODO copy DPR render serverless function to functions folder
   // TODO copy server-request render serverless function to functions folder
