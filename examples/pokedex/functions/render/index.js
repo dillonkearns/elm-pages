@@ -12,10 +12,15 @@ async function render(event, context) {
   global.staticHttpCache = {};
 
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
+  const Elm = require(compiledElmPath);
   const renderer = require("../../../../generator/src/render");
+  const mode = "serverless";
   try {
+    const basePath = "";
     const renderResult = await renderer(
-      compiledElmPath,
+      basePath,
+      Elm,
+      mode,
       event.path,
       event,
       function () {}

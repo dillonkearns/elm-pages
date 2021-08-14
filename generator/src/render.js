@@ -23,7 +23,7 @@ module.exports =
    * @param {Object} elmModule
    * @param {string} path
    * @param {import('aws-lambda').APIGatewayProxyEvent} request
-   * @param {(pattern: string) => void} addDataSourceWatcher
+   * @param {( (pattern: string) => void )?} addDataSourceWatcher
    * @returns
    */
   async function run(
@@ -57,7 +57,7 @@ module.exports =
  * @param {string} pagePath
  * @param {string} mode
  * @param {import('aws-lambda').APIGatewayProxyEvent} request
- * @param {(pattern: string) => void} addDataSourceWatcher
+ * @param {( (pattern: string) => void )?} addDataSourceWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(
@@ -161,8 +161,8 @@ function runElmApp(
     }
     app.ports.toJsPort.subscribe(portHandler);
   }).finally(() => {
-    addDataSourceWatcher(patternsToWatch);
-    killApp();
+    addDataSourceWatcher && addDataSourceWatcher(patternsToWatch);
+    killApp && killApp();
     killApp = null;
   });
 }
