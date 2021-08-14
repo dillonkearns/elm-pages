@@ -86,27 +86,45 @@ function lookupOrPerform(mode, rawRequest) {
           });
         }
       } else {
-        undici
-          .stream(
-            request.url,
-            {
-              method: request.method,
-              body: request.body,
-              headers: {
-                "User-Agent": "request",
-                ...request.headers,
-              },
-            },
-            (response) => {
-              const writeStream = fs.createWriteStream(responsePath);
-              writeStream.on("finish", async () => {
-                console.log("undici write finish", responsePath);
-                resolve(responsePath);
-              });
+        // undici
+        //   .stream(
+        //     request.url,
+        //     {
+        //       method: request.method,
+        //       body: request.body,
+        //       headers: {
+        //         "User-Agent": "request",
+        //         ...request.headers,
+        //       },
+        //     },
+        //     (response) => {
+        //       const writeStream = fs.createWriteStream(responsePath);
+        //       writeStream.on("finish", async () => {
+        //         console.log("undici write finish", responsePath);
+        //         resolve(responsePath);
+        //       });
 
-              return writeStream;
+        //       return writeStream;
+        //     }
+        //   )
+
+        undici
+          .request(request.url, {
+            method: request.method,
+            body: request.body,
+            headers: {
+              "User-Agent": "request",
+              ...request.headers,
+            },
+          })
+          .then(async (response) => {
+            let data = "";
+            for await (const chunk of response.body) {
+              data += chunk;
             }
-          )
+
+            resolve(data);
+          })
           .catch((error) => {
             console.log("undici error", error);
             let errorMessage = error.toString();

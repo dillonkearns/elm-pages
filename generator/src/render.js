@@ -259,16 +259,21 @@ async function runJob(app, filePath) {
 async function runHttpJob(app, mode, requestToPerform) {
   pendingDataSourceCount += 1;
   try {
-    const responseFilePath = await lookupOrPerform(
-      mode,
-      requestToPerform.unmasked
-    );
+    // const responseFilePath = await lookupOrPerform(
+    //   mode,
+    //   requestToPerform.unmasked
+    // );
+
+    // pendingDataSourceResponses.push({
+    //   request: requestToPerform,
+    //   response: (
+    //     await fsPromises.readFile(responseFilePath, "utf8")
+    //   ).toString(),
+    // });
 
     pendingDataSourceResponses.push({
       request: requestToPerform,
-      response: (
-        await fsPromises.readFile(responseFilePath, "utf8")
-      ).toString(),
+      response: await lookupOrPerform(mode, requestToPerform.unmasked),
     });
   } catch (error) {
     console.log("runHttpJob Error", error);
