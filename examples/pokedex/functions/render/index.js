@@ -8,6 +8,7 @@ exports.handler = builder(render);
  * @param {any} context
  */
 async function render(event, context) {
+  global["basePath"] = __dirname;
   console.log(JSON.stringify(event));
   global.staticHttpCache = {};
 

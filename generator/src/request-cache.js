@@ -5,6 +5,10 @@ const objectHash = require("object-hash");
 const kleur = require("kleur");
 const { tryMkdir } = require("./dir-helpers");
 
+function basePath() {
+  return global["basePath"] || process.cwd();
+}
+
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
  * This uses SHA1 hashes. They are uni-directional hashes, which works for this use case. Most importantly,
@@ -20,7 +24,7 @@ function requestToString(request) {
  */
 function fullPath(request) {
   return path.join(
-    __dirname,
+    basePath(),
     ".elm-pages",
     "http-response-cache",
     requestToString(request)
@@ -36,7 +40,7 @@ function lookupOrPerform(mode, rawRequest) {
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request);
-    await tryMkdir(path.join(__dirname, ".elm-pages", "http-response-cache"));
+    await tryMkdir(path.join(basePath(), ".elm-pages", "http-response-cache"));
 
     if (fs.existsSync(responsePath)) {
       // console.log("Skipping request, found file.");
@@ -47,7 +51,7 @@ function lookupOrPerform(mode, rawRequest) {
       try {
         portDataSource = requireUncached(
           mode,
-          path.join(__dirname, "port-data-source.js")
+          path.join(basePath(), "port-data-source.js")
         );
         portDataSourceFound = true;
       } catch (e) {}
