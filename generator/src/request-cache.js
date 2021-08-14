@@ -3,7 +3,6 @@ const undici = require("undici");
 const fs = require("fs");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
-const { tryMkdir } = require("./dir-helpers");
 
 function basePath() {
   return global["basePath"] || process.cwd();
