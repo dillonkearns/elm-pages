@@ -17,7 +17,7 @@ async function render(event, context) {
   const renderer = require("../../../../generator/src/render");
   const mode = "serverless";
   try {
-    const basePath = "";
+    const basePath = "/";
     const renderResult = await renderer(
       basePath,
       Elm,
