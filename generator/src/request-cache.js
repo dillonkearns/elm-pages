@@ -3,7 +3,7 @@ const undici = require("undici");
 const fs = require("fs");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
-const { ensureDir } = require("fs-extra");
+const { tryMkdir } = require("./dir-helpers");
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -36,7 +36,7 @@ function lookupOrPerform(mode, rawRequest) {
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request);
-    await ensureDir(
+    await tryMkdir(
       path.join(process.cwd(), ".elm-pages", "http-response-cache")
     );
 
