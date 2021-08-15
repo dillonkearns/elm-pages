@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.6] - 2021-08-15
+
+### Fixed
+
+- `undefined` errors that were printed in `elm-pages build` are now showing the correct error output.
+
 ## [2.1.4] - 2021-08-02
 
 ### Fixed
