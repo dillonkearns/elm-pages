@@ -14,12 +14,13 @@ let pagesReady;
 let pages = new Promise((resolve, reject) => {
   pagesReady = resolve;
 });
+let buildError = false;
 
 const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 
 process.on("unhandledRejection", (error) => {
-  console.error("Unhandled: ", error);
+  console.trace("Unhandled: ", error);
   process.exitCode = 1;
 });
 
@@ -35,22 +36,27 @@ async function ensureRequiredDirs() {
 }
 
 async function run(options) {
-  await ensureRequiredDirs();
-  // since init/update are never called in pre-renders, and DataSource.Http is called using undici
-  // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-  XMLHttpRequest = {};
-
-  const generateCode = codegen.generate(options.base);
-
-  const copyDone = copyAssets();
-  await generateCode;
-  const cliDone = runCli(options);
-  const compileClientDone = compileElm(options);
-
   try {
+    await ensureRequiredDirs();
+    // since init/update are never called in pre-renders, and DataSource.Http is called using undici
+    // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
+    XMLHttpRequest = {};
+
+    const generateCode = codegen.generate(options.base);
+
+    const copyDone = copyAssets();
+    await generateCode;
+
+    const compileCli = compileCliApp(options);
+    const compileClientDone = compileElm(options);
+    await compileCli;
+    const cliDone = runCli(options);
+
     await Promise.all([copyDone, cliDone, compileClientDone]);
   } catch (error) {
-    console.log(error);
+    buildError = true;
+    console.error(error);
+    process.exit(1);
   }
 }
 
@@ -113,7 +119,6 @@ async function buildNextPage(thread) {
 }
 
 async function runCli(options) {
-  await compileCliApp(options);
   const cpuCount = os.cpus().length;
   console.log("Threads: ", cpuCount);
 
@@ -158,18 +163,16 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
       commandOutput += data;
     });
 
-    subprocess.on("exit", async (code) => {
-      if (code !== 0) {
-        process.exitCode = 1;
-        reject(commandOutput);
-      }
-    });
     subprocess.on("close", async (code) => {
       if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
-        process.exitCode = 1;
-        reject();
+        if (!buildError) {
+          process.exitCode = 1;
+          reject(commandOutput);
+        } else {
+          // avoid unhandled error printing duplicate message, let process.exit in top loop take over
+        }
       }
     });
   });
@@ -178,7 +181,7 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
 /**
  * @param {string} elmEntrypointPath
  * @param {string} outputPath
- * @param {string} cwd
+ * @param {string | undefined} cwd
  */
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
