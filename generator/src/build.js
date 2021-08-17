@@ -9,6 +9,7 @@ const terser = require("terser");
 const os = require("os");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const { ensureDirSync } = require("./file-helpers.js");
+const which = require("which");
 let pool = [];
 let pagesReady;
 let pages = new Promise((resolve, reject) => {
@@ -35,9 +36,23 @@ async function ensureRequiredDirs() {
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
 }
 
+async function ensureRequiredExecutables() {
+  try {
+    await which("elm");
+  } catch (error) {
+    throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+  }
+  try {
+    await which("elm-optimize-level-2");
+  } catch (error) {
+    throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+  }
+}
+
 async function run(options) {
   try {
     await ensureRequiredDirs();
+    await ensureRequiredExecutables();
     // since init/update are never called in pre-renders, and DataSource.Http is called using undici
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
     XMLHttpRequest = {};
@@ -164,7 +179,7 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
     });
 
     subprocess.on("close", async (code) => {
-      if (code == 0 && (await fs.fileExists(fullOutputPath))) {
+      if (code === 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
         if (!buildError) {
