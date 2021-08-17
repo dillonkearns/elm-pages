@@ -183,6 +183,7 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
         resolve();
       } else {
         if (!buildError) {
+          buildError = true;
           process.exitCode = 1;
           reject(commandOutput);
         } else {
@@ -242,8 +243,13 @@ function runElmMake(elmEntrypointPath, outputPath, cwd) {
       if (code == 0 && (await fs.fileExists(fullOutputPath))) {
         resolve();
       } else {
-        process.exitCode = 1;
-        reject(restoreColor(JSON.parse(commandOutput)));
+        if (!buildError) {
+          buildError = true;
+          process.exitCode = 1;
+          reject(restoreColor(JSON.parse(commandOutput)));
+        } else {
+          // avoid unhandled error printing duplicate message, let process.exit in top loop take over
+        }
       }
     });
   });
