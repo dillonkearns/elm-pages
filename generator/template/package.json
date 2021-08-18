@@ -7,7 +7,7 @@
   },
   "devDependencies": {
     "elm-optimize-level-2": "^0.1.5",
-    "elm-pages": "2.1.6",
+    "elm-pages": "2.1.7",
     "elm-tooling": "^1.4.0"
   }
 }
