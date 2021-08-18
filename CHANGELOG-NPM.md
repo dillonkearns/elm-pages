@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.7] - 2021-08-17
+
+### Fixed
+
+- Check for `elm` and `elm-optimize-level-2` executables before running build step to report better error message.
+- Removed `elm-optimize-level-2` as a dependency since the user needs to install it as a `devDependency` in their project anyway to make the binary available.
+
 ## [2.1.6] - 2021-08-15
 
 ### Fixed
