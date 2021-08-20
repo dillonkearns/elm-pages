@@ -31,6 +31,7 @@
     "fs-extra": "^10.0.0",
     "globby": "11.0.4",
     "gray-matter": "^4.0.3",
+    "jsesc": "^3.0.2",
     "kleur": "^4.1.4",
     "micromatch": "^4.0.4",
     "object-hash": "^2.2.0",
