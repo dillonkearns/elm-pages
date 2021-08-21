@@ -114,9 +114,7 @@ function normalizeUrl(pagePath) {
   if (!pagePath.startsWith("/")) {
     pagePath = "/" + pagePath;
   }
-  if (!pagePath.endsWith("/")) {
-    pagePath = pagePath + "/";
-  }
+  pagePath = pagePath.replace(/\/?$/, "");
   return pagePath;
 }
 
