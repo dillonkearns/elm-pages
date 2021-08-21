@@ -115,8 +115,8 @@ function normalizeUrl(pagePath) {
     pagePath = "/" + pagePath;
   }
   const isRoot = pagePath === "/";
-  if (!pagePath.endsWith("/") && !isRoot) {
-    pagePath = pagePath.slice(0, pagePath.length);
+  if (pagePath.endsWith("/") && !isRoot) {
+    pagePath = pagePath.slice(0, pagePath.length - 1);
   }
   return pagePath;
 }
