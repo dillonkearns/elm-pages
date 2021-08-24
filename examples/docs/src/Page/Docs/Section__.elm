@@ -84,7 +84,7 @@ data routeParams =
 
 filePathToEditUrl : String -> String
 filePathToEditUrl filePath =
-    "https://github.com/dillonkearns/elm-pages/edit/static-files/examples/docs/" ++ filePath
+    "https://github.com/dillonkearns/elm-pages/edit/master/examples/docs/" ++ filePath
 
 
 previousAndNextData : RouteParams -> DataSource { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
