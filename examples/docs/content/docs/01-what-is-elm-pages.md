@@ -2,7 +2,7 @@
 
 `elm-pages` is a framework for building an Elm single-page app with pre-rendered HTML pages.
 
-It has a built-in file-based router, and a `DataSource` API to help you bring in typed Elm data that's baked in to the page (no loading spinners).
+It has a built-in file-based router, and a [`DataSource`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/DataSource) API to help you bring in typed Elm data that's baked in to the page (no loading spinners).
 
 Some of the core features include
 
