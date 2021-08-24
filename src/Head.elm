@@ -370,10 +370,7 @@ metaProperty property content =
 
 {-| Example:
 
-    metaName
-        [ ( "name", "twitter:card" )
-        , ( "content", "summary_large_image" )
-        ]
+    Head.metaName "twitter:card" (Head.raw "summary_large_image")
 
 Results in `<meta name="twitter:card" content="summary_large_image" />`
 
