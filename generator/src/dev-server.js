@@ -233,7 +233,7 @@ async function start(options) {
    * @param {((value: any) => any) | null | undefined} onOk
    * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
    */
-  function runRenderThread(pathname, onOk, onErr) {
+  function runRenderThread(pathname, searchParams, onOk, onErr) {
     let cleanUpThread = () => {};
     return new Promise(async (resolve, reject) => {
       const readyThread = await waitForThread();
@@ -246,6 +246,7 @@ async function start(options) {
       readyThread.worker.postMessage({
         mode: "dev-server",
         pathname,
+        searchParams,
       });
       readyThread.worker.on("message", (message) => {
         if (message.tag === "done") {
@@ -285,6 +286,7 @@ async function start(options) {
   async function handleNavigationRequest(req, res, next) {
     const urlParts = new URL(req.url || "", `https://localhost:${port}`);
     const pathname = urlParts.pathname || "";
+    const searchParams = Object.fromEntries(urlParts.searchParams);
     try {
       await pendingCliCompile;
     } catch (error) {
@@ -301,6 +303,7 @@ async function start(options) {
 
     await runRenderThread(
       pathname,
+      searchParams,
       function (renderResult) {
         const is404 = renderResult.is404;
         switch (renderResult.kind) {
