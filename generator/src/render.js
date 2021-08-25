@@ -4,7 +4,6 @@ const path = require("path");
 const matter = require("gray-matter");
 const globby = require("globby");
 const fsPromises = require("fs").promises;
-const jsesc = require("jsesc");
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
@@ -183,12 +182,11 @@ async function outputString(
   contentJson["is404"] = args.is404;
   contentJson["path"] = args.route;
   const normalizedRoute = args.route.replace(/index$/, "");
-  const contentJsonString = jsesc(contentJson, { 'isScriptContext': true, 'json': true });
 
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(basePath, args, contentJsonString, isDevServer),
+    htmlString: preRenderHtml(basePath, args, contentJson, isDevServer),
     contentJson: args.contentJson,
     kind: "html",
   };

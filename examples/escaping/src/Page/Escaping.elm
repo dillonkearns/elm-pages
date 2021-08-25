@@ -3,6 +3,7 @@ module Page.Escaping exposing (Data, Model, Msg, page)
 import Css exposing (..)
 import Css.Global
 import DataSource exposing (DataSource)
+import DataSource.File
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
@@ -36,12 +37,12 @@ page =
 
 
 type alias Data =
-    ()
+    String
 
 
 data : DataSource Data
 data =
-    DataSource.succeed ()
+    DataSource.File.rawFile "unsafe-script-tag.txt"
 
 
 head :
@@ -90,5 +91,6 @@ view maybeUrl sharedModel static =
                     ]
                 ]
             ]
+            , text static.data
         ]
     }

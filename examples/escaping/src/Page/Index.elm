@@ -4,7 +4,8 @@ import DataSource exposing (DataSource)
 import DataSource.File
 import Head
 import Head.Seo as Seo
-import Html.Styled exposing (text)
+import Html.Styled as Html exposing (text)
+import Html.Styled.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -70,5 +71,7 @@ view :
 view maybeUrl sharedModel static =
     { title = "Index page"
     , body =
-        [ text "This is the index page." ]
+        [ text "This is the index page."
+        , Html.div [] [ Html.a [ Attr.href "/escaping" ] [ text "Escaping Page" ] ]
+         ]
     }

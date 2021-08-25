@@ -2,6 +2,7 @@ const cliVersion = require("../../package.json").version;
 const seo = require("./seo-renderer.js");
 const elmPagesJsMinified = require("./elm-pages-js-minified.js");
 const path = require("path");
+const jsesc = require("jsesc");
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
@@ -10,11 +11,11 @@ module.exports =
   /**
    * @param {string} basePath
    * @param {Arg} fromElm
-   * @param {string} contentJsonString
+   * @param {unknown} contentJson
    * @param {boolean} devServer
    * @returns {string}
    */
-  function wrapHtml(basePath, fromElm, contentJsonString, devServer) {
+  function wrapHtml(basePath, fromElm, contentJson, devServer) {
     const devServerOnly = (/** @type {string} */ devServerOnlyString) =>
       devServer ? devServerOnlyString : "";
     const seoData = seo.gather(fromElm.head);
@@ -50,7 +51,13 @@ ${elmPagesJsMinified}
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     ${seoData.headTags}
-    <script id="__ELM_PAGES_DATA__" type="application/json">${contentJsonString}</script>
+    <script id="__ELM_PAGES_DATA__" type="application/json">${jsesc(
+      contentJson,
+      {
+        isScriptContext: true,
+        json: true,
+      }
+    )}</script>
     </head>
     <body>
       <div data-url="" display="none"></div>

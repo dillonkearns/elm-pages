@@ -1,7 +1,6 @@
 const renderer = require("../../generator/src/render");
 const path = require("path");
 const fs = require("./dir-helpers.js");
-const jsesc = require("jsesc");
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const { parentPort, threadId, workerData } = require("worker_threads");
 let Elm;
@@ -46,7 +45,7 @@ function requireElm(mode) {
   if (mode === "build") {
     if (!Elm) {
       const warnOriginal = console.warn;
-      console.warn = function () { };
+      console.warn = function () {};
 
       Elm = require(compiledElmPath);
       console.warn = warnOriginal;
@@ -67,17 +66,16 @@ async function outputString(
       const args = fromElm;
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
-      const contentJsonString = jsesc({
+      const contentJsonString = JSON.stringify({
         is404: args.is404,
         staticData: args.contentJson,
         path: args.route,
-      }, { 'isScriptContext': true, 'json': true });
+      });
       fs.writeFileSync(`dist/${normalizedRoute}/index.html`, args.htmlString);
       fs.writeFileSync(
         `dist/${normalizedRoute}/content.json`,
         contentJsonString
       );
-      // parentPort.postMessage({ tag: "done" });
       parentPort.postMessage({ tag: "done" });
       break;
     }
