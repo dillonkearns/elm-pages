@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {
     "start": "cd examples/end-to-end && npm start",
-    "test": "elm-verify-examples --run-tests && elm-test && (cd generator && mocha) && (cd examples/routing && npm i && npm run build -- --debug && elm-test)",
+    "test": "npx elmi-to-json --version && elm-verify-examples --run-tests && elm-test && (cd generator && mocha) && (cd examples/routing && npm i && npm run build -- --debug && elm-test)",
     "cypress": "npm start & cypress run --spec cypress/integration/elm-pages-dev.spec.js",
     "review": "elm-review"
   },
