@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- `</script>` tags within DataSource's are now escaped correctly on the pre-rendered HTML. Thank you [@danmarcab](https://github.com/danmarcab) for the report and the fix! See [#207](https://github.com/dillonkearns/elm-pages/pull/207).
+
 ## [2.1.7] - 2021-08-17
 
 ### Fixed
