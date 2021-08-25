@@ -71,6 +71,8 @@ jobs:
           start: npm start
           wait-on: "http://localhost:1234"
           wait-on-timeout: 60
+          cache-key: node-v${{ matrix.node }}-on-${{ runner.os }}-hash-${{ hashFiles('package-lock.json') }}
+
       - uses: actions/upload-artifact@v1
         if: failure()
         with:
