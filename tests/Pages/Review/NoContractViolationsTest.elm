@@ -104,6 +104,16 @@ page = {}
                         """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
+        , test "no error for valid SPLAT__ RouteParams" <|
+            \() ->
+                """module Page.Docs.Section_.SPLAT__ exposing (Data, page, Model, Msg)
+
+type alias RouteParams = { section : String, splat : List String }
+
+page = {}
+                        """
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
         , test "no error for matching RouteParams name" <|
             \() ->
                 """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)

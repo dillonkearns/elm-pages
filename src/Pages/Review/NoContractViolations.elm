@@ -185,6 +185,9 @@ paramToTypeString param =
         RequiredSplat ->
             "( String, List String )"
 
+        OptionalSplat ->
+            "List String"
+
 
 expectedRouteParamsFromModuleName : List String -> Dict String Param
 expectedRouteParamsFromModuleName moduleSegments =
@@ -202,11 +205,18 @@ type Param
     = Required
     | Optional
     | RequiredSplat
+    | OptionalSplat
 
 
 segmentToParam : String -> Maybe ( String, Param )
 segmentToParam segment =
-    if segment == "SPLAT_" then
+    if segment == "SPLAT__" then
+        ( "splat"
+        , OptionalSplat
+        )
+            |> Just
+
+    else if segment == "SPLAT_" then
         ( "splat"
         , RequiredSplat
         )
@@ -305,14 +315,28 @@ paramType typeAnnotation =
                 _ ->
                     Err typeAnnotation
 
-        TypeAnnotation.Typed moduleContext _ ->
+        TypeAnnotation.Typed moduleContext innerType ->
             -- TODO need to use module lookup table to handle Basics or aliases?
-            if Node.value moduleContext == ( [], "String" ) then
-                Ok Required
+            case ( Node.value moduleContext, innerType ) of
+                ( ( [], "String" ), [] ) ->
+                    Ok Required
 
-            else
-                -- TODO handle other types: Maybe String, List String, ( String, List String )
-                Ok Optional
+                ( ( [], "Maybe" ), [ maybeOf ] ) ->
+                    if isString (Node.value maybeOf) then
+                        Ok Optional
+
+                    else
+                        Err typeAnnotation
+
+                ( ( [], "List" ), [ listOf ] ) ->
+                    if isString (Node.value listOf) then
+                        Ok OptionalSplat
+
+                    else
+                        Err typeAnnotation
+
+                _ ->
+                    Ok Optional
 
         _ ->
             Err typeAnnotation
@@ -321,7 +345,7 @@ paramType typeAnnotation =
 isString : TypeAnnotation -> Bool
 isString typeAnnotation =
     case typeAnnotation of
-        TypeAnnotation.Typed moduleContext _ ->
+        TypeAnnotation.Typed moduleContext [] ->
             -- TODO need to use module lookup table to handle Basics or aliases?
             Node.value moduleContext == ( [], "String" )
 
