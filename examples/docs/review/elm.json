@@ -1,13 +1,15 @@
 {
     "type": "application",
     "source-directories": [
-        "src"
+        "src",
+        "../../../src"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
             "elm/core": "1.0.5",
             "elm/project-metadata-utils": "1.0.2",
+            "elm-community/result-extra": "2.4.0",
             "jfmengels/elm-review": "2.4.2",
             "jfmengels/elm-review-unused": "1.1.10",
             "sparksp/elm-review-forbidden-words": "1.0.1",

@@ -20,6 +20,7 @@ import NoUnused.Modules
 import NoUnused.Parameters
 import NoUnused.Patterns
 import NoUnused.Variables
+import Pages.Review.NoContractViolations
 import Review.Rule exposing (Rule)
 
 
@@ -36,6 +37,7 @@ config =
     --, NoUnused.Patterns.rule
     --, NoUnused.Variables.rule
     , NoForbiddenWords.rule [ "TODO" ]
+    , Pages.Review.NoContractViolations.rule
     ]
         |> List.map
             (\rule ->
