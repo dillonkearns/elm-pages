@@ -175,12 +175,33 @@ segmentToParam segment =
     if segment |> String.endsWith "_" then
         segment
             |> String.dropRight 1
-            |> String.toLower
-            -- TODO turn to lowerCamelCase
+            |> decapitalize
             |> Just
 
     else
         Nothing
+
+
+{-| Decapitalize the first letter of a string.
+decapitalize "This is a phrase" == "this is a phrase"
+decapitalize "Hello, World" == "hello, World"
+-}
+decapitalize : String -> String
+decapitalize word =
+    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
+    changeCase Char.toLower word
+
+
+{-| Change the case of the first letter of a string to either uppercase or
+lowercase, depending of the value of `wantedCase`. This is an internal
+function for use in `toSentenceCase` and `decapitalize`.
+-}
+changeCase : (Char -> Char) -> String -> String
+changeCase mutator word =
+    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
+    String.uncons word
+        |> Maybe.map (\( head, tail ) -> String.cons (mutator head) tail)
+        |> Maybe.withDefault ""
 
 
 stringFields : Node a -> Node TypeAnnotation -> Result (Error {}) (Set String)
@@ -228,7 +249,6 @@ stringFields outerTypeAnnotation typeAnnotation =
 isString : TypeAnnotation -> Bool
 isString typeAnnotation =
     case typeAnnotation of
-        --(Node ( ModuleName, String )) (List (Node TypeAnnotation))
         TypeAnnotation.Typed moduleContext _ ->
             -- TODO need to use module lookup table to handle Basics or aliases?
             if Node.value moduleContext == ( [], "String" ) then
