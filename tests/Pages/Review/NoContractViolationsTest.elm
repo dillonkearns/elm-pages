@@ -52,6 +52,27 @@ type alias RouteParams = { slug : String }
                             , under = "type alias RouteParams = { blogPostName : String }"
                             }
                         ]
+        , test "reports incorrect types for optional RouteParams" <|
+            \() ->
+                """module Page.Docs.Section_.SubSection__ exposing (Data, page, Model, Msg)
+
+type alias RouteParams = { section : String, subSection : String }
+
+page = {}
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "RouteParams don't match Page Module name"
+                            , details =
+                                [ """Expected
+
+type alias RouteParams = { section : String, subSection : Maybe String }
+"""
+                                ]
+                            , under = "type alias RouteParams = { section : String, subSection : String }"
+                            }
+                        ]
         , test "no error for matching RouteParams name" <|
             \() ->
                 """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)

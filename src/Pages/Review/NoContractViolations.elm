@@ -6,6 +6,7 @@ module Pages.Review.NoContractViolations exposing (rule)
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Module as Module exposing (Module)
@@ -139,63 +140,82 @@ routeParamsMatchesNameOrError typeAliasNode annotation moduleName =
 
         Ok actualStringFields ->
             let
+                expectedFields : Dict String Param
                 expectedFields =
                     expectedRouteParamsFromModuleName moduleName
-
-                missingFields : Set String
-                missingFields =
-                    Set.diff
-                        expectedFields
-                        actualStringFields
             in
-            case missingFields |> Set.toList of
-                [] ->
-                    []
+            if actualStringFields == (expectedFields |> Dict.map (\key value -> Ok value)) then
+                []
 
-                nonEmptyMissingFields ->
-                    [ Rule.error
-                        { message = "RouteParams don't match Page Module name"
-                        , details =
-                            [ """Expected
+            else
+                [ Rule.error
+                    { message = "RouteParams don't match Page Module name"
+                    , details =
+                        [ """Expected
 
 """
-                                ++ expectedFieldsToRecordString expectedFields
-                                ++ "\n"
-                            ]
-                        }
-                        (Node.range typeAliasNode)
-                    ]
+                            ++ expectedFieldsToRecordString expectedFields
+                            ++ "\n"
+                        ]
+                    }
+                    (Node.range typeAliasNode)
+                ]
 
 
-expectedFieldsToRecordString : Set String -> String
+expectedFieldsToRecordString : Dict String Param -> String
 expectedFieldsToRecordString expectedFields =
     "type alias RouteParams = { "
         ++ (expectedFields
-                |> Set.map (\name -> name ++ " : String")
-                |> Set.toList
+                |> Dict.toList
+                |> List.map (\( name, param ) -> name ++ " : " ++ paramToTypeString param)
                 |> String.join ", "
            )
         ++ " }"
 
 
-expectedRouteParamsFromModuleName : List String -> Set String
+paramToTypeString : Param -> String
+paramToTypeString param =
+    case param of
+        Required ->
+            "String"
+
+        Optional ->
+            "Maybe String"
+
+
+expectedRouteParamsFromModuleName : List String -> Dict String Param
 expectedRouteParamsFromModuleName moduleSegments =
     case moduleSegments of
         "Page" :: segments ->
             segments
                 |> List.filterMap segmentToParam
-                |> Set.fromList
+                |> Dict.fromList
 
         _ ->
-            Set.empty
+            Dict.empty
 
 
-segmentToParam : String -> Maybe String
+type Param
+    = Required
+    | Optional
+
+
+segmentToParam : String -> Maybe ( String, Param )
 segmentToParam segment =
-    if segment |> String.endsWith "_" then
-        segment
+    if segment |> String.endsWith "__" then
+        ( segment
+            |> String.dropRight 2
+            |> decapitalize
+        , Optional
+        )
+            |> Just
+
+    else if segment |> String.endsWith "_" then
+        ( segment
             |> String.dropRight 1
             |> decapitalize
+        , Required
+        )
             |> Just
 
     else
@@ -224,35 +244,25 @@ changeCase mutator word =
         |> Maybe.withDefault ""
 
 
-stringFields : Node a -> Node TypeAnnotation -> Result (Error {}) (Set String)
+stringFields :
+    Node a
+    -> Node TypeAnnotation
+    -> Result (Error {}) (Dict String (Result (Node TypeAnnotation) Param))
 stringFields outerTypeAnnotation typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.Record recordDefinition ->
             let
-                fields : List (Result (Error {}) String)
+                fields : Dict String (Result (Node TypeAnnotation) Param)
                 fields =
                     recordDefinition
                         |> List.map Node.value
                         |> List.map
                             (\( name, annotation ) ->
-                                if Node.value annotation |> isString then
-                                    Ok (Node.value name)
-
-                                else
-                                    Err
-                                        (Rule.error
-                                            { message = "All fields in the RouteParams record must be Strings"
-                                            , details =
-                                                [ """Expected String field but was """ ++ Node.value name
-                                                ]
-                                            }
-                                            (Node.range annotation)
-                                        )
+                                ( Node.value name, paramType annotation )
                             )
+                        |> Dict.fromList
             in
-            fields
-                |> Result.Extra.combine
-                |> Result.map Set.fromList
+            Ok fields
 
         _ ->
             Err
@@ -266,20 +276,20 @@ stringFields outerTypeAnnotation typeAnnotation =
                 )
 
 
-isString : TypeAnnotation -> Bool
-isString typeAnnotation =
-    case typeAnnotation of
+paramType : Node TypeAnnotation -> Result (Node TypeAnnotation) Param
+paramType typeAnnotation =
+    case Node.value typeAnnotation of
         TypeAnnotation.Typed moduleContext _ ->
             -- TODO need to use module lookup table to handle Basics or aliases?
             if Node.value moduleContext == ( [], "String" ) then
-                True
+                Ok Required
 
             else
                 -- TODO handle other types: Maybe String, List String, ( String, List String )
-                False
+                Ok Optional
 
         _ ->
-            False
+            Err typeAnnotation
 
 
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List (Error {}), Context )
