@@ -1,4 +1,4 @@
-module No.InvalidCode exposing (rule)
+module Pages.Review.NoContractViolations exposing (rule)
 
 {-|
 
@@ -19,7 +19,7 @@ import Set exposing (Set)
 {-| Reports... REPLACEME
 
     config =
-        [ No.InvalidCode.rule
+        [ Pages.Review.NoContractViolations.rule
         ]
 
 
@@ -46,7 +46,7 @@ This rule is not useful when REPLACEME.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template dillonkearns/elm-review-elm-pages/example --rules No.InvalidCode
+elm-review --template dillonkearns/elm-review-elm-pages/example --rules Pages.Review.NoContractViolations
 ```
 
 -}

@@ -1,13 +1,13 @@
-module No.InvalidCodeTest exposing (all)
+module Pages.Review.NoContractViolationsTest exposing (all)
 
-import No.InvalidCode exposing (rule)
+import Pages.Review.NoContractViolations exposing (rule)
 import Review.Test
 import Test exposing (Test, describe, test)
 
 
 all : Test
 all =
-    describe "No.InvalidCode"
+    describe "Pages.Review.NoContractViolations"
         [ test "reports error when missing exposed declaration" <|
             \() ->
                 """module Page.Blog.Slug_ exposing (Data, Msg, page)
