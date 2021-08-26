@@ -31,7 +31,7 @@ module.exports =
     elmModule,
     mode,
     path,
-    request,
+    searchParams,
     addDataSourceWatcher
   ) {
     foundErrors = false;
@@ -45,7 +45,7 @@ module.exports =
       elmModule,
       mode,
       path,
-      request,
+      searchParams,
       addDataSourceWatcher
     );
     return result;
@@ -65,7 +65,7 @@ function runElmApp(
   elmModule,
   mode,
   pagePath,
-  request,
+  searchParams,
   addDataSourceWatcher
 ) {
   const isDevServer = mode !== "build";
@@ -76,7 +76,10 @@ function runElmApp(
     const isJson = pagePath.match(/content\.json\/?$/);
     const route = pagePath.replace(/content\.json\/?$/, "");
 
-    const modifiedRequest = { ...request, path: route };
+    const modifiedRequest = {
+      ...searchParams,
+      path: route,
+    };
     // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
     app = elmModule.Elm.TemplateModulesBeta.init({
       flags: {
