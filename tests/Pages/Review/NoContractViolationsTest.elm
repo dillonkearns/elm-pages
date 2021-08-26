@@ -73,6 +73,37 @@ type alias RouteParams = { section : String, subSection : Maybe String }
                             , under = "type alias RouteParams = { section : String, subSection : String }"
                             }
                         ]
+        , test "reports incorrect types for required splat RouteParams" <|
+            \() ->
+                """module Page.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
+
+type alias RouteParams = { section : String, splat : List String }
+
+page = {}
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "RouteParams don't match Page Module name"
+                            , details =
+                                [ """Expected
+
+type alias RouteParams = { section : String, splat : ( String, List String ) }
+"""
+                                ]
+                            , under = "type alias RouteParams = { section : String, splat : List String }"
+                            }
+                        ]
+        , test "no error for valid SPLAT_ RouteParams" <|
+            \() ->
+                """module Page.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
+
+type alias RouteParams = { section : String, splat : ( String, List String ) }
+
+page = {}
+                        """
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
         , test "no error for matching RouteParams name" <|
             \() ->
                 """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)
