@@ -275,7 +275,8 @@ isString typeAnnotation =
                 True
 
             else
-                Debug.todo (Debug.toString moduleContext)
+                -- TODO handle other types: Maybe String, List String, ( String, List String )
+                False
 
         _ ->
             False
