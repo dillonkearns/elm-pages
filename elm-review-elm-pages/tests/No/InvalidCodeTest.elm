@@ -62,4 +62,22 @@ page = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
+        , test "error when RouteParams type is not a record" <|
+            \() ->
+                """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)
+
+type alias RouteParams = ()
+
+page = {}
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "RouteParams must be a record type alias."
+                            , details =
+                                [ """Expected a record type alias."""
+                                ]
+                            , under = "type alias RouteParams = ()"
+                            }
+                        ]
         ]

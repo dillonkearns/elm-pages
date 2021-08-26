@@ -111,9 +111,9 @@ exposedFunctionName value =
             Nothing
 
 
-routeParamsMatchesNameOrError : Node a -> TypeAnnotation -> List String -> List (Error {})
+routeParamsMatchesNameOrError : Node a -> Node TypeAnnotation -> List String -> List (Error {})
 routeParamsMatchesNameOrError typeAliasNode annotation moduleName =
-    case stringFields annotation of
+    case stringFields typeAliasNode annotation of
         Err error ->
             [ error ]
 
@@ -183,9 +183,9 @@ segmentToParam segment =
         Nothing
 
 
-stringFields : TypeAnnotation -> Result (Error {}) (Set String)
-stringFields typeAnnotation =
-    case typeAnnotation of
+stringFields : Node a -> Node TypeAnnotation -> Result (Error {}) (Set String)
+stringFields outerTypeAnnotation typeAnnotation =
+    case Node.value typeAnnotation of
         TypeAnnotation.Record recordDefinition ->
             let
                 fields : List (Result (Error {}) String)
@@ -214,7 +214,15 @@ stringFields typeAnnotation =
                 |> Result.map Set.fromList
 
         _ ->
-            Debug.todo "Give error here - must be a record type alias"
+            Err
+                (Rule.error
+                    { message = "RouteParams must be a record type alias."
+                    , details =
+                        [ """Expected a record type alias."""
+                        ]
+                    }
+                    (Node.range outerTypeAnnotation)
+                )
 
 
 isString : TypeAnnotation -> Bool
@@ -239,7 +247,7 @@ declarationVisitor node direction context =
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, generics, typeAnnotation } ) ->
             -- TODO check that generics is empty
             if Node.value name == "RouteParams" then
-                ( routeParamsMatchesNameOrError node (Node.value typeAnnotation) context.moduleName
+                ( routeParamsMatchesNameOrError node typeAnnotation context.moduleName
                 , context
                 )
 
