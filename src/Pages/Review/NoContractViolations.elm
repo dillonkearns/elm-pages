@@ -52,7 +52,7 @@ elm-review --template dillonkearns/elm-review-elm-pages/example --rules Pages.Re
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoMissingDocumentationForExposedFunctions"
+    Rule.newModuleRuleSchema "Pages.Review.NoContractViolations"
         { moduleName = []
         , isPageModule = False
         }
