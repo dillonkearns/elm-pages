@@ -52,7 +52,10 @@ elm-review --template dillonkearns/elm-review-elm-pages/example --rules Pages.Re
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoMissingDocumentationForExposedFunctions" { moduleName = [] }
+    Rule.newModuleRuleSchema "NoMissingDocumentationForExposedFunctions"
+        { moduleName = []
+        , isPageModule = False
+        }
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.fromModuleRuleSchema
@@ -60,31 +63,39 @@ rule =
 
 type alias Context =
     { moduleName : List String
+    , isPageModule : Bool
     }
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
 moduleDefinitionVisitor node context =
+    let
+        isPageModule =
+            (Node.value node |> Module.moduleName |> List.take 1) == [ "Page" ]
+    in
     case Node.value node |> Module.exposingList of
         Exposing.All _ ->
             ( []
             , { moduleName = Node.value node |> Module.moduleName
+              , isPageModule = isPageModule
               }
             )
 
         Exposing.Explicit exposedValues ->
-            case Set.diff (Set.fromList [ "Data", "Msg", "Model", "page" ]) (exposedNames exposedValues) |> Set.toList of
-                [] ->
-                    ( []
-                    , { moduleName = Node.value node |> Module.moduleName
-                      }
-                    )
+            if isPageModule then
+                case Set.diff (Set.fromList [ "Data", "Msg", "Model", "page" ]) (exposedNames exposedValues) |> Set.toList of
+                    [] ->
+                        ( []
+                        , { moduleName = Node.value node |> Module.moduleName
+                          , isPageModule = isPageModule
+                          }
+                        )
 
-                nonEmpty ->
-                    ( [ Rule.error
-                            { message = "Unexposed Declaration in Page Module"
-                            , details =
-                                [ """Page Modules need to expose the following values:
+                    nonEmpty ->
+                        ( [ Rule.error
+                                { message = "Unexposed Declaration in Page Module"
+                                , details =
+                                    [ """Page Modules need to expose the following values:
 
 - page
 - Data
@@ -92,13 +103,22 @@ moduleDefinitionVisitor node context =
 - Msg
 
 But it is not exposing: """
-                                    ++ (nonEmpty |> String.join ", ")
-                                ]
-                            }
-                            (Node.range node)
-                      ]
-                    , { moduleName = Node.value node |> Module.moduleName }
-                    )
+                                        ++ (nonEmpty |> String.join ", ")
+                                    ]
+                                }
+                                (Node.range node)
+                          ]
+                        , { moduleName = Node.value node |> Module.moduleName
+                          , isPageModule = isPageModule
+                          }
+                        )
+
+            else
+                ( []
+                , { moduleName = Node.value node |> Module.moduleName
+                  , isPageModule = isPageModule
+                  }
+                )
 
 
 exposedFunctionName : Node Exposing.TopLevelExpose -> Maybe String
@@ -266,7 +286,7 @@ declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, generics, typeAnnotation } ) ->
             -- TODO check that generics is empty
-            if Node.value name == "RouteParams" then
+            if context.isPageModule && Node.value name == "RouteParams" then
                 ( routeParamsMatchesNameOrError node typeAnnotation context.moduleName
                 , context
                 )

@@ -80,4 +80,14 @@ page = {}
                             , under = "type alias RouteParams = ()"
                             }
                         ]
+        , test "no error for modules that don't start with Page prefix" <|
+            \() ->
+                """module NotPageModule.Blog.Slug_ exposing (Model, Msg)
+
+type alias RouteParams = ()
+
+page = {}
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
         ]
