@@ -8,7 +8,7 @@ module Pages.Review.NoContractViolations exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing
+import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
@@ -107,7 +107,7 @@ But it is not exposing: """
                                         ++ (nonEmpty |> String.join ", ")
                                     ]
                                 }
-                                (Node.range node)
+                                (Node.range (exposingListNode (Node.value node)))
                           ]
                         , { moduleName = Node.value node |> Module.moduleName
                           , isPageModule = isPageModule
@@ -120,16 +120,6 @@ But it is not exposing: """
                   , isPageModule = isPageModule
                   }
                 )
-
-
-exposedFunctionName : Node Exposing.TopLevelExpose -> Maybe String
-exposedFunctionName value =
-    case Node.value value of
-        Exposing.FunctionExpose functionName ->
-            Just functionName
-
-        _ ->
-            Nothing
 
 
 routeParamsMatchesNameOrError : Node a -> Node TypeAnnotation -> List String -> List (Error {})
@@ -391,3 +381,16 @@ getExposedName exposedValue =
 
         Exposing.TypeExpose exposedType ->
             Just exposedType.name
+
+
+exposingListNode : Module -> Node Exposing
+exposingListNode m =
+    case m of
+        Module.NormalModule x ->
+            x.exposingList
+
+        Module.PortModule x ->
+            x.exposingList
+
+        Module.EffectModule x ->
+            x.exposingList

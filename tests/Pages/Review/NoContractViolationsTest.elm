@@ -28,7 +28,7 @@ a = 1
 
 But it is not exposing: Model"""
                                 ]
-                            , under = "module Page.Blog.Slug_ exposing (Data, Msg, page)"
+                            , under = "exposing (Data, Msg, page)"
                             }
                         ]
         , test "reports RouteParams mismatch" <|
