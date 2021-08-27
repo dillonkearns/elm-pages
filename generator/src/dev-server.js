@@ -309,7 +309,6 @@ async function start(options) {
       }
       if (isImplicitContractError) {
         const reviewOutput = await runElmReview();
-        console.log(isImplicitContractError, reviewOutput);
         console.log(restoreColor(JSON.parse(reviewOutput)));
 
         if (req.url.includes("content.json")) {
