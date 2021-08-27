@@ -12,7 +12,6 @@ import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
-import Result.Extra
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
@@ -69,7 +68,7 @@ type alias Context =
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
-moduleDefinitionVisitor node context =
+moduleDefinitionVisitor node _ =
     let
         isPageModule : Bool
         isPageModule =
@@ -137,7 +136,7 @@ routeParamsMatchesNameOrError annotation moduleName =
                 expectedFields =
                     expectedRouteParamsFromModuleName moduleName
             in
-            if actualStringFields == (expectedFields |> Dict.map (\key value -> Ok value)) then
+            if actualStringFields == (expectedFields |> Dict.map (\_ value -> Ok value)) then
                 []
 
             else
@@ -348,7 +347,7 @@ isString typeAnnotation =
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List (Error {}), Context )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Declaration.AliasDeclaration { name, generics, typeAnnotation } ) ->
+        ( Rule.OnEnter, Declaration.AliasDeclaration { name, typeAnnotation } ) ->
             -- TODO check that generics is empty
             if context.isPageModule && Node.value name == "RouteParams" then
                 ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
@@ -375,7 +374,7 @@ getExposedName exposedValue =
         Exposing.FunctionExpose name ->
             Just name
 
-        Exposing.InfixExpose string ->
+        Exposing.InfixExpose _ ->
             Nothing
 
         Exposing.TypeOrAliasExpose name ->
