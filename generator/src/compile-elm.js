@@ -90,9 +90,52 @@ async function runElm(elmEntrypointPath, outputPath, cwd) {
   });
 }
 
+/**
+ * @param {string} [ cwd ]
+ */
+async function runElmReview(cwd) {
+  const startTime = Date.now();
+  return new Promise((resolve, reject) => {
+    const child = spawnCallback(
+      `elm-review`,
+      [
+        "--report",
+        "json",
+        "--namespace",
+        "elm-pages",
+        "--config",
+        path.join(__dirname, "../../generator/review"),
+      ],
+      { cwd: cwd }
+    );
+
+    let scriptOutput = "";
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", function (/** @type {string} */ data) {
+      scriptOutput += data.toString();
+    });
+
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", function (/** @type {string} */ data) {
+      scriptOutput += data.toString();
+    });
+
+    child.on("close", function (code) {
+      console.log(`Ran elm-review in ${timeFrom(startTime)}`);
+      if (code === 0) {
+        reject();
+      } else {
+        resolve(scriptOutput);
+      }
+    });
+  });
+}
+
 module.exports = {
   spawnElmMake,
   compileElmForBrowser,
+  runElmReview,
 };
 
 /**

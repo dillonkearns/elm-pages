@@ -1,7 +1,11 @@
 const path = require("path");
 const fs = require("fs");
 const chokidar = require("chokidar");
-const { spawnElmMake, compileElmForBrowser } = require("./compile-elm.js");
+const {
+  spawnElmMake,
+  compileElmForBrowser,
+  runElmReview,
+} = require("./compile-elm.js");
 const http = require("http");
 const codegen = require("./codegen.js");
 const kleur = require("kleur");
@@ -288,13 +292,35 @@ async function start(options) {
     try {
       await pendingCliCompile;
     } catch (error) {
-      console.log(restoreColor(JSON.parse(error)));
-      if (req.url.includes("content.json")) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(error);
+      let isImplicitContractError = false;
+      try {
+        isImplicitContractError = JSON.parse(error).errors.some(
+          (errorItem) => errorItem.name === "TemplateModulesBeta"
+        );
+      } catch (unexpectedError) {
+        console.log("Unexpected error", unexpectedError);
+      }
+      if (isImplicitContractError) {
+        const reviewOutput = await runElmReview();
+        console.log(isImplicitContractError, reviewOutput);
+        console.log(restoreColor(JSON.parse(reviewOutput)));
+
+        if (req.url.includes("content.json")) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(reviewOutput);
+        } else {
+          res.writeHead(500, { "Content-Type": "text/html" });
+          res.end(errorHtml());
+        }
       } else {
-        res.writeHead(500, { "Content-Type": "text/html" });
-        res.end(errorHtml());
+        console.log(restoreColor(JSON.parse(error)));
+        if (req.url.includes("content.json")) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(error);
+        } else {
+          res.writeHead(500, { "Content-Type": "text/html" });
+          res.end(errorHtml());
+        }
       }
       return;
     }

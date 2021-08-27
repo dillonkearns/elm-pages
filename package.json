@@ -58,6 +58,8 @@
   },
   "files": [
     "generator/src/",
+    "generator/review/",
+    "src/",
     "generator/template/",
     "generator/static-code/"
   ],

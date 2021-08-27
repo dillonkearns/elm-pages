@@ -71,8 +71,11 @@ type alias Context =
 moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
 moduleDefinitionVisitor node context =
     let
+        isPageModule : Bool
         isPageModule =
-            (Node.value node |> Module.moduleName |> List.take 1) == [ "Page" ]
+            (Node.value node |> Module.moduleName |> List.take 1)
+                == [ "Page" ]
+                && ((Node.value node |> Module.moduleName |> List.length) > 1)
     in
     case Node.value node |> Module.exposingList of
         Exposing.All _ ->

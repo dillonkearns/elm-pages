@@ -204,7 +204,7 @@ function colorConverter(color) {
 }
 
 const addNewLine = (str) => str + "\n";
-const styleColor = (str = "WHITE") => `color: ${colorConverter(str)};`;
+const styleColor = (str = "WHITE") => `color: ${colorConverter(str) || str};`;
 const styleUnderline = `text-decoration: underline;`;
 const styleBold = `text-decoration: bold;`;
 const parseStyle = ({ underline, color, bold }) =>
@@ -255,13 +255,23 @@ const parseConsoleErrors = (path) =>
 /**
  * @param {{ title: string; message: Message[]}} info
  * */
-(info) =>
-  joinMessage(
+(info) => {
+  if (info.rule) {
+  return joinMessage(
+    info.formatted.reduce(consoleMsg, {
+      error: [consoleHeader(info.rule, path)],
+      style: [styleColor("blue")],
+    })
+  );
+  } else {
+  return joinMessage(
     info.message.reduce(consoleMsg, {
       error: [consoleHeader(info.title, path)],
       style: [styleColor("blue")],
     })
   );
+  }
+}
 
   /**
    * @param {RootObject} error
@@ -272,6 +282,12 @@ const restoreColorConsole = (error) => {
     return error.errors.reduce(
       (acc, { problems, path }) =>
         acc.concat(problems.map(parseConsoleErrors(path))),
+      []
+    );
+  } else if (error.type === 'review-errors' && error.errors) {
+    return error.errors.reduce(
+      (acc, { errors, path }) =>
+        acc.concat(errors.map(parseConsoleErrors(path))),
       []
     );
   } else if (error.type === 'error') {
@@ -298,8 +314,14 @@ const htmlMsg = (acc, msg) =>
     typeof msg === "string" ? { color: "WHITE" } : msg
   )}">${htmlSanitize(typeof msg === "string" ? msg : msg.string)}</span>`;
 
-const parseHtmlErrors = (path) => ({ title, message }) =>
-  message.reduce(htmlMsg, htmlHeader(title, path));
+const parseHtmlErrors = (path) => (info) => {
+  if (info.rule) {
+   return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path)); 
+  } else {
+
+   return info.message.reduce(htmlMsg, htmlHeader(info.title, path)); 
+  }
+}
 
 const restoreColorHtml = 
 /** 
@@ -310,6 +332,12 @@ const restoreColorHtml =
     return error.errors.reduce(
       (acc, { problems, path }) =>
         acc.concat(problems.map(parseHtmlErrors(path))),
+      []
+    );
+    } else if (error.type === 'review-errors') {
+    return error.errors.reduce(
+      (acc, { errors, path }) =>
+        acc.concat(errors.map(parseHtmlErrors(path))),
       []
     );
   } else if (error.type === 'error') {
@@ -628,3 +656,12 @@ function hideCompiling(velocity) {
 /** @typedef { { title: string; region: Region; message: Message[]; } } Problem */
 /** @typedef {string | {underline: boolean; color: string?; string: string}} Message */
 /** @typedef { { path: string; name: string; problems: Problem[]; } } Error_ */
+
+/** @typedef  { { type: "review-errors"; errors: IFileError[]; } } IElmReviewError */
+
+/** @typedef  {  { path: string; errors: IError[]; } } IFileError */
+
+/** @typedef  {    { rule: string; ruleLink: string; message: string; details: string[]; region: IRegion; fix?: { range: IRegion; string: string; }[]; } } IError */
+
+/** @typedef  {  { start: IPosition; end: IPosition; } } IRegion */
+/** @typedef  {   { line: number; column: number; } } IPosition */

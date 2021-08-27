@@ -10,12 +10,12 @@ const kleur = require("kleur");
  * This function takes in the error title and the path to the file with the error and formats it like elm make's regular output
  **/
 /**
- * @param {string} title
+ * @param {string} rule
  * @param {string} path
  * */
-const parseHeader = (title, path) =>
+const parseHeader = (rule, path) =>
   kleur.cyan(
-    `-- ${title.replace("-", " ")} --------------- ${path || ""}
+    `-- ${rule.replace("-", " ")} --------------- ${path || ""}
 `
   );
 
@@ -32,14 +32,42 @@ function parseMsg(msg) {
     return msg;
   } else {
     if (msg.underline && msg.color) {
-      return kleur[msg.color.toLowerCase()]().underline(msg.string);
+      return kleur[toKleurColor(msg.color)]().underline(msg.string);
     } else if (msg.underline) {
       return kleur.underline(msg.string);
     } else if (msg.color) {
-      return kleur[msg.color.toLowerCase()](msg.string);
+      return kleur[toKleurColor(msg.color)](msg.string);
     } else {
       return msg.string;
     }
+  }
+}
+
+/**
+ * @param {string} color
+ * @returns {keyof import("kleur").Kleur}
+ * */
+function toKleurColor(color) {
+  if (color.startsWith("#")) {
+    const hexCode = color.slice(1);
+    switch (hexCode) {
+      // color codes from https://github.com/jfmengels/node-elm-review/blob/d4a6de524cfc33c490c751a3bb084e86accf25fd/template/src/Elm/Review/Text.elm#L80
+      case "33BBC8": {
+        return "cyan";
+      }
+      case "33BBC8": {
+        return "cyan";
+      }
+      case "FFFF00": {
+        return "yellow";
+      }
+      case "008000": {
+        return "green";
+      }
+    }
+    return "red";
+  } else {
+    return color.toLowerCase();
   }
 }
 
@@ -61,6 +89,12 @@ const restoreColor = (error) => {
           problems.map(restoreProblem(path)).join("\n\n\n")
         )
         .join("\n\n\n\n\n");
+    } else if (error.type === "review-errors") {
+      return error.errors
+        .map(({ errors, path }) =>
+          errors.map(restoreProblem(path)).join("\n\n\n")
+        )
+        .join("\n\n\n\n\n");
     } else if (error.type === "error") {
       return restoreProblem(error.path)(error);
     } else {
@@ -78,13 +112,23 @@ const restoreColor = (error) => {
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
  **/
 const restoreProblem =
-  (/** @type {string} */ path) =>
-  (/** @type {{title:string; message: Message[]}} */ { title, message }) =>
-    [parseHeader(title, path), ...message.map(parseMsg)].join("");
+  (/** @type {string} */ path) => (/** @type {Problem | IError} */ info) => {
+    if (info.rule && info.formatted) {
+      return [
+        parseHeader(info.rule, path),
+        ...info.formatted.map(parseMsg),
+      ].join("");
+    } else {
+      return [
+        parseHeader(info.title, path),
+        ...info.message.map(parseMsg),
+      ].join("");
+    }
+  };
 
 module.exports = { restoreColor };
 
-/** @typedef { CompilerError | ReportError } RootObject */
+/** @typedef { CompilerError | ReportError | IElmReviewError } RootObject */
 
 /** @typedef { { type: "compile-errors"; errors: Error_[]; } } CompilerError */
 /** @typedef { { type: "error"; path: string; title: string; message: Message[]; } } ReportError */
@@ -97,3 +141,12 @@ module.exports = { restoreColor };
 /** @typedef {string | {underline: boolean; color: string?; string: string}} Message */
 
 /** @typedef { { path: string; name: string; problems: Problem[]; } } Error_  */
+
+/** @typedef  { { type: "review-errors"; errors: IFileError[]; } } IElmReviewError */
+
+/** @typedef  {  { path: string; errors: IError[]; } } IFileError */
+
+/** @typedef  { { rule: string; formatted: unknown[]; ruleLink: string; message: string; details: string[]; region: IRegion; fix?: { range: IRegion; string: string; }[]; } } IError */
+
+/** @typedef  {  { start: IPosition; end: IPosition; } } IRegion */
+/** @typedef  {   { line: number; column: number; } } IPosition */
