@@ -19,6 +19,10 @@ async function run(name) {
         path.resolve(appRoot, "gitignore"),
         path.resolve(appRoot, ".gitignore")
       );
+      /* Since .elm-pages is in source-directories, make sure we create it before running any elm-pages commands
+       in case we run any install commands first.  See: https://github.com/dillonkearns/elm-pages/issues/205
+       */
+      fs.mkdirSync(path.join(appRoot, ".elm-pages"), { recursive: true });
     } catch (err) {
       console.log(err);
       process.exit(1);
