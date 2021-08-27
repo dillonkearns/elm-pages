@@ -1,6 +1,7 @@
 const fs = require("./dir-helpers.js");
 const fsPromises = require("fs").promises;
 
+const { runElmReview } = require("./compile-elm.js");
 const { restoreColor } = require("./error-formatter");
 const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
@@ -75,8 +76,22 @@ async function run(options) {
     await Promise.all([copyDone, cliDone, compileClientDone]);
   } catch (error) {
     buildError = true;
-    console.error(error);
-    process.exit(1);
+    try {
+      const reviewOutput = JSON.parse(await runElmReview());
+      const isParsingError = reviewOutput.errors.some((reviewError) => {
+        return reviewError.errors.some((item) => item.rule === "ParsingError");
+      });
+      if (isParsingError) {
+        console.error(error);
+      } else {
+        console.error(restoreColor(reviewOutput));
+      }
+      process.exit(1);
+    } catch (noElmReviewErrors) {
+      console.error(error);
+    } finally {
+      process.exit(1);
+    }
   }
 }
 
@@ -184,7 +199,11 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
     });
 
     subprocess.on("close", async (code) => {
-      if (code === 0 && (await fs.fileExists(fullOutputPath))) {
+      if (
+        code === 0 &&
+        commandOutput === "" &&
+        (await fs.fileExists(fullOutputPath))
+      ) {
         resolve();
       } else {
         if (!buildError) {
