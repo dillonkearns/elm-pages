@@ -49,7 +49,7 @@ page = {}
 type alias RouteParams = { slug : String }
 """
                                 ]
-                            , under = "type alias RouteParams = { blogPostName : String }"
+                            , under = "{ blogPostName : String }"
                             }
                         ]
         , test "reports incorrect types for optional RouteParams" <|
@@ -70,7 +70,7 @@ page = {}
 type alias RouteParams = { section : String, subSection : Maybe String }
 """
                                 ]
-                            , under = "type alias RouteParams = { section : String, subSection : String }"
+                            , under = "{ section : String, subSection : String }"
                             }
                         ]
         , test "reports incorrect types for required splat RouteParams" <|
@@ -91,7 +91,7 @@ page = {}
 type alias RouteParams = { section : String, splat : ( String, List String ) }
 """
                                 ]
-                            , under = "type alias RouteParams = { section : String, splat : List String }"
+                            , under = "{ section : String, splat : List String }"
                             }
                         ]
         , test "no error for valid SPLAT_ RouteParams" <|
@@ -139,7 +139,7 @@ page = {}
                             , details =
                                 [ """Expected a record type alias."""
                                 ]
-                            , under = "type alias RouteParams = ()"
+                            , under = "()"
                             }
                         ]
         , test "no error for modules that don't start with Page prefix" <|

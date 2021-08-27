@@ -122,9 +122,9 @@ But it is not exposing: """
                 )
 
 
-routeParamsMatchesNameOrError : Node a -> Node TypeAnnotation -> List String -> List (Error {})
-routeParamsMatchesNameOrError typeAliasNode annotation moduleName =
-    case stringFields typeAliasNode annotation of
+routeParamsMatchesNameOrError : Node TypeAnnotation -> List String -> List (Error {})
+routeParamsMatchesNameOrError annotation moduleName =
+    case stringFields annotation of
         Err error ->
             [ error ]
 
@@ -148,7 +148,7 @@ routeParamsMatchesNameOrError typeAliasNode annotation moduleName =
                             ++ "\n"
                         ]
                     }
-                    (Node.range typeAliasNode)
+                    (Node.range annotation)
                 ]
 
 
@@ -255,10 +255,9 @@ changeCase mutator word =
 
 
 stringFields :
-    Node a
-    -> Node TypeAnnotation
+    Node TypeAnnotation
     -> Result (Error {}) (Dict String (Result (Node TypeAnnotation) Param))
-stringFields outerTypeAnnotation typeAnnotation =
+stringFields typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.Record recordDefinition ->
             let
@@ -282,7 +281,7 @@ stringFields outerTypeAnnotation typeAnnotation =
                         [ """Expected a record type alias."""
                         ]
                     }
-                    (Node.range outerTypeAnnotation)
+                    (Node.range typeAnnotation)
                 )
 
 
@@ -349,7 +348,7 @@ declarationVisitor node direction context =
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, generics, typeAnnotation } ) ->
             -- TODO check that generics is empty
             if context.isPageModule && Node.value name == "RouteParams" then
-                ( routeParamsMatchesNameOrError node typeAnnotation context.moduleName
+                ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
                 , context
                 )
 
