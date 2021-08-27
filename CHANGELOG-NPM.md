@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.9] - 2021-08-27
+
+### Added
+
+- Runs a special `elm-review` config to give better actionable errors for the user instead of error messages pointing to generated code. Note: this now requires `elm-review` to be on the PATH when running `elm-pages`.
+
 ## [2.1.8] - 2021-08-25
 
 ### Fixed
