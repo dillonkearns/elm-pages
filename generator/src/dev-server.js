@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const which = require("which");
 const chokidar = require("chokidar");
 const {
   spawnElmMake,
@@ -49,6 +50,12 @@ async function start(options) {
   });
 
   await codegen.generate(options.base);
+  try {
+    await ensureRequiredExecutables();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
   let clientElmMakeProcess = compileElmForBrowser();
   let pendingCliCompile = compileCliApp();
   watchElmSourceDirs(true);
@@ -519,6 +526,19 @@ function errorHtml() {
     <body></body>
   </html>
   `;
+}
+
+async function ensureRequiredExecutables() {
+  try {
+    await which("elm");
+  } catch (error) {
+    throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+  }
+  try {
+    await which("elm-review");
+  } catch (error) {
+    throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+  }
 }
 
 module.exports = { start };

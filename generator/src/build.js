@@ -47,6 +47,11 @@ async function ensureRequiredExecutables() {
   } catch (error) {
     throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
+  try {
+    await which("elm-review");
+  } catch (error) {
+    throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+  }
 }
 
 async function run(options) {
