@@ -48,11 +48,10 @@ import View
 import Json.Decode
 import Json.Encode
 import Pages.Flags
-import ${
-      phase === "browser"
+import ${phase === "browser"
         ? "Pages.Internal.Platform"
         : "Pages.Internal.Platform.Cli"
-    }
+      }
 import Pages.Manifest as Manifest
 import Shared
 import Site
@@ -87,11 +86,11 @@ type alias Model =
 
 type PageModel
     = ${templates
-      .map(
-        (name) =>
-          `Model${pathNormalizedName(name)} Page.${moduleName(name)}.Model\n`
-      )
-      .join("    | ")}
+        .map(
+          (name) =>
+            `Model${pathNormalizedName(name)} Page.${moduleName(name)}.Model\n`
+        )
+        .join("    | ")}
     | NotFound
 
 
@@ -109,21 +108,21 @@ type Msg
         , metadata : Maybe Route
         }
     | ${templates
-      .map(
-        (name) =>
-          `Msg${pathNormalizedName(name)} Page.${moduleName(name)}.Msg\n`
-      )
-      .join("    | ")}
+        .map(
+          (name) =>
+            `Msg${pathNormalizedName(name)} Page.${moduleName(name)}.Msg\n`
+        )
+        .join("    | ")}
 
 
 type PageData
     = Data404NotFoundPage____
     | ${templates
-      .map(
-        (name) =>
-          `Data${pathNormalizedName(name)} Page.${moduleName(name)}.Data\n`
-      )
-      .join("    | ")}
+        .map(
+          (name) =>
+            `Data${pathNormalizedName(name)} Page.${moduleName(name)}.Data\n`
+        )
+        .join("    | ")}
 
 
 
@@ -141,13 +140,12 @@ view :
 view page maybePageUrl globalData pageData =
     case ( page.route, pageData ) of
         ${templates
-          .map(
-            (name) =>
-              `( Just ${
-                emptyRouteParams(name)
-                  ? `Route.${routeHelpers.routeVariant(name)}`
-                  : `(Route.${routeHelpers.routeVariant(name)} s)`
-              }, Data${routeHelpers.routeVariant(name)} data ) ->
+        .map(
+          (name) =>
+            `( Just ${emptyRouteParams(name)
+              ? `Route.${routeHelpers.routeVariant(name)}`
+              : `(Route.${routeHelpers.routeVariant(name)} s)`
+            }, Data${routeHelpers.routeVariant(name)} data ) ->
                   { view =
                       \\model ->
                           case model.page of
@@ -158,9 +156,8 @@ view page maybePageUrl globalData pageData =
                                       subModel
                                       { data = data
                                       , sharedData = globalData
-                                      , routeParams = ${
-                                        emptyRouteParams(name) ? "{}" : "s"
-                                      }
+                                      , routeParams = ${emptyRouteParams(name) ? "{}" : "s"
+            }
                                       , path = page.path
                                       }
                                       |> View.map Msg${pathNormalizedName(name)}
@@ -176,8 +173,8 @@ view page maybePageUrl globalData pageData =
                       }
                   }
 `
-          )
-          .join("\n\n        ")}
+        )
+        .join("\n\n        ")}
         _ ->
             { head = []
             , view =
@@ -218,32 +215,30 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
         ( templateModel, templateCmd ) =
             case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
                 ${templates
-                  .map(
-                    (name) => `( Just ( ${
-                      emptyRouteParams(name)
-                        ? `Route.${routeHelpers.routeVariant(name)}`
-                        : `(Route.${routeHelpers.routeVariant(
-                            name
-                          )} routeParams)`
-                    }, justPath ), Data${pathNormalizedName(
-                      name
-                    )} thisPageData ) ->
+        .map(
+          (name) => `( Just ( ${emptyRouteParams(name)
+            ? `Route.${routeHelpers.routeVariant(name)}`
+            : `(Route.${routeHelpers.routeVariant(
+              name
+            )} routeParams)`
+            }, justPath ), Data${pathNormalizedName(
+              name
+            )} thisPageData ) ->
                     Page.${moduleName(name)}.page.init
                         (Maybe.andThen .pageUrl maybePagePath)
                         sharedModel
                         { data = thisPageData
                         , sharedData = sharedData
-                        , routeParams = ${
-                          emptyRouteParams(name) ? "{}" : "routeParams"
-                        }
+                        , routeParams = ${emptyRouteParams(name) ? "{}" : "routeParams"
+            }
                         , path = justPath.path
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
-                          name
-                        )} (Cmd.map Msg${pathNormalizedName(name)})
+              name
+            )} (Cmd.map Msg${pathNormalizedName(name)})
 `
-                  )
-                  .join("\n                ")}
+        )
+        .join("\n                ")}
                 _ ->
                     ( NotFound, Cmd.none )
     in
@@ -317,28 +312,28 @@ update sharedData pageData navigationKey msg model =
 
 
         ${templates
-          .map(
-            (name) => `
+        .map(
+          (name) => `
         Msg${pathNormalizedName(name)} msg_ ->
             let
                 ( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) =
                     case ( model.page, pageData, Maybe.map3 (\\a b c -> ( a, b, c )) (model.current |> Maybe.andThen .metadata) (model.current |> Maybe.andThen .pageUrl) (model.current |> Maybe.map .path) ) of
                         ( Model${pathNormalizedName(
-                          name
-                        )} pageModel, Data${pathNormalizedName(
-              name
-            )} thisPageData, Just ( ${routeHelpers.destructureRoute(
-              name,
-              "routeParams"
-            )}, pageUrl, justPage ) ) ->
+            name
+          )} pageModel, Data${pathNormalizedName(
+            name
+          )} thisPageData, Just ( ${routeHelpers.destructureRoute(
+            name,
+            "routeParams"
+          )}, pageUrl, justPage ) ) ->
                             Page.${moduleName(name)}.page.update
                                 pageUrl
                                 { data = thisPageData
                                 , sharedData = sharedData
                                 , routeParams = ${routeHelpers.referenceRouteParams(
-                                  name,
-                                  "routeParams"
-                                )}
+            name,
+            "routeParams"
+          )}
                                 , path = justPage.path
                                 }
                                 navigationKey
@@ -346,8 +341,8 @@ update sharedData pageData navigationKey msg model =
                                 pageModel
                                 model.global
                                 |> mapBoth Model${pathNormalizedName(
-                                  name
-                                )} (Cmd.map Msg${pathNormalizedName(name)})
+            name
+          )} (Cmd.map Msg${pathNormalizedName(name)})
                                 |> (\\( a, b, c ) ->
                                         case c of
                                             Just sharedMsg ->
@@ -364,8 +359,8 @@ update sharedData pageData navigationKey msg model =
             , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
             )
 `
-          )
-          .join("\n        ")}
+        )
+        .join("\n        ")}
 
 
 type alias SiteConfig =
@@ -377,14 +372,14 @@ templateSubscriptions : Maybe Route -> Path -> Model -> Sub Msg
 templateSubscriptions route path model =
     case ( model.page, route ) of
         ${templates
-          .map(
-            (name) => `
+        .map(
+          (name) => `
         ( Model${pathNormalizedName(
-          name
-        )} templateModel, Just ${routeHelpers.destructureRoute(
-              name,
-              "routeParams"
-            )} ) ->
+            name
+          )} templateModel, Just ${routeHelpers.destructureRoute(
+            name,
+            "routeParams"
+          )} ) ->
             Page.${moduleName(name)}.page.subscriptions
                 Nothing -- TODO wire through value
                 ${routeHelpers.referenceRouteParams(name, "routeParams")}
@@ -393,25 +388,23 @@ templateSubscriptions route path model =
                 model.global
                 |> Sub.map Msg${pathNormalizedName(name)}
 `
-          )
-          .join("\n        ")}
+        )
+        .join("\n        ")}
 
 
         _ ->
             Sub.none
 
 
-main : ${
-      phase === "browser"
+main : ${phase === "browser"
         ? "Pages.Internal.Platform.Program Model Msg PageData Shared.Data"
         : "Pages.Internal.Platform.Cli.Program (Maybe Route)"
-    }
+      }
 main =
-    ${
-      phase === "browser"
+    ${phase === "browser"
         ? "Pages.Internal.Platform.application"
         : "Pages.Internal.Platform.Cli.cliApplication"
-    }
+      }
         { init = init Nothing
         , urlToRoute = Route.urlToRoute
         , routeToPath = \\route -> route |> Maybe.map Route.routeToPath |> Maybe.withDefault []
@@ -434,10 +427,10 @@ main =
         , apiRoutes = \\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
         , pathPatterns = routePatterns3
         , basePath = [ ${basePath
-          .split("/")
-          .filter((segment) => segment !== "")
-          .map((segment) => `"${segment}"`)
-          .join(", ")} ]
+        .split("/")
+        .filter((segment) => segment !== "")
+        .map((segment) => `"${segment}"`)
+        .join(", ")} ]
         }
 
 dataForRoute : Maybe Route -> DataSource PageData
@@ -446,20 +439,19 @@ dataForRoute route =
         Nothing ->
             DataSource.succeed Data404NotFoundPage____
         ${templates
-          .map(
-            (name) =>
-              `Just ${
-                emptyRouteParams(name)
-                  ? `Route.${routeHelpers.routeVariant(name)}`
-                  : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
-              } ->\n            Page.${name.join(
-                "."
-              )}.page.data ${routeHelpers.referenceRouteParams(
-                name,
-                "routeParams"
-              )} |> DataSource.map Data${routeHelpers.routeVariant(name)}`
-          )
-          .join("\n        ")}
+        .map(
+          (name) =>
+            `Just ${emptyRouteParams(name)
+              ? `Route.${routeHelpers.routeVariant(name)}`
+              : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
+            } ->\n            Page.${name.join(
+              "."
+            )}.page.data ${routeHelpers.referenceRouteParams(
+              name,
+              "routeParams"
+            )} |> DataSource.map Data${routeHelpers.routeVariant(name)}`
+        )
+        .join("\n        ")}
 
 handleRoute : Maybe Route -> DataSource (Maybe Pages.Internal.NotFoundReason.NotFoundReason)
 handleRoute maybeRoute =
@@ -468,32 +460,30 @@ handleRoute maybeRoute =
             DataSource.succeed Nothing
 
         ${templates
-          .map(
-            (name) =>
-              `Just (Route.${routeHelpers.routeVariant(name)}${
-                routeHelpers.parseRouteParams(name).length === 0
-                  ? ""
-                  : " routeParams"
-              }) ->\n            Page.${name.join(
-                "."
-              )}.page.handleRoute { moduleName = [ ${name
-                .map((part) => `"${part}"`)
-                .join(", ")} ], routePattern = ${routeHelpers.toElmPathPattern(
+        .map(
+          (name) =>
+            `Just (Route.${routeHelpers.routeVariant(name)}${routeHelpers.parseRouteParams(name).length === 0
+              ? ""
+              : " routeParams"
+            }) ->\n            Page.${name.join(
+              "."
+            )}.page.handleRoute { moduleName = [ ${name
+              .map((part) => `"${part}"`)
+              .join(", ")} ], routePattern = ${routeHelpers.toElmPathPattern(
                 name
               )} } (\\param -> [ ${routeHelpers
                 .parseRouteParams(name)
                 .map(
                   (param) =>
-                    `( "${param.name}", ${paramAsElmString(param)} param.${
-                      param.name
+                    `( "${param.name}", ${paramAsElmString(param)} param.${param.name
                     } )`
                 )
                 .join(", ")} ]) ${routeHelpers.referenceRouteParams(
-                name,
-                "routeParams"
-              )}`
-          )
-          .join("\n        ")}
+                  name,
+                  "routeParams"
+                )}`
+        )
+        .join("\n        ")}
 
 
 stringToString : String -> String
@@ -546,14 +536,14 @@ routePatterns =
                     ]
             )
             [ ${sortTemplates(templates)
-              .map((name) => {
-                return `{ kind = Page.${moduleName(
-                  name
-                )}.page.kind, pathPattern = "${routeHelpers.toPathPattern(
-                  name
-                )}" }`;
-              })
-              .join("\n            , ")}
+        .map((name) => {
+          return `{ kind = Page.${moduleName(
+            name
+          )}.page.kind, pathPattern = "${routeHelpers.toPathPattern(
+            name
+          )}" }`;
+        })
+        .join("\n            , ")}
           
             ]
             |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
@@ -565,36 +555,35 @@ routePatterns =
 routePatterns2 : List String
 routePatterns2 =
     [ ${sortTemplates(templates)
-      .map((name) => {
-        return `"${routeHelpers.toPathPattern(name)}"`;
-      })
-      .join("\n    , ")}
+        .map((name) => {
+          return `"${routeHelpers.toPathPattern(name)}"`;
+        })
+        .join("\n    , ")}
     ]
 
 
 routePatterns3 : List Pages.Internal.RoutePattern.RoutePattern
 routePatterns3 =
     [ ${sortTemplates(templates)
-      .map((name) => {
-        return `${routeHelpers.toElmPathPattern(name)}`;
-      })
-      .join("\n    , ")}
+        .map((name) => {
+          return `${routeHelpers.toElmPathPattern(name)}`;
+        })
+        .join("\n    , ")}
     ]
 
 getStaticRoutes : DataSource (List Route)
 getStaticRoutes =
     DataSource.combine
         [ ${templates
-          .map((name) => {
-            return `Page.${moduleName(
-              name
-            )}.page.staticRoutes |> DataSource.map (List.map ${
-              emptyRouteParams(name)
-                ? `(\\_ -> Route.${pathNormalizedName(name)}))`
-                : `Route.${pathNormalizedName(name)})`
+        .map((name) => {
+          return `Page.${moduleName(
+            name
+          )}.page.staticRoutes |> DataSource.map (List.map ${emptyRouteParams(name)
+            ? `(\\_ -> Route.${pathNormalizedName(name)}))`
+            : `Route.${pathNormalizedName(name)})`
             }`;
-          })
-          .join("\n        , ")}
+        })
+        .join("\n        , ")}
         ]
         |> DataSource.map List.concat
 
@@ -714,12 +703,12 @@ withoutBaseUrl path =
 matchers : List (Pages.Internal.Router.Matcher Route)
 matchers =
     [ ${sortTemplates(templates)
-      .map(
-        (name) => `{ pattern = "^${routeRegex(name).pattern}$"
+        .map(
+          (name) => `{ pattern = "^${routeRegex(name).pattern}$"
       , toRoute = ${routeRegex(name).toRoute}
      }\n`
-      )
-      .join("    , ")}
+        )
+        .join("    , ")}
     ]
 
 
@@ -728,37 +717,36 @@ routeToPath : Route -> List String
 routeToPath route =
     case route of
         ${templates
-          .map(
-            (name) =>
-              `${routeHelpers.routeVariant(name)}${
-                routeHelpers.parseRouteParams(name).length === 0
-                  ? ""
-                  : ` params`
-              } ->\n           List.concat [ ${routeHelpers
-                .parseRouteParamsWithStatic(name)
-                .map((param) => {
-                  switch (param.kind) {
-                    case "static": {
-                      return param.name === "Index"
-                        ? `[]`
-                        : `[ "${camelToKebab(param.name)}" ]`;
-                    }
-                    case "optional": {
-                      return `Pages.Internal.Router.maybeToList params.${param.name}`;
-                    }
-                    case "required-splat": {
-                      return `Pages.Internal.Router.nonEmptyToList params.${param.name}`;
-                    }
-                    case "dynamic": {
-                      return `[ params.${param.name} ]`;
-                    }
-                    case "optional-splat": {
-                      return `params.${param.name}`;
-                    }
+        .map(
+          (name) =>
+            `${routeHelpers.routeVariant(name)}${routeHelpers.parseRouteParams(name).length === 0
+              ? ""
+              : ` params`
+            } ->\n           List.concat [ ${routeHelpers
+              .parseRouteParamsWithStatic(name)
+              .map((param) => {
+                switch (param.kind) {
+                  case "static": {
+                    return param.name === "Index"
+                      ? `[]`
+                      : `[ "${camelToKebab(param.name)}" ]`;
                   }
-                })} ]`
-          )
-          .join("\n        ")}
+                  case "optional": {
+                    return `Pages.Internal.Router.maybeToList params.${param.name}`;
+                  }
+                  case "required-splat": {
+                    return `Pages.Internal.Router.nonEmptyToList params.${param.name}`;
+                  }
+                  case "dynamic": {
+                    return `[ params.${param.name} ]`;
+                  }
+                  case "optional-splat": {
+                    return `params.${param.name}`;
+                  }
+                }
+              })} ]`
+        )
+        .join("\n        ")}
 
 {-| -}
 toPath : Route -> Path
@@ -882,12 +870,7 @@ toSegments (Path path) =
 -}
 toAbsolute : Path -> String
 toAbsolute path =
-    let segments = toSegments path
-    in
-    if List.isEmpty segments then
-        "/"
-    else
-        "/" ++ (toSegments path |> String.join "/") ++ "/"
+    "/" ++ (toSegments path |> String.join "/")
 
 
 {-| Turn a Path to a relative URL.
@@ -1037,34 +1020,32 @@ function routeRegex(name) {
   const toRoute = `\\matches ->
       case matches of
           [ ${parsedParams
-            .flatMap((parsedParam) => {
-              switch (parsedParam.kind) {
-                case "optional": {
-                  return parsedParam.name;
-                }
-                case "dynamic": {
-                  return `Just ${parsedParam.name}`;
-                }
-                case "required-splat": {
-                  return `Just splat`;
-                }
-                case "optional-splat": {
-                  return `splat`;
-                }
-              }
-            })
-            .join(", ")} ] ->
-              Just ${
-                parsedParams.length === 0
-                  ? pathNormalizedName(name)
-                  : `( ${pathNormalizedName(name)} { ${parsedParams.map(
-                      (param) => {
-                        return `${param.name} = ${prefixThing(param)}${
-                          param.name
-                        }`;
-                      }
-                    )} } )`
-              }
+      .flatMap((parsedParam) => {
+        switch (parsedParam.kind) {
+          case "optional": {
+            return parsedParam.name;
+          }
+          case "dynamic": {
+            return `Just ${parsedParam.name}`;
+          }
+          case "required-splat": {
+            return `Just splat`;
+          }
+          case "optional-splat": {
+            return `splat`;
+          }
+        }
+      })
+      .join(", ")} ] ->
+              Just ${parsedParams.length === 0
+      ? pathNormalizedName(name)
+      : `( ${pathNormalizedName(name)} { ${parsedParams.map(
+        (param) => {
+          return `${param.name} = ${prefixThing(param)}${param.name
+            }`;
+        }
+      )} } )`
+    }
           _ ->
               Nothing
 
