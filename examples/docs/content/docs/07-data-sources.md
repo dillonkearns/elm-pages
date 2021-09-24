@@ -2,7 +2,7 @@
 description: TODO
 ---
 
-# `DataSource`s
+# DataSources
 
 It doesn't matter _where_ a `DataSource` came from.
 
