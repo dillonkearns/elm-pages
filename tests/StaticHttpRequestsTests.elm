@@ -1043,12 +1043,7 @@ startLowLevel apiRoutes staticHttpCache pages =
 
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
-            , site =
-                { data = DataSource.succeed ()
-                , canonicalUrl = "canonical-site-url"
-                , manifest = \_ -> manifest
-                , head = \_ -> []
-                }
+            , site = Just site
             , view =
                 \page _ ->
                     let
@@ -1110,6 +1105,7 @@ startLowLevel apiRoutes staticHttpCache pages =
     ProgramTest.createDocument
         { init =
             init
+                site
                 (RenderRequest.SinglePage
                     RenderRequest.OnlyJson
                     (RenderRequest.Page
@@ -1121,11 +1117,19 @@ startLowLevel apiRoutes staticHttpCache pages =
                 )
                 contentCache
                 config
-        , update = update contentCache config
+        , update = update site contentCache config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
+
+
+site =
+    { data = DataSource.succeed ()
+    , canonicalUrl = "canonical-site-url"
+    , manifest = \_ -> manifest
+    , head = \_ -> []
+    }
 
 
 startSimple : List String -> DataSource a -> ProgramTest (Model Route) Msg Effect
@@ -1195,12 +1199,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
 
                         Nothing ->
                             DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
-            , site =
-                { data = DataSource.succeed ()
-                , canonicalUrl = "canonical-site-url"
-                , manifest = \_ -> manifest
-                , head = \_ -> []
-                }
+            , site = Just site
             , view =
                 \page _ ->
                     let
@@ -1262,6 +1261,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
     ProgramTest.createDocument
         { init =
             init
+                site
                 (RenderRequest.SinglePage
                     RenderRequest.OnlyJson
                     (RenderRequest.Page
@@ -1273,7 +1273,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                 )
                 contentCache
                 config
-        , update = update contentCache config
+        , update = update site contentCache config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
