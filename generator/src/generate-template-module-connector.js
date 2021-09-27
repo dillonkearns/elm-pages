@@ -168,12 +168,17 @@ view page maybePageUrl globalData pageData =
 
                               _ ->
                                   { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-                  , head = Page.${moduleName(name)}.page.head
+                  , head = ${
+                    phase === "browser"
+                      ? "[]"
+                      : `Page.${moduleName(name)}.page.head
                       { data = data
                       , sharedData = globalData
                       , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
                       , path = page.path
                       }
+                      `
+                  }
                   }
 `
           )
@@ -415,8 +420,12 @@ main =
         { init = init Nothing
         , urlToRoute = Route.urlToRoute
         , routeToPath = \\route -> route |> Maybe.map Route.routeToPath |> Maybe.withDefault []
-        , site = Site.config
-        , getStaticRoutes = getStaticRoutes |> DataSource.map (List.map Just)
+        , site = ${phase === "browser" ? `Nothing` : `Just Site.config`}
+        , getStaticRoutes = ${
+          phase === "browser"
+            ? `DataSource.succeed []`
+            : `getStaticRoutes |> DataSource.map (List.map Just)`
+        }
         , handleRoute = handleRoute
         , view = view
         , update = update
@@ -431,7 +440,11 @@ main =
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
         , sharedData = Shared.template.data
-        , apiRoutes = \\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString
+        , apiRoutes = ${
+          phase === "browser"
+            ? `\\_ -> []`
+            : `\\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString`
+        }
         , pathPatterns = routePatterns3
         , basePath = [ ${basePath
           .split("/")
