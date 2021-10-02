@@ -1,5 +1,3 @@
-const parseUrl = require("url").parse;
-
 // this middleware is only active when (config.base !== '/')
 
 module.exports = function baseMiddleware(base) {
@@ -9,7 +7,7 @@ module.exports = function baseMiddleware(base) {
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
     const url = req.url;
-    const parsed = parseUrl(url);
+    const parsed = new URL(url);
     const path = parsed.pathname || "/";
 
     if (path.startsWith(base)) {
