@@ -3,6 +3,9 @@ const parseUrl = require("url").parse;
 // this middleware is only active when (config.base !== '/')
 
 module.exports = function baseMiddleware(base) {
+  // We want to detect the base with and without a trailing slash.
+  const baseRegExp= new RegExp(base + "/?");
+  
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
     const url = req.url;
@@ -10,9 +13,9 @@ module.exports = function baseMiddleware(base) {
     const path = parsed.pathname || "/";
 
     if (path.startsWith(base)) {
-      // rewrite url to remove base.. this ensures that other middleware does
+      // rewrite url to remove base. this ensures that other middleware does
       // not need to consider base being prepended or not
-      req.url = url.replace(base, "/");
+      req.url = url.replace(baseRegExp, "/");
       return next();
     }
 

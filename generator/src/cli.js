@@ -114,9 +114,15 @@ function normalizeUrl(pagePath) {
   if (!pagePath.startsWith("/")) {
     pagePath = "/" + pagePath;
   }
-  if (!pagePath.endsWith("/")) {
-    pagePath = pagePath + "/";
+
+  // Remove any trailing slash.
+  // The core issue is that `/base` is a prefix of `/base/`, but
+  // `/base/` is not a prefix of `/base`, which can later lead to issues
+  // with detecting whether the path contains the base.
+  if (pagePath.endsWith("/")) {
+    pagePath = pagePath.substring(0, -1);
   }
+
   return pagePath;
 }
 
