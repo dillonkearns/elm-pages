@@ -7,6 +7,10 @@ module.exports = function baseMiddleware(base) {
     // See https://nodejs.org/api/http.html#http_message_url
     const path = req.url;
 
+    if (base === "/") {
+      // The RegExp will check for the slash, so we remove it here.
+      base = "";
+    }
     // We want to detect the base at the beginning, hence the `^`,
     // but also allow calling the base without a trailing slash, hence the `$`.
     const baseRegExp = new RegExp(`^${base}(/|$)`);
