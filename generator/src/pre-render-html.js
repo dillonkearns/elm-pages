@@ -29,9 +29,9 @@ module.exports =
     <link rel="modulepreload" href="${path.join(basePath, "index.js")}">
     ${devServerOnly(
       /* html */ `<script defer="defer" src="${path.join(
-        basePath,
-        "hmr.js"
-      )}" type="text/javascript"></script>`
+      basePath,
+      "hmr.js"
+    )}" type="text/javascript"></script>`
     )}
     <script defer="defer" src="${path.join(
       basePath,
@@ -45,7 +45,7 @@ ${elmPagesJsMinified}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="${path.join(basePath, "manifest.json")}>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -81,10 +81,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-        .split("/")
-        .map((_) => "..")
-        .join("/")
-        .replace(/\.$/, "./");
+      .split("/")
+      .map((_) => "..")
+      .join("/")
+      .replace(/\.$/, "./");
 }
 
 function devServerStyleTag() {
