@@ -31,7 +31,7 @@ module.exports = function baseMiddleware(base) {
       res.statusCode = 404;
       res.end(
         `The server is configured with a public base URL of ${base} - ` +
-          `did you mean to visit ${base}${url.slice(1)} instead?`
+          `did you mean to visit ${base}/${url.slice(1)} instead?`
       );
       return;
     }
