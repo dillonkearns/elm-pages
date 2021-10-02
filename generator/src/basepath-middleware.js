@@ -1,19 +1,17 @@
 // this middleware is only active when (config.base !== '/')
 
 module.exports = function baseMiddleware(base) {
-  // We want to detect the base with and without a trailing slash.
-  const baseRegExp= new RegExp(base + "/?");
-  
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
-    const url = req.url;
-    const parsed = new URL(url);
-    const path = parsed.pathname || "/";
+    const path = req.url;
 
-    if (path.startsWith(base)) {
+    // We want to detect the base at the beginning, hence the `^`,
+    // but also allow calling the base without a trailing slash, hence the `$`.
+    const baseRegExp = new RegExp(`^${base}(/|$)`);
+    if (baseRegExp.test(path)) {
       // rewrite url to remove base. this ensures that other middleware does
       // not need to consider base being prepended or not
-      req.url = url.replace(baseRegExp, "/");
+      req.url = path.replace(baseRegExp, "/");
       return next();
     }
 
@@ -27,9 +25,10 @@ module.exports = function baseMiddleware(base) {
     } else if (req.headers.accept && req.headers.accept.includes("text/html")) {
       // non-based page visit
       res.statusCode = 404;
+      const suggestionUrl = `${base}/${.slice(1)}`;
       res.end(
         `The server is configured with a public base URL of ${base} - ` +
-          `did you mean to visit ${base}/${url.slice(1)} instead?`
+        `did you mean to visit ${suggestionUrl} instead?`
       );
       return;
     }
