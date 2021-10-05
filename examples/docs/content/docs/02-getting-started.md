@@ -6,7 +6,15 @@ You can create a fresh `elm-pages` project with the `init` command.
 npx elm-pages init my-project
 ```
 
-This will create a new project in `my-project/`. You can then start a dev server and add new routes using these CLI commands.
+This will create a new project in `my-project/`. You would need to navigate to this folder and install the dependencies.
+
+```shell
+cd my-project
+npm install
+npm start # starts a local dev server using `elm-pages develop`
+```
+
+You can then start a dev server and add new routes using these CLI commands.
 
 ## CLI commands
 
