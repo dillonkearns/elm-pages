@@ -20,6 +20,7 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Manifest as Manifest
 import Pages.ProgramConfig exposing (ProgramConfig)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as Request
 import Path
 import ProgramTest exposing (ProgramTest)
@@ -1124,6 +1125,7 @@ startLowLevel apiRoutes staticHttpCache pages =
         |> ProgramTest.start (flags (Encode.encode 0 encodedFlags))
 
 
+site : SiteConfig ()
 site =
     { data = DataSource.succeed ()
     , canonicalUrl = "canonical-site-url"

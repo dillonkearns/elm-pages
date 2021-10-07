@@ -1,7 +1,6 @@
 module HtmlPrinter exposing (htmlToString)
 
 import Html exposing (Html)
-import Html.Events
 import Json.Decode as Decode
 import Json.Encode
 import Test.Html.Internal.ElmHtml.InternalTypes exposing (decodeElmHtml)
