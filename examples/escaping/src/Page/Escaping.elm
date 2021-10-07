@@ -8,6 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
+import Html.Styled.Lazy as HtmlLazy
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -91,6 +92,9 @@ view maybeUrl sharedModel static =
                     ]
                 ]
             ]
-            , text static.data
+        , Html.text static.data
+
+        -- TODO need to do escaping within lazy text
+        , HtmlLazy.lazy (.data >> text) static
         ]
     }

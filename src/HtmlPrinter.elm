@@ -1,17 +1,20 @@
 module HtmlPrinter exposing (htmlToString)
 
-import ElmHtml.InternalTypes exposing (decodeElmHtml)
-import ElmHtml.ToString exposing (defaultFormatOptions, nodeToStringWithOptions)
 import Html exposing (Html)
+import Html.Events
 import Json.Decode as Decode
 import Json.Encode
+import Test.Html.Internal.ElmHtml.InternalTypes exposing (decodeElmHtml)
+import Test.Html.Internal.ElmHtml.ToString exposing (defaultFormatOptions, nodeToStringWithOptions)
+import VirtualDom
 
 
 htmlToString : Html msg -> String
 htmlToString viewHtml =
     case
         Decode.decodeValue
-            (decodeElmHtml (\_ _ -> Decode.succeed ()))
+            --(decodeElmHtml (\_ _ -> Decode.succeed ()))
+            (decodeElmHtml (\_ _ -> VirtualDom.Normal (Decode.succeed ())))
             (asJsonView viewHtml)
     of
         Ok str ->
