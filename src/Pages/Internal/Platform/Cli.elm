@@ -91,6 +91,7 @@ cliApplication config =
         site =
             getSiteConfig config
 
+        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> SiteConfig siteData
         getSiteConfig fullConfig =
             case fullConfig.site of
                 Just mySite ->

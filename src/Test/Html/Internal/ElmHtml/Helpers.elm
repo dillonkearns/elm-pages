@@ -1,4 +1,4 @@
-module ElmHtml.Helpers exposing (filterKnownKeys)
+module Test.Html.Internal.ElmHtml.Helpers exposing (filterKnownKeys)
 
 {-| Internal helpers for ElmHtml
 
@@ -7,7 +7,7 @@ module ElmHtml.Helpers exposing (filterKnownKeys)
 -}
 
 import Dict exposing (Dict)
-import ElmHtml.Constants exposing (..)
+import Test.Html.Internal.ElmHtml.Constants exposing (knownKeys)
 
 
 {-| Filter out keys that we don't know
