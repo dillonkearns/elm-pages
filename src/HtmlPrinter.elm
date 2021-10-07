@@ -12,7 +12,6 @@ htmlToString : Html msg -> String
 htmlToString viewHtml =
     case
         Decode.decodeValue
-            --(decodeElmHtml (\_ _ -> Decode.succeed ()))
             (decodeElmHtml (\_ _ -> VirtualDom.Normal (Decode.succeed ())))
             (asJsonView viewHtml)
     of
