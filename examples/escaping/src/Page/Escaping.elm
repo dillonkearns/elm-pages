@@ -93,8 +93,8 @@ view maybeUrl sharedModel static =
                 ]
             ]
 
-        --, Html.text static.data
-        -- TODO need to do escaping within lazy text
+        -- lazy and non-lazy versions render the same output
+        , Html.text static.data
         , HtmlLazy.lazy (.data >> text) static
         ]
     }
