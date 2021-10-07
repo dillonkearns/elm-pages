@@ -237,22 +237,7 @@ contextDecodeElmHtml context =
 -}
 decodeTextTag : Json.Decode.Decoder TextTagRecord
 decodeTextTag =
-    field kernelConstants.virtualDom.text
-        (Json.Decode.andThen
-            (\text ->
-                Json.Decode.succeed
-                    { text =
-                        {- https://github.com/elm/virtual-dom/blob/5a5bcf48720bc7d53461b3cd42a9f19f119c5503/src/Elm/Kernel/VirtualDom.server.js#L8-L26 -}
-                        text
-                            |> String.replace "&" "&amp;"
-                            |> String.replace "<" "&lt;"
-                            |> String.replace ">" "&gt;"
-                            |> String.replace "\"" "&quot;"
-                            |> String.replace "'" "&#039;"
-                    }
-            )
-            Json.Decode.string
-        )
+    field kernelConstants.virtualDom.text (Json.Decode.andThen (\text -> Json.Decode.succeed { text = text }) Json.Decode.string)
 
 
 {-| decode a tagger

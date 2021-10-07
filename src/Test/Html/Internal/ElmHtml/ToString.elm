@@ -151,11 +151,6 @@ nodeRecordToString options { tag, children, facts } =
         VoidElements ->
             [ openTag [ classes, styles, stringAttributes, boolAttributes ] ]
 
-        {- TODO: implement restrictions for RawTextElements,
-           EscapableRawTextElements. Also handle ForeignElements correctly.
-           For now just punt and use the previous behavior for all other
-           element kinds.
-        -}
         _ ->
             [ openTag [ classes, styles, stringAttributes, boolAttributes ] ]
                 ++ childrenStrings
