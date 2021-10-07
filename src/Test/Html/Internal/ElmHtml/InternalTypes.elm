@@ -24,33 +24,8 @@ import Json.Encode
 import Test.Html.Internal.ElmHtml.Constants as Constants exposing (..)
 import Test.Html.Internal.ElmHtml.Helpers exposing (..)
 import Test.Html.Internal.ElmHtml.Markdown exposing (..)
+import Test.Internal.KernelConstants exposing (kernelConstants)
 import VirtualDom
-
-
-kernelConstants =
-    { virtualDom =
-        { nodeType = "$"
-        , nodeTypeText = 0
-        , nodeTypeKeyedNode = 2
-        , nodeTypeNode = 1
-        , nodeTypeCustom = 3
-        , nodeTypeTagger = 4
-        , nodeTypeThunk = 5
-        , tag = "c"
-        , kids = "e"
-        , facts = "d"
-        , descendantsCount = "b"
-        , text = "a"
-        , refs = "l"
-        , node = "k"
-        , tagger = "j"
-        , model = "g"
-        }
-    , markdown =
-        { options = "a"
-        , markdown = "b"
-        }
-    }
 
 
 {-| Type tree for representing Elm's Html
