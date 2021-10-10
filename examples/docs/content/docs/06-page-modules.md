@@ -1,10 +1,10 @@
 ---
-description: TODO
+description: Page Modules are the blueprint for a route in elm-pages.
 ---
 
 # Page Modules
 
-Page Templates are Elm modules in the `src/Page` folder that define a top-level `template`.
+Page Templates are Elm modules in the `src/Page` folder that define a top-level `page`.
 
 You build the `template` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
 
