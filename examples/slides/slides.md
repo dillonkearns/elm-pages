@@ -1,7 +1,7 @@
 ## elm-pages 2.0
 
 ```
-elm-pages generate Projects.Username_.Repo_
+elm-pages add Projects.Username_.Repo_
 ```
 
 ```elm
