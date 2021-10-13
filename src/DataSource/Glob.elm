@@ -4,7 +4,7 @@ module DataSource.Glob exposing
     , captureFilePath
     , wildcard, recursiveWildcard
     , int, digits
-    , expectUniqueMatch
+    , expectUniqueMatch, expectUniqueMatchFromList
     , literal
     , map, succeed, toDataSource
     , oneOf
@@ -195,7 +195,7 @@ That will give us
 
 ## Matching a Specific Number of Files
 
-@docs expectUniqueMatch
+@docs expectUniqueMatch, expectUniqueMatchFromList
 
 
 ## Glob Patterns
@@ -1007,6 +1007,12 @@ issues (like if we had instead ignored the case where there are two or more matc
 -}
 expectUniqueMatch : Glob a -> DataSource a
 expectUniqueMatch glob =
+    let
+        pattern =
+            case glob of
+                Glob pattern_ _ _ ->
+                    pattern_
+    in
     glob
         |> toDataSource
         |> DataSource.andThen
@@ -1016,7 +1022,32 @@ expectUniqueMatch glob =
                         DataSource.succeed file
 
                     [] ->
-                        DataSource.fail "No files matched."
+                        DataSource.fail <| "No files matched the pattern: " ++ pattern
+
+                    _ ->
+                        DataSource.fail "More than one file matched."
+            )
+
+
+expectUniqueMatchFromList : List (Glob a) -> DataSource a
+expectUniqueMatchFromList globs =
+    let
+        pattern glob =
+            case glob of
+                Glob pattern_ _ _ ->
+                    pattern_
+    in
+    globs
+        |> List.map toDataSource
+        |> DataSource.combine
+        |> DataSource.andThen
+            (\matchingFiles ->
+                case List.concat matchingFiles of
+                    [ file ] ->
+                        DataSource.succeed file
+
+                    [] ->
+                        DataSource.fail <| "No files matched the patterns: " ++ (globs |> List.map pattern |> String.join ", ")
 
                     _ ->
                         DataSource.fail "More than one file matched."
