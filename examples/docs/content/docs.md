@@ -12,7 +12,7 @@
 ### CLI commands
 
 - `elm-pages dev` - Run a dev server
-- `elm-pages add Slide.Number_` Generate scaffolding for a new Page Template
+- `elm-pages add Slide.Number_` Generate scaffolding for a new Page Module
 - `elm-pages build` - run a full production build
 
 ### The dev server
@@ -48,7 +48,7 @@ Must expose
 
 - `template : SharedTemplate Msg Model StaticData msg`
 - `Msg` - global `Msg`s across the whole app, like toggling a menu in the shared header view
-- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Page Templates.
+- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Page Modules.
 - `SharedMsg` (todo - this needs to be documented better. Consider whether there could be an easier way to wire this in for users, too)
 
 #### `Site.elm`
@@ -84,12 +84,12 @@ There
 
 ## Page Modules
 
-Page Templates are Elm modules in the `src/Page` folder that define a top-level `template`.
+Page Modules are Elm modules in the `src/Page` folder that define a top-level `page`.
 
-You build the `template` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
+You build the `page` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
 
 ```elm
-module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
+module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
 
 import DataSource
 import View exposing (View)
@@ -98,7 +98,7 @@ import Head.Seo as Seo
 import Html exposing (text)
 import Pages.ImagePath as ImagePath
 import Shared
-import Template exposing (StaticPayload, Template)
+import Page exposing (StaticPayload, Page)
 
 type alias Route = { name : String }
 
@@ -108,13 +108,13 @@ type alias Model = ()
 
 type alias Msg = Never
 
-template : Template Route StaticData
-template =
-    Template.noStaticData
+page : Page Route StaticData
+page =
+    Page.noStaticData
         { head = head
         , staticRoutes = DataSource.succeed [ { name = "world" } ]
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
 
 
 head :

@@ -91,10 +91,9 @@ Page module, and can render it within a layout.
 
 Must expose
 
-- `template : SharedTemplate Msg Model StaticData msg`
+- `init : SharedTemplate Msg Model StaticData msg`
 - `Msg` - global `Msg`s across the whole app, like toggling a menu in the shared header view
-- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Page Templates.
-- `SharedMsg`
+- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Page Modules.
 
 ## `Site.elm`
 
@@ -110,6 +109,28 @@ Files in this folder are copied directly into `dist/` when you run `elm-pages bu
 
 For example, if you had a file called `public/images/profile.jpg`, then you could access it at `http://localhost:1234/images/profile.jpg` in your dev server, or the corresponding path in your production domain.
 
-## `index.js`
+## `public/index.js`
 
-## `style.css`
+This is the entrypoint for your JavaScript. Export an Object with a functions `load` and `flags`. Right now, this is the only place that user JavaScript code can be loaded. You can use `import` statements to load other JS files here.
+
+`load` is an `async` function that will be called with a Promise that you can await to register ports on your Elm application (or just wait until the Elm application is loaded).
+
+`flags` will be passed in to your `Flags` in your `Shared.elm` module.
+
+```javascript
+export default {
+  load: async function (elmLoaded) {
+    const app = await elmLoaded;
+    // console.log("App loaded", app);
+  },
+  flags: function () {
+    return "You can decode this in Shared.elm using Json.Decode.string!";
+  },
+};
+```
+
+## `public/style.css`
+
+This CSS file will be included on the page. It will also live reload if you make changes to this file.
+
+Right now, this is the only user CSS file that is loaded. You can use CSS imports to load other CSS files here.

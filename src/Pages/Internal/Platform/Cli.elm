@@ -30,6 +30,7 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (Stat
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.ProgramConfig exposing (ProgramConfig)
+import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
@@ -85,6 +86,19 @@ cliApplication config =
         contentCache : ContentCache
         contentCache =
             ContentCache.init Nothing
+
+        site : SiteConfig siteData
+        site =
+            getSiteConfig config
+
+        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> SiteConfig siteData
+        getSiteConfig fullConfig =
+            case fullConfig.site of
+                Just mySite ->
+                    mySite
+
+                Nothing ->
+                    getSiteConfig fullConfig
     in
     Platform.worker
         { init =
@@ -95,12 +109,12 @@ cliApplication config =
                         Decode.decodeValue (RenderRequest.decoder config) flags
                             |> Result.withDefault RenderRequest.default
                 in
-                init renderRequest contentCache config flags
-                    |> Tuple.mapSecond (perform renderRequest config config.toJsPort)
+                init site renderRequest contentCache config flags
+                    |> Tuple.mapSecond (perform site renderRequest config config.toJsPort)
         , update =
             \msg model ->
-                update contentCache config msg model
-                    |> Tuple.mapSecond (perform model.maybeRequestJson config config.toJsPort)
+                update site contentCache config msg model
+                    |> Tuple.mapSecond (perform site model.maybeRequestJson config config.toJsPort)
         , subscriptions =
             \_ ->
                 config.fromJsPort
@@ -189,17 +203,18 @@ gotPortDecoder =
 
 
 perform :
-    RenderRequest route
+    SiteConfig siteData
+    -> RenderRequest route
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> (Codec.Value -> Cmd Never)
     -> Effect
     -> Cmd Msg
-perform renderRequest config toJsPort effect =
+perform site renderRequest config toJsPort effect =
     -- elm-review: known-unoptimized-recursion
     let
         canonicalSiteUrl : String
         canonicalSiteUrl =
-            config.site.canonicalUrl
+            site.canonicalUrl
     in
     case effect of
         Effect.NoEffect ->
@@ -207,7 +222,7 @@ perform renderRequest config toJsPort effect =
 
         Effect.Batch list ->
             list
-                |> List.map (perform renderRequest config toJsPort)
+                |> List.map (perform site renderRequest config toJsPort)
                 |> Cmd.batch
 
         Effect.FetchHttp ({ unmasked, masked } as requests) ->
@@ -355,18 +370,20 @@ flagsDecoder =
 
 {-| -}
 init :
-    RenderRequest route
+    SiteConfig siteData
+    -> RenderRequest route
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-init renderRequest contentCache config flags =
+init site renderRequest contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { secrets, staticHttpCache, isDevServer } ->
-            initLegacy renderRequest { secrets = secrets, staticHttpCache = staticHttpCache, isDevServer = isDevServer } contentCache config flags
+            initLegacy site renderRequest { secrets = secrets, staticHttpCache = staticHttpCache, isDevServer = isDevServer } contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
+                site
                 contentCache
                 config
                 { staticResponses = StaticResponses.error
@@ -388,13 +405,14 @@ init renderRequest contentCache config flags =
 
 
 initLegacy :
-    RenderRequest route
+    SiteConfig siteData
+    -> RenderRequest route
     -> { secrets : SecretsDict, staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-initLegacy renderRequest { secrets, staticHttpCache, isDevServer } contentCache config flags =
+initLegacy site renderRequest { secrets, staticHttpCache, isDevServer } contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -465,32 +483,35 @@ initLegacy renderRequest { secrets, staticHttpCache, isDevServer } contentCache 
             }
     in
     StaticResponses.nextStep config initialModel Nothing
-        |> nextStepToEffect contentCache
+        |> nextStepToEffect site
+            contentCache
             config
             initialModel
 
 
 updateAndSendPortIfDone :
-    ContentCache
+    SiteConfig siteData
+    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( Model route, Effect )
-updateAndSendPortIfDone contentCache config model =
+updateAndSendPortIfDone site contentCache config model =
     StaticResponses.nextStep
         config
         model
         Nothing
-        |> nextStepToEffect contentCache config model
+        |> nextStepToEffect site contentCache config model
 
 
 {-| -}
 update :
-    ContentCache
+    SiteConfig siteData
+    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Msg
     -> Model route
     -> ( Model route, Effect )
-update contentCache config msg model =
+update site contentCache config msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -517,7 +538,7 @@ update contentCache config msg model =
             StaticResponses.nextStep config
                 updatedModel
                 Nothing
-                |> nextStepToEffect contentCache config updatedModel
+                |> nextStepToEffect site contentCache config updatedModel
 
         Continue ->
             let
@@ -528,7 +549,7 @@ update contentCache config msg model =
             StaticResponses.nextStep config
                 updatedModel
                 Nothing
-                |> nextStepToEffect contentCache config updatedModel
+                |> nextStepToEffect site contentCache config updatedModel
 
         GotBuildError buildError ->
             let
@@ -542,16 +563,17 @@ update contentCache config msg model =
             StaticResponses.nextStep config
                 updatedModel
                 Nothing
-                |> nextStepToEffect contentCache config updatedModel
+                |> nextStepToEffect site contentCache config updatedModel
 
 
 nextStepToEffect :
-    ContentCache
+    SiteConfig siteData
+    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
-nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
             let
@@ -609,7 +631,8 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                     }
             in
             if List.isEmpty doNow && updatedRoutes /= model.staticRoutes then
-                nextStepToEffect contentCache
+                nextStepToEffect site
+                    contentCache
                     config
                     updatedModel
                     (StaticResponses.nextStep config
@@ -688,7 +711,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         currentUrl : Url.Url
                                                         currentUrl =
                                                             { protocol = Url.Https
-                                                            , host = config.site.canonicalUrl
+                                                            , host = site.canonicalUrl
                                                             , port_ = Nothing
                                                             , path = payload.path |> Path.toRelative
                                                             , query = Nothing
@@ -767,7 +790,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                                                         siteDataResult : Result BuildError siteData
                                                         siteDataResult =
                                                             StaticHttpRequest.resolve ApplicationType.Cli
-                                                                config.site.data
+                                                                site.data
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                                                     in
@@ -809,7 +832,7 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
                     case model.unprocessedPages |> List.head of
                         Just pageAndMetadata ->
                             ( model
-                            , sendSinglePageProgress contentJson config model pageAndMetadata
+                            , sendSinglePageProgress site contentJson config model pageAndMetadata
                             )
 
                         Nothing ->
@@ -824,12 +847,13 @@ nextStepToEffect contentCache config model ( updatedStaticResponsesModel, nextSt
 
 
 sendSinglePageProgress :
-    Dict String String
+    SiteConfig siteData
+    -> Dict String String
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( Path, route )
     -> Effect
-sendSinglePageProgress contentJson config model =
+sendSinglePageProgress site contentJson config model =
     \( page, route ) ->
         case model.maybeRequestJson of
             RenderRequest.SinglePage includeHtml _ _ ->
@@ -893,7 +917,7 @@ sendSinglePageProgress contentJson config model =
                     currentUrl : Url.Url
                     currentUrl =
                         { protocol = Url.Https
-                        , host = config.site.canonicalUrl
+                        , host = site.canonicalUrl
                         , port_ = Nothing
                         , path = page |> Path.toRelative
                         , query = Nothing
@@ -921,7 +945,7 @@ sendSinglePageProgress contentJson config model =
                     siteDataResult : Result BuildError siteData
                     siteDataResult =
                         StaticHttpRequest.resolve ApplicationType.Cli
-                            config.site.data
+                            site.data
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
@@ -933,7 +957,7 @@ sendSinglePageProgress contentJson config model =
                                 , contentJson = contentJson
                                 , html = rendered.view
                                 , errors = []
-                                , head = rendered.head ++ config.site.head siteData
+                                , head = rendered.head ++ site.head siteData
                                 , title = rendered.title
                                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                 , is404 = False

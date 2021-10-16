@@ -87,9 +87,6 @@ config =
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
                                 , "src/DataSource/ServerRequest.elm" -- temporarily removed from exposed modules for alpha serverless
                                 ]
-                            |> Rule.ignoreErrorsForDirectories
-                                [ "src/ElmHtml"
-                                ]
                     )
            )
     )
@@ -98,6 +95,7 @@ config =
                 rule
                     |> Rule.ignoreErrorsForDirectories
                         [ "src/ElmHtml"
+                        , "src/Test"
                         ]
             )
 

@@ -57,6 +57,8 @@ type alias Value value =
 {-| Hardcode a secret value. Or, this can be used to start a pipeline-style value with several different secrets (see
 the example at the top of this page).
 
+Warning: a hardcoded value is not protected by masking! Make sure to to use `Secrets.with` to fetch sentitive values from environment variables.
+
     import Pages.Secrets as Secrets
 
     Secrets.succeed "hardcoded-secret"

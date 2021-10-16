@@ -52,7 +52,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , getStaticRoutes : DataSource.DataSource (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
-    , site : SiteConfig siteData
+    , site : Maybe (SiteConfig siteData)
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , onPageChange :

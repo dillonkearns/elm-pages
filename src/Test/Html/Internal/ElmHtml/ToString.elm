@@ -1,4 +1,4 @@
-module ElmHtml.ToString exposing
+module Test.Html.Internal.ElmHtml.ToString exposing
     ( nodeRecordToString, nodeToString, nodeToStringWithOptions
     , FormatOptions, defaultFormatOptions
     )
@@ -12,8 +12,8 @@ module ElmHtml.ToString exposing
 -}
 
 import Dict exposing (Dict)
-import ElmHtml.InternalTypes exposing (..)
 import String
+import Test.Html.Internal.ElmHtml.InternalTypes exposing (..)
 
 
 {-| Formatting options to be used for converting to string
@@ -111,8 +111,8 @@ nodeRecordToString options { tag, children, facts } =
                 [] ->
                     Nothing
 
-                stylesList ->
-                    stylesList
+                styleValues ->
+                    styleValues
                         |> List.map (\( key, value ) -> key ++ ":" ++ value ++ ";")
                         |> String.join ""
                         |> (\styleString -> "style=\"" ++ styleString ++ "\"")
@@ -130,19 +130,17 @@ nodeRecordToString options { tag, children, facts } =
                 |> String.join " "
                 |> Just
 
+        boolToString b =
+            case b of
+                True ->
+                    "True"
+
+                False ->
+                    "False"
+
         boolAttributes =
             Dict.toList facts.boolAttributes
-                |> List.map
-                    (\( k, v ) ->
-                        k
-                            ++ "="
-                            ++ (if v then
-                                    "true"
-
-                                else
-                                    "false"
-                               )
-                    )
+                |> List.map (\( k, v ) -> k ++ "=" ++ (String.toLower <| boolToString v))
                 |> String.join " "
                 |> Just
     in
