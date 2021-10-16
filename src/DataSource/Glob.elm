@@ -1007,12 +1007,6 @@ issues (like if we had instead ignored the case where there are two or more matc
 -}
 expectUniqueMatch : Glob a -> DataSource a
 expectUniqueMatch glob =
-    let
-        pattern =
-            case glob of
-                Glob pattern_ _ _ ->
-                    pattern_
-    in
     glob
         |> toDataSource
         |> DataSource.andThen
@@ -1022,21 +1016,16 @@ expectUniqueMatch glob =
                         DataSource.succeed file
 
                     [] ->
-                        DataSource.fail <| "No files matched the pattern: " ++ pattern
+                        DataSource.fail <| "No files matched the pattern: " ++ toPatternString glob
 
                     _ ->
                         DataSource.fail "More than one file matched."
             )
 
 
+{-| -}
 expectUniqueMatchFromList : List (Glob a) -> DataSource a
 expectUniqueMatchFromList globs =
-    let
-        pattern glob =
-            case glob of
-                Glob pattern_ _ _ ->
-                    pattern_
-    in
     globs
         |> List.map toDataSource
         |> DataSource.combine
@@ -1047,8 +1036,15 @@ expectUniqueMatchFromList globs =
                         DataSource.succeed file
 
                     [] ->
-                        DataSource.fail <| "No files matched the patterns: " ++ (globs |> List.map pattern |> String.join ", ")
+                        DataSource.fail <| "No files matched the patterns: " ++ (globs |> List.map toPatternString |> String.join ", ")
 
                     _ ->
                         DataSource.fail "More than one file matched."
             )
+
+
+toPatternString : Glob a -> String
+toPatternString glob =
+    case glob of
+        Glob pattern_ _ _ ->
+            pattern_
