@@ -108,16 +108,18 @@ function clearHttpAndPortCache() {
 }
 
 /**
- * @param {string} pagePath
+ * @param {string} rawPagePath
  */
-function normalizeUrl(pagePath) {
-  if (!pagePath.startsWith("/")) {
-    pagePath = "/" + pagePath;
-  }
-  if (!pagePath.endsWith("/")) {
-    pagePath = pagePath + "/";
-  }
-  return pagePath;
+function normalizeUrl(rawPagePath) {
+  const segments = rawPagePath.split("/")
+      // Filter out all empty segments.
+      .filter(segment => segment.length != 0);
+
+  // Do not add a trailing slash.
+  // The core issue is that `/base` is a prefix of `/base/`, but
+  // `/base/` is not a prefix of `/base`, which can later lead to issues
+  // with detecting whether the path contains the base.
+  return `/${segments.join("/")}`
 }
 
 main();

@@ -1,18 +1,23 @@
-const parseUrl = require("url").parse;
-
 // this middleware is only active when (config.base !== '/')
 
 module.exports = function baseMiddleware(base) {
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
-    const url = req.url;
-    const parsed = parseUrl(url);
-    const path = parsed.pathname || "/";
+    // `req.url` only contains the path, since that is what gets passed in the HTTP request.
+    // See https://nodejs.org/api/http.html#http_message_url
+    const path = req.url;
 
-    if (path.startsWith(base)) {
-      // rewrite url to remove base.. this ensures that other middleware does
+    if (base === "/") {
+      // The RegExp will check for the slash, so we remove it here.
+      base = "";
+    }
+    // We want to detect the base at the beginning, hence the `^`,
+    // but also allow calling the base without a trailing slash, hence the `$`.
+    const baseRegExp = new RegExp(`^${base}(/|$)`);
+    if (baseRegExp.test(path)) {
+      // rewrite url to remove base. this ensures that other middleware does
       // not need to consider base being prepended or not
-      req.url = url.replace(base, "/");
+      req.url = path.replace(baseRegExp, "/");
       return next();
     }
 
@@ -26,9 +31,10 @@ module.exports = function baseMiddleware(base) {
     } else if (req.headers.accept && req.headers.accept.includes("text/html")) {
       // non-based page visit
       res.statusCode = 404;
+      const suggestionUrl = `${base}/${path.slice(1)}`;
       res.end(
         `The server is configured with a public base URL of ${base} - ` +
-          `did you mean to visit ${base}${url.slice(1)} instead?`
+        `did you mean to visit ${suggestionUrl} instead?`
       );
       return;
     }
