@@ -96,6 +96,7 @@ jobs:
   windows-snapshots:
     runs-on: windows-latest
     steps:
+      - run: git config core.autocrlf true
       - uses: actions/checkout@v2
       - name: Use Node.js 15
         uses: actions/setup-node@v1
