@@ -8,7 +8,7 @@
   "scripts": {
     "start": "cd examples/end-to-end && npm start",
     "test": "npx elmi-to-json --version && elm-verify-examples --run-tests && elm-test && (cd generator && mocha) && (cd examples/routing && npm i && npm run build -- --debug && elm-test) && npm run test:snapshot",
-    "test:snapshot": "cd examples/escaping && npm install && npm test",
+    "test:snapshot": "cd examples/base-path && npm install && npm test",
     "cypress": "npm start & cypress run --spec cypress/integration/elm-pages-dev.spec.js",
     "review": "elm-review"
   },
