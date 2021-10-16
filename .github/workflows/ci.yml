@@ -83,6 +83,14 @@ jobs:
           name: cypress-videos
           path: cypress/videos
       - run: npx elm-tooling install
+      - name: Build base path example site
+        run: (cd examples/base-path && npm install && npm run build)
+      - name: GitHub Pages Example Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./examples/base-path/dist
       - name: Elm Publish
         uses: dillonkearns/elm-publish-action@v1
         with:
