@@ -87,7 +87,7 @@ jobs:
         run: (cd examples/base-path && npm install && npm run build)
       - name: GitHub Pages Example Deploy
         uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./examples/base-path/dist
