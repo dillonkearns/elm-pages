@@ -84,7 +84,7 @@ jobs:
           path: cypress/videos
       - run: npx elm-tooling install
       - name: Build base path example site
-        run: (cd examples/base-path && npm install && npm run build)
+        run: (cd examples/base-path && npm install && npx elm-pages build --base elm-pages)
       - name: GitHub Pages Example Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.ref == 'refs/heads/master' }}
