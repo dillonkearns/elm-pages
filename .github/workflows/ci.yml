@@ -96,7 +96,6 @@ jobs:
   windows-snapshots:
     runs-on: windows-latest
     steps:
-      - run: git config core.autocrlf true
       - uses: actions/checkout@v2
       - name: Use Node.js 15
         uses: actions/setup-node@v1
@@ -112,6 +111,7 @@ jobs:
             node_modules
           key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
 
+      - run: git config core.autocrlf true
       # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
       # review/elm.json changes. The Elm compiler saves downloaded Elm packages
       # to ~/.elm, and elm-tooling saves downloaded tool executables there.
