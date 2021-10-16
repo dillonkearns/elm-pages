@@ -4,7 +4,7 @@
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
-    "test": "elm-pages build --debug && git diff --exit-code ./dist && elm-pages build && git diff --exit-code ./dist",
+    "test": "elm-pages build --debug && git diff --exit-code --ignore-space-change ./dist && elm-pages build && git diff --exit-code --ignore-space-change ./dist",
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "elm-pages build"
   },
