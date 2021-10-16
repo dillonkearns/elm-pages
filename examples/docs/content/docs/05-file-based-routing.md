@@ -74,7 +74,7 @@ On the other hand, that means that you can access the incoming Request, includin
 
 Any part of the module that doesn't end with an underscore (`_`) is a static segment.
 
-For example, in `src/Page/About.elm`, about is a dynamic segment, so the URL `/about` will route to this module.
+For example, in `src/Page/About.elm`, about is a static segment, so the URL `/about` will route to this module.
 
 Static segments are `CapitalCamelCase` in Elm module names, and are `kebab-case` in the URL. So `src/Page/OurTeam.elm` will handle the URL `/our-team`.
 

@@ -1,0 +1,19 @@
+{
+  "name": "elm-pages-example",
+  "version": "1.0.0",
+  "description": "Example site built with elm-pages.",
+  "scripts": {
+    "start": "elm-pages dev --base base-path",
+    "test": "elm-pages build --debug --base base-path && git diff --exit-code ./dist",
+    "serve": "npm run build -- --base base-path && mv ./dist/* ./dist/base-path/ && http-server ./dist -a localhost -p 3000 -c-1",
+    "build": "elm-pages build --base base-path"
+  },
+  "author": "Dillon Kearns",
+  "license": "BSD-3",
+  "devDependencies": {
+    "elm-oembed": "0.0.6",
+    "elm-pages": "file:../..",
+    "elm-tooling": "^1.3.0",
+    "http-server": "^0.11.1"
+  }
+}

@@ -1,15 +1,15 @@
 ---
-description: TODO
+description: Page Modules are the blueprint for a route in elm-pages.
 ---
 
 # Page Modules
 
-Page Templates are Elm modules in the `src/Page` folder that define a top-level `template`.
+Page Modules are Elm modules in the `src/Page` folder that define a top-level `page`.
 
-You build the `template` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
+You build the `page` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
 
 ```elm
-module Template.Hello.Name_ exposing (Model, Msg, StaticData, template)
+module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
 
 import DataSource
 import View exposing (View)
@@ -18,7 +18,7 @@ import Head.Seo as Seo
 import Html exposing (text)
 import Pages.ImagePath as ImagePath
 import Shared
-import Template exposing (StaticPayload, Template)
+import Page exposing (StaticPayload, Page)
 
 type alias Route = { name : String }
 
@@ -28,13 +28,13 @@ type alias Model = ()
 
 type alias Msg = Never
 
-template : Template Route StaticData
-template =
-    Template.noStaticData
+page : Page Route StaticData
+page =
+    Page.noStaticData
         { head = head
         , staticRoutes = DataSource.succeed [ { name = "world" } ]
         }
-        |> Template.buildNoState { view = view }
+        |> Page.buildNoState { view = view }
 
 
 head :

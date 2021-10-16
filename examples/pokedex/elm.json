@@ -23,6 +23,7 @@
             "elm/regex": "1.0.0",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
+            "elm/virtual-dom": "1.0.2",
             "elm-community/dict-extra": "2.4.0",
             "elm-community/list-extra": "8.3.0",
             "matheus23/elm-default-tailwind-modules": "2.0.1",
@@ -43,7 +44,6 @@
             "elm/file": "1.0.5",
             "elm/parser": "1.1.0",
             "elm/random": "1.0.0",
-            "elm/virtual-dom": "1.0.2",
             "fredcy/elm-parseint": "2.0.1",
             "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-hex": "1.0.0"
