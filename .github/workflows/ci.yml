@@ -97,10 +97,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Use Node.js 15
+      - name: Use Node.js 14
         uses: actions/setup-node@v1
         with:
-          node-version: 15
+          node-version: 14
       # Re-use node_modules between runs until package-lock.json changes.
       - name: Cache node_modules
         id: cache-node_modules
