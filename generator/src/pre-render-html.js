@@ -1,7 +1,7 @@
 const cliVersion = require("../../package.json").version;
 const seo = require("./seo-renderer.js");
 const elmPagesJsMinified = require("./elm-pages-js-minified.js");
-const path = require("path");
+const path = require("path").posix;
 const jsesc = require("jsesc");
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
@@ -29,9 +29,9 @@ module.exports =
     <link rel="modulepreload" href="${path.join(basePath, "index.js")}">
     ${devServerOnly(
       /* html */ `<script defer="defer" src="${path.join(
-        basePath,
-        "hmr.js"
-      )}" type="text/javascript"></script>`
+      basePath,
+      "hmr.js"
+    )}" type="text/javascript"></script>`
     )}
     <script defer="defer" src="${path.join(
       basePath,
@@ -81,10 +81,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-        .split("/")
-        .map((_) => "..")
-        .join("/")
-        .replace(/\.$/, "./");
+      .split("/")
+      .map((_) => "..")
+      .join("/")
+      .replace(/\.$/, "./");
 }
 
 function devServerStyleTag() {
