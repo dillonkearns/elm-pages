@@ -6,6 +6,7 @@ import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
+import MarkdownExtra
 import OptimizedDecoder exposing (Decoder)
 import Serialize as S
 
@@ -149,7 +150,7 @@ findDescription blocks =
             (\block ->
                 case block of
                     Block.Paragraph inlines ->
-                        Just (Block.extractInlineText inlines)
+                        Just (MarkdownExtra.extractInlineText inlines)
 
                     _ ->
                         Nothing
