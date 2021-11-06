@@ -4,6 +4,7 @@
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
+    "start:https": "elm-pages dev --https",
     "build": "elm-pages build"
   },
   "author": "Dillon Kearns",
