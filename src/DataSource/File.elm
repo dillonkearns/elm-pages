@@ -155,8 +155,9 @@ just the metadata.
 
     blogPost : DataSource BlogPostMetadata
     blogPost =
-        File.onlyFrontmatter "blog/hello-world.md"
+        File.onlyFrontmatter
             blogPostDecoder
+            "blog/hello-world.md"
 
     type alias BlogPostMetadata =
         { title : String
