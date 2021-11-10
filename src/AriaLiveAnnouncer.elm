@@ -25,8 +25,8 @@ mainView title =
         --, Attr.attribute "ref" reference
         , Attr.style "position" "absolute"
         , Attr.style "top" "0"
-        , Attr.style "width" "1"
-        , Attr.style "height" "1"
+        , Attr.style "width" "1px"
+        , Attr.style "height" "1px"
         , Attr.style "padding" "0"
         , Attr.style "overflow" "hidden"
         , Attr.style "clip" "rect(0, 0, 0, 0)"
