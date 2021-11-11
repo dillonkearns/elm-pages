@@ -1,5 +1,5 @@
 module Head exposing
-    ( Tag, metaName, metaProperty
+    ( Tag, metaName, metaProperty, metaRedirect
     , rssLink, sitemapLink, rootLanguage
     , structuredData
     , AttributeValue
@@ -17,7 +17,7 @@ so you can use the `Tag` type in your type annotations.
 But this module might be useful if you have a special use case, or if you are
 writing a plugin package to extend `elm-pages`.
 
-@docs Tag, metaName, metaProperty
+@docs Tag, metaName, metaProperty, metaRedirect
 @docs rssLink, sitemapLink, rootLanguage
 
 
@@ -379,6 +379,21 @@ metaName : String -> AttributeValue -> Tag
 metaName name content =
     node "meta"
         [ ( "name", Raw name )
+        , ( "content", content )
+        ]
+
+
+{-| Example:
+
+    metaRedirect (Raw "0; url=google.com")
+
+Results in `<meta http-equiv="refresh" content="0; url=google.com" />`
+
+-}
+metaRedirect : AttributeValue -> Tag
+metaRedirect content =
+    node "meta"
+        [ ( "http-equiv", Raw "refresh" )
         , ( "content", content )
         ]
 

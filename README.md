@@ -8,6 +8,40 @@
 
 A **statically typed** site generator, written with pure Elm.
 
+## Why a fork?
+
+
+We want to add in the `metaRedirect` function:
+
+```elm
+metaRedirect : AttributeValue -> Tag
+metaRedirect content =
+    node "meta"
+        [ ( "http-equiv", Raw "refresh" )
+        , ( "content", content )
+        ]
+
+```
+
+
+The work being done to create this fork is:
+
+1. We are starting at `46853ca6176071f01061366e5e1fbaf78a65aeb4`, which is tagged as `v2.1.9`.
+2. We need to remove all of the tags on both remote and local:
+   ```sh
+git tag -l | xargs -n 1 git push --delete origin
+git tag | xargs git tag -d
+   ```
+3. The published versions are: https://package.elm-lang.org/packages/canceraiddev/elm-pages/
+4. Checkout commit `46853ca6176071f01061366e5e1fbaf78a65aeb4`, on the `dev` branch.
+5. We need to update the following files:
+   1. DONE `src/Head.elm` Add in the new function, and associated documentation
+   2. DONE `package.json` Update the version to 1.2.1-fork
+   3. DONE `elm.json` Update version to 1.2.1.
+6. Test compile with `elm-make`
+7. Make new commit
+
+
 ## Getting Started Resources
 
 - [elm-pages Docs Site](https://elm-pages.com/docs)
