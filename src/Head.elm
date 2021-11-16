@@ -385,9 +385,9 @@ metaName name content =
 
 {-| Example:
 
-    metaRedirect (Raw "0; url=google.com")
+    metaRedirect (Raw "0; url=https://google.com")
 
-Results in `<meta http-equiv="refresh" content="0; url=google.com" />`
+Results in `<meta http-equiv="refresh" content="0; url=https://google.com" />`
 
 -}
 metaRedirect : AttributeValue -> Tag
