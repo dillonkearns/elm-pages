@@ -555,20 +555,20 @@ lookupUrls requestInfo =
             []
 
 
-{-| Build off of the response from a previous `StaticHttp` request to build a follow-up request. You can use the data
+{-| Build off of the response from a previous `DataSource` request to build a follow-up request. You can use the data
 from the previous response to build up the URL, headers, etc. that you send to the subsequent request.
 
     import DataSource
     import Json.Decode as Decode exposing (Decoder)
 
-    licenseData : StaticHttp.Request String
+    licenseData : DataSource String
     licenseData =
-        StaticHttp.get
+        DataSource.Http.get
             (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
             (Decode.at [ "license", "url" ] Decode.string)
-            |> StaticHttp.andThen
+            |> DataSource.andThen
                 (\licenseUrl ->
-                    StaticHttp.get (Secrets.succeed licenseUrl) (Decode.field "description" Decode.string)
+                    DataSource.Http.get (Secrets.succeed licenseUrl) (Decode.field "description" Decode.string)
                 )
 
 -}
