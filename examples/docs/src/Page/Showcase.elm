@@ -158,21 +158,27 @@ showcaseItem item =
                 --    ]
                 ]
             ]
-            [ img
-                [ Attr.src <| "https://image.thum.io/get/width/800/crop/800/" ++ item.screenshotUrl
-                , Attr.alt ""
-                , Attr.attribute "loading" "lazy"
-                , css
-                    [ Tw.object_cover
-                    , Tw.pointer_events_none
-
-                    --, Bp.group
-                    --- hover
-                    --    [ Tw.opacity_75
-                    --    ]
-                    ]
+            [ a
+                [ href item.liveUrl
+                , Attr.target "_blank"
+                , Attr.rel "noopener"
                 ]
-                []
+                [ img
+                    [ Attr.src <| "https://image.thum.io/get/width/800/crop/800/" ++ item.screenshotUrl
+                    , Attr.alt ""
+                    , Attr.attribute "loading" "lazy"
+                    , css
+                        [ Tw.object_cover
+                        , Tw.pointer_events_none
+
+                        --, Bp.group
+                        --- hover
+                        --    [ Tw.opacity_75
+                        --    ]
+                        ]
+                    ]
+                    []
+                ]
 
             --, button
             --    [ Attr.type_ "button"
@@ -195,6 +201,7 @@ showcaseItem item =
         , a
             [ href item.liveUrl
             , Attr.target "_blank"
+            , Attr.rel "noopener"
             , css
                 [ Tw.mt_2
                 , Tw.block
@@ -210,6 +217,7 @@ showcaseItem item =
         , a
             [ href item.authorUrl
             , Attr.target "_blank"
+            , Attr.rel "noopener"
             , css
                 [ Tw.block
                 , Tw.text_sm
@@ -268,6 +276,7 @@ topSection =
             , a
                 [ Attr.href "https://airtable.com/shrPSenIW2EQqJ083"
                 , Attr.target "_blank"
+                , Attr.rel "noopener"
                 , css
                     [ Tw.mt_8
                     , Tw.w_full
