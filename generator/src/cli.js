@@ -47,6 +47,7 @@ async function main() {
       "Preserve the HTTP and JS Port cache instead of deleting it on server start"
     )
     .option("--base <basePath>", "serve site under a base path", "/")
+    .option("--https", "uses a https server")
     .action(async (options) => {
       if (!options.keepCache) {
         clearHttpAndPortCache();
@@ -111,15 +112,16 @@ function clearHttpAndPortCache() {
  * @param {string} rawPagePath
  */
 function normalizeUrl(rawPagePath) {
-  const segments = rawPagePath.split("/")
-      // Filter out all empty segments.
-      .filter(segment => segment.length != 0);
+  const segments = rawPagePath
+    .split("/")
+    // Filter out all empty segments.
+    .filter((segment) => segment.length != 0);
 
   // Do not add a trailing slash.
   // The core issue is that `/base` is a prefix of `/base/`, but
   // `/base/` is not a prefix of `/base`, which can later lead to issues
   // with detecting whether the path contains the base.
-  return `/${segments.join("/")}`
+  return `/${segments.join("/")}`;
 }
 
 main();

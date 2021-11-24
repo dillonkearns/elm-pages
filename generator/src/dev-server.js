@@ -8,6 +8,7 @@ const {
   runElmReview,
 } = require("./compile-elm.js");
 const http = require("http");
+const https = require("https");
 const codegen = require("./codegen.js");
 const kleur = require("kleur");
 const serveStatic = require("serve-static");
@@ -17,9 +18,10 @@ const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
 const baseMiddleware = require("./basepath-middleware.js");
+const devcert = require("devcert");
 
 /**
- * @param {{ port: string; base: string }} options
+ * @param {{ port: string; base: string; https: boolean; }} options
  */
 async function start(options) {
   let threadReadyQueue = [];
@@ -28,6 +30,7 @@ async function start(options) {
   const cpuCount = os.cpus().length;
 
   const port = options.port;
+  const useHttps = options.https;
   let elmMakeRunning = true;
 
   const serve = serveStatic("public/", { index: false });
@@ -70,7 +73,7 @@ async function start(options) {
       });
     console.log(
       `${kleur.dim(`elm-pages dev server running at`)} ${kleur.green(
-        `<http://localhost:${port}>`
+        `<${useHttps ? "https" : "http"}://localhost:${port}>`
       )}`
     );
     const poolSize = Math.max(1, cpuCount / 2 - 1);
@@ -118,7 +121,12 @@ async function start(options) {
     .use(serveStaticCode)
     .use(serve)
     .use(processRequest);
-  http.createServer(app).listen(port);
+  if (useHttps) {
+    const ssl = await devcert.certificateFor("localhost");
+    https.createServer(ssl, app).listen(port);
+  } else {
+    http.createServer(app).listen(port);
+  }
   /**
    * @param {http.IncomingMessage} request
    * @param {http.ServerResponse} response
@@ -133,7 +141,6 @@ async function start(options) {
   }
 
   watcher.on("all", async function (eventName, pathThatChanged) {
-    // console.log({ pathThatChanged });
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs(false);
     } else if (pathThatChanged.endsWith(".css")) {
