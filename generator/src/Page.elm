@@ -1,47 +1,79 @@
 module Page exposing
-    ( Builder(..)
+    ( Page, buildNoState
     , StaticPayload
+    , buildWithLocalState, buildWithSharedState
     , prerender, single
-    , Page, buildNoState
-    , PageWithState, buildWithLocalState, buildWithSharedState
+    , Builder(..)
+    , PageWithState
     --, serverless, prerenderWithFallback
     )
 
 {-|
 
 
-## Building a Page Module
-
-@docs Builder
-
-
-## Static Data
-
-Every template will have access to a `StaticPayload`.
-
-@docs StaticPayload
-
-Since this data is _static_, you have access to it before the user has loaded the page, including at build time.
-An example of dynamic data would be keyboard input from the user, query params, or any other data that comes from the app running in the browser.
-
-But before the user even requests the page, we have the following data:
-
-  - `path` - these paths are static. In other words, we know every single path when we build an elm-pages site.
-  - `metadata` - we have a decoded Elm value for the page's metadata.
-  - `sharedStatic` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
-  - `static` - this is the static data for this specific page. If you use `noData`, then this will be `()`, meaning there is no page-specific static data.
-
-@docs prerender, single
-
-
 ## Stateless Page Modules
+
+The simplest Page Module you can build is one with no state. It still can use `DataSource`'s, but it has no `init`, `update`, or `subscriptions`.
+
+It can read the `Shared.Model`, but it cannot send `Shared.Msg`'s to update the `Shared.Model`. If you need a `Model`, use `buildWithLocalState`.
+
+If you need to _change_ Shared state, use `buildWithSharedState`.
 
 @docs Page, buildNoState
 
 
+## Accessing Static Data
+
+With `elm-pages`, you can have HTTP data available before a page is loaded, or read in a file, etc, using the DataSource API. Since the data
+is available when the page is pre-rendered (as well as in the hydrated page), this is called Static Data.
+
+An example of dynamic data would be keyboard input from the user, query params, or any other data that comes from the app running in the browser.
+
+We have the following data during pre-render:
+
+  - `path` - the current path is static. In other words, we know the current path when we build an elm-pages site. Note that we **do not** know query parameters, fragments, etc. That is dynamic data. Pre-rendering occurs for paths in our app, but we don't know what possible query paremters might be used when those paths are hit.
+  - `data` - this will be the resolved `DataSource` for our page.
+  - `sharedData` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
+  - `routeParams` - this is the record that includes any Dynamic Route Segments for the given page (or an empty record if there are none)
+
+@docs StaticPayload
+
+
 ## Stateful Page Modules
 
-@docs PageWithState, buildWithLocalState, buildWithSharedState
+@docs buildWithLocalState, buildWithSharedState
+
+
+## Pre-Rendered Pages
+
+A `single` page is just a Route that has no Dynamic Route Segments. For example, `Page.About` will have `type alias RouteParams = {}`, whereas `Page.Blog.Slug_` has a Dynamic Segment slug, and `type alias RouteParams = { slug_ : String }`.
+
+When you run `elm-pages add About`, it will use `Page.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `Page.prerender` because it has a Dynamic Route Segment.
+
+So `Page.single` is just a simplified version of `Page.prerender`. If there are no Dynamic Route Segments, then you don't need to define which routes to render so `Page.single` doesn't need a `routes` field.
+
+When there are Dynamic Route Segments, you need to tell `elm-pages` which pages to render. For example:
+
+    page =
+        Page.prerender
+            { data = data
+            , routes = routes
+            , head = head
+            }
+
+    routes =
+        DataSource.succeed
+            [ { slug_ = "blog-post1" }
+            , { slug_ = "blog-post2" }
+            ]
+
+@docs prerender, single
+
+
+## Internals
+
+@docs Builder
+@docs PageWithState
 
 -}
 
