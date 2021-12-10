@@ -11,7 +11,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -33,7 +33,7 @@ page =
 
 data : DataSource Data
 data =
-    DataSource.succeed ()
+    DataSource.succeed {}
 
 
 head :
@@ -57,7 +57,7 @@ head static =
 
 
 type alias Data =
-    ()
+    {}
 
 
 view :
