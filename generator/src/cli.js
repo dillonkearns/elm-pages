@@ -58,9 +58,14 @@ async function main() {
 
   program
     .command("add <moduleName>")
+    .addArgument(
+      new commander.Argument("<state>", "Generate Page Module with state")
+        .choices(["local", "shared", "none"])
+        .argOptional()
+    )
     .description("create a new Page module")
-    .action(async (moduleName) => {
-      await generate.run({ moduleName });
+    .action(async (moduleName, state) => {
+      await generate.run({ moduleName, withState: state });
     });
 
   program

@@ -87,7 +87,7 @@ page =
                         _ ->
                             ( model, Cmd.none )
             , subscriptions =
-                \maybePageUrl routeParams path model ->
+                \maybePageUrl routeParams path sharedModel model ->
                     Browser.Events.onKeyDown keyDecoder |> Sub.map OnKeyPress
             }
 

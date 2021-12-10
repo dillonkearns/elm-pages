@@ -43,7 +43,7 @@ import View.CodeTab as CodeTab
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =

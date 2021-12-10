@@ -11,7 +11,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -26,7 +26,7 @@ page : Page RouteParams Data
 page =
     Page.single
         { head = head
-        , data = DataSource.succeed ()
+        , data = DataSource.succeed {}
         }
         |> Page.buildNoState { view = view }
 
@@ -52,7 +52,7 @@ head static =
 
 
 type alias Data =
-    ()
+    {}
 
 
 view :

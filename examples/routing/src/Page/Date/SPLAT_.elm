@@ -10,7 +10,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -45,7 +45,7 @@ routes =
 
 data : RouteParams -> DataSource.DataSource Data
 data routeParams =
-    DataSource.succeed ()
+    DataSource.succeed {}
 
 
 head :
@@ -56,7 +56,7 @@ head static =
 
 
 type alias Data =
-    ()
+    {}
 
 
 view :

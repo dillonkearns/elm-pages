@@ -18,7 +18,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -29,7 +29,7 @@ type alias RouteParams =
     {}
 
 
-page : PageWithState RouteParams Data () Msg
+page : PageWithState RouteParams Data Model Msg
 page =
     Page.single
         { head = head

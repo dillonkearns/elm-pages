@@ -59,21 +59,21 @@ import View exposing (View)
 
 
 {-| -}
-type alias PageWithState routeParams templateData templateModel templateMsg =
-    { data : routeParams -> DataSource templateData
+type alias PageWithState routeParams data model msg =
+    { data : routeParams -> DataSource data
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
         -> Shared.Model
-        -> templateModel
-        -> StaticPayload templateData routeParams
-        -> View templateMsg
+        -> model
+        -> StaticPayload data routeParams
+        -> View msg
     , head :
-        StaticPayload templateData routeParams
+        StaticPayload data routeParams
         -> List Head.Tag
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> StaticPayload templateData routeParams -> Maybe Browser.Navigation.Key -> templateMsg -> templateModel -> Shared.Model -> ( templateModel, Cmd templateMsg, Maybe Shared.Msg )
-    , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Cmd msg )
+    , update : PageUrl -> StaticPayload data routeParams -> Maybe Browser.Navigation.Key -> msg -> model -> Shared.Model -> ( model, Cmd msg, Maybe Shared.Msg )
+    , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
     }
@@ -81,7 +81,7 @@ type alias PageWithState routeParams templateData templateModel templateMsg =
 
 {-| -}
 type alias Page routeParams data =
-    PageWithState routeParams data () Never
+    PageWithState routeParams data {} Never
 
 
 {-| -}
@@ -94,12 +94,12 @@ type alias StaticPayload data routeParams =
 
 
 {-| -}
-type Builder routeParams templateData
+type Builder routeParams data
     = WithData
-        { data : routeParams -> DataSource templateData
+        { data : routeParams -> DataSource data
         , staticRoutes : DataSource (List routeParams)
         , head :
-            StaticPayload templateData routeParams
+            StaticPayload data routeParams
             -> List Head.Tag
         , serverless : Bool
         , handleRoute :
@@ -116,11 +116,11 @@ buildNoState :
     { view :
         Maybe PageUrl
         -> Shared.Model
-        -> StaticPayload templateData routeParams
+        -> StaticPayload data routeParams
         -> View Never
     }
-    -> Builder routeParams templateData
-    -> PageWithState routeParams templateData () Never
+    -> Builder routeParams data
+    -> PageWithState routeParams data {} Never
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
@@ -128,8 +128,8 @@ buildNoState { view } builderState =
             , head = record.head
             , data = record.data
             , staticRoutes = record.staticRoutes
-            , init = \_ _ _ -> ( (), Cmd.none )
-            , update = \_ _ _ _ _ _ -> ( (), Cmd.none, Nothing )
+            , init = \_ _ _ -> ( {}, Cmd.none )
+            , update = \_ _ _ _ _ _ -> ( {}, Cmd.none, Nothing )
             , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
             , kind = record.kind
@@ -141,15 +141,15 @@ buildWithLocalState :
     { view :
         Maybe PageUrl
         -> Shared.Model
-        -> templateModel
-        -> StaticPayload templateData routeParams
-        -> View templateMsg
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg )
-    , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Sub templateMsg
+        -> model
+        -> StaticPayload data routeParams
+        -> View msg
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Cmd msg )
+    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Cmd msg )
+    , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
-    -> Builder routeParams templateData
-    -> PageWithState routeParams templateData templateModel templateMsg
+    -> Builder routeParams data
+    -> PageWithState routeParams data model msg
 buildWithLocalState config builderState =
     case builderState of
         WithData record ->
@@ -161,7 +161,7 @@ buildWithLocalState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \pageUrl staticPayload navigationKey msg templateModel sharedModel ->
+                \pageUrl staticPayload navigationKey msg model sharedModel ->
                     let
                         ( updatedModel, cmd ) =
                             config.update
@@ -170,12 +170,12 @@ buildWithLocalState config builderState =
                                 sharedModel
                                 staticPayload
                                 msg
-                                templateModel
+                                model
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
-                \maybePageUrl routeParams path templateModel sharedModel ->
-                    config.subscriptions maybePageUrl routeParams path templateModel
+                \maybePageUrl routeParams path model sharedModel ->
+                    config.subscriptions maybePageUrl routeParams path sharedModel model
             , handleRoute = record.handleRoute
             , kind = record.kind
             }
@@ -186,15 +186,15 @@ buildWithSharedState :
     { view :
         Maybe PageUrl
         -> Shared.Model
-        -> templateModel
-        -> StaticPayload templateData routeParams
-        -> View templateMsg
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload templateData routeParams -> ( templateModel, Cmd templateMsg )
-    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload templateData routeParams -> templateMsg -> templateModel -> ( templateModel, Cmd templateMsg, Maybe Shared.Msg )
-    , subscriptions : Maybe PageUrl -> routeParams -> Path -> templateModel -> Shared.Model -> Sub templateMsg
+        -> model
+        -> StaticPayload data routeParams
+        -> View msg
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Cmd msg )
+    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Cmd msg, Maybe Shared.Msg )
+    , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
-    -> Builder routeParams templateData
-    -> PageWithState routeParams templateData templateModel templateMsg
+    -> Builder routeParams data
+    -> PageWithState routeParams data model msg
 buildWithSharedState config builderState =
     case builderState of
         WithData record ->
@@ -204,14 +204,16 @@ buildWithSharedState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \pageUrl staticPayload navigationKey msg templateModel sharedModel ->
+                \pageUrl staticPayload navigationKey msg model sharedModel ->
                     config.update pageUrl
                         navigationKey
                         sharedModel
                         staticPayload
                         msg
-                        templateModel
-            , subscriptions = config.subscriptions
+                        model
+            , subscriptions =
+                \maybePageUrl routeParams path model sharedModel ->
+                    config.subscriptions maybePageUrl routeParams path sharedModel model
             , handleRoute = record.handleRoute
             , kind = record.kind
             }
