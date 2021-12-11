@@ -38,7 +38,7 @@ page : Page.PageWithState RouteParams Data Model Msg
 page =
     Page.prerender
         { head = head
-        , routes =
+        , pages =
             slideCount
                 |> DataSource.map
                     (\count ->

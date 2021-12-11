@@ -45,7 +45,7 @@ page : Page RouteParams Data
 page =
     Page.prerender
         { head = head
-        , routes = routes
+        , pages = pages
         , data = data
         }
         |> Page.buildNoState
@@ -53,8 +53,8 @@ page =
             }
 
 
-routes : DataSource (List RouteParams)
-routes =
+pages : DataSource (List RouteParams)
+pages =
     DocsSection.all
         |> DataSource.map
             (List.map

@@ -73,7 +73,7 @@ page =
       withParams
         ? `Page.prerender
         { head = head
-        , routes = routes
+        , pages = pages
         , data = data
         }`
         : `Page.single
@@ -135,8 +135,8 @@ subscriptions maybePageUrl routeParams path model =
 
 ${
   withParams
-    ? `routes : DataSource (List RouteParams)
-routes =
+    ? `pages : DataSource (List RouteParams)
+pages =
     DataSource.succeed []
 
 

@@ -25,7 +25,7 @@ page : Page RouteParams Data
 page =
     Page.prerender
         { head = head
-        , routes = routes
+        , pages = pages
         , data = data
 
         --, routeFound = \_ -> DataSource.succeed True
@@ -33,8 +33,8 @@ page =
         |> Page.buildNoState { view = view }
 
 
-routes : DataSource.DataSource (List RouteParams)
-routes =
+pages : DataSource.DataSource (List RouteParams)
+pages =
     DataSource.succeed
         [ { splat = ( "2021", [ "04", "28" ] )
           }

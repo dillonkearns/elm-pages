@@ -50,18 +50,18 @@ A `single` page is just a Route that has no Dynamic Route Segments. For example,
 
 When you run `elm-pages add About`, it will use `Page.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `Page.prerender` because it has a Dynamic Route Segment.
 
-So `Page.single` is just a simplified version of `Page.prerender`. If there are no Dynamic Route Segments, then you don't need to define which routes to render so `Page.single` doesn't need a `routes` field.
+So `Page.single` is just a simplified version of `Page.prerender`. If there are no Dynamic Route Segments, then you don't need to define which pages to render so `Page.single` doesn't need a `pages` field.
 
 When there are Dynamic Route Segments, you need to tell `elm-pages` which pages to render. For example:
 
     page =
         Page.prerender
             { data = data
-            , routes = routes
+            , pages = pages
             , head = head
             }
 
-    routes =
+    pages =
         DataSource.succeed
             [ { slug_ = "blog-post1" }
             , { slug_ = "blog-post2" }
@@ -271,19 +271,19 @@ single { data, head } =
 {-| -}
 prerender :
     { data : routeParams -> DataSource data
-    , routes : DataSource (List routeParams)
+    , pages : DataSource (List routeParams)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-prerender { data, head, routes } =
+prerender { data, head, pages } =
     WithData
         { data = data
-        , staticRoutes = routes
+        , staticRoutes = pages
         , head = head
         , serverless = False
         , handleRoute =
             \moduleContext toRecord routeParams ->
-                routes
+                pages
                     |> DataSource.map
                         (\allRoutes ->
                             if allRoutes |> List.member routeParams then
@@ -309,15 +309,15 @@ prerender { data, head, routes } =
 --{-| -}
 --prerenderWithFallback :
 --    { data : routeParams -> DataSource data
---    , routes : DataSource (List routeParams)
+--    , pages : DataSource (List routeParams)
 --    , handleFallback : routeParams -> DataSource Bool
 --    , head : StaticPayload data routeParams -> List Head.Tag
 --    }
 --    -> Builder routeParams data
---prerenderWithFallback { data, head, routes, handleFallback } =
+--prerenderWithFallback { data, head, pages, handleFallback } =
 --    WithData
 --        { data = data
---        , staticRoutes = routes
+--        , staticRoutes = pages
 --        , head = head
 --        , serverless = False
 --        , handleRoute =
@@ -335,7 +335,7 @@ prerender { data, head, routes } =
 --                                -- between on-demand builders and the dev server
 --                                -- we only need to match the pre-rendered routes in the dev server,
 --                                -- not in on-demand builders
---                                routes
+--                                pages
 --                                    |> DataSource.map
 --                                        (\allRoutes ->
 --                                            if allRoutes |> List.member routeParams then

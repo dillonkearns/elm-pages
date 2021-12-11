@@ -32,7 +32,7 @@ page : Page RouteParams Data
 page =
     Page.prerenderWithFallback
         { head = head
-        , routes = routes
+        , pages = pages
         , data = data
         , handleFallback =
             \{ pokedexNumber } ->
@@ -47,8 +47,8 @@ page =
         |> Page.buildNoState { view = view }
 
 
-routes : DataSource (List RouteParams)
-routes =
+pages : DataSource (List RouteParams)
+pages =
     DataSource.succeed []
 
 

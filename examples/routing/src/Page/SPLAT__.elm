@@ -25,7 +25,7 @@ page : Page RouteParams Data
 page =
     Page.prerender
         { head = head
-        , routes = DataSource.succeed []
+        , pages = DataSource.succeed []
         , data = data
 
         --, routeFound = \_ -> DataSource.succeed True
