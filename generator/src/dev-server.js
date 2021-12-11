@@ -506,12 +506,10 @@ function errorHtml() {
     }
   }
     </style>
-    <!--<link rel="preload" href="/elm-pages.js" as="script"> -->
     <link rel="preload" href="/index.js" as="script">
     <!--<link rel="preload" href="/elm.js" as="script">-->
     <script src="/hmr.js" type="text/javascript"></script>
     <!--<script defer="defer" src="/elm.js" type="text/javascript"></script>-->
-    <!--<script defer="defer" src="/elm-pages.js" type="module"></script>-->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>

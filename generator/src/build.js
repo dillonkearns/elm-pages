@@ -326,12 +326,6 @@ async function runTerser(filePath) {
 }
 
 async function copyAssets() {
-  await fsPromises.writeFile(
-    "dist/elm-pages.js",
-    await fsPromises.readFile(
-      path.join(__dirname, "../static-code/elm-pages.js")
-    )
-  );
   fs.copyDirFlat("public", "dist");
 }
 
