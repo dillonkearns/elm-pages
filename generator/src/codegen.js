@@ -19,36 +19,17 @@ async function generate(basePath) {
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
 
   const uiFileContent = elmPagesUiFile();
+
   await Promise.all([
-    fs.promises.copyFile(
-      path.join(__dirname, `./Page.elm`),
-      `./.elm-pages/Page.elm`
-    ),
+    copyToBoth("Page.elm"),
+    copyToBoth("SharedTemplate.elm"),
+    copyToBoth("SiteConfig.elm"),
+
+    fs.promises.writeFile("./.elm-pages/Pages.elm", uiFileContent),
     fs.promises.copyFile(
       path.join(__dirname, `./elm-application.json`),
       `./elm-stuff/elm-pages/elm-application.json`
     ),
-    fs.promises.copyFile(
-      path.join(__dirname, `./Page.elm`),
-      `./elm-stuff/elm-pages/.elm-pages/Page.elm`
-    ),
-    fs.promises.copyFile(
-      path.join(__dirname, `./SharedTemplate.elm`),
-      `./.elm-pages/SharedTemplate.elm`
-    ),
-    fs.promises.copyFile(
-      path.join(__dirname, `./SharedTemplate.elm`),
-      `./elm-stuff/elm-pages/.elm-pages/SharedTemplate.elm`
-    ),
-    fs.promises.copyFile(
-      path.join(__dirname, `./SiteConfig.elm`),
-      `./.elm-pages/SiteConfig.elm`
-    ),
-    fs.promises.copyFile(
-      path.join(__dirname, `./SiteConfig.elm`),
-      `./elm-stuff/elm-pages/.elm-pages/SiteConfig.elm`
-    ),
-    fs.promises.writeFile("./.elm-pages/Pages.elm", uiFileContent),
     // write `Pages.elm` with cli interface
     fs.promises.writeFile(
       "./elm-stuff/elm-pages/.elm-pages/Pages.elm",
@@ -67,10 +48,68 @@ async function generate(basePath) {
       browserCode.mainModule
     ),
     fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
+    // write modified elm.json to elm-stuff/elm-pages/
+    copyModifiedElmJson(),
+    ...(await listFiles("./Pages/Internal")).map(copyToBoth),
   ]);
+}
 
-  // write modified elm.json to elm-stuff/elm-pages/
-  copyModifiedElmJson();
+/**
+ * @param {string} moduleToCopy
+ * @returns { Promise<void> }
+ */
+async function copyToBoth(moduleToCopy) {
+  await Promise.all([
+    fs.promises.mkdir(path.dirname(path.join(`./.elm-pages/`, moduleToCopy)), {
+      recursive: true,
+    }),
+    fs.promises.mkdir(
+      path.dirname(
+        path.join(`./elm-stuff/elm-pages/.elm-pages/`, moduleToCopy)
+      ),
+      { recursive: true }
+    ),
+  ]);
+  await Promise.all([
+    fs.promises.copyFile(
+      path.join(__dirname, moduleToCopy),
+      path.join(`./.elm-pages/`, moduleToCopy)
+    ),
+    fs.promises.copyFile(
+      path.join(__dirname, moduleToCopy),
+      path.join(`./elm-stuff/elm-pages/.elm-pages/`, moduleToCopy)
+    ),
+  ]);
+}
+
+/**
+ * @param {string} dir
+ * @returns {Promise<string[]>}
+ */
+async function listFiles(dir) {
+  const fullDir = path.join(__dirname, dir);
+  const files = await fs.promises.readdir(fullDir);
+  return merge(
+    await Promise.all(
+      files.flatMap(async (file_) => {
+        const file = path.join(dir, path.basename(file_));
+        if (
+          (await fs.promises.stat(path.join(__dirname, file))).isDirectory()
+        ) {
+          return await listFiles(file);
+        } else {
+          return [file];
+        }
+      })
+    )
+  );
+}
+
+/**
+ * @param {any[]} arrays
+ */
+function merge(arrays) {
+  return [].concat.apply([], arrays);
 }
 
 module.exports = { generate };
