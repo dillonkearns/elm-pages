@@ -46,7 +46,7 @@ We have the following data during pre-render:
 
 ## Pre-Rendered Pages
 
-A `single` page is just a Route that has no Dynamic Route Segments. For example, `Page.About` will have `type alias RouteParams = {}`, whereas `Page.Blog.Slug_` has a Dynamic Segment slug, and `type alias RouteParams = { slug_ : String }`.
+A `single` page is just a Route that has no Dynamic Route Segments. For example, `Page.About` will have `type alias RouteParams = {}`, whereas `Page.Blog.Slug_` has a Dynamic Segment slug, and `type alias RouteParams = { slug : String }`.
 
 When you run `elm-pages add About`, it will use `Page.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `Page.prerender` because it has a Dynamic Route Segment.
 
@@ -63,8 +63,8 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
     pages =
         DataSource.succeed
-            [ { slug_ = "blog-post1" }
-            , { slug_ = "blog-post2" }
+            [ { slug = "blog-post1" }
+            , { slug = "blog-post2" }
             ]
 
 @docs prerender, single
