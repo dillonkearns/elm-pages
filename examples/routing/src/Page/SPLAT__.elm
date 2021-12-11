@@ -10,7 +10,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -25,7 +25,7 @@ page : Page RouteParams Data
 page =
     Page.prerender
         { head = head
-        , routes = DataSource.succeed []
+        , pages = DataSource.succeed []
         , data = data
 
         --, routeFound = \_ -> DataSource.succeed True
@@ -35,7 +35,7 @@ page =
 
 data : RouteParams -> DataSource.DataSource Data
 data routeParams =
-    DataSource.succeed ()
+    DataSource.succeed {}
 
 
 head :
@@ -46,7 +46,7 @@ head static =
 
 
 type alias Data =
-    ()
+    {}
 
 
 view :

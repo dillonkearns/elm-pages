@@ -25,7 +25,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -41,13 +41,13 @@ page =
     Page.prerender
         { data = data
         , head = head
-        , routes = routes
+        , pages = pages
         }
         |> Page.buildNoState { view = view }
 
 
-routes : DataSource.DataSource (List RouteParams)
-routes =
+pages : DataSource.DataSource (List RouteParams)
+pages =
     Article.blogPostsGlob
         |> DataSource.map
             (List.map

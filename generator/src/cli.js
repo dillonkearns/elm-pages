@@ -9,6 +9,7 @@ const fs = require("fs");
 const path = require("path");
 
 const commander = require("commander");
+const Argument = commander.Argument;
 
 const packageVersion = require("../../package.json").version;
 
@@ -58,9 +59,14 @@ async function main() {
 
   program
     .command("add <moduleName>")
+    .addArgument(
+      new Argument("<state>", "Generate Page Module with state")
+        .choices(["local", "shared"])
+        .argOptional()
+    )
     .description("create a new Page module")
-    .action(async (moduleName) => {
-      await generate.run({ moduleName });
+    .action(async (moduleName, state) => {
+      await generate.run({ moduleName, withState: state });
     });
 
   program

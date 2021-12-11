@@ -48,7 +48,7 @@ type alias RouteParams =
 
 
 type alias Model =
-    ()
+    {}
 
 
 view :

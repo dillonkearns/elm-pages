@@ -43,7 +43,7 @@ import View.CodeTab as CodeTab
 
 
 type alias Model =
-    ()
+    {}
 
 
 type alias Msg =
@@ -145,13 +145,13 @@ page : Page RouteParams Data
 page =
     Page.prerender
         { head = head
-        , routes = routes
+        , pages = pages
         , data = data
         }
         |> Page.buildNoState { view = view }
 
-routes : DataSource (List RouteParams)
-routes =
+pages : DataSource (List RouteParams)
+pages =
     DataSource.succeed [ { name = "elm-pages" } ]
 
 data : RouteParams -> DataSource Data

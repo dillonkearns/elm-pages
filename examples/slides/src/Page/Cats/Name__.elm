@@ -26,14 +26,14 @@ page : Page RouteParams Data
 page =
     Page.prerender
         { head = head
-        , routes = routes
+        , pages = pages
         , data = data
         }
         |> Page.buildNoState { view = view }
 
 
-routes : DataSource.DataSource (List RouteParams)
-routes =
+pages : DataSource.DataSource (List RouteParams)
+pages =
     DataSource.succeed
         [ { name = Just "larry"
           }

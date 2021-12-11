@@ -24,7 +24,7 @@
   "license": "BSD-3-Clause",
   "dependencies": {
     "chokidar": "3.5.2",
-    "commander": "^8.1.0",
+    "commander": "8.3.0",
     "connect": "^3.7.0",
     "cross-spawn": "7.0.3",
     "devcert": "^1.2.0",

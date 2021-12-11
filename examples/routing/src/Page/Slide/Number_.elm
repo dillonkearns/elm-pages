@@ -38,7 +38,7 @@ page : Page.PageWithState RouteParams Data Model Msg
 page =
     Page.prerender
         { head = head
-        , routes =
+        , pages =
             slideCount
                 |> DataSource.map
                     (\count ->
@@ -87,7 +87,7 @@ page =
                         _ ->
                             ( model, Cmd.none )
             , subscriptions =
-                \maybePageUrl routeParams path model ->
+                \maybePageUrl routeParams path sharedModel model ->
                     Browser.Events.onKeyDown keyDecoder |> Sub.map OnKeyPress
             }
 
