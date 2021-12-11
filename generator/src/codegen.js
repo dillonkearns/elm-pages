@@ -67,10 +67,10 @@ async function generate(basePath) {
       browserCode.mainModule
     ),
     fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
+    // write modified elm.json to elm-stuff/elm-pages/
+    copyModifiedElmJson(),
   ]);
 
-  // write modified elm.json to elm-stuff/elm-pages/
-  copyModifiedElmJson();
 }
 
 module.exports = { generate };
