@@ -320,7 +320,11 @@ async function start(options) {
 
         if (req.url.includes("content.json")) {
           res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(reviewOutput);
+          if (emptyReviewError(reviewOutput)) {
+            res.end(error);
+          } else {
+            res.end(reviewOutput);
+          }
         } else {
           res.writeHead(500, { "Content-Type": "text/html" });
           res.end(errorHtml());
@@ -383,6 +387,18 @@ async function start(options) {
         }
       }
     );
+  }
+
+  /**
+   * @param {string} reviewReportJsonString
+   */
+  function emptyReviewError(reviewReportJsonString) {
+    try {
+      return JSON.parse(reviewReportJsonString).errors.length === 0;
+    } catch (e) {
+      console.trace("problem with format in reviewReportJsonString", e);
+      return true;
+    }
   }
 
   async function awaitElmMiddleware(req, res, next) {
@@ -506,12 +522,10 @@ function errorHtml() {
     }
   }
     </style>
-    <!--<link rel="preload" href="/elm-pages.js" as="script"> -->
     <link rel="preload" href="/index.js" as="script">
     <!--<link rel="preload" href="/elm.js" as="script">-->
     <script src="/hmr.js" type="text/javascript"></script>
     <!--<script defer="defer" src="/elm.js" type="text/javascript"></script>-->
-    <!--<script defer="defer" src="/elm-pages.js" type="module"></script>-->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>

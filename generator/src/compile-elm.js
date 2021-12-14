@@ -124,7 +124,7 @@ async function runElmReview(cwd) {
     child.on("close", function (code) {
       console.log(`Ran elm-review in ${timeFrom(startTime)}`);
       if (code === 0) {
-        reject();
+        resolve(scriptOutput);
       } else {
         resolve(scriptOutput);
       }
