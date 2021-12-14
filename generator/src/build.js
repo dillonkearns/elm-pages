@@ -225,13 +225,13 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
  */
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
-    await runElmMake(elmEntrypointPath, outputPath, cwd);
+    await runElmMake(options, elmEntrypointPath, outputPath, cwd);
   } else {
     await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
   }
 }
 
-function runElmMake(elmEntrypointPath, outputPath, cwd) {
+function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
   return new Promise(async (resolve, reject) => {
     const subprocess = spawnCallback(
       `elm`,
@@ -240,7 +240,7 @@ function runElmMake(elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        "--debug",
+        ...(options.debug ? ["--debug"] : []),
         "--report",
         "json",
       ],

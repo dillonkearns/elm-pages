@@ -21,7 +21,7 @@ const baseMiddleware = require("./basepath-middleware.js");
 const devcert = require("devcert");
 
 /**
- * @param {{ port: string; base: string; https: boolean; }} options
+ * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
  */
 async function start(options) {
   let threadReadyQueue = [];
@@ -59,8 +59,8 @@ async function start(options) {
     console.error(error);
     process.exit(1);
   }
-  let clientElmMakeProcess = compileElmForBrowser();
-  let pendingCliCompile = compileCliApp();
+  let clientElmMakeProcess = compileElmForBrowser(options);
+  let pendingCliCompile = compileCliApp(options);
   watchElmSourceDirs(true);
 
   async function setup() {
@@ -105,8 +105,9 @@ async function start(options) {
     watcher.add("./port-data-source.js");
   }
 
-  async function compileCliApp() {
+  async function compileCliApp(options) {
     await spawnElmMake(
+      options,
       ".elm-pages/TemplateModulesBeta.elm",
       "elm.js",
       "elm-stuff/elm-pages/"
@@ -154,8 +155,8 @@ async function start(options) {
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           try {
             await codegen.generate(options.base);
-            clientElmMakeProcess = compileElmForBrowser();
-            pendingCliCompile = compileCliApp();
+            clientElmMakeProcess = compileElmForBrowser(options);
+            pendingCliCompile = compileCliApp(options);
 
             Promise.all([clientElmMakeProcess, pendingCliCompile])
               .then(() => {
@@ -180,8 +181,8 @@ async function start(options) {
           clientElmMakeProcess = Promise.reject(errorJson);
           pendingCliCompile = Promise.reject(errorJson);
         } else {
-          clientElmMakeProcess = compileElmForBrowser();
-          pendingCliCompile = compileCliApp();
+          clientElmMakeProcess = compileElmForBrowser(options);
+          pendingCliCompile = compileCliApp(options);
         }
 
         Promise.all([clientElmMakeProcess, pendingCliCompile])
