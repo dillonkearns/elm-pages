@@ -3,7 +3,8 @@
 const path = require("path");
 const matter = require("gray-matter");
 const globby = require("globby");
-const fsPromises = require("fs").promises;
+// const fsPromises = require("fs").promises;
+const fsPromises = require("memfs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
@@ -215,9 +216,9 @@ function jsonOrNull(string) {
 async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
   try {
-    const fileContents = (
-      await fsPromises.readFile(path.join(process.cwd(), filePath))
-    ).toString();
+    const fileContents =
+      // await fsPromises.readFile(path.join(process.cwd(), filePath))
+      (await fsPromises.readFile(filePath)).toString();
     const parsedFile = matter(fileContents);
 
     pendingDataSourceResponses.push({

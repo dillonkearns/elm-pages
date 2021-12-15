@@ -1,8 +1,9 @@
 const path = require("path");
 const undici = require("undici");
-const fs = require("fs");
+// const fs = require("fs");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
+const fs = require("memfs");
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -18,12 +19,13 @@ function requestToString(request) {
  * @param {Object} request
  */
 function fullPath(request) {
-  return path.join(
-    process.cwd(),
-    ".elm-pages",
-    "http-response-cache",
-    requestToString(request)
-  );
+  // return path.join(
+  //   process.cwd(),
+  //   ".elm-pages",
+  //   "http-response-cache",
+  //   requestToString(request)
+  // );
+  return path.join("/", requestToString(request));
 }
 
 /**

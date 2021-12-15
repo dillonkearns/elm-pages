@@ -9,9 +9,6 @@ exports.handler = builder(render);
  * @param {any} context
  */
 async function render(event, context) {
-  fs.mkdirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"), {
-    recursive: true,
-  });
   console.log(JSON.stringify(event));
   global.staticHttpCache = {};
 
