@@ -633,7 +633,7 @@ pathsToGenerateHandler =
                 )
                 getStaticRoutes
             )
-            ((manifestHandler :: Api.routes getStaticRoutes (\\_ -> ""))
+            ((routePatterns :: manifestHandler :: Api.routes getStaticRoutes (\\_ -> ""))
                 |> List.map ApiRoute.getBuildTimeRoutes
                 |> DataSource.combine
                 |> DataSource.map List.concat

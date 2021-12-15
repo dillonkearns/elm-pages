@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-async function run({ renderFunctionFilePath, serverRoutes, fallbackRoutes }) {
+async function run({ renderFunctionFilePath, routePatterns }) {
   fs.copyFileSync(
     renderFunctionFilePath,
     "./functions/render/elm-pages-cli.js"
@@ -11,29 +11,29 @@ async function run({ renderFunctionFilePath, serverRoutes, fallbackRoutes }) {
   // TODO rename functions/render to functions/fallback-render
 
   // TODO prepend instead of writing file
-  fs.writeFileSync(
-    "dist/_redirects",
-    `${fallbackRoutes.map(
-      (route) => `${toRoute(route)} /.netlify/functions/render 200\n`
-    )}
+  console.log(routePatterns);
+  const redirectsFile =
+    routePatterns
+      .filter(isServerSide)
+      .map((route) => {
+        if (route.pathPattern === "prerender-with-fallback") {
+          return `${route.pathPattern} /.netlify/functions/render 200`;
+        } else {
+          return `${route.pathPattern} /.netlify/functions/server-render 200`;
+        }
+      })
+      .join("\n") + "\n";
 
-${serverRoutes.map(
-  (route) => `${toRoute(route)} /.netlify/functions/server-render 200\n`
-)}
-  `
-  );
+  fs.writeFileSync("dist/_redirects", redirectsFile);
 }
 
-/**
- *
- * @param {{path: string; endsWithSplat: boolean}} route
- */
-function toRoute(route) {
-  return route.path;
+function isServerSide(route) {
+  return (
+    route.kind === "prerender-with-fallback" || route.kind === "serverless"
+  );
 }
 
 run({
   renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
-  serverRoutes: [],
-  fallbackRoutes: [{ path: "/:pokedexnumber", endsWithSplat: false }],
+  routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
 });
