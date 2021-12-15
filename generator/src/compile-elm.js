@@ -10,9 +10,9 @@ const pathToClientElm = path.join(
   "browser-elm.js"
 );
 
-async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
+async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-  await runElm(elmEntrypointPath, outputPath, cwd);
+  await runElm(options, elmEntrypointPath, outputPath, cwd);
 
   await fs.promises.writeFile(
     fullOutputPath,
@@ -35,8 +35,12 @@ async function spawnElmMake(elmEntrypointPath, outputPath, cwd) {
   );
 }
 
-async function compileElmForBrowser() {
-  await runElm("./.elm-pages/TemplateModulesBeta.elm", pathToClientElm);
+async function compileElmForBrowser(options) {
+  await runElm(
+    options,
+    "./.elm-pages/TemplateModulesBeta.elm",
+    pathToClientElm
+  );
   return fs.promises.writeFile(
     "./.elm-pages/cache/elm.js",
     inject(await fs.promises.readFile(pathToClientElm, "utf-8"))
@@ -46,9 +50,10 @@ async function compileElmForBrowser() {
 /**
  * @param {string} elmEntrypointPath
  * @param {string} outputPath
- * @param {string} [ cwd ]
+ * @param {string} [cwd]
+ * @param {{ debug: boolean; }} options
  */
-async function runElm(elmEntrypointPath, outputPath, cwd) {
+async function runElm(options, elmEntrypointPath, outputPath, cwd) {
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
@@ -58,7 +63,7 @@ async function runElm(elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        "--debug",
+        ...(options.debug ? ["--debug"] : []),
         "--report",
         "json",
       ],

@@ -43,6 +43,7 @@ async function main() {
     .command("dev")
     .description("start a dev server")
     .option("--port <number>", "serve site at localhost:<port>", "1234")
+    .option("--debug", "Run elm make with --debug")
     .option(
       "--keep-cache",
       "Preserve the HTTP and JS Port cache instead of deleting it on server start"
