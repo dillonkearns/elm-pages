@@ -14,11 +14,32 @@ async function render(event, context) {
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
   const renderer = require("../../../../generator/src/render");
   try {
+    const basePath = "/";
+    /* 
+        basePath,
+    elmModule,
+    mode,
+    path,
+    request,
+    addDataSourceWatcher
+    */
+    // const renderResult = await renderer(
+    //   compiledElmPath,
+    //   event.path,
+    //   event,
+    //   function () {}
+
+    // );
+    const mode = "build";
+    const addWatcher = () => {};
+
     const renderResult = await renderer(
-      compiledElmPath,
+      basePath,
+      require(compiledElmPath),
+      mode,
       event.path,
       event,
-      function () {}
+      addWatcher
     );
 
     const statusCode = renderResult.is404 ? 404 : 200;
