@@ -8,7 +8,6 @@ import Html exposing (..)
 import Html.Attributes exposing (src)
 import OptimizedDecoder as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
-import Page.PokedexNumber_
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
