@@ -8,6 +8,7 @@ const fsPromises = require("memfs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
+const { fs, Volume, vol } = require("memfs");
 kleur.enabled = true;
 
 process.on("unhandledRejection", (error) => {
@@ -35,6 +36,7 @@ module.exports =
     request,
     addDataSourceWatcher
   ) {
+    vol.reset();
     foundErrors = false;
     pendingDataSourceResponses = [];
     pendingDataSourceCount = 0;
