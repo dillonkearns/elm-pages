@@ -161,7 +161,7 @@ function runElmApp(
     }
     app.ports.toJsPort.subscribe(portHandler);
   }).finally(() => {
-    addDataSourceWatcher(patternsToWatch);
+    // addDataSourceWatcher(patternsToWatch);
     killApp();
     killApp = null;
   });
