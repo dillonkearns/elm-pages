@@ -5,7 +5,7 @@ module Page exposing
     , prerender, single
     , Builder(..)
     , PageWithState
-    --, serverless, prerenderWithFallback
+    , serverless, prerenderWithFallback
     )
 
 {-|
@@ -77,8 +77,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
 -}
 
---import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
-
+import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import Head
@@ -306,88 +305,88 @@ prerender { data, head, pages } =
 
 
 
---{-| -}
---prerenderWithFallback :
---    { data : routeParams -> DataSource data
---    , pages : DataSource (List routeParams)
---    , handleFallback : routeParams -> DataSource Bool
---    , head : StaticPayload data routeParams -> List Head.Tag
---    }
---    -> Builder routeParams data
---prerenderWithFallback { data, head, pages, handleFallback } =
---    WithData
---        { data = data
---        , staticRoutes = pages
---        , head = head
---        , serverless = False
---        , handleRoute =
---            \moduleContext toRecord routeParams ->
---                handleFallback routeParams
---                    |> DataSource.andThen
---                        (\handleFallbackResult ->
---                            if handleFallbackResult then
---                                DataSource.succeed Nothing
---
---                            else
---                                -- we want to lazily evaluate this in our on-demand builders
---                                -- so we try handle fallback first and short-circuit in those cases
---                                -- TODO - we could make an optimization to handle this differently
---                                -- between on-demand builders and the dev server
---                                -- we only need to match the pre-rendered routes in the dev server,
---                                -- not in on-demand builders
---                                pages
---                                    |> DataSource.map
---                                        (\allRoutes ->
---                                            if allRoutes |> List.member routeParams then
---                                                Nothing
---
---                                            else
---                                                Just <|
---                                                    NotFoundReason.NotPrerenderedOrHandledByFallback
---                                                        { moduleName = moduleContext.moduleName
---                                                        , routePattern = moduleContext.routePattern
---                                                        , matchedRouteParams = toRecord routeParams
---                                                        }
---                                                        (allRoutes
---                                                            |> List.map toRecord
---                                                        )
---                                        )
---                        )
---        , kind = "prerender-with-fallback"
---        }
---
---
---{-| -}
---serverless :
---    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
---    , routeFound : routeParams -> DataSource Bool
---    , head : StaticPayload data routeParams -> List Head.Tag
---    }
---    -> Builder routeParams data
---serverless { data, head, routeFound } =
---    WithData
---        { data = data ServerRequest.toStaticHttp
---        , staticRoutes = DataSource.succeed []
---        , head = head
---        , serverless = True
---        , handleRoute =
---            \moduleContext toRecord routeParams ->
---                routeFound routeParams
---                    |> DataSource.map
---                        (\found ->
---                            if found then
---                                Nothing
---
---                            else
---                                Just
---                                    (NotFoundReason.UnhandledServerRoute
---                                        { moduleName = moduleContext.moduleName
---                                        , routePattern = moduleContext.routePattern
---                                        , matchedRouteParams = toRecord routeParams
---                                        }
---                                    )
---                        )
---        , kind = "serverless"
---        }
---
---
+{-| -}
+prerenderWithFallback :
+    { data : routeParams -> DataSource data
+    , pages : DataSource (List routeParams)
+    , handleFallback : routeParams -> DataSource Bool
+    , head : StaticPayload data routeParams -> List Head.Tag
+    }
+    -> Builder routeParams data
+prerenderWithFallback { data, head, pages, handleFallback } =
+    WithData
+        { data = data
+        , staticRoutes = pages
+        , head = head
+        , serverless = False
+        , handleRoute =
+            \moduleContext toRecord routeParams ->
+                handleFallback routeParams
+                    |> DataSource.andThen
+                        (\handleFallbackResult ->
+                            if handleFallbackResult then
+                                DataSource.succeed Nothing
+
+                            else
+                                -- we want to lazily evaluate this in our on-demand builders
+                                -- so we try handle fallback first and short-circuit in those cases
+                                -- TODO - we could make an optimization to handle this differently
+                                -- between on-demand builders and the dev server
+                                -- we only need to match the pre-rendered routes in the dev server,
+                                -- not in on-demand builders
+                                pages
+                                    |> DataSource.map
+                                        (\allRoutes ->
+                                            if allRoutes |> List.member routeParams then
+                                                Nothing
+
+                                            else
+                                                Just <|
+                                                    Pages.Internal.NotFoundReason.NotPrerenderedOrHandledByFallback
+                                                        { moduleName = moduleContext.moduleName
+                                                        , routePattern = moduleContext.routePattern
+                                                        , matchedRouteParams = toRecord routeParams
+                                                        }
+                                                        (allRoutes
+                                                            |> List.map toRecord
+                                                        )
+                                        )
+                        )
+        , kind = "prerender-with-fallback"
+        }
+
+
+{-| -}
+serverless :
+    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
+    , routeFound : routeParams -> DataSource Bool
+    , head : StaticPayload data routeParams -> List Head.Tag
+    }
+    -> Builder routeParams data
+serverless { data, head, routeFound } =
+    WithData
+        { data = data ServerRequest.toStaticHttp
+        , staticRoutes = DataSource.succeed []
+        , head = head
+        , serverless = True
+        , handleRoute =
+            \moduleContext toRecord routeParams ->
+                routeFound routeParams
+                    |> DataSource.map
+                        (\found ->
+                            if found then
+                                Nothing
+
+                            else
+                                Just
+                                    (Pages.Internal.NotFoundReason.UnhandledServerRoute
+                                        { moduleName = moduleContext.moduleName
+                                        , routePattern = moduleContext.routePattern
+                                        , matchedRouteParams = toRecord routeParams
+                                        }
+                                    )
+                        )
+        , kind = "serverless"
+        }
+
+
