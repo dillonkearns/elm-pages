@@ -8,6 +8,7 @@ import Html exposing (..)
 import Html.Attributes exposing (src)
 import OptimizedDecoder as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
+import Page.PokedexNumber_
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -78,16 +79,20 @@ head :
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "elm-pages Pokedex"
         , image =
-            { url = Pages.Url.external "TODO"
-            , alt = "elm-pages logo"
+            { url = static.routeParams |> pokemonImage |> Pages.Url.external
+            , alt = static.data.pokemon.name
             , dimensions = Nothing
             , mimeType = Nothing
             }
         , description = "TODO"
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title =
+            "Pokedex #"
+                ++ static.routeParams.pokedexNumber
+                ++ " "
+                ++ static.data.pokemon.name
         }
         |> Seo.website
 
@@ -111,7 +116,7 @@ view maybeUrl sharedModel static =
             ]
         , text (static.data.pokemon.abilities |> String.join ", ")
         , img
-            [ src <| "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" ++ static.routeParams.pokedexNumber ++ ".png"
+            [ static.routeParams |> pokemonImage |> src
             ]
             []
         , p []
@@ -119,3 +124,8 @@ view maybeUrl sharedModel static =
             ]
         ]
     }
+
+
+pokemonImage : RouteParams -> String
+pokemonImage routeParams =
+    "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" ++ routeParams.pokedexNumber ++ ".png"
