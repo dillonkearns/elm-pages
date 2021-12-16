@@ -24,7 +24,7 @@ module.exports =
    * @param {string} basePath
    * @param {Object} elmModule
    * @param {string} path
-   * @param {import('aws-lambda').APIGatewayProxyEvent} request
+   * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
    * @param {(pattern: string) => void} addDataSourceWatcher
    * @returns
    */
@@ -59,7 +59,7 @@ module.exports =
  * @param {Object} elmModule
  * @param {string} pagePath
  * @param {string} mode
- * @param {import('aws-lambda').APIGatewayProxyEvent} request
+ * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
  * @param {(pattern: string) => void} addDataSourceWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */

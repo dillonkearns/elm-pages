@@ -252,6 +252,7 @@ async function start(options) {
    * @param {string} pathname
    * @param {((value: any) => any) | null | undefined} onOk
    * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
+   * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} serverRequest
    */
   function runRenderThread(serverRequest, pathname, onOk, onErr) {
     let cleanUpThread = () => {};

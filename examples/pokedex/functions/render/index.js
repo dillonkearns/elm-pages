@@ -39,7 +39,7 @@ async function render(event, context) {
       require(compiledElmPath),
       mode,
       event.path,
-      event,
+      reqToJson(event),
       addWatcher
     );
 
@@ -75,4 +75,25 @@ async function render(event, context) {
       },
     };
   }
+}
+
+//  * @param {import('aws-lambda').APIGatewayProxyEvent} event
+
+/**
+ * @param {import('aws-lambda').APIGatewayProxyEvent} req
+ * @returns {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }}
+ */
+function reqToJson(req) {
+  return {
+    method: req.httpMethod,
+    hostname: "TODO",
+    // query: req.queryStringParameters, //url.search ? url.search.substring(1) : "",
+    query: "", //url.search ? url.search.substring(1) : "",
+    headers: req.headers,
+    host: url.host,
+    pathname: req.path,
+    port: null, // TODO
+    protocol: "https", // TODO
+    rawUrl: "", // TODO
+  };
 }
