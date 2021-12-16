@@ -17,9 +17,11 @@ async function run({ renderFunctionFilePath, routePatterns }) {
       .filter(isServerSide)
       .map((route) => {
         if (route.kind === "prerender-with-fallback") {
-          return `${route.pathPattern} /.netlify/functions/render 200`;
+          return `${route.pathPattern} /.netlify/functions/render 200
+${route.pathPattern}/content.json /.netlify/functions/render 200`;
         } else {
-          return `${route.pathPattern} /.netlify/functions/server-render 200`;
+          return `${route.pathPattern} /.netlify/functions/server-render 200
+${route.pathPattern}/content.json /.netlify/functions/server-render 200`;
         }
       })
       .join("\n") + "\n";
