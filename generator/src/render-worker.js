@@ -7,16 +7,15 @@ let Elm;
 
 global.staticHttpCache = {};
 
-async function run({ mode, pathname }) {
+async function run({ mode, pathname, serverRequest }) {
   console.time(`${threadId} ${pathname}`);
   try {
-    const req = null;
     const renderResult = await renderer(
       workerData.basePath,
       requireElm(mode),
       mode,
       pathname,
-      req,
+      serverRequest,
       function (patterns) {
         if (mode === "dev-server" && patterns.size > 0) {
           parentPort.postMessage({ tag: "watch", data: [...patterns] });

@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const which = require("which");
 const chokidar = require("chokidar");
+const { URL } = require("url");
 const {
   spawnElmMake,
   compileElmForBrowser,
@@ -252,7 +253,7 @@ async function start(options) {
    * @param {((value: any) => any) | null | undefined} onOk
    * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
    */
-  function runRenderThread(pathname, onOk, onErr) {
+  function runRenderThread(serverRequest, pathname, onOk, onErr) {
     let cleanUpThread = () => {};
     return new Promise(async (resolve, reject) => {
       const readyThread = await waitForThread();
@@ -265,6 +266,7 @@ async function start(options) {
       readyThread.worker.postMessage({
         mode: "dev-server",
         pathname,
+        serverRequest,
       });
       readyThread.worker.on("message", (message) => {
         if (message.tag === "done") {
@@ -344,6 +346,7 @@ async function start(options) {
     }
 
     await runRenderThread(
+      reqToJson(req),
       pathname,
       function (renderResult) {
         const is404 = renderResult.is404;
@@ -560,6 +563,21 @@ async function ensureRequiredExecutables() {
   } catch (error) {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
+}
+
+function reqToJson(req) {
+  const url = new URL(req.url, "http://localhost:1234");
+  return {
+    method: req.method,
+    hostname: req.hostname,
+    query: url.search ? url.search.substring(1) : "",
+    headers: req.headers,
+    host: url.host,
+    pathname: url.pathname,
+    port: url.port,
+    protocol: url.protocol,
+    rawUrl: req.url,
+  };
 }
 
 module.exports = { start };

@@ -5,7 +5,7 @@ module Page exposing
     , prerender, single
     , Builder(..)
     , PageWithState
-    , serverless, prerenderWithFallback
+    , prerenderWithFallback, serverless
     )
 
 {-|
@@ -77,13 +77,15 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
 -}
 
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Browser.Navigation
 import DataSource exposing (DataSource)
+import DataSource.Http
+import DataSource.ServerRequest exposing (ServerRequest(..))
 import Head
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
+import Pages.Secrets as Secrets
 import Path exposing (Path)
 import Shared
 import View exposing (View)
@@ -304,7 +306,6 @@ prerender { data, head, pages } =
         }
 
 
-
 {-| -}
 prerenderWithFallback :
     { data : routeParams -> DataSource data
@@ -365,7 +366,7 @@ serverless :
     -> Builder routeParams data
 serverless { data, head, routeFound } =
     WithData
-        { data = data ServerRequest.toStaticHttp
+        { data = data DataSource.ServerRequest.toDataSource
         , staticRoutes = DataSource.succeed []
         , head = head
         , serverless = True
