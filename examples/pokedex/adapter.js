@@ -61,12 +61,6 @@ exports.handler = render;`
 }
 
 
-const path = require("path");
-const fs = require("fs");
-const { builder } = require("@netlify/functions");
-
-exports.handler = builder(render);
-
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} event
  * @param {any} context
