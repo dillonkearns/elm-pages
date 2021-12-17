@@ -81,7 +81,7 @@ async function render(event, context) {
 
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} req
- * @returns {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }}
+ * @returns {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }}
  */
 function reqToJson(req) {
   return {
@@ -90,9 +90,9 @@ function reqToJson(req) {
     // query: req.queryStringParameters, //url.search ? url.search.substring(1) : "",
     query: "", //url.search ? url.search.substring(1) : "",
     headers: req.headers,
-    host: url.host,
+    host: "", // TODO
     pathname: req.path,
-    port: null, // TODO
+    port: 80, // TODO
     protocol: "https", // TODO
     rawUrl: "", // TODO
   };
