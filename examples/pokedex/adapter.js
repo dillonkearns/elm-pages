@@ -5,6 +5,15 @@ async function run({ renderFunctionFilePath, routePatterns }) {
     renderFunctionFilePath,
     "./functions/render/elm-pages-cli.js"
   );
+  fs.mkdirSync("functions/server-render");
+  fs.copyFileSync(
+    renderFunctionFilePath,
+    "./functions/server-render/elm-pages-cli.js"
+  );
+  fs.copyFileSync(
+    "functions/render/index.js",
+    "./functions/server-render/index.js"
+  );
   // TODO also copy renderFunctionFilePath to server-render function folder?
   // TODO copy DPR render serverless function to functions folder
   // TODO copy server-request render serverless function to functions folder
