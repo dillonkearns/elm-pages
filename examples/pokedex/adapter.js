@@ -1,8 +1,9 @@
 const fs = require("fs");
 
 async function run({ renderFunctionFilePath, routePatterns }) {
-  fs.mkdirSync("functions/render");
-  fs.mkdirSync("functions/server-render");
+  ensureDirSync("functions/render");
+  ensureDirSync("functions/server-render");
+
   fs.copyFileSync(
     renderFunctionFilePath,
     "./functions/render/elm-pages-cli.js"
@@ -140,4 +141,15 @@ function reqToJson(req) {
   };
 }
 `;
+}
+
+/**
+ * @param {fs.PathLike} dirpath
+ */
+function ensureDirSync(dirpath) {
+  try {
+    fs.mkdirSync(dirpath, { recursive: true });
+  } catch (err) {
+    if (err.code !== "EEXIST") throw err;
+  }
 }
