@@ -132,12 +132,22 @@ async function render(event, context) {
       reqToJson(event),
       addWatcher
     );
+    console.log('@@@renderResult', renderResult);
 
     const statusCode = renderResult.is404 ? 404 : 200;
 
     if (renderResult.kind === "json") {
       return {
         body: renderResult.contentJson,
+        headers: {
+          "Content-Type": "application/json",
+          "x-powered-by": "elm-pages",
+        },
+        statusCode,
+      };
+    } else if (renderResult.kind === "api-response") {
+      return {
+        body: renderResult.body,
         headers: {
           "Content-Type": "application/json",
           "x-powered-by": "elm-pages",
