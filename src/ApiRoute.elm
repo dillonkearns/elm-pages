@@ -68,6 +68,7 @@ encodeServerResponse serverResponse =
                 |> List.map (Tuple.mapSecond Json.Encode.string)
                 |> Json.Encode.object
           )
+        , ( "kind", Json.Encode.string "server-response" )
         ]
 
 
@@ -105,7 +106,10 @@ singleServerless ((ApiRouteBuilder patterns pattern _ toString constructor) as f
 
 encodeStaticFileBody : String -> Response
 encodeStaticFileBody fileBody =
-    fileBody |> Json.Encode.string
+    Json.Encode.object
+        [ ( "body", fileBody |> Json.Encode.string )
+        , ( "kind", Json.Encode.string "static-file" )
+        ]
 
 
 {-| -}

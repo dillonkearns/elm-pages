@@ -3,10 +3,12 @@ module Api exposing (routes)
 import ApiRoute exposing (ApiRoute)
 import DataSource exposing (DataSource)
 import DataSource.Http
+import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Html exposing (Html)
 import Internal.ApiRoute
 import Json.Encode
 import OptimizedDecoder as Decode
+import QueryParams
 import Regex
 import Route exposing (Route)
 import Secrets
@@ -23,7 +25,21 @@ routes getStaticRoutes htmlToString =
       nonHybridRoute
     , noArgs
     , redirectRoute
+    , serverRequestInfo
     ]
+
+
+serverRequestInfo : ApiRoute ApiRoute.Response
+serverRequestInfo =
+    ApiRoute.succeed
+        (serverRequestDataSource
+            |> DataSource.map Debug.toString
+            |> DataSource.map ServerResponse.stringBody
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "request"
+        |> ApiRoute.singleServerless
 
 
 redirectRoute : ApiRoute ApiRoute.Response
@@ -36,6 +52,24 @@ redirectRoute =
         |> ApiRoute.slash
         |> ApiRoute.literal "redirect"
         |> ApiRoute.singleServerless
+
+
+serverRequestDataSource =
+    ServerRequest.init
+        (\language method queryParams protocol allHeaders ->
+            { language = language
+            , method = method
+            , queryParams = queryParams |> QueryParams.toDict
+            , protocol = protocol
+            , allHeaders = allHeaders
+            }
+        )
+        |> ServerRequest.optionalHeader "accept-language"
+        |> ServerRequest.withMethod
+        |> ServerRequest.withQueryParams
+        |> ServerRequest.withProtocol
+        |> ServerRequest.withAllHeaders
+        |> ServerRequest.toDataSource
 
 
 noArgs : ApiRoute ApiRoute.Response

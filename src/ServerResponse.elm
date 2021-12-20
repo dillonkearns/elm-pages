@@ -1,4 +1,4 @@
-module ServerResponse exposing (ServerResponse, json, permanentRedirect, success)
+module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success)
 
 import Json.Encode
 
@@ -7,6 +7,14 @@ type alias ServerResponse =
     { statusCode : Int
     , headers : List ( String, String )
     , body : Maybe String
+    }
+
+
+stringBody : String -> ServerResponse
+stringBody string =
+    { statusCode = 200
+    , headers = [ ( "Content-Type", "text/plain" ) ]
+    , body = Just string
     }
 
 
