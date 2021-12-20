@@ -367,15 +367,28 @@ async function start(options) {
             break;
           }
           case "api-response": {
-            let mimeType = serveStatic.mime.lookup(pathname || "text/html");
-            mimeType =
-              mimeType === "application/octet-stream" ? "text/html" : mimeType;
-            res.writeHead(renderResult.statusCode, {
-              "Content-Type": mimeType,
-            });
-            res.end(renderResult.body);
-            // TODO - if route is static, write file to api-route-cache/ directory
-            // TODO - get 404 or other status code from elm-pages renderer
+            if (renderResult.body.kind === "server-response") {
+              const serverResponse = renderResult.body;
+              res.writeHead(serverResponse.statusCode, serverResponse.headers);
+              res.end(serverResponse.body);
+            } else if (renderResult.body.kind === "static-file") {
+              let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+              mimeType =
+                mimeType === "application/octet-stream"
+                  ? "text/html"
+                  : mimeType;
+              res.writeHead(renderResult.statusCode, {
+                "Content-Type": mimeType,
+              });
+              res.end(renderResult.body);
+              // TODO - if route is static, write file to api-route-cache/ directory
+              // TODO - get 404 or other status code from elm-pages renderer
+            } else {
+              throw (
+                "Unexpected api-response renderResult: " +
+                JSON.stringify(renderResult, null, 2)
+              );
+            }
             break;
           }
         }
