@@ -9,6 +9,7 @@ import Dict.Extra
 import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (ApiRoute(..))
+import Json.Encode
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -62,7 +63,7 @@ buildTimeFilesRequest config =
                                                             Err ""
 
                                                         Just response ->
-                                                            Ok { path = path |> String.split "/", content = response.body }
+                                                            Ok { path = path |> String.split "/", content = response |> Json.Encode.encode 0 }
                                                 )
                                     )
                                 |> DataSource.combine

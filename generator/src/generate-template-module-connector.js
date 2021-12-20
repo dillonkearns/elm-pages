@@ -570,7 +570,7 @@ routePatterns =
               .join("\n            , ")}
           
             ]
-            |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
+            |> (\\json -> DataSource.succeed ( Json.Encode.encode 0 json ))
         )
         |> ApiRoute.literal "route-patterns.json"
         |> ApiRoute.single
@@ -585,7 +585,7 @@ apiPatterns =
     in
     ApiRoute.succeed
         (Json.Encode.list identity apiPatternsString
-            |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
+            |> (\\json -> DataSource.succeed ( Json.Encode.encode 0 json ))
         )
         |> ApiRoute.literal "api-patterns.json"
         |> ApiRoute.single
@@ -633,11 +633,9 @@ pathsToGenerateHandler =
     ApiRoute.succeed
         (DataSource.map2
             (\\pageRoutes apiRoutes ->
-                { body =
-                    (pageRoutes ++ (apiRoutes |> List.map (\\api -> "/" ++ api)))
-                        |> Json.Encode.list Json.Encode.string
-                        |> Json.Encode.encode 0
-                }
+                (pageRoutes ++ (apiRoutes |> List.map (\\api -> "/" ++ api)))
+                    |> Json.Encode.list Json.Encode.string
+                    |> Json.Encode.encode 0
             )
             (DataSource.map
                 (List.map
@@ -674,14 +672,11 @@ manifestHandler =
         |> ApiRoute.single
 
 
-manifestToFile : String -> Manifest.Config -> { body : String }
+manifestToFile : String -> Manifest.Config -> String
 manifestToFile resolvedCanonicalUrl manifestConfig =
     manifestConfig
         |> Manifest.toJson resolvedCanonicalUrl
-        |> (\\manifestJsonValue ->
-                { body = Json.Encode.encode 0 manifestJsonValue
-                }
-           )
+        |> (\\manifestJsonValue -> Json.Encode.encode 0 manifestJsonValue)
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg

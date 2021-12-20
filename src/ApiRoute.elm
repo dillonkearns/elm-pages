@@ -27,7 +27,7 @@ type alias ApiRoute response =
 
 
 {-| -}
-single : ApiRouteBuilder (DataSource Response) (List String) -> ApiRoute Response
+single : ApiRouteBuilder (DataSource String) (List String) -> ApiRoute Response
 single handler =
     handler
         |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
@@ -58,8 +58,21 @@ stripTrailingSlash path =
         path
 
 
+encodeServerResponse : ServerResponse -> Response
+encodeServerResponse serverResponse =
+    Json.Encode.object
+        [ ( "body", serverResponse.body |> Maybe.map Json.Encode.string |> Maybe.withDefault Json.Encode.null )
+        , ( "statusCode", serverResponse.statusCode |> Json.Encode.int )
+        , ( "headers"
+          , serverResponse.headers
+                |> List.map (Tuple.mapSecond Json.Encode.string)
+                |> Json.Encode.object
+          )
+        ]
+
+
 {-| -}
-singleServerless : ApiRouteBuilder (DataSource Response) (List String) -> ApiRoute Response
+singleServerless : ApiRouteBuilder (DataSource ServerResponse) (List String) -> ApiRoute Response
 singleServerless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -75,7 +88,7 @@ singleServerless ((ApiRouteBuilder patterns pattern _ toString constructor) as f
                         (\found ->
                             if found then
                                 Internal.ApiRoute.tryMatch path fullHandler
-                                    |> Maybe.map (DataSource.map Just)
+                                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
                                     |> Maybe.withDefault (DataSource.succeed Nothing)
 
                             else
@@ -90,8 +103,13 @@ singleServerless ((ApiRouteBuilder patterns pattern _ toString constructor) as f
         }
 
 
+encodeStaticFileBody : String -> Response
+encodeStaticFileBody fileBody =
+    fileBody |> Json.Encode.string
+
+
 {-| -}
-buildTimeRoutes : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource Response) constructor -> ApiRoute Response
+buildTimeRoutes : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource String) constructor -> ApiRoute Response
 buildTimeRoutes buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)
@@ -122,7 +140,7 @@ buildTimeRoutes buildUrls ((ApiRouteBuilder patterns pattern _ toString construc
                         (\found ->
                             if found then
                                 Internal.ApiRoute.tryMatch path fullHandler
-                                    |> Maybe.map (DataSource.map Just)
+                                    |> Maybe.map (DataSource.map (encodeStaticFileBody >> Just))
                                     |> Maybe.withDefault (DataSource.succeed Nothing)
 
                             else
@@ -150,7 +168,14 @@ type alias ApiRouteBuilder a constructor =
 
 {-| -}
 type alias Response =
-    { body : String }
+    Json.Encode.Value
+
+
+type alias ServerResponse =
+    { statusCode : Int
+    , headers : List ( String, String )
+    , body : Maybe String
+    }
 
 
 {-| -}

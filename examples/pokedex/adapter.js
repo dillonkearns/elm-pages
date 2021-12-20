@@ -146,13 +146,11 @@ async function render(event, context) {
         statusCode,
       };
     } else if (renderResult.kind === "api-response") {
+      const serverResponse = renderResult.body;
       return {
-        body: renderResult.body,
-        headers: {
-          "Content-Type": "application/json",
-          "x-powered-by": "elm-pages",
-        },
-        statusCode,
+        body: serverResponse.body,
+        headers: serverResponse.headers,
+        statusCode: serverResponse.statusCode,
       };
     } else {
       return {

@@ -10,6 +10,7 @@ import OptimizedDecoder as Decode
 import Regex
 import Route exposing (Route)
 import Secrets
+import ServerResponse
 
 
 routes :
@@ -21,7 +22,20 @@ routes getStaticRoutes htmlToString =
       --, route2
       nonHybridRoute
     , noArgs
+    , redirectRoute
     ]
+
+
+redirectRoute : ApiRoute ApiRoute.Response
+redirectRoute =
+    ApiRoute.succeed
+        (DataSource.succeed
+            (ServerResponse.permanentRedirect "/")
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "redirect"
+        |> ApiRoute.singleServerless
 
 
 noArgs : ApiRoute ApiRoute.Response
@@ -32,13 +46,11 @@ noArgs =
             (Decode.field "stargazers_count" Decode.int)
             |> DataSource.map
                 (\stars ->
-                    { body =
-                        Json.Encode.object
-                            [ ( "repo", Json.Encode.string "elm-pages" )
-                            , ( "stars", Json.Encode.int stars )
-                            ]
-                            |> Json.Encode.encode 2
-                    }
+                    Json.Encode.object
+                        [ ( "repo", Json.Encode.string "elm-pages" )
+                        , ( "stars", Json.Encode.int stars )
+                        ]
+                        |> ServerResponse.json
                 )
         )
         |> ApiRoute.literal "api"
@@ -55,13 +67,11 @@ nonHybridRoute =
                 (Decode.field "stargazers_count" Decode.int)
                 |> DataSource.map
                     (\stars ->
-                        { body =
-                            Json.Encode.object
-                                [ ( "repo", Json.Encode.string repoName )
-                                , ( "stars", Json.Encode.int stars )
-                                ]
-                                |> Json.Encode.encode 2
-                        }
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string repoName )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> Json.Encode.encode 2
                     )
         )
         |> ApiRoute.literal "repo"
@@ -83,13 +93,11 @@ route1 =
                 (Decode.field "stargazers_count" Decode.int)
                 |> DataSource.map
                     (\stars ->
-                        { body =
-                            Json.Encode.object
-                                [ ( "repo", Json.Encode.string repoName )
-                                , ( "stars", Json.Encode.int stars )
-                                ]
-                                |> Json.Encode.encode 2
-                        }
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string repoName )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> Json.Encode.encode 2
                     )
         )
         |> ApiRoute.literal "repo"
@@ -107,7 +115,7 @@ route1 =
 route2 : ApiRoute ApiRoute.Response
 route2 =
     ApiRoute.succeed
-        (DataSource.succeed { body = route1Pattern })
+        (DataSource.succeed route1Pattern)
         |> ApiRoute.literal "api-patterns.json"
         |> ApiRoute.single
 

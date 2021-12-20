@@ -74,7 +74,7 @@ headCodec canonicalSiteUrl currentPagePath =
 
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
-    | SendApiResponse { body : String, staticHttpCache : Dict String String, statusCode : Int }
+    | SendApiResponse { body : Json.Encode.Value, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
     | DoHttp { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
@@ -127,7 +127,7 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "ApiResponse"
             SendApiResponse
             (Codec.object (\body staticHttpCache statusCode -> { body = body, staticHttpCache = staticHttpCache, statusCode = statusCode })
-                |> Codec.field "body" .body Codec.string
+                |> Codec.field "body" .body Codec.value
                 |> Codec.field "staticHttpCache"
                     .staticHttpCache
                     (Codec.dict Codec.string)

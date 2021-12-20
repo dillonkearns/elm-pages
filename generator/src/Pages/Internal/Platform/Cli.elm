@@ -670,7 +670,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                 |> (\response ->
                                                         case response of
                                                             Ok (Just okResponse) ->
-                                                                { body = okResponse.body
+                                                                { body = okResponse
                                                                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                 , statusCode = 200
                                                                 }
@@ -678,7 +678,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                     |> Effect.SendSinglePage True
 
                                                             Ok Nothing ->
-                                                                { body = "Hello1!"
+                                                                { body = Json.Encode.string "Hello1!"
                                                                 , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                 , statusCode = 404
                                                                 }
