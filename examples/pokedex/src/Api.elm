@@ -20,7 +20,31 @@ routes getStaticRoutes htmlToString =
     [ -- route1
       --, route2
       nonHybridRoute
+    , noArgs
     ]
+
+
+noArgs : ApiRoute ApiRoute.Response
+noArgs =
+    ApiRoute.succeed
+        (DataSource.Http.get
+            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+            (Decode.field "stargazers_count" Decode.int)
+            |> DataSource.map
+                (\stars ->
+                    { body =
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string "elm-pages" )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> Json.Encode.encode 2
+                    }
+                )
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "stars"
+        |> ApiRoute.singleServerless
 
 
 nonHybridRoute =

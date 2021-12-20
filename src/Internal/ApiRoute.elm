@@ -47,6 +47,7 @@ type ApiRoute response
         , buildTimeRoutes : DataSource (List String)
         , handleRoute : String -> DataSource Bool
         , pattern : Pattern
+        , kind : String
         }
 
 

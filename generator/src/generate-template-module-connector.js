@@ -580,18 +580,11 @@ apiPatterns =
     let
         apiPatternsString =
             Api.routes getStaticRoutes (\\_ -> "")
-                |> List.map ApiRoute.toPattern
-                |> List.map Pattern.toJson
+                |> List.map ApiRoute.toJson
+
     in
     ApiRoute.succeed
-        (Json.Encode.list
-            (\\pathPattern ->
-                Json.Encode.object
-                    [ -- TODO -- ( "kind", Json.Encode.string kind )
-                      ( "pathPattern", pathPattern )
-                    ]
-            )
-            apiPatternsString
+        (Json.Encode.list identity apiPatternsString
             |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
         )
         |> ApiRoute.literal "api-patterns.json"

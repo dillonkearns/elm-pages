@@ -81,8 +81,23 @@ all =
                         (DataSource.succeed { body = "" })
                         |> literal "no-dynamic-segments.json"
                         |> ApiRoute.singleServerless
-                        |> ApiRoute.toPattern
+                        |> Internal.ApiRoute.toPattern
                         |> Expect.equal (Pattern [ Pattern.Literal "no-dynamic-segments.json" ] Pattern.NoPendingSlash)
+            , test "two literal segments" <|
+                \() ->
+                    ApiRoute.succeed (DataSource.succeed { body = "" })
+                        |> ApiRoute.literal "api"
+                        |> ApiRoute.slash
+                        |> ApiRoute.literal "stars"
+                        |> ApiRoute.singleServerless
+                        |> Internal.ApiRoute.toPattern
+                        |> Expect.equal
+                            (Pattern
+                                [ Pattern.Literal "api"
+                                , Pattern.Literal "stars"
+                                ]
+                                Pattern.NoPendingSlash
+                            )
             , test "routes to patterns" <|
                 \() ->
                     succeed
@@ -100,7 +115,7 @@ all =
                                     , route "101"
                                     ]
                             )
-                        |> ApiRoute.toPattern
+                        |> Internal.ApiRoute.toPattern
                         |> Expect.equal
                             (Pattern
                                 [ Pattern.Literal "users"

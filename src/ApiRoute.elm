@@ -1,6 +1,6 @@
 module ApiRoute exposing
     ( ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
-    , singleServerless, toPattern
+    , singleServerless, toJson
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
@@ -16,6 +16,7 @@ DataSources dynamically.
 
 import DataSource exposing (DataSource)
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
+import Json.Encode
 import Pattern exposing (Pattern)
 import Regex
 
@@ -32,11 +33,61 @@ single handler =
         |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
 
 
+normalizePath : String -> String
+normalizePath path =
+    path
+        |> ensureLeadingSlash
+        |> stripTrailingSlash
+
+
+ensureLeadingSlash : String -> String
+ensureLeadingSlash path =
+    if path |> String.startsWith "/" then
+        path
+
+    else
+        "/" ++ path
+
+
+stripTrailingSlash : String -> String
+stripTrailingSlash path =
+    if (path |> String.endsWith "/") && (String.length path > 1) then
+        String.dropRight 1 path
+
+    else
+        path
+
+
 {-| -}
 singleServerless : ApiRouteBuilder (DataSource Response) (List String) -> ApiRoute Response
-singleServerless handler =
-    handler
-        |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
+singleServerless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+    ApiRoute
+        { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
+        , matchesToResponse =
+            \path ->
+                let
+                    routeFound : DataSource Bool
+                    routeFound =
+                        DataSource.succeed ((path |> normalizePath) == (pattern |> normalizePath))
+                in
+                routeFound
+                    |> DataSource.andThen
+                        (\found ->
+                            if found then
+                                Internal.ApiRoute.tryMatch path fullHandler
+                                    |> Maybe.map (DataSource.map Just)
+                                    |> Maybe.withDefault (DataSource.succeed Nothing)
+
+                            else
+                                DataSource.succeed Nothing
+                        )
+        , buildTimeRoutes = DataSource.succeed []
+        , handleRoute =
+            \path ->
+                DataSource.succeed (path == pattern)
+        , pattern = patterns
+        , kind = "serverless"
+        }
 
 
 {-| -}
@@ -88,6 +139,7 @@ buildTimeRoutes buildUrls ((ApiRouteBuilder patterns pattern _ toString construc
                 preBuiltMatches
                     |> DataSource.map (List.member matches)
         , pattern = patterns
+        , kind = "prerender"
         }
 
 
@@ -107,13 +159,12 @@ succeed a =
     ApiRouteBuilder Pattern.empty "" (\_ -> a) (\_ -> "") (\list -> list)
 
 
-
---toPattern : ApiRouteBuilder a b -> Pattern
-
-
-toPattern : ApiRoute response -> Pattern
-toPattern =
-    Internal.ApiRoute.toPattern
+toJson : ApiRoute response -> Json.Encode.Value
+toJson ((ApiRoute { kind }) as apiRoute) =
+    Json.Encode.object
+        [ ( "pathPattern", apiRoute |> Internal.ApiRoute.toPattern |> Pattern.toJson )
+        , ( "kind", Json.Encode.string kind )
+        ]
 
 
 {-| -}

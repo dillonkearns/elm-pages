@@ -27,11 +27,19 @@ async function run({
   // TODO filter apiRoutePatterns on is server side
   // TODO need information on whether api route is odb or serverless
   const apiRouteRedirects = apiRoutePatterns
+    .filter(isServerSide)
     .map((apiRoute) => {
-      return apiPatternToRedirectPattern(apiRoute.pathPattern);
+      if (apiRoute.kind === "prerender-with-fallback") {
+        throw "Unhandled 1";
+      } else if (apiRoute.kind === "serverless") {
+        return `${apiPatternToRedirectPattern(
+          apiRoute.pathPattern
+        )} /.netlify/functions/server-render 200`;
+      } else {
+        throw "Unhandled 2";
+      }
     })
     .join("\n");
-  console.log("apiRouteRedirects", apiRouteRedirects);
 
   console.log(routePatterns);
   const redirectsFile =
@@ -46,7 +54,10 @@ ${route.pathPattern}/content.json /.netlify/functions/render 200`;
 ${route.pathPattern}/content.json /.netlify/functions/server-render 200`;
         }
       })
-      .join("\n") + "\n";
+      .join("\n") +
+    "\n" +
+    apiRouteRedirects +
+    "\n";
 
   fs.writeFileSync("dist/_redirects", redirectsFile);
 }
@@ -196,19 +207,22 @@ function ensureDirSync(dirpath) {
  * @param {ApiSegment[]} pathPattern
  */
 function apiPatternToRedirectPattern(pathPattern) {
-  return pathPattern
-    .map((segment) => {
-      switch (segment.kind) {
-        case "literal": {
-          return segment.value;
+  return (
+    "/" +
+    pathPattern
+      .map((segment) => {
+        switch (segment.kind) {
+          case "literal": {
+            return segment.value;
+          }
+          case "dynamic": {
+            return ":dynamic"; // TODO need to assign different names for each dynamic segment?
+          }
+          default: {
+            throw "Unhandled segment: " + JSON.stringify(segment);
+          }
         }
-        case "dynamic": {
-          return ":dynamic";
-        }
-        default: {
-          throw "Unhandled segment: " + JSON.stringify(segment);
-        }
-      }
-    })
-    .join("/");
+      })
+      .join("/")
+  );
 }

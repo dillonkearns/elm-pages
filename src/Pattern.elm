@@ -58,19 +58,17 @@ addLiteral : String -> Pattern -> Pattern
 addLiteral newLiteral (Pattern segments state) =
     case state of
         PendingSlash ->
+            Pattern
+                (segments ++ [ Literal newLiteral ])
+                NoPendingSlash
+
+        NoPendingSlash ->
             case segments |> List.reverse of
                 (Literal literalSegment) :: rest ->
                     Pattern
                         (List.reverse rest ++ [ Literal (literalSegment ++ newLiteral) ])
                         NoPendingSlash
 
-                _ ->
-                    Pattern
-                        (segments ++ [ Literal newLiteral ])
-                        NoPendingSlash
-
-        NoPendingSlash ->
-            case segments |> List.reverse of
                 last :: rest ->
                     Pattern (List.reverse rest ++ [ HybridSegment ( last, Literal newLiteral, [] ) ]) NoPendingSlash
 
