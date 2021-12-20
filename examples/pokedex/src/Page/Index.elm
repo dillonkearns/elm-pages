@@ -50,16 +50,16 @@ head :
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "elm-pages Pokedex"
         , image =
-            { url = Pages.Url.external "TODO"
+            { url = Pages.Url.external ""
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = "This is a simple app to showcase server-rendering with elm-pages."
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = "Elm Pages Pokedex Example"
         }
         |> Seo.website
 
@@ -77,10 +77,17 @@ view maybeUrl sharedModel static =
     { title = "Pokedex"
     , body =
         [ ul []
-            (List.map
-                (\name ->
+            (List.indexedMap
+                (\index name ->
+                    let
+                        pokedexNumber =
+                            index + 1
+                    in
                     li []
-                        [ text name ]
+                        [ Route.link (Route.PokedexNumber_ { pokedexNumber = String.fromInt pokedexNumber })
+                            []
+                            [ text name ]
+                        ]
                 )
                 static.data
             )
