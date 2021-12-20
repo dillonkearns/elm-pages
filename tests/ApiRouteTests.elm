@@ -1,8 +1,10 @@
 module ApiRouteTests exposing (all)
 
 import ApiRoute exposing (..)
+import DataSource
 import Expect
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
+import Pattern exposing (Pattern(..))
 import Test exposing (Test, describe, test)
 
 
@@ -72,6 +74,45 @@ all =
                         [ "users/100.json"
                         , "users/101.json"
                         ]
+        , describe "toPattern"
+            [ test "no dynamic segments" <|
+                \() ->
+                    succeed
+                        (DataSource.succeed { body = "" })
+                        |> literal "no-dynamic-segments.json"
+                        |> ApiRoute.singleServerless
+                        |> ApiRoute.toPattern
+                        |> Expect.equal (Pattern [ Pattern.Literal "no-dynamic-segments.json" ] Pattern.NoPendingSlash)
+            , test "routes to patterns" <|
+                \() ->
+                    succeed
+                        (\userId ->
+                            DataSource.succeed { body = "Data for user " ++ userId }
+                        )
+                        |> literal "users"
+                        |> slash
+                        |> capture
+                        |> literal ".json"
+                        |> buildTimeRoutes
+                            (\route ->
+                                DataSource.succeed
+                                    [ route "100"
+                                    , route "101"
+                                    ]
+                            )
+                        |> ApiRoute.toPattern
+                        |> Expect.equal
+                            (Pattern
+                                [ Pattern.Literal "users"
+                                , Pattern.HybridSegment
+                                    ( Pattern.Dynamic
+                                    , Pattern.Literal ".json"
+                                    , []
+                                    )
+                                ]
+                                Pattern.NoPendingSlash
+                            )
+            ]
         , describe "multi-part"
             [ test "multi-level routes" <|
                 \() ->

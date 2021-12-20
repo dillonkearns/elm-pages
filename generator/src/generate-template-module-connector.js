@@ -41,6 +41,7 @@ function generateTemplateModuleConnector(basePath, phase) {
     mainModule: `port module TemplateModulesBeta exposing (..)
 
 import Api
+import Pattern
 import ApiRoute
 import Browser.Navigation
 import Route exposing (Route)
@@ -443,7 +444,7 @@ main =
         , apiRoutes = ${
           phase === "browser"
             ? `\\_ -> []`
-            : `\\htmlToString -> pathsToGenerateHandler :: routePatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString`
+            : `\\htmlToString -> pathsToGenerateHandler :: routePatterns :: apiPatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString`
         }
         , pathPatterns = routePatterns3
         , basePath = [ ${basePath
@@ -574,6 +575,28 @@ routePatterns =
         |> ApiRoute.literal "route-patterns.json"
         |> ApiRoute.single
 
+apiPatterns : ApiRoute.ApiRoute ApiRoute.Response
+apiPatterns =
+    let
+        apiPatternsString =
+            Api.routes getStaticRoutes (\\_ -> "")
+                |> List.map ApiRoute.toPattern
+                |> List.map Pattern.toJson
+    in
+    ApiRoute.succeed
+        (Json.Encode.list
+            (\\pathPattern ->
+                Json.Encode.object
+                    [ -- TODO -- ( "kind", Json.Encode.string kind )
+                      ( "pathPattern", pathPattern )
+                    ]
+            )
+            apiPatternsString
+            |> (\\json -> DataSource.succeed { body = Json.Encode.encode 0 json })
+        )
+        |> ApiRoute.literal "api-patterns.json"
+        |> ApiRoute.single
+
 
 routePatterns2 : List String
 routePatterns2 =
@@ -633,7 +656,7 @@ pathsToGenerateHandler =
                 )
                 getStaticRoutes
             )
-            ((routePatterns :: manifestHandler :: Api.routes getStaticRoutes (\\_ -> ""))
+            ((routePatterns :: apiPatterns :: manifestHandler :: Api.routes getStaticRoutes (\\_ -> ""))
                 |> List.map ApiRoute.getBuildTimeRoutes
                 |> DataSource.combine
                 |> DataSource.map List.concat
@@ -690,6 +713,7 @@ import Html exposing (Attribute, Html)
 import Html.Attributes as Attr
 import Path exposing (Path)
 import Pages.Internal.Router
+import Pattern
 
 
 {-| -}

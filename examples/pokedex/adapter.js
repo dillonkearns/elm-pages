@@ -1,6 +1,11 @@
 const fs = require("fs");
 
-async function run({ renderFunctionFilePath, routePatterns }) {
+async function run({
+  renderFunctionFilePath,
+  routePatterns,
+  apiRoutePatterns,
+}) {
+  console.log(JSON.stringify(apiRoutePatterns, null, 2));
   ensureDirSync("functions/render");
   ensureDirSync("functions/server-render");
 
@@ -16,6 +21,17 @@ async function run({ renderFunctionFilePath, routePatterns }) {
   fs.writeFileSync("./functions/server-render/index.js", rendererCode(false));
   // TODO rename functions/render to functions/fallback-render
   // TODO prepend instead of writing file
+
+  // ensureValidRoutePatternsForNetlify(apiRoutePatterns);
+
+  // TODO filter apiRoutePatterns on is server side
+  // TODO need information on whether api route is odb or serverless
+  const apiRouteRedirects = apiRoutePatterns
+    .map((apiRoute) => {
+      return apiPatternToRedirectPattern(apiRoute.pathPattern);
+    })
+    .join("\n");
+  console.log("apiRouteRedirects", apiRouteRedirects);
 
   console.log(routePatterns);
   const redirectsFile =
@@ -35,16 +51,36 @@ ${route.pathPattern}/content.json /.netlify/functions/server-render 200`;
   fs.writeFileSync("dist/_redirects", redirectsFile);
 }
 
+function ensureValidRoutePatternsForNetlify(apiRoutePatterns) {
+  const invalidNetlifyRoutes = apiRoutePatterns.filter((apiRoute) =>
+    apiRoute.pathPattern.some(({ kind }) => kind === "hybrid")
+  );
+  if (invalidNetlifyRoutes.length > 0) {
+    throw (
+      "Invalid Netlify routes!\n" +
+      invalidNetlifyRoutes
+        .map((value) => JSON.stringify(value, null, 2))
+        .join(", ")
+    );
+  }
+}
+
 function isServerSide(route) {
   return (
     route.kind === "prerender-with-fallback" || route.kind === "serverless"
   );
 }
 
-run({
-  renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
-  routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
-});
+try {
+  run({
+    renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
+    routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
+    apiRoutePatterns: JSON.parse(fs.readFileSync("dist/api-patterns.json")),
+  });
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+}
 
 /**
  * @param {boolean} isOnDemand
@@ -152,4 +188,27 @@ function ensureDirSync(dirpath) {
   } catch (err) {
     if (err.code !== "EEXIST") throw err;
   }
+}
+
+/** @typedef {{kind: 'dynamic'} | {kind: 'literal', value: string}} ApiSegment */
+
+/**
+ * @param {ApiSegment[]} pathPattern
+ */
+function apiPatternToRedirectPattern(pathPattern) {
+  return pathPattern
+    .map((segment) => {
+      switch (segment.kind) {
+        case "literal": {
+          return segment.value;
+        }
+        case "dynamic": {
+          return ":dynamic";
+        }
+        default: {
+          throw "Unhandled segment: " + JSON.stringify(segment);
+        }
+      }
+    })
+    .join("/");
 }

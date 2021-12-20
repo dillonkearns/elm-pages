@@ -3,11 +3,13 @@ module Internal.ApiRoute exposing
     , ApiRouteBuilder(..)
     , firstMatch
     , pathToMatches
+    , toPattern
     , tryMatch
     , withRoutes
     )
 
 import DataSource exposing (DataSource)
+import Pattern exposing (Pattern)
 import Regex exposing (Regex)
 
 
@@ -44,12 +46,18 @@ type ApiRoute response
         , matchesToResponse : String -> DataSource (Maybe response)
         , buildTimeRoutes : DataSource (List String)
         , handleRoute : String -> DataSource Bool
+        , pattern : Pattern
         }
+
+
+toPattern : ApiRoute response -> Pattern
+toPattern (ApiRoute { pattern }) =
+    pattern
 
 
 {-| -}
 pathToMatches : String -> ApiRouteBuilder a constructor -> List String
-pathToMatches path (ApiRouteBuilder pattern _ _ _) =
+pathToMatches path (ApiRouteBuilder _ pattern _ _ _) =
     Regex.find
         (Regex.fromString pattern
             |> Maybe.withDefault Regex.never
@@ -61,14 +69,14 @@ pathToMatches path (ApiRouteBuilder pattern _ _ _) =
 
 {-| -}
 withRoutes : (constructor -> List (List String)) -> ApiRouteBuilder a constructor -> List String
-withRoutes buildUrls (ApiRouteBuilder _ _ toString constructor) =
+withRoutes buildUrls (ApiRouteBuilder _ _ _ toString constructor) =
     buildUrls (constructor [])
         |> List.map toString
 
 
 {-| -}
 tryMatch : String -> ApiRouteBuilder response constructor -> Maybe response
-tryMatch path (ApiRouteBuilder pattern handler _ _) =
+tryMatch path (ApiRouteBuilder patterns pattern handler _ _) =
     let
         matches : List String
         matches =
@@ -86,4 +94,4 @@ tryMatch path (ApiRouteBuilder pattern handler _ _) =
 
 {-| -}
 type ApiRouteBuilder a constructor
-    = ApiRouteBuilder String (List String -> a) (List String -> String) (List String -> constructor)
+    = ApiRouteBuilder Pattern String (List String -> a) (List String -> String) (List String -> constructor)
