@@ -473,6 +473,15 @@ update config appMsg model =
                                             |> StaticHttpRequest.toBuildError ""
                                             |> BuildError.errorToString
                                     )
+                                |> Result.andThen
+                                    (\pageResponse ->
+                                        case pageResponse of
+                                            PageServerResponse.RenderPage renderPagePageData ->
+                                                Ok renderPagePageData
+
+                                            PageServerResponse.ServerResponse _ ->
+                                                Err "Unexpected ServerResponse - was expecting RenderPage response."
+                                    )
 
                         ( userModel, userCmd ) =
                             config.update
