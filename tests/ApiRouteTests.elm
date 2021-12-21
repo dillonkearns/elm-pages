@@ -135,6 +135,32 @@ all =
                                 ]
                                 Pattern.NoPendingSlash
                             )
+            , test "hybrid route with multiple static segments" <|
+                \() ->
+                    succeed
+                        (\repo ->
+                            DataSource.succeed ("Data for repo " ++ repo |> ServerResponse.stringBody)
+                        )
+                        |> ApiRoute.literal "api"
+                        |> ApiRoute.slash
+                        |> ApiRoute.literal "repo"
+                        |> ApiRoute.slash
+                        |> ApiRoute.capture
+                        |> ApiRoute.literal ".json"
+                        |> serverless
+                        |> Internal.ApiRoute.toPattern
+                        |> Expect.equal
+                            (Pattern
+                                [ Pattern.Literal "api"
+                                , Pattern.Literal "repo"
+                                , Pattern.HybridSegment
+                                    ( Pattern.Dynamic
+                                    , Pattern.Literal ".json"
+                                    , []
+                                    )
+                                ]
+                                Pattern.NoPendingSlash
+                            )
             ]
         , describe "multi-part"
             [ test "multi-level routes" <|
