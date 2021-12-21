@@ -5,7 +5,6 @@ async function run({
   routePatterns,
   apiRoutePatterns,
 }) {
-  console.log(JSON.stringify(apiRoutePatterns, null, 2));
   ensureDirSync("functions/render");
   ensureDirSync("functions/server-render");
 
@@ -22,12 +21,13 @@ async function run({
   // TODO rename functions/render to functions/fallback-render
   // TODO prepend instead of writing file
 
-  // ensureValidRoutePatternsForNetlify(apiRoutePatterns);
+  const apiServerRoutes = apiRoutePatterns.filter(isServerSide);
+
+  ensureValidRoutePatternsForNetlify(apiServerRoutes);
 
   // TODO filter apiRoutePatterns on is server side
   // TODO need information on whether api route is odb or serverless
-  const apiRouteRedirects = apiRoutePatterns
-    .filter(isServerSide)
+  const apiRouteRedirects = apiServerRoutes
     .map((apiRoute) => {
       if (apiRoute.kind === "prerender-with-fallback") {
         return `${apiPatternToRedirectPattern(
@@ -43,7 +43,6 @@ async function run({
     })
     .join("\n");
 
-  console.log(routePatterns);
   const redirectsFile =
     routePatterns
       .filter(isServerSide)
@@ -84,16 +83,20 @@ function isServerSide(route) {
   );
 }
 
-try {
-  run({
-    renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
-    routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
-    apiRoutePatterns: JSON.parse(fs.readFileSync("dist/api-patterns.json")),
-  });
-} catch (error) {
-  console.error(error);
-  process.exit(1);
-}
+(async function () {
+  try {
+    await run({
+      renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
+      routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
+      apiRoutePatterns: JSON.parse(fs.readFileSync("dist/api-patterns.json")),
+    });
+    console.log("Success - Adapter script complete");
+  } catch (error) {
+    console.error("ERROR - Adapter script failed");
+    console.error(error);
+    process.exit(1);
+  }
+})();
 
 /**
  * @param {boolean} isOnDemand
