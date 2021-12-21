@@ -1,6 +1,6 @@
 module ApiRoute exposing
     ( ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
-    , singleServerless, toJson
+    , serverless, toJson
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
@@ -72,33 +72,27 @@ encodeServerResponse serverResponse =
         ]
 
 
-{-| -}
-singleServerless : ApiRouteBuilder (DataSource ServerResponse) (List String) -> ApiRoute Response
-singleServerless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+serverless : ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
+serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \path ->
-                let
-                    routeFound : DataSource Bool
-                    routeFound =
-                        DataSource.succeed ((path |> normalizePath) == (pattern |> normalizePath))
-                in
-                routeFound
-                    |> DataSource.andThen
-                        (\found ->
-                            if found then
-                                Internal.ApiRoute.tryMatch path fullHandler
-                                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
-                                    |> Maybe.withDefault (DataSource.succeed Nothing)
-
-                            else
-                                DataSource.succeed Nothing
-                        )
+                Internal.ApiRoute.tryMatch path fullHandler
+                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
+                    |> Maybe.withDefault
+                        (DataSource.succeed Nothing)
         , buildTimeRoutes = DataSource.succeed []
         , handleRoute =
             \path ->
-                DataSource.succeed (path == pattern)
+                DataSource.succeed
+                    (case Internal.ApiRoute.tryMatch path fullHandler of
+                        Just _ ->
+                            True
+
+                        Nothing ->
+                            False
+                    )
         , pattern = patterns
         , kind = "serverless"
         }

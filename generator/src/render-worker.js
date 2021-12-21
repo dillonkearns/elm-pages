@@ -79,7 +79,7 @@ async function outputString(
       break;
     }
     case "api-response": {
-      const body = fromElm.body;
+      const body = fromElm.body.body;
       console.log(`Generated ${pathname}`);
       fs.writeFileSyncSafe(path.join("dist", pathname), body);
       if (pathname === "/all-paths.json") {

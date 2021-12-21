@@ -5,6 +5,7 @@ import DataSource
 import Expect
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
+import ServerResponse
 import Test exposing (Test, describe, test)
 
 
@@ -15,50 +16,50 @@ all =
             \() ->
                 succeed
                     (\userId ->
-                        { body = "Data for user " ++ userId }
+                        "Data for user " ++ userId
                     )
                     |> capture
                     |> tryMatch "123"
-                    |> Expect.equal (Just { body = "Data for user 123" })
+                    |> Expect.equal (Just "Data for user 123")
         , test "file with extension" <|
             \() ->
                 succeed
                     (\userId ->
-                        { body = "Data for user " ++ userId }
+                        "Data for user " ++ userId
                     )
                     |> capture
                     |> literal ".json"
                     |> tryMatch "124.json"
-                    |> Expect.equal (Just { body = "Data for user 124" })
+                    |> Expect.equal (Just "Data for user 124")
         , test "file path with multiple segments" <|
             \() ->
                 succeed
                     (\userId ->
-                        { body = "Data for user " ++ userId }
+                        "Data for user " ++ userId
                     )
                     |> literal "users"
                     |> slash
                     |> capture
                     |> literal ".json"
                     |> tryMatch "users/123.json"
-                    |> Expect.equal (Just { body = "Data for user 123" })
+                    |> Expect.equal (Just "Data for user 123")
         , test "integer matcher" <|
             \() ->
                 succeed
                     (\userId ->
-                        { body = "Data for user " ++ String.fromInt userId }
+                        "Data for user " ++ String.fromInt userId
                     )
                     |> literal "users"
                     |> slash
                     |> int
                     |> literal ".json"
                     |> tryMatch "users/123.json"
-                    |> Expect.equal (Just { body = "Data for user 123" })
+                    |> Expect.equal (Just "Data for user 123")
         , test "routes" <|
             \() ->
                 succeed
                     (\userId ->
-                        { body = "Data for user " ++ userId }
+                        "Data for user " ++ userId
                     )
                     |> literal "users"
                     |> slash
@@ -78,18 +79,25 @@ all =
             [ test "no dynamic segments" <|
                 \() ->
                     succeed
-                        (DataSource.succeed { body = "" })
+                        (""
+                            |> ServerResponse.stringBody
+                            |> DataSource.succeed
+                        )
                         |> literal "no-dynamic-segments.json"
-                        |> ApiRoute.singleServerless
+                        |> ApiRoute.serverless
                         |> Internal.ApiRoute.toPattern
                         |> Expect.equal (Pattern [ Pattern.Literal "no-dynamic-segments.json" ] Pattern.NoPendingSlash)
             , test "two literal segments" <|
                 \() ->
-                    ApiRoute.succeed (DataSource.succeed { body = "" })
+                    ApiRoute.succeed
+                        (""
+                            |> ServerResponse.stringBody
+                            |> DataSource.succeed
+                        )
                         |> ApiRoute.literal "api"
                         |> ApiRoute.slash
                         |> ApiRoute.literal "stars"
-                        |> ApiRoute.singleServerless
+                        |> ApiRoute.serverless
                         |> Internal.ApiRoute.toPattern
                         |> Expect.equal
                             (Pattern
@@ -102,7 +110,7 @@ all =
                 \() ->
                     succeed
                         (\userId ->
-                            DataSource.succeed { body = "Data for user " ++ userId }
+                            DataSource.succeed ("Data for user " ++ userId)
                         )
                         |> literal "users"
                         |> slash
@@ -133,7 +141,7 @@ all =
                 \() ->
                     succeed
                         (\_ _ ->
-                            { body = "Data for user" }
+                            "Data for user"
                         )
                         |> literal "repos"
                         |> slash
@@ -155,7 +163,7 @@ all =
                 \() ->
                     succeed
                         (\username repo branch ->
-                            { body = [ username, repo, branch ] |> String.join " - " }
+                            [ username, repo, branch ] |> String.join " - "
                         )
                         |> literal "repos"
                         |> slash
