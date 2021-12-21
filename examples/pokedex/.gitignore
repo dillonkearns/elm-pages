@@ -3,4 +3,5 @@ elm-stuff/
 dist/
 .cache/
 .elm-pages/
-functions/render/elm-pages-cli.js
+functions/render/
+functions/server-render/
