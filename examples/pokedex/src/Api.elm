@@ -5,11 +5,9 @@ import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Html exposing (Html)
-import Internal.ApiRoute
 import Json.Encode
 import OptimizedDecoder as Decode
 import QueryParams
-import Regex
 import Route exposing (Route)
 import Secrets
 import ServerResponse
@@ -25,6 +23,7 @@ routes getStaticRoutes htmlToString =
     , redirectRoute
     , serverRequestInfo
     , repoStars
+    , repoStars2
     ]
 
 
@@ -141,6 +140,36 @@ repoStars =
         |> ApiRoute.capture
         --|> ApiRoute.literal ".json"
         |> ApiRoute.serverless
+
+
+repoStars2 : ApiRoute ApiRoute.Response
+repoStars2 =
+    ApiRoute.succeed
+        (\repoName ->
+            DataSource.Http.get
+                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                (Decode.field "stargazers_count" Decode.int)
+                |> DataSource.map
+                    (\stars ->
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string repoName )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> ServerResponse.json
+                    )
+        )
+        |> ApiRoute.literal "api2"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "repo"
+        |> ApiRoute.slash
+        |> ApiRoute.capture
+        |> ApiRoute.prerenderWithFallback
+            (\route ->
+                DataSource.succeed
+                    [ route "elm-graphql"
+                    , route "elm-pages"
+                    ]
+            )
 
 
 route1 =

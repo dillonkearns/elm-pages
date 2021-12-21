@@ -30,7 +30,9 @@ async function run({
     .filter(isServerSide)
     .map((apiRoute) => {
       if (apiRoute.kind === "prerender-with-fallback") {
-        throw "Unhandled 1";
+        return `${apiPatternToRedirectPattern(
+          apiRoute.pathPattern
+        )} /.netlify/functions/render 200`;
       } else if (apiRoute.kind === "serverless") {
         return `${apiPatternToRedirectPattern(
           apiRoute.pathPattern

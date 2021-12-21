@@ -1,6 +1,6 @@
 module ApiRoute exposing
     ( ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
-    , serverless, toJson
+    , prerenderWithFallback, serverless, toJson
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
@@ -95,6 +95,68 @@ serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHan
                     )
         , pattern = patterns
         , kind = "serverless"
+        }
+
+
+{-| -}
+prerenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
+prerenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+    let
+        buildTimeRoutes__ : DataSource (List String)
+        buildTimeRoutes__ =
+            buildUrls (constructor [])
+                |> DataSource.map (List.map toString)
+
+        preBuiltMatches : DataSource (List (List String))
+        preBuiltMatches =
+            buildUrls (constructor [])
+    in
+    ApiRoute
+        { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
+        , matchesToResponse =
+            \path ->
+                --let
+                --    --matches : List String
+                --    --matches =
+                --    --    Internal.ApiRoute.pathToMatches path fullHandler
+                --    --
+                --    routeFound : DataSource Bool
+                --    routeFound =
+                --        preBuiltMatches
+                --            |> DataSource.map (List.member matches)
+                --in
+                Internal.ApiRoute.tryMatch path fullHandler
+                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
+                    |> Maybe.withDefault
+                        (DataSource.succeed Nothing)
+
+        --routeFound
+        --    |> DataSource.andThen
+        --        (\found ->
+        --            if found then
+        --                Internal.ApiRoute.tryMatch path fullHandler
+        --                    |> Maybe.map (DataSource.map (.body >> Maybe.withDefault "" >> encodeStaticFileBody >> Just))
+        --                    |> Maybe.withDefault (DataSource.succeed Nothing)
+        --
+        --            else
+        --                Internal.ApiRoute.tryMatch path fullHandler
+        --                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
+        --                    |> Maybe.withDefault
+        --                        (DataSource.succeed Nothing)
+        --        )
+        , buildTimeRoutes = buildTimeRoutes__
+        , handleRoute =
+            \path ->
+                DataSource.succeed
+                    (case Internal.ApiRoute.tryMatch path fullHandler of
+                        Just _ ->
+                            True
+
+                        Nothing ->
+                            False
+                    )
+        , pattern = patterns
+        , kind = "prerender-with-fallback"
         }
 
 
