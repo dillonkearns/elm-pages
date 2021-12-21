@@ -19,6 +19,7 @@ import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Encode
 import Pattern exposing (Pattern)
 import Regex
+import ServerResponse exposing (ServerResponse)
 
 
 {-| -}
@@ -69,6 +70,7 @@ encodeServerResponse serverResponse =
                 |> Json.Encode.object
           )
         , ( "kind", Json.Encode.string "server-response" )
+        , ( "isBase64Encoded", Json.Encode.bool serverResponse.isBase64Encoded )
         ]
 
 
@@ -229,13 +231,6 @@ type alias ApiRouteBuilder a constructor =
 {-| -}
 type alias Response =
     Json.Encode.Value
-
-
-type alias ServerResponse =
-    { statusCode : Int
-    , headers : List ( String, String )
-    , body : Maybe String
-    }
 
 
 {-| -}

@@ -153,6 +153,7 @@ async function render(event, context) {
         body: serverResponse.body,
         headers: serverResponse.headers,
         statusCode: serverResponse.statusCode,
+        isBase64Encoded: serverResponse.isBase64Encoded,
       };
     } else {
       return {

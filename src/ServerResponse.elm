@@ -7,6 +7,7 @@ type alias ServerResponse =
     { statusCode : Int
     , headers : List ( String, String )
     , body : Maybe String
+    , isBase64Encoded : Bool
     }
 
 
@@ -15,6 +16,7 @@ stringBody string =
     { statusCode = 200
     , headers = [ ( "Content-Type", "text/plain" ) ]
     , body = Just string
+    , isBase64Encoded = False
     }
 
 
@@ -23,6 +25,7 @@ success =
     { statusCode = 200
     , headers = []
     , body = Nothing
+    , isBase64Encoded = False
     }
 
 
@@ -36,6 +39,7 @@ json jsonValue =
         jsonValue
             |> Json.Encode.encode 0
             |> Just
+    , isBase64Encoded = False
     }
 
 
@@ -46,4 +50,5 @@ permanentRedirect url =
     , headers =
         [ ( "Location", url )
         ]
+    , isBase64Encoded = False
     }
