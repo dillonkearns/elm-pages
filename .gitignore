@@ -9,3 +9,5 @@ coverage
 tests/VerifyExamples/
 cypress/videos
 cypress/screenshots
+.idea
+
