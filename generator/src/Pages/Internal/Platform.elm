@@ -16,6 +16,7 @@ import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import PageServerResponse exposing (PageServerResponse)
 import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson, contentJsonDecoder)
 import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
@@ -169,7 +170,7 @@ init config flags url key =
     case contentJson |> Maybe.map .staticData of
         Just justContentJson ->
             let
-                pageDataResult : Result BuildError pageData
+                pageDataResult : Result BuildError (PageServerResponse pageData)
                 pageDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
                         (config.data (config.urlToRoute url))
@@ -188,69 +189,82 @@ init config flags url key =
                     urlsToPagePath urls
             in
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
-                Ok ( sharedData, pageData ) ->
-                    let
-                        userFlags : Pages.Flags.Flags
-                        userFlags =
-                            flags
-                                |> Decode.decodeValue
-                                    (Decode.field "userFlags" Decode.value)
-                                |> Result.withDefault Json.Encode.null
-                                |> Pages.Flags.BrowserFlags
+                Ok ( sharedData, pageData_ ) ->
+                    case pageData_ of
+                        PageServerResponse.RenderPage pageData ->
+                            let
+                                userFlags : Pages.Flags.Flags
+                                userFlags =
+                                    flags
+                                        |> Decode.decodeValue
+                                            (Decode.field "userFlags" Decode.value)
+                                        |> Result.withDefault Json.Encode.null
+                                        |> Pages.Flags.BrowserFlags
 
-                        ( userModel, userCmd ) =
-                            Just
-                                { path =
-                                    { path = pagePath
-                                    , query = url.query
-                                    , fragment = url.fragment
-                                    }
-                                , metadata = config.urlToRoute url
-                                , pageUrl =
+                                ( userModel, userCmd ) =
                                     Just
-                                        { protocol = url.protocol
-                                        , host = url.host
-                                        , port_ = url.port_
-                                        , path = pagePath
-                                        , query = url.query |> Maybe.map QueryParams.fromString
-                                        , fragment = url.fragment
+                                        { path =
+                                            { path = pagePath
+                                            , query = url.query
+                                            , fragment = url.fragment
+                                            }
+                                        , metadata = config.urlToRoute url
+                                        , pageUrl =
+                                            Just
+                                                { protocol = url.protocol
+                                                , host = url.host
+                                                , port_ = url.port_
+                                                , path = pagePath
+                                                , query = url.query |> Maybe.map QueryParams.fromString
+                                                , fragment = url.fragment
+                                                }
                                         }
-                                }
-                                |> config.init userFlags sharedData pageData (Just key)
+                                        |> config.init userFlags sharedData pageData (Just key)
 
-                        cmd : Cmd (Msg userMsg)
-                        cmd =
-                            [ userCmd
-                                |> Cmd.map UserMsg
-                                |> Just
-                            , contentCache
-                                |> ContentCache.lazyLoad urls
-                                |> Task.attempt UpdateCache
-                                |> Just
-                            ]
-                                |> List.filterMap identity
-                                |> Cmd.batch
+                                cmd : Cmd (Msg userMsg)
+                                cmd =
+                                    [ userCmd
+                                        |> Cmd.map UserMsg
+                                        |> Just
+                                    , contentCache
+                                        |> ContentCache.lazyLoad urls
+                                        |> Task.attempt UpdateCache
+                                        |> Just
+                                    ]
+                                        |> List.filterMap identity
+                                        |> Cmd.batch
 
-                        initialModel : Model userModel pageData sharedData
-                        initialModel =
-                            { key = key
-                            , url = url
-                            , contentCache = contentCache
-                            , pageData =
-                                Ok
-                                    { pageData = pageData
-                                    , sharedData = sharedData
-                                    , userModel = userModel
+                                initialModel : Model userModel pageData sharedData
+                                initialModel =
+                                    { key = key
+                                    , url = url
+                                    , contentCache = contentCache
+                                    , pageData =
+                                        Ok
+                                            { pageData = pageData
+                                            , sharedData = sharedData
+                                            , userModel = userModel
+                                            }
+                                    , ariaNavigationAnnouncement = ""
+                                    , userFlags = flags
                                     }
-                            , ariaNavigationAnnouncement = ""
-                            , userFlags = flags
-                            }
-                    in
-                    ( { initialModel
-                        | ariaNavigationAnnouncement = mainView config initialModel |> .title
-                      }
-                    , cmd
-                    )
+                            in
+                            ( { initialModel
+                                | ariaNavigationAnnouncement = mainView config initialModel |> .title
+                              }
+                            , cmd
+                            )
+
+                        _ ->
+                            ( { key = key
+                              , url = url
+                              , contentCache = contentCache
+                              , pageData = "Didn't expect to render page for API response" |> Err
+                              , ariaNavigationAnnouncement = "Error"
+                              , userFlags = flags
+                              }
+                            , Cmd.none
+                            )
 
                 Err error ->
                     ( { key = key
@@ -525,7 +539,7 @@ update config appMsg model =
                     , basePath = config.basePath
                     }
 
-                pageDataResult : Result BuildError pageData
+                pageDataResult : Result BuildError (PageServerResponse pageData)
                 pageDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
                         (config.data (config.urlToRoute model.url))
@@ -549,122 +563,127 @@ update config appMsg model =
                     ContentCache.is404 model.contentCache urls
             in
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
-                Ok ( sharedData, pageData ) ->
-                    let
-                        updateResult : Maybe ( userModel, Cmd userMsg )
-                        updateResult =
-                            if from404ToNon404 then
-                                case model.pageData of
-                                    Ok pageData_ ->
-                                        config.update
-                                            sharedData
-                                            pageData
-                                            (Just model.key)
-                                            (config.onPageChange
-                                                { protocol = model.url.protocol
-                                                , host = model.url.host
-                                                , port_ = model.url.port_
-                                                , path = model.url |> urlPathToPath config
-                                                , query = model.url.query
-                                                , fragment = model.url.fragment
-                                                , metadata = config.urlToRoute model.url
-                                                }
-                                            )
-                                            pageData_.userModel
-                                            |> Just
-
-                                    Err error ->
-                                        Nothing
-
-                            else
-                                Nothing
-                    in
-                    case updateResult of
-                        Just ( userModel, userCmd ) ->
-                            ( { model
-                                | contentCache =
-                                    ContentCache.init
-                                        (Just
-                                            ( urls.currentUrl
-                                                |> config.urlToRoute
-                                                |> config.routeToPath
-                                            , contentJson
-                                            )
-                                        )
-                                , pageData =
-                                    Ok
-                                        { pageData = pageData
-                                        , sharedData = sharedData
-                                        , userModel = userModel
-                                        }
-                              }
-                            , Cmd.batch
-                                [ userCmd |> Cmd.map UserMsg
-                                ]
-                            )
-
-                        Nothing ->
+                Ok ( sharedData, pageData_ ) ->
+                    case pageData_ of
+                        PageServerResponse.RenderPage pageData ->
                             let
-                                pagePath : Path
-                                pagePath =
-                                    urlsToPagePath urls
+                                updateResult : Maybe ( userModel, Cmd userMsg )
+                                updateResult =
+                                    if from404ToNon404 then
+                                        case model.pageData of
+                                            Ok pageData2_ ->
+                                                config.update
+                                                    sharedData
+                                                    pageData
+                                                    (Just model.key)
+                                                    (config.onPageChange
+                                                        { protocol = model.url.protocol
+                                                        , host = model.url.host
+                                                        , port_ = model.url.port_
+                                                        , path = model.url |> urlPathToPath config
+                                                        , query = model.url.query
+                                                        , fragment = model.url.fragment
+                                                        , metadata = config.urlToRoute model.url
+                                                        }
+                                                    )
+                                                    pageData2_.userModel
+                                                    |> Just
 
-                                userFlags : Pages.Flags.Flags
-                                userFlags =
-                                    model.userFlags
-                                        |> Decode.decodeValue
-                                            (Decode.field "userFlags" Decode.value)
-                                        |> Result.withDefault Json.Encode.null
-                                        |> Pages.Flags.BrowserFlags
+                                            Err error ->
+                                                Nothing
 
-                                ( userModel, userCmd ) =
-                                    Just
-                                        { path =
-                                            { path = pagePath
-                                            , query = model.url.query
-                                            , fragment = model.url.fragment
-                                            }
-                                        , metadata = config.urlToRoute model.url
-                                        , pageUrl =
-                                            Just
-                                                { protocol = model.url.protocol
-                                                , host = model.url.host
-                                                , port_ = model.url.port_
-                                                , path = pagePath
-                                                , query = model.url.query |> Maybe.map QueryParams.fromString
-                                                , fragment = model.url.fragment
-                                                }
-                                        }
-                                        |> config.init userFlags sharedData pageData (Just model.key)
+                                    else
+                                        Nothing
                             in
-                            ( { model
-                                | contentCache =
-                                    ContentCache.init
-                                        (Just
-                                            ( urls.currentUrl
-                                                |> config.urlToRoute
-                                                |> config.routeToPath
-                                            , contentJson
-                                            )
-                                        )
-                                , pageData =
-                                    model.pageData
-                                        |> Result.map
-                                            (\previousPageData ->
+                            case updateResult of
+                                Just ( userModel, userCmd ) ->
+                                    ( { model
+                                        | contentCache =
+                                            ContentCache.init
+                                                (Just
+                                                    ( urls.currentUrl
+                                                        |> config.urlToRoute
+                                                        |> config.routeToPath
+                                                    , contentJson
+                                                    )
+                                                )
+                                        , pageData =
+                                            Ok
                                                 { pageData = pageData
                                                 , sharedData = sharedData
-                                                , userModel = previousPageData.userModel
+                                                , userModel = userModel
                                                 }
-                                            )
-                                        |> Result.withDefault
-                                            { pageData = pageData
-                                            , sharedData = sharedData
-                                            , userModel = userModel
-                                            }
-                                        |> Ok
-                              }
-                            , userCmd |> Cmd.map UserMsg
-                            )
+                                      }
+                                    , Cmd.batch
+                                        [ userCmd |> Cmd.map UserMsg
+                                        ]
+                                    )
+
+                                Nothing ->
+                                    let
+                                        pagePath : Path
+                                        pagePath =
+                                            urlsToPagePath urls
+
+                                        userFlags : Pages.Flags.Flags
+                                        userFlags =
+                                            model.userFlags
+                                                |> Decode.decodeValue
+                                                    (Decode.field "userFlags" Decode.value)
+                                                |> Result.withDefault Json.Encode.null
+                                                |> Pages.Flags.BrowserFlags
+
+                                        ( userModel, userCmd ) =
+                                            Just
+                                                { path =
+                                                    { path = pagePath
+                                                    , query = model.url.query
+                                                    , fragment = model.url.fragment
+                                                    }
+                                                , metadata = config.urlToRoute model.url
+                                                , pageUrl =
+                                                    Just
+                                                        { protocol = model.url.protocol
+                                                        , host = model.url.host
+                                                        , port_ = model.url.port_
+                                                        , path = pagePath
+                                                        , query = model.url.query |> Maybe.map QueryParams.fromString
+                                                        , fragment = model.url.fragment
+                                                        }
+                                                }
+                                                |> config.init userFlags sharedData pageData (Just model.key)
+                                    in
+                                    ( { model
+                                        | contentCache =
+                                            ContentCache.init
+                                                (Just
+                                                    ( urls.currentUrl
+                                                        |> config.urlToRoute
+                                                        |> config.routeToPath
+                                                    , contentJson
+                                                    )
+                                                )
+                                        , pageData =
+                                            model.pageData
+                                                |> Result.map
+                                                    (\previousPageData ->
+                                                        { pageData = pageData
+                                                        , sharedData = sharedData
+                                                        , userModel = previousPageData.userModel
+                                                        }
+                                                    )
+                                                |> Result.withDefault
+                                                    { pageData = pageData
+                                                    , sharedData = sharedData
+                                                    , userModel = userModel
+                                                    }
+                                                |> Ok
+                                      }
+                                    , userCmd |> Cmd.map UserMsg
+                                    )
+
+                        PageServerResponse.ServerResponse serverResponse ->
+                            ( model, Cmd.none )
 
                 Err error ->
                     ( { model

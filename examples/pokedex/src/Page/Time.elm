@@ -7,9 +7,11 @@ import Head
 import Head.Seo as Seo
 import Html
 import Page exposing (Page, PageWithState, StaticPayload)
+import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import QueryParams exposing (QueryParams)
+import ServerResponse
 import Shared
 import Url
 import View exposing (View)
@@ -32,7 +34,6 @@ page =
     Page.serverless
         { head = head
         , data = data
-        , routeFound = \_ -> DataSource.succeed True
         }
         --{ data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
         --, routeFound : routeParams -> DataSource Bool
@@ -50,7 +51,7 @@ type alias Request =
     }
 
 
-data : (ServerRequest a -> DataSource a) -> RouteParams -> DataSource Data
+data : (ServerRequest a -> DataSource a) -> RouteParams -> DataSource (PageServerResponse Data)
 data resolveServerRequest routeParams =
     let
         serverReq : ServerRequest Request
@@ -72,7 +73,29 @@ data resolveServerRequest routeParams =
     in
     serverReq
         |> ServerRequest.toDataSource
-        |> DataSource.map Data
+        |> DataSource.andThen
+            (\req ->
+                case req.queryParams |> Dict.get "redirect" of
+                    Just [ redirectTo ] ->
+                        DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect redirectTo))
+
+                    Just redirectParams ->
+                        DataSource.succeed
+                            (PageServerResponse.ServerResponse
+                                (ServerResponse.stringBody
+                                    ("I got the wrong number of redirect query parameters (expected 1):\n"
+                                        ++ (redirectParams |> String.join "\n")
+                                    )
+                                    |> ServerResponse.withStatusCode 400
+                                )
+                            )
+
+                    _ ->
+                        req
+                            |> DataSource.succeed
+                            |> DataSource.map Data
+                            |> DataSource.map PageServerResponse.RenderPage
+            )
 
 
 head :

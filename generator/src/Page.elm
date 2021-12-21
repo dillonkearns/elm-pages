@@ -82,6 +82,7 @@ import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.ServerRequest exposing (ServerRequest(..))
 import Head
+import PageServerResponse exposing (PageServerResponse)
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
@@ -93,7 +94,7 @@ import View exposing (View)
 
 {-| -}
 type alias PageWithState routeParams data model msg =
-    { data : routeParams -> DataSource data
+    { data : routeParams -> DataSource (PageServerResponse data)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
@@ -129,7 +130,7 @@ type alias StaticPayload data routeParams =
 {-| -}
 type Builder routeParams data
     = WithData
-        { data : routeParams -> DataSource data
+        { data : routeParams -> DataSource (PageServerResponse data)
         , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload data routeParams
@@ -260,7 +261,7 @@ single :
     -> Builder {} data
 single { data, head } =
     WithData
-        { data = \_ -> data
+        { data = \_ -> data |> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -278,7 +279,7 @@ prerender :
     -> Builder routeParams data
 prerender { data, head, pages } =
     WithData
-        { data = data
+        { data = data >> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -316,7 +317,7 @@ prerenderWithFallback :
     -> Builder routeParams data
 prerenderWithFallback { data, head, pages, handleFallback } =
     WithData
-        { data = data
+        { data = data >> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -359,12 +360,11 @@ prerenderWithFallback { data, head, pages, handleFallback } =
 
 {-| -}
 serverless :
-    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
-    , routeFound : routeParams -> DataSource Bool
+    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource (PageServerResponse data)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-serverless { data, head, routeFound } =
+serverless { data, head } =
     WithData
         { data = data DataSource.ServerRequest.toDataSource
         , staticRoutes = DataSource.succeed []
@@ -372,22 +372,6 @@ serverless { data, head, routeFound } =
         , serverless = True
         , handleRoute =
             \moduleContext toRecord routeParams ->
-                routeFound routeParams
-                    |> DataSource.map
-                        (\found ->
-                            if found then
-                                Nothing
-
-                            else
-                                Just
-                                    (Pages.Internal.NotFoundReason.UnhandledServerRoute
-                                        { moduleName = moduleContext.moduleName
-                                        , routePattern = moduleContext.routePattern
-                                        , matchedRouteParams = toRecord routeParams
-                                        }
-                                    )
-                        )
+                DataSource.succeed Nothing
         , kind = "serverless"
         }
-
-

@@ -7,6 +7,7 @@ import Head
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
+import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
@@ -36,7 +37,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource.DataSource sharedData
-    , data : route -> DataSource.DataSource pageData
+    , data : route -> DataSource.DataSource (PageServerResponse pageData)
     , view :
         { path : Path
         , route : route

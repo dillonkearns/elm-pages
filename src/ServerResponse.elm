@@ -1,4 +1,4 @@
-module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success)
+module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withStatusCode)
 
 import Json.Encode
 
@@ -52,3 +52,34 @@ permanentRedirect url =
         ]
     , isBase64Encoded = False
     }
+
+
+temporaryRedirect : String -> ServerResponse
+temporaryRedirect url =
+    { body = Nothing
+    , statusCode = 307
+    , headers =
+        [ ( "Location", url )
+        ]
+    , isBase64Encoded = False
+    }
+
+
+withStatusCode : Int -> ServerResponse -> ServerResponse
+withStatusCode statusCode serverResponse =
+    { serverResponse | statusCode = statusCode }
+
+
+toJson : ServerResponse -> Json.Encode.Value
+toJson serverResponse =
+    Json.Encode.object
+        [ ( "body", serverResponse.body |> Maybe.map Json.Encode.string |> Maybe.withDefault Json.Encode.null )
+        , ( "statusCode", serverResponse.statusCode |> Json.Encode.int )
+        , ( "headers"
+          , serverResponse.headers
+                |> List.map (Tuple.mapSecond Json.Encode.string)
+                |> Json.Encode.object
+          )
+        , ( "kind", Json.Encode.string "server-response" )
+        , ( "isBase64Encoded", Json.Encode.bool serverResponse.isBase64Encoded )
+        ]
