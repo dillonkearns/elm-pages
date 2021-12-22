@@ -188,11 +188,17 @@ async function render(event, context) {
  * @returns {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }}
  */
 function reqToJson(req) {
+  const queryString = req.multiValueQueryStringParameters ? Object.entries(req.multiValueQueryStringParameters).reduce(
+    (acc, [key, values]) => {
+      return acc + values.map(value => \`\${encodeURIComponent(key)}=\${encodeURIComponent(value)}\`).join('&')
+    }
+  , "") : '';
+
+
   return {
     method: req.httpMethod,
     hostname: "TODO",
-    // query: req.queryStringParameters, //url.search ? url.search.substring(1) : "",
-    query: "", //url.search ? url.search.substring(1) : "",
+    query: queryString,
     headers: req.headers,
     host: "", // TODO
     pathname: req.path,
