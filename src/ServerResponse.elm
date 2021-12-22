@@ -95,8 +95,12 @@ toJson serverResponse =
 collectMultiValueHeaders : List ( String, String ) -> List ( String, List String )
 collectMultiValueHeaders headers =
     headers
-        |> List.Extra.groupWhile (\( key1, _ ) ( key2, _ ) -> key1 == key2)
+        |> List.Extra.groupWhile
+            (\( key1, _ ) ( key2, _ ) -> key1 == key2)
         |> List.map
-            (\( ( key, _ ), values ) ->
-                ( key, values |> List.map Tuple.second )
+            (\( ( key, firstValue ), otherValues ) ->
+                ( key
+                , firstValue
+                    :: (otherValues |> List.map Tuple.second)
+                )
             )
