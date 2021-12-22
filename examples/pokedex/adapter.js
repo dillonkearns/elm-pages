@@ -154,7 +154,7 @@ async function render(event, context) {
       const serverResponse = renderResult.body;
       return {
         body: serverResponse.body,
-        headers: serverResponse.headers,
+        multiValueHeaders: serverResponse.headers,
         statusCode: serverResponse.statusCode,
         isBase64Encoded: serverResponse.isBase64Encoded,
       };

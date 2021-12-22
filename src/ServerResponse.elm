@@ -1,6 +1,7 @@
-module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withStatusCode)
+module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode)
 
 import Json.Encode
+import List.Extra
 
 
 type alias ServerResponse =
@@ -70,6 +71,11 @@ withStatusCode statusCode serverResponse =
     { serverResponse | statusCode = statusCode }
 
 
+withHeader : String -> String -> ServerResponse -> ServerResponse
+withHeader name value serverResponse =
+    { serverResponse | headers = ( name, value ) :: serverResponse.headers }
+
+
 toJson : ServerResponse -> Json.Encode.Value
 toJson serverResponse =
     Json.Encode.object
@@ -77,9 +83,20 @@ toJson serverResponse =
         , ( "statusCode", serverResponse.statusCode |> Json.Encode.int )
         , ( "headers"
           , serverResponse.headers
-                |> List.map (Tuple.mapSecond Json.Encode.string)
+                |> collectMultiValueHeaders
+                |> List.map (Tuple.mapSecond (Json.Encode.list Json.Encode.string))
                 |> Json.Encode.object
           )
         , ( "kind", Json.Encode.string "server-response" )
         , ( "isBase64Encoded", Json.Encode.bool serverResponse.isBase64Encoded )
         ]
+
+
+collectMultiValueHeaders : List ( String, String ) -> List ( String, List String )
+collectMultiValueHeaders headers =
+    headers
+        |> List.Extra.groupWhile (\( key1, _ ) ( key2, _ ) -> key1 == key2)
+        |> List.map
+            (\( ( key, _ ), values ) ->
+                ( key, values |> List.map Tuple.second )
+            )
