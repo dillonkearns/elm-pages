@@ -45,6 +45,7 @@ function fileContentWithParams(
 ) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
+${serverless ? `import DataSource.ServerRequest as ServerRequest\n` : ""}
 ${withState ? "\nimport Browser.Navigation" : ""}
 import DataSource exposing (DataSource)
 import Head
@@ -160,7 +161,7 @@ pages =
 }
 ${
   serverless
-    ? `data : Page.CanReadServerRequest -> RouteParams -> DataSource (PageServerResponse Data)
+    ? `data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
 data serverRequestKey routeParams =`
     : withParams
     ? `data : RouteParams -> DataSource Data
