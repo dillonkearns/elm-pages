@@ -205,6 +205,7 @@ function reqToJson(req) {
     port: 80, // TODO
     protocol: "https", // TODO
     rawUrl: "", // TODO
+    body: req.body,
   };
 }
 `;

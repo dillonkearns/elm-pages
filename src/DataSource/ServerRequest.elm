@@ -1,7 +1,7 @@
 module DataSource.ServerRequest exposing
     ( IsAvailable
     , ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource
-    , Method(..), withAllHeaders, withHost, withMethod, withProtocol, withQueryParams
+    , Method(..), withAllHeaders, withBody, withHost, withMethod, withProtocol, withQueryParams
     )
 
 {-|
@@ -140,6 +140,15 @@ optionalHeader headerName (ServerRequest decoder) =
             (OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
                 |> OptimizedDecoder.field "headers"
             )
+        |> ServerRequest
+
+
+{-| -}
+withBody : ServerRequest (Maybe String -> value) -> ServerRequest value
+withBody (ServerRequest decoder) =
+    decoder
+        |> OptimizedDecoder.andMap
+            (OptimizedDecoder.optionalField "body" OptimizedDecoder.string)
         |> ServerRequest
 
 

@@ -346,65 +346,80 @@ async function start(options) {
       return;
     }
 
-    await runRenderThread(
-      reqToJson(req),
-      pathname,
-      function (renderResult) {
-        const is404 = renderResult.is404;
-        switch (renderResult.kind) {
-          case "json": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "application/json",
-            });
-            res.end(renderResult.contentJson);
-            break;
-          }
-          case "html": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "text/html",
-            });
-            res.end(renderResult.htmlString);
-            break;
-          }
-          case "api-response": {
-            if (renderResult.body.kind === "server-response") {
-              const serverResponse = renderResult.body;
-              res.writeHead(serverResponse.statusCode, serverResponse.headers);
-              res.end(serverResponse.body);
-            } else if (renderResult.body.kind === "static-file") {
-              let mimeType = serveStatic.mime.lookup(pathname || "text/html");
-              mimeType =
-                mimeType === "application/octet-stream"
-                  ? "text/html"
-                  : mimeType;
-              res.writeHead(renderResult.statusCode, {
-                "Content-Type": mimeType,
-              });
-              res.end(renderResult.body);
-              // TODO - if route is static, write file to api-route-cache/ directory
-              // TODO - get 404 or other status code from elm-pages renderer
-            } else {
-              throw (
-                "Unexpected api-response renderResult: " +
-                JSON.stringify(renderResult, null, 2)
-              );
-            }
-            break;
-          }
-        }
-      },
+    let body = "";
 
-      function (error) {
-        console.log(restoreColor(error));
-        if (req.url.includes("content.json")) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(error));
-        } else {
-          res.writeHead(500, { "Content-Type": "text/html" });
-          res.end(errorHtml());
+    req.on("data", function (data) {
+      body += data;
+
+      // Too much POST data, kill the connection!
+      // 1e6 === 1 * Math.pow(10, 6) === 1 * 1000000 ~~~ 1MB
+      if (body.length > 1e6) req.connection.destroy();
+    });
+
+    req.on("end", async function () {
+      await runRenderThread(
+        reqToJson(req, body),
+        pathname,
+        function (renderResult) {
+          const is404 = renderResult.is404;
+          switch (renderResult.kind) {
+            case "json": {
+              res.writeHead(is404 ? 404 : 200, {
+                "Content-Type": "application/json",
+              });
+              res.end(renderResult.contentJson);
+              break;
+            }
+            case "html": {
+              res.writeHead(is404 ? 404 : 200, {
+                "Content-Type": "text/html",
+              });
+              res.end(renderResult.htmlString);
+              break;
+            }
+            case "api-response": {
+              if (renderResult.body.kind === "server-response") {
+                const serverResponse = renderResult.body;
+                res.writeHead(
+                  serverResponse.statusCode,
+                  serverResponse.headers
+                );
+                res.end(serverResponse.body);
+              } else if (renderResult.body.kind === "static-file") {
+                let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+                mimeType =
+                  mimeType === "application/octet-stream"
+                    ? "text/html"
+                    : mimeType;
+                res.writeHead(renderResult.statusCode, {
+                  "Content-Type": mimeType,
+                });
+                res.end(renderResult.body);
+                // TODO - if route is static, write file to api-route-cache/ directory
+                // TODO - get 404 or other status code from elm-pages renderer
+              } else {
+                throw (
+                  "Unexpected api-response renderResult: " +
+                  JSON.stringify(renderResult, null, 2)
+                );
+              }
+              break;
+            }
+          }
+        },
+
+        function (error) {
+          console.log(restoreColor(error));
+          if (req.url.includes("content.json")) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(error));
+          } else {
+            res.writeHead(500, { "Content-Type": "text/html" });
+            res.end(errorHtml());
+          }
         }
-      }
-    );
+      );
+    });
   }
 
   /**
@@ -579,7 +594,7 @@ async function ensureRequiredExecutables() {
   }
 }
 
-function reqToJson(req) {
+function reqToJson(req, body) {
   const url = new URL(req.url, "http://localhost:1234");
   return {
     method: req.method,
@@ -591,6 +606,7 @@ function reqToJson(req) {
     port: url.port,
     protocol: url.protocol,
     rawUrl: req.url,
+    body: body,
   };
 }
 
