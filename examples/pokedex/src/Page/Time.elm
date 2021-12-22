@@ -51,8 +51,8 @@ type alias Request =
     }
 
 
-data : (ServerRequest a -> DataSource a) -> RouteParams -> DataSource (PageServerResponse Data)
-data resolveServerRequest routeParams =
+data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
+data serverRequestKey routeParams =
     let
         serverReq : ServerRequest Request
         serverReq =
@@ -72,7 +72,7 @@ data resolveServerRequest routeParams =
                 |> ServerRequest.withAllHeaders
     in
     serverReq
-        |> ServerRequest.toDataSource
+        |> ServerRequest.toDataSource serverRequestKey
         |> DataSource.andThen
             (\req ->
                 case req.queryParams |> Dict.get "redirect" of

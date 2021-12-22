@@ -80,7 +80,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import DataSource.Http
-import DataSource.ServerRequest exposing (ServerRequest(..))
+import DataSource.ServerRequest as ServerRequest exposing (ServerRequest(..))
 import Head
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -94,7 +94,7 @@ import View exposing (View)
 
 {-| -}
 type alias PageWithState routeParams data model msg =
-    { data : routeParams -> DataSource (PageServerResponse data)
+    { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
@@ -130,7 +130,7 @@ type alias StaticPayload data routeParams =
 {-| -}
 type Builder routeParams data
     = WithData
-        { data : routeParams -> DataSource (PageServerResponse data)
+        { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
         , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload data routeParams
@@ -261,7 +261,7 @@ single :
     -> Builder {} data
 single { data, head } =
     WithData
-        { data = \_ -> data |> DataSource.map PageServerResponse.RenderPage
+        { data = \_ _ -> data |> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -279,7 +279,7 @@ prerender :
     -> Builder routeParams data
 prerender { data, head, pages } =
     WithData
-        { data = data >> DataSource.map PageServerResponse.RenderPage
+        { data = \_ -> data >> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -317,7 +317,7 @@ prerenderWithFallback :
     -> Builder routeParams data
 prerenderWithFallback { data, head, pages, handleFallback } =
     WithData
-        { data = data >> DataSource.map PageServerResponse.RenderPage
+        { data = \_ -> data >> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -360,13 +360,13 @@ prerenderWithFallback { data, head, pages, handleFallback } =
 
 {-| -}
 serverless :
-    { data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource (PageServerResponse data)
+    { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
 serverless { data, head } =
     WithData
-        { data = data DataSource.ServerRequest.toDataSource
+        { data = data
         , staticRoutes = DataSource.succeed []
         , head = head
         , serverless = True

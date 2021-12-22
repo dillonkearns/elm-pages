@@ -30,9 +30,10 @@ routes getStaticRoutes htmlToString =
 serverRequestInfo : ApiRoute ApiRoute.Response
 serverRequestInfo =
     ApiRoute.succeed
-        (serverRequestDataSource
-            |> DataSource.map Debug.toString
-            |> DataSource.map ServerResponse.stringBody
+        (\isAvailable ->
+            serverRequestDataSource isAvailable
+                |> DataSource.map Debug.toString
+                |> DataSource.map ServerResponse.stringBody
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -43,8 +44,9 @@ serverRequestInfo =
 redirectRoute : ApiRoute ApiRoute.Response
 redirectRoute =
     ApiRoute.succeed
-        (DataSource.succeed
-            (ServerResponse.permanentRedirect "/")
+        (\isAvailable ->
+            DataSource.succeed
+                (ServerResponse.permanentRedirect "/")
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -52,7 +54,7 @@ redirectRoute =
         |> ApiRoute.serverless
 
 
-serverRequestDataSource =
+serverRequestDataSource isAvailable =
     ServerRequest.init
         (\language method queryParams protocol allHeaders ->
             { language = language
@@ -67,23 +69,24 @@ serverRequestDataSource =
         |> ServerRequest.withQueryParams
         |> ServerRequest.withProtocol
         |> ServerRequest.withAllHeaders
-        |> ServerRequest.toDataSource
+        |> ServerRequest.toDataSource isAvailable
 
 
 noArgs : ApiRoute ApiRoute.Response
 noArgs =
     ApiRoute.succeed
-        (DataSource.Http.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-            (Decode.field "stargazers_count" Decode.int)
-            |> DataSource.map
-                (\stars ->
-                    Json.Encode.object
-                        [ ( "repo", Json.Encode.string "elm-pages" )
-                        , ( "stars", Json.Encode.int stars )
-                        ]
-                        |> ServerResponse.json
-                )
+        (\isAvailable ->
+            DataSource.Http.get
+                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                (Decode.field "stargazers_count" Decode.int)
+                |> DataSource.map
+                    (\stars ->
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string "elm-pages" )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> ServerResponse.json
+                    )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -120,7 +123,7 @@ nonHybridRoute =
 repoStars : ApiRoute ApiRoute.Response
 repoStars =
     ApiRoute.succeed
-        (\repoName ->
+        (\repoName isAvailable ->
             DataSource.Http.get
                 (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
                 (Decode.field "stargazers_count" Decode.int)

@@ -15,7 +15,9 @@ DataSources dynamically.
 -}
 
 import DataSource exposing (DataSource)
+import DataSource.ServerRequest as ServerRequest
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
+import Internal.ServerRequest
 import Json.Encode
 import Pattern exposing (Pattern)
 import Regex
@@ -59,13 +61,14 @@ stripTrailingSlash path =
         path
 
 
-serverless : ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
+serverless : ApiRouteBuilder (ServerRequest.IsAvailable -> DataSource ServerResponse) constructor -> ApiRoute Response
 serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \path ->
                 Internal.ApiRoute.tryMatch path fullHandler
+                    |> Maybe.map (\toDataSource -> toDataSource Internal.ServerRequest.IsAvailable)
                     |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)

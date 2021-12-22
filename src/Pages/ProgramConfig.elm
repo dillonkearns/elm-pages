@@ -3,6 +3,7 @@ module Pages.ProgramConfig exposing (ProgramConfig)
 import ApiRoute
 import Browser.Navigation
 import DataSource
+import DataSource.ServerRequest
 import Head
 import Html exposing (Html)
 import Json.Decode as Decode
@@ -37,7 +38,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource.DataSource sharedData
-    , data : route -> DataSource.DataSource (PageServerResponse pageData)
+    , data : DataSource.ServerRequest.IsAvailable -> route -> DataSource.DataSource (PageServerResponse pageData)
     , view :
         { path : Path
         , route : route
