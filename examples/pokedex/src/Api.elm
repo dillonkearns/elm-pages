@@ -46,7 +46,7 @@ redirectRoute =
     ApiRoute.succeed
         (\isAvailable ->
             DataSource.succeed
-                (ServerResponse.permanentRedirect "/")
+                (ServerResponse.temporaryRedirect "/")
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
