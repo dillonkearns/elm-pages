@@ -2,12 +2,13 @@ const fs = require("./dir-helpers.js");
 const path = require("path");
 const routeHelpers = require("./route-codegen-helpers");
 
-async function run({ moduleName, withState }) {
+async function run({ moduleName, withState, serverless }) {
+  console.log("@@@ serverless");
   if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
     console.error("Invalid module name.");
     process.exit(1);
   }
-  const content = fileContent(moduleName, withState);
+  const content = fileContent(moduleName, withState, serverless);
   const fullFilePath = path.join(
     `src/Page/`,
     moduleName.replace(/\./g, "/") + ".elm"
@@ -19,12 +20,14 @@ async function run({ moduleName, withState }) {
 /**
  * @param {string} pageModuleName
  * @param {'local' | 'shared' | null} withState
+ * @param {boolean} serverless
  */
-function fileContent(pageModuleName, withState) {
+function fileContent(pageModuleName, withState, serverless) {
   return fileContentWithParams(
     pageModuleName,
     routeHelpers.routeParams(pageModuleName.split(".")).length > 0,
-    withState
+    withState,
+    serverless
   );
 }
 
@@ -32,8 +35,14 @@ function fileContent(pageModuleName, withState) {
  * @param {string} pageModuleName
  * @param {boolean} withParams
  * @param {'local' | 'shared' | null} withState
+ * @param {boolean} serverless
  */
-function fileContentWithParams(pageModuleName, withParams, withState) {
+function fileContentWithParams(
+  pageModuleName,
+  withParams,
+  withState,
+  serverless
+) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
 ${withState ? "\nimport Browser.Navigation" : ""}
@@ -41,6 +50,7 @@ import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
+${serverless ? "import PageServerResponse exposing (PageServerResponse)" : ""}
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -70,7 +80,12 @@ page : ${
   }
 page =
     ${
-      withParams
+      serverless
+        ? `Page.serverless
+        { head = head
+        , data = data
+        }`
+        : withParams
         ? `Page.prerender
         { head = head
         , pages = pages
@@ -144,13 +159,20 @@ pages =
     : ""
 }
 ${
-  withParams
+  serverless
+    ? `data : Page.CanReadServerRequest -> RouteParams -> DataSource (PageServerResponse Data)
+data serverRequestKey routeParams =`
+    : withParams
     ? `data : RouteParams -> DataSource Data
 data routeParams =`
     : `data : DataSource Data
 data =`
 }
-    DataSource.succeed {}
+    ${
+      serverless
+        ? `DataSource.succeed (PageServerResponse.RenderPage {})`
+        : `DataSource.succeed {}`
+    }
 
 head :
     StaticPayload Data RouteParams

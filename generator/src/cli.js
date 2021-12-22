@@ -65,9 +65,10 @@ async function main() {
         .choices(["local", "shared", "serverless"])
         .argOptional()
     )
+    .option("--serverless", "Generate a serverless Page Module")
     .description("create a new Page module")
-    .action(async (moduleName, state) => {
-      await generate.run({ moduleName, withState: state });
+    .action(async (moduleName, state, serverless) => {
+      await generate.run({ moduleName, withState: state, serverless });
     });
 
   program
