@@ -62,7 +62,7 @@ async function main() {
     .command("add <moduleName>")
     .addArgument(
       new Argument("<state>", "Generate Page Module with state")
-        .choices(["local", "shared"])
+        .choices(["local", "shared", "serverless"])
         .argOptional()
     )
     .description("create a new Page module")

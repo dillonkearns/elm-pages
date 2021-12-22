@@ -59,21 +59,6 @@ stripTrailingSlash path =
         path
 
 
-encodeServerResponse : ServerResponse -> Response
-encodeServerResponse serverResponse =
-    Json.Encode.object
-        [ ( "body", serverResponse.body |> Maybe.map Json.Encode.string |> Maybe.withDefault Json.Encode.null )
-        , ( "statusCode", serverResponse.statusCode |> Json.Encode.int )
-        , ( "headers"
-          , serverResponse.headers
-                |> List.map (Tuple.mapSecond Json.Encode.string)
-                |> Json.Encode.object
-          )
-        , ( "kind", Json.Encode.string "server-response" )
-        , ( "isBase64Encoded", Json.Encode.bool serverResponse.isBase64Encoded )
-        ]
-
-
 serverless : ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
 serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
@@ -81,7 +66,7 @@ serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHan
         , matchesToResponse =
             \path ->
                 Internal.ApiRoute.tryMatch path fullHandler
-                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
+                    |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)
         , buildTimeRoutes = DataSource.succeed []
@@ -128,7 +113,7 @@ prerenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString co
                 --            |> DataSource.map (List.member matches)
                 --in
                 Internal.ApiRoute.tryMatch path fullHandler
-                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
+                    |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)
 
