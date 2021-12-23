@@ -20,6 +20,8 @@
         "DataSource.File",
         "DataSource.Port",
         "DataSource.ServerRequest",
+        "ServerResponse",
+        "PageServerResponse",
         "Pages.Secrets",
         "Pages.Manifest",
         "Pages.Manifest.Category",

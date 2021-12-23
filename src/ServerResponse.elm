@@ -1,9 +1,16 @@
 module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode)
 
+{-|
+
+@docs ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode
+
+-}
+
 import Json.Encode
 import List.Extra
 
 
+{-| -}
 type alias ServerResponse =
     { statusCode : Int
     , headers : List ( String, String )
@@ -12,6 +19,7 @@ type alias ServerResponse =
     }
 
 
+{-| -}
 stringBody : String -> ServerResponse
 stringBody string =
     { statusCode = 200
@@ -21,6 +29,7 @@ stringBody string =
     }
 
 
+{-| -}
 success : ServerResponse
 success =
     { statusCode = 200
@@ -30,6 +39,7 @@ success =
     }
 
 
+{-| -}
 json : Json.Encode.Value -> ServerResponse
 json jsonValue =
     { statusCode = 200
@@ -44,6 +54,7 @@ json jsonValue =
     }
 
 
+{-| -}
 permanentRedirect : String -> ServerResponse
 permanentRedirect url =
     { body = Nothing
@@ -55,6 +66,7 @@ permanentRedirect url =
     }
 
 
+{-| -}
 temporaryRedirect : String -> ServerResponse
 temporaryRedirect url =
     { body = Nothing
@@ -66,16 +78,19 @@ temporaryRedirect url =
     }
 
 
+{-| -}
 withStatusCode : Int -> ServerResponse -> ServerResponse
 withStatusCode statusCode serverResponse =
     { serverResponse | statusCode = statusCode }
 
 
+{-| -}
 withHeader : String -> String -> ServerResponse -> ServerResponse
 withHeader name value serverResponse =
     { serverResponse | headers = ( name, value ) :: serverResponse.headers }
 
 
+{-| -}
 toJson : ServerResponse -> Json.Encode.Value
 toJson serverResponse =
     Json.Encode.object
