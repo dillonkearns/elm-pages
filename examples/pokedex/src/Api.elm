@@ -24,6 +24,7 @@ routes getStaticRoutes htmlToString =
     , serverRequestInfo
     , repoStars
     , repoStars2
+    , logout
     ]
 
 
@@ -118,6 +119,21 @@ nonHybridRoute =
                     [ route "elm-graphql"
                     ]
             )
+
+
+logout : ApiRoute ApiRoute.Response
+logout =
+    ApiRoute.succeed
+        (\isAvailable ->
+            DataSource.succeed
+                (ServerResponse.stringBody "You are logged out"
+                    |> ServerResponse.withHeader "Set-Cookie" "username=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+                )
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "logout"
+        |> ApiRoute.serverless
 
 
 repoStars : ApiRoute ApiRoute.Response
