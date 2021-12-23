@@ -1,6 +1,6 @@
 module ApiRoute exposing
     ( ApiRoute, ApiRouteBuilder, Response
-    , capture, int, literal, slash, succeed
+    , capture, literal, slash, succeed
     , single, preRender
     , preRenderWithFallback, serverRender
     , toJson, getBuildTimeRoutes
@@ -15,7 +15,7 @@ DataSources dynamically.
 
 @docs ApiRoute, ApiRouteBuilder, Response
 
-@docs capture, int, literal, slash, succeed
+@docs capture, literal, slash, succeed
 
 
 ## Pre-Rendering
@@ -277,36 +277,6 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
         (\matches ->
             \string ->
                 constructor (string :: matches)
-        )
-
-
-{-| -}
-int :
-    ApiRouteBuilder (Int -> a) constructor
-    -> ApiRouteBuilder a (Int -> constructor)
-int (ApiRouteBuilder patterns pattern previousHandler toString constructor) =
-    ApiRouteBuilder
-        patterns
-        (pattern ++ "(\\d+)")
-        (\matches ->
-            case matches of
-                first :: rest ->
-                    previousHandler rest (String.toInt first |> Maybe.withDefault -1)
-
-                _ ->
-                    previousHandler [] -1
-        )
-        (\s ->
-            case s of
-                first :: rest ->
-                    toString rest ++ first
-
-                _ ->
-                    ""
-        )
-        (\matches ->
-            \string ->
-                constructor (String.fromInt string :: matches)
         )
 
 

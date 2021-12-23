@@ -47,11 +47,11 @@ all =
             \() ->
                 succeed
                     (\userId ->
-                        "Data for user " ++ String.fromInt userId
+                        "Data for user " ++ userId
                     )
                     |> literal "users"
                     |> slash
-                    |> int
+                    |> capture
                     |> literal ".json"
                     |> tryMatch "users/123.json"
                     |> Expect.equal (Just "Data for user 123")
@@ -79,9 +79,10 @@ all =
             [ test "no dynamic segments" <|
                 \() ->
                     succeed
-                        (""
-                            |> ServerResponse.stringBody
-                            |> DataSource.succeed
+                        (\isAvailable ->
+                            ""
+                                |> ServerResponse.stringBody
+                                |> DataSource.succeed
                         )
                         |> literal "no-dynamic-segments.json"
                         |> ApiRoute.serverRender
@@ -90,9 +91,10 @@ all =
             , test "two literal segments" <|
                 \() ->
                     ApiRoute.succeed
-                        (""
-                            |> ServerResponse.stringBody
-                            |> DataSource.succeed
+                        (\isAvailable ->
+                            ""
+                                |> ServerResponse.stringBody
+                                |> DataSource.succeed
                         )
                         |> ApiRoute.literal "api"
                         |> ApiRoute.slash
@@ -138,7 +140,7 @@ all =
             , test "hybrid route with multiple static segments" <|
                 \() ->
                     succeed
-                        (\repo ->
+                        (\repo isAvailable ->
                             DataSource.succeed ("Data for repo " ++ repo |> ServerResponse.stringBody)
                         )
                         |> ApiRoute.literal "api"
