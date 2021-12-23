@@ -1,6 +1,8 @@
 module ApiRoute exposing
-    ( ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
-    , prerenderWithFallback, serverless, toJson
+    ( ApiRoute, ApiRouteBuilder, Response
+    , capture, int, literal, single, slash, succeed
+    , buildTimeRoutes, getBuildTimeRoutes, prerenderWithFallback, serverless
+    , toJson
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
@@ -10,7 +12,16 @@ the DataSource for your ApiRoutes, and it won't effect the payload size. Instead
 In a future release, ApiRoutes may be able to run at request-time in a serverless function, allowing you to use pure Elm code to create dynamic APIs, and even pulling in data from
 DataSources dynamically.
 
-@docs ApiRoute, ApiRouteBuilder, Response, buildTimeRoutes, capture, int, literal, single, slash, succeed, getBuildTimeRoutes
+@docs ApiRoute, ApiRouteBuilder, Response
+
+@docs capture, int, literal, single, slash, succeed
+
+@docs buildTimeRoutes, getBuildTimeRoutes, prerenderWithFallback, serverless
+
+
+## Internals
+
+@docs toJson
 
 -}
 
@@ -61,6 +72,7 @@ stripTrailingSlash path =
         path
 
 
+{-| -}
 serverless : ApiRouteBuilder (ServerRequest.IsAvailable -> DataSource ServerResponse) constructor -> ApiRoute Response
 serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
@@ -227,6 +239,8 @@ succeed a =
     ApiRouteBuilder Pattern.empty "" (\_ -> a) (\_ -> "") (\list -> list)
 
 
+{-| Turn the route into a pattern in JSON format. For internal uses.
+-}
 toJson : ApiRoute response -> Json.Encode.Value
 toJson ((ApiRoute { kind }) as apiRoute) =
     Json.Encode.object

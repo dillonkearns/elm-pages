@@ -1,14 +1,13 @@
 module DataSource.ServerRequest exposing
     ( IsAvailable
-    , ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource
-    , Method(..), withAllHeaders, withBody, withCookies, withFormData, withHost, withMethod, withProtocol, withQueryParams
+    , ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource, withFormData, withCookies, withBody, withHost, withAllHeaders, withMethod, withProtocol, Method(..), withQueryParams
     )
 
 {-|
 
 @docs IsAvailable
 
-@docs ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource
+@docs ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource, withFormData, withCookies, withBody, withHost, withAllHeaders, withMethod, withProtocol, Method, withQueryParams
 
 -}
 
@@ -203,6 +202,7 @@ withFormData (ServerRequest decoder) =
         |> ServerRequest
 
 
+{-| -}
 type Method
     = Connect
     | Delete
