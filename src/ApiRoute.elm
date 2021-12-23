@@ -1,8 +1,9 @@
 module ApiRoute exposing
     ( ApiRoute, ApiRouteBuilder, Response
-    , capture, int, literal, single, slash, succeed
-    , buildTimeRoutes, getBuildTimeRoutes, preRenderWithFallback, serverRender
-    , toJson
+    , capture, int, literal, slash, succeed
+    , single, preRender
+    , preRenderWithFallback, serverRender
+    , toJson, getBuildTimeRoutes
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
@@ -14,14 +15,22 @@ DataSources dynamically.
 
 @docs ApiRoute, ApiRouteBuilder, Response
 
-@docs capture, int, literal, single, slash, succeed
+@docs capture, int, literal, slash, succeed
 
-@docs buildTimeRoutes, getBuildTimeRoutes, preRenderWithFallback, serverRender
+
+## Pre-Rendering
+
+@docs single, preRender
+
+
+## Server Rendering
+
+@docs preRenderWithFallback, serverRender
 
 
 ## Internals
 
-@docs toJson
+@docs toJson, getBuildTimeRoutes
 
 -}
 
@@ -44,7 +53,7 @@ type alias ApiRoute response =
 single : ApiRouteBuilder (DataSource String) (List String) -> ApiRoute Response
 single handler =
     handler
-        |> buildTimeRoutes (\constructor -> DataSource.succeed [ constructor ])
+        |> preRender (\constructor -> DataSource.succeed [ constructor ])
 
 
 normalizePath : String -> String
@@ -171,8 +180,8 @@ encodeStaticFileBody fileBody =
 
 
 {-| -}
-buildTimeRoutes : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource String) constructor -> ApiRoute Response
-buildTimeRoutes buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+preRender : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource String) constructor -> ApiRoute Response
+preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)
         buildTimeRoutes__ =

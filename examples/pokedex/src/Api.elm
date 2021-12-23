@@ -113,7 +113,7 @@ nonHybridRoute =
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
         |> ApiRoute.capture
-        |> ApiRoute.buildTimeRoutes
+        |> ApiRoute.preRender
             (\route ->
                 DataSource.succeed
                     [ route "elm-graphql"

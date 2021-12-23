@@ -39,7 +39,7 @@ routes getStaticRoutes htmlToString =
         |> ApiRoute.slash
         |> ApiRoute.int
         |> ApiRoute.literal ".json"
-        |> ApiRoute.buildTimeRoutes
+        |> ApiRoute.preRender
             (\route ->
                 DataSource.succeed
                     [ route 1
@@ -65,7 +65,7 @@ routes getStaticRoutes htmlToString =
         |> ApiRoute.slash
         |> ApiRoute.capture
         |> ApiRoute.literal ".json"
-        |> ApiRoute.buildTimeRoutes
+        |> ApiRoute.preRender
             (\route ->
                 DataSource.succeed
                     [ route "elm-graphql"

@@ -116,7 +116,7 @@ all =
                         |> slash
                         |> capture
                         |> literal ".json"
-                        |> buildTimeRoutes
+                        |> preRender
                             (\route ->
                                 DataSource.succeed
                                     [ route "100"
