@@ -109,7 +109,7 @@ async function start(options) {
   async function compileCliApp(options) {
     await spawnElmMake(
       options,
-      ".elm-pages/TemplateModulesBeta.elm",
+      ".elm-pages/Main.elm",
       "elm.js",
       "elm-stuff/elm-pages/"
     );
@@ -313,7 +313,7 @@ async function start(options) {
       let isImplicitContractError = false;
       try {
         isImplicitContractError = JSON.parse(error).errors.some(
-          (errorItem) => errorItem.name === "TemplateModulesBeta"
+          (errorItem) => errorItem.name === "Main"
         );
       } catch (unexpectedError) {
         console.log("Unexpected error", unexpectedError);

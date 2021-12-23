@@ -11,7 +11,7 @@ function loadContentAndInitializeApp() {
   if (!path.endsWith("/")) {
     path = path + "/";
   }
-  const app = Elm.TemplateModulesBeta.init({
+  const app = Elm.Main.init({
     flags: {
       secrets: null,
       isPrerendering: false,

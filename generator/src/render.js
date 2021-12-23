@@ -81,7 +81,7 @@ function runElmApp(
 
     const modifiedRequest = { ...request, path: route };
     // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
-    app = elmModule.Elm.TemplateModulesBeta.init({
+    app = elmModule.Elm.Main.init({
       flags: {
         secrets: process.env,
         staticHttpCache: global.staticHttpCache || {},

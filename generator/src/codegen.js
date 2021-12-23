@@ -36,17 +36,14 @@ async function generate(basePath) {
       elmPagesCliFile()
     ),
     fs.promises.writeFile(
-      "./elm-stuff/elm-pages/.elm-pages/TemplateModulesBeta.elm",
+      "./elm-stuff/elm-pages/.elm-pages/Main.elm",
       cliCode.mainModule
     ),
     fs.promises.writeFile(
       "./elm-stuff/elm-pages/.elm-pages/Route.elm",
       cliCode.routesModule
     ),
-    fs.promises.writeFile(
-      "./.elm-pages/TemplateModulesBeta.elm",
-      browserCode.mainModule
-    ),
+    fs.promises.writeFile("./.elm-pages/Main.elm", browserCode.mainModule),
     fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
     // write modified elm.json to elm-stuff/elm-pages/
     copyModifiedElmJson(),

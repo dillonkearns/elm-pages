@@ -19,7 +19,7 @@ function generateTemplateModuleConnector(basePath, phase) {
   if (templates.length <= 0) {
     throw {
       path: "",
-      name: "TemplateModulesBeta",
+      name: "Main",
       problems: [
         {
           title: "Could not generate entrypoint",
@@ -38,7 +38,7 @@ function generateTemplateModuleConnector(basePath, phase) {
   }
 
   return {
-    mainModule: `port module TemplateModulesBeta exposing (..)
+    mainModule: `port module Main exposing (..)
 
 import Api
 import DataSource.ServerRequest

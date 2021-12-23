@@ -3,9 +3,9 @@ module Page exposing
     , StaticPayload
     , buildWithLocalState, buildWithSharedState
     , preRender, single
+    , preRenderWithFallback, serverRender
     , Builder(..)
     , PageWithState
-    , preRenderWithFallback, serverRender
     )
 
 {-|
@@ -68,6 +68,11 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
             ]
 
 @docs preRender, single
+
+
+## Rendering on the Server
+
+@docs preRenderWithFallback, serverRender
 
 
 ## Internals
