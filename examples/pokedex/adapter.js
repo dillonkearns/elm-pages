@@ -32,7 +32,7 @@ async function run({
       if (apiRoute.kind === "prerender-with-fallback") {
         return `${apiPatternToRedirectPattern(
           apiRoute.pathPattern
-        )} /.netlify/functions/render 200`;
+        )} /.netlify/builders/render 200`;
       } else if (apiRoute.kind === "serverless") {
         return `${apiPatternToRedirectPattern(
           apiRoute.pathPattern
@@ -48,8 +48,8 @@ async function run({
       .filter(isServerSide)
       .map((route) => {
         if (route.kind === "prerender-with-fallback") {
-          return `${route.pathPattern} /.netlify/functions/render 200
-${route.pathPattern}/content.json /.netlify/functions/render 200`;
+          return `${route.pathPattern} /.netlify/builders/render 200
+${route.pathPattern}/content.json /.netlify/builders/render 200`;
         } else {
           return `${route.pathPattern} /.netlify/functions/server-render 200
 ${route.pathPattern}/content.json /.netlify/functions/server-render 200`;
