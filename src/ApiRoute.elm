@@ -126,35 +126,10 @@ preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString co
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \path ->
-                --let
-                --    --matches : List String
-                --    --matches =
-                --    --    Internal.ApiRoute.pathToMatches path fullHandler
-                --    --
-                --    routeFound : DataSource Bool
-                --    routeFound =
-                --        preBuiltMatches
-                --            |> DataSource.map (List.member matches)
-                --in
                 Internal.ApiRoute.tryMatch path fullHandler
                     |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)
-
-        --routeFound
-        --    |> DataSource.andThen
-        --        (\found ->
-        --            if found then
-        --                Internal.ApiRoute.tryMatch path fullHandler
-        --                    |> Maybe.map (DataSource.map (.body >> Maybe.withDefault "" >> encodeStaticFileBody >> Just))
-        --                    |> Maybe.withDefault (DataSource.succeed Nothing)
-        --
-        --            else
-        --                Internal.ApiRoute.tryMatch path fullHandler
-        --                    |> Maybe.map (DataSource.map (encodeServerResponse >> Just))
-        --                    |> Maybe.withDefault
-        --                        (DataSource.succeed Nothing)
-        --        )
         , buildTimeRoutes = buildTimeRoutes__
         , handleRoute =
             \path ->
