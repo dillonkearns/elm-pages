@@ -7,6 +7,7 @@ import Dict
 import Head
 import Head.Seo as Seo
 import Html
+import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
@@ -107,5 +108,18 @@ view :
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Hello!"
-    , body = [ Html.text <| "Hello " ++ static.data.username ++ "!" ]
+    , body =
+        [ Html.text <| "Hello " ++ static.data.username ++ "!"
+        , Html.div []
+            [ Html.form
+                [ Attr.method "post"
+                , Attr.action "/api/logout"
+                ]
+                [ Html.button
+                    [ Attr.type_ "submit"
+                    ]
+                    [ Html.text "Logout" ]
+                ]
+            ]
+        ]
     }
