@@ -24,17 +24,16 @@ routes getStaticRoutes htmlToString =
     [ ApiRoute.succeed
         (\userId ->
             DataSource.succeed
-                { body =
-                    Json.Encode.object
-                        [ ( "id", Json.Encode.int userId )
-                        , ( "name"
-                          , Html.p [] [ Html.text <| "Data for user " ++ String.fromInt userId ]
-                                |> htmlToString
-                                |> Json.Encode.string
-                          )
-                        ]
-                        |> Json.Encode.encode 2
-                }
+                (Json.Encode.object
+                    [ ( "id", Json.Encode.int userId )
+                    , ( "name"
+                      , Html.p [] [ Html.text <| "Data for user " ++ String.fromInt userId ]
+                            |> htmlToString
+                            |> Json.Encode.string
+                      )
+                    ]
+                    |> Json.Encode.encode 2
+                )
         )
         |> ApiRoute.literal "users"
         |> ApiRoute.slash
@@ -55,13 +54,11 @@ routes getStaticRoutes htmlToString =
                 (Decode.field "stargazers_count" Decode.int)
                 |> DataSource.map
                     (\stars ->
-                        { body =
-                            Json.Encode.object
-                                [ ( "repo", Json.Encode.string repoName )
-                                , ( "stars", Json.Encode.int stars )
-                                ]
-                                |> Json.Encode.encode 2
-                        }
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string repoName )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> Json.Encode.encode 2
                     )
         )
         |> ApiRoute.literal "repo"
@@ -86,16 +83,14 @@ routes getStaticRoutes htmlToString =
         (getStaticRoutes
             |> DataSource.map
                 (\allRoutes ->
-                    { body =
-                        allRoutes
-                            |> List.map
-                                (\route ->
-                                    { path = Route.routeToPath route |> String.join "/"
-                                    , lastMod = Nothing
-                                    }
-                                )
-                            |> Sitemap.build { siteUrl = "https://elm-pages.com" }
-                    }
+                    allRoutes
+                        |> List.map
+                            (\route ->
+                                { path = Route.routeToPath route |> String.join "/"
+                                , lastMod = Nothing
+                                }
+                            )
+                        |> Sitemap.build { siteUrl = "https://elm-pages.com" }
                 )
         )
         |> ApiRoute.literal "sitemap.xml"
@@ -140,17 +135,15 @@ rss options itemsRequest =
         (itemsRequest
             |> DataSource.map
                 (\items ->
-                    { body =
-                        Rss.generate
-                            { title = options.title
-                            , description = options.siteTagline
-                            , url = options.siteUrl ++ "/" ++ String.join "/" options.indexPage
-                            , lastBuildTime = options.builtAt
-                            , generator = Just "elm-pages"
-                            , items = items
-                            , siteUrl = options.siteUrl
-                            }
-                    }
+                    Rss.generate
+                        { title = options.title
+                        , description = options.siteTagline
+                        , url = options.siteUrl ++ "/" ++ String.join "/" options.indexPage
+                        , lastBuildTime = options.builtAt
+                        , generator = Just "elm-pages"
+                        , items = items
+                        , siteUrl = options.siteUrl
+                        }
                 )
         )
         |> ApiRoute.literal "blog/feed.xml"
