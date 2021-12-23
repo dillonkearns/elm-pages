@@ -1,9 +1,8 @@
 module Page.Login exposing (Data, Model, Msg, page)
 
-import CookieParser
 import DataSource exposing (DataSource)
 import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
-import Dict
+import Dict exposing (Dict)
 import Head
 import Head.Seo as Seo
 import Html
@@ -39,46 +38,44 @@ page =
 
 
 type alias Request =
-    { cookie : Maybe String
-    , body : Maybe String
-    , method : ServerRequest.Method
+    { cookies : Dict String String
+    , maybeFormData : Maybe (Dict String ( String, List String ))
     }
 
 
 data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
 data serverRequestKey routeParams =
-    let
-        serverReq : ServerRequest Request
-        serverReq =
-            ServerRequest.init Request
-                |> ServerRequest.optionalHeader "cookie"
-                |> ServerRequest.withBody
-                |> ServerRequest.withMethod
-    in
-    serverReq
+    ServerRequest.init Request
+        |> ServerRequest.withCookies
+        |> ServerRequest.withFormData
         |> ServerRequest.toDataSource serverRequestKey
         |> DataSource.andThen
-            (\{ cookie, body, method } ->
-                --DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/"))
-                --DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.stringBody (foo |> Maybe.withDefault "NOT FOUND")))
-                case ( method, body ) of
-                    ( ServerRequest.Post, Just justBody ) ->
+            (\{ cookies, maybeFormData } ->
+                case maybeFormData of
+                    Just formData ->
                         let
                             username : String
                             username =
-                                justBody |> String.split "=" |> List.reverse |> List.head |> Maybe.withDefault "???"
+                                formData
+                                    |> Dict.get "name"
+                                    |> Maybe.map Tuple.first
+                                    |> Maybe.withDefault ""
                         in
                         PageServerResponse.ServerResponse
-                            (ServerResponse.temporaryRedirect "/greet"
-                                |> ServerResponse.withHeader "Set-Cookie" ("username=" ++ username)
+                            ("/greet"
+                                |> ServerResponse.temporaryRedirect
+                                |> ServerResponse.withHeader "Set-Cookie" ("username=" ++ username ++ "; path=/")
                             )
                             |> DataSource.succeed
 
-                    _ ->
-                        cookie
-                            |> Maybe.withDefault ""
-                            |> CookieParser.parse
-                            |> Dict.get "username"
+                    Nothing ->
+                        let
+                            username : Maybe String
+                            username =
+                                cookies
+                                    |> Dict.get "username"
+                        in
+                        username
                             |> Data
                             |> PageServerResponse.RenderPage
                             |> DataSource.succeed
@@ -132,13 +129,7 @@ view maybeUrl sharedModel static =
             [ Attr.method "post"
             , Attr.action "/login"
             ]
-            [ Html.label []
-                [ Html.input
-                    [ Attr.name "name"
-                    , Attr.type_ "text"
-                    ]
-                    []
-                ]
+            [ Html.label [] [ Html.input [ Attr.name "name", Attr.type_ "text" ] [] ]
             , Html.button
                 [ Attr.type_ "submit"
                 ]
