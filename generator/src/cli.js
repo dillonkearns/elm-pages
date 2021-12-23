@@ -40,6 +40,20 @@ async function main() {
     });
 
   program
+    .command("codegen")
+    .option(
+      "--base <basePath>",
+      "build site to be served under a base path",
+      "/"
+    )
+    .description(
+      "generate code, useful for CI where you don't want to run a full build"
+    )
+    .action(async (options) => {
+      await codegen.generate(options.base);
+    });
+
+  program
     .command("dev")
     .description("start a dev server")
     .option("--port <number>", "serve site at localhost:<port>", "1234")
