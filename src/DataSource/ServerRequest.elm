@@ -1,7 +1,7 @@
 module DataSource.ServerRequest exposing
     ( IsAvailable
     , ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource
-    , Method(..), withAllHeaders, withBody, withHost, withMethod, withProtocol, withQueryParams
+    , Method(..), withAllHeaders, withBody, withCookies, withFormData, withHost, withMethod, withProtocol, withQueryParams
     )
 
 {-|
@@ -12,9 +12,11 @@ module DataSource.ServerRequest exposing
 
 -}
 
+import CookieParser
 import DataSource
 import DataSource.Http
 import Dict exposing (Dict)
+import FormData
 import Internal.ServerRequest
 import OptimizedDecoder
 import QueryParams exposing (QueryParams)
@@ -144,11 +146,60 @@ optionalHeader headerName (ServerRequest decoder) =
 
 
 {-| -}
+withCookies : ServerRequest (Dict String String -> value) -> ServerRequest value
+withCookies (ServerRequest decoder) =
+    decoder
+        |> OptimizedDecoder.andMap
+            (OptimizedDecoder.optionalField "cookie" OptimizedDecoder.string
+                |> OptimizedDecoder.field "headers"
+                |> OptimizedDecoder.map
+                    (\cookie ->
+                        cookie
+                            |> Maybe.withDefault ""
+                            |> CookieParser.parse
+                    )
+            )
+        |> ServerRequest
+
+
+{-| -}
 withBody : ServerRequest (Maybe String -> value) -> ServerRequest value
 withBody (ServerRequest decoder) =
     decoder
         |> OptimizedDecoder.andMap
             (OptimizedDecoder.optionalField "body" OptimizedDecoder.string)
+        |> ServerRequest
+
+
+{-| -}
+withFormData :
+    ServerRequest
+        (Maybe (Dict String ( String, List String ))
+         -> value
+        )
+    -> ServerRequest value
+withFormData (ServerRequest decoder) =
+    decoder
+        |> OptimizedDecoder.andMap
+            (OptimizedDecoder.map2
+                (\contentType maybeBody ->
+                    -- TODO parse content-type more robustly
+                    if contentType == Just "application/x-www-form-urlencoded" then
+                        maybeBody
+                            |> Maybe.map FormData.parse
+
+                    else
+                        Nothing
+                )
+                (OptimizedDecoder.optionalField
+                    ("content-type"
+                        |> String.toLower
+                    )
+                    OptimizedDecoder.string
+                    |> OptimizedDecoder.field "headers"
+                )
+                (OptimizedDecoder.optionalField "body" OptimizedDecoder.string)
+            )
         |> ServerRequest
 
 
