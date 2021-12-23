@@ -12,6 +12,7 @@ import Html
 import Json.Decode as JD
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
+import PageServerResponse
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
@@ -1026,7 +1027,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , basePath = []
             , data =
-                \(Route pageRoute) ->
+                \isAvailable (Route pageRoute) ->
                     let
                         thing : Maybe (DataSource a)
                         thing =
@@ -1040,7 +1041,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            request |> DataSource.map (\_ -> ())
+                            request |> DataSource.map (\_ -> PageServerResponse.RenderPage ())
 
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
@@ -1183,7 +1184,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , basePath = []
             , data =
-                \(Route pageRoute) ->
+                \isAvailable (Route pageRoute) ->
                     let
                         thing : Maybe (DataSource a)
                         thing =
@@ -1197,7 +1198,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            request |> DataSource.map (\_ -> ())
+                            request |> DataSource.map (\_ -> PageServerResponse.RenderPage ())
 
                         Nothing ->
                             DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
