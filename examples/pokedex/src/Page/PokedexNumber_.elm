@@ -8,10 +8,11 @@ import Html exposing (..)
 import Html.Attributes exposing (src)
 import OptimizedDecoder as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
+import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
 import Secrets
+import ServerResponse
 import Shared
 import View exposing (View)
 
@@ -34,15 +35,6 @@ page =
         { head = head
         , pages = pages
         , data = data
-        , handleFallback =
-            \{ pokedexNumber } ->
-                let
-                    asNumber : Int
-                    asNumber =
-                        String.toInt pokedexNumber |> Maybe.withDefault -1
-                in
-                DataSource.succeed
-                    (asNumber > 0 && asNumber <= 150)
         }
         |> Page.buildNoState { view = view }
 
@@ -52,18 +44,39 @@ pages =
     DataSource.succeed []
 
 
-data : RouteParams -> DataSource Data
-data routeParams =
-    DataSource.map2 Data
-        (DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
-            Decode.string
-        )
-        (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ routeParams.pokedexNumber))
-            (Decode.map2 Pokemon
-                (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
-                (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
+data : RouteParams -> DataSource (PageServerResponse Data)
+data { pokedexNumber } =
+    let
+        asNumber : Int
+        asNumber =
+            String.toInt pokedexNumber |> Maybe.withDefault -1
+    in
+    if asNumber < 1 then
+        notFoundResponse "Pokedex numbers must be 1 or greater."
+
+    else if asNumber > 898 && asNumber < 10001 || asNumber > 10194 then
+        notFoundResponse "The pokedex is empty in that range."
+
+    else
+        DataSource.map2 Data
+            (DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
+                Decode.string
             )
-        )
+            (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber))
+                (Decode.map2 Pokemon
+                    (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
+                    (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
+                )
+            )
+            |> DataSource.map PageServerResponse.RenderPage
+
+
+notFoundResponse : String -> DataSource (PageServerResponse Data)
+notFoundResponse message =
+    ServerResponse.stringBody ("Not found.\n\n" ++ message)
+        |> ServerResponse.withStatusCode 404
+        |> PageServerResponse.ServerResponse
+        |> DataSource.succeed
 
 
 type alias Pokemon =

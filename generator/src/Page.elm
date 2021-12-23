@@ -309,51 +309,20 @@ prerender { data, head, pages } =
 
 {-| -}
 prerenderWithFallback :
-    { data : routeParams -> DataSource data
+    { data : routeParams -> DataSource (PageServerResponse data)
     , pages : DataSource (List routeParams)
-    , handleFallback : routeParams -> DataSource Bool
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-prerenderWithFallback { data, head, pages, handleFallback } =
+prerenderWithFallback { data, head, pages } =
     WithData
-        { data = \_ -> data >> DataSource.map PageServerResponse.RenderPage
+        { data = \_ -> data
         , staticRoutes = pages
         , head = head
         , serverless = False
         , handleRoute =
             \moduleContext toRecord routeParams ->
-                handleFallback routeParams
-                    |> DataSource.andThen
-                        (\handleFallbackResult ->
-                            if handleFallbackResult then
-                                DataSource.succeed Nothing
-
-                            else
-                                -- we want to lazily evaluate this in our on-demand builders
-                                -- so we try handle fallback first and short-circuit in those cases
-                                -- TODO - we could make an optimization to handle this differently
-                                -- between on-demand builders and the dev server
-                                -- we only need to match the pre-rendered routes in the dev server,
-                                -- not in on-demand builders
-                                pages
-                                    |> DataSource.map
-                                        (\allRoutes ->
-                                            if allRoutes |> List.member routeParams then
-                                                Nothing
-
-                                            else
-                                                Just <|
-                                                    Pages.Internal.NotFoundReason.NotPrerenderedOrHandledByFallback
-                                                        { moduleName = moduleContext.moduleName
-                                                        , routePattern = moduleContext.routePattern
-                                                        , matchedRouteParams = toRecord routeParams
-                                                        }
-                                                        (allRoutes
-                                                            |> List.map toRecord
-                                                        )
-                                        )
-                        )
+                DataSource.succeed Nothing
         , kind = "prerender-with-fallback"
         }
 
