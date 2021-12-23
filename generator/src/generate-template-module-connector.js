@@ -677,7 +677,7 @@ mapBoth : (a -> b) -> (c -> d) -> ( a, c, e ) -> ( b, d, e )
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
 `,
-    routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
+    routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
 
 {-|
 
