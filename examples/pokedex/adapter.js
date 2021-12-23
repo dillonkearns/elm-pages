@@ -119,6 +119,7 @@ exports.handler = render;`
  * @param {any} context
  */
 async function render(event, context) {
+  const requestTime = new Date();
   console.log(JSON.stringify(event));
   global.staticHttpCache = {};
 
@@ -134,7 +135,7 @@ async function render(event, context) {
       require(compiledElmPath),
       mode,
       event.path,
-      reqToJson(event),
+      reqToJson(event, renderTime),
       addWatcher
     );
     console.log('@@@renderResult', renderResult);
@@ -185,9 +186,10 @@ async function render(event, context) {
 
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} req
+ * @param {Date} requestTime
  * @returns {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }}
  */
-function reqToJson(req) {
+function reqToJson(req, requestTime) {
   const queryString = req.multiValueQueryStringParameters ? Object.entries(req.multiValueQueryStringParameters).reduce(
     (acc, [key, values]) => {
       return acc + values.map(value => \`\${encodeURIComponent(key)}=\${encodeURIComponent(value)}\`).join('&')
@@ -206,6 +208,7 @@ function reqToJson(req) {
     protocol: "https", // TODO
     rawUrl: "", // TODO
     body: req.body,
+    requestTime: Math.round(requestTime.getTime()),
   };
 }
 `;

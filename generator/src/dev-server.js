@@ -346,19 +346,20 @@ async function start(options) {
       return;
     }
 
-    let body = "";
+    const requestTime = new Date();
+    /** @type {string | null} */
+    let body = null;
 
     req.on("data", function (data) {
+      if (!body) {
+        body = "";
+      }
       body += data;
-
-      // Too much POST data, kill the connection!
-      // 1e6 === 1 * Math.pow(10, 6) === 1 * 1000000 ~~~ 1MB
-      if (body.length > 1e6) req.connection.destroy();
     });
 
     req.on("end", async function () {
       await runRenderThread(
-        reqToJson(req, body),
+        reqToJson(req, body, requestTime),
         pathname,
         function (renderResult) {
           const is404 = renderResult.is404;
@@ -594,7 +595,12 @@ async function ensureRequiredExecutables() {
   }
 }
 
-function reqToJson(req, body) {
+/**
+ * @param {http.IncomingMessage} req
+ * @param {string | null} body
+ * @param {Date} requestTime
+ */
+function reqToJson(req, body, requestTime) {
   const url = new URL(req.url, "http://localhost:1234");
   return {
     method: req.method,
@@ -607,6 +613,7 @@ function reqToJson(req, body) {
     protocol: url.protocol,
     rawUrl: req.url,
     body: body,
+    requestTime: Math.round(requestTime.getTime()),
   };
 }
 

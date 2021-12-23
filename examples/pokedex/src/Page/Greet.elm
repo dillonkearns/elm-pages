@@ -14,6 +14,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import ServerResponse
 import Shared
+import Time
 import View exposing (View)
 
 
@@ -41,17 +42,16 @@ page =
 data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
 data serverRequestKey routeParams =
     let
-        serverReq : ServerRequest (Maybe String)
+        serverReq : ServerRequest ( Maybe String, Time.Posix )
         serverReq =
-            ServerRequest.init identity
+            ServerRequest.init Tuple.pair
                 |> ServerRequest.optionalHeader "cookie"
+                |> ServerRequest.withRequestTime
     in
     serverReq
         |> ServerRequest.toDataSource serverRequestKey
         |> DataSource.andThen
-            (\cookies ->
-                --DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/"))
-                --DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.stringBody (foo |> Maybe.withDefault "NOT FOUND")))
+            (\( cookies, requestTime ) ->
                 case
                     cookies
                         |> Maybe.withDefault ""
@@ -60,21 +60,12 @@ data serverRequestKey routeParams =
                 of
                     Just username ->
                         DataSource.succeed
-                            (PageServerResponse.RenderPage { username = username })
+                            (PageServerResponse.RenderPage { username = username, requestTime = requestTime })
 
-                    --(PageServerResponse.ServerResponse
-                    --    (ServerResponse.stringBody
-                    --        "Alright, here's the secret! This is all running with elm-pages serverless :D"
-                    --    )
-                    --)
                     Nothing ->
                         DataSource.succeed
                             (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/login"))
             )
-
-
-
---DataSource.succeed (PageServerResponse.RenderPage {})
 
 
 head :
@@ -98,7 +89,9 @@ head static =
 
 
 type alias Data =
-    { username : String }
+    { username : String
+    , requestTime : Time.Posix
+    }
 
 
 view :
@@ -110,6 +103,7 @@ view maybeUrl sharedModel static =
     { title = "Hello!"
     , body =
         [ Html.text <| "Hello " ++ static.data.username ++ "!"
+        , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
         , Html.div []
             [ Html.form
                 [ Attr.method "post"

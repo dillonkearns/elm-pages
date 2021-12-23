@@ -1,13 +1,22 @@
 module DataSource.ServerRequest exposing
-    ( IsAvailable
-    , ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource, withFormData, withCookies, withBody, withHost, withAllHeaders, withMethod, withProtocol, Method(..), withQueryParams
+    ( ServerRequest, IsAvailable
+    , Method(..)
+    , init
+    , expectHeader, optionalHeader, withFormData, withCookies, withBody, withHost, withAllHeaders, withMethod, withProtocol, withQueryParams, withRequestTime
+    , toDataSource
     )
 
 {-|
 
-@docs IsAvailable
+@docs ServerRequest, IsAvailable
 
-@docs ServerRequest, expectHeader, init, optionalHeader, staticData, toDataSource, withFormData, withCookies, withBody, withHost, withAllHeaders, withMethod, withProtocol, Method, withQueryParams
+@docs Method
+
+@docs init
+
+@docs expectHeader, optionalHeader, withFormData, withCookies, withBody, withHost, withAllHeaders, withMethod, withProtocol, withQueryParams, withRequestTime
+
+@docs toDataSource
 
 -}
 
@@ -20,6 +29,7 @@ import Internal.ServerRequest
 import OptimizedDecoder
 import QueryParams exposing (QueryParams)
 import Secrets
+import Time
 import Url
 
 
@@ -32,15 +42,6 @@ type ServerRequest decodesTo
 init : constructor -> ServerRequest constructor
 init constructor =
     ServerRequest (OptimizedDecoder.succeed constructor)
-
-
-{-| -}
-staticData : DataSource.DataSource String
-staticData =
-    DataSource.Http.get (Secrets.succeed "$$elm-pages$$headers")
-        (OptimizedDecoder.field "headers"
-            (OptimizedDecoder.field "accept-language" OptimizedDecoder.string)
-        )
 
 
 {-| In order to access the ServerRequest data, you first need to turn it into a DataSource.
@@ -66,6 +67,17 @@ expectHeader headerName (ServerRequest decoder) =
         |> OptimizedDecoder.andMap
             (OptimizedDecoder.field (headerName |> String.toLower) OptimizedDecoder.string
                 |> OptimizedDecoder.field "headers"
+            )
+        |> ServerRequest
+
+
+{-| -}
+withRequestTime : ServerRequest (Time.Posix -> value) -> ServerRequest value
+withRequestTime (ServerRequest decoder) =
+    decoder
+        |> OptimizedDecoder.andMap
+            (OptimizedDecoder.field "requestTime"
+                (OptimizedDecoder.int |> OptimizedDecoder.map Time.millisToPosix)
             )
         |> ServerRequest
 
@@ -165,9 +177,13 @@ withCookies (ServerRequest decoder) =
 withBody : ServerRequest (Maybe String -> value) -> ServerRequest value
 withBody (ServerRequest decoder) =
     decoder
-        |> OptimizedDecoder.andMap
-            (OptimizedDecoder.optionalField "body" OptimizedDecoder.string)
+        |> OptimizedDecoder.andMap bodyDecoder
         |> ServerRequest
+
+
+bodyDecoder : OptimizedDecoder.Decoder (Maybe String)
+bodyDecoder =
+    OptimizedDecoder.field "body" (OptimizedDecoder.nullable OptimizedDecoder.string)
 
 
 {-| -}
@@ -197,7 +213,7 @@ withFormData (ServerRequest decoder) =
                     OptimizedDecoder.string
                     |> OptimizedDecoder.field "headers"
                 )
-                (OptimizedDecoder.optionalField "body" OptimizedDecoder.string)
+                bodyDecoder
             )
         |> ServerRequest
 
