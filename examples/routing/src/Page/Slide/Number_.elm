@@ -36,7 +36,7 @@ type alias RouteParams =
 
 page : Page.PageWithState RouteParams Data Model Msg
 page =
-    Page.prerender
+    Page.preRender
         { head = head
         , pages =
             slideCount

@@ -1,7 +1,7 @@
 module ApiRoute exposing
     ( ApiRoute, ApiRouteBuilder, Response
     , capture, int, literal, single, slash, succeed
-    , buildTimeRoutes, getBuildTimeRoutes, prerenderWithFallback, serverless
+    , buildTimeRoutes, getBuildTimeRoutes, preRenderWithFallback, serverRender
     , toJson
     )
 
@@ -16,7 +16,7 @@ DataSources dynamically.
 
 @docs capture, int, literal, single, slash, succeed
 
-@docs buildTimeRoutes, getBuildTimeRoutes, prerenderWithFallback, serverless
+@docs buildTimeRoutes, getBuildTimeRoutes, preRenderWithFallback, serverRender
 
 
 ## Internals
@@ -73,8 +73,8 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverless : ApiRouteBuilder (ServerRequest.IsAvailable -> DataSource ServerResponse) constructor -> ApiRoute Response
-serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+serverRender : ApiRouteBuilder (ServerRequest.IsAvailable -> DataSource ServerResponse) constructor -> ApiRoute Response
+serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
@@ -101,8 +101,8 @@ serverless ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHan
 
 
 {-| -}
-prerenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
-prerenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
+preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)
         buildTimeRoutes__ =

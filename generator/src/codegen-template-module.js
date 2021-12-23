@@ -41,7 +41,7 @@ function fileContentWithParams(
   pageModuleName,
   withParams,
   withState,
-  serverless
+  serverRender
 ) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
@@ -82,12 +82,12 @@ page : ${
 page =
     ${
       serverless
-        ? `Page.serverless
+        ? `Page.serverRender
         { head = head
         , data = data
         }`
         : withParams
-        ? `Page.prerender
+        ? `Page.preRender
         { head = head
         , pages = pages
         , data = data

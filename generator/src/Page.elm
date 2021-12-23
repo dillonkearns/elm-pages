@@ -2,10 +2,10 @@ module Page exposing
     ( Page, buildNoState
     , StaticPayload
     , buildWithLocalState, buildWithSharedState
-    , prerender, single
+    , preRender, single
     , Builder(..)
     , PageWithState
-    , prerenderWithFallback, serverless
+    , preRenderWithFallback, serverRender
     )
 
 {-|
@@ -48,14 +48,14 @@ We have the following data during pre-render:
 
 A `single` page is just a Route that has no Dynamic Route Segments. For example, `Page.About` will have `type alias RouteParams = {}`, whereas `Page.Blog.Slug_` has a Dynamic Segment slug, and `type alias RouteParams = { slug : String }`.
 
-When you run `elm-pages add About`, it will use `Page.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `Page.prerender` because it has a Dynamic Route Segment.
+When you run `elm-pages add About`, it will use `Page.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `Page.preRender` because it has a Dynamic Route Segment.
 
-So `Page.single` is just a simplified version of `Page.prerender`. If there are no Dynamic Route Segments, then you don't need to define which pages to render so `Page.single` doesn't need a `pages` field.
+So `Page.single` is just a simplified version of `Page.preRender`. If there are no Dynamic Route Segments, then you don't need to define which pages to render so `Page.single` doesn't need a `pages` field.
 
 When there are Dynamic Route Segments, you need to tell `elm-pages` which pages to render. For example:
 
     page =
-        Page.prerender
+        Page.preRender
             { data = data
             , pages = pages
             , head = head
@@ -67,7 +67,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
             , { slug = "blog-post2" }
             ]
 
-@docs prerender, single
+@docs preRender, single
 
 
 ## Internals
@@ -271,13 +271,13 @@ single { data, head } =
 
 
 {-| -}
-prerender :
+preRender :
     { data : routeParams -> DataSource data
     , pages : DataSource (List routeParams)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-prerender { data, head, pages } =
+preRender { data, head, pages } =
     WithData
         { data = \_ -> data >> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = pages
@@ -308,13 +308,13 @@ prerender { data, head, pages } =
 
 
 {-| -}
-prerenderWithFallback :
+preRenderWithFallback :
     { data : routeParams -> DataSource (PageServerResponse data)
     , pages : DataSource (List routeParams)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-prerenderWithFallback { data, head, pages } =
+preRenderWithFallback { data, head, pages } =
     WithData
         { data = \_ -> data
         , staticRoutes = pages
@@ -328,12 +328,12 @@ prerenderWithFallback { data, head, pages } =
 
 
 {-| -}
-serverless :
+serverRender :
     { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
-serverless { data, head } =
+serverRender { data, head } =
     WithData
         { data = data
         , staticRoutes = DataSource.succeed []

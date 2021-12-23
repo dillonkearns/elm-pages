@@ -23,7 +23,7 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.prerender
+    Page.preRender
         { head = head
         , pages = DataSource.succeed []
         , data = data

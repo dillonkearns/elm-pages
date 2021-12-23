@@ -24,7 +24,7 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.prerender
+    Page.preRender
         { head = head
         , pages = pages
         , data = data

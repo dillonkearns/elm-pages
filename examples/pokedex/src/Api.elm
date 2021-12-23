@@ -39,7 +39,7 @@ serverRequestInfo =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "request"
-        |> ApiRoute.serverless
+        |> ApiRoute.serverRender
 
 
 redirectRoute : ApiRoute ApiRoute.Response
@@ -52,7 +52,7 @@ redirectRoute =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "redirect"
-        |> ApiRoute.serverless
+        |> ApiRoute.serverRender
 
 
 serverRequestDataSource isAvailable =
@@ -92,7 +92,7 @@ noArgs =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "stars"
-        |> ApiRoute.serverless
+        |> ApiRoute.serverRender
 
 
 nonHybridRoute =
@@ -133,7 +133,7 @@ logout =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "logout"
-        |> ApiRoute.serverless
+        |> ApiRoute.serverRender
 
 
 repoStars : ApiRoute ApiRoute.Response
@@ -158,7 +158,7 @@ repoStars =
         |> ApiRoute.slash
         |> ApiRoute.capture
         --|> ApiRoute.literal ".json"
-        |> ApiRoute.serverless
+        |> ApiRoute.serverRender
 
 
 repoStars2 : ApiRoute ApiRoute.Response
@@ -182,7 +182,7 @@ repoStars2 =
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
         |> ApiRoute.capture
-        |> ApiRoute.prerenderWithFallback
+        |> ApiRoute.preRenderWithFallback
             (\route ->
                 DataSource.succeed
                     [ route "elm-graphql"

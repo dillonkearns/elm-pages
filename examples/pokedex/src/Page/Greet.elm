@@ -31,7 +31,7 @@ type alias RouteParams =
 
 page : Page RouteParams Data
 page =
-    Page.serverless
+    Page.serverRender
         { head = head
         , data = data
         }
