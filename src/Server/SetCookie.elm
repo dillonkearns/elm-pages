@@ -1,9 +1,11 @@
 module Server.SetCookie exposing
     ( withImmediateExpiration
-    , SetCookie, httpOnly, setCookie, toString, withExpiration, withMaxAge, withPath
+    , SetCookie, httpOnly, nonSecure, setCookie, toString, withDomain, withExpiration, withMaxAge, withPath
     )
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie>
+
+<https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies>
 
 @docs withImmediateExpiration
 
@@ -22,6 +24,8 @@ type alias SetCookie =
     , httpOnly : Bool
     , maxAge : Maybe Int
     , path : Maybe String
+    , domain : Maybe String
+    , secure : Bool
     }
 
 
@@ -52,7 +56,9 @@ toString builder =
         ++ option "Expires" (builder.expiration |> Maybe.map Utc.fromTime)
         ++ option "Max-Age" (builder.maxAge |> Maybe.map String.fromInt)
         ++ option "Path" builder.path
+        ++ option "Domain" builder.domain
         ++ boolOption "HttpOnly" builder.httpOnly
+        ++ boolOption "Secure" builder.secure
 
 
 {-| -}
@@ -64,6 +70,8 @@ setCookie name value =
     , httpOnly = False
     , maxAge = Nothing
     , path = Nothing
+    , domain = Nothing
+    , secure = True
     }
 
 
@@ -102,4 +110,21 @@ withPath : String -> SetCookie -> SetCookie
 withPath path builder =
     { builder
         | path = Just path
+    }
+
+
+withDomain : String -> SetCookie -> SetCookie
+withDomain domain builder =
+    { builder
+        | domain = Just domain
+    }
+
+
+{-| Secure (only sent over https, or localhost on http) is the default. This overrides that and
+removes the `Secure` attribute from the cookie.
+-}
+nonSecure : SetCookie -> SetCookie
+nonSecure builder =
+    { builder
+        | secure = False
     }
