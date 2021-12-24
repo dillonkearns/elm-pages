@@ -1,6 +1,6 @@
 module Server.SetCookie exposing
     ( withImmediateExpiration
-    , SetCookie, httpOnly, nonSecure, setCookie, toString, withDomain, withExpiration, withMaxAge, withPath
+    , SameSite(..), SetCookie, httpOnly, nonSecure, setCookie, toString, withDomain, withExpiration, withMaxAge, withPath, withSameSite
     )
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie>
@@ -26,7 +26,14 @@ type alias SetCookie =
     , path : Maybe String
     , domain : Maybe String
     , secure : Bool
+    , sameSite : Maybe SameSite
     }
+
+
+type SameSite
+    = Strict
+    | Lax
+    | None
 
 
 {-| -}
@@ -57,8 +64,22 @@ toString builder =
         ++ option "Max-Age" (builder.maxAge |> Maybe.map String.fromInt)
         ++ option "Path" builder.path
         ++ option "Domain" builder.domain
+        ++ option "SameSite" (builder.sameSite |> Maybe.map sameSiteToString)
         ++ boolOption "HttpOnly" builder.httpOnly
         ++ boolOption "Secure" builder.secure
+
+
+sameSiteToString : SameSite -> String
+sameSiteToString sameSite =
+    case sameSite of
+        Strict ->
+            "Strict"
+
+        Lax ->
+            "Lax"
+
+        None ->
+            "None"
 
 
 {-| -}
@@ -72,6 +93,7 @@ setCookie name value =
     , path = Nothing
     , domain = Nothing
     , secure = True
+    , sameSite = Nothing
     }
 
 
@@ -127,4 +149,13 @@ nonSecure : SetCookie -> SetCookie
 nonSecure builder =
     { builder
         | secure = False
+    }
+
+
+{-| The default SameSite policy is Lax if one is not explicitly set. See the SameSite section in <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes>.
+-}
+withSameSite : SameSite -> SetCookie -> SetCookie
+withSameSite sameSite builder =
+    { builder
+        | sameSite = Just sameSite
     }

@@ -1,7 +1,7 @@
 module SetCookieTest exposing (all)
 
 import Expect
-import Server.SetCookie exposing (..)
+import Server.SetCookie as SetCookie exposing (..)
 import Test exposing (Test, describe, test)
 import Time
 
@@ -69,20 +69,11 @@ all =
                 setCookie "id" "a3fWa"
                     |> toString
                     |> Expect.equal "id=a3fWa; Secure"
+        , test "SameSite" <|
+            \() ->
+                setCookie "id" "a3fWa"
+                    |> nonSecure
+                    |> withSameSite SetCookie.Strict
+                    |> toString
+                    |> Expect.equal "id=a3fWa; SameSite=Strict"
         ]
-
-
-
-{-
-
-   - [X] Format dates from Time.Posix
-   - [X] UrlEncode values
-
-   - [X] Secure
-   - [X] Path
-   - [X] Domain
-   - [X] Max-Age
-   - [ ] SameSite
-
-
--}
