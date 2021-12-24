@@ -20,6 +20,7 @@
         "DataSource.File",
         "DataSource.Port",
         "DataSource.ServerRequest",
+        "Server.SetCookie",
         "ServerResponse",
         "PageServerResponse",
         "Pages.Secrets",

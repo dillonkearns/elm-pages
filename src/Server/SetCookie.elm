@@ -1,13 +1,17 @@
 module Server.SetCookie exposing
-    ( withImmediateExpiration
-    , SameSite(..), SetCookie, httpOnly, nonSecure, setCookie, toString, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+    ( SetCookie, SameSite(..)
+    , withImmediateExpiration, httpOnly, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+    , toString
     )
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie>
 
 <https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies>
 
-@docs withImmediateExpiration
+@docs SetCookie, SameSite
+@docs withImmediateExpiration, httpOnly, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+
+@docs toString
 
 -}
 
@@ -30,6 +34,7 @@ type alias SetCookie =
     }
 
 
+{-| -}
 type SameSite
     = Strict
     | Lax
@@ -121,6 +126,7 @@ httpOnly builder =
     }
 
 
+{-| -}
 withMaxAge : Int -> SetCookie -> SetCookie
 withMaxAge maxAge builder =
     { builder
@@ -128,6 +134,7 @@ withMaxAge maxAge builder =
     }
 
 
+{-| -}
 withPath : String -> SetCookie -> SetCookie
 withPath path builder =
     { builder
@@ -135,6 +142,7 @@ withPath path builder =
     }
 
 
+{-| -}
 withDomain : String -> SetCookie -> SetCookie
 withDomain domain builder =
     { builder
