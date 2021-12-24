@@ -10,6 +10,7 @@ module Server.SetCookie exposing
 -}
 
 import Time
+import Url
 import Utc
 
 
@@ -47,7 +48,7 @@ toString builder =
     in
     builder.name
         ++ "="
-        ++ builder.value
+        ++ Url.percentEncode builder.value
         ++ option "Expires" (builder.expiration |> Maybe.map Utc.fromTime)
         ++ option "Max-Age" (builder.maxAge |> Maybe.map String.fromInt)
         ++ option "Path" builder.path

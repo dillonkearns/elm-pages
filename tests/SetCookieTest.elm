@@ -45,6 +45,11 @@ all =
                     |> withMaxAge 123
                     |> toString
                     |> Expect.equal "id=a3fWa; Max-Age=123"
+        , test "encodes values" <|
+            \() ->
+                setCookie "id" "This needs encoding & it uses url encoding"
+                    |> toString
+                    |> Expect.equal "id=This%20needs%20encoding%20%26%20it%20uses%20url%20encoding"
         ]
 
 
@@ -52,9 +57,9 @@ all =
 {-
 
    - [X] Format dates from Time.Posix
-   - [ ] UrlEncode values
+   - [X] UrlEncode values
 
-   - [ ] Path
+   - [X] Path
    - [ ] Domain
    - [ ] Max-Age
    - [ ] SameSite
