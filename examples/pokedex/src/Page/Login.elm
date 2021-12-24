@@ -11,6 +11,7 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Server.SetCookie as SetCookie
 import ServerResponse
 import Shared
 import View exposing (View)
@@ -64,7 +65,12 @@ data serverRequestKey routeParams =
                         PageServerResponse.ServerResponse
                             ("/greet"
                                 |> ServerResponse.temporaryRedirect
-                                |> ServerResponse.withHeader "Set-Cookie" ("username=" ++ username ++ "; path=/")
+                                |> ServerResponse.withHeader "Set-Cookie"
+                                    (SetCookie.setCookie "username" username
+                                        |> SetCookie.httpOnly
+                                        |> SetCookie.withPath "/"
+                                        |> SetCookie.toString
+                                    )
                             )
                             |> DataSource.succeed
 

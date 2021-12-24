@@ -10,6 +10,7 @@ import OptimizedDecoder as Decode
 import QueryParams
 import Route exposing (Route)
 import Secrets
+import Server.SetCookie as SetCookie
 import ServerResponse
 
 
@@ -127,7 +128,13 @@ logout =
         (\isAvailable ->
             DataSource.succeed
                 (ServerResponse.stringBody "You are logged out"
-                    |> ServerResponse.withHeader "Set-Cookie" "username=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+                    |> ServerResponse.withHeader "Set-Cookie"
+                        (SetCookie.setCookie "username" ""
+                            |> SetCookie.httpOnly
+                            |> SetCookie.withPath "/"
+                            |> SetCookie.withImmediateExpiration
+                            |> SetCookie.toString
+                        )
                 )
         )
         |> ApiRoute.literal "api"
