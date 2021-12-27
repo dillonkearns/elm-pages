@@ -1,7 +1,6 @@
 module Page.Login exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Dict exposing (Dict)
 import Head
 import Head.Seo as Seo
@@ -11,6 +10,7 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Server.Request as Request
 import Server.SetCookie as SetCookie
 import ServerResponse
 import Shared
@@ -44,48 +44,33 @@ type alias Request =
     }
 
 
-data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
-data serverRequestKey routeParams =
-    ServerRequest.init Request
-        |> ServerRequest.withCookies
-        |> ServerRequest.withFormData
-        |> ServerRequest.toDataSource serverRequestKey
-        |> DataSource.andThen
-            (\{ cookies, maybeFormData } ->
-                case maybeFormData of
-                    Just formData ->
-                        let
-                            username : String
-                            username =
-                                formData
-                                    |> Dict.get "name"
-                                    |> Maybe.map Tuple.first
-                                    |> Maybe.withDefault ""
-                        in
-                        PageServerResponse.ServerResponse
-                            ("/greet"
-                                |> ServerResponse.temporaryRedirect
-                                |> ServerResponse.withHeader "Set-Cookie"
-                                    (SetCookie.setCookie "username" username
-                                        |> SetCookie.httpOnly
-                                        |> SetCookie.withPath "/"
-                                        |> SetCookie.toString
-                                    )
-                            )
-                            |> DataSource.succeed
-
-                    Nothing ->
-                        let
-                            username : Maybe String
-                            username =
-                                cookies
-                                    |> Dict.get "username"
-                        in
-                        username
-                            |> Data
-                            |> PageServerResponse.RenderPage
-                            |> DataSource.succeed
-            )
+data : RouteParams -> Request.Handler Data
+data routeParams =
+    Request.oneOfHandler
+        [ Request.expectFormField "name"
+            |> Request.thenRespond
+                (\name ->
+                    PageServerResponse.ServerResponse
+                        ("/greet"
+                            |> ServerResponse.temporaryRedirect
+                            |> ServerResponse.withHeader "Set-Cookie"
+                                (SetCookie.setCookie "username" name
+                                    |> SetCookie.httpOnly
+                                    |> SetCookie.withPath "/"
+                                    |> SetCookie.toString
+                                )
+                        )
+                        |> DataSource.succeed
+                )
+        , Request.cookie "username"
+            |> Request.thenRespond
+                (\name ->
+                    name
+                        |> Data
+                        |> PageServerResponse.RenderPage
+                        |> DataSource.succeed
+                )
+        ]
 
 
 head :

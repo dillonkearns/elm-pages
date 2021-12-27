@@ -93,6 +93,7 @@ import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Secrets as Secrets
 import Path exposing (Path)
+import Server.Request
 import Shared
 import View exposing (View)
 
@@ -334,13 +335,29 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
+    { data : routeParams -> Server.Request.Handler data
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
 serverRender { data, head } =
     WithData
-        { data = data
+        { data =
+            \_ routeParams ->
+                DataSource.Http.get
+                    (Secrets.succeed "$$elm-pages$$headers")
+                    (routeParams
+                        |> data
+                        |> Server.Request.getDecoder
+                    )
+                    |> DataSource.andThen
+                        (\rendered ->
+                            case rendered of
+                                Ok okRendered ->
+                                    okRendered
+
+                                Err error ->
+                                    Server.Request.errorToString error |> DataSource.fail
+                        )
         , staticRoutes = DataSource.succeed []
         , head = head
         , serverless = True

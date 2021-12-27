@@ -19,7 +19,7 @@
         "DataSource.Http",
         "DataSource.File",
         "DataSource.Port",
-        "DataSource.ServerRequest",
+        "Server.Request",
         "Server.SetCookie",
         "ServerResponse",
         "PageServerResponse",

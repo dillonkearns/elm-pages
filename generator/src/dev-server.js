@@ -20,6 +20,7 @@ const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
 const baseMiddleware = require("./basepath-middleware.js");
 const devcert = require("devcert");
+const cookie = require("cookie");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -605,7 +606,7 @@ function reqToJson(req, body, requestTime) {
   return {
     method: req.method,
     hostname: req.hostname,
-    query: url.search ? url.search.substring(1) : "",
+    query: paramsToObject(url.searchParams),
     headers: req.headers,
     host: url.host,
     pathname: url.pathname,
@@ -614,7 +615,19 @@ function reqToJson(req, body, requestTime) {
     rawUrl: req.url,
     body: body,
     requestTime: Math.round(requestTime.getTime()),
+    cookies: cookie.parse(req.headers.cookie || ""),
+    // TODO skip parsing if content-type is not x-www-form-urlencoded
+    formData: paramsToObject(new URLSearchParams(body || "")),
   };
 }
-
+// TODO capture repeat entries into a list of values
+// TODO have expect functions in Elm to handle expecting exactly one value, or getting first value only without failing if more
+function paramsToObject(entries) {
+  const result = {};
+  for (const [key, value] of entries) {
+    // each 'entry' is a [key, value] tupple
+    result[key] = value;
+  }
+  return result;
+}
 module.exports = { start };

@@ -11,6 +11,7 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import QueryParams exposing (QueryParams)
+import Server.Request as Request
 import ServerResponse
 import Shared
 import Url
@@ -35,10 +36,6 @@ page =
         { head = head
         , data = data
         }
-        --{ data : (ServerRequest decodedRequest -> DataSource decodedRequest) -> routeParams -> DataSource data
-        --, routeFound : routeParams -> DataSource Bool
-        --, head : StaticPayload data routeParams -> List Head.Tag
-        --}
         |> Page.buildNoState { view = view }
 
 
@@ -51,50 +48,60 @@ type alias Request =
     }
 
 
-data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
-data serverRequestKey routeParams =
-    let
-        serverReq : ServerRequest Request
-        serverReq =
-            ServerRequest.init
-                (\language method queryParams protocol allHeaders ->
-                    { language = language
-                    , method = method
-                    , queryParams = queryParams |> QueryParams.toDict
-                    , protocol = protocol
-                    , allHeaders = allHeaders
-                    }
-                )
-                |> ServerRequest.optionalHeader "accept-language"
-                |> ServerRequest.withMethod
-                |> ServerRequest.withQueryParams
-                |> ServerRequest.withProtocol
-                |> ServerRequest.withAllHeaders
-    in
-    serverReq
-        |> ServerRequest.toDataSource serverRequestKey
-        |> DataSource.andThen
-            (\req ->
-                case req.queryParams |> Dict.get "redirect" of
-                    Just [ redirectTo ] ->
-                        DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect redirectTo))
 
-                    Just redirectParams ->
-                        DataSource.succeed
-                            (PageServerResponse.ServerResponse
-                                (ServerResponse.stringBody
-                                    ("I got the wrong number of redirect query parameters (expected 1):\n"
-                                        ++ (redirectParams |> String.join "\n")
-                                    )
-                                    |> ServerResponse.withStatusCode 400
-                                )
-                            )
+--data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
+--data serverRequestKey routeParams =
+--    let
+--        serverReq : ServerRequest Request
+--        serverReq =
+--            ServerRequest.init
+--                (\language method queryParams protocol allHeaders ->
+--                    { language = language
+--                    , method = method
+--                    , queryParams = queryParams |> QueryParams.toDict
+--                    , protocol = protocol
+--                    , allHeaders = allHeaders
+--                    }
+--                )
+--                |> ServerRequest.optionalHeader "accept-language"
+--                |> ServerRequest.withMethod
+--                |> ServerRequest.withQueryParams
+--                |> ServerRequest.withProtocol
+--                |> ServerRequest.withAllHeaders
+--    in
+--    serverReq
+--        |> ServerRequest.toDataSource serverRequestKey
+--        |> DataSource.andThen
+--            (\req ->
+--                case req.queryParams |> Dict.get "redirect" of
+--                    Just [ redirectTo ] ->
+--                        DataSource.succeed (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect redirectTo))
+--
+--                    Just redirectParams ->
+--                        DataSource.succeed
+--                            (PageServerResponse.ServerResponse
+--                                (ServerResponse.stringBody
+--                                    ("I got the wrong number of redirect query parameters (expected 1):\n"
+--                                        ++ (redirectParams |> String.join "\n")
+--                                    )
+--                                    |> ServerResponse.withStatusCode 400
+--                                )
+--                            )
+--
+--                    _ ->
+--                        req
+--                            |> DataSource.succeed
+--                            |> DataSource.map Data
+--                            |> DataSource.map PageServerResponse.RenderPage
 
-                    _ ->
-                        req
-                            |> DataSource.succeed
-                            |> DataSource.map Data
-                            |> DataSource.map PageServerResponse.RenderPage
+
+data : RouteParams -> Request.Handler Data
+data routeParams =
+    Request.succeed ()
+        |> Request.thenRespond
+            (\() ->
+                PageServerResponse.ServerResponse (ServerResponse.stringBody "Hello, this is a string")
+                    |> DataSource.succeed
             )
 
 

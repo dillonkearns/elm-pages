@@ -2,7 +2,6 @@ module Page.Greet exposing (Data, Model, Msg, page)
 
 import CookieParser
 import DataSource exposing (DataSource)
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Dict
 import Head
 import Head.Seo as Seo
@@ -12,6 +11,7 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Server.Request as Request
 import ServerResponse
 import Shared
 import Time
@@ -39,33 +39,34 @@ page =
         |> Page.buildNoState { view = view }
 
 
-data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
-data serverRequestKey routeParams =
-    let
-        serverReq : ServerRequest ( Maybe String, Time.Posix )
-        serverReq =
-            ServerRequest.init Tuple.pair
-                |> ServerRequest.optionalHeader "cookie"
-                |> ServerRequest.withRequestTime
-    in
-    serverReq
-        |> ServerRequest.toDataSource serverRequestKey
-        |> DataSource.andThen
-            (\( cookies, requestTime ) ->
-                case
-                    cookies
-                        |> Maybe.withDefault ""
-                        |> CookieParser.parse
-                        |> Dict.get "username"
-                of
-                    Just username ->
-                        DataSource.succeed
-                            (PageServerResponse.RenderPage { username = username, requestTime = requestTime })
-
-                    Nothing ->
-                        DataSource.succeed
-                            (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/login"))
-            )
+data : RouteParams -> Request.Handler Data
+data routeParams =
+    Request.oneOfHandler
+        [ Request.map2 Data
+            (Request.expectQueryParam "name")
+            Request.requestTime
+            |> Request.thenRespond
+                (\requestData ->
+                    requestData
+                        |> PageServerResponse.RenderPage
+                        |> DataSource.succeed
+                )
+        , Request.map2 Data
+            (Request.expectCookie "username")
+            Request.requestTime
+            |> Request.thenRespond
+                (\requestData ->
+                    requestData
+                        |> PageServerResponse.RenderPage
+                        |> DataSource.succeed
+                )
+        , Request.succeed ()
+            |> Request.thenRespond
+                (\() ->
+                    DataSource.succeed
+                        (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/login"))
+                )
+        ]
 
 
 head :
