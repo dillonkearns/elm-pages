@@ -5,75 +5,57 @@ body {
   font-family: "Inter var" !important;
 }
 
-pre.elmsh {
-  padding: 10px;
+html,
+body {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 18px;
   margin: 0;
-  text-align: left;
-  overflow: auto;
-  height: 100%;
-  width: 500px;
-  font-size: 14px;
-  font-family: "IBM Plex Mono" !important;
-}
-code.elmsh {
   padding: 0;
 }
-.elmsh-line:before {
-  content: attr(data-elmsh-lc);
-  display: inline-block;
-  text-align: right;
-  width: 40px;
-  padding: 0 20px 0 0;
-  opacity: 0.3;
+
+body {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
 }
-.elmsh {
-  color: #f8f8f2;
-  background: #1e1e1e;
+
+main {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0.8em;
+  padding: 0.8em;
 }
-.elmsh-hl {
-  background: #4864aa;
+
+.content {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0.5em;
+  max-width: 90vw;
+  padding: 2rem 3rem;
+  width: 475px;
+  color: var(--selected-color);
 }
-.elmsh-add {
-  background: #003800;
+
+.content h1 {
+  margin: 0;
 }
-.elmsh-del {
-  background: #380000;
+
+.content ul {
+  list-style: none;
+  padding: 0;
 }
-.elmsh-comm {
-  color: #d4d4d4;
+
+.content li {
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding: 1rem;
 }
-.elmsh1 {
-  color: #74b0df;
+
+.content li:nth-child(odd) {
+  background: rgb(100 10 80 / 0.1);
 }
-.elmsh2 {
-  color: #ce9178;
-}
-.elmsh3 {
-  color: #ff00ff;
-}
-.elmsh4 {
-  color: #4f76ac;
-}
-.elmsh5 {
-  color: #3dc9b0;
-}
-.elmsh6 {
-  color: #74b0df;
-}
-.elmsh7 {
-  color: #ce9178;
-}
-.elmsh-elm-ts,
-.elmsh-js-dk,
-.elmsh-css-p {
-  font-style: italic;
-  color: #4f76ac;
-}
-.elmsh-js-ce {
-  font-style: italic;
-  color: #5bb498;
-}
-.elmsh-css-ar-i {
-  font-weight: bold;
-  color: #ff0000;
+
+.timestamp {
+  font-size: 0.75rem;
 }
