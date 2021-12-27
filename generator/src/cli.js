@@ -85,12 +85,17 @@ async function main() {
       "Generate a Page.preRenderWithFallback Page Module"
     )
     .description("create a new Page module")
-    .action(async (moduleName, state, serverRender, withFallback) => {
+    .action(async (moduleName, a, options, c) => {
+      console.log({
+        withState: options.state,
+        serverRender: options.serverRender,
+        withFallback: options.withFallback,
+      });
       await generate.run({
         moduleName,
-        withState: state,
-        serverRender,
-        withFallback,
+        withState: options.state,
+        serverRender: options.serverRender,
+        withFallback: options.withFallback,
       });
     });
 

@@ -2,12 +2,17 @@ const fs = require("./dir-helpers.js");
 const path = require("path");
 const routeHelpers = require("./route-codegen-helpers");
 
-async function run({ moduleName, withState, serverRender }) {
+async function run({ moduleName, withState, serverRender, withFallback }) {
   if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
     console.error("Invalid module name.");
     process.exit(1);
   }
-  const content = fileContent(moduleName, withState, serverRender);
+  const content = fileContent(
+    moduleName,
+    withState,
+    serverRender,
+    withFallback
+  );
   const fullFilePath = path.join(
     `src/Page/`,
     moduleName.replace(/\./g, "/") + ".elm"
@@ -20,13 +25,15 @@ async function run({ moduleName, withState, serverRender }) {
  * @param {string} pageModuleName
  * @param {'local' | 'shared' | null} withState
  * @param {boolean} serverRender
+ * @param {boolean} withFallback
  */
-function fileContent(pageModuleName, withState, serverRender) {
+function fileContent(pageModuleName, withState, serverRender, withFallback) {
   return fileContentWithParams(
     pageModuleName,
     routeHelpers.routeParams(pageModuleName.split(".")).length > 0,
     withState,
-    serverRender
+    serverRender,
+    withFallback
   );
 }
 
@@ -35,12 +42,14 @@ function fileContent(pageModuleName, withState, serverRender) {
  * @param {boolean} withParams
  * @param {'local' | 'shared' | null} withState
  * @param {boolean} serverRender
+ * @param {boolean} withFallback
  */
 function fileContentWithParams(
   pageModuleName,
   withParams,
   withState,
-  serverRender
+  serverRender,
+  withFallback
 ) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
@@ -50,7 +59,11 @@ import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
-${serverRender ? "import PageServerResponse exposing (PageServerResponse)" : ""}
+${
+  serverRender || withFallback
+    ? "import PageServerResponse exposing (PageServerResponse)"
+    : ""
+}
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -83,6 +96,11 @@ page =
       serverRender
         ? `Page.serverRender
         { head = head
+        , data = data
+        }`
+        : withFallback
+        ? `Page.preRenderWithFallback { head = head
+        , pages = pages
         , data = data
         }`
         : withParams
@@ -149,7 +167,7 @@ subscriptions maybePageUrl routeParams path model =
 }
 
 ${
-  withParams
+  withParams || withFallback
     ? `pages : DataSource (List RouteParams)
 pages =
     DataSource.succeed []
@@ -161,6 +179,9 @@ pages =
 ${
   serverRender
     ? `data : RouteParams -> Request.Handler Data
+data routeParams =`
+    : withFallback
+    ? `data : RouteParams -> DataSource (PageServerResponse Data)
 data routeParams =`
     : withParams
     ? `data : RouteParams -> DataSource Data
@@ -175,6 +196,11 @@ data =`
             (\\() ->
                 DataSource.succeed (PageServerResponse.RenderPage {})
             )
+`
+        : withFallback
+        ? `    Data
+        |> DataSource.succeed
+        |> DataSource.map PageServerResponse.RenderPage
 `
         : `DataSource.succeed {}`
     }
