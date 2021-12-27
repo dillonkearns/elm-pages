@@ -79,10 +79,19 @@ async function main() {
         .choices(["local", "shared", "serverless"])
         .argOptional()
     )
-    .option("--serverless", "Generate a serverless Page Module")
+    .option("--server-render", "Generate a Page.serverRender Page Module")
+    .option(
+      "--with-fallback",
+      "Generate a Page.preRenderWithFallback Page Module"
+    )
     .description("create a new Page module")
-    .action(async (moduleName, state, serverless) => {
-      await generate.run({ moduleName, withState: state, serverless });
+    .action(async (moduleName, state, serverRender, withFallback) => {
+      await generate.run({
+        moduleName,
+        withState: state,
+        serverRender,
+        withFallback,
+      });
     });
 
   program

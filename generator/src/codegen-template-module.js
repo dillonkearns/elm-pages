@@ -2,13 +2,12 @@ const fs = require("./dir-helpers.js");
 const path = require("path");
 const routeHelpers = require("./route-codegen-helpers");
 
-async function run({ moduleName, withState, serverless }) {
-  console.log("@@@ serverless");
+async function run({ moduleName, withState, serverRender }) {
   if (!moduleName.match(/[A-Z][A-Za-z0-9]+(\.[A-Z][A-Za-z0-9])*/)) {
     console.error("Invalid module name.");
     process.exit(1);
   }
-  const content = fileContent(moduleName, withState, serverless);
+  const content = fileContent(moduleName, withState, serverRender);
   const fullFilePath = path.join(
     `src/Page/`,
     moduleName.replace(/\./g, "/") + ".elm"
@@ -20,14 +19,14 @@ async function run({ moduleName, withState, serverless }) {
 /**
  * @param {string} pageModuleName
  * @param {'local' | 'shared' | null} withState
- * @param {boolean} serverless
+ * @param {boolean} serverRender
  */
-function fileContent(pageModuleName, withState, serverless) {
+function fileContent(pageModuleName, withState, serverRender) {
   return fileContentWithParams(
     pageModuleName,
     routeHelpers.routeParams(pageModuleName.split(".")).length > 0,
     withState,
-    serverless
+    serverRender
   );
 }
 
@@ -35,7 +34,7 @@ function fileContent(pageModuleName, withState, serverless) {
  * @param {string} pageModuleName
  * @param {boolean} withParams
  * @param {'local' | 'shared' | null} withState
- * @param {boolean} serverless
+ * @param {boolean} serverRender
  */
 function fileContentWithParams(
   pageModuleName,
@@ -45,13 +44,13 @@ function fileContentWithParams(
 ) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-${serverless ? `import DataSource.ServerRequest as ServerRequest\n` : ""}
+${serverRender ? `import Server.Request as Request\n` : ""}
 ${withState ? "\nimport Browser.Navigation" : ""}
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
-${serverless ? "import PageServerResponse exposing (PageServerResponse)" : ""}
+${serverRender ? "import PageServerResponse exposing (PageServerResponse)" : ""}
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -81,7 +80,7 @@ page : ${
   }
 page =
     ${
-      serverless
+      serverRender
         ? `Page.serverRender
         { head = head
         , data = data
@@ -160,9 +159,9 @@ pages =
     : ""
 }
 ${
-  serverless
-    ? `data : ServerRequest.IsAvailable -> RouteParams -> DataSource (PageServerResponse Data)
-data serverRequestKey routeParams =`
+  serverRender
+    ? `data : RouteParams -> Request.Handler Data
+data routeParams =`
     : withParams
     ? `data : RouteParams -> DataSource Data
 data routeParams =`
@@ -170,8 +169,13 @@ data routeParams =`
 data =`
 }
     ${
-      serverless
-        ? `DataSource.succeed (PageServerResponse.RenderPage {})`
+      serverRender
+        ? `Request.succeed ()
+        |> Request.thenRespond
+            (\\() ->
+                DataSource.succeed (PageServerResponse.RenderPage {})
+            )
+`
         : `DataSource.succeed {}`
     }
 
