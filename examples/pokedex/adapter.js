@@ -106,6 +106,7 @@ function rendererCode(isOnDemand) {
 ${
   isOnDemand
     ? `const { builder } = require("@netlify/functions");
+const cookie = require("cookie");
 
 exports.handler = builder(render);`
     : `
@@ -187,20 +188,18 @@ async function render(event, context) {
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} req
  * @param {Date} requestTime
- * @returns {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }}
+ * @returns {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }}
  */
 function reqToJson(req, requestTime) {
-  const queryString = req.multiValueQueryStringParameters ? Object.entries(req.multiValueQueryStringParameters).reduce(
-    (acc, [key, values]) => {
-      return acc + values.map(value => \`\${encodeURIComponent(key)}=\${encodeURIComponent(value)}\`).join('&')
-    }
-  , "") : '';
+  let jsonBody = null;
 
-
+  try {
+    jsonBody = req.body && JSON.parse(req.body);
+  } catch (jsonParseError) {}
   return {
     method: req.httpMethod,
     hostname: "TODO",
-    query: queryString,
+    query: req.queryStringParameters || {},
     headers: req.headers,
     host: "", // TODO
     pathname: req.path,
@@ -209,6 +208,10 @@ function reqToJson(req, requestTime) {
     rawUrl: "", // TODO
     body: req.body,
     requestTime: Math.round(requestTime.getTime()),
+    cookies: cookie.parse(req.headers.cookie || ""),
+    // TODO skip parsing if content-type is not x-www-form-urlencoded
+    formData: paramsToObject(new URLSearchParams(req.body || "")),
+    jsonBody: jsonBody,
   };
 }
 `;
