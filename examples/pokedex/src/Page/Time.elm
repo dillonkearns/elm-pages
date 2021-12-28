@@ -95,7 +95,7 @@ type alias Request =
 --                            |> DataSource.map PageServerResponse.RenderPage
 
 
-data : RouteParams -> Request.Handler Data
+data : RouteParams -> Request.Handler (PageServerResponse Data)
 data routeParams =
     Request.succeed ()
         |> Request.thenRespond

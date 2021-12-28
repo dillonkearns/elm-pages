@@ -21,7 +21,6 @@ import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import OptimizedDecoder
-import PageServerResponse exposing (PageServerResponse)
 import QueryParams exposing (QueryParams)
 import Time
 
@@ -60,24 +59,24 @@ succeed value =
 
 
 {-| -}
-type Handlers data
-    = Handlers (PageServerResponse data)
+type Handlers response
+    = Handlers response
 
 
 {-| -}
-type Handler data
-    = Handler (OptimizedDecoder.Decoder (Result ValidationError (DataSource (PageServerResponse data))))
+type Handler response
+    = Handler (OptimizedDecoder.Decoder (Result ValidationError (DataSource response)))
 
 
 {-| TODO internal only
 -}
-getDecoder : Handler data -> OptimizedDecoder.Decoder (Result ValidationError (DataSource (PageServerResponse data)))
+getDecoder : Handler response -> OptimizedDecoder.Decoder (Result ValidationError (DataSource response))
 getDecoder (Handler decoder) =
     decoder
 
 
 {-| -}
-thenRespond : (request -> DataSource (PageServerResponse data)) -> ServerRequest request -> Handler data
+thenRespond : (request -> DataSource response) -> ServerRequest request -> Handler response
 thenRespond thenDataSource (ServerRequest requestDecoder) =
     requestDecoder
         |> OptimizedDecoder.map (Result.map thenDataSource)

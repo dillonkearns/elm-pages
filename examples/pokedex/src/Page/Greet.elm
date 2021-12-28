@@ -39,7 +39,7 @@ page =
         |> Page.buildNoState { view = view }
 
 
-data : RouteParams -> Request.Handler Data
+data : RouteParams -> Request.Handler (PageServerResponse Data)
 data routeParams =
     Request.oneOfHandler
         [ Request.map2 Data

@@ -35,12 +35,16 @@ DataSources dynamically.
 -}
 
 import DataSource exposing (DataSource)
+import DataSource.Http
 import DataSource.ServerRequest as ServerRequest
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Internal.ServerRequest
 import Json.Encode
+import PageServerResponse
 import Pattern exposing (Pattern)
 import Regex
+import Secrets
+import Server.Request
 import ServerResponse exposing (ServerResponse)
 
 
@@ -82,14 +86,30 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (ServerRequest.IsAvailable -> DataSource ServerResponse) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Handler ServerResponse) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \path ->
                 Internal.ApiRoute.tryMatch path fullHandler
-                    |> Maybe.map (\toDataSource -> toDataSource Internal.ServerRequest.IsAvailable)
+                    |> Maybe.map
+                        (\toDataSource ->
+                            DataSource.Http.get
+                                (Secrets.succeed "$$elm-pages$$headers")
+                                (toDataSource
+                                    |> Server.Request.getDecoder
+                                )
+                                |> DataSource.andThen
+                                    (\rendered ->
+                                        case rendered of
+                                            Ok okRendered ->
+                                                okRendered
+
+                                            Err error ->
+                                                Server.Request.errorToString error |> DataSource.fail
+                                    )
+                        )
                     |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)

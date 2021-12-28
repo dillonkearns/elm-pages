@@ -44,7 +44,7 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Handler Data
+data : RouteParams -> Request.Handler (PageServerResponse Data)
 data routeParams =
     Request.oneOfHandler
         [ Request.expectFormField "name"

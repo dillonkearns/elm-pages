@@ -10,6 +10,7 @@ import OptimizedDecoder as Decode
 import QueryParams
 import Route exposing (Route)
 import Secrets
+import Server.Request
 import Server.SetCookie as SetCookie
 import ServerResponse
 
@@ -22,33 +23,21 @@ routes getStaticRoutes htmlToString =
     [ nonHybridRoute
     , noArgs
     , redirectRoute
-    , serverRequestInfo
     , repoStars
     , repoStars2
     , logout
     ]
 
 
-serverRequestInfo : ApiRoute ApiRoute.Response
-serverRequestInfo =
-    ApiRoute.succeed
-        (\isAvailable ->
-            serverRequestDataSource isAvailable
-                |> DataSource.map Debug.toString
-                |> DataSource.map ServerResponse.stringBody
-        )
-        |> ApiRoute.literal "api"
-        |> ApiRoute.slash
-        |> ApiRoute.literal "request"
-        |> ApiRoute.serverRender
-
-
 redirectRoute : ApiRoute ApiRoute.Response
 redirectRoute =
     ApiRoute.succeed
-        (\isAvailable ->
-            DataSource.succeed
-                (ServerResponse.temporaryRedirect "/")
+        (Server.Request.succeed ()
+            |> Server.Request.thenRespond
+                (\() ->
+                    DataSource.succeed
+                        (ServerResponse.temporaryRedirect "/")
+                )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -77,18 +66,21 @@ serverRequestDataSource isAvailable =
 noArgs : ApiRoute ApiRoute.Response
 noArgs =
     ApiRoute.succeed
-        (\isAvailable ->
-            DataSource.Http.get
-                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                (Decode.field "stargazers_count" Decode.int)
-                |> DataSource.map
-                    (\stars ->
-                        Json.Encode.object
-                            [ ( "repo", Json.Encode.string "elm-pages" )
-                            , ( "stars", Json.Encode.int stars )
-                            ]
-                            |> ServerResponse.json
-                    )
+        (Server.Request.succeed ()
+            |> Server.Request.thenRespond
+                (\() ->
+                    DataSource.Http.get
+                        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                        (Decode.field "stargazers_count" Decode.int)
+                        |> DataSource.map
+                            (\stars ->
+                                Json.Encode.object
+                                    [ ( "repo", Json.Encode.string "elm-pages" )
+                                    , ( "stars", Json.Encode.int stars )
+                                    ]
+                                    |> ServerResponse.json
+                            )
+                )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -125,15 +117,18 @@ nonHybridRoute =
 logout : ApiRoute ApiRoute.Response
 logout =
     ApiRoute.succeed
-        (\isAvailable ->
-            DataSource.succeed
-                (ServerResponse.stringBody "You are logged out"
-                    |> ServerResponse.withHeader "Set-Cookie"
-                        (SetCookie.setCookie "username" ""
-                            |> SetCookie.httpOnly
-                            |> SetCookie.withPath "/"
-                            |> SetCookie.withImmediateExpiration
-                            |> SetCookie.toString
+        (Server.Request.succeed ()
+            |> Server.Request.thenRespond
+                (\() ->
+                    DataSource.succeed
+                        (ServerResponse.stringBody "You are logged out"
+                            |> ServerResponse.withHeader "Set-Cookie"
+                                (SetCookie.setCookie "username" ""
+                                    |> SetCookie.httpOnly
+                                    |> SetCookie.withPath "/"
+                                    |> SetCookie.withImmediateExpiration
+                                    |> SetCookie.toString
+                                )
                         )
                 )
         )
@@ -146,17 +141,21 @@ logout =
 repoStars : ApiRoute ApiRoute.Response
 repoStars =
     ApiRoute.succeed
-        (\repoName isAvailable ->
-            DataSource.Http.get
-                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                (Decode.field "stargazers_count" Decode.int)
-                |> DataSource.map
-                    (\stars ->
-                        Json.Encode.object
-                            [ ( "repo", Json.Encode.string repoName )
-                            , ( "stars", Json.Encode.int stars )
-                            ]
-                            |> ServerResponse.json
+        (\repoName ->
+            Server.Request.succeed ()
+                |> Server.Request.thenRespond
+                    (\() ->
+                        DataSource.Http.get
+                            (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                            (Decode.field "stargazers_count" Decode.int)
+                            |> DataSource.map
+                                (\stars ->
+                                    Json.Encode.object
+                                        [ ( "repo", Json.Encode.string repoName )
+                                        , ( "stars", Json.Encode.int stars )
+                                        ]
+                                        |> ServerResponse.json
+                                )
                     )
         )
         |> ApiRoute.literal "api"
