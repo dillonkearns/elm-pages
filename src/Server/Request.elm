@@ -2,7 +2,7 @@ module Server.Request exposing
     ( ServerRequest
     , Method(..)
     , init
-    , Handler, Handlers, andMap, cookie, errorToString, expectCookie, expectFormField, expectQueryParam, getDecoder, map, map2, oneOf, oneOfHandler, requestTime, succeed, thenRespond, expectHeader, optionalHeader
+    , Handler, Handlers, andMap, cookie, errorToString, expectCookie, expectFormField, expectQueryParam, getDecoder, map, map2, oneOf, oneOfHandler, requestTime, succeed, thenRespond, expectHeader, optionalHeader, expectContentType, expectFormPost, expectJsonBody
     )
 
 {-|
@@ -13,13 +13,14 @@ module Server.Request exposing
 
 @docs init
 
-@docs Handler, Handlers, andMap, cookie, errorToString, expectCookie, expectFormField, expectQueryParam, getDecoder, map, map2, oneOf, oneOfHandler, requestTime, succeed, thenRespond, expectHeader, optionalHeader
+@docs Handler, Handlers, andMap, cookie, errorToString, expectCookie, expectFormField, expectQueryParam, getDecoder, map, map2, oneOf, oneOfHandler, requestTime, succeed, thenRespond, expectHeader, optionalHeader, expectContentType, expectFormPost, expectJsonBody
 
 -}
 
 import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import Json.Decode
 import OptimizedDecoder
 import QueryParams exposing (QueryParams)
 import Time
@@ -87,6 +88,7 @@ type ValidationError
     = ValidationError String
       -- unexpected because violation of the contract - could be adapter issue, or issue with this package
     | InternalError
+    | JsonDecodeError Json.Decode.Error
 
 
 {-| TODO internal only
@@ -99,6 +101,9 @@ errorToString validationError =
 
         InternalError ->
             "InternalError"
+
+        JsonDecodeError error ->
+            "Unable to parse JSON body\n" ++ Json.Decode.errorToString error
 
 
 {-| -}
@@ -326,12 +331,93 @@ expectFormField name =
         |> ServerRequest
 
 
+formField_ : String -> ServerRequest String
+formField_ name =
+    OptimizedDecoder.optionalField name OptimizedDecoder.string
+        |> OptimizedDecoder.map
+            (\value ->
+                case value of
+                    Just justValue ->
+                        Ok justValue
+
+                    Nothing ->
+                        Err (ValidationError ("Missing form field " ++ name))
+            )
+        |> ServerRequest
+
+
+optionalFormField_ : String -> ServerRequest (Maybe String)
+optionalFormField_ name =
+    OptimizedDecoder.optionalField name OptimizedDecoder.string
+        |> okOrInternalError
+        |> ServerRequest
+
+
+{-| -}
+expectFormPost : ((String -> ServerRequest String) -> (String -> ServerRequest (Maybe String)) -> ServerRequest decodedForm) -> ServerRequest decodedForm
+expectFormPost toForm =
+    map2 (\_ value -> value)
+        (expectContentType "application/x-www-form-urlencoded")
+        (toForm formField_ optionalFormField_
+            |> (\(ServerRequest decoder) -> decoder)
+            |> OptimizedDecoder.field "formData"
+            |> ServerRequest
+            |> acceptMethod ( Post, [] )
+        )
+
+
 {-| -}
 body : ServerRequest (Maybe String)
 body =
     bodyDecoder
         |> okOrInternalError
         |> ServerRequest
+
+
+{-| -}
+expectContentType : String -> ServerRequest ()
+expectContentType expectedContentType =
+    OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
+        |> OptimizedDecoder.field "headers"
+        |> OptimizedDecoder.map
+            (\maybeContentType ->
+                case maybeContentType of
+                    Nothing ->
+                        Err (ValidationError "Missing content-type")
+
+                    Just contentType ->
+                        if (contentType |> parseContentType) == (expectedContentType |> parseContentType) then
+                            Ok ()
+
+                        else
+                            Err (ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType))
+            )
+        |> ServerRequest
+
+
+parseContentType : String -> String
+parseContentType rawContentType =
+    rawContentType
+        |> String.split ";"
+        |> List.head
+        |> Maybe.withDefault rawContentType
+
+
+{-| -}
+expectJsonBody : OptimizedDecoder.Decoder value -> ServerRequest value
+expectJsonBody jsonBodyDecoder =
+    map2 (\() secondValue -> secondValue)
+        (expectContentType "application/json")
+        (OptimizedDecoder.oneOf
+            [ OptimizedDecoder.field "jsonBody" jsonBodyDecoder
+                |> OptimizedDecoder.map Ok
+            , OptimizedDecoder.field "jsonBody" OptimizedDecoder.value
+                |> OptimizedDecoder.map
+                    (OptimizedDecoder.decodeValue jsonBodyDecoder)
+                |> OptimizedDecoder.map (Result.mapError JsonDecodeError)
+            ]
+            |> ServerRequest
+        )
 
 
 bodyDecoder : OptimizedDecoder.Decoder (Maybe String)
