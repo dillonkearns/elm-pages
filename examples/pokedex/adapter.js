@@ -103,10 +103,10 @@ function isServerSide(route) {
  */
 function rendererCode(isOnDemand) {
   return `const path = require("path");
+const cookie = require("cookie");
 ${
   isOnDemand
     ? `const { builder } = require("@netlify/functions");
-const cookie = require("cookie");
 
 exports.handler = builder(render);`
     : `
