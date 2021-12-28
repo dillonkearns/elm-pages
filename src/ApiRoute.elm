@@ -40,6 +40,7 @@ import DataSource.ServerRequest as ServerRequest
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Internal.ServerRequest
 import Json.Encode
+import OptimizedDecoder
 import PageServerResponse
 import Pattern exposing (Pattern)
 import Regex
@@ -97,17 +98,27 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
                         (\toDataSource ->
                             DataSource.Http.get
                                 (Secrets.succeed "$$elm-pages$$headers")
-                                (toDataSource
-                                    |> Server.Request.getDecoder
+                                (OptimizedDecoder.oneOf
+                                    [ toDataSource |> Server.Request.getDecoder |> OptimizedDecoder.map Just
+                                    ]
                                 )
                                 |> DataSource.andThen
                                     (\rendered ->
                                         case rendered of
-                                            Ok okRendered ->
+                                            Just (Ok okRendered) ->
                                                 okRendered
 
-                                            Err error ->
-                                                Server.Request.errorToString error |> DataSource.fail
+                                            Just (Err error) ->
+                                                error
+                                                    |> Server.Request.errorToString
+                                                    |> ServerResponse.stringBody
+                                                    |> ServerResponse.withStatusCode 400
+                                                    |> DataSource.succeed
+
+                                            Nothing ->
+                                                ServerResponse.stringBody "No matching request handler"
+                                                    |> ServerResponse.withStatusCode 400
+                                                    |> DataSource.succeed
                                     )
                         )
                     |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))

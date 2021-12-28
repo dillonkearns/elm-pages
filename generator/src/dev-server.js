@@ -603,6 +603,10 @@ async function ensureRequiredExecutables() {
  */
 function reqToJson(req, body, requestTime) {
   const url = new URL(req.url, "http://localhost:1234");
+  let jsonBody = null;
+  try {
+    jsonBody = body && JSON.parse(body);
+  } catch (jsonParseError) {}
   return {
     method: req.method,
     hostname: req.hostname,
@@ -618,6 +622,7 @@ function reqToJson(req, body, requestTime) {
     cookies: cookie.parse(req.headers.cookie || ""),
     // TODO skip parsing if content-type is not x-www-form-urlencoded
     formData: paramsToObject(new URLSearchParams(body || "")),
+    jsonBody: jsonBody,
   };
 }
 // TODO capture repeat entries into a list of values

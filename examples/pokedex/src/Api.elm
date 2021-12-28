@@ -26,7 +26,32 @@ routes getStaticRoutes htmlToString =
     , repoStars
     , repoStars2
     , logout
+    , greet
     ]
+
+
+greet : ApiRoute ApiRoute.Response
+greet =
+    ApiRoute.succeed
+        (Server.Request.oneOfHandler
+            [ Server.Request.oneOf
+                [ Server.Request.expectJsonBody (Decode.field "first" Decode.string)
+                , Server.Request.expectFormPost
+                    (\field optionalField ->
+                        field "first"
+                    )
+                ]
+                |> Server.Request.thenRespond
+                    (\firstName ->
+                        ServerResponse.stringBody ("Hello " ++ firstName)
+                            |> DataSource.succeed
+                    )
+            ]
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "greet"
+        |> ApiRoute.serverRender
 
 
 redirectRoute : ApiRoute ApiRoute.Response
