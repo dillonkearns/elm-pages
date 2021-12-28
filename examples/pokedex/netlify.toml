@@ -1,7 +1,7 @@
 [build]
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && node adapter.js"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && node adapter.js && cd functions && npm i"
 
 [dev]
   command = "npm start"
