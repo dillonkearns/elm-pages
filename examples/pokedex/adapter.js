@@ -138,7 +138,7 @@ async function render(event, context) {
       require(compiledElmPath),
       mode,
       event.path,
-      reqToJson(event, requestTime),
+      await reqToJson(event, requestTime),
       addWatcher
     );
     console.log('@@@renderResult', renderResult);
