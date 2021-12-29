@@ -224,7 +224,7 @@ function reqToJson(req, requestTime) {
         bb.on("close", () => {
           resolve(toJsonHelper(req, requestTime, fields));
         });
-        bb.write(body);
+        bb.write(req.body);
       } catch (error) {
         resolve(toJsonHelper(req, requestTime, null));
       }
@@ -237,7 +237,7 @@ function reqToJson(req, requestTime) {
 function toJsonHelper(req, requestTime, multiPartFormData) {
   let jsonBody = null;
   try {
-    jsonBody = body && JSON.parse(body);
+    jsonBody = req.body && JSON.parse(body);
   } catch (jsonParseError) {}
   return {
     method: req.httpMethod,
