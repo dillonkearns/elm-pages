@@ -104,6 +104,8 @@ function isServerSide(route) {
 function rendererCode(isOnDemand) {
   return `const path = require("path");
 const cookie = require("cookie");
+const busboy = require("busboy");
+
 ${
   isOnDemand
     ? `const { builder } = require("@netlify/functions");
@@ -183,18 +185,103 @@ async function render(event, context) {
   }
 }
 
-//  * @param {import('aws-lambda').APIGatewayProxyEvent} event
-
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} req
  * @param {Date} requestTime
- * @returns {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }}
+ * @returns {Promise<{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }>}
  */
 function reqToJson(req, requestTime) {
-  let jsonBody = null;
+  return new Promise((resolve, reject) => {
+    if (
+      req.httpMethod === "POST" &&
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data") &&
+      req.body
+    ) {
+      try {
+        const bb = busboy({
+          headers: req.headers,
+        });
+        let fields = {};
 
+        bb.on("file", (fieldname, file, info) => {
+          const { filename, encoding, mimeType } = info;
+
+          file.on("data", (data) => {
+            fields[fieldname] = {
+              filename,
+              mimeType,
+              body: data.toString(),
+            };
+          });
+        });
+
+        bb.on("field", (fieldName, value) => {
+          fields[fieldName] = value;
+        });
+
+        // TODO skip parsing JSON and form data body if busboy doesn't run
+        bb.on("close", () => {
+          resolve(toJsonHelper(req, requestTime, fields));
+        });
+        bb.write(body);
+      } catch (error) {
+        resolve(toJsonHelper(req, requestTime, null));
+      }
+    } else {
+      resolve(toJsonHelper(req, requestTime, null));
+    }
+  });
+}
+
+function reqToJson(req, body, requestTime) {
+  return new Promise((resolve, reject) => {
+    if (
+      req.httpMethod === "POST" &&
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data") &&
+      body
+    ) {
+      try {
+        const bb = busboy({
+          headers: req.headers,
+        });
+        let fields = {};
+
+        bb.on("file", (fieldname, file, info) => {
+          const { filename, encoding, mimeType } = info;
+
+          file.on("data", (data) => {
+            fields[fieldname] = {
+              filename,
+              mimeType,
+              body: data.toString(),
+            };
+          });
+        });
+
+        bb.on("field", (fieldName, value) => {
+          fields[fieldName] = value;
+        });
+
+        // TODO skip parsing JSON and form data body if busboy doesn't run
+        bb.on("close", () => {
+          resolve(toJsonHelper(req, body, requestTime, fields));
+        });
+        bb.write(body);
+      } catch (error) {
+        resolve(toJsonHelper(req, body, requestTime, null));
+      }
+    } else {
+      resolve(toJsonHelper(req, body, requestTime, null));
+    }
+  });
+}
+
+function toJsonHelper(req, requestTime, multiPartFormData) {
+  let jsonBody = null;
   try {
-    jsonBody = req.body && JSON.parse(req.body);
+    jsonBody = body && JSON.parse(body);
   } catch (jsonParseError) {}
   return {
     method: req.httpMethod,
@@ -211,6 +298,7 @@ function reqToJson(req, requestTime) {
     cookies: cookie.parse(req.headers.cookie || ""),
     // TODO skip parsing if content-type is not x-www-form-urlencoded
     formData: paramsToObject(new URLSearchParams(req.body || "")),
+    multiPartFormData: multiPartFormData,
     jsonBody: jsonBody,
   };
 }

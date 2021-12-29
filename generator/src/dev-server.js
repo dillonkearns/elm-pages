@@ -21,6 +21,7 @@ const { ensureDirSync } = require("./file-helpers.js");
 const baseMiddleware = require("./basepath-middleware.js");
 const devcert = require("devcert");
 const cookie = require("cookie");
+const busboy = require("busboy");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -360,7 +361,7 @@ async function start(options) {
 
     req.on("end", async function () {
       await runRenderThread(
-        reqToJson(req, body, requestTime),
+        await reqToJson(req, body, requestTime),
         pathname,
         function (renderResult) {
           const is404 = renderResult.is404;
@@ -602,6 +603,50 @@ async function ensureRequiredExecutables() {
  * @param {Date} requestTime
  */
 function reqToJson(req, body, requestTime) {
+  return new Promise((resolve, reject) => {
+    if (
+      req.method === "POST" &&
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data") &&
+      body
+    ) {
+      try {
+        const bb = busboy({
+          headers: req.headers,
+        });
+        let fields = {};
+
+        bb.on("file", (fieldname, file, info) => {
+          const { filename, encoding, mimeType } = info;
+
+          file.on("data", (data) => {
+            fields[fieldname] = {
+              filename,
+              mimeType,
+              body: data.toString(),
+            };
+          });
+        });
+
+        bb.on("field", (fieldName, value) => {
+          fields[fieldName] = value;
+        });
+
+        // TODO skip parsing JSON and form data body if busboy doesn't run
+        bb.on("close", () => {
+          resolve(toJsonHelper(req, body, requestTime, fields));
+        });
+        bb.write(body);
+      } catch (error) {
+        resolve(toJsonHelper(req, body, requestTime, null));
+      }
+    } else {
+      resolve(toJsonHelper(req, body, requestTime, null));
+    }
+  });
+}
+
+function toJsonHelper(req, body, requestTime, multiPartFormData) {
   const url = new URL(req.url, "http://localhost:1234");
   let jsonBody = null;
   try {
@@ -622,6 +667,7 @@ function reqToJson(req, body, requestTime) {
     cookies: cookie.parse(req.headers.cookie || ""),
     // TODO skip parsing if content-type is not x-www-form-urlencoded
     formData: paramsToObject(new URLSearchParams(body || "")),
+    multiPartFormData: multiPartFormData,
     jsonBody: jsonBody,
   };
 }
