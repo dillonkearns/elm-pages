@@ -217,11 +217,13 @@ function reqToJson(req, requestTime) {
         });
 
         bb.on("field", (fieldName, value) => {
+          console.log("@@@field", fieldName, value);
           fields[fieldName] = value;
         });
 
         // TODO skip parsing JSON and form data body if busboy doesn't run
         bb.on("close", () => {
+          console.log("@@@close", fields);
           resolve(toJsonHelper(req, requestTime, fields));
         });
         bb.write(req.body);
