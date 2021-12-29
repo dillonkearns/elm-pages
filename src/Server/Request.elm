@@ -76,14 +76,19 @@ type ServerRequest decodesTo
     = ServerRequest (OptimizedDecoder.Decoder (Result ValidationError decodesTo))
 
 
-oneOfInternal : List (OptimizedDecoder.Decoder (Result ValidationError decodesTo)) -> OptimizedDecoder.Decoder (Result ValidationError decodesTo)
-oneOfInternal optimizedDecoders =
+oneOfInternal : List ValidationError -> List (OptimizedDecoder.Decoder (Result ValidationError decodesTo)) -> OptimizedDecoder.Decoder (Result ValidationError decodesTo)
+oneOfInternal previousErrors optimizedDecoders =
     case optimizedDecoders of
         [] ->
-            OptimizedDecoder.fail "No more decoders"
+            OptimizedDecoder.succeed (Err (OneOf previousErrors))
 
         [ single ] ->
             single
+                |> OptimizedDecoder.map
+                    (\result ->
+                        result
+                            |> Result.mapError (\error -> OneOf (previousErrors ++ [ error ]))
+                    )
 
         first :: rest ->
             first
@@ -94,7 +99,12 @@ oneOfInternal optimizedDecoders =
                                 OptimizedDecoder.succeed (Ok okFirstResult)
 
                             Err error ->
-                                oneOfInternal rest
+                                case error of
+                                    OneOf errors ->
+                                        oneOfInternal (previousErrors ++ errors) rest
+
+                                    _ ->
+                                        oneOfInternal (error :: previousErrors) rest
                     )
 
 
@@ -131,6 +141,7 @@ thenRespond thenDataSource (ServerRequest requestDecoder) =
 
 type ValidationError
     = ValidationError String
+    | OneOf (List ValidationError)
       -- unexpected because violation of the contract - could be adapter issue, or issue with this package
     | InternalError
     | JsonDecodeError Json.Decode.Error
@@ -142,13 +153,22 @@ errorToString : ValidationError -> String
 errorToString validationError =
     case validationError of
         ValidationError message ->
-            "ValidationError: \n" ++ message
+            message
 
         InternalError ->
             "InternalError"
 
         JsonDecodeError error ->
             "Unable to parse JSON body\n" ++ Json.Decode.errorToString error
+
+        OneOf validationErrors ->
+            "Server.Request.oneOf failed in the following "
+                ++ String.fromInt (List.length validationErrors)
+                ++ " ways:\n\n"
+                ++ (validationErrors
+                        |> List.indexedMap (\index error -> "(" ++ String.fromInt (index + 1) ++ ") " ++ errorToString error)
+                        |> String.join "\n\n"
+                   )
 
 
 {-| -}
@@ -161,7 +181,7 @@ map mapFn (ServerRequest decoder) =
 oneOf : List (ServerRequest a) -> ServerRequest a
 oneOf serverRequests =
     ServerRequest
-        (oneOfInternal
+        (oneOfInternal []
             (List.map
                 (\(ServerRequest decoder) -> decoder)
                 serverRequests
@@ -173,7 +193,7 @@ oneOf serverRequests =
 oneOfHandler : List (Handler a) -> Handler a
 oneOfHandler serverRequests =
     Handler
-        (oneOfInternal
+        (oneOfInternal []
             (List.map
                 (\(Handler decoder) -> decoder)
                 serverRequests
@@ -262,7 +282,12 @@ acceptMethod ( accepted1, accepted ) (ServerRequest decoder) =
                     decoder
 
                 else
-                    OptimizedDecoder.succeed (Err (ValidationError "Unexpected HTTP method"))
+                    OptimizedDecoder.succeed
+                        (Err
+                            (ValidationError
+                                ("Expected HTTP method " ++ String.join ", " ((accepted1 :: accepted) |> List.map methodToString) ++ " but was " ++ methodToString method_)
+                            )
+                        )
             )
     )
         |> ServerRequest
@@ -298,7 +323,7 @@ expectQueryParam name =
                         Ok justValue
 
                     Nothing ->
-                        Err (ValidationError ("Missing query param " ++ name))
+                        Err (ValidationError ("Missing query param \"" ++ name ++ "\""))
             )
         |> ServerRequest
 
