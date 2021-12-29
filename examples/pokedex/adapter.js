@@ -193,18 +193,20 @@ async function render(event, context) {
 function reqToJson(req, requestTime) {
   return new Promise((resolve, reject) => {
     if (
-      req.httpMethod === "POST" &&
+      req.httpMethod && req.httpMethod.toUpperCase() === "POST" &&
       req.headers["content-type"] &&
       req.headers["content-type"].includes("multipart/form-data") &&
       req.body
     ) {
       try {
+        console.log('@@@1');
         const bb = busboy({
           headers: req.headers,
         });
         let fields = {};
 
         bb.on("file", (fieldname, file, info) => {
+          console.log('@@@2');
           const { filename, encoding, mimeType } = info;
 
           file.on("data", (data) => {
@@ -223,14 +225,18 @@ function reqToJson(req, requestTime) {
 
         // TODO skip parsing JSON and form data body if busboy doesn't run
         bb.on("close", () => {
+          console.log('@@@3');
           console.log("@@@close", fields);
           resolve(toJsonHelper(req, requestTime, fields));
         });
+        console.log('@@@4');
         bb.write(req.body);
       } catch (error) {
+        console.error('@@@5', error);
         resolve(toJsonHelper(req, requestTime, null));
       }
     } else {
+      console.log('@@@6');
       resolve(toJsonHelper(req, requestTime, null));
     }
   });
