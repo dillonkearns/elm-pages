@@ -237,7 +237,7 @@ function reqToJson(req, requestTime) {
 function toJsonHelper(req, requestTime, multiPartFormData) {
   let jsonBody = null;
   try {
-    jsonBody = req.body && JSON.parse(body);
+    jsonBody = req.body && JSON.parse(req.body);
   } catch (jsonParseError) {}
   return {
     method: req.httpMethod,
