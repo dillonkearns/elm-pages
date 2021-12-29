@@ -230,7 +230,12 @@ function reqToJson(req, requestTime) {
           resolve(toJsonHelper(req, requestTime, fields));
         });
         console.log('@@@4');
-        bb.write(req.body);
+        
+        if (req.isBase64Encoded) {
+          bb.write(Buffer.from(req.body, 'base64').toString('utf8'));
+        } else {
+          bb.write(req.body);
+        }
       } catch (error) {
         console.error('@@@5', error);
         resolve(toJsonHelper(req, requestTime, null));
