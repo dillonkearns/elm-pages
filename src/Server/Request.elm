@@ -1,8 +1,16 @@
 module Server.Request exposing
     ( ServerRequest
     , Method(..)
-    , init
-    , Handler, Handlers, andMap, cookie, errorToString, expectCookie, expectFormField, expectQueryParam, getDecoder, map, map2, oneOf, oneOfHandler, requestTime, succeed, thenRespond, expectHeader, optionalHeader, expectContentType, expectFormPost, expectJsonBody
+    , succeed
+    , Handler, Handlers
+    , oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod
+    , map, map2, oneOf, andMap
+    , expectQueryParam
+    , cookie, expectCookie
+    , expectHeader
+    , expectFormField, expectFormPost
+    , File, expectMultiPartFormPost
+    , errorToString, getDecoder
     )
 
 {-|
@@ -11,9 +19,46 @@ module Server.Request exposing
 
 @docs Method
 
-@docs init
+@docs succeed
 
-@docs Handler, Handlers, andMap, cookie, errorToString, expectCookie, expectFormField, expectQueryParam, getDecoder, map, map2, oneOf, oneOfHandler, requestTime, succeed, thenRespond, expectHeader, optionalHeader, expectContentType, expectFormPost, expectJsonBody
+@docs Handler, Handlers
+
+@docs oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod
+
+
+## Transforming
+
+@docs map, map2, oneOf, andMap
+
+
+## Query Parameters
+
+@docs expectQueryParam
+
+
+## Cookies
+
+@docs cookie, expectCookie
+
+
+## Headers
+
+@docs expectHeader
+
+
+## Form Posts
+
+@docs expectFormField, expectFormPost
+
+
+## Multi-part forms and file uploads
+
+@docs File, expectMultiPartFormPost
+
+
+## Internals
+
+@docs errorToString, getDecoder
 
 -}
 
@@ -104,12 +149,6 @@ errorToString validationError =
 
         JsonDecodeError error ->
             "Unable to parse JSON body\n" ++ Json.Decode.errorToString error
-
-
-{-| -}
-init : constructor -> ServerRequest constructor
-init constructor =
-    ServerRequest (OptimizedDecoder.succeed (Ok constructor))
 
 
 {-| -}
@@ -354,6 +393,36 @@ optionalFormField_ name =
 
 
 {-| -}
+type alias File =
+    { name : String
+    , mimeType : String
+    , body : String
+    }
+
+
+fileField_ : String -> ServerRequest File
+fileField_ name =
+    OptimizedDecoder.optionalField name
+        (OptimizedDecoder.oneOf
+            [ OptimizedDecoder.map3 File
+                (OptimizedDecoder.field "filename" OptimizedDecoder.string)
+                (OptimizedDecoder.field "mimeType" OptimizedDecoder.string)
+                (OptimizedDecoder.field "body" OptimizedDecoder.string)
+            ]
+        )
+        |> OptimizedDecoder.map
+            (\value ->
+                case value of
+                    Just justValue ->
+                        Ok justValue
+
+                    Nothing ->
+                        Err (ValidationError ("Missing form field " ++ name))
+            )
+        |> ServerRequest
+
+
+{-| -}
 expectFormPost : ((String -> ServerRequest String) -> (String -> ServerRequest (Maybe String)) -> ServerRequest decodedForm) -> ServerRequest decodedForm
 expectFormPost toForm =
     map2 (\_ value -> value)
@@ -361,6 +430,30 @@ expectFormPost toForm =
         (toForm formField_ optionalFormField_
             |> (\(ServerRequest decoder) -> decoder)
             |> OptimizedDecoder.field "formData"
+            |> ServerRequest
+            |> acceptMethod ( Post, [] )
+        )
+
+
+{-| -}
+expectMultiPartFormPost :
+    ({ field : String -> ServerRequest String
+     , optionalField : String -> ServerRequest (Maybe String)
+     , fileField : String -> ServerRequest File
+     }
+     -> ServerRequest decodedForm
+    )
+    -> ServerRequest decodedForm
+expectMultiPartFormPost toForm =
+    map2 (\_ value -> value)
+        (expectContentType "multipart/form-data")
+        (toForm
+            { field = formField_
+            , optionalField = optionalFormField_
+            , fileField = fileField_
+            }
+            |> (\(ServerRequest decoder) -> decoder)
+            |> OptimizedDecoder.field "multiPartFormData"
             |> ServerRequest
             |> acceptMethod ( Post, [] )
         )

@@ -27,6 +27,7 @@ routes getStaticRoutes htmlToString =
     , repoStars2
     , logout
     , greet
+    , fileLength
     ]
 
 
@@ -40,6 +41,11 @@ greet =
                     (\field optionalField ->
                         field "first"
                     )
+                , Server.Request.expectQueryParam "first"
+                , Server.Request.expectMultiPartFormPost
+                    (\{ field, optionalField } ->
+                        field "first"
+                    )
                 ]
                 |> Server.Request.thenRespond
                     (\firstName ->
@@ -51,6 +57,39 @@ greet =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "greet"
+        |> ApiRoute.serverRender
+
+
+fileLength : ApiRoute ApiRoute.Response
+fileLength =
+    ApiRoute.succeed
+        (Server.Request.expectMultiPartFormPost
+            (\{ field, optionalField, fileField } ->
+                fileField "file"
+            )
+            |> Server.Request.thenRespond
+                (\file ->
+                    ServerResponse.json
+                        (Json.Encode.object
+                            [ ( "File name: ", Json.Encode.string file.name )
+                            , ( "Length", Json.Encode.int (String.length file.body) )
+                            , ( "mime-type", Json.Encode.string file.mimeType )
+                            , ( "First line"
+                              , Json.Encode.string
+                                    (file.body
+                                        |> String.split "\n"
+                                        |> List.head
+                                        |> Maybe.withDefault ""
+                                    )
+                              )
+                            ]
+                        )
+                        |> DataSource.succeed
+                )
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "file"
         |> ApiRoute.serverRender
 
 
