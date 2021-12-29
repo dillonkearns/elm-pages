@@ -234,50 +234,6 @@ function reqToJson(req, requestTime) {
   });
 }
 
-function reqToJson(req, body, requestTime) {
-  return new Promise((resolve, reject) => {
-    if (
-      req.httpMethod === "POST" &&
-      req.headers["content-type"] &&
-      req.headers["content-type"].includes("multipart/form-data") &&
-      body
-    ) {
-      try {
-        const bb = busboy({
-          headers: req.headers,
-        });
-        let fields = {};
-
-        bb.on("file", (fieldname, file, info) => {
-          const { filename, encoding, mimeType } = info;
-
-          file.on("data", (data) => {
-            fields[fieldname] = {
-              filename,
-              mimeType,
-              body: data.toString(),
-            };
-          });
-        });
-
-        bb.on("field", (fieldName, value) => {
-          fields[fieldName] = value;
-        });
-
-        // TODO skip parsing JSON and form data body if busboy doesn't run
-        bb.on("close", () => {
-          resolve(toJsonHelper(req, body, requestTime, fields));
-        });
-        bb.write(body);
-      } catch (error) {
-        resolve(toJsonHelper(req, body, requestTime, null));
-      }
-    } else {
-      resolve(toJsonHelper(req, body, requestTime, null));
-    }
-  });
-}
-
 function toJsonHelper(req, requestTime, multiPartFormData) {
   let jsonBody = null;
   try {
