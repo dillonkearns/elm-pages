@@ -178,7 +178,7 @@ pages =
 }
 ${
   serverRender
-    ? `data : RouteParams -> Request.Handler Data
+    ? `data : RouteParams -> Request.Handler (PageServerResponse Data)
 data routeParams =`
     : withFallback
     ? `data : RouteParams -> DataSource (PageServerResponse Data)
