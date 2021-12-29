@@ -141,7 +141,7 @@ async function render(event, context) {
       await reqToJson(event, requestTime),
       addWatcher
     );
-    console.log('@@@renderResult', renderResult);
+    console.log("@@@renderResult", JSON.stringify(renderResult, null, 2));
 
     const statusCode = renderResult.is404 ? 404 : 200;
 
@@ -188,7 +188,7 @@ async function render(event, context) {
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} req
  * @param {Date} requestTime
- * @returns {Promise<{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Object; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }>}
+ * @returns {Promise<{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }>}
  */
 function reqToJson(req, requestTime) {
   return new Promise((resolve, reject) => {
@@ -270,7 +270,7 @@ function toJsonHelper(req, requestTime, multiPartFormData) {
 function paramsToObject(entries) {
   const result = {};
   for (const [key, value] of entries) {
-    result[key] = value;
+    result[key] = value || "";
   }
   return result;
 }

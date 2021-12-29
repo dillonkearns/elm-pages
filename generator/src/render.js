@@ -24,7 +24,7 @@ module.exports =
    * @param {string} basePath
    * @param {Object} elmModule
    * @param {string} path
-   * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
+   * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
    * @param {(pattern: string) => void} addDataSourceWatcher
    * @returns
    */
