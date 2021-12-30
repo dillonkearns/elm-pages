@@ -9,3 +9,5 @@
   autoLaunch = true
   framework = "#custom"
 
+[functions."server-render"]
+  included_files = ["*.txt"]
