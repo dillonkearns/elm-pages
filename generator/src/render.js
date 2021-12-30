@@ -3,12 +3,10 @@
 const path = require("path");
 const matter = require("gray-matter");
 const globby = require("globby");
-// const fsPromises = require("fs").promises;
-const fsPromises = require("memfs").promises;
+const fsPromises = require("fs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
-const { fs, Volume, vol } = require("memfs");
 kleur.enabled = true;
 
 process.on("unhandledRejection", (error) => {
@@ -26,6 +24,7 @@ module.exports =
    * @param {string} path
    * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
    * @param {(pattern: string) => void} addDataSourceWatcher
+   * @param {boolean} hasFsAccess
    * @returns
    */
   async function run(
@@ -34,9 +33,14 @@ module.exports =
     mode,
     path,
     request,
-    addDataSourceWatcher
+    addDataSourceWatcher,
+    hasFsAccess
   ) {
-    vol.reset();
+    console.log({ hasFsAccess });
+    const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(
+      hasFsAccess
+    );
+    resetInMemoryFs();
     foundErrors = false;
     pendingDataSourceResponses = [];
     pendingDataSourceCount = 0;
@@ -49,7 +53,9 @@ module.exports =
       mode,
       path,
       request,
-      addDataSourceWatcher
+      addDataSourceWatcher,
+      fs,
+      hasFsAccess
     );
     return result;
   };
@@ -69,7 +75,9 @@ function runElmApp(
   mode,
   pagePath,
   request,
-  addDataSourceWatcher
+  addDataSourceWatcher,
+  fs,
+  hasFsAccess
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
@@ -150,7 +158,7 @@ function runElmApp(
         }
       } else if (fromElm.tag === "DoHttp") {
         const requestToPerform = fromElm.args[0];
-        runHttpJob(app, mode, requestToPerform);
+        runHttpJob(app, mode, requestToPerform, fs, hasFsAccess);
       } else if (fromElm.tag === "Glob") {
         const globPattern = fromElm.args[0];
         patternsToWatch.add(globPattern);
@@ -218,9 +226,7 @@ function jsonOrNull(string) {
 async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
   try {
-    const fileContents =
-      // await fsPromises.readFile(path.join(process.cwd(), filePath))
-      (await fsPromises.readFile(filePath)).toString();
+    const fileContents = (await fsPromises.readFile(filePath)).toString();
     const parsedFile = matter(fileContents);
 
     pendingDataSourceResponses.push({
@@ -246,6 +252,8 @@ async function runJob(app, filePath) {
       }),
     });
   } catch (e) {
+    console.log(fsPromises);
+    console.error("222@@@", e);
     sendError(app, {
       title: "Error reading file",
       message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
@@ -258,18 +266,19 @@ async function runJob(app, filePath) {
   }
 }
 
-async function runHttpJob(app, mode, requestToPerform) {
+async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
   pendingDataSourceCount += 1;
   try {
     const responseFilePath = await lookupOrPerform(
       mode,
-      requestToPerform.unmasked
+      requestToPerform.unmasked,
+      hasFsAccess
     );
 
     pendingDataSourceResponses.push({
       request: requestToPerform,
       response: (
-        await fsPromises.readFile(responseFilePath, "utf8")
+        await fs.promises.readFile(responseFilePath, "utf8")
       ).toString(),
     });
   } catch (error) {
@@ -317,51 +326,6 @@ function flushQueue(app) {
     tag: "GotBatch",
     data: temp,
   });
-}
-
-/**
- * @param {string} filePath
- * @returns {Promise<Object>}
- */
-async function readFileTask(app, filePath) {
-  // console.log(`Read file ${filePath}`);
-  try {
-    const fileContents = (
-      await fsPromises.readFile(path.join(process.cwd(), filePath))
-    ).toString();
-    // console.log(`DONE reading file ${filePath}`);
-    const parsedFile = matter(fileContents);
-
-    return {
-      request: {
-        masked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        unmasked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-      },
-      response: JSON.stringify({
-        parsedFrontmatter: parsedFile.data,
-        withoutFrontmatter: parsedFile.content,
-        rawFile: fileContents,
-        jsonFile: jsonOrNull(fileContents),
-      }),
-    };
-  } catch (e) {
-    sendError(app, {
-      title: "Error reading file",
-      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-        filePath
-      )}`,
-    });
-  }
 }
 
 /**

@@ -8,3 +8,9 @@
   targetPort = 1234
   autoLaunch = true
   framework = "#custom"
+
+[[redirects]]
+  from = "/secret"
+  to = ".netlify/functions/secret"
+  status = 200
+  force = true

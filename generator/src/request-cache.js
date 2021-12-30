@@ -1,9 +1,7 @@
 const path = require("path");
 const undici = require("undici");
-// const fs = require("fs");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
-const fs = require("memfs");
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -18,14 +16,17 @@ function requestToString(request) {
 /**
  * @param {Object} request
  */
-function fullPath(request) {
-  // return path.join(
-  //   process.cwd(),
-  //   ".elm-pages",
-  //   "http-response-cache",
-  //   requestToString(request)
-  // );
-  return path.join("/", requestToString(request));
+function fullPath(request, hasFsAccess) {
+  if (hasFsAccess) {
+    return path.join(
+      process.cwd(),
+      ".elm-pages",
+      "http-response-cache",
+      requestToString(request)
+    );
+  } else {
+    return path.join("/", requestToString(request));
+  }
 }
 
 /**
@@ -33,10 +34,12 @@ function fullPath(request) {
  * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } rawRequest
  * @returns {Promise<string>}
  */
-function lookupOrPerform(mode, rawRequest) {
+function lookupOrPerform(mode, rawRequest, hasFsAccess) {
+  console.log({ hasFsAccess });
+  const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
-    const responsePath = fullPath(request);
+    const responsePath = fullPath(request, hasFsAccess);
 
     if (fs.existsSync(responsePath)) {
       // console.log("Skipping request, found file.");

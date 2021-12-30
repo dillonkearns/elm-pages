@@ -139,7 +139,8 @@ async function render(event, context) {
       mode,
       event.path,
       await reqToJson(event, requestTime),
-      addWatcher
+      addWatcher,
+      false
     );
     console.log("@@@renderResult", JSON.stringify(renderResult, null, 2));
 

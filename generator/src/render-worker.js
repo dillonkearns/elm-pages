@@ -20,7 +20,8 @@ async function run({ mode, pathname, serverRequest }) {
         if (mode === "dev-server" && patterns.size > 0) {
           parentPort.postMessage({ tag: "watch", data: [...patterns] });
         }
-      }
+      },
+      true
     );
 
     if (mode === "dev-server") {
