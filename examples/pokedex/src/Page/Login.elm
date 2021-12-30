@@ -47,7 +47,7 @@ type alias Request =
 data : RouteParams -> Request.Handler (PageServerResponse Data)
 data routeParams =
     Request.oneOfHandler
-        [ Request.expectFormField "name"
+        [ Request.expectFormPost (\{ field } -> field "name")
             |> Request.thenRespond
                 (\name ->
                     PageServerResponse.ServerResponse

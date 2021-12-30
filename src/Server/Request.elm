@@ -1,5 +1,5 @@
 module Server.Request exposing
-    ( ServerRequest
+    ( ServerRequest(..)
     , Method(..)
     , succeed
     , Handler, Handlers
@@ -8,9 +8,10 @@ module Server.Request exposing
     , expectQueryParam
     , cookie, expectCookie
     , expectHeader
-    , expectFormField, expectFormPost
+    , expectFormPost
     , File, expectMultiPartFormPost
     , errorToString, getDecoder
+    , methodToString
     )
 
 {-|
@@ -48,7 +49,7 @@ module Server.Request exposing
 
 ## Form Posts
 
-@docs expectFormField, expectFormPost
+@docs expectFormPost
 
 
 ## Multi-part forms and file uploads
@@ -378,23 +379,6 @@ cookie name =
         |> ServerRequest
 
 
-{-| -}
-expectFormField : String -> ServerRequest String
-expectFormField name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> OptimizedDecoder.field "formData"
-        |> OptimizedDecoder.map
-            (\value ->
-                case value of
-                    Just justValue ->
-                        Ok justValue
-
-                    Nothing ->
-                        Err (ValidationError ("Missing form field " ++ name))
-            )
-        |> ServerRequest
-
-
 formField_ : String -> ServerRequest String
 formField_ name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
@@ -448,11 +432,17 @@ fileField_ name =
 
 
 {-| -}
-expectFormPost : ((String -> ServerRequest String) -> (String -> ServerRequest (Maybe String)) -> ServerRequest decodedForm) -> ServerRequest decodedForm
+expectFormPost :
+    ({ field : String -> ServerRequest String
+     , optionalField : String -> ServerRequest (Maybe String)
+     }
+     -> ServerRequest decodedForm
+    )
+    -> ServerRequest decodedForm
 expectFormPost toForm =
     map2 (\_ value -> value)
         (expectContentType "application/x-www-form-urlencoded")
-        (toForm formField_ optionalFormField_
+        (toForm { field = formField_, optionalField = optionalFormField_ }
             |> (\(ServerRequest decoder) -> decoder)
             |> OptimizedDecoder.field "formData"
             |> ServerRequest
