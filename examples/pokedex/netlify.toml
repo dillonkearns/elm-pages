@@ -10,4 +10,4 @@
   framework = "#custom"
 
 [functions]
-  included_files = ["secret-note.txt"]
+  included_files = ["content/**/*"]
