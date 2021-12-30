@@ -5,6 +5,7 @@ import DataSource
 import Expect
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
+import Server.Request
 import ServerResponse
 import Test exposing (Test, describe, test)
 
@@ -79,10 +80,13 @@ all =
             [ test "no dynamic segments" <|
                 \() ->
                     succeed
-                        (\isAvailable ->
-                            ""
-                                |> ServerResponse.stringBody
-                                |> DataSource.succeed
+                        (Server.Request.succeed ()
+                            |> Server.Request.thenRespond
+                                (\() ->
+                                    ""
+                                        |> ServerResponse.stringBody
+                                        |> DataSource.succeed
+                                )
                         )
                         |> literal "no-dynamic-segments.json"
                         |> ApiRoute.serverRender
@@ -91,10 +95,13 @@ all =
             , test "two literal segments" <|
                 \() ->
                     ApiRoute.succeed
-                        (\isAvailable ->
-                            ""
-                                |> ServerResponse.stringBody
-                                |> DataSource.succeed
+                        (Server.Request.succeed ()
+                            |> Server.Request.thenRespond
+                                (\() ->
+                                    ""
+                                        |> ServerResponse.stringBody
+                                        |> DataSource.succeed
+                                )
                         )
                         |> ApiRoute.literal "api"
                         |> ApiRoute.slash
@@ -140,8 +147,12 @@ all =
             , test "hybrid route with multiple static segments" <|
                 \() ->
                     succeed
-                        (\repo isAvailable ->
-                            DataSource.succeed ("Data for repo " ++ repo |> ServerResponse.stringBody)
+                        (\repo ->
+                            Server.Request.succeed ()
+                                |> Server.Request.thenRespond
+                                    (\() ->
+                                        DataSource.succeed ("Data for repo " ++ repo |> ServerResponse.stringBody)
+                                    )
                         )
                         |> ApiRoute.literal "api"
                         |> ApiRoute.slash
