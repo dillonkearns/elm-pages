@@ -5,9 +5,14 @@ module.exports = function (/** @type {boolean} */ hasFsAccess) {
       resetInMemoryFs: () => {},
     };
   } else {
+    const { vol, fs, Volume } = require("memfs");
+    vol.fromJSON({});
+    //     vol.reset();
     return {
-      fs: require("memfs").fs,
-      resetInMemoryFs: require("memfs").vol.reset,
+      fs: fs,
+      resetInMemoryFs: () => {
+        vol.reset();
+      },
     };
   }
 };
