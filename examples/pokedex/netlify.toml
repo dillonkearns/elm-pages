@@ -10,4 +10,4 @@
   framework = "#custom"
 
 [functions]
-  included_files = ["content/**/*"]
+  included_files = ["content/**"]
