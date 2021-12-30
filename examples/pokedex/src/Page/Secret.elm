@@ -58,7 +58,7 @@ data routeParams =
                     username
                         |> LoggedInInfo
                         |> DataSource.succeed
-                        |> DataSource.andMap (DataSource.File.rawFile "content/secret-note.txt")
+                        |> DataSource.andMap (DataSource.File.rawFile "examples/pokedex/content/secret-note.txt")
                         |> DataSource.map LoggedIn
                         |> DataSource.map PageServerResponse.RenderPage
                 )
