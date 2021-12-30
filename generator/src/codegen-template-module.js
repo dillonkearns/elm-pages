@@ -176,6 +176,10 @@ pages =
 `
     : ""
 }
+type alias Data =
+    {}
+
+
 ${
   serverRender
     ? `data : RouteParams -> Request.Handler (PageServerResponse Data)
@@ -224,9 +228,6 @@ head static =
         }
         |> Seo.website
 
-
-type alias Data =
-    {}
 
 
 ${
