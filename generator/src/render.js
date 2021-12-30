@@ -227,7 +227,9 @@ async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
   try {
     const fileContents = (
-      await fsPromises.readFile(path.join(__dirname, filePath))
+      await fsPromises.readFile(
+        path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
+      )
     ).toString();
     const parsedFile = matter(fileContents);
 
