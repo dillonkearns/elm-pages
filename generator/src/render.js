@@ -226,7 +226,9 @@ function jsonOrNull(string) {
 async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
   try {
-    const fileContents = (await fsPromises.readFile(filePath)).toString();
+    const fileContents = (
+      await fsPromises.readFile(path.resolve(filePath))
+    ).toString();
     const parsedFile = matter(fileContents);
 
     pendingDataSourceResponses.push({
