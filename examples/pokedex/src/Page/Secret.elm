@@ -126,7 +126,8 @@ view maybeUrl sharedModel static =
                     [ Html.h1 [] [ Html.text "You're not logged in" ]
                     , Route.link Route.Login
                         []
-                        [ Html.text <| "Login" ]
+                        [ Html.text <| "Login"
+                        ]
                     ]
                 ]
             }
