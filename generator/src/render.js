@@ -226,13 +226,7 @@ function jsonOrNull(string) {
 async function runJob(app, filePath) {
   pendingDataSourceCount += 1;
   try {
-    const resolvedFilePath = process.env.LAMBDA_TASK_ROOT
-      ? path.resolve(process.env.LAMBDA_TASK_ROOT, filePath)
-      : path.resolve(__dirname, filePath);
-
-    const fileContents = (
-      await fsPromises.readFile(resolvedFilePath)
-    ).toString();
+    const fileContents = (await fsPromises.readFile(filePath)).toString();
     const parsedFile = matter(fileContents);
 
     pendingDataSourceResponses.push({
