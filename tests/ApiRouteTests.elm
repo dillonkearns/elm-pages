@@ -81,7 +81,7 @@ all =
                 \() ->
                     succeed
                         (Server.Request.succeed ()
-                            |> Server.Request.thenRespond
+                            |> Server.Request.map
                                 (\() ->
                                     ""
                                         |> ServerResponse.stringBody
@@ -96,7 +96,7 @@ all =
                 \() ->
                     ApiRoute.succeed
                         (Server.Request.succeed ()
-                            |> Server.Request.thenRespond
+                            |> Server.Request.map
                                 (\() ->
                                     ""
                                         |> ServerResponse.stringBody
@@ -149,7 +149,7 @@ all =
                     succeed
                         (\repo ->
                             Server.Request.succeed ()
-                                |> Server.Request.thenRespond
+                                |> Server.Request.map
                                     (\() ->
                                         DataSource.succeed ("Data for repo " ++ repo |> ServerResponse.stringBody)
                                     )
