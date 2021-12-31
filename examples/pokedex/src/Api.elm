@@ -33,25 +33,32 @@ routes getStaticRoutes htmlToString =
     ]
 
 
-jsonError : Server.Request.ServerRequest ServerResponse.ServerResponse
+jsonError : ApiRoute ApiRoute.Response
 jsonError =
-    Server.Request.oneOf
-        [ Server.Request.jsonBodyResult (Decode.field "name" Decode.string)
-            |> Server.Request.map
-                (\result ->
-                    case result of
-                        Ok firstName ->
-                            ServerResponse.stringBody
-                                ("Hello " ++ firstName)
+    ApiRoute.succeed
+        (Server.Request.oneOf
+            [ Server.Request.jsonBodyResult (Decode.field "name" Decode.string)
+                |> Server.Request.map
+                    (\result ->
+                        case result of
+                            Ok firstName ->
+                                ServerResponse.stringBody
+                                    ("Hello " ++ firstName)
 
-                        Err decodeError ->
-                            decodeError
-                                |> Json.Decode.errorToString
-                                |> ServerResponse.stringBody
-                                |> ServerResponse.withStatusCode 400
-                )
-        , Server.Request.succeed (ServerResponse.stringBody "Hello anonymous!")
-        ]
+                            Err decodeError ->
+                                decodeError
+                                    |> Json.Decode.errorToString
+                                    |> ServerResponse.stringBody
+                                    |> ServerResponse.withStatusCode 400
+                    )
+            , Server.Request.succeed (ServerResponse.stringBody "Hello anonymous!")
+            ]
+            |> Server.Request.map DataSource.succeed
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "validate-json"
+        |> ApiRoute.serverRender
 
 
 greet : ApiRoute ApiRoute.Response
