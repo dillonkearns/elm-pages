@@ -1,6 +1,6 @@
 module Server.Request exposing
     ( ServerRequest(..)
-    , Method(..)
+    , Method(..), methodToString
     , succeed
     , requestTime, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
     , map, map2, oneOf, andMap
@@ -9,21 +9,18 @@ module Server.Request exposing
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
-    , errorToString, getDecoder
-    , errorsToString, methodToString
+    , errorsToString, errorToString, getDecoder
     )
 
 {-|
 
 @docs ServerRequest
 
-@docs Method
+@docs Method, methodToString
 
 @docs succeed
 
-@docs Handler, Handlers
-
-@docs oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
+@docs requestTime, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
 
 
 ## Transforming
@@ -58,7 +55,7 @@ module Server.Request exposing
 
 ## Internals
 
-@docs errorToString, getDecoder
+@docs errorsToString, errorToString, getDecoder
 
 -}
 
@@ -75,49 +72,6 @@ import Time
 {-| -}
 type ServerRequest decodesTo
     = ServerRequest (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError ))
-
-
-oneOfInternalHandler :
-    List ValidationError
-    -> List (Decoder (Result ( ValidationError, List ValidationError ) (DataSource response)))
-    -> Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
-oneOfInternalHandler previousErrors optimizedDecoders =
-    case optimizedDecoders of
-        [] ->
-            OptimizedDecoder.succeed (Err ( OneOf previousErrors, [] ))
-
-        [ single ] ->
-            single
-                |> OptimizedDecoder.map
-                    (\result ->
-                        result
-                            |> Result.mapError
-                                (\errors ->
-                                    ( OneOf
-                                        (previousErrors
-                                            ++ List.NonEmpty.toList errors
-                                        )
-                                    , []
-                                    )
-                                )
-                    )
-
-        first :: rest ->
-            first
-                |> OptimizedDecoder.andThen
-                    (\firstResult ->
-                        case firstResult of
-                            Ok okFirstResult ->
-                                OptimizedDecoder.succeed (Ok okFirstResult)
-
-                            Err error ->
-                                case error |> List.NonEmpty.toList of
-                                    [ OneOf errors ] ->
-                                        oneOfInternalHandler (previousErrors ++ errors) rest
-
-                                    errorsAsList ->
-                                        oneOfInternalHandler (errorsAsList ++ previousErrors) rest
-                    )
 
 
 oneOfInternal : List ValidationError -> List (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )
@@ -190,6 +144,7 @@ type ValidationError
     | NotFormPost { method : Maybe Method, contentType : Maybe String }
 
 
+{-| -}
 errorsToString : ( ValidationError, List ValidationError ) -> String
 errorsToString validationErrors =
     validationErrors
