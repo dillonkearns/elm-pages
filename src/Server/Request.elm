@@ -152,7 +152,7 @@ oneOfInternal previousErrors optimizedDecoders =
                                         oneOfInternal (previousErrors ++ errors) rest
 
                                     _ ->
-                                        oneOfInternal (error :: previousErrors) rest
+                                        oneOfInternal (previousErrors ++ [ error ]) rest
                     )
 
 

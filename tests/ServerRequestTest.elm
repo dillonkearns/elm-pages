@@ -50,6 +50,44 @@ all =
                         """Did not match formPost because
 - Form post must have method POST, but the method was GET
 - Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO"""
+        , test "one of no match" <|
+            \() ->
+                Request.oneOf
+                    [ Request.expectFormPost
+                        (\{ field, optionalField } ->
+                            field "first"
+                        )
+                    , Request.expectJsonBody (OptimizedDecoder.field "first" OptimizedDecoder.string)
+                    , Request.expectQueryParam "first"
+                    , Request.expectMultiPartFormPost
+                        (\{ field, optionalField } ->
+                            field "first"
+                        )
+                    ]
+                    |> expectNoMatch
+                        { method = Request.Get
+                        , headers =
+                            [ ( "content-type", "application/x-www-form-urlencoded" )
+                            ]
+                        }
+                        """Server.Request.oneOf failed in the following 4 ways:
+
+(1) Did not match formPost because
+- Form post must have method POST, but the method was GET
+- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO
+
+(2) Unable to parse JSON body
+Problem with the given value:
+
+null
+
+Expecting an OBJECT with a field named `first`
+
+(3) Missing query param "first"
+
+(4) Missing form field first
+Expected content-type to be multipart/form-data but it was application/x-www-form-urlencoded
+Expected HTTP method POST but was GET"""
         ]
 
 
@@ -135,4 +173,7 @@ requestToJson request =
                     request.headers
                 )
           )
+        , ( "jsonBody", Json.Encode.null )
+        , ( "query", Json.Encode.null )
+        , ( "multiPartFormData", Json.Encode.null )
         ]
