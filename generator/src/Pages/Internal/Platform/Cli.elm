@@ -18,7 +18,6 @@ import Html exposing (Html)
 import HtmlPrinter
 import Http
 import Internal.ApiRoute exposing (ApiRoute(..))
-import Internal.ServerRequest
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
@@ -426,7 +425,7 @@ initLegacy site renderRequest { secrets, staticHttpCache, isDevServer } contentC
                             StaticResponses.renderSingleRoute config
                                 serverRequestPayload
                                 (DataSource.map2 (\_ _ -> ())
-                                    (config.data Internal.ServerRequest.IsAvailable serverRequestPayload.frontmatter)
+                                    (config.data serverRequestPayload.frontmatter)
                                     config.sharedData
                                 )
                                 (if isDevServer then
@@ -788,7 +787,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                         pageDataResult : Result BuildError (PageServerResponse pageData)
                                                         pageDataResult =
                                                             StaticHttpRequest.resolve ApplicationType.Browser
-                                                                (config.data Internal.ServerRequest.IsAvailable (config.urlToRoute currentUrl))
+                                                                (config.data (config.urlToRoute currentUrl))
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
@@ -961,7 +960,7 @@ sendSinglePageProgress site contentJson config model =
                     pageDataResult : Result BuildError (PageServerResponse pageData)
                     pageDataResult =
                         StaticHttpRequest.resolve ApplicationType.Browser
-                            (config.data Internal.ServerRequest.IsAvailable (config.urlToRoute currentUrl))
+                            (config.data (config.urlToRoute currentUrl))
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 

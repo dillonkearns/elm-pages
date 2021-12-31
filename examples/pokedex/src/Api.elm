@@ -3,12 +3,10 @@ module Api exposing (routes)
 import ApiRoute exposing (ApiRoute)
 import DataSource exposing (DataSource)
 import DataSource.Http
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
 import OptimizedDecoder as Decode
-import QueryParams
 import Route exposing (Route)
 import Secrets
 import Server.Request
@@ -133,24 +131,6 @@ redirectRoute =
         |> ApiRoute.slash
         |> ApiRoute.literal "redirect"
         |> ApiRoute.serverRender
-
-
-serverRequestDataSource isAvailable =
-    ServerRequest.init
-        (\language method queryParams protocol allHeaders ->
-            { language = language
-            , method = method
-            , queryParams = queryParams |> QueryParams.toDict
-            , protocol = protocol
-            , allHeaders = allHeaders
-            }
-        )
-        |> ServerRequest.optionalHeader "accept-language"
-        |> ServerRequest.withMethod
-        |> ServerRequest.withQueryParams
-        |> ServerRequest.withProtocol
-        |> ServerRequest.withAllHeaders
-        |> ServerRequest.toDataSource isAvailable
 
 
 noArgs : ApiRoute ApiRoute.Response

@@ -1027,7 +1027,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , basePath = []
             , data =
-                \isAvailable (Route pageRoute) ->
+                \(Route pageRoute) ->
                     let
                         thing : Maybe (DataSource a)
                         thing =
@@ -1184,7 +1184,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , update = \_ _ _ _ _ -> ( (), Cmd.none )
             , basePath = []
             , data =
-                \isAvailable (Route pageRoute) ->
+                \(Route pageRoute) ->
                     let
                         thing : Maybe (DataSource a)
                         thing =

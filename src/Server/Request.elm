@@ -1,5 +1,5 @@
 module Server.Request exposing
-    ( ServerRequest(..)
+    ( Request(..)
     , Method(..), methodToString
     , succeed
     , requestTime, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
@@ -14,7 +14,7 @@ module Server.Request exposing
 
 {-|
 
-@docs ServerRequest
+@docs Request
 
 @docs Method, methodToString
 
@@ -70,8 +70,8 @@ import Time
 
 
 {-| -}
-type ServerRequest decodesTo
-    = ServerRequest (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError ))
+type Request decodesTo
+    = Request (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError ))
 
 
 oneOfInternal : List ValidationError -> List (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )
@@ -110,15 +110,15 @@ oneOfInternal previousErrors optimizedDecoders =
 
 
 {-| -}
-succeed : value -> ServerRequest value
+succeed : value -> Request value
 succeed value =
-    ServerRequest (OptimizedDecoder.succeed ( Ok value, [] ))
+    Request (OptimizedDecoder.succeed ( Ok value, [] ))
 
 
 {-| TODO internal only
 -}
-getDecoder : ServerRequest (DataSource response) -> OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
-getDecoder (ServerRequest decoder) =
+getDecoder : Request (DataSource response) -> OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
+getDecoder (Request decoder) =
     decoder
         |> OptimizedDecoder.map
             (\( result, validationErrors ) ->
@@ -188,9 +188,9 @@ errorToString validationError =
 
 
 {-| -}
-map : (a -> b) -> ServerRequest a -> ServerRequest b
-map mapFn (ServerRequest decoder) =
-    ServerRequest
+map : (a -> b) -> Request a -> Request b
+map mapFn (Request decoder) =
+    Request
         (OptimizedDecoder.map
             (\( result, errors ) ->
                 ( Result.map mapFn result, errors )
@@ -200,12 +200,12 @@ map mapFn (ServerRequest decoder) =
 
 
 {-| -}
-oneOf : List (ServerRequest a) -> ServerRequest a
+oneOf : List (Request a) -> Request a
 oneOf serverRequests =
-    ServerRequest
+    Request
         (oneOfInternal []
             (List.map
-                (\(ServerRequest decoder) -> decoder)
+                (\(Request decoder) -> decoder)
                 serverRequests
             )
         )
@@ -225,13 +225,13 @@ oneOf serverRequests =
     --> Success "hihihi"
 
 -}
-andMap : ServerRequest a -> ServerRequest (a -> b) -> ServerRequest b
+andMap : Request a -> Request (a -> b) -> Request b
 andMap =
     map2 (|>)
 
 
-andThen : (a -> ServerRequest b) -> ServerRequest a -> ServerRequest b
-andThen toRequestB (ServerRequest requestA) =
+andThen : (a -> Request b) -> Request a -> Request b
+andThen toRequestB (Request requestA) =
     OptimizedDecoder.andThen
         (\value ->
             case value of
@@ -244,18 +244,18 @@ andThen toRequestB (ServerRequest requestA) =
                     OptimizedDecoder.succeed ( Err error, errors )
         )
         requestA
-        |> ServerRequest
+        |> Request
 
 
-unwrap : ServerRequest a -> Decoder ( Result ValidationError a, List ValidationError )
-unwrap (ServerRequest decoder_) =
+unwrap : Request a -> Decoder ( Result ValidationError a, List ValidationError )
+unwrap (Request decoder_) =
     decoder_
 
 
 {-| -}
-map2 : (a -> b -> c) -> ServerRequest a -> ServerRequest b -> ServerRequest c
-map2 f (ServerRequest jdA) (ServerRequest jdB) =
-    ServerRequest
+map2 : (a -> b -> c) -> Request a -> Request b -> Request c
+map2 f (Request jdA) (Request jdB) =
+    Request
         (OptimizedDecoder.map2
             (\( result1, errors1 ) ( result2, errors2 ) ->
                 ( Result.map2 f result1 result2
@@ -268,22 +268,22 @@ map2 f (ServerRequest jdA) (ServerRequest jdB) =
 
 
 {-| -}
-expectHeader : String -> ServerRequest String
+expectHeader : String -> Request String
 expectHeader headerName =
     OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
         |> OptimizedDecoder.andThen (\value -> OptimizedDecoder.fromResult (value |> Result.fromMaybe "Missing field headers"))
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-requestTime : ServerRequest Time.Posix
+requestTime : Request Time.Posix
 requestTime =
     OptimizedDecoder.field "requestTime"
         (OptimizedDecoder.int |> OptimizedDecoder.map Time.millisToPosix)
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 okOrInternalError : OptimizedDecoder.Decoder a -> OptimizedDecoder.Decoder (Result ValidationError a)
@@ -293,13 +293,13 @@ okOrInternalError decoder =
 
 
 {-| -}
-method : ServerRequest Method
+method : Request Method
 method =
     (OptimizedDecoder.field "method" OptimizedDecoder.string
         |> OptimizedDecoder.map methodFromString
     )
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 noErrors : OptimizedDecoder.Decoder value -> OptimizedDecoder.Decoder ( Result ValidationError value, List ValidationError )
@@ -309,8 +309,8 @@ noErrors decoder =
 
 
 {-| -}
-acceptMethod : ( Method, List Method ) -> ServerRequest value -> ServerRequest value
-acceptMethod ( accepted1, accepted ) (ServerRequest decoder) =
+acceptMethod : ( Method, List Method ) -> Request value -> Request value
+acceptMethod ( accepted1, accepted ) (Request decoder) =
     (OptimizedDecoder.field "method" OptimizedDecoder.string
         |> OptimizedDecoder.map methodFromString
         |> OptimizedDecoder.andThen
@@ -327,11 +327,11 @@ acceptMethod ( accepted1, accepted ) (ServerRequest decoder) =
                             )
             )
     )
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-matchesMethod : ( Method, List Method ) -> ServerRequest Bool
+matchesMethod : ( Method, List Method ) -> Request Bool
 matchesMethod ( accepted1, accepted ) =
     (OptimizedDecoder.field "method" OptimizedDecoder.string
         |> OptimizedDecoder.map methodFromString
@@ -341,7 +341,7 @@ matchesMethod ( accepted1, accepted ) =
             )
     )
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 appendError : ValidationError -> OptimizedDecoder.Decoder ( value, List ValidationError ) -> OptimizedDecoder.Decoder ( value, List ValidationError )
@@ -351,25 +351,25 @@ appendError error decoder =
 
 
 {-| -}
-allQueryParams : ServerRequest QueryParams
+allQueryParams : Request QueryParams
 allQueryParams =
     OptimizedDecoder.field "query" OptimizedDecoder.string
         |> OptimizedDecoder.map QueryParams.fromString
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-queryParam : String -> ServerRequest (Maybe String)
+queryParam : String -> Request (Maybe String)
 queryParam name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.field "query"
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-expectQueryParam : String -> ServerRequest String
+expectQueryParam : String -> Request String
 expectQueryParam name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.field "query"
@@ -382,20 +382,20 @@ expectQueryParam name =
                     Nothing ->
                         ( Err (ValidationError ("Missing query param \"" ++ name ++ "\"")), [] )
             )
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-optionalHeader : String -> ServerRequest (Maybe String)
+optionalHeader : String -> Request (Maybe String)
 optionalHeader headerName =
     OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-allCookies : ServerRequest (Dict String String)
+allCookies : Request (Dict String String)
 allCookies =
     OptimizedDecoder.optionalField "cookie" OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
@@ -406,11 +406,11 @@ allCookies =
                     |> CookieParser.parse
             )
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-expectCookie : String -> ServerRequest String
+expectCookie : String -> Request String
 expectCookie name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.field "cookies"
@@ -423,19 +423,19 @@ expectCookie name =
                     Nothing ->
                         ( Err (ValidationError ("Missing cookie " ++ name)), [] )
             )
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-cookie : String -> ServerRequest (Maybe String)
+cookie : String -> Request (Maybe String)
 cookie name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.field "cookies"
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
-formField_ : String -> ServerRequest String
+formField_ : String -> Request String
 formField_ name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.map
@@ -447,14 +447,14 @@ formField_ name =
                     Nothing ->
                         ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
-        |> ServerRequest
+        |> Request
 
 
-optionalFormField_ : String -> ServerRequest (Maybe String)
+optionalFormField_ : String -> Request (Maybe String)
 optionalFormField_ name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
@@ -465,7 +465,7 @@ type alias File =
     }
 
 
-fileField_ : String -> ServerRequest File
+fileField_ : String -> Request File
 fileField_ name =
     OptimizedDecoder.optionalField name
         (OptimizedDecoder.oneOf
@@ -484,17 +484,17 @@ fileField_ name =
                     Nothing ->
                         ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
 expectFormPost :
-    ({ field : String -> ServerRequest String
-     , optionalField : String -> ServerRequest (Maybe String)
+    ({ field : String -> Request String
+     , optionalField : String -> Request (Maybe String)
      }
-     -> ServerRequest decodedForm
+     -> Request decodedForm
     )
-    -> ServerRequest decodedForm
+    -> Request decodedForm
 expectFormPost toForm =
     map2 Tuple.pair
         (matchesContentType "application/x-www-form-urlencoded")
@@ -511,11 +511,11 @@ expectFormPost toForm =
                             )
                         , []
                         )
-                        |> ServerRequest
+                        |> Request
 
                 else
                     toForm { field = formField_, optionalField = optionalFormField_ }
-                        |> (\(ServerRequest decoder) -> decoder)
+                        |> (\(Request decoder) -> decoder)
                         |> OptimizedDecoder.optionalField "formData"
                         |> OptimizedDecoder.map
                             (\value ->
@@ -526,19 +526,19 @@ expectFormPost toForm =
                                     Nothing ->
                                         ( Err (ValidationError "Expected form data"), [] )
                             )
-                        |> ServerRequest
+                        |> Request
             )
 
 
 {-| -}
 expectMultiPartFormPost :
-    ({ field : String -> ServerRequest String
-     , optionalField : String -> ServerRequest (Maybe String)
-     , fileField : String -> ServerRequest File
+    ({ field : String -> Request String
+     , optionalField : String -> Request (Maybe String)
+     , fileField : String -> Request File
      }
-     -> ServerRequest decodedForm
+     -> Request decodedForm
     )
-    -> ServerRequest decodedForm
+    -> Request decodedForm
 expectMultiPartFormPost toForm =
     map2 (\_ value -> value)
         (expectContentType "multipart/form-data")
@@ -547,23 +547,23 @@ expectMultiPartFormPost toForm =
             , optionalField = optionalFormField_
             , fileField = fileField_
             }
-            |> (\(ServerRequest decoder) -> decoder)
+            |> (\(Request decoder) -> decoder)
             |> OptimizedDecoder.field "multiPartFormData"
-            |> ServerRequest
+            |> Request
             |> acceptMethod ( Post, [] )
         )
 
 
 {-| -}
-body : ServerRequest (Maybe String)
+body : Request (Maybe String)
 body =
     bodyDecoder
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 {-| -}
-expectContentType : String -> ServerRequest Bool
+expectContentType : String -> Request Bool
 expectContentType expectedContentType =
     OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
@@ -580,10 +580,10 @@ expectContentType expectedContentType =
                         else
                             ( Ok False, [ ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType) ] )
             )
-        |> ServerRequest
+        |> Request
 
 
-matchesContentType : String -> ServerRequest (Maybe Bool)
+matchesContentType : String -> Request (Maybe Bool)
 matchesContentType expectedContentType =
     OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
@@ -601,7 +601,7 @@ matchesContentType expectedContentType =
                             Just False
             )
         |> noErrors
-        |> ServerRequest
+        |> Request
 
 
 parseContentType : String -> String
@@ -613,7 +613,7 @@ parseContentType rawContentType =
 
 
 {-| -}
-expectJsonBody : OptimizedDecoder.Decoder value -> ServerRequest value
+expectJsonBody : OptimizedDecoder.Decoder value -> Request value
 expectJsonBody jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
@@ -625,12 +625,12 @@ expectJsonBody jsonBodyDecoder =
                 |> OptimizedDecoder.map (Result.mapError JsonDecodeError)
             ]
             |> OptimizedDecoder.map (\value -> ( value, [] ))
-            |> ServerRequest
+            |> Request
         )
 
 
 {-| -}
-jsonBodyResult : OptimizedDecoder.Decoder value -> ServerRequest (Result Json.Decode.Error value)
+jsonBodyResult : OptimizedDecoder.Decoder value -> Request (Result Json.Decode.Error value)
 jsonBodyResult jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
@@ -641,7 +641,7 @@ jsonBodyResult jsonBodyDecoder =
                 |> OptimizedDecoder.map (OptimizedDecoder.decodeValue jsonBodyDecoder)
             ]
             |> noErrors
-            |> ServerRequest
+            |> Request
         )
 
 

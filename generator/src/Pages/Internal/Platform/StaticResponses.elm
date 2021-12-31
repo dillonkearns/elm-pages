@@ -9,7 +9,6 @@ import Dict.Extra
 import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (ApiRoute(..))
-import Internal.ServerRequest
 import Json.Encode
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -189,7 +188,7 @@ nextStep :
     { config
         | getStaticRoutes : DataSource (List route)
         , routeToPath : route -> List String
-        , data : Internal.ServerRequest.IsAvailable -> route -> DataSource pageData
+        , data : route -> DataSource pageData
         , sharedData : DataSource sharedData
         , site : Maybe (SiteConfig siteData)
         , apiRoutes : (Html Never -> String) -> List (ApiRoute.ApiRoute ApiRoute.Response)

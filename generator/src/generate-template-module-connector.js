@@ -41,7 +41,6 @@ function generateTemplateModuleConnector(basePath, phase) {
     mainModule: `port module Main exposing (..)
 
 import Api
-import DataSource.ServerRequest
 import Pattern
 import PageServerResponse exposing (PageServerResponse)
 import ApiRoute
@@ -456,8 +455,8 @@ main =
           .join(", ")} ]
         }
 
-dataForRoute : DataSource.ServerRequest.IsAvailable -> Maybe Route -> DataSource (PageServerResponse PageData)
-dataForRoute isAvailable route =
+dataForRoute : Maybe Route -> DataSource (PageServerResponse PageData)
+dataForRoute route =
     case route of
         Nothing ->
             DataSource.succeed (PageServerResponse.RenderPage Data404NotFoundPage____)
@@ -470,7 +469,7 @@ dataForRoute isAvailable route =
                   : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
               } ->\n            Page.${name.join(
                 "."
-              )}.page.data isAvailable ${routeHelpers.referenceRouteParams(
+              )}.page.data ${routeHelpers.referenceRouteParams(
                 name,
                 "routeParams"
               )} |> DataSource.map (PageServerResponse.map Data${routeHelpers.routeVariant(

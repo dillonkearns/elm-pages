@@ -85,7 +85,6 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import DataSource.Http
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest(..))
 import Head
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -100,7 +99,7 @@ import View exposing (View)
 
 {-| -}
 type alias PageWithState routeParams data model msg =
-    { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
+    { data : routeParams -> DataSource (PageServerResponse data)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
@@ -136,7 +135,7 @@ type alias StaticPayload data routeParams =
 {-| -}
 type Builder routeParams data
     = WithData
-        { data : ServerRequest.IsAvailable -> routeParams -> DataSource (PageServerResponse data)
+        { data : routeParams -> DataSource (PageServerResponse data)
         , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload data routeParams
@@ -267,7 +266,7 @@ single :
     -> Builder {} data
 single { data, head } =
     WithData
-        { data = \_ _ -> data |> DataSource.map PageServerResponse.RenderPage
+        { data = \_ -> data |> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -285,7 +284,7 @@ preRender :
     -> Builder routeParams data
 preRender { data, head, pages } =
     WithData
-        { data = \_ -> data >> DataSource.map PageServerResponse.RenderPage
+        { data = data >> DataSource.map PageServerResponse.RenderPage
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -322,7 +321,7 @@ preRenderWithFallback :
     -> Builder routeParams data
 preRenderWithFallback { data, head, pages } =
     WithData
-        { data = \_ -> data
+        { data = data
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -335,14 +334,14 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.ServerRequest (DataSource (PageServerResponse data))
+    { data : routeParams -> Server.Request.Request (DataSource (PageServerResponse data))
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data
 serverRender { data, head } =
     WithData
         { data =
-            \_ routeParams ->
+            \routeParams ->
                 DataSource.Http.get
                     (Secrets.succeed "$$elm-pages$$headers")
                     (routeParams

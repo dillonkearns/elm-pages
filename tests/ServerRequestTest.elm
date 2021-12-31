@@ -97,8 +97,8 @@ type alias Request =
     }
 
 
-expectMatch : Request -> Request.ServerRequest value -> Expectation
-expectMatch request (Request.ServerRequest decoder) =
+expectMatch : Request -> Request.Request value -> Expectation
+expectMatch request (Request.Request decoder) =
     case
         request
             |> requestToJson
@@ -125,8 +125,8 @@ expectMatch request (Request.ServerRequest decoder) =
             Expect.fail (Json.Decode.errorToString error)
 
 
-expectNoMatch : Request -> String -> Request.ServerRequest value -> Expectation
-expectNoMatch request expectedErrorString (Request.ServerRequest decoder) =
+expectNoMatch : Request -> String -> Request.Request value -> Expectation
+expectNoMatch request expectedErrorString (Request.Request decoder) =
     case
         request
             |> requestToJson

@@ -44,7 +44,7 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.oneOf
         [ Request.expectFormPost (\{ field } -> field "name")

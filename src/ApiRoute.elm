@@ -36,12 +36,9 @@ DataSources dynamically.
 
 import DataSource exposing (DataSource)
 import DataSource.Http
-import DataSource.ServerRequest as ServerRequest
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
-import Internal.ServerRequest
 import Json.Encode
 import OptimizedDecoder
-import PageServerResponse
 import Pattern exposing (Pattern)
 import Regex
 import Secrets
@@ -87,7 +84,7 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.ServerRequest (DataSource ServerResponse)) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Request (DataSource ServerResponse)) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never

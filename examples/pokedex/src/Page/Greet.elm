@@ -39,7 +39,7 @@ page =
         |> Page.buildNoState { view = view }
 
 
-data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.oneOf
         [ Request.map2 Data

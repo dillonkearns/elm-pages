@@ -1,7 +1,6 @@
 module Page.Time exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Dict exposing (Dict)
 import Head
 import Head.Seo as Seo
@@ -10,7 +9,6 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import QueryParams exposing (QueryParams)
 import Server.Request as Request
 import ServerResponse
 import Shared
@@ -41,7 +39,7 @@ page =
 
 type alias Request =
     { language : Maybe String
-    , method : ServerRequest.Method
+    , method : Request.Method
     , queryParams : Dict String (List String)
     , protocol : Url.Protocol
     , allHeaders : Dict String String
@@ -95,7 +93,7 @@ type alias Request =
 --                            |> DataSource.map PageServerResponse.RenderPage
 
 
-data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.succeed ()
         |> Request.map

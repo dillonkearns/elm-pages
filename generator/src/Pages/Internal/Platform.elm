@@ -174,7 +174,7 @@ init config flags url key =
                 pageDataResult : Result BuildError (PageServerResponse pageData)
                 pageDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
-                        (config.data Internal.ServerRequest.IsAvailable (config.urlToRoute url))
+                        (config.data (config.urlToRoute url))
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
 
@@ -466,7 +466,7 @@ update config appMsg model =
                         updatedPageStaticData : Result String pageData
                         updatedPageStaticData =
                             StaticHttpRequest.resolve ApplicationType.Browser
-                                (config.data Internal.ServerRequest.IsAvailable (config.urlToRoute url))
+                                (config.data (config.urlToRoute url))
                                 contentJson.staticData
                                 |> Result.mapError
                                     (\error ->
@@ -552,7 +552,7 @@ update config appMsg model =
                 pageDataResult : Result BuildError (PageServerResponse pageData)
                 pageDataResult =
                     StaticHttpRequest.resolve ApplicationType.Browser
-                        (config.data Internal.ServerRequest.IsAvailable (config.urlToRoute model.url))
+                        (config.data (config.urlToRoute model.url))
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
 
