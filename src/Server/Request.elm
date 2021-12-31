@@ -3,7 +3,7 @@ module Server.Request exposing
     , Method(..)
     , succeed
     , Handler, Handlers
-    , oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod
+    , oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
     , map, map2, oneOf, andMap
     , expectQueryParam
     , cookie, expectCookie
@@ -24,7 +24,7 @@ module Server.Request exposing
 
 @docs Handler, Handlers
 
-@docs oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod
+@docs oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
 
 
 ## Transforming
@@ -701,6 +701,22 @@ expectJsonBody jsonBodyDecoder =
                 |> OptimizedDecoder.map (Result.mapError JsonDecodeError)
             ]
             |> OptimizedDecoder.map (\value -> ( value, [] ))
+            |> ServerRequest
+        )
+
+
+{-| -}
+jsonBodyResult : OptimizedDecoder.Decoder value -> ServerRequest (Result Json.Decode.Error value)
+jsonBodyResult jsonBodyDecoder =
+    map2 (\_ secondValue -> secondValue)
+        (expectContentType "application/json")
+        (OptimizedDecoder.oneOf
+            [ OptimizedDecoder.field "jsonBody" jsonBodyDecoder
+                |> OptimizedDecoder.map Ok
+            , OptimizedDecoder.field "jsonBody" OptimizedDecoder.value
+                |> OptimizedDecoder.map (OptimizedDecoder.decodeValue jsonBodyDecoder)
+            ]
+            |> noErrors
             |> ServerRequest
         )
 
