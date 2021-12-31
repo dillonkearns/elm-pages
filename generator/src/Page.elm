@@ -356,7 +356,7 @@ serverRender { data, head } =
                                     okRendered
 
                                 Err error ->
-                                    Server.Request.errorToString error |> DataSource.fail
+                                    Server.Request.errorsToString error |> DataSource.fail
                         )
         , staticRoutes = DataSource.succeed []
         , head = head

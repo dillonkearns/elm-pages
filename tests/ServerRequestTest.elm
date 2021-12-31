@@ -5,7 +5,7 @@ import Json.Decode
 import Json.Encode
 import OptimizedDecoder
 import Server.Request as Request
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, only, test)
 
 
 all : Test
@@ -47,7 +47,9 @@ all =
                             [ ( "content-type", "application/x-www-form-urlencoded" )
                             ]
                         }
-                        "Expected HTTP method POST but was GET"
+                        """Did not match formPost because
+- Form post must have method POST, but the method was GET
+- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO"""
         ]
 
 
@@ -66,11 +68,20 @@ expectMatch request (Request.ServerRequest decoder) =
     of
         Ok ok ->
             case ok of
-                Ok inner ->
+                ( Ok inner, [] ) ->
                     Expect.pass
 
-                Err innerError ->
-                    Expect.fail (Request.errorToString innerError)
+                ( Err innerError, otherErrors ) ->
+                    (innerError :: otherErrors)
+                        |> List.map Request.errorToString
+                        |> String.join "\n"
+                        |> Expect.fail
+
+                ( Ok _, nonEmptyErrors ) ->
+                    nonEmptyErrors
+                        |> List.map Request.errorToString
+                        |> String.join "\n"
+                        |> Expect.fail
 
         Err error ->
             Expect.fail (Json.Decode.errorToString error)
@@ -85,14 +96,20 @@ expectNoMatch request expectedErrorString (Request.ServerRequest decoder) =
     of
         Ok ok ->
             case ok of
-                Ok _ ->
+                ( Ok inner, [] ) ->
                     Expect.fail "Expected this request not to match, but instead it did match."
 
-                Err innerError ->
-                    innerError
-                        |> Request.errorToString
-                        |> Expect.equal
-                            expectedErrorString
+                ( Err innerError, otherErrors ) ->
+                    (innerError :: otherErrors)
+                        |> List.map Request.errorToString
+                        |> String.join "\n"
+                        |> Expect.equal expectedErrorString
+
+                ( Ok _, nonEmptyErrors ) ->
+                    nonEmptyErrors
+                        |> List.map Request.errorToString
+                        |> String.join "\n"
+                        |> Expect.equal expectedErrorString
 
         Err error ->
             Expect.fail

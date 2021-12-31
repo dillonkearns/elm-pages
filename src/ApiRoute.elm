@@ -108,9 +108,9 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
                                             Just (Ok okRendered) ->
                                                 okRendered
 
-                                            Just (Err error) ->
-                                                error
-                                                    |> Server.Request.errorToString
+                                            Just (Err errors) ->
+                                                errors
+                                                    |> Server.Request.errorsToString
                                                     |> ServerResponse.stringBody
                                                     |> ServerResponse.withStatusCode 400
                                                     |> DataSource.succeed

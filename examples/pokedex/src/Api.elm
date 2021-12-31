@@ -36,7 +36,7 @@ greet =
     ApiRoute.succeed
         (Server.Request.oneOf
             [ Server.Request.expectFormPost
-                (\field optionalField ->
+                (\{ field, optionalField } ->
                     field "first"
                 )
             , Server.Request.expectJsonBody (Decode.field "first" Decode.string)

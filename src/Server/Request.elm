@@ -11,7 +11,7 @@ module Server.Request exposing
     , expectFormPost
     , File, expectMultiPartFormPost
     , errorToString, getDecoder
-    , methodToString
+    , errorsToString, methodToString
     )
 
 {-|
@@ -67,28 +67,40 @@ import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Json.Decode
-import OptimizedDecoder
+import List.NonEmpty
+import OptimizedDecoder exposing (Decoder)
 import QueryParams exposing (QueryParams)
 import Time
 
 
 {-| -}
 type ServerRequest decodesTo
-    = ServerRequest (OptimizedDecoder.Decoder (Result ValidationError decodesTo))
+    = ServerRequest (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError ))
 
 
-oneOfInternal : List ValidationError -> List (OptimizedDecoder.Decoder (Result ValidationError decodesTo)) -> OptimizedDecoder.Decoder (Result ValidationError decodesTo)
-oneOfInternal previousErrors optimizedDecoders =
+oneOfInternalHandler :
+    List ValidationError
+    -> List (Decoder (Result ( ValidationError, List ValidationError ) (DataSource response)))
+    -> Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
+oneOfInternalHandler previousErrors optimizedDecoders =
     case optimizedDecoders of
         [] ->
-            OptimizedDecoder.succeed (Err (OneOf previousErrors))
+            OptimizedDecoder.succeed (Err ( OneOf previousErrors, [] ))
 
         [ single ] ->
             single
                 |> OptimizedDecoder.map
                     (\result ->
                         result
-                            |> Result.mapError (\error -> OneOf (previousErrors ++ [ error ]))
+                            |> Result.mapError
+                                (\errors ->
+                                    ( OneOf
+                                        (previousErrors
+                                            ++ List.NonEmpty.toList errors
+                                        )
+                                    , []
+                                    )
+                                )
                     )
 
         first :: rest ->
@@ -100,6 +112,41 @@ oneOfInternal previousErrors optimizedDecoders =
                                 OptimizedDecoder.succeed (Ok okFirstResult)
 
                             Err error ->
+                                case error |> List.NonEmpty.toList of
+                                    [ OneOf errors ] ->
+                                        oneOfInternalHandler (previousErrors ++ errors) rest
+
+                                    errorsAsList ->
+                                        oneOfInternalHandler (errorsAsList ++ previousErrors) rest
+                    )
+
+
+oneOfInternal : List ValidationError -> List (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )
+oneOfInternal previousErrors optimizedDecoders =
+    case optimizedDecoders of
+        [] ->
+            OptimizedDecoder.succeed ( Err (OneOf previousErrors), [] )
+
+        [ single ] ->
+            single
+                |> OptimizedDecoder.map
+                    (\result ->
+                        result
+                            |> Tuple.mapFirst (Result.mapError (\error -> OneOf (previousErrors ++ [ error ])))
+                    )
+
+        first :: rest ->
+            first
+                |> OptimizedDecoder.andThen
+                    (\( firstResult, firstErrors ) ->
+                        case ( firstResult, firstErrors ) of
+                            ( Ok okFirstResult, [] ) ->
+                                OptimizedDecoder.succeed ( Ok okFirstResult, [] )
+
+                            ( Ok okFirstResult, otherErrors ) ->
+                                OptimizedDecoder.succeed ( Ok okFirstResult, otherErrors )
+
+                            ( Err error, otherErrors ) ->
                                 case error of
                                     OneOf errors ->
                                         oneOfInternal (previousErrors ++ errors) rest
@@ -112,7 +159,7 @@ oneOfInternal previousErrors optimizedDecoders =
 {-| -}
 succeed : value -> ServerRequest value
 succeed value =
-    ServerRequest (OptimizedDecoder.succeed (Ok value))
+    ServerRequest (OptimizedDecoder.succeed ( Ok value, [] ))
 
 
 {-| -}
@@ -122,12 +169,12 @@ type Handlers response
 
 {-| -}
 type Handler response
-    = Handler (OptimizedDecoder.Decoder (Result ValidationError (DataSource response)))
+    = Handler (OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response)))
 
 
 {-| TODO internal only
 -}
-getDecoder : Handler response -> OptimizedDecoder.Decoder (Result ValidationError (DataSource response))
+getDecoder : Handler response -> OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
 getDecoder (Handler decoder) =
     decoder
 
@@ -136,7 +183,20 @@ getDecoder (Handler decoder) =
 thenRespond : (request -> DataSource response) -> ServerRequest request -> Handler response
 thenRespond thenDataSource (ServerRequest requestDecoder) =
     requestDecoder
-        |> OptimizedDecoder.map (Result.map thenDataSource)
+        |> OptimizedDecoder.map
+            (\( result, validationErrors ) ->
+                case ( result, validationErrors ) of
+                    ( Ok value, [] ) ->
+                        value
+                            |> thenDataSource
+                            |> Ok
+
+                    ( Err fatalError, errors ) ->
+                        Err ( fatalError, errors )
+
+                    ( Ok _, firstError :: rest ) ->
+                        Err ( firstError, rest )
+            )
         |> Handler
 
 
@@ -146,6 +206,15 @@ type ValidationError
       -- unexpected because violation of the contract - could be adapter issue, or issue with this package
     | InternalError
     | JsonDecodeError Json.Decode.Error
+    | NotFormPost { method : Maybe Method, contentType : Maybe String }
+
+
+errorsToString : ( ValidationError, List ValidationError ) -> String
+errorsToString validationErrors =
+    validationErrors
+        |> List.NonEmpty.toList
+        |> List.map errorToString
+        |> String.join "\n"
 
 
 {-| TODO internal only
@@ -171,11 +240,27 @@ errorToString validationError =
                         |> String.join "\n\n"
                    )
 
+        NotFormPost record ->
+            "Did not match formPost because\n"
+                ++ ([ record.method
+                        |> Maybe.map (\method_ -> "- Form post must have method POST, but the method was " ++ methodToString method_)
+                    , record.contentType |> Maybe.map (\contentType -> "- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was " ++ contentType)
+                    ]
+                        |> List.filterMap identity
+                        |> String.join "\n"
+                   )
+
 
 {-| -}
 map : (a -> b) -> ServerRequest a -> ServerRequest b
 map mapFn (ServerRequest decoder) =
-    ServerRequest (OptimizedDecoder.map (Result.map mapFn) decoder)
+    ServerRequest
+        (OptimizedDecoder.map
+            (\( result, errors ) ->
+                ( Result.map mapFn result, errors )
+            )
+            decoder
+        )
 
 
 {-| -}
@@ -194,7 +279,7 @@ oneOf serverRequests =
 oneOfHandler : List (Handler a) -> Handler a
 oneOfHandler serverRequests =
     Handler
-        (oneOfInternal []
+        (oneOfInternalHandler []
             (List.map
                 (\(Handler decoder) -> decoder)
                 serverRequests
@@ -221,11 +306,41 @@ andMap =
     map2 (|>)
 
 
+andThen : (a -> ServerRequest b) -> ServerRequest a -> ServerRequest b
+andThen toRequestB (ServerRequest requestA) =
+    OptimizedDecoder.andThen
+        (\value ->
+            case value of
+                ( Ok okValue, errors ) ->
+                    okValue
+                        |> toRequestB
+                        |> unwrap
+
+                ( Err error, errors ) ->
+                    OptimizedDecoder.succeed ( Err error, errors )
+        )
+        requestA
+        |> ServerRequest
+
+
+unwrap : ServerRequest a -> Decoder ( Result ValidationError a, List ValidationError )
+unwrap (ServerRequest decoder_) =
+    decoder_
+
+
 {-| -}
 map2 : (a -> b -> c) -> ServerRequest a -> ServerRequest b -> ServerRequest c
 map2 f (ServerRequest jdA) (ServerRequest jdB) =
     ServerRequest
-        (OptimizedDecoder.map2 (Result.map2 f) jdA jdB)
+        (OptimizedDecoder.map2
+            (\( result1, errors1 ) ( result2, errors2 ) ->
+                ( Result.map2 f result1 result2
+                , errors1 ++ errors2
+                )
+            )
+            jdA
+            jdB
+        )
 
 
 {-| -}
@@ -233,7 +348,8 @@ expectHeader : String -> ServerRequest String
 expectHeader headerName =
     OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
-        |> OptimizedDecoder.map (Result.fromMaybe InternalError)
+        |> OptimizedDecoder.andThen (\value -> OptimizedDecoder.fromResult (value |> Result.fromMaybe "Missing field headers"))
+        |> noErrors
         |> ServerRequest
 
 
@@ -242,7 +358,7 @@ requestTime : ServerRequest Time.Posix
 requestTime =
     OptimizedDecoder.field "requestTime"
         (OptimizedDecoder.int |> OptimizedDecoder.map Time.millisToPosix)
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -253,22 +369,19 @@ okOrInternalError decoder =
 
 
 {-| -}
-allHeaders : ServerRequest (Dict String String)
-allHeaders =
-    OptimizedDecoder.dict OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
-        |> okOrInternalError
-        |> ServerRequest
-
-
-{-| -}
 method : ServerRequest Method
 method =
     (OptimizedDecoder.field "method" OptimizedDecoder.string
         |> OptimizedDecoder.map methodFromString
     )
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
+
+
+noErrors : OptimizedDecoder.Decoder value -> OptimizedDecoder.Decoder ( Result ValidationError value, List ValidationError )
+noErrors decoder =
+    decoder
+        |> OptimizedDecoder.map (\value -> ( Ok value, [] ))
 
 
 {-| -}
@@ -283,15 +396,34 @@ acceptMethod ( accepted1, accepted ) (ServerRequest decoder) =
                     decoder
 
                 else
-                    OptimizedDecoder.succeed
-                        (Err
+                    decoder
+                        |> appendError
                             (ValidationError
                                 ("Expected HTTP method " ++ String.join ", " ((accepted1 :: accepted) |> List.map methodToString) ++ " but was " ++ methodToString method_)
                             )
-                        )
             )
     )
         |> ServerRequest
+
+
+{-| -}
+matchesMethod : ( Method, List Method ) -> ServerRequest Bool
+matchesMethod ( accepted1, accepted ) =
+    (OptimizedDecoder.field "method" OptimizedDecoder.string
+        |> OptimizedDecoder.map methodFromString
+        |> OptimizedDecoder.map
+            (\method_ ->
+                (accepted1 :: accepted) |> List.member method_
+            )
+    )
+        |> noErrors
+        |> ServerRequest
+
+
+appendError : ValidationError -> OptimizedDecoder.Decoder ( value, List ValidationError ) -> OptimizedDecoder.Decoder ( value, List ValidationError )
+appendError error decoder =
+    decoder
+        |> OptimizedDecoder.map (Tuple.mapSecond (\errors -> error :: errors))
 
 
 {-| -}
@@ -299,7 +431,7 @@ allQueryParams : ServerRequest QueryParams
 allQueryParams =
     OptimizedDecoder.field "query" OptimizedDecoder.string
         |> OptimizedDecoder.map QueryParams.fromString
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -308,7 +440,7 @@ queryParam : String -> ServerRequest (Maybe String)
 queryParam name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.field "query"
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -321,10 +453,10 @@ expectQueryParam name =
             (\value ->
                 case value of
                     Just justValue ->
-                        Ok justValue
+                        ( Ok justValue, [] )
 
                     Nothing ->
-                        Err (ValidationError ("Missing query param \"" ++ name ++ "\""))
+                        ( Err (ValidationError ("Missing query param \"" ++ name ++ "\"")), [] )
             )
         |> ServerRequest
 
@@ -334,7 +466,7 @@ optionalHeader : String -> ServerRequest (Maybe String)
 optionalHeader headerName =
     OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -349,7 +481,7 @@ allCookies =
                     |> Maybe.withDefault ""
                     |> CookieParser.parse
             )
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -362,10 +494,10 @@ expectCookie name =
             (\value ->
                 case value of
                     Just justValue ->
-                        Ok justValue
+                        ( Ok justValue, [] )
 
                     Nothing ->
-                        Err (ValidationError ("Missing cookie " ++ name))
+                        ( Err (ValidationError ("Missing cookie " ++ name)), [] )
             )
         |> ServerRequest
 
@@ -375,7 +507,7 @@ cookie : String -> ServerRequest (Maybe String)
 cookie name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
         |> OptimizedDecoder.field "cookies"
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -386,10 +518,10 @@ formField_ name =
             (\value ->
                 case value of
                     Just justValue ->
-                        Ok justValue
+                        ( Ok justValue, [] )
 
                     Nothing ->
-                        Err (ValidationError ("Missing form field " ++ name))
+                        ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
         |> ServerRequest
 
@@ -397,7 +529,7 @@ formField_ name =
 optionalFormField_ : String -> ServerRequest (Maybe String)
 optionalFormField_ name =
     OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
@@ -423,10 +555,10 @@ fileField_ name =
             (\value ->
                 case value of
                     Just justValue ->
-                        Ok justValue
+                        ( Ok justValue, [] )
 
                     Nothing ->
-                        Err (ValidationError ("Missing form field " ++ name))
+                        ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
         |> ServerRequest
 
@@ -440,14 +572,38 @@ expectFormPost :
     )
     -> ServerRequest decodedForm
 expectFormPost toForm =
-    map2 (\_ value -> value)
-        (expectContentType "application/x-www-form-urlencoded")
-        (toForm { field = formField_, optionalField = optionalFormField_ }
-            |> (\(ServerRequest decoder) -> decoder)
-            |> OptimizedDecoder.field "formData"
-            |> ServerRequest
-            |> acceptMethod ( Post, [] )
-        )
+    map2 Tuple.pair
+        (matchesContentType "application/x-www-form-urlencoded")
+        (matchesMethod ( Post, [] ))
+        |> andThen
+            (\( validContentType, validMethod ) ->
+                if not ((validContentType |> Maybe.withDefault False) && validMethod) then
+                    OptimizedDecoder.succeed
+                        ( Err
+                            (NotFormPost
+                                { method = Just Get
+                                , contentType = Just "TODO"
+                                }
+                            )
+                        , []
+                        )
+                        |> ServerRequest
+
+                else
+                    toForm { field = formField_, optionalField = optionalFormField_ }
+                        |> (\(ServerRequest decoder) -> decoder)
+                        |> OptimizedDecoder.optionalField "formData"
+                        |> OptimizedDecoder.map
+                            (\value ->
+                                case value of
+                                    Just ( decodedForm, errors ) ->
+                                        ( decodedForm, errors )
+
+                                    Nothing ->
+                                        ( Err (ValidationError "Expected form data"), [] )
+                            )
+                        |> ServerRequest
+            )
 
 
 {-| -}
@@ -478,12 +634,12 @@ expectMultiPartFormPost toForm =
 body : ServerRequest (Maybe String)
 body =
     bodyDecoder
-        |> okOrInternalError
+        |> noErrors
         |> ServerRequest
 
 
 {-| -}
-expectContentType : String -> ServerRequest ()
+expectContentType : String -> ServerRequest Bool
 expectContentType expectedContentType =
     OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
         |> OptimizedDecoder.field "headers"
@@ -491,15 +647,36 @@ expectContentType expectedContentType =
             (\maybeContentType ->
                 case maybeContentType of
                     Nothing ->
-                        Err (ValidationError "Missing content-type")
+                        ( Err (ValidationError "Missing content-type"), [] )
 
                     Just contentType ->
                         if (contentType |> parseContentType) == (expectedContentType |> parseContentType) then
-                            Ok ()
+                            ( Ok True, [] )
 
                         else
-                            Err (ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType))
+                            ( Ok False, [ ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType) ] )
             )
+        |> ServerRequest
+
+
+matchesContentType : String -> ServerRequest (Maybe Bool)
+matchesContentType expectedContentType =
+    OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
+        |> OptimizedDecoder.field "headers"
+        |> OptimizedDecoder.map
+            (\maybeContentType ->
+                case maybeContentType of
+                    Nothing ->
+                        Nothing
+
+                    Just contentType ->
+                        if (contentType |> parseContentType) == (expectedContentType |> parseContentType) then
+                            Just True
+
+                        else
+                            Just False
+            )
+        |> noErrors
         |> ServerRequest
 
 
@@ -514,16 +691,16 @@ parseContentType rawContentType =
 {-| -}
 expectJsonBody : OptimizedDecoder.Decoder value -> ServerRequest value
 expectJsonBody jsonBodyDecoder =
-    map2 (\() secondValue -> secondValue)
+    map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
         (OptimizedDecoder.oneOf
             [ OptimizedDecoder.field "jsonBody" jsonBodyDecoder
                 |> OptimizedDecoder.map Ok
             , OptimizedDecoder.field "jsonBody" OptimizedDecoder.value
-                |> OptimizedDecoder.map
-                    (OptimizedDecoder.decodeValue jsonBodyDecoder)
+                |> OptimizedDecoder.map (OptimizedDecoder.decodeValue jsonBodyDecoder)
                 |> OptimizedDecoder.map (Result.mapError JsonDecodeError)
             ]
+            |> OptimizedDecoder.map (\value -> ( value, [] ))
             |> ServerRequest
         )
 
