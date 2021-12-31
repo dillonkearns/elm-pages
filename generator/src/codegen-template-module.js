@@ -182,7 +182,7 @@ type alias Data =
 
 ${
   serverRender
-    ? `data : RouteParams -> Request.Handler (PageServerResponse Data)
+    ? `data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
 data routeParams =`
     : withFallback
     ? `data : RouteParams -> DataSource (PageServerResponse Data)

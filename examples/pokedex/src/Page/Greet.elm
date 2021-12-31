@@ -39,13 +39,13 @@ page =
         |> Page.buildNoState { view = view }
 
 
-data : RouteParams -> Request.Handler (PageServerResponse Data)
+data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
 data routeParams =
-    Request.oneOfHandler
+    Request.oneOf
         [ Request.map2 Data
             (Request.expectQueryParam "name")
             Request.requestTime
-            |> Request.thenRespond
+            |> Request.map
                 (\requestData ->
                     requestData
                         |> PageServerResponse.RenderPage
@@ -54,18 +54,16 @@ data routeParams =
         , Request.map2 Data
             (Request.expectCookie "username")
             Request.requestTime
-            |> Request.thenRespond
+            |> Request.map
                 (\requestData ->
                     requestData
                         |> PageServerResponse.RenderPage
                         |> DataSource.succeed
                 )
-        , Request.succeed ()
-            |> Request.thenRespond
-                (\() ->
-                    DataSource.succeed
-                        (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/login"))
-                )
+        , Request.succeed
+            (DataSource.succeed
+                (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/login"))
+            )
         ]
 
 

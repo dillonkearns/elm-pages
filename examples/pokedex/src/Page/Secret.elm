@@ -49,11 +49,11 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Handler (PageServerResponse Data)
+data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
 data routeParams =
-    Request.oneOfHandler
+    Request.oneOf
         [ Request.expectCookie "username"
-            |> Request.thenRespond
+            |> Request.map
                 (\username ->
                     username
                         |> LoggedInInfo
@@ -62,18 +62,16 @@ data routeParams =
                         |> DataSource.map LoggedIn
                         |> DataSource.map PageServerResponse.RenderPage
                 )
-        , Request.succeed ()
-            |> Request.thenRespond
-                (\() ->
-                    NotLoggedIn
-                        |> DataSource.succeed
-                        |> DataSource.map PageServerResponse.RenderPage
-                 --"/login"
-                 --    |> ServerResponse.temporaryRedirect
-                 --    --|> ServerResponse.withStatusCode 404
-                 --    |> PageServerResponse.ServerResponse
-                 --    |> DataSource.succeed
-                )
+        , Request.succeed
+            (NotLoggedIn
+                |> DataSource.succeed
+                |> DataSource.map PageServerResponse.RenderPage
+             --"/login"
+             --    |> ServerResponse.temporaryRedirect
+             --    --|> ServerResponse.withStatusCode 404
+             --    |> PageServerResponse.ServerResponse
+             --    |> DataSource.succeed
+            )
         ]
 
 

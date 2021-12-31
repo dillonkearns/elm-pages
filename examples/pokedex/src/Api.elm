@@ -5,6 +5,7 @@ import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.ServerRequest as ServerRequest exposing (ServerRequest)
 import Html exposing (Html)
+import Json.Decode
 import Json.Encode
 import OptimizedDecoder as Decode
 import QueryParams
@@ -28,7 +29,29 @@ routes getStaticRoutes htmlToString =
     , logout
     , greet
     , fileLength
+    , jsonError
     ]
+
+
+jsonError : Server.Request.ServerRequest ServerResponse.ServerResponse
+jsonError =
+    Server.Request.oneOf
+        [ Server.Request.jsonBodyResult (Decode.field "name" Decode.string)
+            |> Server.Request.map
+                (\result ->
+                    case result of
+                        Ok firstName ->
+                            ServerResponse.stringBody
+                                ("Hello " ++ firstName)
+
+                        Err decodeError ->
+                            decodeError
+                                |> Json.Decode.errorToString
+                                |> ServerResponse.stringBody
+                                |> ServerResponse.withStatusCode 400
+                )
+        , Server.Request.succeed (ServerResponse.stringBody "Hello anonymous!")
+        ]
 
 
 greet : ApiRoute ApiRoute.Response
@@ -46,7 +69,7 @@ greet =
                     field "first"
                 )
             ]
-            |> Server.Request.thenRespond
+            |> Server.Request.map
                 (\firstName ->
                     ServerResponse.stringBody ("Hello " ++ firstName)
                         |> DataSource.succeed
@@ -65,7 +88,7 @@ fileLength =
             (\{ field, optionalField, fileField } ->
                 fileField "file"
             )
-            |> Server.Request.thenRespond
+            |> Server.Request.map
                 (\file ->
                     ServerResponse.json
                         (Json.Encode.object
@@ -94,12 +117,10 @@ fileLength =
 redirectRoute : ApiRoute ApiRoute.Response
 redirectRoute =
     ApiRoute.succeed
-        (Server.Request.succeed ()
-            |> Server.Request.thenRespond
-                (\() ->
-                    DataSource.succeed
-                        (ServerResponse.temporaryRedirect "/")
-                )
+        (Server.Request.succeed
+            (DataSource.succeed
+                (ServerResponse.temporaryRedirect "/")
+            )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -128,21 +149,19 @@ serverRequestDataSource isAvailable =
 noArgs : ApiRoute ApiRoute.Response
 noArgs =
     ApiRoute.succeed
-        (Server.Request.succeed ()
-            |> Server.Request.thenRespond
-                (\() ->
-                    DataSource.Http.get
-                        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (Decode.field "stargazers_count" Decode.int)
-                        |> DataSource.map
-                            (\stars ->
-                                Json.Encode.object
-                                    [ ( "repo", Json.Encode.string "elm-pages" )
-                                    , ( "stars", Json.Encode.int stars )
-                                    ]
-                                    |> ServerResponse.json
-                            )
-                )
+        (Server.Request.succeed
+            (DataSource.Http.get
+                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                (Decode.field "stargazers_count" Decode.int)
+                |> DataSource.map
+                    (\stars ->
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string "elm-pages" )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> ServerResponse.json
+                    )
+            )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -179,20 +198,18 @@ nonHybridRoute =
 logout : ApiRoute ApiRoute.Response
 logout =
     ApiRoute.succeed
-        (Server.Request.succeed ()
-            |> Server.Request.thenRespond
-                (\() ->
-                    DataSource.succeed
-                        (ServerResponse.stringBody "You are logged out"
-                            |> ServerResponse.withHeader "Set-Cookie"
-                                (SetCookie.setCookie "username" ""
-                                    |> SetCookie.httpOnly
-                                    |> SetCookie.withPath "/"
-                                    |> SetCookie.withImmediateExpiration
-                                    |> SetCookie.toString
-                                )
+        (Server.Request.succeed
+            (DataSource.succeed
+                (ServerResponse.stringBody "You are logged out"
+                    |> ServerResponse.withHeader "Set-Cookie"
+                        (SetCookie.setCookie "username" ""
+                            |> SetCookie.httpOnly
+                            |> SetCookie.withPath "/"
+                            |> SetCookie.withImmediateExpiration
+                            |> SetCookie.toString
                         )
                 )
+            )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -204,21 +221,19 @@ repoStars : ApiRoute ApiRoute.Response
 repoStars =
     ApiRoute.succeed
         (\repoName ->
-            Server.Request.succeed ()
-                |> Server.Request.thenRespond
-                    (\() ->
-                        DataSource.Http.get
-                            (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                            (Decode.field "stargazers_count" Decode.int)
-                            |> DataSource.map
-                                (\stars ->
-                                    Json.Encode.object
-                                        [ ( "repo", Json.Encode.string repoName )
-                                        , ( "stars", Json.Encode.int stars )
-                                        ]
-                                        |> ServerResponse.json
-                                )
-                    )
+            Server.Request.succeed
+                (DataSource.Http.get
+                    (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                    (Decode.field "stargazers_count" Decode.int)
+                    |> DataSource.map
+                        (\stars ->
+                            Json.Encode.object
+                                [ ( "repo", Json.Encode.string repoName )
+                                , ( "stars", Json.Encode.int stars )
+                                ]
+                                |> ServerResponse.json
+                        )
+                )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash

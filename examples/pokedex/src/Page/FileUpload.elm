@@ -39,22 +39,19 @@ type alias Data =
     Maybe Request.File
 
 
-data : RouteParams -> Request.Handler (PageServerResponse Data)
+data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
 data routeParams =
-    Request.oneOfHandler
+    Request.oneOf
         [ Request.expectMultiPartFormPost
             (\{ field, optionalField, fileField } ->
                 fileField "file"
             )
-            |> Request.thenRespond
+            |> Request.map
                 (\file ->
                     DataSource.succeed (PageServerResponse.RenderPage (Just file))
                 )
-        , Request.succeed ()
-            |> Request.thenRespond
-                (\() ->
-                    DataSource.succeed (PageServerResponse.RenderPage Nothing)
-                )
+        , Request.succeed
+            (DataSource.succeed (PageServerResponse.RenderPage Nothing))
         ]
 
 

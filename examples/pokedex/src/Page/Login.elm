@@ -44,11 +44,11 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Handler (PageServerResponse Data)
+data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
 data routeParams =
-    Request.oneOfHandler
+    Request.oneOf
         [ Request.expectFormPost (\{ field } -> field "name")
-            |> Request.thenRespond
+            |> Request.map
                 (\name ->
                     PageServerResponse.ServerResponse
                         ("/greet"
@@ -63,7 +63,7 @@ data routeParams =
                         |> DataSource.succeed
                 )
         , Request.cookie "username"
-            |> Request.thenRespond
+            |> Request.map
                 (\name ->
                     name
                         |> Data

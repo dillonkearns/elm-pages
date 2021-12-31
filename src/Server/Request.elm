@@ -2,8 +2,7 @@ module Server.Request exposing
     ( ServerRequest(..)
     , Method(..)
     , succeed
-    , Handler, Handlers
-    , oneOfHandler, requestTime, thenRespond, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
+    , requestTime, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
     , map, map2, oneOf, andMap
     , expectQueryParam
     , cookie, expectCookie
@@ -162,33 +161,16 @@ succeed value =
     ServerRequest (OptimizedDecoder.succeed ( Ok value, [] ))
 
 
-{-| -}
-type Handlers response
-    = Handlers response
-
-
-{-| -}
-type Handler response
-    = Handler (OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response)))
-
-
 {-| TODO internal only
 -}
-getDecoder : Handler response -> OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
-getDecoder (Handler decoder) =
+getDecoder : ServerRequest (DataSource response) -> OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
+getDecoder (ServerRequest decoder) =
     decoder
-
-
-{-| -}
-thenRespond : (request -> DataSource response) -> ServerRequest request -> Handler response
-thenRespond thenDataSource (ServerRequest requestDecoder) =
-    requestDecoder
         |> OptimizedDecoder.map
             (\( result, validationErrors ) ->
                 case ( result, validationErrors ) of
                     ( Ok value, [] ) ->
                         value
-                            |> thenDataSource
                             |> Ok
 
                     ( Err fatalError, errors ) ->
@@ -197,7 +179,6 @@ thenRespond thenDataSource (ServerRequest requestDecoder) =
                     ( Ok _, firstError :: rest ) ->
                         Err ( firstError, rest )
             )
-        |> Handler
 
 
 type ValidationError
@@ -270,18 +251,6 @@ oneOf serverRequests =
         (oneOfInternal []
             (List.map
                 (\(ServerRequest decoder) -> decoder)
-                serverRequests
-            )
-        )
-
-
-{-| -}
-oneOfHandler : List (Handler a) -> Handler a
-oneOfHandler serverRequests =
-    Handler
-        (oneOfInternalHandler []
-            (List.map
-                (\(Handler decoder) -> decoder)
                 serverRequests
             )
         )

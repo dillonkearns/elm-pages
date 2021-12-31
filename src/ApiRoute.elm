@@ -87,7 +87,7 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Handler ServerResponse) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.ServerRequest (DataSource ServerResponse)) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never

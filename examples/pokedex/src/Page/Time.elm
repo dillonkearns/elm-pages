@@ -95,10 +95,10 @@ type alias Request =
 --                            |> DataSource.map PageServerResponse.RenderPage
 
 
-data : RouteParams -> Request.Handler (PageServerResponse Data)
+data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
 data routeParams =
     Request.succeed ()
-        |> Request.thenRespond
+        |> Request.map
             (\() ->
                 PageServerResponse.ServerResponse (ServerResponse.stringBody "Hello, this is a string")
                     |> DataSource.succeed
