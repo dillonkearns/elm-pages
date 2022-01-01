@@ -10,7 +10,7 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request
-import ServerResponse
+import Server.Response
 import Shared
 import Url
 import View exposing (View)
@@ -98,7 +98,7 @@ data routeParams =
     Request.succeed ()
         |> Request.map
             (\() ->
-                PageServerResponse.ServerResponse (ServerResponse.stringBody "Hello, this is a string")
+                PageServerResponse.ServerResponse (Server.Response.stringBody "Hello, this is a string")
                     |> DataSource.succeed
             )
 

@@ -1,4 +1,4 @@
-module ServerResponse exposing (Response, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode)
+module Server.Response exposing (Response, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode)
 
 {-|
 

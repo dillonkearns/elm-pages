@@ -37,7 +37,7 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
 import SecretsDict exposing (SecretsDict)
-import ServerResponse
+import Server.Response
 import Task
 import TerminalText as Terminal
 import Url
@@ -826,7 +826,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                         |> Effect.SendSinglePage False
 
                                                                 PageServerResponse.ServerResponse serverResponse ->
-                                                                    { body = serverResponse |> ServerResponse.toJson
+                                                                    { body = serverResponse |> Server.Response.toJson
                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                     , statusCode = 200
                                                                     }
@@ -997,7 +997,7 @@ sendSinglePageProgress site contentJson config model =
                                             |> Effect.SendSinglePage True
 
                                     PageServerResponse.ServerResponse serverResponse ->
-                                        { body = serverResponse |> ServerResponse.toJson
+                                        { body = serverResponse |> Server.Response.toJson
                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                         , statusCode = 200
                                         }

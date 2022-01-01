@@ -43,7 +43,7 @@ import Pattern exposing (Pattern)
 import Regex
 import Secrets
 import Server.Request
-import ServerResponse
+import Server.Response
 
 
 {-| -}
@@ -84,7 +84,7 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Request (DataSource ServerResponse.Response)) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Request (DataSource Server.Response.Response)) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -108,17 +108,17 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
                                             Just (Err errors) ->
                                                 errors
                                                     |> Server.Request.errorsToString
-                                                    |> ServerResponse.stringBody
-                                                    |> ServerResponse.withStatusCode 400
+                                                    |> Server.Response.stringBody
+                                                    |> Server.Response.withStatusCode 400
                                                     |> DataSource.succeed
 
                                             Nothing ->
-                                                ServerResponse.stringBody "No matching request handler"
-                                                    |> ServerResponse.withStatusCode 400
+                                                Server.Response.stringBody "No matching request handler"
+                                                    |> Server.Response.withStatusCode 400
                                                     |> DataSource.succeed
                                     )
                         )
-                    |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
+                    |> Maybe.map (DataSource.map (Server.Response.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)
         , buildTimeRoutes = DataSource.succeed []
@@ -138,7 +138,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
 
 
 {-| -}
-preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource ServerResponse.Response) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource Server.Response.Response) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)
@@ -155,7 +155,7 @@ preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString co
         , matchesToResponse =
             \path ->
                 Internal.ApiRoute.tryMatch path fullHandler
-                    |> Maybe.map (DataSource.map (ServerResponse.toJson >> Just))
+                    |> Maybe.map (DataSource.map (Server.Response.toJson >> Just))
                     |> Maybe.withDefault
                         (DataSource.succeed Nothing)
         , buildTimeRoutes = buildTimeRoutes__

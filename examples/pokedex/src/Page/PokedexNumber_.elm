@@ -12,7 +12,7 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Secrets
-import ServerResponse
+import Server.Response
 import Shared
 import View exposing (View)
 
@@ -73,8 +73,8 @@ data { pokedexNumber } =
 
 notFoundResponse : String -> DataSource (PageServerResponse Data)
 notFoundResponse message =
-    ServerResponse.stringBody ("Not found.\n\n" ++ message)
-        |> ServerResponse.withStatusCode 404
+    Server.Response.stringBody ("Not found.\n\n" ++ message)
+        |> Server.Response.withStatusCode 404
         |> PageServerResponse.ServerResponse
         |> DataSource.succeed
 

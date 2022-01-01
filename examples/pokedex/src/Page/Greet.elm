@@ -12,7 +12,7 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request
-import ServerResponse
+import Server.Response
 import Shared
 import Time
 import View exposing (View)
@@ -62,7 +62,7 @@ data routeParams =
                 )
         , Request.succeed
             (DataSource.succeed
-                (PageServerResponse.ServerResponse (ServerResponse.temporaryRedirect "/login"))
+                (PageServerResponse.ServerResponse (Server.Response.temporaryRedirect "/login"))
             )
         ]
 

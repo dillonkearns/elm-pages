@@ -6,7 +6,7 @@ module PageServerResponse exposing (map, PageServerResponse(..))
 
 -}
 
-import ServerResponse exposing (Response)
+import Server.Response exposing (Response)
 
 
 {-| -}

@@ -10,8 +10,8 @@ import OptimizedDecoder as Decode
 import Route exposing (Route)
 import Secrets
 import Server.Request
+import Server.Response
 import Server.SetCookie as SetCookie
-import ServerResponse
 
 
 routes :
@@ -40,16 +40,16 @@ jsonError =
                     (\result ->
                         case result of
                             Ok firstName ->
-                                ServerResponse.stringBody
+                                Server.Response.stringBody
                                     ("Hello " ++ firstName)
 
                             Err decodeError ->
                                 decodeError
                                     |> Json.Decode.errorToString
-                                    |> ServerResponse.stringBody
-                                    |> ServerResponse.withStatusCode 400
+                                    |> Server.Response.stringBody
+                                    |> Server.Response.withStatusCode 400
                     )
-            , Server.Request.succeed (ServerResponse.stringBody "Hello anonymous!")
+            , Server.Request.succeed (Server.Response.stringBody "Hello anonymous!")
             ]
             |> Server.Request.map DataSource.succeed
         )
@@ -76,7 +76,7 @@ greet =
             ]
             |> Server.Request.map
                 (\firstName ->
-                    ServerResponse.stringBody ("Hello " ++ firstName)
+                    Server.Response.stringBody ("Hello " ++ firstName)
                         |> DataSource.succeed
                 )
         )
@@ -95,7 +95,7 @@ fileLength =
             )
             |> Server.Request.map
                 (\file ->
-                    ServerResponse.json
+                    Server.Response.json
                         (Json.Encode.object
                             [ ( "File name: ", Json.Encode.string file.name )
                             , ( "Length", Json.Encode.int (String.length file.body) )
@@ -124,7 +124,7 @@ redirectRoute =
     ApiRoute.succeed
         (Server.Request.succeed
             (DataSource.succeed
-                (ServerResponse.temporaryRedirect "/")
+                (Server.Response.temporaryRedirect "/")
             )
         )
         |> ApiRoute.literal "api"
@@ -146,7 +146,7 @@ noArgs =
                             [ ( "repo", Json.Encode.string "elm-pages" )
                             , ( "stars", Json.Encode.int stars )
                             ]
-                            |> ServerResponse.json
+                            |> Server.Response.json
                     )
             )
         )
@@ -187,8 +187,8 @@ logout =
     ApiRoute.succeed
         (Server.Request.succeed
             (DataSource.succeed
-                (ServerResponse.stringBody "You are logged out"
-                    |> ServerResponse.withHeader "Set-Cookie"
+                (Server.Response.stringBody "You are logged out"
+                    |> Server.Response.withHeader "Set-Cookie"
                         (SetCookie.setCookie "username" ""
                             |> SetCookie.httpOnly
                             |> SetCookie.withPath "/"
@@ -218,7 +218,7 @@ repoStars =
                                 [ ( "repo", Json.Encode.string repoName )
                                 , ( "stars", Json.Encode.int stars )
                                 ]
-                                |> ServerResponse.json
+                                |> Server.Response.json
                         )
                 )
         )
@@ -244,7 +244,7 @@ repoStars2 =
                             [ ( "repo", Json.Encode.string repoName )
                             , ( "stars", Json.Encode.int stars )
                             ]
-                            |> ServerResponse.json
+                            |> Server.Response.json
                     )
         )
         |> ApiRoute.literal "api2"
