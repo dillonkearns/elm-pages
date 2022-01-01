@@ -6,13 +6,13 @@ module PageServerResponse exposing (map, PageServerResponse(..))
 
 -}
 
-import ServerResponse exposing (ServerResponse)
+import ServerResponse exposing (Response)
 
 
 {-| -}
 type PageServerResponse data
     = RenderPage data
-    | ServerResponse ServerResponse
+    | ServerResponse Response
 
 
 {-| -}

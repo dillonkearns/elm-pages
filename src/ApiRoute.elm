@@ -43,7 +43,7 @@ import Pattern exposing (Pattern)
 import Regex
 import Secrets
 import Server.Request
-import ServerResponse exposing (ServerResponse)
+import ServerResponse
 
 
 {-| -}
@@ -84,7 +84,7 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Request (DataSource ServerResponse)) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Request (DataSource ServerResponse.Response)) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -138,7 +138,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
 
 
 {-| -}
-preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource ServerResponse) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource ServerResponse.Response) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)

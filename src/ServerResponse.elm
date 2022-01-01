@@ -1,8 +1,8 @@
-module ServerResponse exposing (ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode)
+module ServerResponse exposing (Response, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode)
 
 {-|
 
-@docs ServerResponse, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode
+@docs Response, json, permanentRedirect, stringBody, success, temporaryRedirect, toJson, withHeader, withStatusCode
 
 -}
 
@@ -11,7 +11,7 @@ import List.Extra
 
 
 {-| -}
-type alias ServerResponse =
+type alias Response =
     { statusCode : Int
     , headers : List ( String, String )
     , body : Maybe String
@@ -20,7 +20,7 @@ type alias ServerResponse =
 
 
 {-| -}
-stringBody : String -> ServerResponse
+stringBody : String -> Response
 stringBody string =
     { statusCode = 200
     , headers = [ ( "Content-Type", "text/plain" ) ]
@@ -30,7 +30,7 @@ stringBody string =
 
 
 {-| -}
-success : ServerResponse
+success : Response
 success =
     { statusCode = 200
     , headers = []
@@ -40,7 +40,7 @@ success =
 
 
 {-| -}
-json : Json.Encode.Value -> ServerResponse
+json : Json.Encode.Value -> Response
 json jsonValue =
     { statusCode = 200
     , headers =
@@ -55,7 +55,7 @@ json jsonValue =
 
 
 {-| -}
-permanentRedirect : String -> ServerResponse
+permanentRedirect : String -> Response
 permanentRedirect url =
     { body = Nothing
     , statusCode = 308
@@ -67,7 +67,7 @@ permanentRedirect url =
 
 
 {-| -}
-temporaryRedirect : String -> ServerResponse
+temporaryRedirect : String -> Response
 temporaryRedirect url =
     { body = Nothing
     , statusCode = 307
@@ -79,19 +79,19 @@ temporaryRedirect url =
 
 
 {-| -}
-withStatusCode : Int -> ServerResponse -> ServerResponse
+withStatusCode : Int -> Response -> Response
 withStatusCode statusCode serverResponse =
     { serverResponse | statusCode = statusCode }
 
 
 {-| -}
-withHeader : String -> String -> ServerResponse -> ServerResponse
+withHeader : String -> String -> Response -> Response
 withHeader name value serverResponse =
     { serverResponse | headers = ( name, value ) :: serverResponse.headers }
 
 
 {-| -}
-toJson : ServerResponse -> Json.Encode.Value
+toJson : Response -> Json.Encode.Value
 toJson serverResponse =
     Json.Encode.object
         [ ( "body", serverResponse.body |> Maybe.map Json.Encode.string |> Maybe.withDefault Json.Encode.null )
