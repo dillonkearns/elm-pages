@@ -21,7 +21,7 @@
         "DataSource.Port",
         "Server.Request",
         "Server.SetCookie",
-        "ServerResponse",
+        "Server.Response",
         "PageServerResponse",
         "Pages.Secrets",
         "Pages.Manifest",
