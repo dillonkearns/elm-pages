@@ -6,7 +6,7 @@ import Expect
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
 import Server.Request
-import ServerResponse
+import Server.Response
 import Test exposing (Test, describe, test)
 
 
@@ -84,7 +84,7 @@ all =
                             |> Server.Request.map
                                 (\() ->
                                     ""
-                                        |> ServerResponse.stringBody
+                                        |> Server.Response.stringBody
                                         |> DataSource.succeed
                                 )
                         )
@@ -99,7 +99,7 @@ all =
                             |> Server.Request.map
                                 (\() ->
                                     ""
-                                        |> ServerResponse.stringBody
+                                        |> Server.Response.stringBody
                                         |> DataSource.succeed
                                 )
                         )
@@ -151,7 +151,7 @@ all =
                             Server.Request.succeed ()
                                 |> Server.Request.map
                                     (\() ->
-                                        DataSource.succeed ("Data for repo " ++ repo |> ServerResponse.stringBody)
+                                        DataSource.succeed ("Data for repo " ++ repo |> Server.Response.stringBody)
                                     )
                         )
                         |> ApiRoute.literal "api"
