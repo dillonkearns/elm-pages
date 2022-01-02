@@ -1,6 +1,7 @@
 module Page.Form exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Form exposing (Form)
 import Head
 import Head.Seo as Seo
@@ -60,6 +61,14 @@ form user =
         |> Form.required
             (Form.input { name = "username", label = "Username" }
                 |> Form.withInitialValue user.username
+                |> Form.withServerValidation
+                    (\username ->
+                        if username == "asdf" then
+                            DataSource.succeed [ "username is taken" ]
+
+                        else
+                            DataSource.succeed []
+                    )
             )
         |> Form.required
             (Form.input { name = "email", label = "Email" }
@@ -84,20 +93,37 @@ page =
 
 type alias Data =
     { name : Maybe User
+    , errors : Dict String (List String)
     }
 
 
 data : RouteParams -> Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.oneOf
-        [ Form.toRequest (form defaultUser)
+        [ Form.toRequest2 (form defaultUser)
             |> Request.map
-                (\name ->
-                    { name = Just name }
-                        |> PageServerResponse.RenderPage
-                        |> DataSource.succeed
+                (\userOrErrors ->
+                    userOrErrors
+                        |> DataSource.map
+                            (\result ->
+                                (case result of
+                                    Ok user ->
+                                        { name = Just user
+                                        , errors = Dict.empty
+                                        }
+
+                                    Err errors ->
+                                        { name = Nothing
+                                        , errors = errors
+                                        }
+                                )
+                                    |> PageServerResponse.RenderPage
+                            )
                 )
-        , PageServerResponse.RenderPage { name = Nothing }
+        , PageServerResponse.RenderPage
+            { name = Nothing
+            , errors = Dict.empty
+            }
             |> DataSource.succeed
             |> Request.succeed
         ]
@@ -151,6 +177,6 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toHtml
+            |> Form.toHtml static.data.errors
         ]
     }

@@ -1,12 +1,14 @@
 module Form exposing (..)
 
+import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Server.Request as Request exposing (Request)
 
 
 type Form value
-    = Form (List FieldInfo) (Request value)
+    = Form (List FieldInfo) (Request value) (Request (DataSource (List ( String, List String ))))
 
 
 type Field
@@ -20,12 +22,15 @@ type alias FieldInfo =
     , type_ : String
     , min : Maybe String
     , max : Maybe String
+    , serverValidation : String -> DataSource (List String)
     }
 
 
 succeed : constructor -> Form constructor
 succeed constructor =
-    Form [] (Request.succeed constructor)
+    Form []
+        (Request.succeed constructor)
+        (Request.succeed (DataSource.succeed []))
 
 
 input : { name : String, label : String } -> Field
@@ -37,6 +42,7 @@ input { name, label } =
         , type_ = "text"
         , min = Nothing
         , max = Nothing
+        , serverValidation = \_ -> DataSource.succeed []
         }
 
 
@@ -49,6 +55,7 @@ number { name, label } =
         , type_ = "number"
         , min = Nothing
         , max = Nothing
+        , serverValidation = \_ -> DataSource.succeed []
         }
 
 
@@ -61,6 +68,7 @@ date { name, label } =
         , type_ = "date"
         , min = Nothing
         , max = Nothing
+        , serverValidation = \_ -> DataSource.succeed []
         }
 
 
@@ -95,12 +103,38 @@ withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
 
 
+withServerValidation : (String -> DataSource (List String)) -> Field -> Field
+withServerValidation serverValidation (Field field) =
+    Field
+        { field
+            | serverValidation = serverValidation
+        }
+
+
 required : Field -> Form (String -> form) -> Form form
-required (Field field) (Form fields decoder) =
+required (Field field) (Form fields decoder serverValidations) =
+    let
+        thing : Request (DataSource (List ( String, List String )))
+        thing =
+            Request.map2
+                (\arg1 arg2 ->
+                    arg1
+                        |> DataSource.map2 (::)
+                            (field.serverValidation arg2
+                                |> DataSource.map
+                                    (\validationErrors ->
+                                        ( field.name, validationErrors )
+                                    )
+                            )
+                )
+                serverValidations
+                (Request.formField_ field.name)
+    in
     Form (field :: fields)
         (decoder
             |> Request.andMap (Request.formField_ field.name)
         )
+        thing
 
 
 
@@ -113,8 +147,8 @@ required (Field field) (Form fields decoder) =
 -}
 
 
-toHtml : Form value -> Html msg
-toHtml (Form fields decoder) =
+toHtml : Dict String (List String) -> Form value -> Html msg
+toHtml serverValidationErrors (Form fields decoder serverValidations) =
     Html.form
         [ Attr.method "POST"
         ]
@@ -123,7 +157,24 @@ toHtml (Form fields decoder) =
             |> List.map
                 (\field ->
                     Html.div []
-                        [ Html.label
+                        [ case serverValidationErrors |> Dict.get field.name of
+                            Just (first :: rest) ->
+                                Html.ul
+                                    [ Attr.style "border" "solid red"
+                                    ]
+                                    (List.map
+                                        (\error ->
+                                            Html.li []
+                                                [ Html.text error
+                                                ]
+                                        )
+                                        (first :: rest)
+                                    )
+
+                            _ ->
+                                Html.span []
+                                    []
+                        , Html.label
                             []
                             [ Html.text field.label
                             , Html.input
@@ -147,8 +198,36 @@ toHtml (Form fields decoder) =
 
 
 toRequest : Form value -> Request value
-toRequest (Form fields decoder) =
+toRequest (Form fields decoder serverValidations) =
     Request.expectFormPost
         (\_ ->
             decoder
+        )
+
+
+toRequest2 : Form value -> Request (DataSource (Result (Dict String (List String)) value))
+toRequest2 (Form fields decoder serverValidations) =
+    Request.map2
+        (\decoded errors ->
+            errors
+                |> DataSource.map
+                    (\validationErrors ->
+                        if validationErrors |> List.isEmpty then
+                            Ok decoded
+
+                        else
+                            validationErrors
+                                |> Dict.fromList
+                                |> Err
+                    )
+        )
+        (Request.expectFormPost
+            (\_ ->
+                decoder
+            )
+        )
+        (Request.expectFormPost
+            (\_ ->
+                serverValidations
+            )
         )
