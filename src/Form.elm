@@ -18,6 +18,8 @@ type alias FieldInfo =
     , label : String
     , initialValue : Maybe String
     , type_ : String
+    , min : Maybe String
+    , max : Maybe String
     }
 
 
@@ -33,6 +35,8 @@ input { name, label } =
         , label = label
         , initialValue = Nothing
         , type_ = "text"
+        , min = Nothing
+        , max = Nothing
         }
 
 
@@ -43,7 +47,41 @@ number { name, label } =
         , label = label
         , initialValue = Nothing
         , type_ = "number"
+        , min = Nothing
+        , max = Nothing
         }
+
+
+date : { name : String, label : String } -> Field
+date { name, label } =
+    Field
+        { name = name
+        , label = label
+        , initialValue = Nothing
+        , type_ = "date"
+        , min = Nothing
+        , max = Nothing
+        }
+
+
+withMin : Int -> Field -> Field
+withMin min (Field field) =
+    Field { field | min = min |> String.fromInt |> Just }
+
+
+withMax : Int -> Field -> Field
+withMax max (Field field) =
+    Field { field | max = max |> String.fromInt |> Just }
+
+
+withMinDate : String -> Field -> Field
+withMinDate min (Field field) =
+    Field { field | min = min |> Just }
+
+
+withMaxDate : String -> Field -> Field
+withMaxDate max (Field field) =
+    Field { field | max = max |> Just }
 
 
 type_ : String -> Field -> Field
@@ -84,20 +122,22 @@ toHtml (Form fields decoder) =
             |> List.reverse
             |> List.map
                 (\field ->
-                    Html.label
-                        []
-                        [ Html.text field.label
-                        , Html.input
-                            ([ Attr.name field.name |> Just
-                             , field.initialValue |> Maybe.map Attr.value
-                             , field.type_ |> Attr.type_ |> Just
-                             , Attr.min "1900" |> Just
-                             , Attr.max "2099" |> Just
-                             , Attr.required True |> Just
-                             ]
-                                |> List.filterMap identity
-                            )
+                    Html.div []
+                        [ Html.label
                             []
+                            [ Html.text field.label
+                            , Html.input
+                                ([ Attr.name field.name |> Just
+                                 , field.initialValue |> Maybe.map Attr.value
+                                 , field.type_ |> Attr.type_ |> Just
+                                 , field.min |> Maybe.map Attr.min
+                                 , field.max |> Maybe.map Attr.max
+                                 , Attr.required True |> Just
+                                 ]
+                                    |> List.filterMap identity
+                                )
+                                []
+                            ]
                         ]
                 )
          )

@@ -5,6 +5,7 @@ import Form exposing (Form)
 import Head
 import Head.Seo as Seo
 import Html
+import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
@@ -31,7 +32,7 @@ type alias User =
     , last : String
     , username : String
     , email : String
-    , birthYear : String
+    , birthDay : String
     }
 
 
@@ -41,7 +42,7 @@ defaultUser =
     , last = "Doe"
     , username = "janedoe"
     , email = "janedoe@example.com"
-    , birthYear = "1999"
+    , birthDay = "1969-07-20"
     }
 
 
@@ -65,8 +66,10 @@ form user =
                 |> Form.withInitialValue user.email
             )
         |> Form.required
-            (Form.number { name = "birthYear", label = "Birth Year" }
-                |> Form.withInitialValue user.birthYear
+            (Form.date { name = "dob", label = "Date of Birth" }
+                |> Form.withInitialValue user.birthDay
+                |> Form.withMinDate "1900-01-01"
+                |> Form.withMaxDate "2022-01-01"
             )
 
 
@@ -133,7 +136,20 @@ view maybeUrl sharedModel static =
     in
     { title = "Form Example"
     , body =
-        [ Html.h1 [] [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
+        [ static.data.name
+            |> Maybe.map
+                (\user_ ->
+                    Html.p
+                        [ Attr.style "padding" "10px"
+                        , Attr.style "background-color" "#a3fba3"
+                        ]
+                        [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
+                        ]
+                )
+            |> Maybe.withDefault (Html.p [] [])
+        , Html.h1
+            []
+            [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
             |> Form.toHtml
         ]
