@@ -92,8 +92,8 @@ page =
 
 
 type alias Data =
-    { name : Maybe User
-    , errors : Dict String (List String)
+    { user : Maybe User
+    , errors : Dict String { raw : String, errors : List String }
     }
 
 
@@ -108,12 +108,12 @@ data routeParams =
                             (\result ->
                                 (case result of
                                     Ok user ->
-                                        { name = Just user
+                                        { user = Just user
                                         , errors = Dict.empty
                                         }
 
                                     Err errors ->
-                                        { name = Nothing
+                                        { user = Nothing
                                         , errors = errors
                                         }
                                 )
@@ -121,7 +121,7 @@ data routeParams =
                             )
                 )
         , PageServerResponse.RenderPage
-            { name = Nothing
+            { user = Nothing
             , errors = Dict.empty
             }
             |> DataSource.succeed
@@ -156,13 +156,14 @@ view :
     -> View Msg
 view maybeUrl sharedModel static =
     let
+        user : User
         user =
-            static.data.name
+            static.data.user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
-        [ static.data.name
+        [ static.data.user
             |> Maybe.map
                 (\user_ ->
                     Html.p

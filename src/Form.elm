@@ -8,7 +8,20 @@ import Server.Request as Request exposing (Request)
 
 
 type Form value
-    = Form (List FieldInfo) (Request value) (Request (DataSource (List ( String, List String ))))
+    = Form
+        (List FieldInfo)
+        (Request value)
+        (Request
+            (DataSource
+                (List
+                    ( String
+                    , { errors : List String
+                      , raw : String
+                      }
+                    )
+                )
+            )
+        )
 
 
 type Field
@@ -114,7 +127,7 @@ withServerValidation serverValidation (Field field) =
 required : Field -> Form (String -> form) -> Form form
 required (Field field) (Form fields decoder serverValidations) =
     let
-        thing : Request (DataSource (List ( String, List String )))
+        thing : Request (DataSource (List ( String, { raw : String, errors : List String } )))
         thing =
             Request.map2
                 (\arg1 arg2 ->
@@ -123,7 +136,11 @@ required (Field field) (Form fields decoder serverValidations) =
                             (field.serverValidation arg2
                                 |> DataSource.map
                                     (\validationErrors ->
-                                        ( field.name, validationErrors )
+                                        ( field.name
+                                        , { errors = validationErrors
+                                          , raw = arg2
+                                          }
+                                        )
                                     )
                             )
                 )
@@ -147,7 +164,7 @@ required (Field field) (Form fields decoder serverValidations) =
 -}
 
 
-toHtml : Dict String (List String) -> Form value -> Html msg
+toHtml : Dict String { raw : String, errors : List String } -> Form value -> Html msg
 toHtml serverValidationErrors (Form fields decoder serverValidations) =
     Html.form
         [ Attr.method "POST"
@@ -158,37 +175,83 @@ toHtml serverValidationErrors (Form fields decoder serverValidations) =
                 (\field ->
                     Html.div []
                         [ case serverValidationErrors |> Dict.get field.name of
-                            Just (first :: rest) ->
-                                Html.ul
-                                    [ Attr.style "border" "solid red"
-                                    ]
-                                    (List.map
-                                        (\error ->
-                                            Html.li []
-                                                [ Html.text error
+                            Just entry ->
+                                let
+                                    { raw, errors } =
+                                        entry
+                                in
+                                case entry.errors of
+                                    first :: rest ->
+                                        Html.div []
+                                            [ Html.ul
+                                                [ Attr.style "border" "solid red"
                                                 ]
-                                        )
-                                        (first :: rest)
-                                    )
+                                                (List.map
+                                                    (\error ->
+                                                        Html.li []
+                                                            [ Html.text error
+                                                            ]
+                                                    )
+                                                    (first :: rest)
+                                                )
+                                            , Html.label
+                                                []
+                                                [ Html.text field.label
+                                                , Html.input
+                                                    ([ Attr.name field.name |> Just
 
-                            _ ->
-                                Html.span []
-                                    []
-                        , Html.label
-                            []
-                            [ Html.text field.label
-                            , Html.input
-                                ([ Attr.name field.name |> Just
-                                 , field.initialValue |> Maybe.map Attr.value
-                                 , field.type_ |> Attr.type_ |> Just
-                                 , field.min |> Maybe.map Attr.min
-                                 , field.max |> Maybe.map Attr.max
-                                 , Attr.required True |> Just
-                                 ]
-                                    |> List.filterMap identity
-                                )
-                                []
-                            ]
+                                                     --, field.initialValue |> Maybe.map Attr.value
+                                                     , raw |> Attr.value |> Just
+                                                     , field.type_ |> Attr.type_ |> Just
+                                                     , field.min |> Maybe.map Attr.min
+                                                     , field.max |> Maybe.map Attr.max
+                                                     , Attr.required True |> Just
+                                                     ]
+                                                        |> List.filterMap identity
+                                                    )
+                                                    []
+                                                ]
+                                            ]
+
+                                    _ ->
+                                        Html.div []
+                                            [ Html.label
+                                                []
+                                                [ Html.text field.label
+                                                , Html.input
+                                                    ([ Attr.name field.name |> Just
+
+                                                     --, field.initialValue |> Maybe.map Attr.value
+                                                     , raw |> Attr.value |> Just
+                                                     , field.type_ |> Attr.type_ |> Just
+                                                     , field.min |> Maybe.map Attr.min
+                                                     , field.max |> Maybe.map Attr.max
+                                                     , Attr.required True |> Just
+                                                     ]
+                                                        |> List.filterMap identity
+                                                    )
+                                                    []
+                                                ]
+                                            ]
+
+                            Nothing ->
+                                Html.div []
+                                    [ Html.label
+                                        []
+                                        [ Html.text field.label
+                                        , Html.input
+                                            ([ Attr.name field.name |> Just
+                                             , field.initialValue |> Maybe.map Attr.value
+                                             , field.type_ |> Attr.type_ |> Just
+                                             , field.min |> Maybe.map Attr.min
+                                             , field.max |> Maybe.map Attr.max
+                                             , Attr.required True |> Just
+                                             ]
+                                                |> List.filterMap identity
+                                            )
+                                            []
+                                        ]
+                                    ]
                         ]
                 )
          )
@@ -205,20 +268,34 @@ toRequest (Form fields decoder serverValidations) =
         )
 
 
-toRequest2 : Form value -> Request (DataSource (Result (Dict String (List String)) value))
+toRequest2 :
+    Form value
+    ->
+        Request
+            (DataSource
+                (Result
+                    (Dict
+                        String
+                        { errors : List String
+                        , raw : String
+                        }
+                    )
+                    value
+                )
+            )
 toRequest2 (Form fields decoder serverValidations) =
     Request.map2
         (\decoded errors ->
             errors
                 |> DataSource.map
                     (\validationErrors ->
-                        if validationErrors |> List.isEmpty then
-                            Ok decoded
-
-                        else
+                        if hasErrors validationErrors then
                             validationErrors
                                 |> Dict.fromList
                                 |> Err
+
+                        else
+                            Ok decoded
                     )
         )
         (Request.expectFormPost
@@ -231,3 +308,12 @@ toRequest2 (Form fields decoder serverValidations) =
                 serverValidations
             )
         )
+
+
+hasErrors : List ( String, { errors : List String, raw : String } ) -> Bool
+hasErrors validationErrors =
+    List.any
+        (\( _, entry ) ->
+            entry.errors |> List.isEmpty |> not
+        )
+        validationErrors
