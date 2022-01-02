@@ -37,11 +37,11 @@ type alias User =
 
 defaultUser : User
 defaultUser =
-    { first = "Dillon"
-    , last = "Kearns"
-    , username = "dillonkearns"
-    , email = "dillon@incrementalelm.com"
-    , birthYear = "1986"
+    { first = "Jane"
+    , last = "Doe"
+    , username = "janedoe"
+    , email = "janedoe@example.com"
+    , birthYear = "1999"
     }
 
 
