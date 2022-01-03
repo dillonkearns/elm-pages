@@ -1,9 +1,7 @@
-module Page.Form exposing (Data, Model, Msg, page)
-
---import Html
---import Html.Attributes as Attr
+module Page.TailwindForm exposing (Data, Model, Msg, page)
 
 import Css
+import Css.Global
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form exposing (Form)
@@ -315,18 +313,7 @@ form user =
                 |> Form.withInitialValue user.last
             )
         |> Form.required
-            (Form.input
-                "username"
-                (\info ->
-                    --Html.div []
-                    --    [ errorsView errors
-                    --    , Html.label (styleAttrs toLabel)
-                    --        [ Html.text "Username"
-                    --        ]
-                    --    , Html.input (styleAttrs toInput) []
-                    --    ]
-                    usernameInput info
-                )
+            (Form.input "username" usernameInput
                 |> Form.withInitialValue user.username
                 |> Form.withServerValidation
                     (\username ->
@@ -370,7 +357,36 @@ form user =
         |> Form.append
             (Form.submit
                 (\{ attrs } ->
-                    Html.input (styleAttrs attrs) []
+                    Html.button
+                        (styleAttrs attrs
+                            ++ [ css
+                                    [ Tw.ml_3
+                                    , Tw.inline_flex
+                                    , Tw.justify_center
+                                    , Tw.py_2
+                                    , Tw.px_4
+                                    , Tw.border
+                                    , Tw.border_transparent
+                                    , Tw.shadow_sm
+                                    , Tw.text_sm
+                                    , Tw.font_medium
+                                    , Tw.rounded_md
+                                    , Tw.text_white
+                                    , Tw.bg_indigo_600
+                                    , Css.focus
+                                        [ Tw.outline_none
+                                        , Tw.ring_2
+                                        , Tw.ring_offset_2
+                                        , Tw.ring_indigo_500
+                                        ]
+                                    , Css.hover
+                                        [ Tw.bg_indigo_700
+                                        ]
+                                    , Tw.cursor_pointer
+                                    ]
+                               ]
+                        )
+                        [ Html.text "Save" ]
                 )
             )
 
@@ -456,25 +472,26 @@ view maybeUrl sharedModel static =
     in
     { title = "Form Example"
     , body =
-        [ --static.data.user
-          --    |> Maybe.map
-          --        (\user_ ->
-          --            Html.p
-          --                [ Attr.style "padding" "10px"
-          --                , Attr.style "background-color" "#a3fba3"
-          --                ]
-          --                [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
-          --                ]
-          --        )
-          --    |> Maybe.withDefault (Html.p [] [])
-          --, Html.h1
-          --    []
-          --    [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
-          --, form user
-          --    |> Form.toHtml static.data.errors
-          --, Html.input [ Attr.type_ "submit" ] []
-          Html.div []
-            [ form user
+        [ Html.div
+            []
+            [ Css.Global.global Tw.globalStyles
+            , static.data.user
+                |> Maybe.map
+                    (\user_ ->
+                        Html.p
+                            [ css
+                                [ Css.backgroundColor (Css.rgb 163 251 163)
+                                , Tw.p_4
+                                ]
+                            ]
+                            [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
+                            ]
+                    )
+                |> Maybe.withDefault (Html.p [] [])
+            , Html.h1
+                []
+                [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
+            , form user
                 |> Form.toHtml
                     (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                     static.data.errors

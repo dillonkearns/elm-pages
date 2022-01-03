@@ -7,9 +7,9 @@ import Html.Attributes as Attr
 import Server.Request as Request exposing (Request)
 
 
-type Form value
+type Form value view
     = Form
-        (List FieldInfo)
+        (List (FieldInfo view))
         (Request value)
         (Request
             (DataSource
@@ -24,11 +24,11 @@ type Form value
         )
 
 
-type Field
-    = Field FieldInfo
+type Field view
+    = Field (FieldInfo view)
 
 
-type alias FieldInfo =
+type alias FieldInfo view =
     { name : String
     , initialValue : Maybe String
     , type_ : String
@@ -38,7 +38,7 @@ type alias FieldInfo =
     , toHtml :
         FinalFieldInfo
         -> Maybe { raw : String, errors : List String }
-        -> Html Never
+        -> view
     }
 
 
@@ -52,7 +52,7 @@ type alias FinalFieldInfo =
     }
 
 
-succeed : constructor -> Form constructor
+succeed : constructor -> Form constructor view
 succeed constructor =
     Form []
         (Request.succeed constructor)
@@ -64,34 +64,27 @@ toInputRecord :
     -> Maybe { raw : String, errors : List String }
     -> FinalFieldInfo
     ->
-        { toInput : List (Html.Attribute Never) -> Html Never
-        , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+        { toInput : List (Html.Attribute Never)
+        , toLabel : List (Html.Attribute Never)
         , errors : List String
         }
 toInputRecord name info field =
     { toInput =
-        \attrs ->
-            Html.input
-                (([ Attr.name name |> Just
-                  , case info of
-                        Just { raw } ->
-                            Just (Attr.value raw)
+        [ Attr.name name |> Just
+        , case info of
+            Just { raw } ->
+                Just (Attr.value raw)
 
-                        _ ->
-                            field.initialValue |> Maybe.map Attr.value
-                  , field.type_ |> Attr.type_ |> Just
-                  , field.min |> Maybe.map Attr.min
-                  , field.max |> Maybe.map Attr.max
-                  , Attr.required True |> Just
-                  ]
-                    |> List.filterMap identity
-                 )
-                    ++ attrs
-                )
-                []
+            _ ->
+                field.initialValue |> Maybe.map Attr.value
+        , field.type_ |> Attr.type_ |> Just
+        , field.min |> Maybe.map Attr.min
+        , field.max |> Maybe.map Attr.max
+        , Attr.required True |> Just
+        ]
+            |> List.filterMap identity
     , toLabel =
-        \attributes children ->
-            Html.label (Attr.for name :: attributes) children
+        [ Attr.for name ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     }
 
@@ -99,13 +92,13 @@ toInputRecord name info field =
 input :
     String
     ->
-        ({ toInput : List (Html.Attribute Never) -> Html Never
-         , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+        ({ toInput : List (Html.Attribute Never)
+         , toLabel : List (Html.Attribute Never)
          , errors : List String
          }
-         -> Html Never
+         -> view
         )
-    -> Field
+    -> Field view
 input name toHtmlFn =
     Field
         { name = name
@@ -117,6 +110,29 @@ input name toHtmlFn =
         , toHtml =
             \fieldInfo info ->
                 toHtmlFn (toInputRecord name info fieldInfo)
+        }
+
+
+submit :
+    ({ attrs : List (Html.Attribute Never)
+     }
+     -> view
+    )
+    -> Field view
+submit toHtmlFn =
+    Field
+        { name = ""
+        , initialValue = Nothing
+        , type_ = "submit"
+        , min = Nothing
+        , max = Nothing
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                toHtmlFn
+                    { attrs =
+                        [ Attr.type_ "submit" ]
+                    }
         }
 
 
@@ -137,13 +153,13 @@ input name toHtmlFn =
 date :
     String
     ->
-        ({ toInput : List (Html.Attribute Never) -> Html Never
-         , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+        ({ toInput : List (Html.Attribute Never)
+         , toLabel : List (Html.Attribute Never)
          , errors : List String
          }
-         -> Html Never
+         -> view
         )
-    -> Field
+    -> Field view
 date name toHtmlFn =
     Field
         { name = name
@@ -158,38 +174,38 @@ date name toHtmlFn =
         }
 
 
-withMin : Int -> Field -> Field
+withMin : Int -> Field view -> Field view
 withMin min (Field field) =
     Field { field | min = min |> String.fromInt |> Just }
 
 
-withMax : Int -> Field -> Field
+withMax : Int -> Field view -> Field view
 withMax max (Field field) =
     Field { field | max = max |> String.fromInt |> Just }
 
 
-withMinDate : String -> Field -> Field
+withMinDate : String -> Field view -> Field view
 withMinDate min (Field field) =
     Field { field | min = min |> Just }
 
 
-withMaxDate : String -> Field -> Field
+withMaxDate : String -> Field view -> Field view
 withMaxDate max (Field field) =
     Field { field | max = max |> Just }
 
 
-type_ : String -> Field -> Field
+type_ : String -> Field view -> Field view
 type_ typeName (Field field) =
     Field
         { field | type_ = typeName }
 
 
-withInitialValue : String -> Field -> Field
+withInitialValue : String -> Field view -> Field view
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
 
 
-withServerValidation : (String -> DataSource (List String)) -> Field -> Field
+withServerValidation : (String -> DataSource (List String)) -> Field view -> Field view
 withServerValidation serverValidation (Field field) =
     Field
         { field
@@ -197,7 +213,7 @@ withServerValidation serverValidation (Field field) =
         }
 
 
-required : Field -> Form (String -> form) -> Form form
+required : Field view -> Form (String -> form) view -> Form form view
 required (Field field) (Form fields decoder serverValidations) =
     let
         thing : Request (DataSource (List ( String, { raw : String, errors : List String } )))
@@ -227,7 +243,14 @@ required (Field field) (Form fields decoder serverValidations) =
         thing
 
 
-simplify : FieldInfo -> FinalFieldInfo
+append : Field view -> Form form view -> Form form view
+append (Field field) (Form fields decoder serverValidations) =
+    Form (field :: fields)
+        decoder
+        serverValidations
+
+
+simplify : FieldInfo view -> FinalFieldInfo
 simplify field =
     { name = field.name
     , initialValue = field.initialValue
@@ -248,12 +271,13 @@ simplify field =
 -}
 
 
-toHtml : Maybe (Dict String { raw : String, errors : List String }) -> Form value -> Html msg
-toHtml serverValidationErrors (Form fields decoder serverValidations) =
-    Html.form
+toHtml : (List (Html.Attribute msg) -> List view -> view) -> Maybe (Dict String { raw : String, errors : List String }) -> Form value view -> view
+toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
+    --Html.form
+    toForm
         [ Attr.method "POST"
         ]
-        ((fields
+        (fields
             |> List.reverse
             |> List.map
                 (\field ->
@@ -261,11 +285,10 @@ toHtml serverValidationErrors (Form fields decoder serverValidations) =
                         (serverValidationErrors
                             |> Maybe.andThen (Dict.get field.name)
                         )
-                        |> Html.map never
+                 --|> Html.map never
                 )
-         )
-            ++ [ Html.input [ Attr.type_ "submit" ] []
-               ]
+         --++ [ Html.input [ Attr.type_ "submit" ] []
+         --   ]
         )
 
 
@@ -361,7 +384,7 @@ toHtml serverValidationErrors (Form fields decoder serverValidations) =
 --)
 
 
-toRequest : Form value -> Request value
+toRequest : Form value view -> Request value
 toRequest (Form fields decoder serverValidations) =
     Request.expectFormPost
         (\_ ->
@@ -370,7 +393,7 @@ toRequest (Form fields decoder serverValidations) =
 
 
 toRequest2 :
-    Form value
+    Form value view
     ->
         Request
             (DataSource
