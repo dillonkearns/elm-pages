@@ -51,15 +51,42 @@ form : User -> Form User
 form user =
     Form.succeed User
         |> Form.required
-            (Form.input { name = "first", label = "First" }
+            (Form.input
+                "first"
+                (\{ toInput, toLabel } ->
+                    Html.div []
+                        [ toLabel []
+                            [ Html.text "First"
+                            ]
+                        , toInput []
+                        ]
+                )
                 |> Form.withInitialValue user.first
             )
         |> Form.required
-            (Form.input { name = "last", label = "Last" }
+            (Form.input
+                "last"
+                (\{ toInput, toLabel } ->
+                    Html.div []
+                        [ toLabel []
+                            [ Html.text "Last"
+                            ]
+                        , toInput []
+                        ]
+                )
                 |> Form.withInitialValue user.last
             )
         |> Form.required
-            (Form.input { name = "username", label = "Username" }
+            (Form.input
+                "username"
+                (\{ toInput, toLabel } ->
+                    Html.div []
+                        [ toLabel []
+                            [ Html.text "Username"
+                            ]
+                        , toInput []
+                        ]
+                )
                 |> Form.withInitialValue user.username
                 |> Form.withServerValidation
                     (\username ->
@@ -71,11 +98,29 @@ form user =
                     )
             )
         |> Form.required
-            (Form.input { name = "email", label = "Email" }
+            (Form.input
+                "email"
+                (\{ toInput, toLabel } ->
+                    Html.div []
+                        [ toLabel []
+                            [ Html.text "Email"
+                            ]
+                        , toInput []
+                        ]
+                )
                 |> Form.withInitialValue user.email
             )
         |> Form.required
-            (Form.date { name = "dob", label = "Date of Birth" }
+            (Form.date
+                "dob"
+                (\{ toInput, toLabel } ->
+                    Html.div []
+                        [ toLabel []
+                            [ Html.text "Date of Birth"
+                            ]
+                        , toInput []
+                        ]
+                )
                 |> Form.withInitialValue user.birthDay
                 |> Form.withMinDate "1900-01-01"
                 |> Form.withMaxDate "2022-01-01"
@@ -179,5 +224,7 @@ view maybeUrl sharedModel static =
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
             |> Form.toHtml static.data.errors
+
+        --, Html.input [ Attr.type_ "submit" ] []
         ]
     }

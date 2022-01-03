@@ -30,7 +30,19 @@ type Field
 
 type alias FieldInfo =
     { name : String
-    , label : String
+    , initialValue : Maybe String
+    , type_ : String
+    , min : Maybe String
+    , max : Maybe String
+    , serverValidation : String -> DataSource (List String)
+    , toHtml :
+        FinalFieldInfo
+        -> Html Never
+    }
+
+
+type alias FinalFieldInfo =
+    { name : String
     , initialValue : Maybe String
     , type_ : String
     , min : Maybe String
@@ -46,42 +58,92 @@ succeed constructor =
         (Request.succeed (DataSource.succeed []))
 
 
-input : { name : String, label : String } -> Field
-input { name, label } =
+toInputRecord :
+    String
+    -> FinalFieldInfo
+    ->
+        { toInput : List (Html.Attribute Never) -> Html Never
+        , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+        }
+toInputRecord name field =
+    { toInput =
+        \attrs ->
+            Html.input
+                (([ Attr.name name |> Just
+                  , field.initialValue |> Maybe.map Attr.value
+                  , field.type_ |> Attr.type_ |> Just
+                  , field.min |> Maybe.map Attr.min
+                  , field.max |> Maybe.map Attr.max
+                  , Attr.required True |> Just
+                  ]
+                    |> List.filterMap identity
+                 )
+                    ++ attrs
+                )
+                []
+    , toLabel =
+        \attributes children ->
+            Html.label (Attr.for name :: attributes) children
+    }
+
+
+input :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Never) -> Html Never
+         , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+         }
+         -> Html Never
+        )
+    -> Field
+input name toHtmlFn =
     Field
         { name = name
-        , label = label
         , initialValue = Nothing
         , type_ = "text"
         , min = Nothing
         , max = Nothing
         , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo ->
+                toHtmlFn (toInputRecord name fieldInfo)
         }
 
 
-number : { name : String, label : String } -> Field
-number { name, label } =
-    Field
-        { name = name
-        , label = label
-        , initialValue = Nothing
-        , type_ = "number"
-        , min = Nothing
-        , max = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
-        }
+
+--number : { name : String, label : String } -> Field
+--number { name, label } =
+--    Field
+--        { name = name
+--        , label = label
+--        , initialValue = Nothing
+--        , type_ = "number"
+--        , min = Nothing
+--        , max = Nothing
+--        , serverValidation = \_ -> DataSource.succeed []
+--        }
 
 
-date : { name : String, label : String } -> Field
-date { name, label } =
+date :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Never) -> Html Never
+         , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+         }
+         -> Html Never
+        )
+    -> Field
+date name toHtmlFn =
     Field
         { name = name
-        , label = label
         , initialValue = Nothing
         , type_ = "date"
         , min = Nothing
         , max = Nothing
         , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo ->
+                toHtmlFn (toInputRecord name fieldInfo)
         }
 
 
@@ -154,6 +216,17 @@ required (Field field) (Form fields decoder serverValidations) =
         thing
 
 
+simplify : FieldInfo -> FinalFieldInfo
+simplify field =
+    { name = field.name
+    , initialValue = field.initialValue
+    , type_ = field.type_
+    , min = field.min
+    , max = field.max
+    , serverValidation = field.serverValidation
+    }
+
+
 
 {-
    - If there is at least one file field, then use enctype multi-part. Otherwise use form encoding (or maybe GET with query params?).
@@ -173,91 +246,105 @@ toHtml serverValidationErrors (Form fields decoder serverValidations) =
             |> List.reverse
             |> List.map
                 (\field ->
-                    Html.div []
-                        [ case serverValidationErrors |> Dict.get field.name of
-                            Just entry ->
-                                let
-                                    { raw, errors } =
-                                        entry
-                                in
-                                case entry.errors of
-                                    first :: rest ->
-                                        Html.div []
-                                            [ Html.ul
-                                                [ Attr.style "border" "solid red"
-                                                ]
-                                                (List.map
-                                                    (\error ->
-                                                        Html.li []
-                                                            [ Html.text error
-                                                            ]
-                                                    )
-                                                    (first :: rest)
-                                                )
-                                            , Html.label
-                                                []
-                                                [ Html.text field.label
-                                                , Html.input
-                                                    ([ Attr.name field.name |> Just
-
-                                                     --, field.initialValue |> Maybe.map Attr.value
-                                                     , raw |> Attr.value |> Just
-                                                     , field.type_ |> Attr.type_ |> Just
-                                                     , field.min |> Maybe.map Attr.min
-                                                     , field.max |> Maybe.map Attr.max
-                                                     , Attr.required True |> Just
-                                                     ]
-                                                        |> List.filterMap identity
-                                                    )
-                                                    []
-                                                ]
-                                            ]
-
-                                    _ ->
-                                        Html.div []
-                                            [ Html.label
-                                                []
-                                                [ Html.text field.label
-                                                , Html.input
-                                                    ([ Attr.name field.name |> Just
-
-                                                     --, field.initialValue |> Maybe.map Attr.value
-                                                     , raw |> Attr.value |> Just
-                                                     , field.type_ |> Attr.type_ |> Just
-                                                     , field.min |> Maybe.map Attr.min
-                                                     , field.max |> Maybe.map Attr.max
-                                                     , Attr.required True |> Just
-                                                     ]
-                                                        |> List.filterMap identity
-                                                    )
-                                                    []
-                                                ]
-                                            ]
-
-                            Nothing ->
-                                Html.div []
-                                    [ Html.label
-                                        []
-                                        [ Html.text field.label
-                                        , Html.input
-                                            ([ Attr.name field.name |> Just
-                                             , field.initialValue |> Maybe.map Attr.value
-                                             , field.type_ |> Attr.type_ |> Just
-                                             , field.min |> Maybe.map Attr.min
-                                             , field.max |> Maybe.map Attr.max
-                                             , Attr.required True |> Just
-                                             ]
-                                                |> List.filterMap identity
-                                            )
-                                            []
-                                        ]
-                                    ]
-                        ]
+                    field.toHtml (simplify field)
+                        |> Html.map never
                 )
          )
             ++ [ Html.input [ Attr.type_ "submit" ] []
                ]
         )
+
+
+
+--((fields
+--    |> List.reverse
+--    |> List.map
+--        (\field ->
+--            Html.div []
+--                [ case serverValidationErrors |> Dict.get field.name of
+--                    Just entry ->
+--                        let
+--                            { raw, errors } =
+--                                entry
+--                        in
+--                        case entry.errors of
+--                            first :: rest ->
+--                                Html.div []
+--                                    [ Html.ul
+--                                        [ Attr.style "border" "solid red"
+--                                        ]
+--                                        (List.map
+--                                            (\error ->
+--                                                Html.li []
+--                                                    [ Html.text error
+--                                                    ]
+--                                            )
+--                                            (first :: rest)
+--                                        )
+--                                    , Html.label
+--                                        []
+--                                        [ Html.text field.label
+--                                        , Html.input
+--                                            ([ Attr.name field.name |> Just
+--
+--                                             --, field.initialValue |> Maybe.map Attr.value
+--                                             , raw |> Attr.value |> Just
+--                                             , field.type_ |> Attr.type_ |> Just
+--                                             , field.min |> Maybe.map Attr.min
+--                                             , field.max |> Maybe.map Attr.max
+--                                             , Attr.required True |> Just
+--                                             ]
+--                                                |> List.filterMap identity
+--                                            )
+--                                            []
+--                                        ]
+--                                    ]
+--
+--                            _ ->
+--                                Html.div []
+--                                    [ Html.label
+--                                        []
+--                                        [ Html.text field.label
+--                                        , Html.input
+--                                            ([ Attr.name field.name |> Just
+--
+--                                             --, field.initialValue |> Maybe.map Attr.value
+--                                             , raw |> Attr.value |> Just
+--                                             , field.type_ |> Attr.type_ |> Just
+--                                             , field.min |> Maybe.map Attr.min
+--                                             , field.max |> Maybe.map Attr.max
+--                                             , Attr.required True |> Just
+--                                             ]
+--                                                |> List.filterMap identity
+--                                            )
+--                                            []
+--                                        ]
+--                                    ]
+--
+--                    Nothing ->
+--                        Html.div []
+--                            [ Html.label
+--                                []
+--                                [ Html.text field.label
+--                                , Html.input
+--                                    ([ Attr.name field.name |> Just
+--                                     , field.initialValue |> Maybe.map Attr.value
+--                                     , field.type_ |> Attr.type_ |> Just
+--                                     , field.min |> Maybe.map Attr.min
+--                                     , field.max |> Maybe.map Attr.max
+--                                     , Attr.required True |> Just
+--                                     ]
+--                                        |> List.filterMap identity
+--                                    )
+--                                    []
+--                                ]
+--                            ]
+--                ]
+--        )
+-- )
+--    ++ [ Html.input [ Attr.type_ "submit" ] []
+--       ]
+--)
 
 
 toRequest : Form value -> Request value
