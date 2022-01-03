@@ -9,7 +9,11 @@ import Server.Request as Request exposing (Request)
 
 type Form value view
     = Form
-        (List (FieldInfo view))
+        (List
+            ( List (FieldInfo view)
+            , List view -> List view
+            )
+        )
         (Request value)
         (Request
             (DataSource
@@ -253,18 +257,74 @@ required (Field field) (Form fields decoder serverValidations) =
                 serverValidations
                 (Request.formField_ field.name)
     in
-    Form (field :: fields)
+    Form
+        (addField field fields)
         (decoder
             |> Request.andMap (Request.formField_ field.name)
         )
         thing
 
 
+addField : FieldInfo view -> List ( List (FieldInfo view), List view -> List view ) -> List ( List (FieldInfo view), List view -> List view )
+addField field list =
+    case list of
+        [] ->
+            [ ( [ field ], identity )
+            ]
+
+        ( fields, wrapFn ) :: others ->
+            ( field :: fields, wrapFn ) :: others
+
+
 append : Field view -> Form form view -> Form form view
 append (Field field) (Form fields decoder serverValidations) =
-    Form (field :: fields)
+    Form
+        --(field :: fields)
+        (addField field fields)
         decoder
         serverValidations
+
+
+appendForm : (form1 -> form2 -> form) -> Form form1 view -> Form form2 view -> Form form view
+appendForm mapFn (Form fields1 decoder1 serverValidations1) (Form fields2 decoder2 serverValidations2) =
+    Form
+        -- TODO is this ordering correct?
+        (fields1 ++ fields2)
+        (Request.map2 mapFn decoder1 decoder2)
+        (Request.map2
+            (DataSource.map2 (++))
+            serverValidations1
+            serverValidations2
+        )
+
+
+wrap : (List view -> view) -> Form form view -> Form form view
+wrap newWrapFn (Form fields decoder serverValidations) =
+    Form (wrapFields fields newWrapFn) decoder serverValidations
+
+
+wrapFields :
+    List
+        ( List (FieldInfo view)
+        , List view -> List view
+        )
+    -> (List view -> view)
+    ->
+        List
+            ( List (FieldInfo view)
+            , List view -> List view
+            )
+wrapFields fields newWrapFn =
+    case fields of
+        [] ->
+            [ ( [], newWrapFn >> List.singleton )
+            ]
+
+        ( existingFields, wrapFn ) :: others ->
+            ( existingFields
+            , wrapFn >> newWrapFn >> List.singleton
+            )
+                :: others
 
 
 simplify : FieldInfo view -> FinalFieldInfo
@@ -290,115 +350,25 @@ simplify field =
 
 toHtml : (List (Html.Attribute msg) -> List view -> view) -> Maybe (Dict String { raw : String, errors : List String }) -> Form value view -> view
 toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
-    --Html.form
     toForm
         [ Attr.method "POST"
         ]
         (fields
             |> List.reverse
-            |> List.map
-                (\field ->
-                    field.toHtml (simplify field)
-                        (serverValidationErrors
-                            |> Maybe.andThen (Dict.get field.name)
-                        )
-                 --|> Html.map never
+            |> List.concatMap
+                (\( nestedFields, wrapFn ) ->
+                    nestedFields
+                        |> List.reverse
+                        |> List.map
+                            (\field ->
+                                field.toHtml (simplify field)
+                                    (serverValidationErrors
+                                        |> Maybe.andThen (Dict.get field.name)
+                                    )
+                            )
+                        |> wrapFn
                 )
-         --++ [ Html.input [ Attr.type_ "submit" ] []
-         --   ]
         )
-
-
-
---((fields
---    |> List.reverse
---    |> List.map
---        (\field ->
---            Html.div []
---                [ case serverValidationErrors |> Dict.get field.name of
---                    Just entry ->
---                        let
---                            { raw, errors } =
---                                entry
---                        in
---                        case entry.errors of
---                            first :: rest ->
---                                Html.div []
---                                    [ Html.ul
---                                        [ Attr.style "border" "solid red"
---                                        ]
---                                        (List.map
---                                            (\error ->
---                                                Html.li []
---                                                    [ Html.text error
---                                                    ]
---                                            )
---                                            (first :: rest)
---                                        )
---                                    , Html.label
---                                        []
---                                        [ Html.text field.label
---                                        , Html.input
---                                            ([ Attr.name field.name |> Just
---
---                                             --, field.initialValue |> Maybe.map Attr.value
---                                             , raw |> Attr.value |> Just
---                                             , field.type_ |> Attr.type_ |> Just
---                                             , field.min |> Maybe.map Attr.min
---                                             , field.max |> Maybe.map Attr.max
---                                             , Attr.required True |> Just
---                                             ]
---                                                |> List.filterMap identity
---                                            )
---                                            []
---                                        ]
---                                    ]
---
---                            _ ->
---                                Html.div []
---                                    [ Html.label
---                                        []
---                                        [ Html.text field.label
---                                        , Html.input
---                                            ([ Attr.name field.name |> Just
---
---                                             --, field.initialValue |> Maybe.map Attr.value
---                                             , raw |> Attr.value |> Just
---                                             , field.type_ |> Attr.type_ |> Just
---                                             , field.min |> Maybe.map Attr.min
---                                             , field.max |> Maybe.map Attr.max
---                                             , Attr.required True |> Just
---                                             ]
---                                                |> List.filterMap identity
---                                            )
---                                            []
---                                        ]
---                                    ]
---
---                    Nothing ->
---                        Html.div []
---                            [ Html.label
---                                []
---                                [ Html.text field.label
---                                , Html.input
---                                    ([ Attr.name field.name |> Just
---                                     , field.initialValue |> Maybe.map Attr.value
---                                     , field.type_ |> Attr.type_ |> Just
---                                     , field.min |> Maybe.map Attr.min
---                                     , field.max |> Maybe.map Attr.max
---                                     , Attr.required True |> Just
---                                     ]
---                                        |> List.filterMap identity
---                                    )
---                                    []
---                                ]
---                            ]
---                ]
---        )
--- )
---    ++ [ Html.input [ Attr.type_ "submit" ] []
---       ]
---)
 
 
 toRequest : Form value view -> Request value

@@ -203,36 +203,16 @@ usernameInput { toInput, toLabel, errors } =
 form : User -> Form User (Html Never)
 form user =
     Form.succeed User
-        |> Form.append
-            (Form.view sectionHeading)
         |> Form.required
             (Form.input
                 "first"
                 (textInput "First name")
-                --(\{ toInput, toLabel, errors } ->
-                --    Html.div []
-                --        [ errorsView errors
-                --        , Html.label (styleAttrs toLabel)
-                --            [ Html.text "First"
-                --            ]
-                --        , Html.input (styleAttrs toInput) []
-                --        ]
-                --)
                 |> Form.withInitialValue user.first
             )
         |> Form.required
             (Form.input
                 "last"
                 (textInput "Last name")
-                --(\{ toInput, toLabel, errors } ->
-                --    Html.div []
-                --        [ errorsView errors
-                --        , Html.label (styleAttrs toLabel)
-                --            [ Html.text "Last"
-                --            ]
-                --        , Html.input (styleAttrs toInput) []
-                --        ]
-                --)
                 |> Form.withInitialValue user.last
             )
         |> Form.required
@@ -257,15 +237,6 @@ form user =
             (Form.date
                 "dob"
                 (textInput "Date of Birth")
-                --(\{ toInput, toLabel, errors } ->
-                --    Html.div []
-                --        [ errorsView errors
-                --        , Html.label (styleAttrs toLabel)
-                --            [ Html.text "Date of Birth"
-                --            ]
-                --        , Html.input (styleAttrs toInput) []
-                --        ]
-                --)
                 |> Form.withInitialValue user.birthDay
                 |> Form.withMinDate "1900-01-01"
                 |> Form.withMaxDate "2022-01-01"
@@ -342,6 +313,7 @@ form user =
                         ]
                 )
             )
+        |> Form.wrap wrapSection
 
 
 page : Page RouteParams Data
@@ -411,7 +383,8 @@ head static =
         |> Seo.website
 
 
-sectionHeading =
+wrapSection : List (Html msg) -> Html msg
+wrapSection children =
     Html.div []
         [ Html.div []
             [ Html.h3
@@ -443,8 +416,7 @@ sectionHeading =
                     ]
                 ]
             ]
-            [-- TODO pass in children as arg here
-            ]
+            children
         ]
 
 
