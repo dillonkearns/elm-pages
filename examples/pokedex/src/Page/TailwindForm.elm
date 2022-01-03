@@ -52,28 +52,6 @@ defaultUser =
     }
 
 
-errorsView : List String -> Html.Html msg
-errorsView errors =
-    case errors of
-        first :: rest ->
-            Html.div []
-                [ Html.ul
-                    [ Attr.style "border" "solid red"
-                    ]
-                    (List.map
-                        (\error ->
-                            Html.li []
-                                [ Html.text error
-                                ]
-                        )
-                        (first :: rest)
-                    )
-                ]
-
-        [] ->
-            Html.div [] []
-
-
 styleAttrs attrs =
     List.map Attr.fromUnstyled attrs
 
