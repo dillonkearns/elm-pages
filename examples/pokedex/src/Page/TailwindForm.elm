@@ -233,65 +233,74 @@ form user =
                                 , Tw.justify_end
                                 ]
                             ]
-                            [ Html.button
-                                [ Attr.type_ "button"
-                                , css
-                                    [ Tw.bg_white
-                                    , Tw.py_2
-                                    , Tw.px_4
-                                    , Tw.border
-                                    , Tw.border_gray_300
-                                    , Tw.rounded_md
-                                    , Tw.shadow_sm
-                                    , Tw.text_sm
-                                    , Tw.font_medium
-                                    , Tw.text_gray_700
-                                    , Css.focus
-                                        [ Tw.outline_none
-                                        , Tw.ring_2
-                                        , Tw.ring_offset_2
-                                        , Tw.ring_indigo_500
-                                        ]
-                                    , Css.hover
-                                        [ Tw.bg_gray_50
-                                        ]
-                                    ]
-                                ]
-                                [ Html.text "Cancel" ]
-                            , Html.button
-                                (styleAttrs attrs
-                                    ++ [ css
-                                            [ Tw.ml_3
-                                            , Tw.inline_flex
-                                            , Tw.justify_center
-                                            , Tw.py_2
-                                            , Tw.px_4
-                                            , Tw.border
-                                            , Tw.border_transparent
-                                            , Tw.shadow_sm
-                                            , Tw.text_sm
-                                            , Tw.font_medium
-                                            , Tw.rounded_md
-                                            , Tw.text_white
-                                            , Tw.bg_indigo_600
-                                            , Css.focus
-                                                [ Tw.outline_none
-                                                , Tw.ring_2
-                                                , Tw.ring_offset_2
-                                                , Tw.ring_indigo_500
-                                                ]
-                                            , Css.hover
-                                                [ Tw.bg_indigo_700
-                                                ]
-                                            ]
-                                       ]
-                                )
-                                [ Html.text "Save" ]
+                            [ cancelButton
+                            , saveButton attrs
                             ]
                         ]
                 )
             )
         |> Form.wrap wrapSection
+
+
+saveButton formAttrs =
+    Html.button
+        (styleAttrs formAttrs
+            ++ [ css
+                    [ Tw.ml_3
+                    , Tw.inline_flex
+                    , Tw.justify_center
+                    , Tw.py_2
+                    , Tw.px_4
+                    , Tw.border
+                    , Tw.border_transparent
+                    , Tw.shadow_sm
+                    , Tw.text_sm
+                    , Tw.font_medium
+                    , Tw.rounded_md
+                    , Tw.text_white
+                    , Tw.bg_indigo_600
+                    , Css.focus
+                        [ Tw.outline_none
+                        , Tw.ring_2
+                        , Tw.ring_offset_2
+                        , Tw.ring_indigo_500
+                        ]
+                    , Css.hover
+                        [ Tw.bg_indigo_700
+                        ]
+                    ]
+               ]
+        )
+        [ Html.text "Save" ]
+
+
+cancelButton : Html msg
+cancelButton =
+    Html.button
+        [ Attr.type_ "button"
+        , css
+            [ Tw.bg_white
+            , Tw.py_2
+            , Tw.px_4
+            , Tw.border
+            , Tw.border_gray_300
+            , Tw.rounded_md
+            , Tw.shadow_sm
+            , Tw.text_sm
+            , Tw.font_medium
+            , Tw.text_gray_700
+            , Css.focus
+                [ Tw.outline_none
+                , Tw.ring_2
+                , Tw.ring_offset_2
+                , Tw.ring_indigo_500
+                ]
+            , Css.hover
+                [ Tw.bg_gray_50
+                ]
+            ]
+        ]
+        [ Html.text "Cancel" ]
 
 
 page : Page RouteParams Data
