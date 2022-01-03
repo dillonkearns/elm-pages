@@ -47,15 +47,38 @@ defaultUser =
     }
 
 
+errorsView : List String -> Html.Html msg
+errorsView errors =
+    case errors of
+        first :: rest ->
+            Html.div []
+                [ Html.ul
+                    [ Attr.style "border" "solid red"
+                    ]
+                    (List.map
+                        (\error ->
+                            Html.li []
+                                [ Html.text error
+                                ]
+                        )
+                        (first :: rest)
+                    )
+                ]
+
+        [] ->
+            Html.div [] []
+
+
 form : User -> Form User
 form user =
     Form.succeed User
         |> Form.required
             (Form.input
                 "first"
-                (\{ toInput, toLabel } ->
+                (\{ toInput, toLabel, errors } ->
                     Html.div []
-                        [ toLabel []
+                        [ errorsView errors
+                        , toLabel []
                             [ Html.text "First"
                             ]
                         , toInput []
@@ -66,9 +89,10 @@ form user =
         |> Form.required
             (Form.input
                 "last"
-                (\{ toInput, toLabel } ->
+                (\{ toInput, toLabel, errors } ->
                     Html.div []
-                        [ toLabel []
+                        [ errorsView errors
+                        , toLabel []
                             [ Html.text "Last"
                             ]
                         , toInput []
@@ -79,9 +103,10 @@ form user =
         |> Form.required
             (Form.input
                 "username"
-                (\{ toInput, toLabel } ->
+                (\{ toInput, toLabel, errors } ->
                     Html.div []
-                        [ toLabel []
+                        [ errorsView errors
+                        , toLabel []
                             [ Html.text "Username"
                             ]
                         , toInput []
@@ -100,9 +125,10 @@ form user =
         |> Form.required
             (Form.input
                 "email"
-                (\{ toInput, toLabel } ->
+                (\{ toInput, toLabel, errors } ->
                     Html.div []
-                        [ toLabel []
+                        [ errorsView errors
+                        , toLabel []
                             [ Html.text "Email"
                             ]
                         , toInput []
@@ -113,9 +139,10 @@ form user =
         |> Form.required
             (Form.date
                 "dob"
-                (\{ toInput, toLabel } ->
+                (\{ toInput, toLabel, errors } ->
                     Html.div []
-                        [ toLabel []
+                        [ errorsView errors
+                        , toLabel []
                             [ Html.text "Date of Birth"
                             ]
                         , toInput []
@@ -138,7 +165,7 @@ page =
 
 type alias Data =
     { user : Maybe User
-    , errors : Dict String { raw : String, errors : List String }
+    , errors : Maybe (Dict String { raw : String, errors : List String })
     }
 
 
@@ -152,14 +179,14 @@ data routeParams =
                         |> DataSource.map
                             (\result ->
                                 (case result of
-                                    Ok user ->
+                                    Ok ( user, errors ) ->
                                         { user = Just user
-                                        , errors = Dict.empty
+                                        , errors = Just errors
                                         }
 
                                     Err errors ->
                                         { user = Nothing
-                                        , errors = errors
+                                        , errors = Just errors
                                         }
                                 )
                                     |> PageServerResponse.RenderPage
@@ -167,7 +194,7 @@ data routeParams =
                 )
         , PageServerResponse.RenderPage
             { user = Nothing
-            , errors = Dict.empty
+            , errors = Nothing
             }
             |> DataSource.succeed
             |> Request.succeed

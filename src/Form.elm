@@ -37,6 +37,7 @@ type alias FieldInfo =
     , serverValidation : String -> DataSource (List String)
     , toHtml :
         FinalFieldInfo
+        -> Maybe { raw : String, errors : List String }
         -> Html Never
     }
 
@@ -60,17 +61,24 @@ succeed constructor =
 
 toInputRecord :
     String
+    -> Maybe { raw : String, errors : List String }
     -> FinalFieldInfo
     ->
         { toInput : List (Html.Attribute Never) -> Html Never
         , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+        , errors : List String
         }
-toInputRecord name field =
+toInputRecord name info field =
     { toInput =
         \attrs ->
             Html.input
                 (([ Attr.name name |> Just
-                  , field.initialValue |> Maybe.map Attr.value
+                  , case info of
+                        Just { raw } ->
+                            Just (Attr.value raw)
+
+                        _ ->
+                            field.initialValue |> Maybe.map Attr.value
                   , field.type_ |> Attr.type_ |> Just
                   , field.min |> Maybe.map Attr.min
                   , field.max |> Maybe.map Attr.max
@@ -84,6 +92,7 @@ toInputRecord name field =
     , toLabel =
         \attributes children ->
             Html.label (Attr.for name :: attributes) children
+    , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     }
 
 
@@ -92,6 +101,7 @@ input :
     ->
         ({ toInput : List (Html.Attribute Never) -> Html Never
          , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+         , errors : List String
          }
          -> Html Never
         )
@@ -105,8 +115,8 @@ input name toHtmlFn =
         , max = Nothing
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo ->
-                toHtmlFn (toInputRecord name fieldInfo)
+            \fieldInfo info ->
+                toHtmlFn (toInputRecord name info fieldInfo)
         }
 
 
@@ -129,6 +139,7 @@ date :
     ->
         ({ toInput : List (Html.Attribute Never) -> Html Never
          , toLabel : List (Html.Attribute Never) -> List (Html Never) -> Html Never
+         , errors : List String
          }
          -> Html Never
         )
@@ -142,8 +153,8 @@ date name toHtmlFn =
         , max = Nothing
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo ->
-                toHtmlFn (toInputRecord name fieldInfo)
+            \fieldInfo info ->
+                toHtmlFn (toInputRecord name info fieldInfo)
         }
 
 
@@ -237,7 +248,7 @@ simplify field =
 -}
 
 
-toHtml : Dict String { raw : String, errors : List String } -> Form value -> Html msg
+toHtml : Maybe (Dict String { raw : String, errors : List String }) -> Form value -> Html msg
 toHtml serverValidationErrors (Form fields decoder serverValidations) =
     Html.form
         [ Attr.method "POST"
@@ -247,6 +258,9 @@ toHtml serverValidationErrors (Form fields decoder serverValidations) =
             |> List.map
                 (\field ->
                     field.toHtml (simplify field)
+                        (serverValidationErrors
+                            |> Maybe.andThen (Dict.get field.name)
+                        )
                         |> Html.map never
                 )
          )
@@ -367,7 +381,13 @@ toRequest2 :
                         , raw : String
                         }
                     )
-                    value
+                    ( value
+                    , Dict
+                        String
+                        { errors : List String
+                        , raw : String
+                        }
+                    )
                 )
             )
 toRequest2 (Form fields decoder serverValidations) =
@@ -382,7 +402,11 @@ toRequest2 (Form fields decoder serverValidations) =
                                 |> Err
 
                         else
-                            Ok decoded
+                            Ok
+                                ( decoded
+                                , validationErrors
+                                    |> Dict.fromList
+                                )
                     )
         )
         (Request.expectFormPost
