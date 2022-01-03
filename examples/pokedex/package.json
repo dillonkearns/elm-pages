@@ -5,7 +5,8 @@
   "scripts": {
     "start": "elm-pages dev",
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
-    "build": "elm-pages build --debug --keep-cache"
+    "build": "elm-pages build --debug --keep-cache",
+    "generate:tailwind": "elm-tailwind-modules --dir ./gen --tailwind-config tailwind.config.js"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
