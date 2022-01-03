@@ -67,7 +67,10 @@ view toCssVal maybeUrl sharedModel static =
             []
             [ Html.text <| "::root { --selected-color: " ++ cssVal ++ "} body { background-color: " ++ cssVal ++ "}"
             ]
-        , Html.main_ [ Attr.style "background-color" cssVal ]
+        , Html.main_
+            [ Attr.style "background-color" cssVal
+            , Attr.class "color-app"
+            ]
             [ Html.div
                 [ Attr.class "content"
                 ]

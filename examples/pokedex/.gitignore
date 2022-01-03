@@ -5,3 +5,4 @@ dist/
 .elm-pages/
 functions/render/
 functions/server-render/
+gen/

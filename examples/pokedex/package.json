@@ -11,9 +11,13 @@
   "license": "BSD-3",
   "devDependencies": {
     "@netlify/functions": "^0.7.2",
+    "@tailwindcss/forms": "^0.3.4",
     "busboy": "^1.1.0",
     "cookie": "^0.4.1",
     "elm-pages": "file:../..",
-    "elm-tooling": "^1.3.0"
+    "elm-tailwind-modules": "^0.3.2",
+    "elm-tooling": "^1.3.0",
+    "postcss": "^8.4.5",
+    "tailwindcss": "^2.2.19"
   }
 }
