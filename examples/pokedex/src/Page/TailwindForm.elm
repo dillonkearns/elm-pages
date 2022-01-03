@@ -203,6 +203,8 @@ usernameInput { toInput, toLabel, errors } =
 form : User -> Form User (Html Never)
 form user =
     Form.succeed User
+        |> Form.append
+            (Form.view sectionHeading)
         |> Form.required
             (Form.input
                 "first"
@@ -407,6 +409,43 @@ head static =
         , title = "TODO title" -- metadata.title -- TODO
         }
         |> Seo.website
+
+
+sectionHeading =
+    Html.div []
+        [ Html.div []
+            [ Html.h3
+                [ css
+                    [ Tw.text_lg
+                    , Tw.leading_6
+                    , Tw.font_medium
+                    , Tw.text_gray_900
+                    ]
+                ]
+                [ Html.text "Profile" ]
+            , Html.p
+                [ css
+                    [ Tw.mt_1
+                    , Tw.max_w_2xl
+                    , Tw.text_sm
+                    , Tw.text_gray_500
+                    ]
+                ]
+                [ Html.text "This information will be displayed publicly so be careful what you share." ]
+            ]
+        , Html.div
+            [ css
+                [ Tw.mt_6
+                , Tw.space_y_6
+                , Bp.sm
+                    [ Tw.mt_5
+                    , Tw.space_y_5
+                    ]
+                ]
+            ]
+            [-- TODO pass in children as arg here
+            ]
+        ]
 
 
 view :

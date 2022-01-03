@@ -136,6 +136,23 @@ submit toHtmlFn =
         }
 
 
+view :
+    view
+    -> Field view
+view viewFn =
+    Field
+        { name = ""
+        , initialValue = Nothing
+        , type_ = "submit"
+        , min = Nothing
+        , max = Nothing
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                viewFn
+        }
+
+
 
 --number : { name : String, label : String } -> Field
 --number { name, label } =
