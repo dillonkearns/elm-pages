@@ -3,6 +3,7 @@ module Page.TailwindForm exposing (Data, Model, Msg, page)
 import Css
 import Css.Global
 import DataSource exposing (DataSource)
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Form exposing (Form)
 import Head
@@ -18,6 +19,7 @@ import Server.Request as Request exposing (Request)
 import Shared
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import Time
 import View exposing (View)
 
 
@@ -38,7 +40,7 @@ type alias User =
     , last : String
     , username : String
     , email : String
-    , birthDay : String
+    , birthDay : Date
     }
 
 
@@ -48,7 +50,7 @@ defaultUser =
     , last = "Doe"
     , username = "janedoe"
     , email = "janedoe@example.com"
-    , birthDay = "1969-07-20"
+    , birthDay = Date.fromCalendarDate 1969 Time.Jul 20
     }
 
 
@@ -215,10 +217,23 @@ form user =
             (Form.date
                 "dob"
                 (textInput "Date of Birth")
-                |> Form.withInitialValue user.birthDay
+                |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
                 |> Form.withMinDate "1900-01-01"
                 |> Form.withMaxDate "2022-01-01"
+                |> Form.withServerValidation
+                    (\birthDate ->
+                        let
+                            _ =
+                                birthDate |> Date.toIsoString |> Debug.log "@@@date"
+                        in
+                        if (birthDate |> Debug.log "birthDate") == (Date.fromCalendarDate 1969 Time.Jul 20 |> Debug.log "rhs") then
+                            DataSource.succeed [ "No way, that's when the moon landing happened!" ]
+
+                        else
+                            DataSource.succeed []
+                    )
             )
+        |> Form.wrap wrapSection
         |> Form.append
             (Form.submit
                 (\{ attrs } ->
@@ -239,7 +254,6 @@ form user =
                         ]
                 )
             )
-        |> Form.wrap wrapSection
 
 
 saveButton formAttrs =
@@ -539,6 +553,14 @@ textInput labelText { toInput, toLabel, errors } =
                 )
                 []
             ]
+        , Html.p
+            [ css
+                [ Tw.mt_2
+                , Tw.text_sm
+                , Tw.text_red_600
+                ]
+            ]
+            [ errors |> String.join "\n" |> Html.text ]
         ]
 
 

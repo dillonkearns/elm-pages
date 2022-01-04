@@ -1,6 +1,7 @@
 module Page.Form exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Form exposing (Form)
 import Head
@@ -13,6 +14,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request exposing (Request)
 import Shared
+import Time
 import View exposing (View)
 
 
@@ -33,7 +35,7 @@ type alias User =
     , last : String
     , username : String
     , email : String
-    , birthDay : String
+    , birthDay : Date
     }
 
 
@@ -43,7 +45,7 @@ defaultUser =
     , last = "Doe"
     , username = "janedoe"
     , email = "janedoe@example.com"
-    , birthDay = "1969-07-20"
+    , birthDay = Date.fromCalendarDate 1969 Time.Jul 20
     }
 
 
@@ -148,7 +150,7 @@ form user =
                         , Html.input toInput []
                         ]
                 )
-                |> Form.withInitialValue user.birthDay
+                |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
                 |> Form.withMinDate "1900-01-01"
                 |> Form.withMaxDate "2022-01-01"
             )

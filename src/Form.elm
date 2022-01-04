@@ -1,6 +1,7 @@
 module Form exposing (..)
 
 import DataSource exposing (DataSource)
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -10,7 +11,7 @@ import Server.Request as Request exposing (Request)
 type Form value view
     = Form
         (List
-            ( List (FieldInfo view)
+            ( List (FieldInfoSimple view)
             , List view -> List view
             )
         )
@@ -28,11 +29,11 @@ type Form value view
         )
 
 
-type Field view
-    = Field (FieldInfo view)
+type Field value view
+    = Field (FieldInfo value view)
 
 
-type alias FieldInfo view =
+type alias FieldInfoSimple view =
     { name : String
     , initialValue : Maybe String
     , type_ : String
@@ -43,6 +44,21 @@ type alias FieldInfo view =
         FinalFieldInfo
         -> Maybe { raw : String, errors : List String }
         -> view
+    }
+
+
+type alias FieldInfo value view =
+    { name : String
+    , initialValue : Maybe String
+    , type_ : String
+    , min : Maybe String
+    , max : Maybe String
+    , serverValidation : String -> DataSource (List String)
+    , toHtml :
+        FinalFieldInfo
+        -> Maybe { raw : String, errors : List String }
+        -> view
+    , decode : String -> value
     }
 
 
@@ -102,7 +118,7 @@ input :
          }
          -> view
         )
-    -> Field view
+    -> Field String view
 input name toHtmlFn =
     Field
         { name = name
@@ -114,6 +130,7 @@ input name toHtmlFn =
         , toHtml =
             \fieldInfo info ->
                 toHtmlFn (toInputRecord name info fieldInfo)
+        , decode = identity
         }
 
 
@@ -122,7 +139,7 @@ submit :
      }
      -> view
     )
-    -> Field view
+    -> Field () view
 submit toHtmlFn =
     Field
         { name = ""
@@ -137,12 +154,13 @@ submit toHtmlFn =
                     { attrs =
                         [ Attr.type_ "submit" ]
                     }
+        , decode = \_ -> ()
         }
 
 
 view :
     view
-    -> Field view
+    -> Field () view
 view viewFn =
     Field
         { name = ""
@@ -154,6 +172,7 @@ view viewFn =
         , toHtml =
             \fieldInfo info ->
                 viewFn
+        , decode = \_ -> ()
         }
 
 
@@ -180,7 +199,8 @@ date :
          }
          -> view
         )
-    -> Field view
+    -- TODO should be Date type
+    -> Field Date view
 date name toHtmlFn =
     Field
         { name = name
@@ -192,49 +212,53 @@ date name toHtmlFn =
         , toHtml =
             \fieldInfo info ->
                 toHtmlFn (toInputRecord name info fieldInfo)
+        , decode =
+            \rawString ->
+                Date.fromIsoString rawString
+                    |> Result.withDefault (Date.fromRataDie 0)
         }
 
 
-withMin : Int -> Field view -> Field view
+withMin : Int -> Field value view -> Field value view
 withMin min (Field field) =
     Field { field | min = min |> String.fromInt |> Just }
 
 
-withMax : Int -> Field view -> Field view
+withMax : Int -> Field value view -> Field value view
 withMax max (Field field) =
     Field { field | max = max |> String.fromInt |> Just }
 
 
-withMinDate : String -> Field view -> Field view
+withMinDate : String -> Field value view -> Field value view
 withMinDate min (Field field) =
     Field { field | min = min |> Just }
 
 
-withMaxDate : String -> Field view -> Field view
+withMaxDate : String -> Field value view -> Field value view
 withMaxDate max (Field field) =
     Field { field | max = max |> Just }
 
 
-type_ : String -> Field view -> Field view
+type_ : String -> Field value view -> Field value view
 type_ typeName (Field field) =
     Field
         { field | type_ = typeName }
 
 
-withInitialValue : String -> Field view -> Field view
+withInitialValue : String -> Field value view -> Field value view
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
 
 
-withServerValidation : (String -> DataSource (List String)) -> Field view -> Field view
+withServerValidation : (value -> DataSource (List String)) -> Field value view -> Field value view
 withServerValidation serverValidation (Field field) =
     Field
         { field
-            | serverValidation = serverValidation
+            | serverValidation = field.decode >> serverValidation
         }
 
 
-required : Field view -> Form (String -> form) view -> Form form view
+required : Field value view -> Form (value -> form) view -> Form form view
 required (Field field) (Form fields decoder serverValidations) =
     let
         thing : Request (DataSource (List ( String, { raw : String, errors : List String } )))
@@ -260,23 +284,23 @@ required (Field field) (Form fields decoder serverValidations) =
     Form
         (addField field fields)
         (decoder
-            |> Request.andMap (Request.formField_ field.name)
+            |> Request.andMap (Request.formField_ field.name |> Request.map field.decode)
         )
         thing
 
 
-addField : FieldInfo view -> List ( List (FieldInfo view), List view -> List view ) -> List ( List (FieldInfo view), List view -> List view )
+addField : FieldInfo value view -> List ( List (FieldInfoSimple view), List view -> List view ) -> List ( List (FieldInfoSimple view), List view -> List view )
 addField field list =
     case list of
         [] ->
-            [ ( [ field ], identity )
+            [ ( [ simplify2 field ], identity )
             ]
 
         ( fields, wrapFn ) :: others ->
-            ( field :: fields, wrapFn ) :: others
+            ( simplify2 field :: fields, wrapFn ) :: others
 
 
-append : Field view -> Form form view -> Form form view
+append : Field value view -> Form form view -> Form form view
 append (Field field) (Form fields decoder serverValidations) =
     Form
         --(field :: fields)
@@ -305,13 +329,13 @@ wrap newWrapFn (Form fields decoder serverValidations) =
 
 wrapFields :
     List
-        ( List (FieldInfo view)
+        ( List (FieldInfoSimple view)
         , List view -> List view
         )
     -> (List view -> view)
     ->
         List
-            ( List (FieldInfo view)
+            ( List (FieldInfoSimple view)
             , List view -> List view
             )
 wrapFields fields newWrapFn =
@@ -327,8 +351,31 @@ wrapFields fields newWrapFn =
                 :: others
 
 
-simplify : FieldInfo view -> FinalFieldInfo
+simplify : FieldInfo value view -> FinalFieldInfo
 simplify field =
+    { name = field.name
+    , initialValue = field.initialValue
+    , type_ = field.type_
+    , min = field.min
+    , max = field.max
+    , serverValidation = field.serverValidation
+    }
+
+
+simplify2 : FieldInfo value view -> FieldInfoSimple view
+simplify2 field =
+    { name = field.name
+    , initialValue = field.initialValue
+    , type_ = field.type_
+    , min = field.min
+    , max = field.max
+    , serverValidation = field.serverValidation
+    , toHtml = field.toHtml
+    }
+
+
+simplify3 : FieldInfoSimple view -> FinalFieldInfo
+simplify3 field =
     { name = field.name
     , initialValue = field.initialValue
     , type_ = field.type_
@@ -361,7 +408,8 @@ toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
                         |> List.reverse
                         |> List.map
                             (\field ->
-                                field.toHtml (simplify field)
+                                field.toHtml
+                                    (simplify3 field)
                                     (serverValidationErrors
                                         |> Maybe.andThen (Dict.get field.name)
                                     )
