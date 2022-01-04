@@ -17,8 +17,13 @@ input:valid {
 
 */
 
-input {
+input[type=text], input[type=date] {
   border-radius: 10px !important;
+  border-color: #ccc !important;
+}
+
+input[type=checkbox] {
+  border-radius: 4px !important;
   border-color: #ccc !important;
 }
 
