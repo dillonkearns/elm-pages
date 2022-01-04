@@ -21,7 +21,7 @@ type Form value view
                 (List
                     ( String
                     , { errors : List String
-                      , raw : String
+                      , raw : Maybe String
                       }
                     )
                 )
@@ -39,10 +39,11 @@ type alias FieldInfoSimple view =
     , type_ : String
     , min : Maybe String
     , max : Maybe String
-    , serverValidation : String -> DataSource (List String)
+    , required : Bool
+    , serverValidation : Maybe String -> DataSource (List String)
     , toHtml :
         FinalFieldInfo
-        -> Maybe { raw : String, errors : List String }
+        -> Maybe { raw : Maybe String, errors : List String }
         -> view
     }
 
@@ -53,12 +54,13 @@ type alias FieldInfo value view =
     , type_ : String
     , min : Maybe String
     , max : Maybe String
-    , serverValidation : String -> DataSource (List String)
+    , required : Bool
+    , serverValidation : Maybe String -> DataSource (List String)
     , toHtml :
         FinalFieldInfo
-        -> Maybe { raw : String, errors : List String }
+        -> Maybe { raw : Maybe String, errors : List String }
         -> view
-    , decode : String -> value
+    , decode : Maybe String -> value
     }
 
 
@@ -68,7 +70,8 @@ type alias FinalFieldInfo =
     , type_ : String
     , min : Maybe String
     , max : Maybe String
-    , serverValidation : String -> DataSource (List String)
+    , required : Bool
+    , serverValidation : Maybe String -> DataSource (List String)
     }
 
 
@@ -81,7 +84,7 @@ succeed constructor =
 
 toInputRecord :
     String
-    -> Maybe { raw : String, errors : List String }
+    -> Maybe { raw : Maybe String, errors : List String }
     -> FinalFieldInfo
     ->
         { toInput : List (Html.Attribute Never)
@@ -93,14 +96,16 @@ toInputRecord name info field =
         [ Attr.name name |> Just
         , case info of
             Just { raw } ->
-                Just (Attr.value raw)
+                raw |> Maybe.map Attr.value
 
             _ ->
                 field.initialValue |> Maybe.map Attr.value
         , field.type_ |> Attr.type_ |> Just
         , field.min |> Maybe.map Attr.min
         , field.max |> Maybe.map Attr.max
-        , Attr.required True |> Just
+        , field.required |> Attr.required |> Just
+
+        --, Attr.required True |> Just
         ]
             |> List.filterMap identity
     , toLabel =
@@ -126,11 +131,14 @@ input name toHtmlFn =
         , type_ = "text"
         , min = Nothing
         , max = Nothing
+        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
                 toHtmlFn (toInputRecord name info fieldInfo)
-        , decode = identity
+
+        -- TODO should it be Err if Nothing?
+        , decode = Maybe.withDefault ""
         }
 
 
@@ -147,6 +155,7 @@ submit toHtmlFn =
         , type_ = "submit"
         , min = Nothing
         , max = Nothing
+        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
@@ -168,6 +177,7 @@ view viewFn =
         , type_ = "submit"
         , min = Nothing
         , max = Nothing
+        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
@@ -208,14 +218,46 @@ date name toHtmlFn =
         , type_ = "date"
         , min = Nothing
         , max = Nothing
+        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
                 toHtmlFn (toInputRecord name info fieldInfo)
         , decode =
             \rawString ->
-                Date.fromIsoString rawString
+                rawString
+                    |> Maybe.withDefault ""
+                    |> Date.fromIsoString
                     |> Result.withDefault (Date.fromRataDie 0)
+        }
+
+
+checkbox :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Never)
+         , toLabel : List (Html.Attribute Never)
+         , errors : List String
+         }
+         -> view
+        )
+    -- TODO should be Date type
+    -> Field Bool view
+checkbox name toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "checkbox"
+        , min = Nothing
+        , max = Nothing
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                toHtmlFn (toInputRecord name info fieldInfo)
+        , decode =
+            \rawString ->
+                rawString == Just "on"
         }
 
 
@@ -261,7 +303,7 @@ withServerValidation serverValidation (Field field) =
 required : Field value view -> Form (value -> form) view -> Form form view
 required (Field field) (Form fields decoder serverValidations) =
     let
-        thing : Request (DataSource (List ( String, { raw : String, errors : List String } )))
+        thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List String } )))
         thing =
             Request.map2
                 (\arg1 arg2 ->
@@ -279,12 +321,12 @@ required (Field field) (Form fields decoder serverValidations) =
                             )
                 )
                 serverValidations
-                (Request.formField_ field.name)
+                (Request.optionalFormField_ field.name)
     in
     Form
         (addField field fields)
         (decoder
-            |> Request.andMap (Request.formField_ field.name |> Request.map field.decode)
+            |> Request.andMap (Request.optionalFormField_ field.name |> Request.map field.decode)
         )
         thing
 
@@ -358,6 +400,7 @@ simplify field =
     , type_ = field.type_
     , min = field.min
     , max = field.max
+    , required = field.required
     , serverValidation = field.serverValidation
     }
 
@@ -369,6 +412,7 @@ simplify2 field =
     , type_ = field.type_
     , min = field.min
     , max = field.max
+    , required = field.required
     , serverValidation = field.serverValidation
     , toHtml = field.toHtml
     }
@@ -381,6 +425,7 @@ simplify3 field =
     , type_ = field.type_
     , min = field.min
     , max = field.max
+    , required = field.required
     , serverValidation = field.serverValidation
     }
 
@@ -395,7 +440,7 @@ simplify3 field =
 -}
 
 
-toHtml : (List (Html.Attribute msg) -> List view -> view) -> Maybe (Dict String { raw : String, errors : List String }) -> Form value view -> view
+toHtml : (List (Html.Attribute msg) -> List view -> view) -> Maybe (Dict String { raw : Maybe String, errors : List String }) -> Form value view -> view
 toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
     toForm
         [ Attr.method "POST"
@@ -436,14 +481,14 @@ toRequest2 :
                     (Dict
                         String
                         { errors : List String
-                        , raw : String
+                        , raw : Maybe String
                         }
                     )
                     ( value
                     , Dict
                         String
                         { errors : List String
-                        , raw : String
+                        , raw : Maybe String
                         }
                     )
                 )
@@ -479,7 +524,7 @@ toRequest2 (Form fields decoder serverValidations) =
         )
 
 
-hasErrors : List ( String, { errors : List String, raw : String } ) -> Bool
+hasErrors : List ( String, { errors : List String, raw : Maybe String } ) -> Bool
 hasErrors validationErrors =
     List.any
         (\( _, entry ) ->

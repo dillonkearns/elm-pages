@@ -41,6 +41,7 @@ type alias User =
     , username : String
     , email : String
     , birthDay : Date
+    , checkbox : Bool
     }
 
 
@@ -51,6 +52,7 @@ defaultUser =
     , username = "janedoe"
     , email = "janedoe@example.com"
     , birthDay = Date.fromCalendarDate 1969 Time.Jul 20
+    , checkbox = False
     }
 
 
@@ -233,6 +235,20 @@ form user =
                             DataSource.succeed []
                     )
             )
+        |> Form.required
+            (Form.checkbox
+                "checkbox"
+                (\{ toInput, toLabel, errors } ->
+                    Html.div []
+                        [ --errorsView errors,
+                          Html.label (styleAttrs toLabel)
+                            [ Html.text "Checkbox"
+                            ]
+                        , Html.input (styleAttrs toInput) []
+                        ]
+                )
+             --|> Form.withInitialValue user.checkbox
+            )
         |> Form.wrap wrapSection
         |> Form.append
             (Form.submit
@@ -328,7 +344,7 @@ page =
 
 type alias Data =
     { user : Maybe User
-    , errors : Maybe (Dict String { raw : String, errors : List String })
+    , errors : Maybe (Dict String { raw : Maybe String, errors : List String })
     }
 
 

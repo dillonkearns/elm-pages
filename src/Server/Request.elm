@@ -10,7 +10,7 @@ module Server.Request exposing
     , expectFormPost
     , File, expectMultiPartFormPost
     , errorsToString, errorToString, getDecoder
-    , formField_
+    , formField_, optionalFormField_
     )
 
 {-|
