@@ -94,6 +94,7 @@ toInputRecord :
 toInputRecord name info field =
     { toInput =
         [ Attr.name name |> Just
+        , Attr.id name |> Just
         , case info of
             Just { raw } ->
                 valueAttr field raw
@@ -104,12 +105,11 @@ toInputRecord name info field =
         , field.min |> Maybe.map Attr.min
         , field.max |> Maybe.map Attr.max
         , field.required |> Attr.required |> Just
-
-        --, Attr.required True |> Just
         ]
             |> List.filterMap identity
     , toLabel =
-        [ Attr.for name ]
+        [ Attr.for name
+        ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     }
 

@@ -41,7 +41,14 @@ type alias User =
     , username : String
     , email : String
     , birthDay : Date
-    , checkbox : Bool
+    , notificationPreferences : NotificationPreferences
+    }
+
+
+type alias NotificationPreferences =
+    { comments : Bool
+    , candidates : Bool
+    , offers : Bool
     }
 
 
@@ -52,7 +59,11 @@ defaultUser =
     , username = "janedoe"
     , email = "janedoe@example.com"
     , birthDay = Date.fromCalendarDate 1969 Time.Jul 20
-    , checkbox = False
+    , notificationPreferences =
+        { comments = False
+        , candidates = False
+        , offers = False
+        }
     }
 
 
@@ -235,22 +246,32 @@ form user =
                             DataSource.succeed []
                     )
             )
-        |> Form.required
-            (Form.checkbox
-                "checkbox"
-                user.checkbox
-                (\{ toInput, toLabel, errors } ->
-                    Html.div []
-                        [ --errorsView errors,
-                          Html.label (styleAttrs toLabel)
-                            [ Html.text "Checkbox"
-                            ]
-                        , Html.input (styleAttrs toInput) []
-                        ]
-                )
-             --|> Form.withInitialValue user.checkbox
-            )
         |> Form.wrap wrapSection
+        |> Form.appendForm (|>)
+            (Form.succeed NotificationPreferences
+                |> Form.required
+                    (Form.checkbox
+                        "comments"
+                        --user.checkbox
+                        False
+                        (checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." })
+                    )
+                |> Form.required
+                    (Form.checkbox
+                        "candidates"
+                        --user.checkbox
+                        False
+                        (checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." })
+                    )
+                |> Form.required
+                    (Form.checkbox
+                        "offers"
+                        --user.checkbox
+                        False
+                        (checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." })
+                    )
+                |> Form.wrap wrapSection
+            )
         |> Form.append
             (Form.submit
                 (\{ attrs } ->
@@ -645,6 +666,67 @@ textInput2 =
         ]
 
 
+checkboxInput { name, description } { toLabel, toInput, errors } =
+    Html.div
+        [ css
+            [ Tw.max_w_lg
+            , Tw.space_y_4
+            ]
+        ]
+        [ Html.div
+            [ css
+                [ Tw.relative
+                , Tw.flex
+                , Tw.items_start
+                ]
+            ]
+            [ Html.div
+                [ css
+                    [ Tw.flex
+                    , Tw.items_center
+                    , Tw.h_5
+                    ]
+                ]
+                [ Html.input
+                    (styleAttrs toInput
+                        ++ [ css
+                                [ Tw.h_4
+                                , Tw.w_4
+                                , Tw.text_indigo_600
+                                , Tw.border_gray_300
+                                , Tw.rounded
+                                , Css.focus
+                                    [ Tw.ring_indigo_500
+                                    ]
+                                ]
+                           ]
+                    )
+                    []
+                ]
+            , Html.div
+                [ css
+                    [ Tw.ml_3
+                    , Tw.text_sm
+                    ]
+                ]
+                [ Html.label
+                    (styleAttrs toLabel
+                        ++ [ css
+                                [ Tw.font_medium
+                                , Tw.text_gray_700
+                                ]
+                           ]
+                    )
+                    [ Html.text name ]
+                , Html.p
+                    [ css
+                        [ Tw.text_gray_500
+                        ]
+                    ]
+                    [ Html.text description ]
+                ]
+            ]
+        ]
 
 --fullView : Html msg
 --fullView =
