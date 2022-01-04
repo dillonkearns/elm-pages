@@ -159,6 +159,7 @@ form user =
         |> Form.required
             (Form.checkbox
                 "checkbox"
+                user.checkbox
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
                         [ errorsView errors
@@ -168,7 +169,6 @@ form user =
                         , Html.input toInput []
                         ]
                 )
-                --|> Form.withInitialValue user.checkbox
                 |> Form.withMinDate "1900-01-01"
                 |> Form.withMaxDate "2022-01-01"
             )

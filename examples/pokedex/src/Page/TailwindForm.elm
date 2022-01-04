@@ -238,6 +238,7 @@ form user =
         |> Form.required
             (Form.checkbox
                 "checkbox"
+                user.checkbox
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
                         [ --errorsView errors,

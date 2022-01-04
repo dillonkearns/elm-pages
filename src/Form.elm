@@ -96,10 +96,10 @@ toInputRecord name info field =
         [ Attr.name name |> Just
         , case info of
             Just { raw } ->
-                raw |> Maybe.map Attr.value
+                valueAttr field raw
 
             _ ->
-                field.initialValue |> Maybe.map Attr.value
+                valueAttr field field.initialValue
         , field.type_ |> Attr.type_ |> Just
         , field.min |> Maybe.map Attr.min
         , field.max |> Maybe.map Attr.max
@@ -112,6 +112,18 @@ toInputRecord name info field =
         [ Attr.for name ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     }
+
+
+valueAttr field stringValue =
+    if field.type_ == "checkbox" then
+        if stringValue == Just "on" then
+            Attr.attribute "checked" "true" |> Just
+
+        else
+            Nothing
+
+    else
+        stringValue |> Maybe.map Attr.value
 
 
 input :
@@ -234,6 +246,7 @@ date name toHtmlFn =
 
 checkbox :
     String
+    -> Bool
     ->
         ({ toInput : List (Html.Attribute Never)
          , toLabel : List (Html.Attribute Never)
@@ -243,10 +256,15 @@ checkbox :
         )
     -- TODO should be Date type
     -> Field Bool view
-checkbox name toHtmlFn =
+checkbox name initial toHtmlFn =
     Field
         { name = name
-        , initialValue = Nothing
+        , initialValue =
+            if initial then
+                Just "on"
+
+            else
+                Nothing
         , type_ = "checkbox"
         , min = Nothing
         , max = Nothing
