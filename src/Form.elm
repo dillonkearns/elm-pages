@@ -509,7 +509,7 @@ withInitialValue initialValue (Field field) =
 multiple : Field value view -> Field value view
 multiple (Field field) =
     -- TODO add 'multiple'
-    Field field
+    Field { field | properties = ( "multiple", Encode.bool True ) :: field.properties }
 
 
 telephone : Field value view -> Field value view
