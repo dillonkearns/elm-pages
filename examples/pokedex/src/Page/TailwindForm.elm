@@ -870,10 +870,7 @@ radioInput item { toLabel, toInput, errors } =
         ]
         [ Html.input
             (styleAttrs toInput
-                ++ [ --Attr.id "push-everything"
-                     --, Attr.name "push-notifications"
-                     --, Attr.type_ "radio"
-                     css
+                ++ [ css
                         [ Tw.h_4
                         , Tw.w_4
                         , Tw.text_indigo_600
@@ -887,8 +884,7 @@ radioInput item { toLabel, toInput, errors } =
             []
         , Html.label
             (styleAttrs toLabel
-                ++ [ --Attr.for "push-everything"
-                     css
+                ++ [ css
                         [ Tw.ml_3
                         , Tw.block
                         , Tw.text_sm
