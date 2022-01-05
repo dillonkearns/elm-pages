@@ -153,8 +153,8 @@ form user =
                         ]
                 )
                 |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
-                |> Form.withMinDate "1900-01-01"
-                |> Form.withMaxDate "2022-01-01"
+                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
+                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
             )
         |> Form.with
             (Form.checkbox
@@ -169,8 +169,6 @@ form user =
                         , Html.input toInput []
                         ]
                 )
-                |> Form.withMinDate "1900-01-01"
-                |> Form.withMaxDate "2022-01-01"
             )
         |> Form.append
             (Form.submit

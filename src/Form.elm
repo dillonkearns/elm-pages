@@ -39,8 +39,6 @@ type alias FieldInfoSimple view =
     { name : String
     , initialValue : Maybe String
     , type_ : String
-    , min : Maybe String
-    , max : Maybe String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List String)
     , toHtml :
@@ -55,8 +53,6 @@ type alias FieldInfo value view =
     { name : String
     , initialValue : Maybe String
     , type_ : String
-    , min : Maybe String
-    , max : Maybe String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List String)
     , toHtml :
@@ -72,8 +68,6 @@ type alias FinalFieldInfo =
     { name : String
     , initialValue : Maybe String
     , type_ : String
-    , min : Maybe String
-    , max : Maybe String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List String)
     , properties : List ( String, Encode.Value )
@@ -114,8 +108,6 @@ toInputRecord name maybeValue info field =
             _ ->
                 valueAttr field field.initialValue
          , field.type_ |> Attr.type_ |> Just
-         , field.min |> Maybe.map Attr.min
-         , field.max |> Maybe.map Attr.max
          , field.required |> Attr.required |> Just
          ]
             |> List.filterMap identity
@@ -157,8 +149,6 @@ toRadioInputRecord name itemValue info field =
             |> Just
          , Attr.value itemValue |> Just
          , field.type_ |> Attr.type_ |> Just
-         , field.min |> Maybe.map Attr.min
-         , field.max |> Maybe.map Attr.max
          , field.required |> Attr.required |> Just
          , if (info |> Maybe.andThen .raw) == Just itemValue then
             Attr.attribute "checked" "true" |> Just
@@ -203,8 +193,6 @@ text name toHtmlFn =
         { name = name
         , initialValue = Nothing
         , type_ = "text"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -265,8 +253,6 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
         { name = name
         , initialValue = Nothing
         , type_ = "radio"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -312,8 +298,6 @@ submit toHtmlFn =
         { name = ""
         , initialValue = Nothing
         , type_ = "submit"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -335,8 +319,6 @@ view viewFn =
         { name = ""
         , initialValue = Nothing
         , type_ = "submit"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -362,8 +344,6 @@ number name toHtmlFn =
         { name = name
         , initialValue = Nothing
         , type_ = "number"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -392,8 +372,6 @@ requiredNumber name toHtmlFn =
         { name = name
         , initialValue = Nothing
         , type_ = "number"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -425,8 +403,6 @@ date name toHtmlFn =
         { name = name
         , initialValue = Nothing
         , type_ = "date"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -464,8 +440,6 @@ checkbox name initial toHtmlFn =
             else
                 Nothing
         , type_ = "checkbox"
-        , min = Nothing
-        , max = Nothing
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
@@ -479,23 +453,23 @@ checkbox name initial toHtmlFn =
 
 
 withMin : Int -> Field value view -> Field value view
-withMin min (Field field) =
-    Field { field | min = min |> String.fromInt |> Just }
+withMin min field =
+    withStringProperty ( "min", String.fromInt min ) field
 
 
 withMax : Int -> Field value view -> Field value view
-withMax max (Field field) =
-    Field { field | max = max |> String.fromInt |> Just }
+withMax max field =
+    withStringProperty ( "max", String.fromInt max ) field
 
 
-withMinDate : String -> Field value view -> Field value view
-withMinDate min (Field field) =
-    Field { field | min = min |> Just }
+withMinDate : Date -> Field value view -> Field value view
+withMinDate min field =
+    withStringProperty ( "min", Date.toIsoString min ) field
 
 
-withMaxDate : String -> Field value view -> Field value view
-withMaxDate max (Field field) =
-    Field { field | max = max |> Just }
+withMaxDate : Date -> Field value view -> Field value view
+withMaxDate max field =
+    withStringProperty ( "max", Date.toIsoString max ) field
 
 
 type_ : String -> Field value view -> Field value view
@@ -511,8 +485,17 @@ withInitialValue initialValue (Field field) =
 
 multiple : Field value view -> Field value view
 multiple (Field field) =
-    -- TODO add 'multiple'
     Field { field | properties = ( "multiple", Encode.bool True ) :: field.properties }
+
+
+withStringProperty : ( String, String ) -> Field value view -> Field value view
+withStringProperty ( key, value ) (Field field) =
+    Field { field | properties = ( key, Encode.string value ) :: field.properties }
+
+
+withBoolProperty : ( String, Bool ) -> Field value view -> Field value view
+withBoolProperty ( key, value ) (Field field) =
+    Field { field | properties = ( key, Encode.bool value ) :: field.properties }
 
 
 required : Field value view -> Field value view
@@ -656,8 +639,6 @@ simplify field =
     { name = field.name
     , initialValue = field.initialValue
     , type_ = field.type_
-    , min = field.min
-    , max = field.max
     , required = field.required
     , serverValidation = field.serverValidation
     , properties = field.properties
@@ -669,8 +650,6 @@ simplify2 field =
     { name = field.name
     , initialValue = field.initialValue
     , type_ = field.type_
-    , min = field.min
-    , max = field.max
     , required = field.required
     , serverValidation = field.serverValidation
     , toHtml = field.toHtml
@@ -683,8 +662,6 @@ simplify3 field =
     { name = field.name
     , initialValue = field.initialValue
     , type_ = field.type_
-    , min = field.min
-    , max = field.max
     , required = field.required
     , serverValidation = field.serverValidation
     , properties = field.properties
