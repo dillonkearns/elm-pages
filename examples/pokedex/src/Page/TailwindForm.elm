@@ -8,6 +8,7 @@ import Dict exposing (Dict)
 import Form exposing (Form)
 import Head
 import Head.Seo as Seo
+import Html as CoreHtml
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Icon
@@ -237,9 +238,9 @@ form user =
                     (\birthDate ->
                         let
                             _ =
-                                birthDate |> Date.toIsoString |> Debug.log "@@@date"
+                                birthDate |> Date.toIsoString
                         in
-                        if (birthDate |> Debug.log "birthDate") == (Date.fromCalendarDate 1969 Time.Jul 20 |> Debug.log "rhs") then
+                        if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
                             DataSource.succeed [ "No way, that's when the moon landing happened!" ]
 
                         else
@@ -248,7 +249,7 @@ form user =
             )
         |> Form.wrap wrapSection
         |> Form.appendForm (|>)
-            (Form.succeed NotificationPreferences
+            ((Form.succeed NotificationPreferences
                 |> Form.required
                     (Form.checkbox
                         "comments"
@@ -270,7 +271,13 @@ form user =
                         False
                         (checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." })
                     )
-                |> Form.wrap wrapSection
+                |> Form.wrap wrapEmailSection
+                |> Form.appendForm (\() value -> value)
+                    (Form.succeed ()
+                        |> Form.append (Form.view pushNotificationsSection)
+                    )
+             )
+                |> Form.wrap wrapNotificationsSections
             )
         |> Form.append
             (Form.submit
@@ -727,6 +734,285 @@ checkboxInput { name, description } { toLabel, toInput, errors } =
                 ]
             ]
         ]
+
+
+wrapNotificationsSections children =
+    Html.div
+        [ css
+            [ Tw.divide_y
+            , Tw.divide_gray_200
+            , Tw.pt_8
+            , Tw.space_y_6
+            , Bp.sm
+                [ Tw.pt_10
+                , Tw.space_y_5
+                ]
+            ]
+        ]
+        [ Html.div []
+            [ Html.h3
+                [ css
+                    [ Tw.text_lg
+                    , Tw.leading_6
+                    , Tw.font_medium
+                    , Tw.text_gray_900
+                    ]
+                ]
+                [ Html.text "Notifications" ]
+            , Html.p
+                [ css
+                    [ Tw.mt_1
+                    , Tw.max_w_2xl
+                    , Tw.text_sm
+                    , Tw.text_gray_500
+                    ]
+                ]
+                [ Html.text "We'll always let you know about important changes, but you pick what else you want to hear about." ]
+            ]
+        , Html.div
+            [ css
+                [ Tw.space_y_6
+                , Tw.divide_y
+                , Tw.divide_gray_200
+                , Bp.sm
+                    [ Tw.space_y_5
+                    ]
+                ]
+            ]
+            children
+        ]
+
+
+wrapEmailSection children =
+    Html.div
+        [ css
+            [ Tw.pt_6
+            , Bp.sm
+                [ Tw.pt_5
+                ]
+            ]
+        ]
+        [ Html.div
+            [ Attr.attribute "role" "group"
+            , Attr.attribute "aria-labelledby" "label-email"
+            ]
+            [ Html.div
+                [ css
+                    [ Bp.sm
+                        [ Tw.grid
+                        , Tw.grid_cols_3
+                        , Tw.gap_4
+                        , Tw.items_baseline
+                        ]
+                    ]
+                ]
+                [ Html.div []
+                    [ Html.div
+                        [ css
+                            [ Tw.text_base
+                            , Tw.font_medium
+                            , Tw.text_gray_900
+                            , Bp.sm
+                                [ Tw.text_sm
+                                , Tw.text_gray_700
+                                ]
+                            ]
+                        , Attr.id "label-email"
+                        ]
+                        [ Html.text "By Email" ]
+                    ]
+                , Html.div
+                    [ css
+                        [ Tw.mt_4
+                        , Bp.sm
+                            [ Tw.mt_0
+                            , Tw.col_span_2
+                            ]
+                        ]
+                    ]
+                    [ Html.div
+                        [ css
+                            [ Tw.max_w_lg
+                            , Tw.space_y_4
+                            ]
+                        ]
+                        children
+                    ]
+                ]
+            ]
+        ]
+
+
+pushNotificationsSection =
+    Html.div
+        [ css
+            [ Tw.pt_6
+            , Bp.sm
+                [ Tw.pt_5
+                ]
+            ]
+        ]
+        [ Html.div
+            [ Attr.attribute "role" "group"
+            , Attr.attribute "aria-labelledby" "label-notifications"
+            ]
+            [ Html.div
+                [ css
+                    [ Bp.sm
+                        [ Tw.grid
+                        , Tw.grid_cols_3
+                        , Tw.gap_4
+                        , Tw.items_baseline
+                        ]
+                    ]
+                ]
+                [ Html.div []
+                    [ Html.div
+                        [ css
+                            [ Tw.text_base
+                            , Tw.font_medium
+                            , Tw.text_gray_900
+                            , Bp.sm
+                                [ Tw.text_sm
+                                , Tw.text_gray_700
+                                ]
+                            ]
+                        , Attr.id "label-notifications"
+                        ]
+                        [ Html.text "Push Notifications" ]
+                    ]
+                , Html.div
+                    [ css
+                        [ Bp.sm
+                            [ Tw.col_span_2
+                            ]
+                        ]
+                    ]
+                    [ Html.div
+                        [ css
+                            [ Tw.max_w_lg
+                            ]
+                        ]
+                        [ Html.p
+                            [ css
+                                [ Tw.text_sm
+                                , Tw.text_gray_500
+                                ]
+                            ]
+                            [ Html.text "These are delivered via SMS to your mobile phone." ]
+                        , Html.div
+                            [ css
+                                [ Tw.mt_4
+                                , Tw.space_y_4
+                                ]
+                            ]
+                            [ Html.div
+                                [ css
+                                    [ Tw.flex
+                                    , Tw.items_center
+                                    ]
+                                ]
+                                [ Html.input
+                                    [ Attr.id "push-everything"
+                                    , Attr.name "push-notifications"
+                                    , Attr.type_ "radio"
+                                    , css
+                                        [ Tw.h_4
+                                        , Tw.w_4
+                                        , Tw.text_indigo_600
+                                        , Tw.border_gray_300
+                                        , Css.focus
+                                            [ Tw.ring_indigo_500
+                                            ]
+                                        ]
+                                    ]
+                                    []
+                                , Html.label
+                                    [ Attr.for "push-everything"
+                                    , css
+                                        [ Tw.ml_3
+                                        , Tw.block
+                                        , Tw.text_sm
+                                        , Tw.font_medium
+                                        , Tw.text_gray_700
+                                        ]
+                                    ]
+                                    [ Html.text "Everything" ]
+                                ]
+                            , Html.div
+                                [ css
+                                    [ Tw.flex
+                                    , Tw.items_center
+                                    ]
+                                ]
+                                [ Html.input
+                                    [ Attr.id "push-email"
+                                    , Attr.name "push-notifications"
+                                    , Attr.type_ "radio"
+                                    , css
+                                        [ Tw.h_4
+                                        , Tw.w_4
+                                        , Tw.text_indigo_600
+                                        , Tw.border_gray_300
+                                        , Css.focus
+                                            [ Tw.ring_indigo_500
+                                            ]
+                                        ]
+                                    ]
+                                    []
+                                , Html.label
+                                    [ Attr.for "push-email"
+                                    , css
+                                        [ Tw.ml_3
+                                        , Tw.block
+                                        , Tw.text_sm
+                                        , Tw.font_medium
+                                        , Tw.text_gray_700
+                                        ]
+                                    ]
+                                    [ Html.text "Same as email" ]
+                                ]
+                            , Html.div
+                                [ css
+                                    [ Tw.flex
+                                    , Tw.items_center
+                                    ]
+                                ]
+                                [ Html.input
+                                    [ Attr.id "push-nothing"
+                                    , Attr.name "push-notifications"
+                                    , Attr.type_ "radio"
+                                    , css
+                                        [ Tw.h_4
+                                        , Tw.w_4
+                                        , Tw.text_indigo_600
+                                        , Tw.border_gray_300
+                                        , Css.focus
+                                            [ Tw.ring_indigo_500
+                                            ]
+                                        ]
+                                    ]
+                                    []
+                                , Html.label
+                                    [ Attr.for "push-nothing"
+                                    , css
+                                        [ Tw.ml_3
+                                        , Tw.block
+                                        , Tw.text_sm
+                                        , Tw.font_medium
+                                        , Tw.text_gray_700
+                                        ]
+                                    ]
+                                    [ Html.text "No push notifications" ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+
 
 --fullView : Html msg
 --fullView =
