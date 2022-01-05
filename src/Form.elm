@@ -217,35 +217,6 @@ input name toHtmlFn =
         }
 
 
-requiredText :
-    String
-    ->
-        ({ toInput : List (Html.Attribute Never)
-         , toLabel : List (Html.Attribute Never)
-         , errors : List String
-         }
-         -> view
-        )
-    -> Field String view
-requiredText name toHtmlFn =
-    Field
-        { name = name
-        , initialValue = Nothing
-        , type_ = "text"
-        , min = Nothing
-        , max = Nothing
-        , required = True
-        , serverValidation = \_ -> DataSource.succeed []
-        , toHtml =
-            \fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
-
-        -- TODO should it be Err if Nothing?
-        , decode = Maybe.withDefault ""
-        , properties = []
-        }
-
-
 radio :
     String
     -> ( ( String, item ), List ( String, item ) )
@@ -510,6 +481,11 @@ multiple : Field value view -> Field value view
 multiple (Field field) =
     -- TODO add 'multiple'
     Field { field | properties = ( "multiple", Encode.bool True ) :: field.properties }
+
+
+required : Field value view -> Field value view
+required (Field field) =
+    Field { field | required = True }
 
 
 telephone : Field value view -> Field value view
