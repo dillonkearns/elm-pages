@@ -124,6 +124,41 @@ toInputRecord name maybeValue info field =
     }
 
 
+toRadioInputRecord :
+    String
+    -> String
+    -> Maybe { raw : Maybe String, errors : List String }
+    -> FinalFieldInfo
+    ->
+        { toInput : List (Html.Attribute Never)
+        , toLabel : List (Html.Attribute Never)
+        , errors : List String
+        }
+toRadioInputRecord name itemValue info field =
+    { toInput =
+        [ Attr.name name |> Just
+        , itemValue
+            |> Attr.id
+            |> Just
+        , Attr.value itemValue |> Just
+        , field.type_ |> Attr.type_ |> Just
+        , field.min |> Maybe.map Attr.min
+        , field.max |> Maybe.map Attr.max
+        , field.required |> Attr.required |> Just
+        , if (info |> Maybe.andThen .raw) == Just itemValue then
+            Attr.attribute "checked" "true" |> Just
+
+          else
+            Nothing
+        ]
+            |> List.filterMap identity
+    , toLabel =
+        [ itemValue |> Attr.for
+        ]
+    , errors = info |> Maybe.map .errors |> Maybe.withDefault []
+    }
+
+
 valueAttr field stringValue =
     if field.type_ == "checkbox" then
         if stringValue == Just "on" then
@@ -220,7 +255,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
             -- TODO use `toString` to set value
             \fieldInfo info ->
                 items
-                    |> List.map (\item -> toHtmlFn item (toInputRecord name (Just <| toString item) info fieldInfo))
+                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord name (toString item) info fieldInfo))
                     |> wrapFn
 
         -- TODO should it be Err if Nothing?
