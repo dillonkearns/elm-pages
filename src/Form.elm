@@ -5,6 +5,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Json.Encode as Encode
 import List.NonEmpty
 import Server.Request as Request exposing (Request)
 
@@ -46,6 +47,7 @@ type alias FieldInfoSimple view =
         FinalFieldInfo
         -> Maybe { raw : Maybe String, errors : List String }
         -> view
+    , properties : List ( String, Encode.Value )
     }
 
 
@@ -62,6 +64,7 @@ type alias FieldInfo value view =
         -> Maybe { raw : Maybe String, errors : List String }
         -> view
     , decode : Maybe String -> value
+    , properties : List ( String, Encode.Value )
     }
 
 
@@ -73,6 +76,7 @@ type alias FinalFieldInfo =
     , max : Maybe String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List String)
+    , properties : List ( String, Encode.Value )
     }
 
 
@@ -95,12 +99,12 @@ toInputRecord :
         }
 toInputRecord name maybeValue info field =
     { toInput =
-        [ Attr.name name |> Just
-        , maybeValue
+        ([ Attr.name name |> Just
+         , maybeValue
             |> Maybe.withDefault name
             |> Attr.id
             |> Just
-        , case ( maybeValue, info ) of
+         , case ( maybeValue, info ) of
             ( Just value, _ ) ->
                 Attr.value value |> Just
 
@@ -109,12 +113,14 @@ toInputRecord name maybeValue info field =
 
             _ ->
                 valueAttr field field.initialValue
-        , field.type_ |> Attr.type_ |> Just
-        , field.min |> Maybe.map Attr.min
-        , field.max |> Maybe.map Attr.max
-        , field.required |> Attr.required |> Just
-        ]
+         , field.type_ |> Attr.type_ |> Just
+         , field.min |> Maybe.map Attr.min
+         , field.max |> Maybe.map Attr.max
+         , field.required |> Attr.required |> Just
+         ]
             |> List.filterMap identity
+        )
+            ++ toHtmlProperties field.properties
     , toLabel =
         [ maybeValue
             |> Maybe.withDefault name
@@ -122,6 +128,15 @@ toInputRecord name maybeValue info field =
         ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     }
+
+
+toHtmlProperties : List ( String, Encode.Value ) -> List (Html.Attribute msg)
+toHtmlProperties properties =
+    properties
+        |> List.map
+            (\( key, value ) ->
+                Attr.property key value
+            )
 
 
 toRadioInputRecord :
@@ -136,22 +151,24 @@ toRadioInputRecord :
         }
 toRadioInputRecord name itemValue info field =
     { toInput =
-        [ Attr.name name |> Just
-        , itemValue
+        ([ Attr.name name |> Just
+         , itemValue
             |> Attr.id
             |> Just
-        , Attr.value itemValue |> Just
-        , field.type_ |> Attr.type_ |> Just
-        , field.min |> Maybe.map Attr.min
-        , field.max |> Maybe.map Attr.max
-        , field.required |> Attr.required |> Just
-        , if (info |> Maybe.andThen .raw) == Just itemValue then
+         , Attr.value itemValue |> Just
+         , field.type_ |> Attr.type_ |> Just
+         , field.min |> Maybe.map Attr.min
+         , field.max |> Maybe.map Attr.max
+         , field.required |> Attr.required |> Just
+         , if (info |> Maybe.andThen .raw) == Just itemValue then
             Attr.attribute "checked" "true" |> Just
 
-          else
+           else
             Nothing
-        ]
+         ]
             |> List.filterMap identity
+        )
+            ++ toHtmlProperties field.properties
     , toLabel =
         [ itemValue |> Attr.for
         ]
@@ -196,6 +213,7 @@ input name toHtmlFn =
 
         -- TODO should it be Err if Nothing?
         , decode = Maybe.withDefault ""
+        , properties = []
         }
 
 
@@ -224,6 +242,7 @@ requiredText name toHtmlFn =
 
         -- TODO should it be Err if Nothing?
         , decode = Maybe.withDefault ""
+        , properties = []
         }
 
 
@@ -291,6 +310,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
             \raw ->
                 raw
                     |> Maybe.andThen fromString
+        , properties = []
         }
 
 
@@ -332,6 +352,7 @@ submit toHtmlFn =
                         [ Attr.type_ "submit" ]
                     }
         , decode = \_ -> ()
+        , properties = []
         }
 
 
@@ -351,6 +372,7 @@ view viewFn =
             \fieldInfo info ->
                 viewFn
         , decode = \_ -> ()
+        , properties = []
         }
 
 
@@ -380,6 +402,7 @@ number name toHtmlFn =
             \rawString ->
                 rawString
                     |> Maybe.andThen String.toInt
+        , properties = []
         }
 
 
@@ -412,6 +435,7 @@ date name toHtmlFn =
                     |> Maybe.withDefault ""
                     |> Date.fromIsoString
                     |> Result.withDefault (Date.fromRataDie 0)
+        , properties = []
         }
 
 
@@ -447,6 +471,7 @@ checkbox name initial toHtmlFn =
         , decode =
             \rawString ->
                 rawString == Just "on"
+        , properties = []
         }
 
 
@@ -479,6 +504,12 @@ type_ typeName (Field field) =
 withInitialValue : String -> Field value view -> Field value view
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
+
+
+multiple : Field value view -> Field value view
+multiple (Field field) =
+    -- TODO add 'multiple'
+    Field field
 
 
 telephone : Field value view -> Field value view
@@ -606,6 +637,7 @@ simplify field =
     , max = field.max
     , required = field.required
     , serverValidation = field.serverValidation
+    , properties = field.properties
     }
 
 
@@ -619,6 +651,7 @@ simplify2 field =
     , required = field.required
     , serverValidation = field.serverValidation
     , toHtml = field.toHtml
+    , properties = field.properties
     }
 
 
@@ -631,6 +664,7 @@ simplify3 field =
     , max = field.max
     , required = field.required
     , serverValidation = field.serverValidation
+    , properties = field.properties
     }
 
 
