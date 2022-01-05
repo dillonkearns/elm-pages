@@ -42,6 +42,7 @@ type alias User =
     , username : String
     , email : String
     , birthDay : Date
+    , rating : Int
     , notificationPreferences : NotificationPreferences
     }
 
@@ -61,6 +62,7 @@ defaultUser =
     , username = "janedoe"
     , email = "janedoe@example.com"
     , birthDay = Date.fromCalendarDate 1969 Time.Jul 20
+    , rating = 5
     , notificationPreferences =
         { comments = False
         , candidates = False
@@ -252,6 +254,14 @@ form user =
                         else
                             DataSource.succeed []
                     )
+            )
+        |> Form.with
+            (Form.requiredNumber
+                "rating"
+                (textInput "Rating")
+                |> Form.withMin 1
+                |> Form.withMax 5
+                |> Form.range
             )
         |> Form.wrap wrapSection
         |> Form.appendForm (|>)

@@ -377,6 +377,38 @@ number name toHtmlFn =
         }
 
 
+requiredNumber :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Never)
+         , toLabel : List (Html.Attribute Never)
+         , errors : List String
+         }
+         -> view
+        )
+    -> Field Int view
+requiredNumber name toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "number"
+        , min = Nothing
+        , max = Nothing
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                rawString
+                    |> Maybe.andThen String.toInt
+                    -- TODO this needs to be a Result that can be decoded
+                    |> Maybe.withDefault -1000
+        , properties = []
+        }
+
+
 date :
     String
     ->
@@ -491,6 +523,21 @@ required (Field field) =
 telephone : Field value view -> Field value view
 telephone (Field field) =
     Field { field | type_ = "tel" }
+
+
+range : Field value view -> Field value view
+range (Field field) =
+    Field { field | type_ = "range" }
+
+
+search : Field value view -> Field value view
+search (Field field) =
+    Field { field | type_ = "search" }
+
+
+password : Field value view -> Field value view
+password (Field field) =
+    Field { field | type_ = "password" }
 
 
 email : Field value view -> Field value view
