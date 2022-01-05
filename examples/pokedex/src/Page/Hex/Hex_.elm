@@ -10,7 +10,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =

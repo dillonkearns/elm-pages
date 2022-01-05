@@ -120,7 +120,7 @@ type alias PageWithState routeParams data model msg =
 
 {-| -}
 type alias Page routeParams data =
-    PageWithState routeParams data {} Never
+    PageWithState routeParams data {} ()
 
 
 {-| -}
@@ -156,10 +156,10 @@ buildNoState :
         Maybe PageUrl
         -> Shared.Model
         -> StaticPayload data routeParams
-        -> View Never
+        -> View ()
     }
     -> Builder routeParams data
-    -> PageWithState routeParams data {} Never
+    -> PageWithState routeParams data {} ()
 buildNoState { view } builderState =
     case builderState of
         WithData record ->

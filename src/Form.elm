@@ -5,6 +5,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Json.Encode as Encode
 import List.NonEmpty
 import Server.Request as Request exposing (Request)
@@ -81,14 +82,38 @@ succeed constructor =
         (Request.succeed (DataSource.succeed []))
 
 
+type Msg
+    = OnFieldInput { name : String, value : String }
+    | OnFieldFocus { name : String }
+    | OnBlur
+
+
+type alias Model =
+    { raw : Dict String String
+    , errors : Dict String (List String)
+    }
+
+
+update : Msg -> Model -> Model
+update msg model =
+    model
+
+
+init : Model
+init =
+    { raw = Dict.empty
+    , errors = Dict.empty
+    }
+
+
 toInputRecord :
     String
     -> Maybe String
     -> Maybe { raw : Maybe String, errors : List String }
     -> FinalFieldInfo
     ->
-        { toInput : List (Html.Attribute Never)
-        , toLabel : List (Html.Attribute Never)
+        { toInput : List (Html.Attribute Msg)
+        , toLabel : List (Html.Attribute Msg)
         , errors : List String
         }
 toInputRecord name maybeValue info field =
@@ -109,6 +134,12 @@ toInputRecord name maybeValue info field =
                 valueAttr field field.initialValue
          , field.type_ |> Attr.type_ |> Just
          , field.required |> Attr.required |> Just
+         , Html.Events.onInput
+            (\newValue ->
+                OnFieldInput
+                    { name = name, value = newValue }
+            )
+            |> Just
          ]
             |> List.filterMap identity
         )
@@ -137,8 +168,8 @@ toRadioInputRecord :
     -> Maybe { raw : Maybe String, errors : List String }
     -> FinalFieldInfo
     ->
-        { toInput : List (Html.Attribute Never)
-        , toLabel : List (Html.Attribute Never)
+        { toInput : List (Html.Attribute Msg)
+        , toLabel : List (Html.Attribute Msg)
         , errors : List String
         }
 toRadioInputRecord name itemValue info field =
@@ -181,8 +212,8 @@ valueAttr field stringValue =
 text :
     String
     ->
-        ({ toInput : List (Html.Attribute Never)
-         , toLabel : List (Html.Attribute Never)
+        ({ toInput : List (Html.Attribute Msg)
+         , toLabel : List (Html.Attribute Msg)
          , errors : List String
          }
          -> view
@@ -208,7 +239,7 @@ text name toHtmlFn =
 hidden :
     String
     -> String
-    -> (List (Html.Attribute Never) -> view)
+    -> (List (Html.Attribute Msg) -> view)
     -> Field String view
 hidden name value toHtmlFn =
     Field
@@ -236,8 +267,8 @@ radio :
     ->
         (item
          ->
-            { toInput : List (Html.Attribute Never)
-            , toLabel : List (Html.Attribute Never)
+            { toInput : List (Html.Attribute Msg)
+            , toLabel : List (Html.Attribute Msg)
             , errors : List String
 
             -- TODO
@@ -313,7 +344,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
 
 
 submit :
-    ({ attrs : List (Html.Attribute Never)
+    ({ attrs : List (Html.Attribute Msg)
      }
      -> view
     )
@@ -357,8 +388,8 @@ view viewFn =
 number :
     String
     ->
-        ({ toInput : List (Html.Attribute Never)
-         , toLabel : List (Html.Attribute Never)
+        ({ toInput : List (Html.Attribute Msg)
+         , toLabel : List (Html.Attribute Msg)
          , errors : List String
          }
          -> view
@@ -385,8 +416,8 @@ number name toHtmlFn =
 requiredNumber :
     String
     ->
-        ({ toInput : List (Html.Attribute Never)
-         , toLabel : List (Html.Attribute Never)
+        ({ toInput : List (Html.Attribute Msg)
+         , toLabel : List (Html.Attribute Msg)
          , errors : List String
          }
          -> view
@@ -415,8 +446,8 @@ requiredNumber name toHtmlFn =
 date :
     String
     ->
-        ({ toInput : List (Html.Attribute Never)
-         , toLabel : List (Html.Attribute Never)
+        ({ toInput : List (Html.Attribute Msg)
+         , toLabel : List (Html.Attribute Msg)
          , errors : List String
          }
          -> view
@@ -447,8 +478,8 @@ checkbox :
     String
     -> Bool
     ->
-        ({ toInput : List (Html.Attribute Never)
-         , toLabel : List (Html.Attribute Never)
+        ({ toInput : List (Html.Attribute Msg)
+         , toLabel : List (Html.Attribute Msg)
          , errors : List String
          }
          -> view

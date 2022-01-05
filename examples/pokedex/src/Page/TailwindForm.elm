@@ -29,7 +29,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
@@ -198,7 +198,7 @@ usernameInput { toInput, toLabel, errors } =
         ]
 
 
-form : User -> Form User (Html Never)
+form : User -> Form User (Html Form.Msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -546,6 +546,7 @@ view maybeUrl sharedModel static =
                     |> Form.toHtml
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         static.data.errors
+                    |> Html.map (\_ -> ())
                 ]
 
             --,

@@ -23,7 +23,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
@@ -73,7 +73,7 @@ errorsView errors =
             Html.div [] []
 
 
-form : User -> Form User (Html Never)
+form : User -> Form User (Html Form.Msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -275,5 +275,6 @@ view maybeUrl sharedModel static =
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
             |> Form.toHtml Html.form static.data.errors
+            |> Html.map (\_ -> ())
         ]
     }
