@@ -278,10 +278,12 @@ form user =
                     (Form.succeed identity
                         |> Form.required
                             (Form.radio
-                                "radio-example"
-                                pushNotificationsSettingToString
-                                pushNotificationsSettingFromString
-                                [ PushAll, PushEmail, PushNone ]
+                                "push-notifications"
+                                ( ( "PushAll", PushAll )
+                                , [ ( "PushEmail", PushEmail )
+                                  , ( "PushNone", PushNone )
+                                  ]
+                                )
                                 radioInput
                                 wrapPushNotificationsSection
                             )
@@ -315,35 +317,6 @@ type PushNotificationsSetting
     = PushAll
     | PushEmail
     | PushNone
-
-
-pushNotificationsSettingToString : PushNotificationsSetting -> String
-pushNotificationsSettingToString pushNotificationsSetting =
-    case pushNotificationsSetting of
-        PushAll ->
-            "PushAll"
-
-        PushEmail ->
-            "PushEmail"
-
-        PushNone ->
-            "PushNone"
-
-
-pushNotificationsSettingFromString : String -> Maybe PushNotificationsSetting
-pushNotificationsSettingFromString pushNotificationsSetting =
-    case pushNotificationsSetting of
-        "PushAll" ->
-            Just PushAll
-
-        "PushEmail" ->
-            Just PushEmail
-
-        "PushNone" ->
-            Just PushNone
-
-        _ ->
-            Nothing
 
 
 saveButton formAttrs =

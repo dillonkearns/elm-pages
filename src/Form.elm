@@ -5,6 +5,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import List.NonEmpty
 import Server.Request as Request exposing (Request)
 
 
@@ -165,9 +166,7 @@ input name toHtmlFn =
 
 radio :
     String
-    -> (item -> String)
-    -> (String -> Maybe item)
-    -> List item -- TODO make non-empty
+    -> ( ( String, item ), List ( String, item ) )
     ->
         (item
          ->
@@ -182,7 +181,33 @@ radio :
         )
     -> (List view -> view)
     -> Field (Maybe item) view
-radio name toString fromString items toHtmlFn wrapFn =
+radio name nonEmptyItemMapping toHtmlFn wrapFn =
+    let
+        itemMapping : List ( String, item )
+        itemMapping =
+            nonEmptyItemMapping
+                |> List.NonEmpty.toList
+
+        toString : item -> String
+        toString targetItem =
+            case nonEmptyItemMapping |> List.NonEmpty.toList |> List.filter (\( string, item ) -> item == targetItem) |> List.head of
+                Just ( string, _ ) ->
+                    string
+
+                Nothing ->
+                    "Missing enum"
+
+        fromString : String -> Maybe item
+        fromString string =
+            itemMapping
+                |> Dict.fromList
+                |> Dict.get string
+
+        items : List item
+        items =
+            itemMapping
+                |> List.map Tuple.second
+    in
     Field
         { name = name
         , initialValue = Nothing
