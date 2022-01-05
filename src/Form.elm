@@ -84,6 +84,7 @@ succeed constructor =
 
 toInputRecord :
     String
+    -> Maybe String
     -> Maybe { raw : Maybe String, errors : List String }
     -> FinalFieldInfo
     ->
@@ -91,12 +92,18 @@ toInputRecord :
         , toLabel : List (Html.Attribute Never)
         , errors : List String
         }
-toInputRecord name info field =
+toInputRecord name maybeValue info field =
     { toInput =
         [ Attr.name name |> Just
-        , Attr.id name |> Just
-        , case info of
-            Just { raw } ->
+        , maybeValue
+            |> Maybe.withDefault name
+            |> Attr.id
+            |> Just
+        , case ( maybeValue, info ) of
+            ( Just value, _ ) ->
+                Attr.value value |> Just
+
+            ( _, Just { raw } ) ->
                 valueAttr field raw
 
             _ ->
@@ -108,7 +115,9 @@ toInputRecord name info field =
         ]
             |> List.filterMap identity
     , toLabel =
-        [ Attr.for name
+        [ maybeValue
+            |> Maybe.withDefault name
+            |> Attr.for
         ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     }
@@ -147,11 +156,70 @@ input name toHtmlFn =
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
-                toHtmlFn (toInputRecord name info fieldInfo)
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
 
         -- TODO should it be Err if Nothing?
         , decode = Maybe.withDefault ""
         }
+
+
+radio :
+    String
+    -> (item -> String)
+    -> (String -> Maybe item)
+    -> List item -- TODO make non-empty
+    ->
+        (item
+         ->
+            { toInput : List (Html.Attribute Never)
+            , toLabel : List (Html.Attribute Never)
+            , errors : List String
+
+            -- TODO
+            --, item : item
+            }
+         -> view
+        )
+    -> (List view -> view)
+    -> Field (Maybe item) view
+radio name toString fromString items toHtmlFn wrapFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "radio"
+        , min = Nothing
+        , max = Nothing
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            -- TODO use `toString` to set value
+            \fieldInfo info ->
+                items
+                    |> List.map (\item -> toHtmlFn item (toInputRecord name (Just <| toString item) info fieldInfo))
+                    |> wrapFn
+
+        -- TODO should it be Err if Nothing?
+        , decode =
+            \raw ->
+                raw
+                    |> Maybe.andThen fromString
+        }
+
+
+
+{-
+       List.foldl
+           (\item formSoFar ->
+               required (rawRadio name toHtmlFn fromString)
+                   formSoFar
+           )
+           (succeed Nothing)
+           items
+
+
+   rawRadio name toHtmlFn fromString =
+
+-}
 
 
 submit :
@@ -234,7 +302,7 @@ date name toHtmlFn =
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
-                toHtmlFn (toInputRecord name info fieldInfo)
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 rawString
@@ -272,7 +340,7 @@ checkbox name initial toHtmlFn =
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             \fieldInfo info ->
-                toHtmlFn (toInputRecord name info fieldInfo)
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 rawString == Just "on"

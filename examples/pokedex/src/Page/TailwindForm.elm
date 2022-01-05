@@ -50,6 +50,7 @@ type alias NotificationPreferences =
     { comments : Bool
     , candidates : Bool
     , offers : Bool
+    , pushNotificationsSetting : Maybe PushNotificationsSetting
     }
 
 
@@ -64,6 +65,7 @@ defaultUser =
         { comments = False
         , candidates = False
         , offers = False
+        , pushNotificationsSetting = Nothing
         }
     }
 
@@ -272,9 +274,17 @@ form user =
                         (checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." })
                     )
                 |> Form.wrap wrapEmailSection
-                |> Form.appendForm (\() value -> value)
-                    (Form.succeed ()
-                        |> Form.append (Form.view pushNotificationsSection)
+                |> Form.appendForm (|>)
+                    (Form.succeed identity
+                        |> Form.required
+                            (Form.radio
+                                "radio-example"
+                                pushNotificationsSettingToString
+                                pushNotificationsSettingFromString
+                                [ PushAll, PushEmail, PushNone ]
+                                radioInput
+                                wrapPushNotificationsSection
+                            )
                     )
              )
                 |> Form.wrap wrapNotificationsSections
@@ -299,6 +309,41 @@ form user =
                         ]
                 )
             )
+
+
+type PushNotificationsSetting
+    = PushAll
+    | PushEmail
+    | PushNone
+
+
+pushNotificationsSettingToString : PushNotificationsSetting -> String
+pushNotificationsSettingToString pushNotificationsSetting =
+    case pushNotificationsSetting of
+        PushAll ->
+            "PushAll"
+
+        PushEmail ->
+            "PushEmail"
+
+        PushNone ->
+            "PushNone"
+
+
+pushNotificationsSettingFromString : String -> Maybe PushNotificationsSetting
+pushNotificationsSettingFromString pushNotificationsSetting =
+    case pushNotificationsSetting of
+        "PushAll" ->
+            Just PushAll
+
+        "PushEmail" ->
+            Just PushEmail
+
+        "PushNone" ->
+            Just PushNone
+
+        _ ->
+            Nothing
 
 
 saveButton formAttrs =
@@ -843,7 +888,58 @@ wrapEmailSection children =
         ]
 
 
-pushNotificationsSection =
+radioInput item { toLabel, toInput, errors } =
+    Html.div
+        [ css
+            [ Tw.flex
+            , Tw.items_center
+            ]
+        ]
+        [ Html.input
+            (styleAttrs toInput
+                ++ [ --Attr.id "push-everything"
+                     --, Attr.name "push-notifications"
+                     --, Attr.type_ "radio"
+                     css
+                        [ Tw.h_4
+                        , Tw.w_4
+                        , Tw.text_indigo_600
+                        , Tw.border_gray_300
+                        , Css.focus
+                            [ Tw.ring_indigo_500
+                            ]
+                        ]
+                   ]
+            )
+            []
+        , Html.label
+            (styleAttrs toLabel
+                ++ [ --Attr.for "push-everything"
+                     css
+                        [ Tw.ml_3
+                        , Tw.block
+                        , Tw.text_sm
+                        , Tw.font_medium
+                        , Tw.text_gray_700
+                        ]
+                   ]
+            )
+            [ (case item of
+                PushAll ->
+                    "Everything"
+
+                PushEmail ->
+                    "Same as email"
+
+                PushNone ->
+                    "No push notifications"
+              )
+                |> Html.text
+            ]
+        ]
+
+
+wrapPushNotificationsSection children =
     Html.div
         [ css
             [ Tw.pt_6
@@ -906,106 +1002,7 @@ pushNotificationsSection =
                                 , Tw.space_y_4
                                 ]
                             ]
-                            [ Html.div
-                                [ css
-                                    [ Tw.flex
-                                    , Tw.items_center
-                                    ]
-                                ]
-                                [ Html.input
-                                    [ Attr.id "push-everything"
-                                    , Attr.name "push-notifications"
-                                    , Attr.type_ "radio"
-                                    , css
-                                        [ Tw.h_4
-                                        , Tw.w_4
-                                        , Tw.text_indigo_600
-                                        , Tw.border_gray_300
-                                        , Css.focus
-                                            [ Tw.ring_indigo_500
-                                            ]
-                                        ]
-                                    ]
-                                    []
-                                , Html.label
-                                    [ Attr.for "push-everything"
-                                    , css
-                                        [ Tw.ml_3
-                                        , Tw.block
-                                        , Tw.text_sm
-                                        , Tw.font_medium
-                                        , Tw.text_gray_700
-                                        ]
-                                    ]
-                                    [ Html.text "Everything" ]
-                                ]
-                            , Html.div
-                                [ css
-                                    [ Tw.flex
-                                    , Tw.items_center
-                                    ]
-                                ]
-                                [ Html.input
-                                    [ Attr.id "push-email"
-                                    , Attr.name "push-notifications"
-                                    , Attr.type_ "radio"
-                                    , css
-                                        [ Tw.h_4
-                                        , Tw.w_4
-                                        , Tw.text_indigo_600
-                                        , Tw.border_gray_300
-                                        , Css.focus
-                                            [ Tw.ring_indigo_500
-                                            ]
-                                        ]
-                                    ]
-                                    []
-                                , Html.label
-                                    [ Attr.for "push-email"
-                                    , css
-                                        [ Tw.ml_3
-                                        , Tw.block
-                                        , Tw.text_sm
-                                        , Tw.font_medium
-                                        , Tw.text_gray_700
-                                        ]
-                                    ]
-                                    [ Html.text "Same as email" ]
-                                ]
-                            , Html.div
-                                [ css
-                                    [ Tw.flex
-                                    , Tw.items_center
-                                    ]
-                                ]
-                                [ Html.input
-                                    [ Attr.id "push-nothing"
-                                    , Attr.name "push-notifications"
-                                    , Attr.type_ "radio"
-                                    , css
-                                        [ Tw.h_4
-                                        , Tw.w_4
-                                        , Tw.text_indigo_600
-                                        , Tw.border_gray_300
-                                        , Css.focus
-                                            [ Tw.ring_indigo_500
-                                            ]
-                                        ]
-                                    ]
-                                    []
-                                , Html.label
-                                    [ Attr.for "push-nothing"
-                                    , css
-                                        [ Tw.ml_3
-                                        , Tw.block
-                                        , Tw.text_sm
-                                        , Tw.font_medium
-                                        , Tw.text_gray_700
-                                        ]
-                                    ]
-                                    [ Html.text "No push notifications" ]
-                                ]
-                            ]
+                            children
                         ]
                     ]
                 ]
