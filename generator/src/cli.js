@@ -10,6 +10,7 @@ const path = require("path");
 
 const commander = require("commander");
 const Argument = commander.Argument;
+const Option = commander.Option;
 
 const packageVersion = require("../../package.json").version;
 
@@ -74,10 +75,11 @@ async function main() {
 
   program
     .command("add <moduleName>")
-    .addArgument(
-      new Argument("<state>", "Generate Page Module with state")
-        .choices(["local", "shared", "serverless"])
-        .argOptional()
+    .addOption(
+      new Option("--state <state>", "Generate Page Module with state").choices([
+        "local",
+        "shared",
+      ])
     )
     .option("--server-render", "Generate a Page.serverRender Page Module")
     .option(
@@ -85,7 +87,7 @@ async function main() {
       "Generate a Page.preRenderWithFallback Page Module"
     )
     .description("create a new Page module")
-    .action(async (moduleName, a, options, c) => {
+    .action(async (moduleName, options, b, c) => {
       console.log({
         withState: options.state,
         serverRender: options.serverRender,

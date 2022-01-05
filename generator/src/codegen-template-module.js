@@ -72,7 +72,7 @@ import View exposing (View)
 
 
 type alias Model =
-    ${withState ? "{}" : "{}"}
+    {}
 
 
 ${
@@ -80,7 +80,7 @@ ${
     ? `type Msg
     = NoOp`
     : `type alias Msg =
-    Never`
+    ()`
 }
 
 type alias RouteParams =
