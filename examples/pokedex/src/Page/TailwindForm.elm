@@ -199,19 +199,19 @@ usernameInput { toInput, toLabel, errors } =
 form : User -> Form User (Html Never)
 form user =
     Form.succeed User
-        |> Form.required
+        |> Form.with
             (Form.requiredText
                 "first"
                 (textInput "First name")
                 |> Form.withInitialValue user.first
             )
-        |> Form.required
+        |> Form.with
             (Form.requiredText
                 "last"
                 (textInput "Last name")
                 |> Form.withInitialValue user.last
             )
-        |> Form.required
+        |> Form.with
             (Form.requiredText "username" usernameInput
                 |> Form.withInitialValue user.username
                 |> Form.withServerValidation
@@ -223,14 +223,14 @@ form user =
                             DataSource.succeed []
                     )
             )
-        |> Form.required
+        |> Form.with
             (Form.requiredText
                 "email"
                 (textInput "Email address")
                 |> Form.withInitialValue user.email
                 |> Form.email
             )
-        |> Form.required
+        |> Form.with
             (Form.date
                 "dob"
                 (textInput "Date of Birth")
@@ -253,21 +253,21 @@ form user =
         |> Form.wrap wrapSection
         |> Form.appendForm (|>)
             ((Form.succeed NotificationPreferences
-                |> Form.required
+                |> Form.with
                     (Form.checkbox
                         "comments"
                         --user.checkbox
                         False
                         (checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." })
                     )
-                |> Form.required
+                |> Form.with
                     (Form.checkbox
                         "candidates"
                         --user.checkbox
                         False
                         (checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." })
                     )
-                |> Form.required
+                |> Form.with
                     (Form.checkbox
                         "offers"
                         --user.checkbox
@@ -277,7 +277,7 @@ form user =
                 |> Form.wrap wrapEmailSection
                 |> Form.appendForm (|>)
                     (Form.succeed identity
-                        |> Form.required
+                        |> Form.with
                             (Form.radio
                                 "push-notifications"
                                 ( ( "PushAll", PushAll )

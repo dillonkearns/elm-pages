@@ -76,7 +76,7 @@ errorsView errors =
 form : User -> Form User (Html Never)
 form user =
     Form.succeed User
-        |> Form.required
+        |> Form.with
             (Form.input
                 "first"
                 (\{ toInput, toLabel, errors } ->
@@ -90,7 +90,7 @@ form user =
                 )
                 |> Form.withInitialValue user.first
             )
-        |> Form.required
+        |> Form.with
             (Form.input
                 "last"
                 (\{ toInput, toLabel, errors } ->
@@ -104,7 +104,7 @@ form user =
                 )
                 |> Form.withInitialValue user.last
             )
-        |> Form.required
+        |> Form.with
             (Form.input
                 "username"
                 (\{ toInput, toLabel, errors } ->
@@ -126,7 +126,7 @@ form user =
                             DataSource.succeed []
                     )
             )
-        |> Form.required
+        |> Form.with
             (Form.input
                 "email"
                 (\{ toInput, toLabel, errors } ->
@@ -140,7 +140,7 @@ form user =
                 )
                 |> Form.withInitialValue user.email
             )
-        |> Form.required
+        |> Form.with
             (Form.date
                 "dob"
                 (\{ toInput, toLabel, errors } ->
@@ -156,7 +156,7 @@ form user =
                 |> Form.withMinDate "1900-01-01"
                 |> Form.withMaxDate "2022-01-01"
             )
-        |> Form.required
+        |> Form.with
             (Form.checkbox
                 "checkbox"
                 user.checkbox

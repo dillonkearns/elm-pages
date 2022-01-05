@@ -535,8 +535,8 @@ withServerValidation serverValidation (Field field) =
         }
 
 
-required : Field value view -> Form (value -> form) view -> Form form view
-required (Field field) (Form fields decoder serverValidations) =
+with : Field value view -> Form (value -> form) view -> Form form view
+with (Field field) (Form fields decoder serverValidations) =
     let
         thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List String } )))
         thing =
