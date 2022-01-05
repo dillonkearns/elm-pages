@@ -200,19 +200,19 @@ form : User -> Form User (Html Never)
 form user =
     Form.succeed User
         |> Form.required
-            (Form.input
+            (Form.requiredText
                 "first"
                 (textInput "First name")
                 |> Form.withInitialValue user.first
             )
         |> Form.required
-            (Form.input
+            (Form.requiredText
                 "last"
                 (textInput "Last name")
                 |> Form.withInitialValue user.last
             )
         |> Form.required
-            (Form.input "username" usernameInput
+            (Form.requiredText "username" usernameInput
                 |> Form.withInitialValue user.username
                 |> Form.withServerValidation
                     (\username ->
@@ -224,10 +224,11 @@ form user =
                     )
             )
         |> Form.required
-            (Form.input
+            (Form.requiredText
                 "email"
                 (textInput "Email address")
                 |> Form.withInitialValue user.email
+                |> Form.email
             )
         |> Form.required
             (Form.date

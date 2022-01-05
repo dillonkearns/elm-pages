@@ -199,6 +199,34 @@ input name toHtmlFn =
         }
 
 
+requiredText :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Never)
+         , toLabel : List (Html.Attribute Never)
+         , errors : List String
+         }
+         -> view
+        )
+    -> Field String view
+requiredText name toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "text"
+        , min = Nothing
+        , max = Nothing
+        , required = True
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+
+        -- TODO should it be Err if Nothing?
+        , decode = Maybe.withDefault ""
+        }
+
+
 radio :
     String
     -> ( ( String, item ), List ( String, item ) )
@@ -326,18 +354,33 @@ view viewFn =
         }
 
 
-
---number : { name : String, label : String } -> Field
---number { name, label } =
---    Field
---        { name = name
---        , label = label
---        , initialValue = Nothing
---        , type_ = "number"
---        , min = Nothing
---        , max = Nothing
---        , serverValidation = \_ -> DataSource.succeed []
---        }
+number :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Never)
+         , toLabel : List (Html.Attribute Never)
+         , errors : List String
+         }
+         -> view
+        )
+    -> Field (Maybe Int) view
+number name toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "number"
+        , min = Nothing
+        , max = Nothing
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                rawString
+                    |> Maybe.andThen String.toInt
+        }
 
 
 date :
@@ -436,6 +479,21 @@ type_ typeName (Field field) =
 withInitialValue : String -> Field value view -> Field value view
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
+
+
+telephone : Field value view -> Field value view
+telephone (Field field) =
+    Field { field | type_ = "tel" }
+
+
+email : Field value view -> Field value view
+email (Field field) =
+    Field { field | type_ = "email" }
+
+
+url : Field value view -> Field value view
+url (Field field) =
+    Field { field | type_ = "url" }
 
 
 withServerValidation : (value -> DataSource (List String)) -> Field value view -> Field value view
