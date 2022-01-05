@@ -96,7 +96,16 @@ type alias Model =
 
 update : Msg -> Model -> Model
 update msg model =
-    model
+    case msg of
+        OnFieldInput { name, value } ->
+            -- TODO run client-side validations
+            { model | raw = model.raw |> Dict.update name (\_ -> Just value) }
+
+        OnFieldFocus record ->
+            model
+
+        OnBlur ->
+            model
 
 
 init : Model

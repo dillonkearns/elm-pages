@@ -25,11 +25,12 @@ import View exposing (View)
 
 
 type alias Model =
-    {}
+    { form : Form.Model
+    }
 
 
-type alias Msg =
-    ()
+type Msg
+    = FormMsg Form.Msg
 
 
 type alias RouteParams =
@@ -394,13 +395,28 @@ cancelButton =
         [ Html.text "Cancel" ]
 
 
-page : Page RouteParams Data
+page : PageWithState RouteParams Data Model Msg
 page =
     Page.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> Page.buildWithLocalState
+            { view = view
+            , update = update
+            , init = init
+            , subscriptions = \_ _ _ _ _ -> Sub.none
+            }
+
+
+update _ _ _ _ msg model =
+    case msg of
+        FormMsg formMsg ->
+            ( { model | form = model.form |> Form.update formMsg }, Cmd.none )
+
+
+init _ _ _ =
+    ( { form = Form.init }, Cmd.none )
 
 
 type alias Data =
@@ -498,12 +514,21 @@ wrapSection children =
         ]
 
 
+formModelView formModel =
+    formModel
+        |> Debug.toString
+        |> Html.text
+        |> List.singleton
+        |> Html.pre []
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
+    -> Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl sharedModel static =
+view maybeUrl sharedModel model static =
     let
         user : User
         user =
@@ -512,9 +537,11 @@ view maybeUrl sharedModel static =
     in
     { title = "Form Example"
     , body =
-        [ Html.div
+        [ -- formModelView model.form
+          Html.div
             []
             [ Css.Global.global Tw.globalStyles
+            , formModelView model.form
             , static.data.user
                 |> Maybe.map
                     (\user_ ->
@@ -546,7 +573,7 @@ view maybeUrl sharedModel static =
                     |> Form.toHtml
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         static.data.errors
-                    |> Html.map (\_ -> ())
+                    |> Html.map FormMsg
                 ]
 
             --,
