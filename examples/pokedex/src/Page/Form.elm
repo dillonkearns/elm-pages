@@ -77,7 +77,7 @@ form : User -> Form User (Html Never)
 form user =
     Form.succeed User
         |> Form.with
-            (Form.input
+            (Form.text
                 "first"
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
@@ -91,7 +91,7 @@ form user =
                 |> Form.withInitialValue user.first
             )
         |> Form.with
-            (Form.input
+            (Form.text
                 "last"
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
@@ -105,7 +105,7 @@ form user =
                 |> Form.withInitialValue user.last
             )
         |> Form.with
-            (Form.input
+            (Form.text
                 "username"
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
@@ -127,7 +127,7 @@ form user =
                     )
             )
         |> Form.with
-            (Form.input
+            (Form.text
                 "email"
                 (\{ toInput, toLabel, errors } ->
                     Html.div []

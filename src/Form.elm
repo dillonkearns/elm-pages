@@ -188,7 +188,7 @@ valueAttr field stringValue =
         stringValue |> Maybe.map Attr.value
 
 
-input :
+text :
     String
     ->
         ({ toInput : List (Html.Attribute Never)
@@ -198,7 +198,7 @@ input :
          -> view
         )
     -> Field String view
-input name toHtmlFn =
+text name toHtmlFn =
     Field
         { name = name
         , initialValue = Nothing
