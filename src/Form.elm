@@ -205,6 +205,31 @@ text name toHtmlFn =
         }
 
 
+hidden :
+    String
+    -> String
+    -> (List (Html.Attribute Never) -> view)
+    -> Field String view
+hidden name value toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "hidden"
+        , required = False
+
+        -- TODO shouldn't be possible to include any server-side validations on hidden fields
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \fieldInfo info ->
+                -- TODO shouldn't be possible to add any validations or chain anything
+                toHtmlFn (toInputRecord name Nothing info fieldInfo |> .toInput)
+
+        -- TODO should it be Err if Nothing?
+        , decode = Maybe.withDefault ""
+        , properties = []
+        }
+
+
 radio :
     String
     -> ( ( String, item ), List ( String, item ) )
