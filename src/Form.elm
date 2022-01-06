@@ -30,6 +30,7 @@ type Form value view
                 )
             )
         )
+        (Model -> Result (List String) value)
 
 
 type Field value view
@@ -80,6 +81,12 @@ succeed constructor =
     Form []
         (Request.succeed constructor)
         (Request.succeed (DataSource.succeed []))
+        (\_ -> Ok constructor)
+
+
+runClientValidations : Model -> Form value view -> Result (List String) value
+runClientValidations model (Form fields decoder serverValidations modelToValue) =
+    modelToValue model
 
 
 type Msg
@@ -643,7 +650,7 @@ withServerValidation serverValidation (Field field) =
 
 
 with : Field value view -> Form (value -> form) view -> Form form view
-with (Field field) (Form fields decoder serverValidations) =
+with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
         thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List String } )))
         thing =
@@ -671,6 +678,24 @@ with (Field field) (Form fields decoder serverValidations) =
             |> Request.andMap (Request.optionalFormField_ field.name |> Request.map field.decode)
         )
         thing
+        (\model ->
+            let
+                maybeValue : Maybe String
+                maybeValue =
+                    model
+                        |> Dict.get field.name
+                        |> Maybe.andThen .raw
+            in
+            case modelToValue model of
+                Err error ->
+                    Err error
+
+                Ok okSoFar ->
+                    maybeValue
+                        |> field.decode
+                        |> okSoFar
+                        |> Ok
+        )
 
 
 addField : FieldInfo value view -> List ( List (FieldInfoSimple view), List view -> List view ) -> List ( List (FieldInfoSimple view), List view -> List view )
@@ -685,16 +710,17 @@ addField field list =
 
 
 append : Field value view -> Form form view -> Form form view
-append (Field field) (Form fields decoder serverValidations) =
+append (Field field) (Form fields decoder serverValidations modelToValue) =
     Form
         --(field :: fields)
         (addField field fields)
         decoder
         serverValidations
+        modelToValue
 
 
 appendForm : (form1 -> form2 -> form) -> Form form1 view -> Form form2 view -> Form form view
-appendForm mapFn (Form fields1 decoder1 serverValidations1) (Form fields2 decoder2 serverValidations2) =
+appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form fields2 decoder2 serverValidations2 modelToValue2) =
     Form
         -- TODO is this ordering correct?
         (fields1 ++ fields2)
@@ -704,11 +730,16 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1) (Form fields2 decode
             serverValidations1
             serverValidations2
         )
+        (\model ->
+            Result.map2 mapFn
+                (modelToValue1 model)
+                (modelToValue2 model)
+        )
 
 
 wrap : (List view -> view) -> Form form view -> Form form view
-wrap newWrapFn (Form fields decoder serverValidations) =
-    Form (wrapFields fields newWrapFn) decoder serverValidations
+wrap newWrapFn (Form fields decoder serverValidations modelToValue) =
+    Form (wrapFields fields newWrapFn) decoder serverValidations modelToValue
 
 
 wrapFields :
@@ -784,7 +815,7 @@ toHtml :
     -> Dict String { raw : Maybe String, errors : List String }
     -> Form value view
     -> view
-toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
+toHtml toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
     toForm
         [ Attr.method "POST"
         ]
@@ -808,7 +839,7 @@ toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
 
 
 toRequest : Form value view -> Request value
-toRequest (Form fields decoder serverValidations) =
+toRequest (Form fields decoder serverValidations modelToValue) =
     Request.expectFormPost
         (\_ ->
             decoder
@@ -822,7 +853,7 @@ toRequest2 :
             (DataSource
                 (Result Model ( value, Model ))
             )
-toRequest2 (Form fields decoder serverValidations) =
+toRequest2 (Form fields decoder serverValidations modelToValue) =
     Request.map2
         (\decoded errors ->
             errors
