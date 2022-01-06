@@ -188,7 +188,7 @@ page =
 
 
 type alias Data =
-    { user : Maybe User
+    { user : Maybe (Result String User)
     , errors : Maybe (Dict String { raw : Maybe String, errors : List String })
     }
 
@@ -255,21 +255,25 @@ view maybeUrl sharedModel static =
         user : User
         user =
             static.data.user
-                |> Maybe.withDefault defaultUser
+                |> Maybe.withDefault (Ok defaultUser)
+                |> Result.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
         [ static.data.user
             |> Maybe.map
-                (\user_ ->
-                    Html.p
-                        [ Attr.style "padding" "10px"
-                        , Attr.style "background-color" "#a3fba3"
-                        ]
-                        [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
-                        ]
+                (Result.map
+                    (\user_ ->
+                        Html.p
+                            [ Attr.style "padding" "10px"
+                            , Attr.style "background-color" "#a3fba3"
+                            ]
+                            [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
+                            ]
+                    )
                 )
-            |> Maybe.withDefault (Html.p [] [])
+            |> Maybe.withDefault (Err "")
+            |> Result.withDefault (Html.p [] [])
         , Html.h1
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]

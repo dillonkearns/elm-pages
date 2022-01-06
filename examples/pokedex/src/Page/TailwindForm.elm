@@ -420,7 +420,7 @@ init _ _ static =
 
 
 type alias Data =
-    { user : Maybe User
+    { user : Maybe (Result String User)
     , errors : Maybe (Dict String { raw : Maybe String, errors : List String })
     }
 
@@ -533,7 +533,8 @@ view maybeUrl sharedModel model static =
         user : User
         user =
             static.data.user
-                |> Maybe.withDefault defaultUser
+                |> Maybe.withDefault (Ok defaultUser)
+                |> Result.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
@@ -543,17 +544,20 @@ view maybeUrl sharedModel model static =
             , formModelView model.form
             , static.data.user
                 |> Maybe.map
-                    (\user_ ->
-                        Html.p
-                            [ css
-                                [ Css.backgroundColor (Css.rgb 163 251 163)
-                                , Tw.p_4
+                    (Result.map
+                        (\user_ ->
+                            Html.p
+                                [ css
+                                    [ Css.backgroundColor (Css.rgb 163 251 163)
+                                    , Tw.p_4
+                                    ]
                                 ]
-                            ]
-                            [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
-                            ]
+                                [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
+                                ]
+                        )
                     )
-                |> Maybe.withDefault (Html.p [] [])
+                |> Maybe.withDefault (Err "")
+                |> Result.withDefault (Html.p [] [])
             , Html.div
                 [ css
                     [ Tw.flex

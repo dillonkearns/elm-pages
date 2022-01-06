@@ -27,6 +27,19 @@ all =
                         )
                     |> Expect.equal
                         (Ok "Jane")
+        , test "run a single field's validation on blur" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with (Form.date "dob" toInput)
+                    |> Form.runClientValidations
+                        (Dict.fromList
+                            [ ( "dob"
+                              , { raw = Just "This is not a valid date", errors = [] }
+                              )
+                            ]
+                        )
+                    |> Expect.equal
+                        (Err [ "Expected a date in ISO 8601 format" ])
         ]
 
 
