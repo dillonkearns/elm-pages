@@ -552,20 +552,29 @@ view maybeUrl sharedModel model static =
             , formModelView model.form
             , static.data.user
                 |> Maybe.map
-                    (Result.map
-                        (\user_ ->
-                            Html.p
-                                [ css
-                                    [ Css.backgroundColor (Css.rgb 163 251 163)
-                                    , Tw.p_4
+                    (\result ->
+                        case result of
+                            Ok user_ ->
+                                Html.p
+                                    [ css
+                                        [ Css.backgroundColor (Css.rgb 163 251 163)
+                                        , Tw.p_4
+                                        ]
                                     ]
-                                ]
-                                [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
-                                ]
-                        )
+                                    [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
+                                    ]
+
+                            Err clientValidationError ->
+                                Html.p
+                                    [ css
+                                        [ Css.backgroundColor (Css.rgb 251 163 163)
+                                        , Tw.p_4
+                                        ]
+                                    ]
+                                    [ Html.text <| "Something went wrong: " ++ clientValidationError
+                                    ]
                     )
-                |> Maybe.withDefault (Err "")
-                |> Result.withDefault (Html.p [] [])
+                |> Maybe.withDefault (Html.p [] [])
             , Html.div
                 [ css
                     [ Tw.flex
