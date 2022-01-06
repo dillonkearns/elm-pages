@@ -319,7 +319,7 @@ form user =
             )
         |> Form.append
             (Form.submit
-                (\{ attrs } ->
+                (\{ attrs, formHasErrors } ->
                     Html.div
                         [ css
                             [ Tw.pt_5
@@ -332,7 +332,7 @@ form user =
                                 ]
                             ]
                             [ cancelButton
-                            , saveButton attrs
+                            , saveButton formHasErrors attrs
                             ]
                         ]
                 )
@@ -345,7 +345,7 @@ type PushNotificationsSetting
     | PushNone
 
 
-saveButton formAttrs =
+saveButton formHasErrors formAttrs =
     Html.button
         (styleAttrs formAttrs
             ++ [ css
@@ -368,9 +368,17 @@ saveButton formAttrs =
                         , Tw.ring_offset_2
                         , Tw.ring_indigo_500
                         ]
-                    , Css.hover
-                        [ Tw.bg_indigo_700
-                        ]
+                    , if formHasErrors then
+                        Css.batch
+                            [ Tw.text_gray_200
+                            , Tw.bg_indigo_500
+                            , Tw.cursor_default
+                            ]
+
+                      else
+                        Css.hover
+                            [ Tw.bg_indigo_700
+                            ]
                     ]
                ]
         )

@@ -3,6 +3,7 @@ module Form exposing (..)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
+import Dict.Extra
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -47,7 +48,8 @@ type alias FieldInfoSimple view =
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List String)
     , toHtml :
-        FinalFieldInfo
+        Bool
+        -> FinalFieldInfo
         -> Maybe { raw : Maybe String, errors : List String }
         -> view
     , properties : List ( String, Encode.Value )
@@ -62,7 +64,8 @@ type alias FieldInfo value view =
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List String)
     , toHtml :
-        FinalFieldInfo
+        Bool
+        -> FinalFieldInfo
         -> Maybe { raw : Maybe String, errors : List String }
         -> view
     , decode : Maybe String -> Result String value
@@ -315,7 +318,7 @@ text name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
 
         -- TODO should it be Err if Nothing?
@@ -339,7 +342,7 @@ hidden name value toHtmlFn =
         -- TODO shouldn't be possible to include any server-side validations on hidden fields
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 -- TODO shouldn't be possible to add any validations or chain anything
                 toHtmlFn (toInputRecord name Nothing info fieldInfo |> .toInput)
 
@@ -401,7 +404,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             -- TODO use `toString` to set value
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 items
                     |> List.map (\item -> toHtmlFn item (toRadioInputRecord name (toString item) info fieldInfo))
                     |> wrapFn
@@ -434,6 +437,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
 
 submit :
     ({ attrs : List (Html.Attribute Msg)
+     , formHasErrors : Bool
      }
      -> view
     )
@@ -446,10 +450,21 @@ submit toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \formHasErrors fieldInfo info ->
+                let
+                    disabledAttrs =
+                        if formHasErrors then
+                            [ Attr.attribute "disabled" "" ]
+
+                        else
+                            []
+                in
                 toHtmlFn
                     { attrs =
-                        [ Attr.type_ "submit" ]
+                        [ Attr.type_ "submit"
+                        ]
+                            ++ disabledAttrs
+                    , formHasErrors = formHasErrors
                     }
         , decode = \_ -> Ok ()
         , properties = []
@@ -467,7 +482,7 @@ view viewFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 viewFn
         , decode = \_ -> Ok ()
         , properties = []
@@ -492,7 +507,7 @@ number name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
@@ -521,7 +536,7 @@ requiredNumber name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
@@ -552,7 +567,7 @@ date name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
@@ -589,7 +604,7 @@ checkbox name initial toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \fieldInfo info ->
+            \_ fieldInfo info ->
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
@@ -893,6 +908,13 @@ toHtml :
     -> Form value view
     -> view
 toHtml toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
+    let
+        hasErrors_ : Bool
+        hasErrors_ =
+            Dict.Extra.any
+                (\key value -> not (List.isEmpty value.errors))
+                serverValidationErrors
+    in
     toForm
         [ Attr.method "POST"
         ]
@@ -905,6 +927,7 @@ toHtml toForm serverValidationErrors (Form fields decoder serverValidations mode
                         |> List.map
                             (\field ->
                                 field.toHtml
+                                    hasErrors_
                                     (simplify3 field)
                                     (serverValidationErrors
                                         |> Dict.get field.name
