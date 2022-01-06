@@ -37,7 +37,7 @@ type Form value view
         (Model -> Result (List String) value)
 
 
-type Field value view
+type Field value view constraints
     = Field (FieldInfo value view)
 
 
@@ -309,7 +309,7 @@ text :
          }
          -> view
         )
-    -> Field String view
+    -> Field String view {}
 text name toHtmlFn =
     Field
         { name = name
@@ -331,7 +331,7 @@ hidden :
     String
     -> String
     -> (List (Html.Attribute Msg) -> view)
-    -> Field String view
+    -> Field String view {}
 hidden name value toHtmlFn =
     Field
         { name = name
@@ -368,7 +368,7 @@ radio :
          -> view
         )
     -> (List view -> view)
-    -> Field (Maybe item) view
+    -> Field (Maybe item) view {}
 radio name nonEmptyItemMapping toHtmlFn wrapFn =
     let
         itemMapping : List ( String, item )
@@ -441,7 +441,7 @@ submit :
      }
      -> view
     )
-    -> Field () view
+    -> Field () view {}
 submit toHtmlFn =
     Field
         { name = ""
@@ -473,7 +473,7 @@ submit toHtmlFn =
 
 view :
     view
-    -> Field () view
+    -> Field () view constraints
 view viewFn =
     Field
         { name = ""
@@ -498,7 +498,7 @@ number :
          }
          -> view
         )
-    -> Field (Maybe Int) view
+    -> Field (Maybe Int) view { min : Int, max : Int }
 number name toHtmlFn =
     Field
         { name = name
@@ -527,7 +527,7 @@ requiredNumber :
          }
          -> view
         )
-    -> Field Int view
+    -> Field Int view { min : Int, max : Int }
 requiredNumber name toHtmlFn =
     Field
         { name = name
@@ -558,7 +558,7 @@ date :
          -> view
         )
     -- TODO should be Date type
-    -> Field Date view
+    -> Field Date view { min : Date, max : Date }
 date name toHtmlFn =
     Field
         { name = name
@@ -590,7 +590,7 @@ checkbox :
          -> view
         )
     -- TODO should be Date type
-    -> Field Bool view
+    -> Field Bool view {}
 checkbox name initial toHtmlFn =
     Field
         { name = name
@@ -613,88 +613,88 @@ checkbox name initial toHtmlFn =
         }
 
 
-withMin : Int -> Field value view -> Field value view
+withMin : Int -> Field value view { constraints | min : Int } -> Field value view constraints
 withMin min field =
     withStringProperty ( "min", String.fromInt min ) field
 
 
-withMax : Int -> Field value view -> Field value view
+withMax : Int -> Field value view { constraints | max : Int } -> Field value view constraints
 withMax max field =
     withStringProperty ( "max", String.fromInt max ) field
 
 
-withMinDate : Date -> Field value view -> Field value view
+withMinDate : Date -> Field value view { constraints | min : Date } -> Field value view constraints
 withMinDate min field =
     withStringProperty ( "min", Date.toIsoString min ) field
 
 
-withMaxDate : Date -> Field value view -> Field value view
+withMaxDate : Date -> Field value view { constraints | max : Date } -> Field value view constraints
 withMaxDate max field =
     withStringProperty ( "max", Date.toIsoString max ) field
 
 
-type_ : String -> Field value view -> Field value view
+type_ : String -> Field value view constraints -> Field value view constraints
 type_ typeName (Field field) =
     Field
         { field | type_ = typeName }
 
 
-withInitialValue : String -> Field value view -> Field value view
+withInitialValue : String -> Field value view constraints -> Field value view constraints
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
 
 
-multiple : Field value view -> Field value view
+multiple : Field value view { constraints | multiple : () } -> Field value view constraints
 multiple (Field field) =
     Field { field | properties = ( "multiple", Encode.bool True ) :: field.properties }
 
 
-withStringProperty : ( String, String ) -> Field value view -> Field value view
+withStringProperty : ( String, String ) -> Field value view constraints1 -> Field value view constraints2
 withStringProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.string value ) :: field.properties }
 
 
-withBoolProperty : ( String, Bool ) -> Field value view -> Field value view
+withBoolProperty : ( String, Bool ) -> Field value view constraints1 -> Field value view constraints2
 withBoolProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.bool value ) :: field.properties }
 
 
-required : Field value view -> Field value view
+required : Field value view constraints -> Field value view constraints
 required (Field field) =
     Field { field | required = True }
 
 
-telephone : Field value view -> Field value view
+telephone : Field value view constraints -> Field value view constraints
 telephone (Field field) =
     Field { field | type_ = "tel" }
 
 
-range : Field value view -> Field value view
+range : Field value view constraints -> Field value view constraints
 range (Field field) =
     Field { field | type_ = "range" }
 
 
-search : Field value view -> Field value view
+search : Field value view constraints -> Field value view constraints
 search (Field field) =
     Field { field | type_ = "search" }
 
 
-password : Field value view -> Field value view
+password : Field value view constraints -> Field value view constraints
 password (Field field) =
     Field { field | type_ = "password" }
 
 
-email : Field value view -> Field value view
+email : Field value view constraints -> Field value view constraints
 email (Field field) =
     Field { field | type_ = "email" }
 
 
-url : Field value view -> Field value view
+url : Field value view constraints -> Field value view constraints
 url (Field field) =
     Field { field | type_ = "url" }
 
 
-withServerValidation : (value -> DataSource (List String)) -> Field value view -> Field value view
+withServerValidation : (value -> DataSource (List String)) -> Field value view constraints -> Field value view constraints
 withServerValidation serverValidation (Field field) =
     Field
         { field
@@ -709,7 +709,7 @@ withServerValidation serverValidation (Field field) =
         }
 
 
-withClientValidation : (value -> Result String mapped) -> Field value view -> Field mapped view
+withClientValidation : (value -> Result String mapped) -> Field value view constraints -> Field mapped view constraints
 withClientValidation mapFn (Field field) =
     Field
         { name = field.name
@@ -727,7 +727,7 @@ withClientValidation mapFn (Field field) =
         }
 
 
-with : Field value view -> Form (value -> form) view -> Form form view
+with : Field value view constraints -> Form (value -> form) view -> Form form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
         thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List String } )))
@@ -800,7 +800,7 @@ addField field list =
             ( simplify2 field :: fields, wrapFn ) :: others
 
 
-append : Field value view -> Form form view -> Form form view
+append : Field value view constraints -> Form form view -> Form form view
 append (Field field) (Form fields decoder serverValidations modelToValue) =
     Form
         --(field :: fields)
