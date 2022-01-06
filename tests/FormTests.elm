@@ -40,6 +40,29 @@ all =
                         )
                     |> Expect.equal
                         (Err [ "Expected a date in ISO 8601 format" ])
+        , test "custom client validation" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with
+                        (Form.text "first" toInput
+                            |> Form.withClientValidation
+                                (\first ->
+                                    if first |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
+                                        Ok first
+
+                                    else
+                                        Err "Needs to be capitalized"
+                                )
+                        )
+                    |> Form.runClientValidations
+                        (Dict.fromList
+                            [ ( "first"
+                              , { raw = Just "jane", errors = [] }
+                              )
+                            ]
+                        )
+                    |> Expect.equal
+                        (Err [ "Needs to be capitalized" ])
         ]
 
 

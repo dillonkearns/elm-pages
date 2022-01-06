@@ -7,6 +7,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Encode as Encode
+import List.Extra
 import List.NonEmpty
 import Server.Request as Request exposing (Request)
 
@@ -102,8 +103,40 @@ type alias Model =
     Dict String { raw : Maybe String, errors : List String }
 
 
-update : Msg -> Model -> Model
-update msg model =
+runValidation : Form value view -> { name : String, value : String } -> List String
+runValidation (Form fields decoder serverValidations modelToValue) newInput =
+    let
+        matchingDecoder : Maybe (FieldInfoSimple view)
+        matchingDecoder =
+            fields
+                |> List.Extra.findMap
+                    (\( fields_, _ ) ->
+                        List.Extra.findMap
+                            (\field ->
+                                if field.name == newInput.name then
+                                    Just field
+
+                                else
+                                    Nothing
+                            )
+                            fields_
+                    )
+    in
+    case matchingDecoder of
+        Just decoder_ ->
+            case decoder_.clientValidations (Just newInput.value) of
+                Ok () ->
+                    []
+
+                Err error ->
+                    [ error ]
+
+        Nothing ->
+            []
+
+
+update : Form value view -> Msg -> Model -> Model
+update form msg model =
     case msg of
         OnFieldInput { name, value } ->
             -- TODO run client-side validations
@@ -113,7 +146,7 @@ update msg model =
                         case entry of
                             Just { raw, errors } ->
                                 -- TODO calculate errors here?
-                                Just { raw = Just value, errors = errors }
+                                Just { raw = Just value, errors = runValidation form { name = name, value = value } }
 
                             Nothing ->
                                 -- TODO calculate errors here?
@@ -658,6 +691,24 @@ withServerValidation serverValidation (Field field) =
 
                         Err error ->
                             DataSource.fail <| "Could not decode form data: " ++ error
+        }
+
+
+withClientValidation : (value -> Result String mapped) -> Field value view -> Field mapped view
+withClientValidation mapFn (Field field) =
+    Field
+        { name = field.name
+        , initialValue = field.initialValue
+        , type_ = field.type_
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , toHtml = field.toHtml
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> Result.andThen mapFn
+        , properties = field.properties
         }
 
 

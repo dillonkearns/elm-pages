@@ -207,6 +207,14 @@ form user =
                 "first"
                 (textInput "First name")
                 |> Form.withInitialValue user.first
+                |> Form.withClientValidation
+                    (\first ->
+                        if first |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
+                            Ok first
+
+                        else
+                            Err "Needs to be capitalized"
+                    )
                 |> Form.required
             )
         |> Form.with
@@ -412,7 +420,7 @@ page =
 update _ _ _ _ msg model =
     case msg of
         FormMsg formMsg ->
-            ( { model | form = model.form |> Form.update formMsg }, Cmd.none )
+            ( { model | form = model.form |> Form.update (form defaultUser) formMsg }, Cmd.none )
 
 
 init _ _ static =
