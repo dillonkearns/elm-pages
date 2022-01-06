@@ -724,8 +724,18 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                             (field.serverValidation arg2
                                 |> DataSource.map
                                     (\validationErrors ->
+                                        let
+                                            clientErrors : List String
+                                            clientErrors =
+                                                case field.decode arg2 of
+                                                    Ok _ ->
+                                                        []
+
+                                                    Err error ->
+                                                        [ error ]
+                                        in
                                         ( field.name
-                                        , { errors = validationErrors
+                                        , { errors = validationErrors ++ clientErrors
                                           , raw = arg2
                                           }
                                         )
