@@ -415,8 +415,8 @@ update _ _ _ _ msg model =
             ( { model | form = model.form |> Form.update formMsg }, Cmd.none )
 
 
-init _ _ _ =
-    ( { form = Form.init }, Cmd.none )
+init _ _ static =
+    ( { form = static.data.errors |> Maybe.withDefault Form.init }, Cmd.none )
 
 
 type alias Data =
@@ -537,8 +537,7 @@ view maybeUrl sharedModel model static =
     in
     { title = "Form Example"
     , body =
-        [ -- formModelView model.form
-          Html.div
+        [ Html.div
             []
             [ Css.Global.global Tw.globalStyles
             , formModelView model.form
@@ -555,10 +554,6 @@ view maybeUrl sharedModel model static =
                             ]
                     )
                 |> Maybe.withDefault (Html.p [] [])
-
-            --, Html.h1
-            --    []
-            --    [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
             , Html.div
                 [ css
                     [ Tw.flex
@@ -572,25 +567,9 @@ view maybeUrl sharedModel model static =
                 [ form user
                     |> Form.toHtml
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
-                        static.data.errors
+                        model.form
                     |> Html.map FormMsg
                 ]
-
-            --,
-            --Html.div [
-            --css [
-            --                 Tw.flex
-            --                , Tw.flex_col
-            --                , Tw.items_center
-            --                , Tw.mt_8
-            --                , Tw.border_gray_700
-            --                , Tw.rounded_lg
-            --
-            --
-            --]
-            --] [
-            --fullView
-            --]
             ]
             |> Html.toUnstyled
         ]

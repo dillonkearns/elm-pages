@@ -89,9 +89,7 @@ type Msg
 
 
 type alias Model =
-    { raw : Dict String String
-    , errors : Dict String (List String)
-    }
+    Dict String { raw : Maybe String, errors : List String }
 
 
 update : Msg -> Model -> Model
@@ -99,7 +97,18 @@ update msg model =
     case msg of
         OnFieldInput { name, value } ->
             -- TODO run client-side validations
-            { model | raw = model.raw |> Dict.update name (\_ -> Just value) }
+            model
+                |> Dict.update name
+                    (\entry ->
+                        case entry of
+                            Just { raw, errors } ->
+                                -- TODO calculate errors here?
+                                Just { raw = Just value, errors = errors }
+
+                            Nothing ->
+                                -- TODO calculate errors here?
+                                Just { raw = Just value, errors = [] }
+                    )
 
         OnFieldFocus record ->
             model
@@ -110,9 +119,7 @@ update msg model =
 
 init : Model
 init =
-    { raw = Dict.empty
-    , errors = Dict.empty
-    }
+    Dict.empty
 
 
 toInputRecord :
@@ -143,12 +150,28 @@ toInputRecord name maybeValue info field =
                 valueAttr field field.initialValue
          , field.type_ |> Attr.type_ |> Just
          , field.required |> Attr.required |> Just
-         , Html.Events.onInput
-            (\newValue ->
-                OnFieldInput
-                    { name = name, value = newValue }
-            )
-            |> Just
+         , if field.type_ == "checkbox" then
+            Html.Events.onCheck
+                (\checkState ->
+                    OnFieldInput
+                        { name = name
+                        , value =
+                            if checkState then
+                                "on"
+
+                            else
+                                ""
+                        }
+                )
+                |> Just
+
+           else
+            Html.Events.onInput
+                (\newValue ->
+                    OnFieldInput
+                        { name = name, value = newValue }
+                )
+                |> Just
          ]
             |> List.filterMap identity
         )
@@ -195,6 +218,19 @@ toRadioInputRecord name itemValue info field =
 
            else
             Nothing
+         , Html.Events.onCheck
+            (\checkState ->
+                OnFieldInput
+                    { name = name
+                    , value =
+                        if checkState then
+                            itemValue
+
+                        else
+                            ""
+                    }
+            )
+            |> Just
          ]
             |> List.filterMap identity
         )
@@ -743,7 +779,11 @@ simplify3 field =
 -}
 
 
-toHtml : (List (Html.Attribute msg) -> List view -> view) -> Maybe (Dict String { raw : Maybe String, errors : List String }) -> Form value view -> view
+toHtml :
+    (List (Html.Attribute msg) -> List view -> view)
+    -> Dict String { raw : Maybe String, errors : List String }
+    -> Form value view
+    -> view
 toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
     toForm
         [ Attr.method "POST"
@@ -759,7 +799,7 @@ toHtml toForm serverValidationErrors (Form fields decoder serverValidations) =
                                 field.toHtml
                                     (simplify3 field)
                                     (serverValidationErrors
-                                        |> Maybe.andThen (Dict.get field.name)
+                                        |> Dict.get field.name
                                     )
                             )
                         |> wrapFn
@@ -780,21 +820,7 @@ toRequest2 :
     ->
         Request
             (DataSource
-                (Result
-                    (Dict
-                        String
-                        { errors : List String
-                        , raw : Maybe String
-                        }
-                    )
-                    ( value
-                    , Dict
-                        String
-                        { errors : List String
-                        , raw : Maybe String
-                        }
-                    )
-                )
+                (Result Model ( value, Model ))
             )
 toRequest2 (Form fields decoder serverValidations) =
     Request.map2
