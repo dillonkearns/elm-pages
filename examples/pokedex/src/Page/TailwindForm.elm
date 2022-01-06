@@ -199,6 +199,15 @@ usernameInput { toInput, toLabel, errors } =
         ]
 
 
+validateCapitalized : String -> Result String String
+validateCapitalized string =
+    if string |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
+        Ok string
+
+    else
+        Err "Needs to be capitalized"
+
+
 form : User -> Form User (Html Form.Msg)
 form user =
     Form.succeed User
@@ -207,14 +216,7 @@ form user =
                 "first"
                 (textInput "First name")
                 |> Form.withInitialValue user.first
-                |> Form.withClientValidation
-                    (\first ->
-                        if first |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
-                            Ok first
-
-                        else
-                            Err "Needs to be capitalized"
-                    )
+                |> Form.withClientValidation validateCapitalized
                 |> Form.required
             )
         |> Form.with
@@ -222,6 +224,7 @@ form user =
                 "last"
                 (textInput "Last name")
                 |> Form.withInitialValue user.last
+                |> Form.withClientValidation validateCapitalized
                 |> Form.required
             )
         |> Form.with
