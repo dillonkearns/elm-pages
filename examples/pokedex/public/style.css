@@ -17,7 +17,7 @@ input:valid {
 
 */
 
-input[type=text], input[type=date] {
+input[type=text], input[type=date], input[type=email] {
   border-radius: 10px !important;
   border-color: #ccc !important;
 }
