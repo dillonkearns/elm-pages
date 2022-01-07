@@ -9,8 +9,10 @@ import Form exposing (Form)
 import Head
 import Head.Seo as Seo
 import Html as CoreHtml
+import Html.Events
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
+import Http
 import Icon
 import Page exposing (Page, PageWithState, StaticPayload)
 import PageServerResponse exposing (PageServerResponse)
@@ -31,6 +33,7 @@ type alias Model =
 
 type Msg
     = FormMsg Form.Msg
+    | GotFormResponse (Result Http.Error Form.Model)
 
 
 type alias RouteParams =
@@ -431,7 +434,20 @@ page =
 update _ _ _ _ msg model =
     case msg of
         FormMsg formMsg ->
-            ( { model | form = model.form |> Form.update (form defaultUser) formMsg }, Cmd.none )
+            case formMsg of
+                Form.SubmitForm ->
+                    ( model, Form.http "/tailwind-form" (form defaultUser) model.form |> Cmd.map GotFormResponse )
+
+                _ ->
+                    ( { model | form = model.form |> Form.update (form defaultUser) formMsg }, Cmd.none )
+
+        GotFormResponse result ->
+            case result of
+                Ok updatedFormModel ->
+                    ( { model | form = updatedFormModel }, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
 
 
 init _ _ static =
@@ -447,7 +463,8 @@ type alias Data =
 data : RouteParams -> Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.oneOf
-        [ Form.toRequest2 (form defaultUser)
+        [ Form.apiHandler (form defaultUser)
+        , Form.toRequest2 (form defaultUser)
             |> Request.map
                 (\userOrErrors ->
                     userOrErrors
@@ -597,7 +614,7 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ form user
-                    |> Form.toHtml
+                    |> Form.toHtml { pageReloadSubmit = True }
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         model.form
                     |> Html.map FormMsg

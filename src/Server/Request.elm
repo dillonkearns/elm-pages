@@ -2,7 +2,8 @@ module Server.Request exposing
     ( Request(..)
     , Method(..), methodToString
     , succeed
-    , requestTime, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
+    , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
+    , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap
     , expectQueryParam
     , cookie, expectCookie
@@ -21,7 +22,9 @@ module Server.Request exposing
 
 @docs succeed
 
-@docs requestTime, optionalHeader, expectContentType, expectJsonBody, acceptMethod, jsonBodyResult
+@docs requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
+
+@docs acceptMethod, acceptContentTypes
 
 
 ## Transforming
@@ -307,6 +310,27 @@ noErrors : OptimizedDecoder.Decoder value -> OptimizedDecoder.Decoder ( Result V
 noErrors decoder =
     decoder
         |> OptimizedDecoder.map (\value -> ( Ok value, [] ))
+
+
+{-| -}
+acceptContentTypes : ( String, List String ) -> Request value -> Request value
+acceptContentTypes ( accepted1, accepted ) (Request decoder) =
+    -- TODO this should parse content-types so it doesn't need to be an exact match (support `; q=...`, etc.)
+    OptimizedDecoder.optionalField ("Accept" |> String.toLower) OptimizedDecoder.string
+        |> OptimizedDecoder.field "headers"
+        |> OptimizedDecoder.andThen
+            (\acceptHeader ->
+                if List.NonEmpty.fromCons accepted1 accepted |> List.NonEmpty.member (acceptHeader |> Maybe.withDefault "") then
+                    decoder
+
+                else
+                    decoder
+                        |> appendError
+                            (ValidationError
+                                ("Expected Accept header " ++ String.join ", " (accepted1 :: accepted) ++ " but was " ++ (acceptHeader |> Maybe.withDefault ""))
+                            )
+            )
+        |> Request
 
 
 {-| -}

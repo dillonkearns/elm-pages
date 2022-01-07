@@ -7,10 +7,53 @@ import Dict.Extra
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
+import Http
+import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
+import PageServerResponse exposing (PageServerResponse)
 import Server.Request as Request exposing (Request)
+import Server.Response
+import Url
+
+
+http : String -> Form value view -> Model -> Cmd (Result Http.Error Model)
+http url_ (Form fields decoder serverValidations modelToValue) model =
+    Http.request
+        { method = "POST"
+        , headers =
+            [ Http.header "accept" "application/json"
+            ]
+        , body =
+            model
+                |> Dict.toList
+                |> List.map
+                    (\( name, { raw } ) ->
+                        Url.percentEncode name
+                            ++ "="
+                            ++ Url.percentEncode
+                                (raw |> Maybe.withDefault "")
+                    )
+                |> String.join "&"
+                |> Http.stringBody "application/x-www-form-urlencoded"
+        , expect =
+            Http.expectJson identity
+                (Decode.dict
+                    (Decode.map2
+                        (\raw errors ->
+                            { raw = raw
+                            , errors = errors
+                            }
+                        )
+                        (Decode.field "raw" (Decode.nullable Decode.string))
+                        (Decode.field "errors" (Decode.list Decode.string))
+                    )
+                )
+        , timeout = Nothing
+        , tracker = Nothing
+        , url = url_
+        }
 
 
 type Form value view
@@ -100,6 +143,7 @@ type Msg
     = OnFieldInput { name : String, value : String }
     | OnFieldFocus { name : String }
     | OnBlur
+    | SubmitForm
 
 
 type alias Model =
@@ -160,6 +204,9 @@ update form msg model =
             model
 
         OnBlur ->
+            model
+
+        SubmitForm ->
             model
 
 
@@ -903,11 +950,12 @@ simplify3 field =
 
 
 toHtml :
-    (List (Html.Attribute msg) -> List view -> view)
+    { pageReloadSubmit : Bool }
+    -> (List (Html.Attribute Msg) -> List view -> view)
     -> Dict String { raw : Maybe String, errors : List String }
     -> Form value view
     -> view
-toHtml toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
+toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
     let
         hasErrors_ : Bool
         hasErrors_ =
@@ -916,8 +964,15 @@ toHtml toForm serverValidationErrors (Form fields decoder serverValidations mode
                 serverValidationErrors
     in
     toForm
-        [ Attr.method "POST"
-        ]
+        ([ [ Attr.method "POST" ]
+         , if pageReloadSubmit then
+            [ Html.Events.onSubmit SubmitForm ]
+
+           else
+            []
+         ]
+            |> List.concat
+        )
         (fields
             |> List.reverse
             |> List.concatMap
@@ -944,6 +999,57 @@ toRequest (Form fields decoder serverValidations modelToValue) =
         (\_ ->
             decoder
         )
+
+
+apiHandler :
+    Form value view
+    -> Request (DataSource (PageServerResponse response))
+apiHandler (Form fields decoder serverValidations modelToValue) =
+    let
+        encodeErrors errors =
+            errors
+                |> List.map
+                    (\( name, entry ) ->
+                        ( name
+                        , Encode.object
+                            [ ( "errors"
+                              , Encode.list Encode.string entry.errors
+                              )
+                            , ( "raw"
+                              , entry.raw |> Maybe.map Encode.string |> Maybe.withDefault Encode.null
+                              )
+                            ]
+                        )
+                    )
+                |> Encode.object
+    in
+    Request.map2
+        (\decoded errors ->
+            errors
+                |> DataSource.map
+                    (\validationErrors ->
+                        if hasErrors validationErrors then
+                            Server.Response.json
+                                (validationErrors |> encodeErrors)
+                                |> PageServerResponse.ServerResponse
+
+                        else
+                            Server.Response.json
+                                (validationErrors |> encodeErrors)
+                                |> PageServerResponse.ServerResponse
+                    )
+        )
+        (Request.expectFormPost
+            (\_ ->
+                decoder
+            )
+        )
+        (Request.expectFormPost
+            (\_ ->
+                serverValidations
+            )
+        )
+        |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
 
 
 toRequest2 :
@@ -979,7 +1085,11 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
         )
         (Request.expectFormPost
             (\_ ->
-                serverValidations
+                Request.oneOf
+                    [ serverValidations
+                        |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
+                    , serverValidations
+                    ]
             )
         )
 
