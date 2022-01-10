@@ -925,17 +925,6 @@ wrapFields fields newWrapFn =
                 :: others
 
 
-simplify : FieldInfo value view -> FinalFieldInfo
-simplify field =
-    { name = field.name
-    , initialValue = field.initialValue
-    , type_ = field.type_
-    , required = field.required
-    , serverValidation = field.serverValidation
-    , properties = field.properties
-    }
-
-
 simplify2 : FieldInfo value view -> FieldInfoSimple view
 simplify2 field =
     { name = field.name
