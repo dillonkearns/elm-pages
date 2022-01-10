@@ -150,6 +150,15 @@ type alias Model =
     Dict String { raw : Maybe String, errors : List String }
 
 
+rawValues : Model -> Dict String String
+rawValues model =
+    model
+        |> Dict.map
+            (\key value ->
+                value.raw |> Maybe.withDefault ""
+            )
+
+
 runValidation : Form value view -> { name : String, value : String } -> List String
 runValidation (Form fields decoder serverValidations modelToValue) newInput =
     let
@@ -210,9 +219,21 @@ update form msg model =
             model
 
 
-init : Model
-init =
-    Dict.empty
+init : Form value view -> Model
+init (Form fields decoder serverValidations modelToValue) =
+    fields
+        |> List.concatMap Tuple.first
+        |> List.filterMap
+            (\field ->
+                field.initialValue
+                    |> Maybe.map
+                        (\initial ->
+                            ( field.name
+                            , { raw = Just initial, errors = [] }
+                            )
+                        )
+            )
+        |> Dict.fromList
 
 
 toInputRecord :
@@ -966,10 +987,10 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
     toForm
         ([ [ Attr.method "POST" ]
          , if pageReloadSubmit then
-            [ Html.Events.onSubmit SubmitForm ]
+            []
 
            else
-            []
+            [ Html.Events.onSubmit SubmitForm ]
          ]
             |> List.concat
         )
@@ -1101,3 +1122,12 @@ hasErrors validationErrors =
             entry.errors |> List.isEmpty |> not
         )
         validationErrors
+
+
+hasErrors2 : Model -> Bool
+hasErrors2 model =
+    Dict.Extra.any
+        (\_ entry ->
+            entry.errors |> List.isEmpty |> not
+        )
+        model

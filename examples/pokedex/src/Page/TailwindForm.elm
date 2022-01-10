@@ -1,6 +1,6 @@
 module Page.TailwindForm exposing (Data, Model, Msg, page)
 
-import Css
+import Css exposing (Color)
 import Css.Global
 import DataSource exposing (DataSource)
 import Date exposing (Date)
@@ -28,6 +28,7 @@ import View exposing (View)
 
 type alias Model =
     { form : Form.Model
+    , flashMessage : Maybe (Result String String)
     }
 
 
@@ -444,14 +445,45 @@ update _ _ _ _ msg model =
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
-                    ( { model | form = updatedFormModel }, Cmd.none )
+                    ( { model
+                        | form = updatedFormModel
+                      }
+                    , Cmd.none
+                    )
+                        |> withFlash
+                            (if Form.hasErrors2 updatedFormModel then
+                                Err "Failed to submit or had errors"
+
+                             else
+                                Ok "Success! Submitted form from Elm"
+                            )
 
                 Err _ ->
                     ( model, Cmd.none )
 
 
+withFlash : Result String String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+withFlash flashMessage ( model, cmd ) =
+    ( { model | flashMessage = Just flashMessage }, cmd )
+
+
 init _ _ static =
-    ( { form = static.data.errors |> Maybe.withDefault Form.init }, Cmd.none )
+    ( { form =
+            static.data.errors |> Maybe.withDefault (Form.init (form defaultUser))
+      , flashMessage =
+            static.data.user
+                |> Maybe.map
+                    (\result ->
+                        case result of
+                            Ok user_ ->
+                                Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
+
+                            Err clientValidationError ->
+                                Err ("Something went wrong: " ++ clientValidationError)
+                    )
+      }
+    , Cmd.none
+    )
 
 
 type alias Data =
@@ -578,30 +610,8 @@ view maybeUrl sharedModel model static =
             []
             [ Css.Global.global Tw.globalStyles
             , formModelView model.form
-            , static.data.user
-                |> Maybe.map
-                    (\result ->
-                        case result of
-                            Ok user_ ->
-                                Html.p
-                                    [ css
-                                        [ Css.backgroundColor (Css.rgb 163 251 163)
-                                        , Tw.p_4
-                                        ]
-                                    ]
-                                    [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
-                                    ]
-
-                            Err clientValidationError ->
-                                Html.p
-                                    [ css
-                                        [ Css.backgroundColor (Css.rgb 251 163 163)
-                                        , Tw.p_4
-                                        ]
-                                    ]
-                                    [ Html.text <| "Something went wrong: " ++ clientValidationError
-                                    ]
-                    )
+            , model.flashMessage
+                |> Maybe.map flashView
                 |> Maybe.withDefault (Html.p [] [])
             , Html.div
                 [ css
@@ -614,7 +624,7 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ form user
-                    |> Form.toHtml { pageReloadSubmit = True }
+                    |> Form.toHtml { pageReloadSubmit = False }
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         model.form
                     |> Html.map FormMsg
@@ -623,6 +633,41 @@ view maybeUrl sharedModel model static =
             |> Html.toUnstyled
         ]
     }
+
+
+successColor : Color
+successColor =
+    Css.rgb 163 251 163
+
+
+errorColor : Color
+errorColor =
+    Css.rgb 251 163 163
+
+
+flashView : Result String String -> Html msg
+flashView message =
+    Html.p
+        [ css
+            [ Css.backgroundColor
+                (case message of
+                    Ok _ ->
+                        successColor
+
+                    Err _ ->
+                        errorColor
+                )
+            , Tw.p_4
+            ]
+        ]
+        [ Html.text <|
+            case message of
+                Ok okMessage ->
+                    okMessage
+
+                Err error ->
+                    "Something went wrong: " ++ error
+        ]
 
 
 textInput labelText { toInput, toLabel, errors } =

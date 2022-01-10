@@ -10,8 +10,12 @@ all =
     describe "Form"
         [ test "succeed" <|
             \() ->
-                Form.succeed ()
-                    |> Form.runClientValidations Form.init
+                let
+                    form =
+                        Form.succeed ()
+                in
+                form
+                    |> Form.runClientValidations (Form.init form)
                     |> Expect.equal
                         (Ok ())
         , test "single field" <|
@@ -63,6 +67,17 @@ all =
                         )
                     |> Expect.equal
                         (Err [ "Needs to be capitalized" ])
+        , test "init dict includes default values" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with
+                        (Form.text "first" toInput
+                            |> Form.withInitialValue "Jane"
+                        )
+                    |> Form.init
+                    |> Form.rawValues
+                    |> Expect.equal
+                        (Dict.fromList [ ( "first", "Jane" ) ])
         ]
 
 
