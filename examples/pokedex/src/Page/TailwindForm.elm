@@ -56,7 +56,7 @@ type alias NotificationPreferences =
     { comments : Bool
     , candidates : Bool
     , offers : Bool
-    , pushNotificationsSetting : Maybe PushNotificationsSetting
+    , pushNotificationsSetting : PushNotificationsSetting
     }
 
 
@@ -72,7 +72,7 @@ defaultUser =
         { comments = False
         , candidates = False
         , offers = False
-        , pushNotificationsSetting = Nothing
+        , pushNotificationsSetting = PushNone
         }
     }
 
@@ -307,7 +307,7 @@ form user =
                 |> Form.appendForm (|>)
                     (Form.succeed identity
                         |> Form.with
-                            (Form.radio
+                            (Form.requiredRadio
                                 "push-notifications"
                                 ( ( "PushAll", PushAll )
                                 , [ ( "PushEmail", PushEmail )
@@ -1023,7 +1023,7 @@ radioInput item { toLabel, toInput, errors } =
         ]
 
 
-wrapPushNotificationsSection children =
+wrapPushNotificationsSection errors children =
     Html.div
         [ css
             [ Tw.pt_6
@@ -1091,4 +1091,12 @@ wrapPushNotificationsSection children =
                     ]
                 ]
             ]
+        , Html.p
+            [ css
+                [ Tw.mt_2
+                , Tw.text_sm
+                , Tw.text_red_600
+                ]
+            ]
+            [ errors |> List.map Form.errorToString |> String.join "\n" |> Html.text ]
         ]

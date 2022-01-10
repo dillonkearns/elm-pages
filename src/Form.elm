@@ -482,13 +482,10 @@ radio :
             { toInput : List (Html.Attribute Msg)
             , toLabel : List (Html.Attribute Msg)
             , errors : List Error
-
-            -- TODO
-            --, item : item
             }
          -> view
         )
-    -> (List view -> view)
+    -> (List Error -> List view -> view)
     -> Field (Maybe item) view {}
 radio name nonEmptyItemMapping toHtmlFn wrapFn =
     let
@@ -528,9 +525,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
             \_ fieldInfo info ->
                 items
                     |> List.map (\item -> toHtmlFn item (toRadioInputRecord name (toString item) info fieldInfo))
-                    |> wrapFn
-
-        -- TODO should it be Err if Nothing?
+                    |> wrapFn (info |> Maybe.map .errors |> Maybe.withDefault [])
         , decode =
             \raw ->
                 raw
@@ -540,20 +535,66 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
         }
 
 
+requiredRadio :
+    String
+    -> ( ( String, item ), List ( String, item ) )
+    ->
+        (item
+         ->
+            { toInput : List (Html.Attribute Msg)
+            , toLabel : List (Html.Attribute Msg)
+            , errors : List Error
+            }
+         -> view
+        )
+    -> (List Error -> List view -> view)
+    -> Field item view {}
+requiredRadio name nonEmptyItemMapping toHtmlFn wrapFn =
+    let
+        itemMapping : List ( String, item )
+        itemMapping =
+            nonEmptyItemMapping
+                |> List.NonEmpty.toList
 
-{-
-       List.foldl
-           (\item formSoFar ->
-               required (rawRadio name toHtmlFn fromString)
-                   formSoFar
-           )
-           (succeed Nothing)
-           items
+        toString : item -> String
+        toString targetItem =
+            case nonEmptyItemMapping |> List.NonEmpty.toList |> List.filter (\( string, item ) -> item == targetItem) |> List.head of
+                Just ( string, _ ) ->
+                    string
 
+                Nothing ->
+                    "Missing enum"
 
-   rawRadio name toHtmlFn fromString =
+        fromString : String -> Maybe item
+        fromString string =
+            itemMapping
+                |> Dict.fromList
+                |> Dict.get string
 
--}
+        items : List item
+        items =
+            itemMapping
+                |> List.map Tuple.second
+    in
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "radio"
+        , required = True
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            -- TODO use `toString` to set value
+            \_ fieldInfo info ->
+                items
+                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord name (toString item) info fieldInfo))
+                    |> wrapFn (info |> Maybe.map .errors |> Maybe.withDefault [])
+        , decode =
+            \raw ->
+                raw
+                    |> validateRequiredField
+                    |> Result.andThen (fromString >> Result.fromMaybe (Error "Invalid radio option"))
+        , properties = []
+        }
 
 
 submit :
@@ -1102,7 +1143,9 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
             []
 
            else
-            [ Html.Events.onSubmit SubmitForm ]
+            [ Html.Events.onSubmit SubmitForm
+            , Attr.novalidate True
+            ]
          ]
             |> List.concat
         )
