@@ -18,7 +18,7 @@ import Server.Response
 import Url
 
 
-http : String -> Form value view -> Model -> Cmd (Result Http.Error Model)
+http : String -> Form value view -> Model -> Cmd (Result Http.Error FieldState)
 http url_ (Form fields decoder serverValidations modelToValue) model =
     Http.request
         { method = "POST"
@@ -26,7 +26,7 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
             [ Http.header "accept" "application/json"
             ]
         , body =
-            model
+            model.fields
                 |> Dict.toList
                 |> List.map
                     (\( name, { raw } ) ->
@@ -147,12 +147,17 @@ type Msg
 
 
 type alias Model =
+    { fields : FieldState
+    }
+
+
+type alias FieldState =
     Dict String { raw : Maybe String, errors : List String }
 
 
 rawValues : Model -> Dict String String
 rawValues model =
-    model
+    model.fields
         |> Dict.map
             (\key value ->
                 value.raw |> Maybe.withDefault ""
@@ -196,18 +201,21 @@ update form msg model =
     case msg of
         OnFieldInput { name, value } ->
             -- TODO run client-side validations
-            model
-                |> Dict.update name
-                    (\entry ->
-                        case entry of
-                            Just { raw, errors } ->
-                                -- TODO calculate errors here?
-                                Just { raw = Just value, errors = runValidation form { name = name, value = value } }
+            { model
+                | fields =
+                    model.fields
+                        |> Dict.update name
+                            (\entry ->
+                                case entry of
+                                    Just { raw, errors } ->
+                                        -- TODO calculate errors here?
+                                        Just { raw = Just value, errors = runValidation form { name = name, value = value } }
 
-                            Nothing ->
-                                -- TODO calculate errors here?
-                                Just { raw = Just value, errors = [] }
-                    )
+                                    Nothing ->
+                                        -- TODO calculate errors here?
+                                        Just { raw = Just value, errors = [] }
+                            )
+            }
 
         OnFieldFocus record ->
             model
@@ -221,19 +229,21 @@ update form msg model =
 
 init : Form value view -> Model
 init (Form fields decoder serverValidations modelToValue) =
-    fields
-        |> List.concatMap Tuple.first
-        |> List.filterMap
-            (\field ->
-                field.initialValue
-                    |> Maybe.map
-                        (\initial ->
-                            ( field.name
-                            , { raw = Just initial, errors = [] }
+    { fields =
+        fields
+            |> List.concatMap Tuple.first
+            |> List.filterMap
+                (\field ->
+                    field.initialValue
+                        |> Maybe.map
+                            (\initial ->
+                                ( field.name
+                                , { raw = Just initial, errors = [] }
+                                )
                             )
-                        )
-            )
-        |> Dict.fromList
+                )
+            |> Dict.fromList
+    }
 
 
 toInputRecord :
@@ -840,7 +850,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
             let
                 maybeValue : Maybe String
                 maybeValue =
-                    model
+                    model.fields
                         |> Dict.get field.name
                         |> Maybe.andThen .raw
             in
@@ -962,16 +972,14 @@ simplify3 field =
 toHtml :
     { pageReloadSubmit : Bool }
     -> (List (Html.Attribute Msg) -> List view -> view)
-    -> Dict String { raw : Maybe String, errors : List String }
+    -> Model
     -> Form value view
     -> view
 toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
     let
         hasErrors_ : Bool
         hasErrors_ =
-            Dict.Extra.any
-                (\key value -> not (List.isEmpty value.errors))
-                serverValidationErrors
+            hasErrors2 serverValidationErrors
     in
     toForm
         ([ [ Attr.method "POST" ]
@@ -994,7 +1002,7 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
                                 field.toHtml
                                     hasErrors_
                                     (simplify3 field)
-                                    (serverValidationErrors
+                                    (serverValidationErrors.fields
                                         |> Dict.get field.name
                                     )
                             )
@@ -1067,7 +1075,7 @@ toRequest2 :
     ->
         Request
             (DataSource
-                (Result Model ( Result String value, Model ))
+                (Result FieldState ( Result String value, FieldState ))
             )
 toRequest2 (Form fields decoder serverValidations modelToValue) =
     Request.map2
@@ -1119,4 +1127,4 @@ hasErrors2 model =
         (\_ entry ->
             entry.errors |> List.isEmpty |> not
         )
-        model
+        model.fields

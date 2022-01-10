@@ -278,7 +278,12 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toHtml { pageReloadSubmit = True } Html.form (static.data.errors |> Maybe.withDefault (Form.init (form defaultUser)))
+            |> Form.toHtml { pageReloadSubmit = True }
+                Html.form
+                { fields =
+                    static.data.errors
+                        |> Maybe.withDefault (Form.init (form defaultUser) |> .fields)
+                }
             |> Html.map (\_ -> ())
         ]
     }

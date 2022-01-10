@@ -34,7 +34,7 @@ type alias Model =
 
 type Msg
     = FormMsg Form.Msg
-    | GotFormResponse (Result Http.Error Form.Model)
+    | GotFormResponse (Result Http.Error Form.FieldState)
 
 
 type alias RouteParams =
@@ -445,13 +445,17 @@ update _ _ _ _ msg model =
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
+                    let
+                        newFormModel =
+                            { fields = updatedFormModel }
+                    in
                     ( { model
-                        | form = updatedFormModel
+                        | form = newFormModel
                       }
                     , Cmd.none
                     )
                         |> withFlash
-                            (if Form.hasErrors2 updatedFormModel then
+                            (if Form.hasErrors2 newFormModel then
                                 Err "Failed to submit or had errors"
 
                              else
@@ -488,7 +492,7 @@ init _ _ static =
 
 type alias Data =
     { user : Maybe (Result String User)
-    , errors : Maybe (Dict String { raw : Maybe String, errors : List String })
+    , errors : Maybe Form.Model
     }
 
 
@@ -505,12 +509,12 @@ data routeParams =
                                 (case result of
                                     Ok ( user, errors ) ->
                                         { user = Just user
-                                        , errors = Just errors
+                                        , errors = Just { fields = errors }
                                         }
 
                                     Err errors ->
                                         { user = Nothing
-                                        , errors = Just errors
+                                        , errors = Just { fields = errors }
                                         }
                                 )
                                     |> PageServerResponse.RenderPage
