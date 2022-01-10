@@ -1,5 +1,6 @@
 module Form exposing (..)
 
+import Codec exposing (Codec)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
@@ -48,7 +49,7 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
                             }
                         )
                         (Decode.field "raw" (Decode.nullable Decode.string))
-                        (Decode.field "errors" (Decode.list errorDecoder))
+                        (Decode.field "errors" (Decode.list (Codec.decoder errorCodec)))
                     )
                 )
         , timeout = Nothing
@@ -57,10 +58,20 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
         }
 
 
-errorDecoder : Decoder Error
-errorDecoder =
-    Decode.string
-        |> Decode.map Error
+errorCodec : Codec Error
+errorCodec =
+    Codec.custom
+        (\vCustom vMissing value ->
+            case value of
+                Error string ->
+                    vCustom string
+
+                MissingRequired ->
+                    vMissing
+        )
+        |> Codec.variant1 "Custom" Error Codec.string
+        |> Codec.variant0 "MissingRequired" MissingRequired
+        |> Codec.buildCustom
 
 
 type Form value view
@@ -626,6 +637,7 @@ number name toHtmlFn =
 
 type Error
     = Error String
+    | MissingRequired
 
 
 requiredNumber :
@@ -652,7 +664,7 @@ requiredNumber name toHtmlFn =
             \rawString ->
                 case rawString of
                     Nothing ->
-                        Err (Error "This field is required")
+                        Err MissingRequired
 
                     Just string ->
                         -- TODO should be a required field missing error if this is empty string
@@ -828,8 +840,13 @@ withServerValidation serverValidation (Field field) =
 
 
 errorToString : Error -> String
-errorToString (Error errorString) =
-    errorString
+errorToString error =
+    case error of
+        MissingRequired ->
+            "This field is required"
+
+        Error errorString ->
+            errorString
 
 
 withClientValidation : (value -> Result String mapped) -> Field value view constraints -> Field mapped view constraints
@@ -1077,7 +1094,7 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
                         ( name
                         , Encode.object
                             [ ( "errors"
-                              , Encode.list (\(Error errorString) -> Encode.string errorString) entry.errors
+                              , Encode.list (errorCodec |> Codec.encoder) entry.errors
                               )
                             , ( "raw"
                               , entry.raw |> Maybe.map Encode.string |> Maybe.withDefault Encode.null
