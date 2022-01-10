@@ -51,7 +51,7 @@ defaultUser =
     }
 
 
-errorsView : List String -> Html msg
+errorsView : List Form.Error -> Html msg
 errorsView errors =
     case errors of
         first :: rest ->
@@ -62,7 +62,7 @@ errorsView errors =
                     (List.map
                         (\error ->
                             Html.li []
-                                [ Html.text error
+                                [ Html.text <| Form.errorToString error
                                 ]
                         )
                         (first :: rest)
@@ -188,8 +188,8 @@ page =
 
 
 type alias Data =
-    { user : Maybe (Result String User)
-    , errors : Maybe (Dict String { raw : Maybe String, errors : List String })
+    { user : Maybe (Result Form.Error User)
+    , errors : Maybe (Dict String { raw : Maybe String, errors : List Form.Error })
     }
 
 
@@ -272,7 +272,7 @@ view maybeUrl sharedModel static =
                             ]
                     )
                 )
-            |> Maybe.withDefault (Err "")
+            |> Maybe.withDefault (Err (Form.Error ""))
             |> Result.withDefault (Html.p [] [])
         , Html.h1
             []

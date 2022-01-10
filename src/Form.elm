@@ -8,7 +8,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Http
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
@@ -48,13 +48,19 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
                             }
                         )
                         (Decode.field "raw" (Decode.nullable Decode.string))
-                        (Decode.field "errors" (Decode.list Decode.string))
+                        (Decode.field "errors" (Decode.list errorDecoder))
                     )
                 )
         , timeout = Nothing
         , tracker = Nothing
         , url = url_
         }
+
+
+errorDecoder : Decoder Error
+errorDecoder =
+    Decode.string
+        |> Decode.map Error
 
 
 type Form value view
@@ -66,19 +72,19 @@ type Form value view
             , List view -> List view
             )
         )
-        (Request (Result String value))
+        (Request (Result Error value))
         (Request
             (DataSource
                 (List
                     ( String
-                    , { errors : List String
+                    , { errors : List Error
                       , raw : Maybe String
                       }
                     )
                 )
             )
         )
-        (Model -> Result (List String) value)
+        (Model -> Result (List Error) value)
 
 
 type Field value view constraints
@@ -90,14 +96,14 @@ type alias FieldInfoSimple view =
     , initialValue : Maybe String
     , type_ : String
     , required : Bool
-    , serverValidation : Maybe String -> DataSource (List String)
+    , serverValidation : Maybe String -> DataSource (List Error)
     , toHtml :
         Bool
         -> FinalFieldInfo
-        -> Maybe { raw : Maybe String, errors : List String }
+        -> Maybe { raw : Maybe String, errors : List Error }
         -> view
     , properties : List ( String, Encode.Value )
-    , clientValidations : Maybe String -> Result String ()
+    , clientValidations : Maybe String -> Result Error ()
     }
 
 
@@ -106,13 +112,13 @@ type alias FieldInfo value view =
     , initialValue : Maybe String
     , type_ : String
     , required : Bool
-    , serverValidation : Maybe String -> DataSource (List String)
+    , serverValidation : Maybe String -> DataSource (List Error)
     , toHtml :
         Bool
         -> FinalFieldInfo
-        -> Maybe { raw : Maybe String, errors : List String }
+        -> Maybe { raw : Maybe String, errors : List Error }
         -> view
-    , decode : Maybe String -> Result String value
+    , decode : Maybe String -> Result Error value
     , properties : List ( String, Encode.Value )
     }
 
@@ -122,7 +128,7 @@ type alias FinalFieldInfo =
     , initialValue : Maybe String
     , type_ : String
     , required : Bool
-    , serverValidation : Maybe String -> DataSource (List String)
+    , serverValidation : Maybe String -> DataSource (List Error)
     , properties : List ( String, Encode.Value )
     }
 
@@ -135,7 +141,7 @@ succeed constructor =
         (\_ -> Ok constructor)
 
 
-runClientValidations : Model -> Form value view -> Result (List String) value
+runClientValidations : Model -> Form value view -> Result (List Error) value
 runClientValidations model (Form fields decoder serverValidations modelToValue) =
     modelToValue model
 
@@ -155,7 +161,7 @@ type alias Model =
 
 
 type alias FieldState =
-    Dict String { raw : Maybe String, errors : List String }
+    Dict String { raw : Maybe String, errors : List Error }
 
 
 rawValues : Model -> Dict String String
@@ -167,7 +173,7 @@ rawValues model =
             )
 
 
-runValidation : Form value view -> { name : String, value : String } -> List String
+runValidation : Form value view -> { name : String, value : String } -> List Error
 runValidation (Form fields decoder serverValidations modelToValue) newInput =
     let
         matchingDecoder : Maybe (FieldInfoSimple view)
@@ -271,12 +277,12 @@ init (Form fields decoder serverValidations modelToValue) =
 toInputRecord :
     String
     -> Maybe String
-    -> Maybe { raw : Maybe String, errors : List String }
+    -> Maybe { raw : Maybe String, errors : List Error }
     -> FinalFieldInfo
     ->
         { toInput : List (Html.Attribute Msg)
         , toLabel : List (Html.Attribute Msg)
-        , errors : List String
+        , errors : List Error
         }
 toInputRecord name maybeValue info field =
     { toInput =
@@ -343,12 +349,12 @@ toHtmlProperties properties =
 toRadioInputRecord :
     String
     -> String
-    -> Maybe { raw : Maybe String, errors : List String }
+    -> Maybe { raw : Maybe String, errors : List Error }
     -> FinalFieldInfo
     ->
         { toInput : List (Html.Attribute Msg)
         , toLabel : List (Html.Attribute Msg)
-        , errors : List String
+        , errors : List Error
         }
 toRadioInputRecord name itemValue info field =
     { toInput =
@@ -405,7 +411,7 @@ text :
     ->
         ({ toInput : List (Html.Attribute Msg)
          , toLabel : List (Html.Attribute Msg)
-         , errors : List String
+         , errors : List Error
          }
          -> view
         )
@@ -460,7 +466,7 @@ radio :
          ->
             { toInput : List (Html.Attribute Msg)
             , toLabel : List (Html.Attribute Msg)
-            , errors : List String
+            , errors : List Error
 
             -- TODO
             --, item : item
@@ -594,7 +600,7 @@ number :
     ->
         ({ toInput : List (Html.Attribute Msg)
          , toLabel : List (Html.Attribute Msg)
-         , errors : List String
+         , errors : List Error
          }
          -> view
         )
@@ -618,12 +624,16 @@ number name toHtmlFn =
         }
 
 
+type Error
+    = Error String
+
+
 requiredNumber :
     String
     ->
         ({ toInput : List (Html.Attribute Msg)
          , toLabel : List (Html.Attribute Msg)
-         , errors : List String
+         , errors : List Error
          }
          -> view
         )
@@ -642,13 +652,14 @@ requiredNumber name toHtmlFn =
             \rawString ->
                 case rawString of
                     Nothing ->
-                        Err "This field is required"
+                        Err (Error "This field is required")
 
                     Just string ->
+                        -- TODO should be a required field missing error if this is empty string
                         string
                             |> String.toInt
                             -- TODO should this be a custom type instead of String error? That way users can customize the error messages
-                            |> Result.fromMaybe "Not a valid number"
+                            |> Result.fromMaybe (Error "Not a valid number")
         , properties = []
         }
 
@@ -658,7 +669,7 @@ date :
     ->
         ({ toInput : List (Html.Attribute Msg)
          , toLabel : List (Html.Attribute Msg)
-         , errors : List String
+         , errors : List Error
          }
          -> view
         )
@@ -680,6 +691,7 @@ date name toHtmlFn =
                     |> Maybe.withDefault ""
                     -- TODO should empty string be decoded into Nothing instead of an error?
                     |> Date.fromIsoString
+                    |> Result.mapError Error
         , properties = []
         }
 
@@ -690,7 +702,7 @@ checkbox :
     ->
         ({ toInput : List (Html.Attribute Msg)
          , toLabel : List (Html.Attribute Msg)
-         , errors : List String
+         , errors : List Error
          }
          -> view
         )
@@ -808,10 +820,16 @@ withServerValidation serverValidation (Field field) =
                     case value |> field.decode of
                         Ok decoded ->
                             serverValidation decoded
+                                |> DataSource.map (List.map Error)
 
                         Err error ->
-                            DataSource.fail <| "Could not decode form data: " ++ error
+                            DataSource.fail <| "Could not decode form data: " ++ errorToString error
         }
+
+
+errorToString : Error -> String
+errorToString (Error errorString) =
+    errorString
 
 
 withClientValidation : (value -> Result String mapped) -> Field value view constraints -> Field mapped view constraints
@@ -827,7 +845,7 @@ withClientValidation mapFn (Field field) =
             \value ->
                 value
                     |> field.decode
-                    |> Result.andThen mapFn
+                    |> Result.andThen (mapFn >> Result.mapError Error)
         , properties = field.properties
         }
 
@@ -835,7 +853,7 @@ withClientValidation mapFn (Field field) =
 with : Field value view constraints -> Form (value -> form) view -> Form form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
-        thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List String } )))
+        thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List Error } )))
         thing =
             Request.map2
                 (\arg1 arg2 ->
@@ -845,7 +863,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                 |> DataSource.map
                                     (\validationErrors ->
                                         let
-                                            clientErrors : List String
+                                            clientErrors : List Error
                                             clientErrors =
                                                 case field.decode arg2 of
                                                     Ok _ ->
@@ -1038,7 +1056,7 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
         )
 
 
-toRequest : Form value view -> Request (Result String value)
+toRequest : Form value view -> Request (Result Error value)
 toRequest (Form fields decoder serverValidations modelToValue) =
     Request.expectFormPost
         (\_ ->
@@ -1051,6 +1069,7 @@ apiHandler :
     -> Request (DataSource (PageServerResponse response))
 apiHandler (Form fields decoder serverValidations modelToValue) =
     let
+        encodeErrors : List ( String, { a | errors : List Error, raw : Maybe String } ) -> Encode.Value
         encodeErrors errors =
             errors
                 |> List.map
@@ -1058,7 +1077,7 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
                         ( name
                         , Encode.object
                             [ ( "errors"
-                              , Encode.list Encode.string entry.errors
+                              , Encode.list (\(Error errorString) -> Encode.string errorString) entry.errors
                               )
                             , ( "raw"
                               , entry.raw |> Maybe.map Encode.string |> Maybe.withDefault Encode.null
@@ -1102,7 +1121,7 @@ toRequest2 :
     ->
         Request
             (DataSource
-                (Result FieldState ( Result String value, FieldState ))
+                (Result FieldState ( Result Error value, FieldState ))
             )
 toRequest2 (Form fields decoder serverValidations modelToValue) =
     Request.map2
@@ -1139,7 +1158,7 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
         )
 
 
-hasErrors : List ( String, { errors : List String, raw : Maybe String } ) -> Bool
+hasErrors : List ( String, { errors : List Error, raw : Maybe String } ) -> Bool
 hasErrors validationErrors =
     List.any
         (\( _, entry ) ->

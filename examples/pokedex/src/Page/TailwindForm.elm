@@ -199,7 +199,7 @@ usernameInput { toInput, toLabel, errors } =
                 , Tw.text_red_600
                 ]
             ]
-            [ errors |> String.join "\n" |> Html.text ]
+            [ errors |> List.map Form.errorToString |> String.join "\n" |> Html.text ]
         ]
 
 
@@ -472,7 +472,7 @@ init _ _ static =
                                 Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
 
                             Err clientValidationError ->
-                                Err ("Something went wrong: " ++ clientValidationError)
+                                Err ("Something went wrong: " ++ Form.errorToString clientValidationError)
                     )
       }
     , Cmd.none
@@ -480,7 +480,7 @@ init _ _ static =
 
 
 type alias Data =
-    { user : Maybe (Result String User)
+    { user : Maybe (Result Form.Error User)
     , errors : Maybe Form.Model
     }
 
@@ -738,7 +738,7 @@ textInput labelText { toInput, toLabel, errors } =
                 , Tw.text_red_600
                 ]
             ]
-            [ errors |> String.join "\n" |> Html.text ]
+            [ errors |> List.map Form.errorToString |> String.join "\n" |> Html.text ]
         ]
 
 
