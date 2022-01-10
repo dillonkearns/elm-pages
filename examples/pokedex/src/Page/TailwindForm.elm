@@ -252,7 +252,7 @@ form user =
                 |> Form.required
             )
         |> Form.with
-            (Form.date
+            (Form.requiredDate
                 "dob"
                 (textInput "Date of Birth")
                 |> Form.withInitialValue (user.birthDay |> Date.toIsoString)

@@ -141,7 +141,7 @@ form user =
                 |> Form.withInitialValue user.email
             )
         |> Form.with
-            (Form.date
+            (Form.requiredDate
                 "dob"
                 (\{ toInput, toLabel, errors } ->
                     Html.div []

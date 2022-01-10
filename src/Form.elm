@@ -61,16 +61,20 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
 errorCodec : Codec Error
 errorCodec =
     Codec.custom
-        (\vCustom vMissing value ->
+        (\vCustom vMissing vInvalidDate value ->
             case value of
                 Error string ->
                     vCustom string
 
                 MissingRequired ->
                     vMissing
+
+                InvalidDate ->
+                    vInvalidDate
         )
         |> Codec.variant1 "Custom" Error Codec.string
         |> Codec.variant0 "MissingRequired" MissingRequired
+        |> Codec.variant0 "InvalidDate" InvalidDate
         |> Codec.buildCustom
 
 
@@ -638,6 +642,7 @@ number name toHtmlFn =
 type Error
     = Error String
     | MissingRequired
+    | InvalidDate
 
 
 requiredNumber :
@@ -685,8 +690,7 @@ date :
          }
          -> view
         )
-    -- TODO should be Date type
-    -> Field Date view { min : Date, max : Date }
+    -> Field (Maybe Date) view { min : Date, max : Date }
 date name toHtmlFn =
     Field
         { name = name
@@ -699,13 +703,59 @@ date name toHtmlFn =
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                rawString
-                    |> Maybe.withDefault ""
-                    -- TODO should empty string be decoded into Nothing instead of an error?
-                    |> Date.fromIsoString
-                    |> Result.mapError Error
+                if (rawString |> Maybe.withDefault "") == "" then
+                    Ok Nothing
+
+                else
+                    rawString
+                        |> Maybe.withDefault ""
+                        |> Date.fromIsoString
+                        |> Result.mapError (\_ -> InvalidDate)
+                        |> Result.map Just
         , properties = []
         }
+
+
+requiredDate :
+    String
+    ->
+        ({ toInput : List (Html.Attribute Msg)
+         , toLabel : List (Html.Attribute Msg)
+         , errors : List Error
+         }
+         -> view
+        )
+    -> Field Date view { min : Date, max : Date }
+requiredDate name toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "date"
+        , required = True
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \_ fieldInfo info ->
+                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                rawString
+                    |> validateRequiredField
+                    |> Result.andThen
+                        (\rawDateString ->
+                            Date.fromIsoString rawDateString
+                                |> Result.mapError (\_ -> InvalidDate)
+                        )
+        , properties = []
+        }
+
+
+validateRequiredField : Maybe String -> Result Error String
+validateRequiredField maybeRaw =
+    if (maybeRaw |> Maybe.withDefault "") == "" then
+        Err MissingRequired
+
+    else
+        Ok (maybeRaw |> Maybe.withDefault "")
 
 
 checkbox :
@@ -847,6 +897,9 @@ errorToString error =
 
         Error errorString ->
             errorString
+
+        InvalidDate ->
+            "Invalid date"
 
 
 withClientValidation : (value -> Result String mapped) -> Field value view constraints -> Field mapped view constraints
