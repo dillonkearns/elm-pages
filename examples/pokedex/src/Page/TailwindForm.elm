@@ -435,27 +435,16 @@ page =
 update _ _ _ _ msg model =
     case msg of
         FormMsg formMsg ->
-            case formMsg of
-                Form.SubmitForm ->
-                    ( model, Form.http "/tailwind-form" (form defaultUser) model.form |> Cmd.map GotFormResponse )
-
-                _ ->
-                    ( { model | form = model.form |> Form.update (form defaultUser) formMsg }, Cmd.none )
+            model.form
+                |> Form.update FormMsg GotFormResponse (form defaultUser) formMsg
+                |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
 
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
-                    let
-                        newFormModel =
-                            { fields = updatedFormModel }
-                    in
-                    ( { model
-                        | form = newFormModel
-                      }
-                    , Cmd.none
-                    )
+                    ( model, Cmd.none )
                         |> withFlash
-                            (if Form.hasErrors2 newFormModel then
+                            (if Form.hasErrors2 model.form then
                                 Err "Failed to submit or had errors"
 
                              else
@@ -509,12 +498,12 @@ data routeParams =
                                 (case result of
                                     Ok ( user, errors ) ->
                                         { user = Just user
-                                        , errors = Just { fields = errors }
+                                        , errors = Just { fields = errors, isSubmitting = False }
                                         }
 
                                     Err errors ->
                                         { user = Nothing
-                                        , errors = Just { fields = errors }
+                                        , errors = Just { fields = errors, isSubmitting = False }
                                         }
                                 )
                                     |> PageServerResponse.RenderPage
@@ -617,6 +606,13 @@ view maybeUrl sharedModel model static =
             , model.flashMessage
                 |> Maybe.map flashView
                 |> Maybe.withDefault (Html.p [] [])
+            , Html.p []
+                [ if Form.isSubmitting model.form then
+                    Html.text "Submitting..."
+
+                  else
+                    Html.text ""
+                ]
             , Html.div
                 [ css
                     [ Tw.flex

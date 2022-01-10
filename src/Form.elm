@@ -15,6 +15,7 @@ import List.NonEmpty
 import PageServerResponse exposing (PageServerResponse)
 import Server.Request as Request exposing (Request)
 import Server.Response
+import Task
 import Url
 
 
@@ -144,10 +145,12 @@ type Msg
     | OnFieldFocus { name : String }
     | OnBlur
     | SubmitForm
+    | GotFormResponse (Result Http.Error FieldState)
 
 
 type alias Model =
     { fields : FieldState
+    , isSubmitting : Bool
     }
 
 
@@ -196,12 +199,12 @@ runValidation (Form fields decoder serverValidations modelToValue) newInput =
             []
 
 
-update : Form value view -> Msg -> Model -> Model
-update form msg model =
+update : (Msg -> msg) -> (Result Http.Error FieldState -> msg) -> Form value view -> Msg -> Model -> ( Model, Cmd msg )
+update toMsg onResponse form msg model =
     case msg of
         OnFieldInput { name, value } ->
             -- TODO run client-side validations
-            { model
+            ( { model
                 | fields =
                     model.fields
                         |> Dict.update name
@@ -215,16 +218,34 @@ update form msg model =
                                         -- TODO calculate errors here?
                                         Just { raw = Just value, errors = [] }
                             )
-            }
+              }
+            , Cmd.none
+            )
 
         OnFieldFocus record ->
-            model
+            ( model, Cmd.none )
 
         OnBlur ->
-            model
+            ( model, Cmd.none )
 
         SubmitForm ->
-            model
+            ( { model | isSubmitting = True }
+            , http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
+            )
+
+        GotFormResponse result ->
+            let
+                responseTask : Cmd msg
+                responseTask =
+                    Task.succeed () |> Task.perform (\() -> onResponse result)
+            in
+            case result of
+                Ok fieldData ->
+                    ( { model | isSubmitting = False, fields = fieldData }, responseTask )
+
+                Err _ ->
+                    -- TODO handle errors
+                    ( { model | isSubmitting = False }, responseTask )
 
 
 init : Form value view -> Model
@@ -243,6 +264,7 @@ init (Form fields decoder serverValidations modelToValue) =
                             )
                 )
             |> Dict.fromList
+    , isSubmitting = False
     }
 
 
@@ -1128,3 +1150,8 @@ hasErrors2 model =
             entry.errors |> List.isEmpty |> not
         )
         model.fields
+
+
+isSubmitting : Model -> Bool
+isSubmitting model =
+    model.isSubmitting
