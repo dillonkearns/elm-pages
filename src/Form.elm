@@ -640,10 +640,15 @@ requiredNumber name toHtmlFn =
                 toHtmlFn (toInputRecord name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                rawString
-                    |> Maybe.andThen String.toInt
-                    -- TODO should this be a custom type instead of String error? That way users can customize the error messages
-                    |> Result.fromMaybe "Not a valid number"
+                case rawString of
+                    Nothing ->
+                        Err "This field is required"
+
+                    Just string ->
+                        string
+                            |> String.toInt
+                            -- TODO should this be a custom type instead of String error? That way users can customize the error messages
+                            |> Result.fromMaybe "Not a valid number"
         , properties = []
         }
 
