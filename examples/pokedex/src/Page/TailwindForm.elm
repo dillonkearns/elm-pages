@@ -315,6 +315,16 @@ form user =
              )
                 |> Form.wrap wrapNotificationsSections
             )
+        |> Form.appendForm (\() rest -> rest)
+            (Form.succeed (\_ -> ())
+                |> Form.with
+                    (Form.checkbox
+                        "acceptTerms"
+                        False
+                        (checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." })
+                        |> Form.required
+                    )
+            )
         |> Form.append
             (Form.submit
                 (\{ attrs, formHasErrors } ->
@@ -813,7 +823,7 @@ textInput2 =
         ]
 
 
-checkboxInput { name, description } { toLabel, toInput, errors } =
+checkboxInput { name, description } ({ toLabel, toInput, errors } as info) =
     Html.div
         [ css
             [ Tw.max_w_lg
@@ -873,6 +883,7 @@ checkboxInput { name, description } { toLabel, toInput, errors } =
                     [ Html.text description ]
                 ]
             ]
+        , errorsView info
         ]
 
 

@@ -445,7 +445,12 @@ text :
         (FieldRenderInfo
          -> view
         )
-    -> Field String view {}
+    ->
+        Field
+            String
+            view
+            { required : ()
+            }
 text name toHtmlFn =
     Field
         { name = name
@@ -890,8 +895,12 @@ checkbox :
         (FieldRenderInfo
          -> view
         )
-    -- TODO should be Date type
-    -> Field Bool view {}
+    ->
+        Field
+            Bool
+            view
+            { required : ()
+            }
 checkbox name initial toHtmlFn =
     Field
         { name = name
@@ -970,9 +979,26 @@ withBoolProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.bool value ) :: field.properties }
 
 
-required : Field value view constraints -> Field value view constraints
+required : Field value view { constraints | required : () } -> Field value view constraints
 required (Field field) =
-    Field { field | required = True }
+    Field
+        { field
+            | required = True
+            , decode =
+                if field.type_ == "checkbox" then
+                    \rawValue ->
+                        if rawValue == Just "on" then
+                            field.decode rawValue
+                            --Err (Error "This box must be checked")
+
+                        else
+                            Err (Error "This box must be checked")
+
+                else
+                    \rawValue ->
+                        field.decode
+                            rawValue
+        }
 
 
 telephone : Field value view constraints -> Field value view constraints
