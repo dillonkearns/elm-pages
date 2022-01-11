@@ -84,6 +84,17 @@ all =
                     |> Form.rawValues
                     |> Expect.equal
                         (Dict.fromList [ ( "first", "Jane" ) ])
+        , test "client validations are available on init" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with
+                        (Form.text "first" toInput
+                            |> Form.withInitialValue "Jane"
+                            |> Form.withClientValidation (\_ -> Err "This error always occurs")
+                        )
+                    |> Form.init
+                    |> Form.hasErrors2
+                    |> Expect.true "expected errors"
         ]
 
 

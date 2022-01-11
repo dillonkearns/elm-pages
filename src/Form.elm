@@ -289,22 +289,22 @@ update toMsg onResponse form msg model =
 
 
 init : Form value view -> Model
-init (Form fields decoder serverValidations modelToValue) =
+init ((Form fields decoder serverValidations modelToValue) as form) =
     { fields =
         fields
             |> List.concatMap Tuple.first
-            |> List.filterMap
+            |> List.map
                 (\field ->
                     field.initialValue
                         |> Maybe.map
                             (\initial ->
                                 ( field.name
                                 , { raw = Just initial
-                                  , errors =
-                                        []
+                                  , errors = runValidation form { name = field.name, value = initial }
                                   }
                                 )
                             )
+                        |> Maybe.withDefault ( field.name, { raw = Nothing, errors = runValidation form { name = field.name, value = "" } } )
                 )
             |> Dict.fromList
     , isSubmitting = NotSubmitted
@@ -723,6 +723,87 @@ requiredNumber name toHtmlFn =
         }
 
 
+range :
+    String
+    ->
+        { initial : Int
+        , min : Int
+        , max : Int
+        }
+    ->
+        (FieldRenderInfo
+         -> view
+        )
+    -> Field Int view {}
+range name options toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Just (String.fromInt options.initial)
+        , type_ = "range"
+        , required = True
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                case rawString of
+                    Nothing ->
+                        Err MissingRequired
+
+                    Just string ->
+                        -- TODO should be a required field missing error if this is empty string
+                        string
+                            |> String.toInt
+                            -- TODO should this be a custom type instead of String error? That way users can customize the error messages
+                            |> Result.fromMaybe (Error "Not a valid number")
+        , properties =
+            []
+        }
+        |> withStringProperty ( "min", String.fromInt options.min )
+        |> withStringProperty ( "max", String.fromInt options.max )
+
+
+floatRange :
+    String
+    ->
+        { initial : Float
+        , min : Float
+        , max : Float
+        }
+    ->
+        (FieldRenderInfo
+         -> view
+        )
+    ->
+        Field
+            Float
+            view
+            { step : Float
+            }
+floatRange name options toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Just (String.fromFloat options.initial)
+        , type_ = "range"
+        , required = True
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                rawString
+                    |> validateRequiredField
+                    |> Result.andThen
+                        -- TODO should this be a custom type instead of String error? That way users can customize the error messages
+                        (String.toFloat >> Result.fromMaybe (Error "Not a valid number"))
+        , properties = []
+        }
+        |> withStringProperty ( "min", String.fromFloat options.min )
+        |> withStringProperty ( "max", String.fromFloat options.max )
+
+
 date :
     String
     ->
@@ -843,6 +924,16 @@ withMax max field =
     withStringProperty ( "max", String.fromInt max ) field
 
 
+withStep : Int -> Field value view { constraints | step : Int } -> Field value view constraints
+withStep max field =
+    withStringProperty ( "step", String.fromInt max ) field
+
+
+withFloatStep : Float -> Field value view { constraints | step : Float } -> Field value view constraints
+withFloatStep max field =
+    withStringProperty ( "step", String.fromFloat max ) field
+
+
 withMinDate : Date -> Field value view { constraints | min : Date } -> Field value view constraints
 withMinDate min field =
     withStringProperty ( "min", Date.toIsoString min ) field
@@ -887,11 +978,6 @@ required (Field field) =
 telephone : Field value view constraints -> Field value view constraints
 telephone (Field field) =
     Field { field | type_ = "tel" }
-
-
-range : Field value view constraints -> Field value view constraints
-range (Field field) =
-    Field { field | type_ = "range" }
 
 
 search : Field value view constraints -> Field value view constraints

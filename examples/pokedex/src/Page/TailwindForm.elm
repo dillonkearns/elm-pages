@@ -265,12 +265,13 @@ form user =
                     )
             )
         |> Form.with
-            (Form.requiredNumber
+            (Form.range
                 "rating"
+                { initial = 3
+                , min = 1
+                , max = 5
+                }
                 (textInput "Rating")
-                |> Form.withMin 1
-                |> Form.withMax 5
-                |> Form.range
             )
         |> Form.wrap wrapSection
         |> Form.appendForm (|>)
