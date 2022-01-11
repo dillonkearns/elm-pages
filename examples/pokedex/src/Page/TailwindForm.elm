@@ -65,7 +65,7 @@ type alias NotificationPreferences =
 
 defaultUser : User
 defaultUser =
-    { first = "Jane"
+    { first = "jane"
     , last = "Doe"
     , username = "janedoe"
     , email = "janedoe@example.com"
@@ -613,7 +613,6 @@ view maybeUrl sharedModel model static =
         [ Html.div
             []
             [ Css.Global.global Tw.globalStyles
-            , formModelView model.form
             , model.flashMessage
                 |> Maybe.map flashView
                 |> Maybe.withDefault (Html.p [] [])
@@ -746,8 +745,8 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
         ]
 
 
-errorsView : { a | errors : List Form.Error, submitStatus : Form.SubmitStatus } -> Html msg
-errorsView { errors, submitStatus } =
+errorsView : { a | errors : List Form.Error, submitStatus : Form.SubmitStatus, status : Form.FieldStatus } -> Html msg
+errorsView { errors, submitStatus, status } =
     Html.p
         [ css
             [ Tw.mt_2
@@ -755,7 +754,7 @@ errorsView { errors, submitStatus } =
             , Tw.text_red_600
             ]
         ]
-        [ if submitStatus == Form.Submitting || submitStatus == Form.Submitted then
+        [ if (status |> Form.isAtLeast Form.Focused) || submitStatus == Form.Submitting || submitStatus == Form.Submitted then
             errors
                 |> List.map Form.errorToString
                 |> String.join "\n"
@@ -1001,7 +1000,7 @@ wrapEmailSection children =
         ]
 
 
-radioInput item { toLabel, toInput, errors } =
+radioInput item { toLabel, toInput, errors, status } =
     Html.div
         [ css
             [ Tw.flex

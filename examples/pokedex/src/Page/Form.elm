@@ -189,7 +189,7 @@ page =
 
 type alias Data =
     { user : Maybe (Result Form.Error User)
-    , errors : Maybe (Dict String { raw : Maybe String, errors : List Form.Error })
+    , errors : Maybe Form.FieldState
     }
 
 

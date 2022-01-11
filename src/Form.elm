@@ -20,6 +20,13 @@ import Task
 import Url
 
 
+type FieldStatus
+    = NotVisited
+    | Focused
+    | Changed
+    | Blurred
+
+
 http : String -> Form value view -> Model -> Cmd (Result Http.Error FieldState)
 http url_ (Form fields decoder serverValidations modelToValue) model =
     Http.request
@@ -46,10 +53,15 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
                         (\raw errors ->
                             { raw = raw
                             , errors = errors
+                            , status = NotVisited
                             }
                         )
                         (Decode.field "raw" (Decode.nullable Decode.string))
-                        (Decode.field "errors" (Decode.list (Codec.decoder errorCodec)))
+                        (Decode.field "errors"
+                            (Decode.list
+                                (Codec.decoder errorCodec)
+                            )
+                        )
                     )
                 )
         , timeout = Nothing
@@ -92,9 +104,7 @@ type Form value view
             (DataSource
                 (List
                     ( String
-                    , { errors : List Error
-                      , raw : Maybe String
-                      }
+                    , RawFieldState
                     )
                 )
             )
@@ -121,10 +131,17 @@ type alias FieldInfoSimple view =
         FormInfo
         -> Bool
         -> FinalFieldInfo
-        -> Maybe { raw : Maybe String, errors : List Error }
+        -> Maybe RawFieldState
         -> view
     , properties : List ( String, Encode.Value )
     , clientValidations : Maybe String -> Result Error ()
+    }
+
+
+type alias RawFieldState =
+    { raw : Maybe String
+    , errors : List Error
+    , status : FieldStatus
     }
 
 
@@ -138,7 +155,7 @@ type alias FieldInfo value view =
         FormInfo
         -> Bool
         -> FinalFieldInfo
-        -> Maybe { raw : Maybe String, errors : List Error }
+        -> Maybe RawFieldState
         -> view
     , decode : Maybe String -> Result Error value
     , properties : List ( String, Encode.Value )
@@ -171,7 +188,7 @@ runClientValidations model (Form fields decoder serverValidations modelToValue) 
 type Msg
     = OnFieldInput { name : String, value : String }
     | OnFieldFocus { name : String }
-    | OnBlur
+    | OnBlur { name : String }
     | SubmitForm
     | GotFormResponse (Result Http.Error FieldState)
 
@@ -189,7 +206,7 @@ type alias Model =
 
 
 type alias FieldState =
-    Dict String { raw : Maybe String, errors : List Error }
+    Dict String RawFieldState
 
 
 rawValues : Model -> Dict String String
@@ -233,34 +250,106 @@ runValidation (Form fields decoder serverValidations modelToValue) newInput =
             []
 
 
+increaseStatusTo : FieldStatus -> FieldStatus -> FieldStatus
+increaseStatusTo increaseTo currentStatus =
+    if statusRank increaseTo > statusRank currentStatus then
+        increaseTo
+
+    else
+        currentStatus
+
+
+statusRank : FieldStatus -> Int
+statusRank status =
+    case status of
+        NotVisited ->
+            0
+
+        Focused ->
+            1
+
+        Changed ->
+            2
+
+        Blurred ->
+            3
+
+
+isAtLeast : FieldStatus -> FieldStatus -> Bool
+isAtLeast atLeastStatus currentStatus =
+    statusRank currentStatus >= statusRank atLeastStatus
+
+
 update : (Msg -> msg) -> (Result Http.Error FieldState -> msg) -> Form value view -> Msg -> Model -> ( Model, Cmd msg )
 update toMsg onResponse form msg model =
     case msg of
         OnFieldInput { name, value } ->
-            -- TODO run client-side validations
             ( { model
                 | fields =
                     model.fields
                         |> Dict.update name
                             (\entry ->
                                 case entry of
-                                    Just { raw, errors } ->
-                                        -- TODO calculate errors here?
-                                        Just { raw = Just value, errors = runValidation form { name = name, value = value } }
+                                    Just { raw, errors, status } ->
+                                        Just
+                                            { raw = Just value
+                                            , errors = runValidation form { name = name, value = value }
+                                            , status = status |> increaseStatusTo Changed
+                                            }
 
                                     Nothing ->
-                                        -- TODO calculate errors here?
-                                        Just { raw = Just value, errors = [] }
+                                        -- TODO calculate errors here? Do server-side errors need to be preserved?
+                                        Just
+                                            { raw = Just value
+                                            , errors = runValidation form { name = name, value = value }
+                                            , status = Changed
+                                            }
                             )
               }
             , Cmd.none
             )
 
         OnFieldFocus record ->
-            ( model, Cmd.none )
+            ( { model
+                | fields =
+                    model.fields
+                        |> Dict.update record.name
+                            (\maybeExisting ->
+                                case maybeExisting of
+                                    Just existing ->
+                                        Just
+                                            { raw = existing.raw
+                                            , errors = existing.errors
+                                            , status = existing.status |> increaseStatusTo Focused
+                                            }
 
-        OnBlur ->
-            ( model, Cmd.none )
+                                    Nothing ->
+                                        Nothing
+                            )
+              }
+            , Cmd.none
+            )
+
+        OnBlur record ->
+            ( { model
+                | fields =
+                    model.fields
+                        |> Dict.update record.name
+                            (\maybeExisting ->
+                                case maybeExisting of
+                                    Just existing ->
+                                        Just
+                                            { raw = existing.raw
+                                            , errors = existing.errors
+                                            , status = existing.status |> increaseStatusTo Blurred
+                                            }
+
+                                    Nothing ->
+                                        Nothing
+                            )
+              }
+            , Cmd.none
+            )
 
         SubmitForm ->
             if hasErrors2 model then
@@ -284,7 +373,7 @@ update toMsg onResponse form msg model =
                     ( { model | isSubmitting = Submitted, fields = fieldData }, responseTask )
 
                 Err _ ->
-                    -- TODO handle errors
+                    -- TODO handle errors - form submission status similar to RemoteData (or with RemoteData type dependency)?
                     ( { model | isSubmitting = Submitted }, responseTask )
 
 
@@ -300,11 +389,22 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
                             (\initial ->
                                 ( field.name
                                 , { raw = Just initial
-                                  , errors = runValidation form { name = field.name, value = initial }
+                                  , errors =
+                                        runValidation form
+                                            { name = field.name
+                                            , value = initial
+                                            }
+                                  , status = NotVisited
                                   }
                                 )
                             )
-                        |> Maybe.withDefault ( field.name, { raw = Nothing, errors = runValidation form { name = field.name, value = "" } } )
+                        |> Maybe.withDefault
+                            ( field.name
+                            , { raw = Nothing
+                              , errors = runValidation form { name = field.name, value = "" }
+                              , status = NotVisited
+                              }
+                            )
                 )
             |> Dict.fromList
     , isSubmitting = NotSubmitted
@@ -315,7 +415,7 @@ toInputRecord :
     FormInfo
     -> String
     -> Maybe String
-    -> Maybe { raw : Maybe String, errors : List Error }
+    -> Maybe RawFieldState
     -> FinalFieldInfo
     -> FieldRenderInfo
 toInputRecord formInfo name maybeValue info field =
@@ -325,6 +425,8 @@ toInputRecord formInfo name maybeValue info field =
             |> Maybe.withDefault name
             |> Attr.id
             |> Just
+         , Html.Events.onFocus (OnFieldFocus { name = name }) |> Just
+         , Html.Events.onBlur (OnBlur { name = name }) |> Just
          , case ( maybeValue, info ) of
             ( Just value, _ ) ->
                 Attr.value value |> Just
@@ -369,6 +471,10 @@ toInputRecord formInfo name maybeValue info field =
         ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     , submitStatus = formInfo.submitStatus
+    , status =
+        info
+            |> Maybe.map .status
+            |> Maybe.withDefault NotVisited
     }
 
 
@@ -385,7 +491,7 @@ toRadioInputRecord :
     FormInfo
     -> String
     -> String
-    -> Maybe { raw : Maybe String, errors : List Error }
+    -> Maybe RawFieldState
     -> FinalFieldInfo
     -> FieldRenderInfo
 toRadioInputRecord formInfo name itemValue info field =
@@ -394,6 +500,8 @@ toRadioInputRecord formInfo name itemValue info field =
          , itemValue
             |> Attr.id
             |> Just
+         , Html.Events.onFocus (OnFieldFocus { name = name }) |> Just
+         , Html.Events.onBlur (OnBlur { name = name }) |> Just
          , Attr.value itemValue |> Just
          , field.type_ |> Attr.type_ |> Just
          , field.required |> Attr.required |> Just
@@ -424,6 +532,10 @@ toRadioInputRecord formInfo name itemValue info field =
         ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
     , submitStatus = formInfo.submitStatus
+    , status =
+        info
+            |> Maybe.map .status
+            |> Maybe.withDefault NotVisited
     }
 
 
@@ -559,7 +671,14 @@ requiredRadio :
          -> FieldRenderInfo
          -> view
         )
-    -> ({ errors : List Error, submitStatus : SubmitStatus } -> List view -> view)
+    ->
+        ({ errors : List Error
+         , submitStatus : SubmitStatus
+         , status : FieldStatus
+         }
+         -> List view
+         -> view
+        )
     -> Field item view {}
 requiredRadio name nonEmptyItemMapping toHtmlFn wrapFn =
     let
@@ -598,7 +717,7 @@ requiredRadio name nonEmptyItemMapping toHtmlFn wrapFn =
             \formInfo _ fieldInfo info ->
                 items
                     |> List.map (\item -> toHtmlFn item (toRadioInputRecord formInfo name (toString item) info fieldInfo))
-                    |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus }
+                    |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus, status = info |> Maybe.map .status |> Maybe.withDefault NotVisited }
         , decode =
             \raw ->
                 raw
@@ -885,6 +1004,7 @@ type alias FieldRenderInfo =
     , toLabel : List (Html.Attribute Msg)
     , errors : List Error
     , submitStatus : SubmitStatus
+    , status : FieldStatus
     }
 
 
@@ -1076,7 +1196,7 @@ withClientValidation mapFn (Field field) =
 with : Field value view constraints -> Form (value -> form) view -> Form form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
-        thing : Request (DataSource (List ( String, { raw : Maybe String, errors : List Error } )))
+        thing : Request (DataSource (List ( String, RawFieldState )))
         thing =
             Request.map2
                 (\arg1 arg2 ->
@@ -1098,6 +1218,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                         ( field.name
                                         , { errors = validationErrors ++ clientErrors
                                           , raw = arg2
+                                          , status = NotVisited -- TODO @@@ is this correct?
                                           }
                                         )
                                     )
@@ -1294,7 +1415,7 @@ apiHandler :
     -> Request (DataSource (PageServerResponse response))
 apiHandler (Form fields decoder serverValidations modelToValue) =
     let
-        encodeErrors : List ( String, { a | errors : List Error, raw : Maybe String } ) -> Encode.Value
+        encodeErrors : List ( String, RawFieldState ) -> Encode.Value
         encodeErrors errors =
             errors
                 |> List.map
@@ -1383,7 +1504,7 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
         )
 
 
-hasErrors : List ( String, { errors : List Error, raw : Maybe String } ) -> Bool
+hasErrors : List ( String, RawFieldState ) -> Bool
 hasErrors validationErrors =
     List.any
         (\( _, entry ) ->
