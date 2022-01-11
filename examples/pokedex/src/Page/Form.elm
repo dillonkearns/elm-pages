@@ -283,7 +283,7 @@ view maybeUrl sharedModel static =
                 { fields =
                     static.data.errors
                         |> Maybe.withDefault (Form.init (form defaultUser) |> .fields)
-                , isSubmitting = False
+                , isSubmitting = Form.NotSubmitted
                 }
             |> Html.map (\_ -> ())
         ]

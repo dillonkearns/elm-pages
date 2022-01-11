@@ -81,7 +81,7 @@ styleAttrs attrs =
     List.map Attr.fromUnstyled attrs
 
 
-usernameInput { toInput, toLabel, errors } =
+usernameInput ({ toInput, toLabel, errors, submitStatus } as info) =
     Html.div []
         [ Html.div
             [ css
@@ -192,14 +192,7 @@ usernameInput { toInput, toLabel, errors } =
                     ]
                 ]
             ]
-        , Html.p
-            [ css
-                [ Tw.mt_2
-                , Tw.text_sm
-                , Tw.text_red_600
-                ]
-            ]
-            [ errors |> List.map Form.errorToString |> String.join "\n" |> Html.text ]
+        , errorsView info
         ]
 
 
@@ -372,17 +365,17 @@ saveButton formHasErrors formAttrs =
                         , Tw.ring_offset_2
                         , Tw.ring_indigo_500
                         ]
-                    , if formHasErrors then
-                        Css.batch
-                            [ Tw.text_gray_200
-                            , Tw.bg_indigo_500
-                            , Tw.cursor_default
-                            ]
-
-                      else
-                        Css.hover
-                            [ Tw.bg_indigo_700
-                            ]
+                    , --if formHasErrors then
+                      --    Css.batch
+                      --        [ Tw.text_gray_200
+                      --        , Tw.bg_indigo_500
+                      --        , Tw.cursor_default
+                      --        ]
+                      --
+                      --  else
+                      Css.hover
+                        [ Tw.bg_indigo_700
+                        ]
                     ]
                ]
         )
@@ -498,12 +491,12 @@ data routeParams =
                                 (case result of
                                     Ok ( user, errors ) ->
                                         { user = Just user
-                                        , errors = Just { fields = errors, isSubmitting = False }
+                                        , errors = Just { fields = errors, isSubmitting = Form.Submitted }
                                         }
 
                                     Err errors ->
                                         { user = Nothing
-                                        , errors = Just { fields = errors, isSubmitting = False }
+                                        , errors = Just { fields = errors, isSubmitting = Form.Submitted }
                                         }
                                 )
                                     |> PageServerResponse.RenderPage
@@ -670,7 +663,7 @@ flashView message =
         ]
 
 
-textInput labelText { toInput, toLabel, errors } =
+textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
     Html.div
         [ css
             [ Bp.sm
@@ -731,14 +724,27 @@ textInput labelText { toInput, toLabel, errors } =
                 )
                 []
             ]
-        , Html.p
-            [ css
-                [ Tw.mt_2
-                , Tw.text_sm
-                , Tw.text_red_600
-                ]
+        , errorsView info
+        ]
+
+
+errorsView : { a | errors : List Form.Error, submitStatus : Form.SubmitStatus } -> Html msg
+errorsView { errors, submitStatus } =
+    Html.p
+        [ css
+            [ Tw.mt_2
+            , Tw.text_sm
+            , Tw.text_red_600
             ]
-            [ errors |> List.map Form.errorToString |> String.join "\n" |> Html.text ]
+        ]
+        [ if submitStatus == Form.Submitting || submitStatus == Form.Submitted then
+            errors
+                |> List.map Form.errorToString
+                |> String.join "\n"
+                |> Html.text
+
+          else
+            Html.text ""
         ]
 
 
@@ -1023,7 +1029,7 @@ radioInput item { toLabel, toInput, errors } =
         ]
 
 
-wrapPushNotificationsSection errors children =
+wrapPushNotificationsSection ({ errors, submitStatus } as info) children =
     Html.div
         [ css
             [ Tw.pt_6
@@ -1091,12 +1097,5 @@ wrapPushNotificationsSection errors children =
                     ]
                 ]
             ]
-        , Html.p
-            [ css
-                [ Tw.mt_2
-                , Tw.text_sm
-                , Tw.text_red_600
-                ]
-            ]
-            [ errors |> List.map Form.errorToString |> String.join "\n" |> Html.text ]
+        , errorsView info
         ]

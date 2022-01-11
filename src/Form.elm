@@ -106,6 +106,11 @@ type Field value view constraints
     = Field (FieldInfo value view)
 
 
+type alias FormInfo =
+    { submitStatus : SubmitStatus
+    }
+
+
 type alias FieldInfoSimple view =
     { name : String
     , initialValue : Maybe String
@@ -113,7 +118,8 @@ type alias FieldInfoSimple view =
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List Error)
     , toHtml :
-        Bool
+        FormInfo
+        -> Bool
         -> FinalFieldInfo
         -> Maybe { raw : Maybe String, errors : List Error }
         -> view
@@ -129,7 +135,8 @@ type alias FieldInfo value view =
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List Error)
     , toHtml :
-        Bool
+        FormInfo
+        -> Bool
         -> FinalFieldInfo
         -> Maybe { raw : Maybe String, errors : List Error }
         -> view
@@ -169,9 +176,15 @@ type Msg
     | GotFormResponse (Result Http.Error FieldState)
 
 
+type SubmitStatus
+    = NotSubmitted
+    | Submitting
+    | Submitted
+
+
 type alias Model =
     { fields : FieldState
-    , isSubmitting : Bool
+    , isSubmitting : SubmitStatus
     }
 
 
@@ -250,9 +263,15 @@ update toMsg onResponse form msg model =
             ( model, Cmd.none )
 
         SubmitForm ->
-            ( { model | isSubmitting = True }
-            , http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
-            )
+            if hasErrors2 model then
+                ( { model | isSubmitting = Submitted }
+                , Cmd.none
+                )
+
+            else
+                ( { model | isSubmitting = Submitting }
+                , http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
+                )
 
         GotFormResponse result ->
             let
@@ -262,11 +281,11 @@ update toMsg onResponse form msg model =
             in
             case result of
                 Ok fieldData ->
-                    ( { model | isSubmitting = False, fields = fieldData }, responseTask )
+                    ( { model | isSubmitting = Submitted, fields = fieldData }, responseTask )
 
                 Err _ ->
                     -- TODO handle errors
-                    ( { model | isSubmitting = False }, responseTask )
+                    ( { model | isSubmitting = Submitted }, responseTask )
 
 
 init : Form value view -> Model
@@ -280,26 +299,26 @@ init (Form fields decoder serverValidations modelToValue) =
                         |> Maybe.map
                             (\initial ->
                                 ( field.name
-                                , { raw = Just initial, errors = [] }
+                                , { raw = Just initial
+                                  , errors =
+                                        []
+                                  }
                                 )
                             )
                 )
             |> Dict.fromList
-    , isSubmitting = False
+    , isSubmitting = NotSubmitted
     }
 
 
 toInputRecord :
-    String
+    FormInfo
+    -> String
     -> Maybe String
     -> Maybe { raw : Maybe String, errors : List Error }
     -> FinalFieldInfo
-    ->
-        { toInput : List (Html.Attribute Msg)
-        , toLabel : List (Html.Attribute Msg)
-        , errors : List Error
-        }
-toInputRecord name maybeValue info field =
+    -> FieldRenderInfo
+toInputRecord formInfo name maybeValue info field =
     { toInput =
         ([ Attr.name name |> Just
          , maybeValue
@@ -349,6 +368,7 @@ toInputRecord name maybeValue info field =
             |> Attr.for
         ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
+    , submitStatus = formInfo.submitStatus
     }
 
 
@@ -362,16 +382,13 @@ toHtmlProperties properties =
 
 
 toRadioInputRecord :
-    String
+    FormInfo
+    -> String
     -> String
     -> Maybe { raw : Maybe String, errors : List Error }
     -> FinalFieldInfo
-    ->
-        { toInput : List (Html.Attribute Msg)
-        , toLabel : List (Html.Attribute Msg)
-        , errors : List Error
-        }
-toRadioInputRecord name itemValue info field =
+    -> FieldRenderInfo
+toRadioInputRecord formInfo name itemValue info field =
     { toInput =
         ([ Attr.name name |> Just
          , itemValue
@@ -406,6 +423,7 @@ toRadioInputRecord name itemValue info field =
         [ itemValue |> Attr.for
         ]
     , errors = info |> Maybe.map .errors |> Maybe.withDefault []
+    , submitStatus = formInfo.submitStatus
     }
 
 
@@ -424,10 +442,7 @@ valueAttr field stringValue =
 text :
     String
     ->
-        ({ toInput : List (Html.Attribute Msg)
-         , toLabel : List (Html.Attribute Msg)
-         , errors : List Error
-         }
+        (FieldRenderInfo
          -> view
         )
     -> Field String view {}
@@ -439,8 +454,8 @@ text name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
 
         -- TODO should it be Err if Nothing?
         , decode = Maybe.withDefault "" >> Ok
@@ -463,9 +478,9 @@ hidden name value toHtmlFn =
         -- TODO shouldn't be possible to include any server-side validations on hidden fields
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
+            \formInfo _ fieldInfo info ->
                 -- TODO shouldn't be possible to add any validations or chain anything
-                toHtmlFn (toInputRecord name Nothing info fieldInfo |> .toInput)
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo |> .toInput)
 
         -- TODO should it be Err if Nothing?
         , decode = Maybe.withDefault "" >> Ok
@@ -478,14 +493,10 @@ radio :
     -> ( ( String, item ), List ( String, item ) )
     ->
         (item
-         ->
-            { toInput : List (Html.Attribute Msg)
-            , toLabel : List (Html.Attribute Msg)
-            , errors : List Error
-            }
+         -> FieldRenderInfo
          -> view
         )
-    -> (List Error -> List view -> view)
+    -> ({ errors : List Error, submitStatus : SubmitStatus } -> List view -> view)
     -> Field (Maybe item) view {}
 radio name nonEmptyItemMapping toHtmlFn wrapFn =
     let
@@ -522,10 +533,10 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
             -- TODO use `toString` to set value
-            \_ fieldInfo info ->
+            \formInfo _ fieldInfo info ->
                 items
-                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord name (toString item) info fieldInfo))
-                    |> wrapFn (info |> Maybe.map .errors |> Maybe.withDefault [])
+                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord formInfo name (toString item) info fieldInfo))
+                    |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus }
         , decode =
             \raw ->
                 raw
@@ -540,14 +551,10 @@ requiredRadio :
     -> ( ( String, item ), List ( String, item ) )
     ->
         (item
-         ->
-            { toInput : List (Html.Attribute Msg)
-            , toLabel : List (Html.Attribute Msg)
-            , errors : List Error
-            }
+         -> FieldRenderInfo
          -> view
         )
-    -> (List Error -> List view -> view)
+    -> ({ errors : List Error, submitStatus : SubmitStatus } -> List view -> view)
     -> Field item view {}
 requiredRadio name nonEmptyItemMapping toHtmlFn wrapFn =
     let
@@ -583,11 +590,10 @@ requiredRadio name nonEmptyItemMapping toHtmlFn wrapFn =
         , required = True
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            -- TODO use `toString` to set value
-            \_ fieldInfo info ->
+            \formInfo _ fieldInfo info ->
                 items
-                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord name (toString item) info fieldInfo))
-                    |> wrapFn (info |> Maybe.map .errors |> Maybe.withDefault [])
+                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord formInfo name (toString item) info fieldInfo))
+                    |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus }
         , decode =
             \raw ->
                 raw
@@ -612,7 +618,7 @@ submit toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formHasErrors fieldInfo info ->
+            \_ formHasErrors fieldInfo info ->
                 let
                     disabledAttrs =
                         if formHasErrors then
@@ -625,7 +631,8 @@ submit toHtmlFn =
                     { attrs =
                         [ Attr.type_ "submit"
                         ]
-                            ++ disabledAttrs
+
+                    --++ disabledAttrs
                     , formHasErrors = formHasErrors
                     }
         , decode = \_ -> Ok ()
@@ -644,7 +651,7 @@ view viewFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
+            \_ _ fieldInfo info ->
                 viewFn
         , decode = \_ -> Ok ()
         , properties = []
@@ -654,10 +661,7 @@ view viewFn =
 number :
     String
     ->
-        ({ toInput : List (Html.Attribute Msg)
-         , toLabel : List (Html.Attribute Msg)
-         , errors : List Error
-         }
+        (FieldRenderInfo
          -> view
         )
     -> Field (Maybe Int) view { min : Int, max : Int }
@@ -669,8 +673,8 @@ number name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 rawString
@@ -689,10 +693,7 @@ type Error
 requiredNumber :
     String
     ->
-        ({ toInput : List (Html.Attribute Msg)
-         , toLabel : List (Html.Attribute Msg)
-         , errors : List Error
-         }
+        (FieldRenderInfo
          -> view
         )
     -> Field Int view { min : Int, max : Int }
@@ -704,8 +705,8 @@ requiredNumber name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 case rawString of
@@ -725,10 +726,7 @@ requiredNumber name toHtmlFn =
 date :
     String
     ->
-        ({ toInput : List (Html.Attribute Msg)
-         , toLabel : List (Html.Attribute Msg)
-         , errors : List Error
-         }
+        (FieldRenderInfo
          -> view
         )
     -> Field (Maybe Date) view { min : Date, max : Date }
@@ -740,8 +738,8 @@ date name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 if (rawString |> Maybe.withDefault "") == "" then
@@ -760,10 +758,7 @@ date name toHtmlFn =
 requiredDate :
     String
     ->
-        ({ toInput : List (Html.Attribute Msg)
-         , toLabel : List (Html.Attribute Msg)
-         , errors : List Error
-         }
+        (FieldRenderInfo
          -> view
         )
     -> Field Date view { min : Date, max : Date }
@@ -775,8 +770,8 @@ requiredDate name toHtmlFn =
         , required = True
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 rawString
@@ -799,14 +794,19 @@ validateRequiredField maybeRaw =
         Ok (maybeRaw |> Maybe.withDefault "")
 
 
+type alias FieldRenderInfo =
+    { toInput : List (Html.Attribute Msg)
+    , toLabel : List (Html.Attribute Msg)
+    , errors : List Error
+    , submitStatus : SubmitStatus
+    }
+
+
 checkbox :
     String
     -> Bool
     ->
-        ({ toInput : List (Html.Attribute Msg)
-         , toLabel : List (Html.Attribute Msg)
-         , errors : List Error
-         }
+        (FieldRenderInfo
          -> view
         )
     -- TODO should be Date type
@@ -824,8 +824,8 @@ checkbox name initial toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ fieldInfo info ->
-                toHtmlFn (toInputRecord name Nothing info fieldInfo)
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 Ok (rawString == Just "on")
@@ -1157,7 +1157,7 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
                         |> List.reverse
                         |> List.map
                             (\field ->
-                                field.toHtml
+                                field.toHtml { submitStatus = serverValidationErrors.isSubmitting }
                                     hasErrors_
                                     (simplify3 field)
                                     (serverValidationErrors.fields
@@ -1291,4 +1291,4 @@ hasErrors2 model =
 
 isSubmitting : Model -> Bool
 isSubmitting model =
-    model.isSubmitting
+    model.isSubmitting == Submitting
