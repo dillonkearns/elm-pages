@@ -1,5 +1,6 @@
 module Page.TailwindForm exposing (Data, Model, Msg, page)
 
+import Browser.Dom
 import Css exposing (Color)
 import Css.Global
 import DataSource exposing (DataSource)
@@ -22,6 +23,7 @@ import Server.Request as Request exposing (Request)
 import Shared
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
+import Task
 import Time
 import View exposing (View)
 
@@ -35,6 +37,7 @@ type alias Model =
 type Msg
     = FormMsg Form.Msg
     | GotFormResponse (Result Http.Error Form.FieldState)
+    | MovedToTop
 
 
 type alias RouteParams =
@@ -446,17 +449,19 @@ update _ _ _ _ msg model =
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
-                    ( model, Cmd.none )
-                        |> withFlash
-                            (if Form.hasErrors2 model.form then
-                                Err "Failed to submit or had errors"
+                    if Form.hasErrors2 model.form then
+                        ( model, Cmd.none )
+                            |> withFlash (Err "Failed to submit or had errors")
 
-                             else
-                                Ok "Success! Submitted form from Elm"
-                            )
+                    else
+                        ( model, Browser.Dom.setViewport 0 0 |> Task.perform (\() -> MovedToTop) )
+                            |> withFlash (Ok "Success! Submitted form from Elm")
 
                 Err _ ->
                     ( model, Cmd.none )
+
+        MovedToTop ->
+            ( model, Cmd.none )
 
 
 withFlash : Result String String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
@@ -584,7 +589,9 @@ formModelView formModel =
         |> Debug.toString
         |> Html.text
         |> List.singleton
-        |> Html.pre []
+        |> Html.pre
+            [ Attr.style "white-space" "break-spaces"
+            ]
 
 
 view :
