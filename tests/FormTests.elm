@@ -25,9 +25,7 @@ all =
                     |> Form.runClientValidations
                         { fields =
                             Dict.fromList
-                                [ ( "first"
-                                  , { raw = Just "Jane", errors = [] }
-                                  )
+                                [ ( "first", field "Jane" )
                                 ]
                         , isSubmitting = Form.NotSubmitted
                         }
@@ -41,7 +39,7 @@ all =
                         { fields =
                             Dict.fromList
                                 [ ( "dob"
-                                  , { raw = Just "This is not a valid date", errors = [] }
+                                  , field "This is not a valid date"
                                   )
                                 ]
                         , isSubmitting = Form.NotSubmitted
@@ -65,9 +63,7 @@ all =
                     |> Form.runClientValidations
                         { fields =
                             Dict.fromList
-                                [ ( "first"
-                                  , { raw = Just "jane", errors = [] }
-                                  )
+                                [ ( "first", field "jane" )
                                 ]
                         , isSubmitting = Form.NotSubmitted
                         }
@@ -96,6 +92,10 @@ all =
                     |> Form.hasErrors2
                     |> Expect.true "expected errors"
         ]
+
+
+field value =
+    { raw = Just value, errors = [], status = Form.NotVisited }
 
 
 toInput _ =
