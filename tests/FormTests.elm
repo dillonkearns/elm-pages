@@ -23,12 +23,14 @@ all =
                 Form.succeed identity
                     |> Form.with (Form.text "first" toInput)
                     |> Form.runClientValidations
-                        (Dict.fromList
-                            [ ( "first"
-                              , { raw = Just "Jane", errors = [] }
-                              )
-                            ]
-                        )
+                        { fields =
+                            Dict.fromList
+                                [ ( "first"
+                                  , { raw = Just "Jane", errors = [] }
+                                  )
+                                ]
+                        , isSubmitting = Form.NotSubmitted
+                        }
                     |> Expect.equal
                         (Ok "Jane")
         , test "run a single field's validation on blur" <|
@@ -36,14 +38,16 @@ all =
                 Form.succeed identity
                     |> Form.with (Form.date "dob" toInput)
                     |> Form.runClientValidations
-                        (Dict.fromList
-                            [ ( "dob"
-                              , { raw = Just "This is not a valid date", errors = [] }
-                              )
-                            ]
-                        )
+                        { fields =
+                            Dict.fromList
+                                [ ( "dob"
+                                  , { raw = Just "This is not a valid date", errors = [] }
+                                  )
+                                ]
+                        , isSubmitting = Form.NotSubmitted
+                        }
                     |> Expect.equal
-                        (Err [ "Expected a date in ISO 8601 format" ])
+                        (Err [ Form.InvalidDate ])
         , test "custom client validation" <|
             \() ->
                 Form.succeed identity
@@ -59,14 +63,16 @@ all =
                                 )
                         )
                     |> Form.runClientValidations
-                        (Dict.fromList
-                            [ ( "first"
-                              , { raw = Just "jane", errors = [] }
-                              )
-                            ]
-                        )
+                        { fields =
+                            Dict.fromList
+                                [ ( "first"
+                                  , { raw = Just "jane", errors = [] }
+                                  )
+                                ]
+                        , isSubmitting = Form.NotSubmitted
+                        }
                     |> Expect.equal
-                        (Err [ "Needs to be capitalized" ])
+                        (Err [ Form.Error "Needs to be capitalized" ])
         , test "init dict includes default values" <|
             \() ->
                 Form.succeed identity
