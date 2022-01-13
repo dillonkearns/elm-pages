@@ -109,7 +109,7 @@ type Form value view
                 )
             )
         )
-        (Model -> Result (List Error) value)
+        (Model -> Result (List ( String, List Error )) value)
 
 
 type Field value view constraints
@@ -180,7 +180,7 @@ succeed constructor =
         (\_ -> Ok constructor)
 
 
-runClientValidations : Model -> Form value view -> Result (List Error) value
+runClientValidations : Model -> Form value view -> Result (List ( String, List Error )) value
 runClientValidations model (Form fields decoder serverValidations modelToValue) =
     modelToValue model
 
@@ -281,31 +281,57 @@ isAtLeast atLeastStatus currentStatus =
 
 
 update : (Msg -> msg) -> (Result Http.Error FieldState -> msg) -> Form value view -> Msg -> Model -> ( Model, Cmd msg )
-update toMsg onResponse form msg model =
+update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as form) msg model =
     case msg of
         OnFieldInput { name, value } ->
-            ( { model
-                | fields =
-                    model.fields
-                        |> Dict.update name
-                            (\entry ->
-                                case entry of
-                                    Just { raw, errors, status } ->
-                                        Just
-                                            { raw = Just value
-                                            , errors = runValidation form { name = name, value = value }
-                                            , status = status |> increaseStatusTo Changed
-                                            }
+            let
+                initialModel =
+                    { model
+                        | fields =
+                            model.fields
+                                |> Dict.update name
+                                    (\entry ->
+                                        case entry of
+                                            Just { raw, errors, status } ->
+                                                Just
+                                                    { raw = Just value
+                                                    , errors = [] -- runValidation form { name = name, value = value }
+                                                    , status = status |> increaseStatusTo Changed
+                                                    }
 
-                                    Nothing ->
-                                        -- TODO calculate errors here? Do server-side errors need to be preserved?
-                                        Just
-                                            { raw = Just value
-                                            , errors = runValidation form { name = name, value = value }
-                                            , status = Changed
-                                            }
-                            )
-              }
+                                            Nothing ->
+                                                -- TODO calculate errors here? Do server-side errors need to be preserved?
+                                                Just
+                                                    { raw = Just value
+                                                    , errors = [] --runValidation form { name = name, value = value }
+                                                    , status = Changed
+                                                    }
+                                    )
+                    }
+            in
+            ( case modelToValue initialModel of
+                Ok _ ->
+                    initialModel
+
+                Err errors ->
+                    let
+                        errorsDict =
+                            Dict.fromList errors
+                    in
+                    { initialModel
+                        | fields =
+                            initialModel.fields
+                                |> Dict.map
+                                    (\key rawField ->
+                                        { rawField
+                                            | errors =
+                                                -- TODO is it possible to avoid re-calculating? Might need to separate form-level validations from field-level validations into different data structures?
+                                                --rawField.errors
+                                                --++
+                                                errorsDict |> Dict.get key |> Maybe.withDefault []
+                                        }
+                                    )
+                    }
             , Cmd.none
             )
 
@@ -379,36 +405,62 @@ update toMsg onResponse form msg model =
 
 init : Form value view -> Model
 init ((Form fields decoder serverValidations modelToValue) as form) =
-    { fields =
-        fields
-            |> List.concatMap Tuple.first
-            |> List.map
-                (\field ->
-                    field.initialValue
-                        |> Maybe.map
-                            (\initial ->
-                                ( field.name
-                                , { raw = Just initial
-                                  , errors =
-                                        runValidation form
-                                            { name = field.name
-                                            , value = initial
-                                            }
-                                  , status = NotVisited
-                                  }
-                                )
+    let
+        initialModel =
+            { fields =
+                fields
+                    |> List.concatMap Tuple.first
+                    |> List.map
+                        (\field ->
+                            field.initialValue
+                                |> Maybe.map
+                                    (\initial ->
+                                        ( field.name
+                                        , { raw = Just initial
+                                          , errors =
+                                                --runValidation form
+                                                --    { name = field.name
+                                                --    , value = initial
+                                                --    }
+                                                --
+                                                []
+                                          , status = NotVisited
+                                          }
+                                        )
+                                    )
+                                |> Maybe.withDefault
+                                    ( field.name
+                                    , { raw = Nothing
+                                      , errors = [] --runValidation form { name = field.name, value = "" }
+                                      , status = NotVisited
+                                      }
+                                    )
+                        )
+                    |> Dict.fromList
+            , isSubmitting = NotSubmitted
+            }
+    in
+    case modelToValue initialModel of
+        Ok _ ->
+            initialModel
+
+        Err errors ->
+            let
+                errorsDict =
+                    Dict.fromList errors
+            in
+            { initialModel
+                | fields =
+                    initialModel.fields
+                        |> Dict.map
+                            (\key value ->
+                                { value
+                                    | errors =
+                                        value.errors
+                                            ++ (errorsDict |> Dict.get key |> Maybe.withDefault [])
+                                }
                             )
-                        |> Maybe.withDefault
-                            ( field.name
-                            , { raw = Nothing
-                              , errors = runValidation form { name = field.name, value = "" }
-                              , status = NotVisited
-                              }
-                            )
-                )
-            |> Dict.fromList
-    , isSubmitting = NotSubmitted
-    }
+            }
 
 
 toInputRecord :
@@ -1109,15 +1161,17 @@ required (Field field) =
                     \rawValue ->
                         if rawValue == Just "on" then
                             field.decode rawValue
-                            --Err (Error "This box must be checked")
 
                         else
                             Err (Error "This box must be checked")
 
                 else
                     \rawValue ->
-                        field.decode
-                            rawValue
+                        if rawValue == Nothing || rawValue == Just "" then
+                            Err MissingRequired
+
+                        else
+                            field.decode rawValue
         }
 
 
@@ -1251,7 +1305,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                     maybeValue
                         |> field.decode
                         -- TODO have a `List String` for field validation errors, too
-                        |> Result.mapError List.singleton
+                        |> Result.mapError (\error -> [ ( field.name, [ error ] ) ])
                         |> Result.andThen (okSoFar >> Ok)
         )
 
@@ -1275,6 +1329,30 @@ append (Field field) (Form fields decoder serverValidations modelToValue) =
         decoder
         serverValidations
         modelToValue
+
+
+validate : (form -> List ( String, List Error )) -> Form form view -> Form form view
+validate validateFn (Form fields decoder serverValidations modelToValue) =
+    Form fields
+        decoder
+        serverValidations
+        (\model ->
+            modelToValue model
+                |> Result.andThen
+                    (\decoded ->
+                        let
+                            newErrors : List ( String, List Error )
+                            newErrors =
+                                validateFn decoded
+                        in
+                        if newErrors |> List.isEmpty then
+                            Ok decoded
+
+                        else
+                            -- TODO append instead of replacing
+                            Err newErrors
+                    )
+        )
 
 
 appendForm : (form1 -> form2 -> form) -> Form form1 view -> Form form2 view -> Form form view

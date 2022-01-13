@@ -50,7 +50,10 @@ type alias User =
     , username : String
     , email : String
     , birthDay : Date
+    , checkIn : Date
+    , checkOut : Date
     , rating : Int
+    , password : ( String, String )
     , notificationPreferences : NotificationPreferences
     }
 
@@ -70,7 +73,10 @@ defaultUser =
     , username = "janedoe"
     , email = "janedoe@example.com"
     , birthDay = Date.fromCalendarDate 1969 Time.Jul 20
+    , checkIn = Date.fromCalendarDate 2022 Time.Jan 11
+    , checkOut = Date.fromCalendarDate 2022 Time.Jan 12
     , rating = 5
+    , password = ( "", "" )
     , notificationPreferences =
         { comments = False
         , candidates = False
@@ -268,6 +274,22 @@ form user =
                     )
             )
         |> Form.with
+            (Form.requiredDate
+                "checkin"
+                (textInput "Check-in")
+                |> Form.withInitialValue (user.checkIn |> Date.toIsoString)
+                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
+                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
+            )
+        |> Form.with
+            (Form.requiredDate
+                "checkout"
+                (textInput "Check-out")
+                |> Form.withInitialValue (user.checkOut |> Date.toIsoString)
+                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
+                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
+            )
+        |> Form.with
             (Form.range
                 "rating"
                 { initial = 3
@@ -277,6 +299,33 @@ form user =
                 (textInput "Rating")
             )
         |> Form.wrap wrapSection
+        |> Form.appendForm (|>)
+            (Form.succeed Tuple.pair
+                |> Form.with
+                    (Form.text "password"
+                        (textInput "Password")
+                        |> Form.password
+                        |> Form.required
+                    )
+                |> Form.with
+                    (Form.text
+                        "password-confirmation"
+                        (textInput "Password Confirmation")
+                        |> Form.password
+                        |> Form.required
+                    )
+                |> Form.validate
+                    (\( password, passwordConfirmation ) ->
+                        if password == passwordConfirmation then
+                            []
+
+                        else
+                            [ ( "password-confirmation"
+                              , [ Form.Error "Must match password" ]
+                              )
+                            ]
+                    )
+            )
         |> Form.appendForm (|>)
             ((Form.succeed NotificationPreferences
                 |> Form.with
@@ -347,6 +396,18 @@ form user =
                             ]
                         ]
                 )
+            )
+        |> Form.validate
+            (\user_ ->
+                [ ( "checkin"
+                  , if Date.compare user_.checkIn user_.checkOut == GT then
+                        [ Form.Error "Must be before checkout."
+                        ]
+
+                    else
+                        []
+                  )
+                ]
             )
 
 
