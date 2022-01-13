@@ -1654,7 +1654,8 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
             )
         )
         (Request.expectFormPost
-            (\_ ->
+            (\{ optionalField } ->
+                -- TODO inject `optionalField` so it's not a dependency. That way this can be published as an independent package.
                 serverValidations
             )
         )
