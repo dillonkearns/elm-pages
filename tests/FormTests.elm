@@ -3,9 +3,10 @@ module FormTests exposing (all)
 import Dict
 import Expect
 import Form
-import Test exposing (describe, only, skip, test)
+import Test exposing (Test, describe, only, skip, test)
 
 
+all : Test
 all =
     describe "Form"
         [ test "succeed" <|
@@ -16,8 +17,7 @@ all =
                 in
                 form
                     |> Form.runClientValidations (Form.init form)
-                    |> Expect.equal
-                        (Ok ())
+                    |> expectDecodeNoErrors ()
         , test "single field" <|
             \() ->
                 Form.succeed identity
@@ -29,8 +29,7 @@ all =
                                 ]
                         , isSubmitting = Form.NotSubmitted
                         }
-                    |> Expect.equal
-                        (Ok "Jane")
+                    |> expectDecodeNoErrors "Jane"
         , test "run a single field's validation on blur" <|
             \() ->
                 Form.succeed identity
@@ -183,37 +182,42 @@ all =
                             , ( "password", [] )
                             , ( "password-confirmation", [ Form.Error "Passwords must match." ] )
                             ]
-        , skip <|
-            test "dependent validations are run when other fields have recoverable errors" <|
-                \() ->
-                    Form.succeed Tuple.pair
-                        |> Form.with
-                            (Form.requiredDate "checkin" toInput
-                                |> Form.withInitialValue "2022-01-01"
-                            )
-                        |> Form.with
-                            (Form.requiredDate "checkout" toInput
-                                |> Form.withInitialValue "2022-01-01"
-                            )
-                        |> Form.validate
-                            (\( checkin, checkout ) ->
-                                [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
-                                ]
-                            )
-                        |> Form.appendForm Tuple.pair
-                            (Form.succeed identity
-                                |> Form.with
-                                    (Form.text "name" toInput
-                                        |> Form.required
-                                    )
-                            )
-                        |> Form.init
-                        |> expectErrors
+        , test "dependent validations are run when other fields have recoverable errors" <|
+            \() ->
+                Form.succeed Tuple.pair
+                    |> Form.with
+                        (Form.requiredDate "checkin" toInput
+                            |> Form.withInitialValue "2022-01-01"
+                        )
+                    |> Form.with
+                        (Form.requiredDate "checkout" toInput
+                            |> Form.withInitialValue "2022-01-01"
+                        )
+                    |> Form.validate
+                        (\( checkin, checkout ) ->
                             [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
-                            , ( "checkout", [] )
-                            , ( "name", [ Form.MissingRequired ] )
                             ]
+                        )
+                    |> Form.appendForm Tuple.pair
+                        (Form.succeed identity
+                            |> Form.with
+                                (Form.text "name" toInput
+                                    |> Form.required
+                                )
+                        )
+                    |> Form.init
+                    |> expectErrors
+                        [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
+                        , ( "checkout", [] )
+                        , ( "name", [ Form.MissingRequired ] )
+                        ]
         ]
+
+
+expectDecodeNoErrors : decoded -> Result error ( decoded, List b ) -> Expect.Expectation
+expectDecodeNoErrors decoded actual =
+    actual
+        |> Expect.equal (Ok ( decoded, [] ))
 
 
 updateField : Form.Form value view -> ( String, String ) -> Form.Model -> Form.Model

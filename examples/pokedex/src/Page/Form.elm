@@ -188,7 +188,7 @@ page =
 
 
 type alias Data =
-    { user : Maybe (Result Form.Error User)
+    { user : Maybe User
     , errors : Maybe Form.FieldState
     }
 
@@ -203,7 +203,7 @@ data routeParams =
                         |> DataSource.map
                             (\result ->
                                 (case result of
-                                    Ok ( user, errors ) ->
+                                    Ok ( errors, user ) ->
                                         { user = Just user
                                         , errors = Just errors
                                         }
@@ -255,25 +255,21 @@ view maybeUrl sharedModel static =
         user : User
         user =
             static.data.user
-                |> Maybe.withDefault (Ok defaultUser)
-                |> Result.withDefault defaultUser
+                |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
         [ static.data.user
             |> Maybe.map
-                (Result.map
-                    (\user_ ->
-                        Html.p
-                            [ Attr.style "padding" "10px"
-                            , Attr.style "background-color" "#a3fba3"
-                            ]
-                            [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
-                            ]
-                    )
+                (\user_ ->
+                    Html.p
+                        [ Attr.style "padding" "10px"
+                        , Attr.style "background-color" "#a3fba3"
+                        ]
+                        [ Html.text <| "Successfully received user " ++ user_.first ++ " " ++ user_.last
+                        ]
                 )
-            |> Maybe.withDefault (Err (Form.Error ""))
-            |> Result.withDefault (Html.p [] [])
+            |> Maybe.withDefault (Html.p [] [])
         , Html.h1
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]

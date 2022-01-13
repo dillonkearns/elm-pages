@@ -131,11 +131,11 @@ getDecoder (Request decoder) =
                         value
                             |> Ok
 
-                    ( Err fatalError, errors ) ->
-                        Err ( fatalError, errors )
-
                     ( Ok _, firstError :: rest ) ->
                         Err ( firstError, rest )
+
+                    ( Err fatalError, errors ) ->
+                        Err ( fatalError, errors )
             )
 
 

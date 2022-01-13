@@ -99,7 +99,7 @@ type Form value view
             , List view -> List view
             )
         )
-        (Request (Result Error value))
+        (Request (Result (List ( String, List Error )) ( value, List ( String, List Error ) )))
         (Request
             (DataSource
                 (List
@@ -109,7 +109,7 @@ type Form value view
                 )
             )
         )
-        (Model -> Result (List ( String, List Error )) value)
+        (Model -> Result (List ( String, List Error )) ( value, List ( String, List Error ) ))
 
 
 type Field value view constraints
@@ -134,7 +134,7 @@ type alias FieldInfoSimple view =
         -> Maybe RawFieldState
         -> view
     , properties : List ( String, Encode.Value )
-    , clientValidations : Maybe String -> Result Error ()
+    , clientValidations : Maybe String -> Result (List Error) ()
     }
 
 
@@ -157,7 +157,7 @@ type alias FieldInfo value view =
         -> FinalFieldInfo
         -> Maybe RawFieldState
         -> view
-    , decode : Maybe String -> Result Error value
+    , decode : Maybe String -> Result (List Error) ( value, List Error )
     , properties : List ( String, Encode.Value )
     }
 
@@ -175,12 +175,12 @@ type alias FinalFieldInfo =
 succeed : constructor -> Form constructor view
 succeed constructor =
     Form []
-        (Request.succeed (Ok constructor))
+        (Request.succeed (Ok ( constructor, [] )))
         (Request.succeed (DataSource.succeed []))
-        (\_ -> Ok constructor)
+        (\_ -> Ok ( constructor, [] ))
 
 
-runClientValidations : Model -> Form value view -> Result (List ( String, List Error )) value
+runClientValidations : Model -> Form value view -> Result (List ( String, List Error )) ( value, List ( String, List Error ) )
 runClientValidations model (Form fields decoder serverValidations modelToValue) =
     modelToValue model
 
@@ -244,7 +244,7 @@ runValidation (Form fields decoder serverValidations modelToValue) newInput =
                     []
 
                 Err error ->
-                    [ error ]
+                    error
 
         Nothing ->
             []
@@ -403,6 +403,14 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                     ( { model | isSubmitting = Submitted }, responseTask )
 
 
+initField : RawFieldState
+initField =
+    { raw = Nothing
+    , errors = []
+    , status = NotVisited
+    }
+
+
 init : Form value view -> Model
 init ((Form fields decoder serverValidations modelToValue) as form) =
     let
@@ -430,10 +438,7 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
                                     )
                                 |> Maybe.withDefault
                                     ( field.name
-                                    , { raw = Nothing
-                                      , errors = [] --runValidation form { name = field.name, value = "" }
-                                      , status = NotVisited
-                                      }
+                                    , initField
                                     )
                         )
                     |> Dict.fromList
@@ -625,9 +630,9 @@ text name toHtmlFn =
         , toHtml =
             \formInfo _ fieldInfo info ->
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
-
-        -- TODO should it be Err if Nothing?
-        , decode = Maybe.withDefault "" >> Ok
+        , decode =
+            \rawValue ->
+                Ok ( rawValue |> Maybe.withDefault "", [] )
         , properties = []
         }
 
@@ -650,9 +655,9 @@ hidden name value toHtmlFn =
             \formInfo _ fieldInfo info ->
                 -- TODO shouldn't be possible to add any validations or chain anything
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo |> .toInput)
-
-        -- TODO should it be Err if Nothing?
-        , decode = Maybe.withDefault "" >> Ok
+        , decode =
+            \rawValue ->
+                Ok ( rawValue |> Maybe.withDefault "", [] )
         , properties = []
         }
 
@@ -708,9 +713,10 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
                     |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus }
         , decode =
             \raw ->
-                raw
-                    |> Maybe.andThen fromString
-                    |> Ok
+                Ok
+                    ( raw |> Maybe.andThen fromString
+                    , []
+                    )
         , properties = []
         }
 
@@ -775,8 +781,19 @@ requiredRadio name nonEmptyItemMapping toHtmlFn wrapFn =
                 raw
                     |> validateRequiredField
                     |> Result.andThen (fromString >> Result.fromMaybe (Error "Invalid radio option"))
+                    |> toFieldResult
         , properties = []
         }
+
+
+toFieldResult : Result Error value -> Result (List Error) ( value, List Error )
+toFieldResult result =
+    case result of
+        Ok okValue ->
+            Ok ( okValue, [] )
+
+        Err error ->
+            Err [ error ]
 
 
 submit :
@@ -811,7 +828,10 @@ submit toHtmlFn =
                     --++ disabledAttrs
                     , formHasErrors = formHasErrors
                     }
-        , decode = \_ -> Ok ()
+        , decode =
+            \_ ->
+                Ok ()
+                    |> toFieldResult
         , properties = []
         }
 
@@ -829,7 +849,10 @@ view viewFn =
         , toHtml =
             \_ _ fieldInfo info ->
                 viewFn
-        , decode = \_ -> Ok ()
+        , decode =
+            \_ ->
+                Ok ()
+                    |> toFieldResult
         , properties = []
         }
 
@@ -856,6 +879,7 @@ number name toHtmlFn =
                 rawString
                     |> Maybe.andThen String.toInt
                     |> Ok
+                    |> toFieldResult
         , properties = []
         }
 
@@ -885,7 +909,7 @@ requiredNumber name toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                case rawString of
+                (case rawString of
                     Nothing ->
                         Err MissingRequired
 
@@ -895,6 +919,8 @@ requiredNumber name toHtmlFn =
                             |> String.toInt
                             -- TODO should this be a custom type instead of String error? That way users can customize the error messages
                             |> Result.fromMaybe (Error "Not a valid number")
+                )
+                    |> toFieldResult
         , properties = []
         }
 
@@ -923,7 +949,7 @@ range name options toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                case rawString of
+                (case rawString of
                     Nothing ->
                         Err MissingRequired
 
@@ -933,6 +959,8 @@ range name options toHtmlFn =
                             |> String.toInt
                             -- TODO should this be a custom type instead of String error? That way users can customize the error messages
                             |> Result.fromMaybe (Error "Not a valid number")
+                )
+                    |> toFieldResult
         , properties =
             []
         }
@@ -974,6 +1002,7 @@ floatRange name options toHtmlFn =
                     |> Result.andThen
                         -- TODO should this be a custom type instead of String error? That way users can customize the error messages
                         (String.toFloat >> Result.fromMaybe (Error "Not a valid number"))
+                    |> toFieldResult
         , properties = []
         }
         |> withStringProperty ( "min", String.fromFloat options.min )
@@ -999,15 +1028,17 @@ date name toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                if (rawString |> Maybe.withDefault "") == "" then
+                (if (rawString |> Maybe.withDefault "") == "" then
                     Ok Nothing
 
-                else
+                 else
                     rawString
                         |> Maybe.withDefault ""
                         |> Date.fromIsoString
                         |> Result.mapError (\_ -> InvalidDate)
                         |> Result.map Just
+                )
+                    |> toFieldResult
         , properties = []
         }
 
@@ -1038,6 +1069,7 @@ requiredDate name toHtmlFn =
                             Date.fromIsoString rawDateString
                                 |> Result.mapError (\_ -> InvalidDate)
                         )
+                    |> toFieldResult
         , properties = []
         }
 
@@ -1091,6 +1123,7 @@ checkbox name initial toHtmlFn =
         , decode =
             \rawString ->
                 Ok (rawString == Just "on")
+                    |> toFieldResult
         , properties = []
         }
 
@@ -1163,12 +1196,12 @@ required (Field field) =
                             field.decode rawValue
 
                         else
-                            Err (Error "This box must be checked")
+                            Err [ Error "This box must be checked" ]
 
                 else
                     \rawValue ->
                         if rawValue == Nothing || rawValue == Just "" then
-                            Err MissingRequired
+                            Err [ MissingRequired ]
 
                         else
                             field.decode rawValue
@@ -1207,12 +1240,18 @@ withServerValidation serverValidation (Field field) =
             | serverValidation =
                 \value ->
                     case value |> field.decode of
-                        Ok decoded ->
+                        Ok ( decoded, [] ) ->
                             serverValidation decoded
                                 |> DataSource.map (List.map Error)
 
-                        Err error ->
-                            DataSource.fail <| "Could not decode form data: " ++ errorToString error
+                        Ok ( decoded, errors ) ->
+                            DataSource.map2 (++)
+                                (serverValidation decoded |> DataSource.map (List.map Error))
+                                (DataSource.succeed errors)
+
+                        Err errors ->
+                            -- TODO should this be an error rather than DataSource.fail?
+                            DataSource.fail <| "Could not decode form data: " ++ (errors |> List.map errorToString |> String.join "\n")
         }
 
 
@@ -1242,7 +1281,14 @@ withClientValidation mapFn (Field field) =
             \value ->
                 value
                     |> field.decode
-                    |> Result.andThen (mapFn >> Result.mapError Error)
+                    |> Result.andThen
+                        (\( okValue, errors ) ->
+                            okValue
+                                |> mapFn
+                                |> Result.mapError Error
+                                |> Result.mapError List.singleton
+                                |> Result.map (\okValue2 -> ( okValue2, errors ))
+                        )
         , properties = field.properties
         }
 
@@ -1267,7 +1313,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                                         []
 
                                                     Err error ->
-                                                        [ error ]
+                                                        error
                                         in
                                         ( field.name
                                         , { errors = validationErrors ++ clientErrors
@@ -1280,14 +1326,28 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                 )
                 serverValidations
                 (Request.optionalFormField_ field.name)
+
+        withDecoder : Request (Result (List ( String, List Error )) ( form, List ( String, List Error ) ))
+        withDecoder =
+            Request.map2
+                (combineWithDecoder field.name)
+                (Request.optionalFormField_ field.name
+                    |> Request.map
+                        (\myValue ->
+                            myValue
+                                |> field.decode
+                                |> Result.mapError
+                                    (List.map
+                                        (\error -> ( field.name, [ error ] ))
+                                    )
+                                |> Result.map (\okValue -> ( okValue, [] ))
+                        )
+                )
+                decoder
     in
     Form
         (addField field fields)
-        (Request.map2
-            (Result.map2 (|>))
-            (Request.optionalFormField_ field.name |> Request.map field.decode)
-            decoder
-        )
+        withDecoder
         thing
         (\model ->
             let
@@ -1301,13 +1361,70 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                 Err error ->
                     Err error
 
-                Ok okSoFar ->
+                Ok ( okSoFar, errorsSoFar1 ) ->
                     maybeValue
                         |> field.decode
                         -- TODO have a `List String` for field validation errors, too
-                        |> Result.mapError (\error -> [ ( field.name, [ error ] ) ])
-                        |> Result.andThen (okSoFar >> Ok)
+                        |> Result.mapError (\error -> [ ( field.name, error ) ])
+                        |> Result.map
+                            (\( value, errorsSoFar2 ) ->
+                                ( okSoFar value
+                                , if errorsSoFar2 |> List.isEmpty then
+                                    errorsSoFar1
+
+                                  else
+                                    errorsSoFar1 ++ [ ( field.name, errorsSoFar2 ) ]
+                                )
+                            )
         )
+
+
+combineWithDecoder :
+    String
+    -> Result (List ( String, List Error )) ( ( value, List Error ), List ( String, List Error ) )
+    -> Result (List ( String, List Error )) ( value -> form, List ( String, List Error ) )
+    -> Result (List ( String, List Error )) ( form, List ( String, List Error ) )
+combineWithDecoder fieldName result1 result2 =
+    case ( result1, result2 ) of
+        ( Ok ( ( value1, errors1 ), errors2 ), Ok ( value2, errors3 ) ) ->
+            Ok
+                ( value2 value1
+                , [ ( fieldName, errors1 ) ]
+                    ++ errors2
+                    ++ errors3
+                )
+
+        ( Err errors1, Err errors2 ) ->
+            Err (errors1 ++ errors2)
+
+        ( Err errors1, Ok _ ) ->
+            Err errors1
+
+        ( Ok _, Err errors2 ) ->
+            Err errors2
+
+
+map2ResultWithErrors :
+    (a -> b -> c)
+    -> Result (List ( String, List Error )) ( a, List ( String, List Error ) )
+    -> Result (List ( String, List Error )) ( b, List ( String, List Error ) )
+    -> Result (List ( String, List Error )) ( c, List ( String, List Error ) )
+map2ResultWithErrors mapFn result1 result2 =
+    case ( result1, result2 ) of
+        ( Ok ( value1, errors1 ), Ok ( value2, errors2 ) ) ->
+            Ok
+                ( mapFn value1 value2
+                , errors1 ++ errors2
+                )
+
+        ( Err errors1, Err errors2 ) ->
+            Err (errors1 ++ errors2)
+
+        ( Err errors1, Ok _ ) ->
+            Err errors1
+
+        ( Ok _, Err errors2 ) ->
+            Err errors2
 
 
 addField : FieldInfo value view -> List ( List (FieldInfoSimple view), List view -> List view ) -> List ( List (FieldInfoSimple view), List view -> List view )
@@ -1339,18 +1456,18 @@ validate validateFn (Form fields decoder serverValidations modelToValue) =
         (\model ->
             modelToValue model
                 |> Result.andThen
-                    (\decoded ->
+                    (\( decoded, errorsSoFar ) ->
                         let
                             newErrors : List ( String, List Error )
                             newErrors =
                                 validateFn decoded
                         in
                         if newErrors |> List.isEmpty then
-                            Ok decoded
+                            Ok ( decoded, errorsSoFar )
 
                         else
                             -- TODO append instead of replacing
-                            Err newErrors
+                            Err (errorsSoFar ++ newErrors)
                     )
         )
 
@@ -1360,14 +1477,14 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form 
     Form
         -- TODO is this ordering correct?
         (fields1 ++ fields2)
-        (Request.map2 (Result.map2 mapFn) decoder1 decoder2)
+        (Request.map2 (map2ResultWithErrors mapFn) decoder1 decoder2)
         (Request.map2
             (DataSource.map2 (++))
             serverValidations1
             serverValidations2
         )
         (\model ->
-            Result.map2 mapFn
+            map2ResultWithErrors mapFn
                 (modelToValue1 model)
                 (modelToValue2 model)
         )
@@ -1411,7 +1528,11 @@ simplify2 field =
     , serverValidation = field.serverValidation
     , toHtml = field.toHtml
     , properties = field.properties
-    , clientValidations = \value -> value |> field.decode |> Result.map (\_ -> ())
+    , clientValidations =
+        \value ->
+            value
+                |> field.decode
+                |> Result.map (\_ -> ())
     }
 
 
@@ -1480,7 +1601,7 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
         )
 
 
-toRequest : Form value view -> Request (Result Error value)
+toRequest : Form value view -> Request (Result (List ( String, List Error )) ( value, List ( String, List Error ) ))
 toRequest (Form fields decoder serverValidations modelToValue) =
     Request.expectFormPost
         (\_ ->
@@ -1545,7 +1666,7 @@ toRequest2 :
     ->
         Request
             (DataSource
-                (Result FieldState ( Result Error value, FieldState ))
+                (Result FieldState ( FieldState, value ))
             )
 toRequest2 (Form fields decoder serverValidations modelToValue) =
     Request.map2
@@ -1553,17 +1674,25 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
             errors
                 |> DataSource.map
                     (\validationErrors ->
-                        if hasErrors validationErrors then
-                            validationErrors
-                                |> Dict.fromList
-                                |> Err
+                        case decoded of
+                            Ok ( value, otherValidationErrors ) ->
+                                if not (hasErrors validationErrors) && (otherValidationErrors |> List.isEmpty) then
+                                    Ok
+                                        ( validationErrors |> Dict.fromList
+                                        , value
+                                        )
 
-                        else
-                            Ok
-                                ( decoded
-                                , validationErrors
+                                else
+                                    validationErrors
+                                        |> Dict.fromList
+                                        |> combineWithErrors otherValidationErrors
+                                        |> Err
+
+                            Err otherValidationErrors ->
+                                validationErrors
                                     |> Dict.fromList
-                                )
+                                    |> combineWithErrors otherValidationErrors
+                                    |> Err
                     )
         )
         (Request.expectFormPost
@@ -1573,13 +1702,28 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
         )
         (Request.expectFormPost
             (\_ ->
-                Request.oneOf
-                    [ serverValidations
-                        |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
-                    , serverValidations
-                    ]
+                serverValidations
             )
+            -- TODO acceptContentType is failing eagerly, need to debug
+            |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
         )
+
+
+combineWithErrors : List ( String, List Error ) -> Dict String RawFieldState -> Dict String RawFieldState
+combineWithErrors validationErrors fieldState =
+    validationErrors
+        |> List.foldl
+            (\( fieldName, fieldErrors ) dict ->
+                dict
+                    |> Dict.update fieldName
+                        (\maybeField ->
+                            maybeField
+                                |> Maybe.withDefault initField
+                                |> (\field -> { field | errors = field.errors ++ fieldErrors })
+                                |> Just
+                        )
+            )
+            fieldState
 
 
 hasErrors : List ( String, RawFieldState ) -> Bool

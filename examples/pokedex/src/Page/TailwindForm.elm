@@ -536,13 +536,8 @@ init _ _ static =
       , flashMessage =
             static.data.user
                 |> Maybe.map
-                    (\result ->
-                        case result of
-                            Ok user_ ->
-                                Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
-
-                            Err clientValidationError ->
-                                Err ("Something went wrong: " ++ Form.errorToString clientValidationError)
+                    (\user_ ->
+                        Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
                     )
       }
     , Cmd.none
@@ -550,7 +545,7 @@ init _ _ static =
 
 
 type alias Data =
-    { user : Maybe (Result Form.Error User)
+    { user : Maybe User
     , errors : Maybe Form.Model
     }
 
@@ -566,7 +561,7 @@ data routeParams =
                         |> DataSource.map
                             (\result ->
                                 (case result of
-                                    Ok ( user, errors ) ->
+                                    Ok ( errors, user ) ->
                                         { user = Just user
                                         , errors = Just { fields = errors, isSubmitting = Form.Submitted }
                                         }
@@ -666,8 +661,7 @@ view maybeUrl sharedModel model static =
         user : User
         user =
             static.data.user
-                |> Maybe.withDefault (Ok defaultUser)
-                |> Result.withDefault defaultUser
+                |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
