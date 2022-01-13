@@ -1704,8 +1704,6 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
             (\_ ->
                 serverValidations
             )
-            -- TODO acceptContentType is failing eagerly, need to debug
-            |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
         )
 
 

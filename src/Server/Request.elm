@@ -93,24 +93,26 @@ oneOfInternal previousErrors optimizedDecoders =
                     )
 
         first :: rest ->
-            first
-                |> OptimizedDecoder.andThen
-                    (\( firstResult, firstErrors ) ->
-                        case ( firstResult, firstErrors ) of
-                            ( Ok okFirstResult, [] ) ->
-                                OptimizedDecoder.succeed ( Ok okFirstResult, [] )
+            OptimizedDecoder.oneOf
+                [ first
+                    |> OptimizedDecoder.andThen
+                        (\( firstResult, firstErrors ) ->
+                            case ( firstResult, firstErrors ) of
+                                ( Ok okFirstResult, [] ) ->
+                                    OptimizedDecoder.succeed ( Ok okFirstResult, [] )
 
-                            ( Ok okFirstResult, otherErrors ) ->
-                                OptimizedDecoder.succeed ( Ok okFirstResult, otherErrors )
+                                ( Ok okFirstResult, otherErrors ) ->
+                                    oneOfInternal (previousErrors ++ otherErrors) rest
 
-                            ( Err error, otherErrors ) ->
-                                case error of
-                                    OneOf errors ->
-                                        oneOfInternal (previousErrors ++ errors) rest
+                                ( Err error, otherErrors ) ->
+                                    case error of
+                                        OneOf errors ->
+                                            oneOfInternal (previousErrors ++ errors) rest
 
-                                    _ ->
-                                        oneOfInternal (previousErrors ++ [ error ]) rest
-                    )
+                                        _ ->
+                                            oneOfInternal (previousErrors ++ [ error ]) rest
+                        )
+                ]
 
 
 {-| -}
