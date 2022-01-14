@@ -51,7 +51,7 @@ defaultUser =
     }
 
 
-errorsView : List Form.Error -> Html msg
+errorsView : List String -> Html msg
 errorsView errors =
     case errors of
         first :: rest ->
@@ -62,7 +62,7 @@ errorsView errors =
                     (List.map
                         (\error ->
                             Html.li []
-                                [ Html.text <| Form.errorToString error
+                                [ Html.text error
                                 ]
                         )
                         (first :: rest)
@@ -73,7 +73,7 @@ errorsView errors =
             Html.div [] []
 
 
-form : User -> Form User (Html Form.Msg)
+form : User -> Form String User (Html Form.Msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -143,6 +143,9 @@ form user =
         |> Form.with
             (Form.requiredDate
                 "dob"
+                { missing = "Required"
+                , invalid = \_ -> "Invalid date"
+                }
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
                         [ errorsView errors
@@ -189,7 +192,7 @@ page =
 
 type alias Data =
     { user : Maybe User
-    , errors : Maybe Form.FieldState
+    , errors : Maybe Form.ServerUpdate
     }
 
 

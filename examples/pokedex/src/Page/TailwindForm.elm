@@ -36,7 +36,7 @@ type alias Model =
 
 type Msg
     = FormMsg Form.Msg
-    | GotFormResponse (Result Http.Error Form.FieldState)
+    | GotFormResponse (Result Http.Error Form.ServerUpdate)
     | MovedToTop
 
 
@@ -214,7 +214,7 @@ validateCapitalized string =
         Err "Needs to be capitalized"
 
 
-form : User -> Form User (Html Form.Msg)
+form : User -> Form String User (Html Form.Msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -223,7 +223,7 @@ form user =
                 (textInput "First name")
                 |> Form.withInitialValue user.first
                 |> Form.withClientValidation validateCapitalized
-                |> Form.required
+                |> Form.required "Required"
             )
         |> Form.with
             (Form.text
@@ -231,7 +231,7 @@ form user =
                 (textInput "Last name")
                 |> Form.withInitialValue user.last
                 |> Form.withClientValidation validateCapitalized
-                |> Form.required
+                |> Form.required "Required"
             )
         |> Form.with
             (Form.text "username" usernameInput
@@ -251,11 +251,14 @@ form user =
                 (textInput "Email address")
                 |> Form.withInitialValue user.email
                 |> Form.email
-                |> Form.required
+                |> Form.required "Required"
             )
         |> Form.with
             (Form.requiredDate
                 "dob"
+                { missing = "Required"
+                , invalid = \_ -> "Invalid date"
+                }
                 (textInput "Date of Birth")
                 |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
@@ -276,6 +279,9 @@ form user =
         |> Form.with
             (Form.requiredDate
                 "checkin"
+                { missing = "Required"
+                , invalid = \_ -> "Invalid date"
+                }
                 (textInput "Check-in")
                 |> Form.withInitialValue (user.checkIn |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
@@ -284,6 +290,9 @@ form user =
         |> Form.with
             (Form.requiredDate
                 "checkout"
+                { missing = "Required"
+                , invalid = \_ -> "Invalid date"
+                }
                 (textInput "Check-out")
                 |> Form.withInitialValue (user.checkOut |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
@@ -292,6 +301,9 @@ form user =
         |> Form.with
             (Form.range
                 "rating"
+                { missing = "Required"
+                , invalid = \_ -> "Invalid number"
+                }
                 { initial = 3
                 , min = 1
                 , max = 5
@@ -305,14 +317,14 @@ form user =
                     (Form.text "password"
                         (textInput "Password")
                         |> Form.password
-                        |> Form.required
+                        |> Form.required "Required"
                     )
                 |> Form.with
                     (Form.text
                         "password-confirmation"
                         (textInput "Password Confirmation")
                         |> Form.password
-                        |> Form.required
+                        |> Form.required "Required"
                     )
                 |> Form.validate
                     (\( password, passwordConfirmation ) ->
@@ -321,7 +333,7 @@ form user =
 
                         else
                             [ ( "password-confirmation"
-                              , [ Form.Error "Must match password" ]
+                              , [ "Must match password" ]
                               )
                             ]
                     )
@@ -355,6 +367,9 @@ form user =
                         |> Form.with
                             (Form.requiredRadio
                                 "push-notifications"
+                                { missing = "Missing"
+                                , invalid = \_ -> "Invalid option"
+                                }
                                 ( ( "PushAll", PushAll )
                                 , [ ( "PushEmail", PushEmail )
                                   , ( "PushNone", PushNone )
@@ -374,7 +389,7 @@ form user =
                         "acceptTerms"
                         False
                         (checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." })
-                        |> Form.required
+                        |> Form.required "Please agree to terms to proceed."
                     )
             )
         |> Form.append
@@ -401,7 +416,7 @@ form user =
             (\user_ ->
                 [ ( "checkin"
                   , if Date.compare user_.checkIn user_.checkOut == GT then
-                        [ Form.Error "Must be before checkout."
+                        [ "Must be before checkout."
                         ]
 
                     else
@@ -531,8 +546,7 @@ withFlash flashMessage ( model, cmd ) =
 
 
 init _ _ static =
-    ( { form =
-            static.data.errors |> Maybe.withDefault (Form.init (form defaultUser))
+    ( { form = static.data.initialForm
       , flashMessage =
             static.data.user
                 |> Maybe.map
@@ -546,7 +560,7 @@ init _ _ static =
 
 type alias Data =
     { user : Maybe User
-    , errors : Maybe Form.Model
+    , initialForm : Form.Model
     }
 
 
@@ -557,20 +571,14 @@ data routeParams =
             (form defaultUser)
             (\model decoded ->
                 DataSource.succeed
-                    { user =
-                        case decoded of
-                            Ok user ->
-                                Just user
-
-                            Err error ->
-                                Nothing
-                    , errors = Just model
+                    { user = Result.toMaybe decoded
+                    , initialForm = model
                     }
             )
-        , PageServerResponse.RenderPage
-            { user = Nothing
-            , errors = Nothing
-            }
+        , { user = Nothing
+          , initialForm = Form.init (form defaultUser)
+          }
+            |> PageServerResponse.RenderPage
             |> DataSource.succeed
             |> Request.succeed
         ]
@@ -793,7 +801,7 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
         ]
 
 
-errorsView : { a | errors : List Form.Error, submitStatus : Form.SubmitStatus, status : Form.FieldStatus } -> Html msg
+errorsView : { a | errors : List String, submitStatus : Form.SubmitStatus, status : Form.FieldStatus } -> Html msg
 errorsView { errors, submitStatus, status } =
     Html.p
         [ css
@@ -804,7 +812,6 @@ errorsView { errors, submitStatus, status } =
         ]
         [ if (status |> Form.isAtLeast Form.Focused) || submitStatus == Form.Submitting || submitStatus == Form.Submitted then
             errors
-                |> List.map Form.errorToString
                 |> String.join "\n"
                 |> Html.text
 

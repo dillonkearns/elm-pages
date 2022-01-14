@@ -33,7 +33,12 @@ all =
         , test "run a single field's validation on blur" <|
             \() ->
                 Form.succeed identity
-                    |> Form.with (Form.date "dob" toInput)
+                    |> Form.with
+                        (Form.date "dob"
+                            { invalid = \_ -> "Invalid date"
+                            }
+                            toInput
+                        )
                     |> Form.runClientValidations
                         { fields =
                             Dict.fromList
@@ -44,7 +49,7 @@ all =
                         , isSubmitting = Form.NotSubmitted
                         }
                     |> Expect.equal
-                        (Err [ ( "dob", [ Form.InvalidDate ] ) ])
+                        (Err [ ( "dob", [ "Invalid date" ] ) ])
         , test "custom client validation" <|
             \() ->
                 Form.succeed identity
@@ -68,7 +73,7 @@ all =
                         }
                     |> Expect.equal
                         (Err
-                            [ ( "first", [ Form.Error "Needs to be capitalized" ] )
+                            [ ( "first", [ "Needs to be capitalized" ] )
                             ]
                         )
         , test "init dict includes default values" <|
@@ -97,21 +102,29 @@ all =
             \() ->
                 Form.succeed Tuple.pair
                     |> Form.with
-                        (Form.requiredDate "checkin" toInput
+                        (Form.requiredDate "checkin"
+                            { invalid = \_ -> "Invalid date"
+                            , missing = "Required"
+                            }
+                            toInput
                             |> Form.withInitialValue "2022-01-01"
                         )
                     |> Form.with
-                        (Form.requiredDate "checkout" toInput
+                        (Form.requiredDate "checkout"
+                            { invalid = \_ -> "Invalid date"
+                            , missing = "Required"
+                            }
+                            toInput
                             |> Form.withInitialValue "2022-01-01"
                         )
                     |> Form.validate
                         (\( checkin, checkout ) ->
-                            [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
+                            [ ( "checkin", [ "Must be before checkout date." ] )
                             ]
                         )
                     |> Form.init
                     |> expectErrors
-                        [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
+                        [ ( "checkin", [ "Must be before checkout date." ] )
                         , ( "checkout", [] )
                         ]
         , test "initial validations only run once" <|
@@ -119,12 +132,12 @@ all =
                 (Form.succeed identity
                     |> Form.with
                         (Form.text "name" toInput
-                            |> Form.required
+                            |> Form.required "Required"
                         )
                 )
                     |> Form.init
                     |> expectErrors
-                        [ ( "name", [ Form.MissingRequired ] )
+                        [ ( "name", [ "Required" ] )
                         ]
         , test "no duplicate validation errors from update call" <|
             \() ->
@@ -133,14 +146,14 @@ all =
                         Form.succeed identity
                             |> Form.with
                                 (Form.text "name" toInput
-                                    |> Form.required
+                                    |> Form.required "Required"
                                 )
                 in
                 form
                     |> Form.init
                     |> updateField form ( "name", "" )
                     |> expectErrors
-                        [ ( "name", [ Form.MissingRequired ] )
+                        [ ( "name", [ "Required" ] )
                         ]
         , skip <|
             test "form-level validations are when there are recoverable field-level errors" <|
@@ -150,11 +163,11 @@ all =
                             Form.succeed Tuple.pair
                                 |> Form.with
                                     (Form.text "password" toInput
-                                        |> Form.required
+                                        |> Form.required "Required"
                                     )
                                 |> Form.with
                                     (Form.text "password-confirmation" toInput
-                                        |> Form.required
+                                        |> Form.required "Required"
                                     )
                                 |> Form.validate
                                     (\( password, passwordConfirmation ) ->
@@ -162,14 +175,14 @@ all =
                                             []
 
                                         else
-                                            [ ( "password-confirmation", [ Form.Error "Passwords must match." ] )
+                                            [ ( "password-confirmation", [ "Passwords must match." ] )
                                             ]
                                     )
                                 |> Form.appendForm Tuple.pair
                                     (Form.succeed identity
                                         |> Form.with
                                             (Form.text "name" toInput
-                                                |> Form.required
+                                                |> Form.required "Required"
                                             )
                                     )
                     in
@@ -178,38 +191,46 @@ all =
                         |> updateField form ( "password", "abcd" )
                         |> updateField form ( "password-confirmation", "abcd" )
                         |> expectErrors
-                            [ ( "name", [ Form.MissingRequired ] )
+                            [ ( "name", [ "Required" ] )
                             , ( "password", [] )
-                            , ( "password-confirmation", [ Form.Error "Passwords must match." ] )
+                            , ( "password-confirmation", [ "Passwords must match." ] )
                             ]
         , test "dependent validations are run when other fields have recoverable errors" <|
             \() ->
                 Form.succeed Tuple.pair
                     |> Form.with
-                        (Form.requiredDate "checkin" toInput
+                        (Form.requiredDate "checkin"
+                            { invalid = \_ -> "Invalid date"
+                            , missing = "Required"
+                            }
+                            toInput
                             |> Form.withInitialValue "2022-01-01"
                         )
                     |> Form.with
-                        (Form.requiredDate "checkout" toInput
+                        (Form.requiredDate "checkout"
+                            { invalid = \_ -> "Invalid date"
+                            , missing = "Required"
+                            }
+                            toInput
                             |> Form.withInitialValue "2022-01-01"
                         )
                     |> Form.validate
                         (\( checkin, checkout ) ->
-                            [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
+                            [ ( "checkin", [ "Must be before checkout date." ] )
                             ]
                         )
                     |> Form.appendForm Tuple.pair
                         (Form.succeed identity
                             |> Form.with
                                 (Form.text "name" toInput
-                                    |> Form.required
+                                    |> Form.required "Required"
                                 )
                         )
                     |> Form.init
                     |> expectErrors
-                        [ ( "checkin", [ Form.Error "Must be before checkout date." ] )
+                        [ ( "checkin", [ "Must be before checkout date." ] )
                         , ( "checkout", [] )
-                        , ( "name", [ Form.MissingRequired ] )
+                        , ( "name", [ "Required" ] )
                         ]
         ]
 
@@ -220,14 +241,14 @@ expectDecodeNoErrors decoded actual =
         |> Expect.equal (Ok ( decoded, [] ))
 
 
-updateField : Form.Form value view -> ( String, String ) -> Form.Model -> Form.Model
+updateField : Form.Form String value view -> ( String, String ) -> Form.Model -> Form.Model
 updateField form ( name, value ) model =
     model
         |> Form.update (\_ -> ()) (\_ -> ()) form (Form.OnFieldInput { name = name, value = value })
         |> Tuple.first
 
 
-expectErrors : List ( String, List Form.Error ) -> Form.Model -> Expect.Expectation
+expectErrors : List ( String, List String ) -> Form.Model -> Expect.Expectation
 expectErrors expected form =
     form.fields
         |> Dict.map (\key value -> value.errors)
