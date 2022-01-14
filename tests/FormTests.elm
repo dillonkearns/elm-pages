@@ -98,62 +98,70 @@ all =
                     |> Form.init
                     |> Form.hasErrors2
                     |> Expect.true "expected errors"
-        , test "dependent validations" <|
-            \() ->
-                Form.succeed Tuple.pair
-                    |> Form.with
-                        (Form.requiredDate "checkin"
-                            { invalid = \_ -> "Invalid date"
-                            , missing = "Required"
-                            }
-                            toInput
-                            |> Form.withInitialValue "2022-01-01"
-                        )
-                    |> Form.with
-                        (Form.requiredDate "checkout"
-                            { invalid = \_ -> "Invalid date"
-                            , missing = "Required"
-                            }
-                            toInput
-                            |> Form.withInitialValue "2022-01-01"
-                        )
-                    |> Form.validate
-                        (\( checkin, checkout ) ->
+        , skip <|
+            test "dependent validations" <|
+                \() ->
+                    Form.succeed Tuple.pair
+                        |> Form.with
+                            (Form.requiredDate "checkin"
+                                { invalid = \_ -> "Invalid date"
+                                , missing = "Required"
+                                }
+                                toInput
+                                |> Form.withInitialValue "2022-01-01"
+                            )
+                        |> Form.with
+                            (Form.requiredDate "checkout"
+                                { invalid = \_ -> "Invalid date"
+                                , missing = "Required"
+                                }
+                                toInput
+                                |> Form.withInitialValue "2022-01-01"
+                            )
+                        |> Form.validate
+                            (\( checkin, checkout ) ->
+                                [ ( "checkin", [ "Must be before checkout date." ] )
+                                ]
+                            )
+                        |> Form.init
+                        |> expectErrors
                             [ ( "checkin", [ "Must be before checkout date." ] )
+                            , ( "checkout", [] )
                             ]
-                        )
-                    |> Form.init
-                    |> expectErrors
-                        [ ( "checkin", [ "Must be before checkout date." ] )
-                        , ( "checkout", [] )
-                        ]
         , test "initial validations only run once" <|
             \() ->
-                (Form.succeed identity
+                Form.succeed identity
                     |> Form.with
                         (Form.text "name" toInput
                             |> Form.required "Required"
                         )
-                )
-                    |> Form.init
-                    |> expectErrors
+                    |> expectErrorsAfterUpdates
                         [ ( "name", [ "Required" ] )
                         ]
         , test "no duplicate validation errors from update call" <|
             \() ->
-                let
-                    form =
-                        Form.succeed identity
-                            |> Form.with
-                                (Form.text "name" toInput
-                                    |> Form.required "Required"
-                                )
-                in
-                form
-                    |> Form.init
-                    |> updateField form ( "name", "" )
-                    |> expectErrors
+                Form.succeed identity
+                    |> Form.with
+                        (Form.text "name" toInput
+                            |> Form.required "Required"
+                        )
+                    |> expectErrorsAfterUpdates
                         [ ( "name", [ "Required" ] )
+                        ]
+        , test "runs proceeding validations even when there are prior errors" <|
+            \() ->
+                Form.succeed Tuple.pair
+                    |> Form.with
+                        (Form.text "first" toInput
+                            |> Form.required "Required"
+                        )
+                    |> Form.with
+                        (Form.text "last" toInput
+                            |> Form.required "Required"
+                        )
+                    |> expectErrorsAfterUpdates
+                        [ ( "first", [ "Required" ] )
+                        , ( "last", [ "Required" ] )
                         ]
         , skip <|
             test "form-level validations are when there are recoverable field-level errors" <|
@@ -195,43 +203,43 @@ all =
                             , ( "password", [] )
                             , ( "password-confirmation", [ "Passwords must match." ] )
                             ]
-        , test "dependent validations are run when other fields have recoverable errors" <|
-            \() ->
-                Form.succeed Tuple.pair
-                    |> Form.with
-                        (Form.requiredDate "checkin"
-                            { invalid = \_ -> "Invalid date"
-                            , missing = "Required"
-                            }
-                            toInput
-                            |> Form.withInitialValue "2022-01-01"
-                        )
-                    |> Form.with
-                        (Form.requiredDate "checkout"
-                            { invalid = \_ -> "Invalid date"
-                            , missing = "Required"
-                            }
-                            toInput
-                            |> Form.withInitialValue "2022-01-01"
-                        )
-                    |> Form.validate
-                        (\( checkin, checkout ) ->
+        , skip <|
+            test "dependent validations are run when other fields have recoverable errors" <|
+                \() ->
+                    Form.succeed Tuple.pair
+                        |> Form.with
+                            (Form.requiredDate "checkin"
+                                { invalid = \_ -> "Invalid date"
+                                , missing = "Required"
+                                }
+                                toInput
+                                |> Form.withInitialValue "2022-01-01"
+                            )
+                        |> Form.with
+                            (Form.requiredDate "checkout"
+                                { invalid = \_ -> "Invalid date"
+                                , missing = "Required"
+                                }
+                                toInput
+                                |> Form.withInitialValue "2022-01-01"
+                            )
+                        |> Form.validate
+                            (\( checkin, checkout ) ->
+                                [ ( "checkin", [ "Must be before checkout date." ] )
+                                ]
+                            )
+                        |> Form.appendForm Tuple.pair
+                            (Form.succeed identity
+                                |> Form.with
+                                    (Form.text "name" toInput
+                                        |> Form.required "Required"
+                                    )
+                            )
+                        |> expectErrorsAfterUpdates
                             [ ( "checkin", [ "Must be before checkout date." ] )
+                            , ( "checkout", [] )
+                            , ( "name", [ "Required" ] )
                             ]
-                        )
-                    |> Form.appendForm Tuple.pair
-                        (Form.succeed identity
-                            |> Form.with
-                                (Form.text "name" toInput
-                                    |> Form.required "Required"
-                                )
-                        )
-                    |> Form.init
-                    |> expectErrors
-                        [ ( "checkin", [ "Must be before checkout date." ] )
-                        , ( "checkout", [] )
-                        , ( "name", [ "Required" ] )
-                        ]
         ]
 
 
@@ -253,6 +261,42 @@ expectErrors expected form =
     form.fields
         |> Dict.map (\key value -> value.errors)
         |> Expect.equalDicts (Dict.fromList expected)
+
+
+updateAllFields : List String -> Form.Form String value view -> Form.Model -> Form.Model
+updateAllFields fields form model =
+    fields
+        |> List.foldl
+            (\fieldName modelSoFar ->
+                modelSoFar
+                    |> updateField form ( fieldName, "" )
+            )
+            model
+
+
+expectErrorsAfterUpdates : List ( String, List String ) -> Form.Form String value view -> Expect.Expectation
+expectErrorsAfterUpdates expected form =
+    let
+        fieldsToUpdate : List String
+        fieldsToUpdate =
+            expected |> List.map Tuple.first
+
+        model : Form.Model
+        model =
+            Form.init form
+    in
+    Expect.all
+        ([ model
+         , updateAllFields fieldsToUpdate form model
+         ]
+            |> List.map
+                (\formModel () ->
+                    formModel.fields
+                        |> Dict.map (\key value -> value.errors)
+                        |> Expect.equalDicts (Dict.fromList expected)
+                )
+        )
+        ()
 
 
 field value =

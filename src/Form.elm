@@ -284,7 +284,7 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                                             Just { raw, errors, status } ->
                                                 Just
                                                     { raw = Just value
-                                                    , errors = [] -- runValidation form { name = name, value = value }
+                                                    , errors = runValidation form { name = name, value = value }
                                                     , status = status |> increaseStatusTo Changed
                                                     }
 
@@ -292,37 +292,17 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                                                 -- TODO calculate errors here? Do server-side errors need to be preserved?
                                                 Just
                                                     { raw = Just value
-                                                    , errors = [] --runValidation form { name = name, value = value }
+                                                    , errors = runValidation form { name = name, value = value }
                                                     , status = Changed
                                                     }
                                     )
                     }
-            in
-            ( case modelToValue initialModel of
-                Ok _ ->
-                    initialModel
 
-                Err errors ->
-                    let
-                        errorsDict =
-                            Dict.fromList errors
-                    in
-                    { initialModel
-                        | fields =
-                            initialModel.fields
-                                |> Dict.map
-                                    (\key rawField ->
-                                        { rawField
-                                            | errors =
-                                                -- TODO is it possible to avoid re-calculating? Might need to separate form-level validations from field-level validations into different data structures?
-                                                --rawField.errors
-                                                --++
-                                                errorsDict |> Dict.get key |> Maybe.withDefault []
-                                        }
-                                    )
-                    }
-            , Cmd.none
-            )
+                -- TODO use modelToValue here
+                _ =
+                    modelToValue initialModel |> Debug.log "@@@update"
+            in
+            ( initialModel, Cmd.none )
 
         OnFieldFocus record ->
             ( { model
@@ -415,19 +395,21 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
                                         ( field.name
                                         , { raw = Just initial
                                           , errors =
-                                                --runValidation form
-                                                --    { name = field.name
-                                                --    , value = initial
-                                                --    }
-                                                --
-                                                []
+                                                runValidation form
+                                                    { name = field.name
+                                                    , value = initial
+                                                    }
                                           , status = NotVisited
                                           }
                                         )
                                     )
+                                -- TODO run this part lazily, not eagerly
                                 |> Maybe.withDefault
                                     ( field.name
-                                    , initField
+                                    , { raw = Nothing
+                                      , errors = runValidation form { name = field.name, value = "" }
+                                      , status = NotVisited
+                                      }
                                     )
                         )
                     |> Dict.fromList
@@ -435,26 +417,12 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
             }
     in
     case modelToValue initialModel of
-        Ok _ ->
+        -- TODO use these errors here
+        Ok decodedModelAndErrors ->
             initialModel
 
         Err errors ->
-            let
-                errorsDict =
-                    Dict.fromList errors
-            in
-            { initialModel
-                | fields =
-                    initialModel.fields
-                        |> Dict.map
-                            (\key value ->
-                                { value
-                                    | errors =
-                                        value.errors
-                                            ++ (errorsDict |> Dict.get key |> Maybe.withDefault [])
-                                }
-                            )
-            }
+            initialModel
 
 
 toInputRecord :
@@ -1297,6 +1265,29 @@ withClientValidation mapFn (Field field) =
         }
 
 
+withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field error value view constraints -> Field error mapped view constraints
+withClientValidation2 mapFn (Field field) =
+    Field
+        { name = field.name
+        , initialValue = field.initialValue
+        , type_ = field.type_
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , toHtml = field.toHtml
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> Result.andThen
+                        (\( okValue, errors ) ->
+                            okValue
+                                |> mapFn
+                                |> Result.map (\( value_, newErrors ) -> ( value_, newErrors ++ errors ))
+                        )
+        , properties = field.properties
+        }
+
+
 with : Field error value view constraints -> Form error (value -> form) view -> Form error form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
@@ -1313,14 +1304,14 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                             clientErrors : List error
                                             clientErrors =
                                                 case field.decode arg2 of
-                                                    Ok _ ->
-                                                        []
+                                                    Ok ( value, errors ) ->
+                                                        errors
 
                                                     Err error ->
                                                         error
                                         in
                                         ( field.name
-                                        , { errors = validationErrors ++ clientErrors
+                                        , { errors = validationErrors --++ clientErrors
                                           , raw = arg2
                                           , status = NotVisited -- TODO @@@ is this correct?
                                           }
@@ -1344,7 +1335,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                     (List.map
                                         (\error -> ( field.name, [ error ] ))
                                     )
-                                |> Result.map (\okValue -> ( okValue, [] ))
+                                |> Result.map (\( okValue, errors ) -> ( ( okValue, errors ), [] ))
                         )
                 )
                 decoder
@@ -1536,7 +1527,14 @@ simplify2 field =
         \value ->
             value
                 |> field.decode
-                |> Result.map (\_ -> ())
+                |> Result.andThen
+                    (\( _, errors ) ->
+                        if errors |> List.isEmpty then
+                            Ok ()
+
+                        else
+                            Err errors
+                    )
     }
 
 

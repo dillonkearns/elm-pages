@@ -245,6 +245,39 @@ form user =
                         else
                             DataSource.succeed []
                     )
+                |> Form.withClientValidation2
+                    (\username ->
+                        Ok
+                            ( username
+                            , if username |> String.contains "@" then
+                                [ "Cannot contain @ symbol" ]
+
+                              else
+                                []
+                            )
+                    )
+                |> Form.withClientValidation2
+                    (\username ->
+                        Ok
+                            ( username
+                            , if username |> String.contains "#" then
+                                [ "Cannot contain # symbol" ]
+
+                              else
+                                []
+                            )
+                    )
+                |> Form.withClientValidation2
+                    (\username ->
+                        Ok
+                            ( username
+                            , if (username |> String.length) < 3 then
+                                [ "Must be at least 3 characters long" ]
+
+                              else
+                                []
+                            )
+                    )
             )
         |> Form.with
             (Form.text
@@ -804,85 +837,32 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
 
 errorsView : { a | errors : List String, submitStatus : Form.SubmitStatus, status : Form.FieldStatus } -> Html msg
 errorsView { errors, submitStatus, status } =
-    Html.p
+    let
+        showErrors : Bool
+        showErrors =
+            --(status |> Form.isAtLeast Form.Focused) || submitStatus == Form.Submitting || submitStatus == Form.Submitted
+            True
+    in
+    Html.ul
         [ css
             [ Tw.mt_2
             , Tw.text_sm
             , Tw.text_red_600
             ]
         ]
-        [ if (status |> Form.isAtLeast Form.Focused) || submitStatus == Form.Submitting || submitStatus == Form.Submitted then
+        (if showErrors then
             errors
-                |> String.join "\n"
-                |> Html.text
+                |> List.map
+                    (\error ->
+                        Html.li
+                            [ css [ Tw.list_disc ]
+                            ]
+                            [ Html.text error ]
+                    )
 
-          else
-            Html.text ""
-        ]
-
-
-textInput2 =
-    Html.div
-        [ css
-            [ Bp.sm
-                [ Tw.grid
-                , Tw.grid_cols_3
-                , Tw.gap_4
-                , Tw.items_start
-                , Tw.border_t
-                , Tw.border_gray_200
-                , Tw.pt_5
-                ]
-            ]
-        ]
-        [ Html.label
-            [ Attr.for "first-name"
-            , css
-                [ Tw.block
-                , Tw.text_sm
-                , Tw.font_medium
-                , Tw.text_gray_700
-                , Bp.sm
-                    [ Tw.mt_px
-                    , Tw.pt_2
-                    ]
-                ]
-            ]
-            [ Html.text "First name" ]
-        , Html.div
-            [ css
-                [ Tw.mt_1
-                , Bp.sm
-                    [ Tw.mt_0
-                    , Tw.col_span_2
-                    ]
-                ]
-            ]
-            [ Html.input
-                [ Attr.type_ "text"
-                , Attr.name "first-name"
-                , Attr.id "first-name"
-                , Attr.attribute "autocomplete" "given-name"
-                , css
-                    [ Tw.max_w_lg
-                    , Tw.block
-                    , Tw.w_full
-                    , Tw.shadow_sm
-                    , Tw.border_gray_300
-                    , Tw.rounded_md
-                    , Css.focus
-                        [ Tw.ring_indigo_500
-                        , Tw.border_indigo_500
-                        ]
-                    , Bp.sm
-                        [ Tw.max_w_xs
-                        , Tw.text_sm
-                        ]
-                    ]
-                ]
-                []
-            ]
-        ]
+         else
+            []
+        )
 
 
 checkboxInput { name, description } ({ toLabel, toInput, errors } as info) =
