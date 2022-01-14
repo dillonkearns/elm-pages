@@ -236,6 +236,7 @@ form user =
         |> Form.with
             (Form.text "username" usernameInput
                 |> Form.withInitialValue user.username
+                |> Form.required "Required"
                 |> Form.withServerValidation
                     (\username ->
                         if username == "asdf" then
