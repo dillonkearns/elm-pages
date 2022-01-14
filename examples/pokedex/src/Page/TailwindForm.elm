@@ -553,27 +553,20 @@ type alias Data =
 data : RouteParams -> Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.oneOf
-        [ Form.apiHandler (form defaultUser)
-        , Form.toRequest2 (form defaultUser)
-            |> Request.map
-                (\userOrErrors ->
-                    userOrErrors
-                        |> DataSource.map
-                            (\result ->
-                                (case result of
-                                    Ok ( errors, user ) ->
-                                        { user = Just user
-                                        , errors = Just { fields = errors, isSubmitting = Form.Submitted }
-                                        }
+        [ Form.submitHandlers
+            (form defaultUser)
+            (\model decoded ->
+                DataSource.succeed
+                    { user =
+                        case decoded of
+                            Ok user ->
+                                Just user
 
-                                    Err errors ->
-                                        { user = Nothing
-                                        , errors = Just { fields = errors, isSubmitting = Form.Submitted }
-                                        }
-                                )
-                                    |> PageServerResponse.RenderPage
-                            )
-                )
+                            Err error ->
+                                Nothing
+                    , errors = Just model
+                    }
+            )
         , PageServerResponse.RenderPage
             { user = Nothing
             , errors = Nothing

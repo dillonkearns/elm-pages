@@ -1708,6 +1708,44 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
         )
 
 
+submitHandlers :
+    Form decoded view
+    -> (Model -> Result () decoded -> DataSource data)
+    ->
+        Request
+            (DataSource
+                (PageServerResponse
+                    --{ decoded : Maybe decoded
+                    --, errors : Maybe { fields : FieldState, isSubmitting : SubmitStatus }
+                    --}
+                    data
+                )
+            )
+submitHandlers myForm toDataSource =
+    Request.oneOf
+        [ apiHandler myForm
+        , toRequest2 myForm
+            |> Request.map
+                (\userOrErrors ->
+                    userOrErrors
+                        |> DataSource.andThen
+                            (\result ->
+                                case result of
+                                    Ok ( errors, decoded ) ->
+                                        Ok decoded
+                                            |> toDataSource
+                                                { fields = errors, isSubmitting = Submitted }
+
+                                    Err errors ->
+                                        Err ()
+                                            |> toDataSource
+                                                { fields = errors, isSubmitting = Submitted }
+                            )
+                        |> DataSource.map PageServerResponse.RenderPage
+                )
+        ]
+
+
 combineWithErrors : List ( String, List Error ) -> Dict String RawFieldState -> Dict String RawFieldState
 combineWithErrors validationErrors fieldState =
     validationErrors
