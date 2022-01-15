@@ -84,15 +84,17 @@ type Form error value view
             , List view -> List view
             )
         )
-        (Request (Result (List ( String, List error )) ( value, List ( String, List error ) )))
-        (Request
-            (DataSource
-                (List
-                    ( String
-                    , RawFieldState error
+        ((String -> Request (Maybe String)) -> Request (Result (List ( String, List error )) ( value, List ( String, List error ) )))
+        ((String -> Request (Maybe String))
+         ->
+            Request
+                (DataSource
+                    (List
+                        ( String
+                        , RawFieldState error
+                        )
                     )
                 )
-            )
         )
         (FieldState error -> Result (List ( String, List error )) ( value, List ( String, List error ) ))
 
@@ -160,8 +162,8 @@ type alias FinalFieldInfo error =
 succeed : constructor -> Form error constructor view
 succeed constructor =
     Form []
-        (Request.succeed (Ok ( constructor, [] )))
-        (Request.succeed (DataSource.succeed []))
+        (\_ -> Request.succeed (Ok ( constructor, [] )))
+        (\_ -> Request.succeed (DataSource.succeed []))
         (\_ -> Ok ( constructor, [] ))
 
 
@@ -1306,8 +1308,8 @@ withClientValidation2 mapFn (Field field) =
 with : Field error value view constraints -> Form error (value -> form) view -> Form error form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
-        thing : Request (DataSource (List ( String, RawFieldState error )))
-        thing =
+        thing : (String -> Request (Maybe String)) -> Request (DataSource (List ( String, RawFieldState error )))
+        thing optionalFormField_ =
             Request.map2
                 (\arg1 arg2 ->
                     arg1
@@ -1334,14 +1336,14 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                     )
                             )
                 )
-                serverValidations
-                (Request.optionalFormField_ field.name)
+                (serverValidations optionalFormField_)
+                (optionalFormField_ field.name)
 
-        withDecoder : Request (Result (List ( String, List error )) ( form, List ( String, List error ) ))
-        withDecoder =
+        withDecoder : (String -> Request (Maybe String)) -> Request (Result (List ( String, List error )) ( form, List ( String, List error ) ))
+        withDecoder optionalFormField_ =
             Request.map2
                 (combineWithDecoder field.name)
-                (Request.optionalFormField_ field.name
+                (optionalFormField_ field.name
                     |> Request.map
                         (\myValue ->
                             myValue
@@ -1353,7 +1355,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                 |> Result.map (\( okValue, errors ) -> ( ( okValue, errors ), [] ))
                         )
                 )
-                decoder
+                (decoder optionalFormField_)
     in
     Form
         (addField field fields)
@@ -1493,11 +1495,17 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form 
     Form
         -- TODO is this ordering correct?
         (fields1 ++ fields2)
-        (Request.map2 (map2ResultWithErrors mapFn) decoder1 decoder2)
-        (Request.map2
-            (DataSource.map2 (++))
-            serverValidations1
-            serverValidations2
+        (\optionalFormField_ ->
+            Request.map2
+                (map2ResultWithErrors mapFn)
+                (decoder1 optionalFormField_)
+                (decoder2 optionalFormField_)
+        )
+        (\optionalFormField_ ->
+            Request.map2
+                (DataSource.map2 (++))
+                (serverValidations1 optionalFormField_)
+                (serverValidations2 optionalFormField_)
         )
         (\model ->
             map2ResultWithErrors mapFn
@@ -1643,8 +1651,8 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
 toRequest : Form error value view -> Request (Result (List ( String, List error )) ( value, List ( String, List error ) ))
 toRequest (Form fields decoder serverValidations modelToValue) =
     Request.expectFormPost
-        (\_ ->
-            decoder
+        (\{ optionalField } ->
+            decoder optionalField
         )
 
 
@@ -1688,14 +1696,13 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
                     )
         )
         (Request.expectFormPost
-            (\_ ->
-                decoder
+            (\{ optionalField } ->
+                decoder optionalField
             )
         )
         (Request.expectFormPost
             (\{ optionalField } ->
-                -- TODO inject `optionalField` so it's not a dependency. That way this can be published as an independent package.
-                serverValidations
+                serverValidations optionalField
             )
         )
         |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
@@ -1736,13 +1743,13 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
                     )
         )
         (Request.expectFormPost
-            (\_ ->
-                decoder
+            (\{ optionalField } ->
+                decoder optionalField
             )
         )
         (Request.expectFormPost
-            (\_ ->
-                serverValidations
+            (\{ optionalField } ->
+                serverValidations optionalField
             )
         )
 
