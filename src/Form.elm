@@ -1719,7 +1719,7 @@ toRequest2 :
             (DataSource
                 (Result Model ( Model, value ))
             )
-toRequest2 (Form fields decoder serverValidations modelToValue) =
+toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
     Request.map2
         (\decoded errors ->
             errors
@@ -1729,38 +1729,13 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
                             Ok ( value, otherValidationErrors ) ->
                                 --if not (hasErrors validationErrors) && (otherValidationErrors |> List.isEmpty) then
                                 if otherValidationErrors |> List.isEmpty then
-                                    Ok
-                                        ( --validationErrors |> Dict.fromList
-                                          { model
-                                            | fields =
-                                                model.fields
-                                                    |> combineWithErrors otherValidationErrors
-                                          }
-                                        , value
-                                        )
+                                    Ok ( model, value )
 
                                 else
-                                    --validationErrors
-                                    --    |> Dict.fromList
-                                    --    |> combineWithErrors otherValidationErrors
-                                    { model
-                                        | fields =
-                                            model.fields
-                                                |> combineWithErrors otherValidationErrors
-                                    }
-                                        |> Err
+                                    Err model
 
                             Err otherValidationErrors ->
-                                --validationErrors
-                                --    |> Dict.fromList
-                                --    |> combineWithErrors otherValidationErrors
-                                --    |> Err
-                                { model
-                                    | fields =
-                                        model.fields
-                                            |> combineWithErrors otherValidationErrors
-                                }
-                                    |> Err
+                                Err model
                     )
         )
         (Request.expectFormPost
@@ -1779,6 +1754,16 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
                                     fullFieldState =
                                         thing
                                             |> Dict.fromList
+                                            |> Dict.map
+                                                (\fieldName fieldValue ->
+                                                    { fieldValue
+                                                        | errors =
+                                                            runValidation form
+                                                                { name = fieldName
+                                                                , value = fieldValue.raw |> Maybe.withDefault ""
+                                                                }
+                                                    }
+                                                )
 
                                     otherErrors :
                                         Result
