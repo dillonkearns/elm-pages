@@ -192,37 +192,25 @@ page =
 
 type alias Data =
     { user : Maybe User
-    , errors : Maybe Form.ServerUpdate
+    , errors : Form.Model
     }
 
 
 data : RouteParams -> Request (DataSource (PageServerResponse Data))
 data routeParams =
     Request.oneOf
-        [ Form.toRequest2 (form defaultUser)
-            |> Request.map
-                (\userOrErrors ->
-                    userOrErrors
-                        |> DataSource.map
-                            (\result ->
-                                (case result of
-                                    Ok ( errors, user ) ->
-                                        { user = Just user
-                                        , errors = Just errors
-                                        }
-
-                                    Err errors ->
-                                        { user = Nothing
-                                        , errors = Just errors
-                                        }
-                                )
-                                    |> PageServerResponse.RenderPage
-                            )
-                )
-        , PageServerResponse.RenderPage
-            { user = Nothing
-            , errors = Nothing
-            }
+        [ Form.submitHandlers
+            (form defaultUser)
+            (\model decoded ->
+                DataSource.succeed
+                    { user = Result.toMaybe decoded
+                    , errors = model
+                    }
+            )
+        , { user = Nothing
+          , errors = Form.init (form defaultUser)
+          }
+            |> PageServerResponse.RenderPage
             |> DataSource.succeed
             |> Request.succeed
         ]
@@ -277,14 +265,7 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toHtml { pageReloadSubmit = True }
-                Html.form
-                { fields =
-                    static.data.errors
-                        |> Maybe.withDefault (Form.init (form defaultUser) |> .fields)
-                , isSubmitting = Form.NotSubmitted
-                , formErrors = Dict.empty
-                }
+            |> Form.toHtml { pageReloadSubmit = True } Html.form static.data.errors
             |> Html.map (\_ -> ())
         ]
     }

@@ -75,6 +75,12 @@ errorCodec =
     Codec.string
 
 
+type alias RawModel error =
+    { fields : List ( String, List error )
+    , formErrors : Dict String (List error)
+    }
+
+
 type Form error value view
     = Form
         -- TODO either make this a Dict and include the client-side validations here
@@ -309,12 +315,10 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                         Ok ( decodedModel, errors ) ->
                             errors
                                 |> Dict.fromList
-                                |> Debug.log "formErrors Ok"
 
                         Err errors ->
                             errors
                                 |> Dict.fromList
-                                |> Debug.log "formErrors Err"
             in
             ( initialModel, Cmd.none )
 
@@ -430,8 +434,7 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
     { fields = initialFields
     , isSubmitting = NotSubmitted
     , formErrors =
-        case modelToValue initialFields |> Debug.log "@@@123" of
-            -- TODO use these errors here
+        case modelToValue initialFields of
             Ok ( decodedModel, errors ) ->
                 errors
                     |> Dict.fromList
@@ -1714,32 +1717,49 @@ toRequest2 :
     ->
         Request
             (DataSource
-                (Result (FieldState String) ( FieldState String, value ))
+                (Result Model ( Model, value ))
             )
 toRequest2 (Form fields decoder serverValidations modelToValue) =
     Request.map2
         (\decoded errors ->
             errors
                 |> DataSource.map
-                    (\validationErrors ->
+                    (\model ->
                         case decoded of
                             Ok ( value, otherValidationErrors ) ->
-                                if not (hasErrors validationErrors) && (otherValidationErrors |> List.isEmpty) then
+                                --if not (hasErrors validationErrors) && (otherValidationErrors |> List.isEmpty) then
+                                if otherValidationErrors |> List.isEmpty then
                                     Ok
-                                        ( validationErrors |> Dict.fromList
+                                        ( --validationErrors |> Dict.fromList
+                                          { model
+                                            | fields =
+                                                model.fields
+                                                    |> combineWithErrors otherValidationErrors
+                                          }
                                         , value
                                         )
 
                                 else
-                                    validationErrors
-                                        |> Dict.fromList
-                                        |> combineWithErrors otherValidationErrors
+                                    --validationErrors
+                                    --    |> Dict.fromList
+                                    --    |> combineWithErrors otherValidationErrors
+                                    { model
+                                        | fields =
+                                            model.fields
+                                                |> combineWithErrors otherValidationErrors
+                                    }
                                         |> Err
 
                             Err otherValidationErrors ->
-                                validationErrors
-                                    |> Dict.fromList
-                                    |> combineWithErrors otherValidationErrors
+                                --validationErrors
+                                --    |> Dict.fromList
+                                --    |> combineWithErrors otherValidationErrors
+                                --    |> Err
+                                { model
+                                    | fields =
+                                        model.fields
+                                            |> combineWithErrors otherValidationErrors
+                                }
                                     |> Err
                     )
         )
@@ -1751,6 +1771,34 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
         (Request.expectFormPost
             (\{ optionalField } ->
                 serverValidations optionalField
+                    |> Request.map
+                        (DataSource.map
+                            (\thing ->
+                                let
+                                    fullFieldState : Dict String (RawFieldState String)
+                                    fullFieldState =
+                                        thing
+                                            |> Dict.fromList
+
+                                    otherErrors :
+                                        Result
+                                            (List ( String, List String ))
+                                            ( value, List ( String, List String ) )
+                                    otherErrors =
+                                        modelToValue fullFieldState
+                                in
+                                { fields = fullFieldState
+                                , isSubmitting = Submitted
+                                , formErrors =
+                                    case otherErrors of
+                                        Ok ( _, okErrors ) ->
+                                            okErrors |> Dict.fromList
+
+                                        Err errErrors ->
+                                            errErrors |> Dict.fromList
+                                }
+                            )
+                        )
             )
         )
 
@@ -1778,15 +1826,12 @@ submitHandlers myForm toDataSource =
                         |> DataSource.andThen
                             (\result ->
                                 case result of
-                                    Ok ( errors, decoded ) ->
+                                    Ok ( model, decoded ) ->
                                         Ok decoded
-                                            |> toDataSource
-                                                { fields = errors, isSubmitting = Submitted, formErrors = Dict.empty }
+                                            |> toDataSource model
 
-                                    Err errors ->
-                                        Err ()
-                                            |> toDataSource
-                                                { fields = errors, isSubmitting = Submitted, formErrors = Dict.empty }
+                                    Err model ->
+                                        Err () |> toDataSource model
                             )
                         |> DataSource.map PageServerResponse.RenderPage
                 )
