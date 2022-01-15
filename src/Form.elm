@@ -1806,16 +1806,7 @@ toRequest2 (Form fields decoder serverValidations modelToValue) =
 submitHandlers :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource data)
-    ->
-        Request
-            (DataSource
-                (PageServerResponse
-                    --{ decoded : Maybe decoded
-                    --, errors : Maybe { fields : FieldState, isSubmitting : SubmitStatus }
-                    --}
-                    data
-                )
-            )
+    -> Request (DataSource (PageServerResponse data))
 submitHandlers myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
