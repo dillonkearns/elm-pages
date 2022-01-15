@@ -94,7 +94,7 @@ type Form error value view
                 )
             )
         )
-        (Model -> Result (List ( String, List error )) ( value, List ( String, List error ) ))
+        (FieldState error -> Result (List ( String, List error )) ( value, List ( String, List error ) ))
 
 
 type Field error value view constraints
@@ -165,9 +165,9 @@ succeed constructor =
         (\_ -> Ok ( constructor, [] ))
 
 
-runClientValidations : Model -> Form error value view -> Result (List ( String, List error )) ( value, List ( String, List error ) )
+runClientValidations : Model -> Form String value view -> Result (List ( String, List String )) ( value, List ( String, List String ) )
 runClientValidations model (Form fields decoder serverValidations modelToValue) =
-    modelToValue model
+    modelToValue model.fields
 
 
 type Msg
@@ -187,6 +187,7 @@ type SubmitStatus
 type alias Model =
     { fields : FieldState String
     , isSubmitting : SubmitStatus
+    , formErrors : Dict String (List String)
     }
 
 
@@ -276,31 +277,42 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
             let
                 initialModel =
                     { model
-                        | fields =
-                            model.fields
-                                |> Dict.update name
-                                    (\entry ->
-                                        case entry of
-                                            Just { raw, errors, status } ->
-                                                Just
-                                                    { raw = Just value
-                                                    , errors = runValidation form { name = name, value = value }
-                                                    , status = status |> increaseStatusTo Changed
-                                                    }
-
-                                            Nothing ->
-                                                -- TODO calculate errors here? Do server-side errors need to be preserved?
-                                                Just
-                                                    { raw = Just value
-                                                    , errors = runValidation form { name = name, value = value }
-                                                    , status = Changed
-                                                    }
-                                    )
+                        | fields = updatedFields
+                        , formErrors = updatedFormErrors
                     }
 
-                -- TODO use modelToValue here
-                _ =
-                    modelToValue initialModel |> Debug.log "@@@update"
+                updatedFields =
+                    model.fields
+                        |> Dict.update name
+                            (\entry ->
+                                case entry of
+                                    Just { raw, errors, status } ->
+                                        Just
+                                            { raw = Just value
+                                            , errors = runValidation form { name = name, value = value }
+                                            , status = status |> increaseStatusTo Changed
+                                            }
+
+                                    Nothing ->
+                                        -- TODO calculate errors here? Do server-side errors need to be preserved?
+                                        Just
+                                            { raw = Just value
+                                            , errors = runValidation form { name = name, value = value }
+                                            , status = Changed
+                                            }
+                            )
+
+                updatedFormErrors =
+                    case modelToValue updatedFields of
+                        Ok ( decodedModel, errors ) ->
+                            errors
+                                |> Dict.fromList
+                                |> Debug.log "formErrors Ok"
+
+                        Err errors ->
+                            errors
+                                |> Dict.fromList
+                                |> Debug.log "formErrors Err"
             in
             ( initialModel, Cmd.none )
 
@@ -383,46 +395,49 @@ initField =
 init : Form String value view -> Model
 init ((Form fields decoder serverValidations modelToValue) as form) =
     let
-        initialModel =
-            { fields =
-                fields
-                    |> List.concatMap Tuple.first
-                    |> List.map
-                        (\field ->
-                            field.initialValue
-                                |> Maybe.map
-                                    (\initial ->
-                                        ( field.name
-                                        , { raw = Just initial
-                                          , errors =
-                                                runValidation form
-                                                    { name = field.name
-                                                    , value = initial
-                                                    }
-                                          , status = NotVisited
-                                          }
-                                        )
-                                    )
-                                -- TODO run this part lazily, not eagerly
-                                |> Maybe.withDefault
+        initialFields =
+            fields
+                |> List.concatMap Tuple.first
+                |> List.map
+                    (\field ->
+                        field.initialValue
+                            |> Maybe.map
+                                (\initial ->
                                     ( field.name
-                                    , { raw = Nothing
-                                      , errors = runValidation form { name = field.name, value = "" }
+                                    , { raw = Just initial
+                                      , errors =
+                                            runValidation form
+                                                { name = field.name
+                                                , value = initial
+                                                }
                                       , status = NotVisited
                                       }
                                     )
-                        )
-                    |> Dict.fromList
-            , isSubmitting = NotSubmitted
-            }
+                                )
+                            -- TODO run this part lazily, not eagerly
+                            |> Maybe.withDefault
+                                ( field.name
+                                , { raw = Nothing
+                                  , errors = runValidation form { name = field.name, value = "" }
+                                  , status = NotVisited
+                                  }
+                                )
+                    )
+                |> Dict.fromList
     in
-    case modelToValue initialModel of
-        -- TODO use these errors here
-        Ok decodedModelAndErrors ->
-            initialModel
+    { fields = initialFields
+    , isSubmitting = NotSubmitted
+    , formErrors =
+        case modelToValue initialFields |> Debug.log "@@@123" of
+            -- TODO use these errors here
+            Ok ( decodedModel, errors ) ->
+                errors
+                    |> Dict.fromList
 
-        Err errors ->
-            initialModel
+            Err errors ->
+                errors
+                    |> Dict.fromList
+    }
 
 
 toInputRecord :
@@ -1344,31 +1359,37 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
         (addField field fields)
         withDecoder
         thing
-        (\model ->
+        (\fields_ ->
             let
                 maybeValue : Maybe String
                 maybeValue =
-                    model.fields
+                    fields_
                         |> Dict.get field.name
                         |> Maybe.andThen .raw
             in
-            case modelToValue model of
+            case modelToValue fields_ of
                 Err error ->
                     Err error
 
-                Ok ( okSoFar, errorsSoFar1 ) ->
+                Ok ( okSoFar, formErrors ) ->
                     maybeValue
                         |> field.decode
-                        -- TODO have a `List String` for field validation errors, too
-                        |> Result.mapError (\error -> [ ( field.name, error ) ])
+                        |> Result.mapError
+                            (\fieldErrors ->
+                                [ ( field.name
+                                  , {- these errors are ignored here because we run each field-level validation independently
+                                       but we still need to transform the values. We only want to get the form-level validations
+                                       from this pipeline.
+                                    -}
+                                    []
+                                  )
+                                ]
+                            )
                         |> Result.map
-                            (\( value, errorsSoFar2 ) ->
+                            (\( value, fieldErrors ) ->
                                 ( okSoFar value
-                                , if errorsSoFar2 |> List.isEmpty then
-                                    errorsSoFar1
-
-                                  else
-                                    errorsSoFar1 ++ [ ( field.name, errorsSoFar2 ) ]
+                                , -- We also ignore the field-level errors here to avoid duplicates.
+                                  formErrors
                                 )
                             )
         )
@@ -1591,12 +1612,28 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
                         |> List.reverse
                         |> List.map
                             (\field ->
+                                let
+                                    rawFieldState : RawFieldState String
+                                    rawFieldState =
+                                        serverValidationErrors.fields
+                                            |> Dict.get field.name
+                                            |> Maybe.withDefault initField
+
+                                    thing : RawFieldState String
+                                    thing =
+                                        { rawFieldState
+                                            | errors =
+                                                rawFieldState.errors
+                                                    ++ (serverValidationErrors.formErrors
+                                                            |> Dict.get field.name
+                                                            |> Maybe.withDefault []
+                                                       )
+                                        }
+                                in
                                 field.toHtml { submitStatus = serverValidationErrors.isSubmitting }
                                     hasErrors_
                                     (simplify3 field)
-                                    (serverValidationErrors.fields
-                                        |> Dict.get field.name
-                                    )
+                                    (Just thing)
                             )
                         |> wrapFn
                 )
@@ -1736,12 +1773,12 @@ submitHandlers myForm toDataSource =
                                     Ok ( errors, decoded ) ->
                                         Ok decoded
                                             |> toDataSource
-                                                { fields = errors, isSubmitting = Submitted }
+                                                { fields = errors, isSubmitting = Submitted, formErrors = Dict.empty }
 
                                     Err errors ->
                                         Err ()
                                             |> toDataSource
-                                                { fields = errors, isSubmitting = Submitted }
+                                                { fields = errors, isSubmitting = Submitted, formErrors = Dict.empty }
                             )
                         |> DataSource.map PageServerResponse.RenderPage
                 )

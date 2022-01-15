@@ -401,7 +401,7 @@ form user =
                         |> Form.with
                             (Form.requiredRadio
                                 "push-notifications"
-                                { missing = "Missing"
+                                { missing = "Please select your notification preference."
                                 , invalid = \_ -> "Invalid option"
                                 }
                                 ( ( "PushAll", PushAll )

@@ -28,54 +28,48 @@ all =
                                 [ ( "first", field "Jane" )
                                 ]
                         , isSubmitting = Form.NotSubmitted
+                        , formErrors = Dict.empty
                         }
                     |> expectDecodeNoErrors "Jane"
         , test "run a single field's validation on blur" <|
             \() ->
-                Form.succeed identity
-                    |> Form.with
-                        (Form.date "dob"
-                            { invalid = \_ -> "Invalid date"
-                            }
-                            toInput
-                        )
-                    |> Form.runClientValidations
-                        { fields =
-                            Dict.fromList
-                                [ ( "dob"
-                                  , field "This is not a valid date"
-                                  )
-                                ]
-                        , isSubmitting = Form.NotSubmitted
-                        }
-                    |> Expect.equal
-                        (Err [ ( "dob", [ "Invalid date" ] ) ])
+                let
+                    form =
+                        Form.succeed identity
+                            |> Form.with
+                                (Form.date "dob"
+                                    { invalid = \_ -> "Invalid date"
+                                    }
+                                    toInput
+                                )
+                in
+                form
+                    |> Form.init
+                    |> updateField form ( "dob", "This is not a valid date" )
+                    |> expectErrors
+                        [ ( "dob", [ "Invalid date" ] ) ]
         , test "custom client validation" <|
             \() ->
-                Form.succeed identity
-                    |> Form.with
-                        (Form.text "first" toInput
-                            |> Form.withClientValidation
-                                (\first ->
-                                    if first |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
-                                        Ok first
+                let
+                    form =
+                        Form.succeed identity
+                            |> Form.with
+                                (Form.text "first" toInput
+                                    |> Form.withClientValidation
+                                        (\first ->
+                                            if first |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
+                                                Ok first
 
-                                    else
-                                        Err "Needs to be capitalized"
+                                            else
+                                                Err "Needs to be capitalized"
+                                        )
                                 )
-                        )
-                    |> Form.runClientValidations
-                        { fields =
-                            Dict.fromList
-                                [ ( "first", field "jane" )
-                                ]
-                        , isSubmitting = Form.NotSubmitted
-                        }
-                    |> Expect.equal
-                        (Err
-                            [ ( "first", [ "Needs to be capitalized" ] )
-                            ]
-                        )
+                in
+                form
+                    |> Form.init
+                    |> updateField form ( "first", "jane" )
+                    |> expectErrors
+                        [ ( "first", [ "Needs to be capitalized" ] ) ]
         , test "init dict includes default values" <|
             \() ->
                 Form.succeed identity
@@ -98,36 +92,35 @@ all =
                     |> Form.init
                     |> Form.hasErrors2
                     |> Expect.true "expected errors"
-        , skip <|
-            test "dependent validations" <|
-                \() ->
-                    Form.succeed Tuple.pair
-                        |> Form.with
-                            (Form.requiredDate "checkin"
-                                { invalid = \_ -> "Invalid date"
-                                , missing = "Required"
-                                }
-                                toInput
-                                |> Form.withInitialValue "2022-01-01"
-                            )
-                        |> Form.with
-                            (Form.requiredDate "checkout"
-                                { invalid = \_ -> "Invalid date"
-                                , missing = "Required"
-                                }
-                                toInput
-                                |> Form.withInitialValue "2022-01-01"
-                            )
-                        |> Form.validate
-                            (\( checkin, checkout ) ->
-                                [ ( "checkin", [ "Must be before checkout date." ] )
-                                ]
-                            )
-                        |> Form.init
-                        |> expectErrors
+        , test "dependent validations" <|
+            \() ->
+                Form.succeed Tuple.pair
+                    |> Form.with
+                        (Form.requiredDate "checkin"
+                            { invalid = \_ -> "Invalid date"
+                            , missing = "Required"
+                            }
+                            toInput
+                            |> Form.withInitialValue "2022-01-01"
+                        )
+                    |> Form.with
+                        (Form.requiredDate "checkout"
+                            { invalid = \_ -> "Invalid date"
+                            , missing = "Required"
+                            }
+                            toInput
+                            |> Form.withInitialValue "2022-01-01"
+                        )
+                    |> Form.validate
+                        (\( checkin, checkout ) ->
                             [ ( "checkin", [ "Must be before checkout date." ] )
-                            , ( "checkout", [] )
                             ]
+                        )
+                    |> Form.init
+                    |> expectErrors
+                        [ ( "checkin", [ "Must be before checkout date." ] )
+                        , ( "checkout", [] )
+                        ]
         , test "initial validations only run once" <|
             \() ->
                 Form.succeed identity
@@ -259,7 +252,14 @@ updateField form ( name, value ) model =
 expectErrors : List ( String, List String ) -> Form.Model -> Expect.Expectation
 expectErrors expected form =
     form.fields
-        |> Dict.map (\key value -> value.errors)
+        |> Dict.map
+            (\key value ->
+                value.errors
+                    ++ (form.formErrors
+                            |> Dict.get key
+                            |> Maybe.withDefault []
+                       )
+            )
         |> Expect.equalDicts (Dict.fromList expected)
 
 
