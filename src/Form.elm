@@ -1251,10 +1251,11 @@ withServerValidation serverValidation (Field field) =
                                 (DataSource.succeed errors)
 
                         Err errors ->
-                            -- TODO should this be an error rather than DataSource.fail?
-                            -- TODO should there be an internal error type to be able to print the internal data problems?
-                            --++ (errors |> List.map errorToString |> String.join "\n")
-                            DataSource.fail "Could not decode form data."
+                            {- We can't decode the form data, which means there were errors previously in the pipeline
+                               we return an empty list, effectively short-circuiting remaining validation and letting
+                               the fatal errors propagate through
+                            -}
+                            DataSource.succeed []
         }
 
 
