@@ -9,7 +9,7 @@ module Form exposing
     , withInitialValue
     , checkbox, date, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
     , submit
-    , required, requiredNumber, requiredRadio
+    , required
     , validate
     , withServerValidation
     , withMax, withMaxDate, withMin, withMinDate
@@ -84,7 +84,7 @@ A Date type can be entered with the native date picker UI of the user's browser,
 
 ### Required
 
-@docs required, requiredNumber, requiredRadio
+@docs required
 
 
 ### Custom Client-Side Validations
@@ -775,15 +775,30 @@ hidden name value toHtmlFn =
 radio :
     -- TODO inject the error type
     String
+    -> error
     -> ( ( String, item ), List ( String, item ) )
     ->
         (item
          -> FieldRenderInfo error
          -> view
         )
-    -> ({ errors : List error, submitStatus : SubmitStatus } -> List view -> view)
-    -> Field error (Maybe item) view {}
-radio name nonEmptyItemMapping toHtmlFn wrapFn =
+    ->
+        ({ errors : List error
+         , submitStatus : SubmitStatus
+         , status : FieldStatus
+         }
+         -> List view
+         -> view
+        )
+    ->
+        Field
+            error
+            (Maybe item)
+            view
+            { required : ()
+            , wasMapped : No
+            }
+radio name invalidError nonEmptyItemMapping toHtmlFn wrapFn =
     let
         itemMapping : List ( String, item )
         itemMapping =
@@ -817,94 +832,27 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            -- TODO use `toString` to set value
-            \formInfo _ fieldInfo info ->
-                items
-                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord formInfo name (toString item) info fieldInfo))
-                    |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus }
-        , decode =
-            \raw ->
-                Ok
-                    -- TODO on failure, this should be an error
-                    ( raw |> Maybe.andThen fromString
-                    , []
-                    )
-        , properties = []
-        }
-
-
-{-| -}
-requiredRadio :
-    String
-    ->
-        { missing : error
-        , invalid : String -> error
-        }
-    -> ( ( String, item ), List ( String, item ) )
-    ->
-        (item
-         -> FieldRenderInfo error
-         -> view
-        )
-    ->
-        ({ errors : List error
-         , submitStatus : SubmitStatus
-         , status : FieldStatus
-         }
-         -> List view
-         -> view
-        )
-    -> Field error item view {}
-requiredRadio name toError nonEmptyItemMapping toHtmlFn wrapFn =
-    let
-        itemMapping : List ( String, item )
-        itemMapping =
-            nonEmptyItemMapping
-                |> List.NonEmpty.toList
-
-        toString : item -> String
-        toString targetItem =
-            case nonEmptyItemMapping |> List.NonEmpty.toList |> List.filter (\( string, item ) -> item == targetItem) |> List.head of
-                Just ( string, _ ) ->
-                    string
-
-                Nothing ->
-                    "Missing enum"
-
-        fromString : String -> Maybe item
-        fromString string =
-            itemMapping
-                |> Dict.fromList
-                |> Dict.get string
-
-        items : List item
-        items =
-            itemMapping
-                |> List.map Tuple.second
-    in
-    Field
-        { name = name
-        , initialValue = Nothing
-        , type_ = "radio"
-        , required = True
-        , serverValidation = \_ -> DataSource.succeed []
-        , toHtml =
             \formInfo _ fieldInfo info ->
                 items
                     |> List.map (\item -> toHtmlFn item (toRadioInputRecord formInfo name (toString item) info fieldInfo))
                     |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus, status = info |> Maybe.map .status |> Maybe.withDefault NotVisited }
         , decode =
             \raw ->
-                raw
-                    |> validateRequiredField toError
-                    |> Result.mapError (\_ -> toError.missing)
-                    |> Result.andThen
-                        (\rawString ->
-                            rawString
+                (if raw == Just "" then
+                    Nothing
+
+                 else
+                    raw
+                )
+                    |> Maybe.map
+                        (\justValue ->
+                            justValue
                                 |> fromString
-                                |> Result.fromMaybe (toError.invalid rawString)
+                                |> Result.fromMaybe invalidError
+                                |> Result.map (\decoded -> ( Just decoded, [] ))
+                                |> Result.mapError List.singleton
                         )
-                    |> toFieldResult
+                    |> Maybe.withDefault (Ok ( Nothing, [] ))
         , properties = []
         }
 

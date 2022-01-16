@@ -399,11 +399,9 @@ form user =
                 |> Form.appendForm (|>)
                     (Form.succeed identity
                         |> Form.with
-                            (Form.requiredRadio
+                            (Form.radio
                                 "push-notifications"
-                                { missing = "Please select your notification preference."
-                                , invalid = \_ -> "Invalid option"
-                                }
+                                "Invalid option"
                                 ( ( "PushAll", PushAll )
                                 , [ ( "PushEmail", PushEmail )
                                   , ( "PushNone", PushNone )
