@@ -1011,44 +1011,6 @@ number name toHtmlFn =
 
 
 {-| -}
-requiredNumber :
-    String
-    -> { missing : error, invalid : String -> error }
-    ->
-        (FieldRenderInfo error
-         -> view
-        )
-    -> Field error Int view { min : Int, max : Int }
-requiredNumber name toError toHtmlFn =
-    Field
-        { name = name
-        , initialValue = Nothing
-        , type_ = "number"
-        , required = False
-        , serverValidation = \_ -> DataSource.succeed []
-        , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
-        , decode =
-            \rawString ->
-                (case rawString of
-                    Nothing ->
-                        Err toError.missing
-
-                    Just "" ->
-                        Err toError.missing
-
-                    Just string ->
-                        string
-                            |> String.toInt
-                            |> Result.fromMaybe (toError.invalid string)
-                )
-                    |> toFieldResult
-        , properties = []
-        }
-
-
-{-| -}
 range :
     String
     ->
