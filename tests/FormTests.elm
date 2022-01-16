@@ -21,7 +21,10 @@ all =
         , test "single field" <|
             \() ->
                 Form.succeed identity
-                    |> Form.with (Form.text "first" toInput)
+                    |> Form.with
+                        (Form.text "first" toInput
+                            |> Form.required "Required"
+                        )
                     |> Form.runClientValidations
                         { fields =
                             Dict.fromList
@@ -55,6 +58,7 @@ all =
                         Form.succeed identity
                             |> Form.with
                                 (Form.text "first" toInput
+                                    |> Form.required "Required"
                                     |> Form.withClientValidation
                                         (\first ->
                                             if first |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
@@ -96,19 +100,17 @@ all =
             \() ->
                 Form.succeed Tuple.pair
                     |> Form.with
-                        (Form.requiredDate "checkin"
-                            { invalid = \_ -> "Invalid date"
-                            , missing = "Required"
-                            }
+                        (Form.date "checkin"
+                            { invalid = \_ -> "Invalid date" }
                             toInput
+                            |> Form.required "Required"
                             |> Form.withInitialValue "2022-01-01"
                         )
                     |> Form.with
-                        (Form.requiredDate "checkout"
-                            { invalid = \_ -> "Invalid date"
-                            , missing = "Required"
-                            }
+                        (Form.date "checkout"
+                            { invalid = \_ -> "Invalid date" }
                             toInput
+                            |> Form.required "Required"
                             |> Form.withInitialValue "2022-01-01"
                         )
                     |> Form.validate
@@ -201,19 +203,17 @@ all =
                 \() ->
                     Form.succeed Tuple.pair
                         |> Form.with
-                            (Form.requiredDate "checkin"
-                                { invalid = \_ -> "Invalid date"
-                                , missing = "Required"
-                                }
+                            (Form.date "checkin"
+                                { invalid = \_ -> "Invalid date" }
                                 toInput
+                                |> Form.required "Required"
                                 |> Form.withInitialValue "2022-01-01"
                             )
                         |> Form.with
-                            (Form.requiredDate "checkout"
-                                { invalid = \_ -> "Invalid date"
-                                , missing = "Required"
-                                }
+                            (Form.date "checkout"
+                                { invalid = \_ -> "Invalid date" }
                                 toInput
+                                |> Form.required "Required"
                                 |> Form.withInitialValue "2022-01-01"
                             )
                         |> Form.validate

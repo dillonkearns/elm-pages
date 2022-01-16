@@ -409,6 +409,7 @@ form user =
                                 )
                                 radioInput
                                 wrapPushNotificationsSection
+                                |> Form.required "Please select your notification preference."
                             )
                     )
              )
