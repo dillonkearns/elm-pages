@@ -719,6 +719,7 @@ text :
             (Maybe String)
             view
             { required : ()
+            , plainText : ()
             , wasMapped : No
             }
 text name toHtmlFn =
@@ -1269,31 +1270,31 @@ required missingError (Field field) =
 
 
 {-| -}
-telephone : Field error value view constraints -> Field error value view constraints
+telephone : Field error value view { constraints | plainText : () } -> Field error value view constraints
 telephone (Field field) =
     Field { field | type_ = "tel" }
 
 
 {-| -}
-search : Field error value view constraints -> Field error value view constraints
+search : Field error value view { constraints | plainText : () } -> Field error value view constraints
 search (Field field) =
     Field { field | type_ = "search" }
 
 
 {-| -}
-password : Field error value view constraints -> Field error value view constraints
+password : Field error value view { constraints | plainText : () } -> Field error value view constraints
 password (Field field) =
     Field { field | type_ = "password" }
 
 
 {-| -}
-email : Field error value view constraints -> Field error value view constraints
+email : Field error value view { constraints | plainText : () } -> Field error value view constraints
 email (Field field) =
     Field { field | type_ = "email" }
 
 
 {-| -}
-url : Field error value view constraints -> Field error value view constraints
+url : Field error value view { constraints | plainText : () } -> Field error value view constraints
 url (Field field) =
     Field { field | type_ = "url" }
 
