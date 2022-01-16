@@ -15,6 +15,7 @@ module Form exposing
     , withMax, withMaxDate, withMin, withMinDate
     , withStep, withFloatStep
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+    , time
     )
 
 {-|
@@ -1102,6 +1103,67 @@ date name toError toHtmlFn =
                     |> toFieldResult
         , properties = []
         }
+
+
+type alias TimeOfDay =
+    { hours : Int, minutes : Int }
+
+
+{-| -}
+time :
+    String
+    -> { invalid : String -> error }
+    ->
+        (FieldRenderInfo error
+         -> view
+        )
+    ->
+        Field
+            error
+            (Maybe TimeOfDay)
+            view
+            { --min : Date
+              --, max : Date,
+              required : ()
+            , wasMapped : No
+            }
+time name toError toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "date"
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                (if (rawString |> Maybe.withDefault "") == "" then
+                    Ok Nothing
+
+                 else
+                    rawString
+                        |> Maybe.withDefault ""
+                        |> parseTimeOfDay
+                        |> Result.mapError (\_ -> toError.invalid (rawString |> Maybe.withDefault ""))
+                        |> Result.map Just
+                )
+                    |> toFieldResult
+        , properties = []
+        }
+
+
+parseTimeOfDay rawTimeOfDay =
+    case rawTimeOfDay |> String.split ":" |> List.map String.toInt of
+        [ Just hours, Just minutes ] ->
+            Ok
+                { hours = hours
+                , minutes = minutes
+                }
+
+        _ ->
+            Err ()
 
 
 validateRequiredField : { toError | missing : error } -> Maybe String -> Result error String

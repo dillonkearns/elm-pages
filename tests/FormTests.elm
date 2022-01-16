@@ -133,6 +133,23 @@ all =
                     |> expectErrorsAfterUpdates
                         [ ( "name", [ "Required" ] )
                         ]
+        , test "parses time" <|
+            \() ->
+                let
+                    form =
+                        Form.succeed identity
+                            |> Form.with
+                                (Form.time "checkin-time"
+                                    { invalid = \_ -> "Invalid time" }
+                                    toInput
+                                    |> Form.required "Required"
+                                )
+                in
+                form
+                    |> expectDecodeNoErrors2 [ ( "checkin-time", "08:45" ) ]
+                        { hours = 8
+                        , minutes = 45
+                        }
         , test "no duplicate validation errors from update call" <|
             \() ->
                 Form.succeed identity
@@ -236,6 +253,19 @@ all =
         ]
 
 
+expectDecodeNoErrors2 : List ( String, String ) -> decoded -> Form.Form String decoded view -> Expect.Expectation
+expectDecodeNoErrors2 updates expected form =
+    let
+        formModel =
+            form
+                |> Form.init
+                |> updateFieldsWithValues updates form
+    in
+    Form.runClientValidations formModel form
+        |> Expect.equal
+            (Ok ( expected, [] ))
+
+
 expectDecodeNoErrors : decoded -> Result error ( decoded, List b ) -> Expect.Expectation
 expectDecodeNoErrors decoded actual =
     actual
@@ -270,6 +300,17 @@ updateAllFields fields form model =
             (\fieldName modelSoFar ->
                 modelSoFar
                     |> updateField form ( fieldName, "" )
+            )
+            model
+
+
+updateFieldsWithValues : List ( String, String ) -> Form.Form String value view -> Form.Model -> Form.Model
+updateFieldsWithValues fields form model =
+    fields
+        |> List.foldl
+            (\( fieldName, fieldValue ) modelSoFar ->
+                modelSoFar
+                    |> updateField form ( fieldName, fieldValue )
             )
             model
 
