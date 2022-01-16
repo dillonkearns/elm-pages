@@ -1,4 +1,122 @@
-module Form exposing (..)
+module Form exposing
+    ( Model, Msg(..), init, update, submitHandlers, toHtml, ServerUpdate
+    , Form(..), succeed
+    , wrap, wrapFields
+    , isSubmitting, SubmitStatus(..)
+    , FieldRenderInfo, FieldStatus(..), isAtLeast
+    , with, append, appendForm
+    , Field
+    , withInitialValue
+    , checkbox, date, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
+    , submit
+    , required, requiredDate, requiredNumber, requiredRadio
+    , validate
+    , withServerValidation
+    , withMax, withMaxDate, withMin, withMinDate
+    , withStep, withFloatStep
+    , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+    )
+
+{-|
+
+
+## Wiring
+
+@docs Model, Msg, init, update, submitHandlers, toHtml, ServerUpdate
+
+
+## Defining a Form
+
+@docs Form, succeed
+
+
+## Building Up the Form View Layout
+
+@docs wrap, wrapFields
+
+
+## Form Submit Status
+
+The form submissions are handled internally. Both tracking the submit status, and performing the underlying HTTP request.
+
+@docs isSubmitting, SubmitStatus
+
+
+## Rendering a Field
+
+@docs FieldRenderInfo, FieldStatus, isAtLeast
+
+
+## Appending to forms
+
+@docs with, append, appendForm
+
+
+## Fields
+
+@docs Field
+
+
+## Initial Values
+
+@docs withInitialValue
+
+
+## Field Types
+
+@docs checkbox, date, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
+
+
+## Input Fields
+
+
+### Submit Buttons
+
+@docs submit
+
+
+## Built-In Browser Validations
+
+Whenever possible, it's best to use the platform. For example, if you mark a field as number, the UI will give you number inputs. If you use an email input field, a mobile phone can display a special email input keyboard, or a desktop browser can suggest autofill input based on that.
+
+A Date type can be entered with the native date picker UI of the user's browser, which can be mobile-friendly by using the native mobile browser's built-in UI. But this also implies a validation, and can't be parsed into an Elm type. So you get two for the price of one. A UI, and a valdation. The validations are run on both client and server, so you can trust them without having to maintain duplicate logic for the server-side.
+
+
+### Required
+
+@docs required, requiredDate, requiredNumber, requiredRadio
+
+
+### Custom Client-Side Validations
+
+@docs validate
+
+
+### Server-Side Validations
+
+@docs withServerValidation
+
+
+### Minimum and Maximum Values
+
+@docs withMax, withMaxDate, withMin, withMinDate
+
+Steps
+
+@docs withStep, withFloatStep
+
+
+## Forms
+
+
+## Validations
+
+
+## Internals?
+
+@docs hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+
+-}
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
@@ -19,6 +137,7 @@ import Task
 import Url
 
 
+{-| -}
 type FieldStatus
     = NotVisited
     | Focused
@@ -71,6 +190,7 @@ type alias RawModel error =
     }
 
 
+{-| -}
 type Form error value view
     = Form
         -- TODO either make this a Dict and include the client-side validations here
@@ -95,6 +215,7 @@ type Form error value view
         (FieldState error -> Result (List ( String, List error )) ( value, List ( String, List error ) ))
 
 
+{-| -}
 type Field error value view constraints
     = Field (FieldInfo error value view)
 
@@ -155,6 +276,7 @@ type alias FinalFieldInfo error =
     }
 
 
+{-| -}
 succeed : constructor -> Form error constructor view
 succeed constructor =
     Form []
@@ -163,11 +285,13 @@ succeed constructor =
         (\_ -> Ok ( constructor, [] ))
 
 
+{-| -}
 runClientValidations : Model -> Form String value view -> Result (List ( String, List String )) ( value, List ( String, List String ) )
 runClientValidations model (Form fields decoder serverValidations modelToValue) =
     modelToValue model.fields
 
 
+{-| -}
 type Msg
     = OnFieldInput { name : String, value : String }
     | OnFieldFocus { name : String }
@@ -176,12 +300,14 @@ type Msg
     | GotFormResponse (Result Http.Error (FieldState String))
 
 
+{-| -}
 type SubmitStatus
     = NotSubmitted
     | Submitting
     | Submitted
 
 
+{-| -}
 type alias Model =
     { fields : FieldState String
     , isSubmitting : SubmitStatus
@@ -189,6 +315,7 @@ type alias Model =
     }
 
 
+{-| -}
 type alias ServerUpdate =
     Dict String (RawFieldState String)
 
@@ -197,6 +324,7 @@ type alias FieldState error =
     Dict String (RawFieldState error)
 
 
+{-| -}
 rawValues : Model -> Dict String String
 rawValues model =
     model.fields
@@ -263,11 +391,13 @@ statusRank status =
             3
 
 
+{-| -}
 isAtLeast : FieldStatus -> FieldStatus -> Bool
 isAtLeast atLeastStatus currentStatus =
     statusRank currentStatus >= statusRank atLeastStatus
 
 
+{-| -}
 update : (Msg -> msg) -> (Result Http.Error (FieldState String) -> msg) -> Form String value view -> Msg -> Model -> ( Model, Cmd msg )
 update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as form) msg model =
     case msg of
@@ -388,6 +518,7 @@ initField =
     }
 
 
+{-| -}
 init : Form String value view -> Model
 init ((Form fields decoder serverValidations modelToValue) as form) =
     let
@@ -575,6 +706,7 @@ valueAttr field stringValue =
         stringValue |> Maybe.map Attr.value
 
 
+{-| -}
 text :
     String
     ->
@@ -605,6 +737,7 @@ text name toHtmlFn =
         }
 
 
+{-| -}
 hidden :
     String
     -> String
@@ -630,6 +763,7 @@ hidden name value toHtmlFn =
         }
 
 
+{-| -}
 radio :
     -- TODO inject the error type
     String
@@ -691,6 +825,7 @@ radio name nonEmptyItemMapping toHtmlFn wrapFn =
         }
 
 
+{-| -}
 requiredRadio :
     String
     ->
@@ -776,6 +911,7 @@ toFieldResult result =
             Err [ error ]
 
 
+{-| -}
 submit :
     ({ attrs : List (Html.Attribute Msg)
      , formHasErrors : Bool
@@ -837,6 +973,7 @@ view viewFn =
         }
 
 
+{-| -}
 number :
     String
     ->
@@ -865,6 +1002,7 @@ number name toHtmlFn =
         }
 
 
+{-| -}
 requiredNumber :
     String
     -> { missing : error, invalid : String -> error }
@@ -902,6 +1040,7 @@ requiredNumber name toError toHtmlFn =
         }
 
 
+{-| -}
 range :
     String
     ->
@@ -951,6 +1090,7 @@ range name toError options toHtmlFn =
         |> withStringProperty ( "max", String.fromInt options.max )
 
 
+{-| -}
 floatRange :
     String
     ->
@@ -1000,6 +1140,7 @@ floatRange name toError options toHtmlFn =
         |> withStringProperty ( "max", String.fromFloat options.max )
 
 
+{-| -}
 date :
     String
     -> { invalid : String -> error }
@@ -1035,6 +1176,7 @@ date name toError toHtmlFn =
         }
 
 
+{-| -}
 requiredDate :
     String
     -> { missing : error, invalid : String -> error }
@@ -1077,6 +1219,7 @@ validateRequiredField toError maybeRaw =
         Ok (maybeRaw |> Maybe.withDefault "")
 
 
+{-| -}
 type alias FieldRenderInfo error =
     { toInput : List (Html.Attribute Msg)
     , toLabel : List (Html.Attribute Msg)
@@ -1086,6 +1229,7 @@ type alias FieldRenderInfo error =
     }
 
 
+{-| -}
 checkbox :
     String
     -> Bool
@@ -1123,31 +1267,37 @@ checkbox name initial toHtmlFn =
         }
 
 
+{-| -}
 withMin : Int -> Field error value view { constraints | min : Int } -> Field error value view constraints
 withMin min field =
     withStringProperty ( "min", String.fromInt min ) field
 
 
+{-| -}
 withMax : Int -> Field error value view { constraints | max : Int } -> Field error value view constraints
 withMax max field =
     withStringProperty ( "max", String.fromInt max ) field
 
 
+{-| -}
 withStep : Int -> Field error value view { constraints | step : Int } -> Field error value view constraints
 withStep max field =
     withStringProperty ( "step", String.fromInt max ) field
 
 
+{-| -}
 withFloatStep : Float -> Field error value view { constraints | step : Float } -> Field error value view constraints
 withFloatStep max field =
     withStringProperty ( "step", String.fromFloat max ) field
 
 
+{-| -}
 withMinDate : Date -> Field error value view { constraints | min : Date } -> Field error value view constraints
 withMinDate min field =
     withStringProperty ( "min", Date.toIsoString min ) field
 
 
+{-| -}
 withMaxDate : Date -> Field error value view { constraints | max : Date } -> Field error value view constraints
 withMaxDate max field =
     withStringProperty ( "max", Date.toIsoString max ) field
@@ -1159,11 +1309,13 @@ type_ typeName (Field field) =
         { field | type_ = typeName }
 
 
+{-| -}
 withInitialValue : String -> Field error value view constraints -> Field error value view constraints
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just initialValue }
 
 
+{-| -}
 multiple : Field error value view { constraints | multiple : () } -> Field error value view constraints
 multiple (Field field) =
     Field { field | properties = ( "multiple", Encode.bool True ) :: field.properties }
@@ -1179,6 +1331,7 @@ withBoolProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.bool value ) :: field.properties }
 
 
+{-| -}
 required : error -> Field error value view { constraints | required : () } -> Field error value view constraints
 required missingError (Field field) =
     Field
@@ -1203,31 +1356,37 @@ required missingError (Field field) =
         }
 
 
+{-| -}
 telephone : Field error value view constraints -> Field error value view constraints
 telephone (Field field) =
     Field { field | type_ = "tel" }
 
 
+{-| -}
 search : Field error value view constraints -> Field error value view constraints
 search (Field field) =
     Field { field | type_ = "search" }
 
 
+{-| -}
 password : Field error value view constraints -> Field error value view constraints
 password (Field field) =
     Field { field | type_ = "password" }
 
 
+{-| -}
 email : Field error value view constraints -> Field error value view constraints
 email (Field field) =
     Field { field | type_ = "email" }
 
 
+{-| -}
 url : Field error value view constraints -> Field error value view constraints
 url (Field field) =
     Field { field | type_ = "url" }
 
 
+{-| -}
 withServerValidation : (value -> DataSource (List error)) -> Field error value view constraints -> Field error value view constraints
 withServerValidation serverValidation (Field field) =
     Field
@@ -1252,6 +1411,7 @@ withServerValidation serverValidation (Field field) =
         }
 
 
+{-| -}
 withClientValidation : (value -> Result error mapped) -> Field error value view constraints -> Field error mapped view constraints
 withClientValidation mapFn (Field field) =
     Field
@@ -1276,6 +1436,7 @@ withClientValidation mapFn (Field field) =
         }
 
 
+{-| -}
 withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field error value view constraints -> Field error mapped view constraints
 withClientValidation2 mapFn (Field field) =
     Field
@@ -1299,6 +1460,7 @@ withClientValidation2 mapFn (Field field) =
         }
 
 
+{-| -}
 with : Field error value view constraints -> Form error (value -> form) view -> Form error form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
@@ -1450,6 +1612,7 @@ addField field list =
             ( simplify2 field :: fields, wrapFn ) :: others
 
 
+{-| -}
 append : Field error value view constraints -> Form error form view -> Form error form view
 append (Field field) (Form fields decoder serverValidations modelToValue) =
     Form
@@ -1460,6 +1623,7 @@ append (Field field) (Form fields decoder serverValidations modelToValue) =
         modelToValue
 
 
+{-| -}
 validate : (form -> List ( String, List error )) -> Form error form view -> Form error form view
 validate validateFn (Form fields decoder serverValidations modelToValue) =
     Form fields
@@ -1484,6 +1648,7 @@ validate validateFn (Form fields decoder serverValidations modelToValue) =
         )
 
 
+{-| -}
 appendForm : (form1 -> form2 -> form) -> Form error form1 view -> Form error form2 view -> Form error form view
 appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form fields2 decoder2 serverValidations2 modelToValue2) =
     Form
@@ -1508,11 +1673,13 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form 
         )
 
 
+{-| -}
 wrap : (List view -> view) -> Form error form view -> Form error form view
 wrap newWrapFn (Form fields decoder serverValidations modelToValue) =
     Form (wrapFields fields newWrapFn) decoder serverValidations modelToValue
 
 
+{-| -}
 wrapFields :
     List
         ( List (FieldInfoSimple error view)
@@ -1582,6 +1749,7 @@ simplify3 field =
 -}
 
 
+{-| -}
 toHtml :
     { pageReloadSubmit : Bool }
     -> (List (Html.Attribute Msg) -> List view -> view)
@@ -1639,14 +1807,6 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
                             )
                         |> wrapFn
                 )
-        )
-
-
-toRequest : Form error value view -> Request (Result (List ( String, List error )) ( value, List ( String, List error ) ))
-toRequest (Form fields decoder serverValidations modelToValue) =
-    Request.expectFormPost
-        (\{ optionalField } ->
-            decoder optionalField
         )
 
 
@@ -1778,6 +1938,7 @@ toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
         )
 
 
+{-| -}
 submitHandlers :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource data)
@@ -1804,23 +1965,6 @@ submitHandlers myForm toDataSource =
         ]
 
 
-combineWithErrors : List ( String, List error ) -> Dict String (RawFieldState error) -> Dict String (RawFieldState error)
-combineWithErrors validationErrors fieldState =
-    validationErrors
-        |> List.foldl
-            (\( fieldName, fieldErrors ) dict ->
-                dict
-                    |> Dict.update fieldName
-                        (\maybeField ->
-                            maybeField
-                                |> Maybe.withDefault initField
-                                |> (\field -> { field | errors = field.errors ++ fieldErrors })
-                                |> Just
-                        )
-            )
-            fieldState
-
-
 hasErrors : List ( String, RawFieldState error ) -> Bool
 hasErrors validationErrors =
     List.any
@@ -1830,6 +1974,7 @@ hasErrors validationErrors =
         validationErrors
 
 
+{-| -}
 hasErrors2 : Model -> Bool
 hasErrors2 model =
     Dict.Extra.any
@@ -1839,6 +1984,7 @@ hasErrors2 model =
         model.fields
 
 
+{-| -}
 isSubmitting : Model -> Bool
 isSubmitting model =
     model.isSubmitting == Submitting
