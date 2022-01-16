@@ -88,6 +88,7 @@ form user =
                         , Html.input toInput []
                         ]
                 )
+                |> Form.required "Required"
                 |> Form.withInitialValue user.first
             )
         |> Form.with
@@ -102,6 +103,7 @@ form user =
                         , Html.input toInput []
                         ]
                 )
+                |> Form.required "Required"
                 |> Form.withInitialValue user.last
             )
         |> Form.with
@@ -116,6 +118,7 @@ form user =
                         , Html.input toInput []
                         ]
                 )
+                |> Form.required "Required"
                 |> Form.withInitialValue user.username
                 |> Form.withServerValidation
                     (\username ->
@@ -138,13 +141,13 @@ form user =
                         , Html.input toInput []
                         ]
                 )
+                |> Form.required "Required"
                 |> Form.withInitialValue user.email
             )
         |> Form.with
-            (Form.requiredDate
+            (Form.date
                 "dob"
-                { missing = "Required"
-                , invalid = \_ -> "Invalid date"
+                { invalid = \_ -> "Invalid date"
                 }
                 (\{ toInput, toLabel, errors } ->
                     Html.div []
@@ -155,6 +158,7 @@ form user =
                         , Html.input toInput []
                         ]
                 )
+                |> Form.required "Required"
                 |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
                 |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)

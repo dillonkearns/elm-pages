@@ -9,7 +9,7 @@ module Form exposing
     , withInitialValue
     , checkbox, date, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
     , submit
-    , required, requiredDate, requiredNumber, requiredRadio
+    , required, requiredNumber, requiredRadio
     , validate
     , withServerValidation
     , withMax, withMaxDate, withMin, withMinDate
@@ -84,7 +84,7 @@ A Date type can be entered with the native date picker UI of the user's browser,
 
 ### Required
 
-@docs required, requiredDate, requiredNumber, requiredRadio
+@docs required, requiredNumber, requiredRadio
 
 
 ### Custom Client-Side Validations
@@ -716,9 +716,10 @@ text :
     ->
         Field
             error
-            String
+            (Maybe String)
             view
             { required : ()
+            , wasMapped : No
             }
 text name toHtmlFn =
     Field
@@ -732,7 +733,14 @@ text name toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawValue ->
-                Ok ( rawValue |> Maybe.withDefault "", [] )
+                Ok
+                    ( if rawValue == Just "" then
+                        Nothing
+
+                      else
+                        rawValue
+                    , []
+                    )
         , properties = []
         }
 
@@ -1148,7 +1156,16 @@ date :
         (FieldRenderInfo error
          -> view
         )
-    -> Field error (Maybe Date) view { min : Date, max : Date }
+    ->
+        Field
+            error
+            (Maybe Date)
+            view
+            { min : Date
+            , max : Date
+            , required : ()
+            , wasMapped : No
+            }
 date name toError toHtmlFn =
     Field
         { name = name
@@ -1171,40 +1188,6 @@ date name toError toHtmlFn =
                         |> Result.mapError (\_ -> toError.invalid (rawString |> Maybe.withDefault ""))
                         |> Result.map Just
                 )
-                    |> toFieldResult
-        , properties = []
-        }
-
-
-{-| -}
-requiredDate :
-    String
-    -> { missing : error, invalid : String -> error }
-    ->
-        (FieldRenderInfo error
-         -> view
-        )
-    -> Field error Date view { min : Date, max : Date }
-requiredDate name toError toHtmlFn =
-    Field
-        { name = name
-        , initialValue = Nothing
-        , type_ = "date"
-        , required = True
-        , serverValidation = \_ -> DataSource.succeed []
-        , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
-        , decode =
-            \rawString ->
-                rawString
-                    |> validateRequiredField toError
-                    |> Result.andThen
-                        (\rawDateString ->
-                            Date.fromIsoString rawDateString
-                                |> Result.mapError
-                                    (\_ -> toError.invalid rawDateString)
-                        )
                     |> toFieldResult
         , properties = []
         }
@@ -1331,28 +1314,47 @@ withBoolProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.bool value ) :: field.properties }
 
 
+type Yes
+    = Yes
+
+
+type No
+    = No
+
+
 {-| -}
-required : error -> Field error value view { constraints | required : () } -> Field error value view constraints
+required :
+    error
+    ->
+        Field
+            error
+            (Maybe value)
+            view
+            { constraints
+                | required : ()
+                , wasMapped : No
+            }
+    -> Field error value view { constraints | wasMapped : No }
 required missingError (Field field) =
     Field
-        { field
-            | required = True
-            , decode =
-                if field.type_ == "checkbox" then
-                    \rawValue ->
-                        if rawValue == Just "on" then
-                            field.decode rawValue
+        { name = field.name
+        , initialValue = field.initialValue
+        , type_ = field.type_
+        , required = True
+        , serverValidation = field.serverValidation
+        , toHtml = field.toHtml
+        , decode =
+            \rawValue ->
+                case field.decode rawValue of
+                    Ok ( Just decoded, errors ) ->
+                        Ok ( decoded, errors )
 
-                        else
-                            Err [ missingError ]
+                    Ok ( Nothing, errors ) ->
+                        Err [ missingError ]
 
-                else
-                    \rawValue ->
-                        if rawValue == Nothing || rawValue == Just "" then
-                            Err [ missingError ]
-
-                        else
-                            field.decode rawValue
+                    Err errors ->
+                        Err errors
+        , properties = field.properties
         }
 
 
@@ -1412,7 +1414,7 @@ withServerValidation serverValidation (Field field) =
 
 
 {-| -}
-withClientValidation : (value -> Result error mapped) -> Field error value view constraints -> Field error mapped view constraints
+withClientValidation : (value -> Result error mapped) -> Field error value view constraints -> Field error mapped view { constraints | wasMapped : Yes }
 withClientValidation mapFn (Field field) =
     Field
         { name = field.name
@@ -1437,7 +1439,7 @@ withClientValidation mapFn (Field field) =
 
 
 {-| -}
-withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field error value view constraints -> Field error mapped view constraints
+withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field error value view constraints -> Field error mapped view { constraints | wasMapped : Yes }
 withClientValidation2 mapFn (Field field) =
     Field
         { name = field.name

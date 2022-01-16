@@ -221,17 +221,17 @@ form user =
             (Form.text
                 "first"
                 (textInput "First name")
+                |> Form.required "Required"
                 |> Form.withInitialValue user.first
                 |> Form.withClientValidation validateCapitalized
-                |> Form.required "Required"
             )
         |> Form.with
             (Form.text
                 "last"
                 (textInput "Last name")
+                |> Form.required "Required"
                 |> Form.withInitialValue user.last
                 |> Form.withClientValidation validateCapitalized
-                |> Form.required "Required"
             )
         |> Form.with
             (Form.text "username" usernameInput
@@ -288,12 +288,12 @@ form user =
                 |> Form.required "Required"
             )
         |> Form.with
-            (Form.requiredDate
+            (Form.date
                 "dob"
-                { missing = "Required"
-                , invalid = \_ -> "Invalid date"
+                { invalid = \_ -> "Invalid date"
                 }
                 (textInput "Date of Birth")
+                |> Form.required "Required"
                 |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
                 |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
@@ -311,23 +311,23 @@ form user =
                     )
             )
         |> Form.with
-            (Form.requiredDate
+            (Form.date
                 "checkin"
-                { missing = "Required"
-                , invalid = \_ -> "Invalid date"
+                { invalid = \_ -> "Invalid date"
                 }
                 (textInput "Check-in")
+                |> Form.required "Required"
                 |> Form.withInitialValue (user.checkIn |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
                 |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
             )
         |> Form.with
-            (Form.requiredDate
+            (Form.date
                 "checkout"
-                { missing = "Required"
-                , invalid = \_ -> "Invalid date"
+                { invalid = \_ -> "Invalid date"
                 }
                 (textInput "Check-out")
+                |> Form.required "Required"
                 |> Form.withInitialValue (user.checkOut |> Date.toIsoString)
                 |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
                 |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
@@ -417,13 +417,20 @@ form user =
                 |> Form.wrap wrapNotificationsSections
             )
         |> Form.appendForm (\() rest -> rest)
-            (Form.succeed (\_ -> ())
+            (Form.succeed identity
                 |> Form.with
                     (Form.checkbox
                         "acceptTerms"
                         False
                         (checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." })
-                        |> Form.required "Please agree to terms to proceed."
+                        |> Form.withClientValidation2
+                            (\checked ->
+                                if checked then
+                                    Ok ( (), [] )
+
+                                else
+                                    Ok ( (), [ "Please agree to terms to proceed." ] )
+                            )
                     )
             )
         |> Form.append
@@ -784,7 +791,14 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
                 ]
             ]
         ]
-        [ Html.label
+        [ --Html.text (Debug.toString submitStatus),
+          Html.span
+            [ css
+                [ Tw.font_bold
+                ]
+            ]
+            [ Html.text (Debug.toString info.status) ]
+        , Html.label
             ([ css
                 [ Tw.block
                 , Tw.text_sm
@@ -1096,7 +1110,13 @@ wrapPushNotificationsSection ({ errors, submitStatus } as info) children =
             [ Attr.attribute "role" "group"
             , Attr.attribute "aria-labelledby" "label-notifications"
             ]
-            [ Html.div
+            [ Html.span
+                [ css
+                    [ Tw.font_bold
+                    ]
+                ]
+                [ Html.text (Debug.toString info.status) ]
+            , Html.div
                 [ css
                     [ Bp.sm
                         [ Tw.grid
