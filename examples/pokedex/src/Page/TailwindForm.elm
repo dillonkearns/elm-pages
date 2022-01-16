@@ -7,6 +7,7 @@ import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Form exposing (Form)
+import Form.Value
 import Head
 import Head.Seo as Seo
 import Html as CoreHtml
@@ -222,7 +223,7 @@ form user =
                 "first"
                 (textInput "First name")
                 |> Form.required "Required"
-                |> Form.withInitialValue user.first
+                |> Form.withInitialValue (user.first |> Form.Value.string)
                 |> Form.withClientValidation validateCapitalized
             )
         |> Form.with
@@ -230,12 +231,12 @@ form user =
                 "last"
                 (textInput "Last name")
                 |> Form.required "Required"
-                |> Form.withInitialValue user.last
+                |> Form.withInitialValue (user.last |> Form.Value.string)
                 |> Form.withClientValidation validateCapitalized
             )
         |> Form.with
             (Form.text "username" usernameInput
-                |> Form.withInitialValue user.username
+                |> Form.withInitialValue (user.username |> Form.Value.string)
                 |> Form.required "Required"
                 |> Form.withServerValidation
                     (\username ->
@@ -283,7 +284,7 @@ form user =
             (Form.text
                 "email"
                 (textInput "Email address")
-                |> Form.withInitialValue user.email
+                |> Form.withInitialValue (user.email |> Form.Value.string)
                 |> Form.email
                 |> Form.required "Required"
             )
@@ -294,9 +295,9 @@ form user =
                 }
                 (textInput "Date of Birth")
                 |> Form.required "Required"
-                |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
-                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
-                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
+                |> Form.withInitialValue (user.birthDay |> Form.Value.date)
+                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
+                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                 |> Form.withServerValidation
                     (\birthDate ->
                         let
@@ -317,9 +318,9 @@ form user =
                 }
                 (textInput "Check-in")
                 |> Form.required "Required"
-                |> Form.withInitialValue (user.checkIn |> Date.toIsoString)
-                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
-                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
+                |> Form.withInitialValue (user.checkIn |> Form.Value.date)
+                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
+                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
             )
         |> Form.with
             (Form.date
@@ -328,9 +329,9 @@ form user =
                 }
                 (textInput "Check-out")
                 |> Form.required "Required"
-                |> Form.withInitialValue (user.checkOut |> Date.toIsoString)
-                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
-                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
+                |> Form.withInitialValue (user.checkOut |> Form.Value.date)
+                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
+                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
             )
         |> Form.with
             (Form.range

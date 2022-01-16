@@ -7,15 +7,14 @@ module Form exposing
     , with, append, appendForm
     , Field
     , withInitialValue
-    , checkbox, date, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
+    , checkbox, date, time, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
     , submit
     , required
     , validate
     , withServerValidation
-    , withMax, withMaxDate, withMin, withMinDate
-    , withStep, withFloatStep
+    , withMax, withMin
+    , withStep
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
-    , time
     )
 
 {-|
@@ -65,7 +64,7 @@ The form submissions are handled internally. Both tracking the submit status, an
 
 ## Field Types
 
-@docs checkbox, date, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
+@docs checkbox, date, time, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
 
 
 ## Input Fields
@@ -100,11 +99,11 @@ A Date type can be entered with the native date picker UI of the user's browser,
 
 ### Minimum and Maximum Values
 
-@docs withMax, withMaxDate, withMin, withMinDate
+@docs withMax, withMin
 
 Steps
 
-@docs withStep, withFloatStep
+@docs withStep
 
 
 ## Forms
@@ -123,6 +122,7 @@ import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
+import Form.Value
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -722,6 +722,7 @@ text :
             { required : ()
             , plainText : ()
             , wasMapped : No
+            , initial : String
             }
 text name toHtmlFn =
     Field
@@ -938,7 +939,17 @@ number :
         (FieldRenderInfo error
          -> view
         )
-    -> Field error (Maybe Int) view { min : Int, max : Int }
+    ->
+        Field
+            error
+            (Maybe Int)
+            view
+            { min : Int
+            , max : Int
+            , required : ()
+            , wasMapped : No
+            , initial : Int
+            }
 number name toHtmlFn =
     Field
         { name = name
@@ -1077,6 +1088,7 @@ date :
             , max : Date
             , required : ()
             , wasMapped : No
+            , initial : Date
             }
 date name toError toHtmlFn =
     Field
@@ -1122,8 +1134,9 @@ time :
             error
             (Maybe TimeOfDay)
             view
-            { --min : Date
-              --, max : Date,
+            { -- TODO support min/max
+              --min : ???,
+              --, max : ???,
               required : ()
             , wasMapped : No
             }
@@ -1224,39 +1237,21 @@ checkbox name initial toHtmlFn =
 
 
 {-| -}
-withMin : Int -> Field error value view { constraints | min : Int } -> Field error value view constraints
+withMin : Form.Value.Value valueType -> Field error value view { constraints | min : valueType } -> Field error value view constraints
 withMin min field =
-    withStringProperty ( "min", String.fromInt min ) field
+    withStringProperty ( "min", Form.Value.toString min ) field
 
 
 {-| -}
-withMax : Int -> Field error value view { constraints | max : Int } -> Field error value view constraints
+withMax : Form.Value.Value valueType -> Field error value view { constraints | max : valueType } -> Field error value view constraints
 withMax max field =
-    withStringProperty ( "max", String.fromInt max ) field
+    withStringProperty ( "max", Form.Value.toString max ) field
 
 
 {-| -}
-withStep : Int -> Field error value view { constraints | step : Int } -> Field error value view constraints
+withStep : Form.Value.Value valueType -> Field error value view { constraints | step : valueType } -> Field error value view constraints
 withStep max field =
-    withStringProperty ( "step", String.fromInt max ) field
-
-
-{-| -}
-withFloatStep : Float -> Field error value view { constraints | step : Float } -> Field error value view constraints
-withFloatStep max field =
-    withStringProperty ( "step", String.fromFloat max ) field
-
-
-{-| -}
-withMinDate : Date -> Field error value view { constraints | min : Date } -> Field error value view constraints
-withMinDate min field =
-    withStringProperty ( "min", Date.toIsoString min ) field
-
-
-{-| -}
-withMaxDate : Date -> Field error value view { constraints | max : Date } -> Field error value view constraints
-withMaxDate max field =
-    withStringProperty ( "max", Date.toIsoString max ) field
+    withStringProperty ( "step", Form.Value.toString max ) field
 
 
 type_ : String -> Field error value view constraints -> Field error value view constraints
@@ -1266,9 +1261,9 @@ type_ typeName (Field field) =
 
 
 {-| -}
-withInitialValue : String -> Field error value view constraints -> Field error value view constraints
+withInitialValue : Form.Value.Value valueType -> Field error value view { constraints | initial : valueType } -> Field error value view constraints
 withInitialValue initialValue (Field field) =
-    Field { field | initialValue = Just initialValue }
+    Field { field | initialValue = Just (Form.Value.toString initialValue) }
 
 
 {-| -}

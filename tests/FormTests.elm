@@ -1,9 +1,12 @@
 module FormTests exposing (all)
 
+import Date
 import Dict
 import Expect
 import Form
+import Form.Value
 import Test exposing (Test, describe, only, skip, test)
+import Time
 
 
 all : Test
@@ -79,7 +82,7 @@ all =
                 Form.succeed identity
                     |> Form.with
                         (Form.text "first" toInput
-                            |> Form.withInitialValue "Jane"
+                            |> Form.withInitialValue ("Jane" |> Form.Value.string)
                         )
                     |> Form.init
                     |> Form.rawValues
@@ -90,7 +93,7 @@ all =
                 Form.succeed identity
                     |> Form.with
                         (Form.text "first" toInput
-                            |> Form.withInitialValue "Jane"
+                            |> Form.withInitialValue ("Jane" |> Form.Value.string)
                             |> Form.withClientValidation (\_ -> Err "This error always occurs")
                         )
                     |> Form.init
@@ -104,14 +107,14 @@ all =
                             { invalid = \_ -> "Invalid date" }
                             toInput
                             |> Form.required "Required"
-                            |> Form.withInitialValue "2022-01-01"
+                            |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                         )
                     |> Form.with
                         (Form.date "checkout"
                             { invalid = \_ -> "Invalid date" }
                             toInput
                             |> Form.required "Required"
-                            |> Form.withInitialValue "2022-01-01"
+                            |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                         )
                     |> Form.validate
                         (\( checkin, checkout ) ->
@@ -224,14 +227,14 @@ all =
                                 { invalid = \_ -> "Invalid date" }
                                 toInput
                                 |> Form.required "Required"
-                                |> Form.withInitialValue "2022-01-01"
+                                |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                             )
                         |> Form.with
                             (Form.date "checkout"
                                 { invalid = \_ -> "Invalid date" }
                                 toInput
                                 |> Form.required "Required"
-                                |> Form.withInitialValue "2022-01-01"
+                                |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                             )
                         |> Form.validate
                             (\( checkin, checkout ) ->

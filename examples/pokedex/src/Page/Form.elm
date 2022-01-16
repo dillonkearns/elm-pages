@@ -4,6 +4,7 @@ import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Form exposing (Form)
+import Form.Value
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -89,7 +90,7 @@ form user =
                         ]
                 )
                 |> Form.required "Required"
-                |> Form.withInitialValue user.first
+                |> Form.withInitialValue (user.first |> Form.Value.string)
             )
         |> Form.with
             (Form.text
@@ -104,7 +105,7 @@ form user =
                         ]
                 )
                 |> Form.required "Required"
-                |> Form.withInitialValue user.last
+                |> Form.withInitialValue (user.last |> Form.Value.string)
             )
         |> Form.with
             (Form.text
@@ -119,7 +120,7 @@ form user =
                         ]
                 )
                 |> Form.required "Required"
-                |> Form.withInitialValue user.username
+                |> Form.withInitialValue (user.username |> Form.Value.string)
                 |> Form.withServerValidation
                     (\username ->
                         if username == "asdf" then
@@ -142,7 +143,7 @@ form user =
                         ]
                 )
                 |> Form.required "Required"
-                |> Form.withInitialValue user.email
+                |> Form.withInitialValue (user.email |> Form.Value.string)
             )
         |> Form.with
             (Form.date
@@ -159,9 +160,9 @@ form user =
                         ]
                 )
                 |> Form.required "Required"
-                |> Form.withInitialValue (user.birthDay |> Date.toIsoString)
-                |> Form.withMinDate (Date.fromCalendarDate 1900 Time.Jan 1)
-                |> Form.withMaxDate (Date.fromCalendarDate 2022 Time.Jan 1)
+                |> Form.withInitialValue (user.birthDay |> Form.Value.date)
+                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
+                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
             )
         |> Form.with
             (Form.checkbox

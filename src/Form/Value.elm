@@ -1,17 +1,26 @@
-module Form.Value exposing (Value, toString)
+module Form.Value exposing (Value, date, float, int, string, toString)
+
+{-|
+
+@docs Value, date, float, int, string, toString
+
+-}
 
 import Date exposing (Date)
 
 
+{-| -}
 type Value dataType
     = Value String
 
 
+{-| -}
 toString : Value dataType -> String
 toString (Value rawValue) =
     rawValue
 
 
+{-| -}
 date : Date -> Value Date
 date date_ =
     date_
@@ -19,6 +28,7 @@ date date_ =
         |> Value
 
 
+{-| -}
 float : Float -> Value Float
 float float_ =
     float_
@@ -26,6 +36,7 @@ float float_ =
         |> Value
 
 
+{-| -}
 int : Int -> Value Int
 int int_ =
     int_
@@ -33,6 +44,7 @@ int int_ =
         |> Value
 
 
+{-| -}
 string : String -> Value String
 string string_ =
     string_

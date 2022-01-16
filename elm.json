@@ -27,7 +27,8 @@
         "Pages.Manifest",
         "Pages.Manifest.Category",
         "Pages.Flags",
-        "Form"
+        "Form",
+        "Form.Value"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
