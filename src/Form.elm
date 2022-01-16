@@ -1,6 +1,5 @@
 module Form exposing (..)
 
-import Codec exposing (Codec)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
@@ -57,22 +56,13 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
                             }
                         )
                         (Decode.field "raw" (Decode.nullable Decode.string))
-                        (Decode.field "errors"
-                            (Decode.list
-                                (Codec.decoder errorCodec)
-                            )
-                        )
+                        (Decode.field "errors" (Decode.list Decode.string))
                     )
                 )
         , timeout = Nothing
         , tracker = Nothing
         , url = url_
         }
-
-
-errorCodec : Codec String
-errorCodec =
-    Codec.string
 
 
 type alias RawModel error =
