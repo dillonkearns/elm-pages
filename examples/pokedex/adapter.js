@@ -303,13 +303,13 @@ function apiPatternToRedirectPattern(pathPattern) {
   return (
     "/" +
     pathPattern
-      .map((segment) => {
+      .map((segment, index) => {
         switch (segment.kind) {
           case "literal": {
             return segment.value;
           }
           case "dynamic": {
-            return ":dynamic"; // TODO need to assign different names for each dynamic segment?
+            return `:dynamic${index}`; // TODO need to assign different names for each dynamic segment?
           }
           default: {
             throw "Unhandled segment: " + JSON.stringify(segment);
