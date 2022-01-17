@@ -7,7 +7,7 @@ module Form exposing
     , with, append, appendForm
     , Field
     , withInitialValue
-    , checkbox, date, time, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
+    , checkbox, date, time, email, hidden, multiple, int, password, radio, range, telephone, text, url, floatRange, search
     , submit
     , required
     , validate
@@ -64,7 +64,7 @@ The form submissions are handled internally. Both tracking the submit status, an
 
 ## Field Types
 
-@docs checkbox, date, time, email, hidden, multiple, number, password, radio, range, telephone, text, url, floatRange, search
+@docs checkbox, date, time, email, hidden, multiple, int, password, radio, range, telephone, text, url, floatRange, search
 
 
 ## Input Fields
@@ -933,7 +933,7 @@ view viewFn =
 
 
 {-| -}
-number :
+int :
     String
     ->
         (FieldRenderInfo error
@@ -950,7 +950,7 @@ number :
             , wasMapped : No
             , initial : Int
             }
-number name toHtmlFn =
+int name toHtmlFn =
     Field
         { name = name
         , initialValue = Nothing
