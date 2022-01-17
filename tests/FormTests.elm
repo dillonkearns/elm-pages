@@ -253,6 +253,21 @@ all =
                             , ( "checkout", [] )
                             , ( "name", [ "Required" ] )
                             ]
+        , test "min validation runs in pure elm" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with
+                        (Form.range "rating"
+                            { missing = "Missing"
+                            , invalid = \_ -> "Invalid"
+                            }
+                            { initial = 3, min = 1, max = 5 }
+                            toInput
+                        )
+                    |> performUpdatesThenExpectErrors
+                        [ ( "rating", "-1" ) ]
+                        [ ( "rating", [ "Invalid" ] )
+                        ]
         ]
 
 
@@ -332,6 +347,30 @@ expectErrorsAfterUpdates expected form =
     Expect.all
         ([ model
          , updateAllFields fieldsToUpdate form model
+         ]
+            |> List.map
+                (\formModel () ->
+                    formModel.fields
+                        |> Dict.map (\key value -> value.errors)
+                        |> Expect.equalDicts (Dict.fromList expected)
+                )
+        )
+        ()
+
+
+performUpdatesThenExpectErrors : List ( String, String ) -> List ( String, List String ) -> Form.Form String value view -> Expect.Expectation
+performUpdatesThenExpectErrors updatesToPerform expected form =
+    let
+        fieldsToUpdate : List String
+        fieldsToUpdate =
+            expected |> List.map Tuple.first
+
+        model : Form.Model
+        model =
+            Form.init form
+    in
+    Expect.all
+        ([ updateFieldsWithValues updatesToPerform form model
          ]
             |> List.map
                 (\formModel () ->

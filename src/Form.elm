@@ -1000,18 +1000,22 @@ range name toError options toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                (case rawString of
-                    Nothing ->
-                        Err toError.missing
+                (rawString
+                    |> validateRequiredField toError
+                    |> Result.andThen
+                        (\string ->
+                            string
+                                |> String.toInt
+                                |> Result.fromMaybe (toError.invalid string)
+                        )
+                    |> Result.andThen
+                        (\decodedInt ->
+                            if decodedInt > options.max || decodedInt < options.min then
+                                Err (toError.invalid (decodedInt |> String.fromInt))
 
-                    Just "" ->
-                        Err toError.missing
-
-                    Just string ->
-                        string
-                            |> String.toInt
-                            -- TODO should this be a custom type instead of String error? That way users can customize the error messages
-                            |> Result.fromMaybe (toError.invalid string)
+                            else
+                                Ok decodedInt
+                        )
                 )
                     |> toFieldResult
         , properties =
@@ -1056,7 +1060,7 @@ floatRange name toError options toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                rawString
+                (rawString
                     |> validateRequiredField toError
                     |> Result.andThen
                         (\string ->
@@ -1064,6 +1068,15 @@ floatRange name toError options toHtmlFn =
                                 |> String.toFloat
                                 |> Result.fromMaybe (toError.invalid string)
                         )
+                    |> Result.andThen
+                        (\decodedFloat ->
+                            if decodedFloat > options.max || decodedFloat < options.min then
+                                Err (toError.invalid (decodedFloat |> String.fromFloat))
+
+                            else
+                                Ok decodedFloat
+                        )
+                )
                     |> toFieldResult
         , properties = []
         }
