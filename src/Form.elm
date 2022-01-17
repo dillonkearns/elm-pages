@@ -7,7 +7,7 @@ module Form exposing
     , with, append, appendForm
     , Field
     , withInitialValue
-    , checkbox, date, time, email, hidden, multiple, int, password, radio, range, telephone, text, url, floatRange, search
+    , checkbox, date, time, email, hidden, multiple, int, float, password, radio, range, telephone, text, url, floatRange, search
     , submit
     , required
     , validate
@@ -64,7 +64,7 @@ The form submissions are handled internally. Both tracking the submit status, an
 
 ## Field Types
 
-@docs checkbox, date, time, email, hidden, multiple, int, password, radio, range, telephone, text, url, floatRange, search
+@docs checkbox, date, time, email, hidden, multiple, int, float, password, radio, range, telephone, text, url, floatRange, search
 
 
 ## Input Fields
@@ -935,6 +935,7 @@ view viewFn =
 {-| -}
 int :
     String
+    -> { invalid : String -> error }
     ->
         (FieldRenderInfo error
          -> view
@@ -950,7 +951,7 @@ int :
             , wasMapped : No
             , initial : Int
             }
-int name toHtmlFn =
+int name toError toHtmlFn =
     Field
         { name = name
         , initialValue = Nothing
@@ -962,10 +963,68 @@ int name toHtmlFn =
                 toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
-                rawString
-                    -- TODO handle as error if cannot be parsed
-                    |> Maybe.andThen String.toInt
-                    |> Ok
+                (case rawString of
+                    Nothing ->
+                        Ok Nothing
+
+                    Just "" ->
+                        Ok Nothing
+
+                    Just string ->
+                        string
+                            |> String.toInt
+                            |> Result.fromMaybe (toError.invalid string)
+                            |> Result.map Just
+                )
+                    |> toFieldResult
+        , properties = []
+        }
+
+
+{-| -}
+float :
+    String
+    -> { invalid : String -> error }
+    ->
+        (FieldRenderInfo error
+         -> view
+        )
+    ->
+        Field
+            error
+            (Maybe Float)
+            view
+            { min : Float
+            , max : Float
+            , required : ()
+            , wasMapped : No
+            , initial : Float
+            }
+float name toError toHtmlFn =
+    Field
+        { name = name
+        , initialValue = Nothing
+        , type_ = "number"
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , toHtml =
+            \formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+        , decode =
+            \rawString ->
+                (case rawString of
+                    Nothing ->
+                        Ok Nothing
+
+                    Just "" ->
+                        Ok Nothing
+
+                    Just string ->
+                        string
+                            |> String.toFloat
+                            |> Result.fromMaybe (toError.invalid string)
+                            |> Result.map Just
+                )
                     |> toFieldResult
         , properties = []
         }

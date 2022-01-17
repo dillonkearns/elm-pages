@@ -268,6 +268,32 @@ all =
                         [ ( "rating", "-1" ) ]
                         [ ( "rating", [ "Invalid" ] )
                         ]
+        , test "invalid floats give error for float input" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with
+                        (Form.float "factor"
+                            { invalid = \_ -> "Invalid"
+                            }
+                            toInput
+                        )
+                    |> performUpdatesThenExpectErrors
+                        [ ( "factor", "abc" ) ]
+                        [ ( "factor", [ "Invalid" ] )
+                        ]
+        , test "invalid ints give error for float input" <|
+            \() ->
+                Form.succeed identity
+                    |> Form.with
+                        (Form.int "factor"
+                            { invalid = \_ -> "Invalid"
+                            }
+                            toInput
+                        )
+                    |> performUpdatesThenExpectErrors
+                        [ ( "factor", "abc" ) ]
+                        [ ( "factor", [ "Invalid" ] )
+                        ]
         ]
 
 
