@@ -28,6 +28,7 @@ routes getStaticRoutes htmlToString =
     , greet
     , fileLength
     , jsonError
+    , greetHtml
     ]
 
 
@@ -40,16 +41,16 @@ jsonError =
                     (\result ->
                         case result of
                             Ok firstName ->
-                                Server.Response.stringBody
+                                Server.Response.plainText
                                     ("Hello " ++ firstName)
 
                             Err decodeError ->
                                 decodeError
                                     |> Json.Decode.errorToString
-                                    |> Server.Response.stringBody
+                                    |> Server.Response.plainText
                                     |> Server.Response.withStatusCode 400
                     )
-            , Server.Request.succeed (Server.Response.stringBody "Hello anonymous!")
+            , Server.Request.succeed (Server.Response.plainText "Hello anonymous!")
             ]
             |> Server.Request.map DataSource.succeed
         )
@@ -76,13 +77,42 @@ greet =
             ]
             |> Server.Request.map
                 (\firstName ->
-                    Server.Response.stringBody ("Hello " ++ firstName)
+                    Server.Response.plainText ("Hello " ++ firstName)
                         |> DataSource.succeed
                 )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "greet"
+        |> ApiRoute.serverRender
+
+
+greetHtml : ApiRoute ApiRoute.Response
+greetHtml =
+    ApiRoute.succeed
+        (Server.Request.oneOf
+            [ Server.Request.expectFormPost
+                (\{ field, optionalField } ->
+                    field "first"
+                )
+            , Server.Request.expectJsonBody (Decode.field "first" Decode.string)
+            , Server.Request.expectQueryParam "first"
+            , Server.Request.expectMultiPartFormPost
+                (\{ field, optionalField } ->
+                    field "first"
+                )
+            ]
+            |> Server.Request.map
+                (\firstName ->
+                    [ Html.text <| "Hello " ++ firstName ]
+                        |> Html.div []
+                        |> Server.Response.html
+                        |> DataSource.succeed
+                )
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "something"
         |> ApiRoute.serverRender
 
 
@@ -187,7 +217,7 @@ logout =
     ApiRoute.succeed
         (Server.Request.succeed
             (DataSource.succeed
-                (Server.Response.stringBody "You are logged out"
+                (Server.Response.plainText "You are logged out"
                     |> Server.Response.withHeader "Set-Cookie"
                         (SetCookie.setCookie "username" ""
                             |> SetCookie.httpOnly

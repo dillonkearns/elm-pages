@@ -22,7 +22,6 @@
         "Server.Request",
         "Server.SetCookie",
         "Server.Response",
-        "PageServerResponse",
         "Pages.Secrets",
         "Pages.Manifest",
         "Pages.Manifest.Category",

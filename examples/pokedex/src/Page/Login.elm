@@ -7,7 +7,6 @@ import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request
@@ -44,22 +43,21 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ Request.expectFormPost (\{ field } -> field "name")
             |> Request.map
                 (\name ->
-                    PageServerResponse.ServerResponse
-                        ("/greet"
-                            |> Server.Response.temporaryRedirect
-                            |> Server.Response.withHeader "Set-Cookie"
-                                (SetCookie.setCookie "username" name
-                                    |> SetCookie.httpOnly
-                                    |> SetCookie.withPath "/"
-                                    |> SetCookie.toString
-                                )
-                        )
+                    ("/greet"
+                        |> Server.Response.temporaryRedirect
+                        |> Server.Response.withHeader "Set-Cookie"
+                            (SetCookie.setCookie "username" name
+                                |> SetCookie.httpOnly
+                                |> SetCookie.withPath "/"
+                                |> SetCookie.toString
+                            )
+                    )
                         |> DataSource.succeed
                 )
         , Request.cookie "username"
@@ -67,7 +65,7 @@ data routeParams =
                 (\name ->
                     name
                         |> Data
-                        |> PageServerResponse.render
+                        |> Server.Response.render
                         |> DataSource.succeed
                 )
         ]

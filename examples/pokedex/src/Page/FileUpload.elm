@@ -6,10 +6,10 @@ import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request
+import Server.Response
 import Shared
 import View exposing (View)
 
@@ -39,7 +39,7 @@ type alias Data =
     Maybe Request.File
 
 
-data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ Request.expectMultiPartFormPost
@@ -48,10 +48,10 @@ data routeParams =
             )
             |> Request.map
                 (\file ->
-                    DataSource.succeed (PageServerResponse.render (Just file))
+                    DataSource.succeed (Server.Response.render (Just file))
                 )
         , Request.succeed
-            (DataSource.succeed (PageServerResponse.render Nothing))
+            (DataSource.succeed (Server.Response.render Nothing))
         ]
 
 

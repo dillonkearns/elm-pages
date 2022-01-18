@@ -6,11 +6,10 @@ import Head
 import Head.Seo as Seo
 import Html
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request
-import Server.Response
+import Server.Response as Response exposing (Response)
 import Shared
 import Url
 import View exposing (View)
@@ -93,12 +92,12 @@ type alias Request =
 --                            |> DataSource.map PageServerResponse.RenderPage
 
 
-data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (Response Data))
 data routeParams =
     Request.succeed ()
         |> Request.map
             (\() ->
-                PageServerResponse.ServerResponse (Server.Response.stringBody "Hello, this is a string")
+                Response.plainText "Hello, this is a string"
                     |> DataSource.succeed
             )
 

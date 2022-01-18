@@ -1,18 +1,9 @@
-module PageServerResponse exposing
-    ( map, PageServerResponse(..)
-    , render
-    )
+module PageServerResponse exposing (PageServerResponse(..), toJson)
 
-{-|
-
-@docs map, PageServerResponse
-
--}
-
-import Server.Response exposing (Response)
+import Json.Encode
+import List.Extra
 
 
-{-| -}
 type PageServerResponse data
     = RenderPage
         { statusCode : Int
@@ -22,19 +13,39 @@ type PageServerResponse data
     | ServerResponse Response
 
 
-render : data -> PageServerResponse data
-render data =
-    RenderPage
-        { statusCode = 200, headers = [] }
-        data
+type alias Response =
+    { statusCode : Int
+    , headers : List ( String, String )
+    , body : Maybe String
+    , isBase64Encoded : Bool
+    }
 
 
-{-| -}
-map : (data -> mappedData) -> PageServerResponse data -> PageServerResponse mappedData
-map mapFn pageServerResponse =
-    case pageServerResponse of
-        RenderPage response data ->
-            RenderPage response (mapFn data)
+toJson : Response -> Json.Encode.Value
+toJson serverResponse =
+    Json.Encode.object
+        [ ( "body", serverResponse.body |> Maybe.map Json.Encode.string |> Maybe.withDefault Json.Encode.null )
+        , ( "statusCode", serverResponse.statusCode |> Json.Encode.int )
+        , ( "headers"
+          , serverResponse.headers
+                |> collectMultiValueHeaders
+                |> List.map (Tuple.mapSecond (Json.Encode.list Json.Encode.string))
+                |> Json.Encode.object
+          )
+        , ( "kind", Json.Encode.string "server-response" )
+        , ( "isBase64Encoded", Json.Encode.bool serverResponse.isBase64Encoded )
+        ]
 
-        ServerResponse serverResponse ->
-            ServerResponse serverResponse
+
+collectMultiValueHeaders : List ( String, String ) -> List ( String, List String )
+collectMultiValueHeaders headers =
+    headers
+        |> List.Extra.groupWhile
+            (\( key1, _ ) ( key2, _ ) -> key1 == key2)
+        |> List.map
+            (\( ( key, firstValue ), otherValues ) ->
+                ( key
+                , firstValue
+                    :: (otherValues |> List.map Tuple.second)
+                )
+            )

@@ -11,20 +11,20 @@ import Html
 import Html.Attributes as Attr
 import OptimizedDecoder as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Secrets
+import Server.Response
 import Shared
 import View exposing (View)
 
 
-data : routeParams -> DataSource (PageServerResponse Data)
+data : routeParams -> DataSource (Server.Response.Response Data)
 data _ =
     DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
         Decode.string
         |> DataSource.map Data
-        |> DataSource.map PageServerResponse.render
+        |> DataSource.map Server.Response.render
 
 
 head : (routeParams -> String) -> StaticPayload Data routeParams -> List Head.Tag

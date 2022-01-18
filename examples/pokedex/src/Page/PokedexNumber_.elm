@@ -8,11 +8,10 @@ import Html exposing (..)
 import Html.Attributes exposing (src)
 import OptimizedDecoder as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Secrets
-import Server.Response
+import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
 
@@ -44,7 +43,7 @@ pages =
     DataSource.succeed []
 
 
-data : RouteParams -> DataSource (PageServerResponse Data)
+data : RouteParams -> DataSource (Response Data)
 data { pokedexNumber } =
     let
         asNumber : Int
@@ -68,14 +67,13 @@ data { pokedexNumber } =
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
                 )
             )
-            |> DataSource.map PageServerResponse.render
+            |> DataSource.map Response.render
 
 
-notFoundResponse : String -> DataSource (PageServerResponse Data)
+notFoundResponse : String -> DataSource (Response Data)
 notFoundResponse message =
-    Server.Response.stringBody ("Not found.\n\n" ++ message)
-        |> Server.Response.withStatusCode 404
-        |> PageServerResponse.ServerResponse
+    Response.plainText ("Not found.\n\n" ++ message)
+        |> Response.withStatusCode 404
         |> DataSource.succeed
 
 

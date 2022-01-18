@@ -10,10 +10,10 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request exposing (Request)
+import Server.Response
 import Shared
 import Time
 import View exposing (View)
@@ -201,7 +201,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers
@@ -215,7 +215,7 @@ data routeParams =
         , { user = Nothing
           , errors = Form.init (form defaultUser)
           }
-            |> PageServerResponse.render
+            |> Server.Response.render
             |> DataSource.succeed
             |> Request.succeed
         ]

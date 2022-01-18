@@ -726,7 +726,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                             case includeHtml of
                                                                 RenderRequest.OnlyJson ->
                                                                     Ok
-                                                                        (PageServerResponse.render
+                                                                        (Server.Response.render
                                                                             { head = []
                                                                             , view = "This page was not rendered because it is a JSON-only request."
                                                                             , title = "This page was not rendered because it is a JSON-only request."
@@ -828,7 +828,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                         |> Effect.SendSinglePage False
 
                                                                 PageServerResponse.ServerResponse serverResponse ->
-                                                                    { body = serverResponse |> Server.Response.toJson
+                                                                    { body = serverResponse |> PageServerResponse.toJson
                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                     , statusCode = 200
                                                                     }
@@ -898,7 +898,7 @@ sendSinglePageProgress site contentJson config model =
                         case includeHtml of
                             RenderRequest.OnlyJson ->
                                 Ok
-                                    (PageServerResponse.render
+                                    (Server.Response.render
                                         { head = []
                                         , view = "This page was not rendered because it is a JSON-only request."
                                         , title = "This page was not rendered because it is a JSON-only request."
@@ -1001,7 +1001,7 @@ sendSinglePageProgress site contentJson config model =
                                             |> Effect.SendSinglePage True
 
                                     PageServerResponse.ServerResponse serverResponse ->
-                                        { body = serverResponse |> Server.Response.toJson
+                                        { body = serverResponse |> PageServerResponse.toJson
                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                         , statusCode = 200
                                         }

@@ -42,7 +42,7 @@ function generateTemplateModuleConnector(basePath, phase) {
 
 import Api
 import Pattern
-import PageServerResponse exposing (PageServerResponse)
+import Server.Response
 import ApiRoute
 import Browser.Navigation
 import Route exposing (Route)
@@ -455,11 +455,11 @@ main =
           .join(", ")} ]
         }
 
-dataForRoute : Maybe Route -> DataSource (PageServerResponse PageData)
+dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData)
 dataForRoute route =
     case route of
         Nothing ->
-            DataSource.succeed (PageServerResponse.RenderPage { statusCode = 400, headers = [] } Data404NotFoundPage____)
+            DataSource.succeed (Server.Response.render Data404NotFoundPage____ |> Server.Response.withStatusCode 404)
         ${templates
           .map(
             (name) =>
@@ -472,7 +472,7 @@ dataForRoute route =
               )}.page.data ${routeHelpers.referenceRouteParams(
                 name,
                 "routeParams"
-              )} |> DataSource.map (PageServerResponse.map Data${routeHelpers.routeVariant(
+              )} |> DataSource.map (Server.Response.map Data${routeHelpers.routeVariant(
                 name
               )})`
           )
@@ -700,7 +700,7 @@ mapBoth fnA fnB ( a, b, c ) =
 -}
 
 
-import PageServerResponse exposing (PageServerResponse)
+import Server.Response
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attr
 import Path exposing (Path)

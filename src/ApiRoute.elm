@@ -84,7 +84,7 @@ stripTrailingSlash path =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Request (DataSource Server.Response.Response)) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Request (DataSource (Server.Response.Response Never))) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -108,12 +108,12 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
                                             Just (Err errors) ->
                                                 errors
                                                     |> Server.Request.errorsToString
-                                                    |> Server.Response.stringBody
+                                                    |> Server.Response.plainText
                                                     |> Server.Response.withStatusCode 400
                                                     |> DataSource.succeed
 
                                             Nothing ->
-                                                Server.Response.stringBody "No matching request handler"
+                                                Server.Response.plainText "No matching request handler"
                                                     |> Server.Response.withStatusCode 400
                                                     |> DataSource.succeed
                                     )
@@ -138,7 +138,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
 
 
 {-| -}
-preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource Server.Response.Response) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource (Server.Response.Response Never)) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : DataSource (List String)

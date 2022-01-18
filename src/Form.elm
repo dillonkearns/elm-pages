@@ -1883,12 +1883,10 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
                         if hasErrors validationErrors then
                             Server.Response.json
                                 (validationErrors |> encodeErrors)
-                                |> PageServerResponse.ServerResponse
 
                         else
                             Server.Response.json
                                 (validationErrors |> encodeErrors)
-                                |> PageServerResponse.ServerResponse
                     )
         )
         (Request.expectFormPost
@@ -2003,7 +2001,7 @@ submitHandlers myForm toDataSource =
                                         Err () |> toDataSource model
                             )
                         -- TODO allow customizing headers or status code, or not?
-                        |> DataSource.map PageServerResponse.render
+                        |> DataSource.map Server.Response.render
                 )
         ]
 

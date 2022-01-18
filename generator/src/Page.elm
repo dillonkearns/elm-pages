@@ -86,20 +86,20 @@ import Browser.Navigation
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Head
-import PageServerResponse exposing (PageServerResponse)
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Secrets as Secrets
 import Path exposing (Path)
 import Server.Request
+import Server.Response
 import Shared
 import View exposing (View)
 
 
 {-| -}
 type alias PageWithState routeParams data model msg =
-    { data : routeParams -> DataSource (PageServerResponse data)
+    { data : routeParams -> DataSource (Server.Response.Response data)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
@@ -135,7 +135,7 @@ type alias StaticPayload data routeParams =
 {-| -}
 type Builder routeParams data
     = WithData
-        { data : routeParams -> DataSource (PageServerResponse data)
+        { data : routeParams -> DataSource (Server.Response.Response data)
         , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload data routeParams
@@ -266,7 +266,7 @@ single :
     -> Builder {} data
 single { data, head } =
     WithData
-        { data = \_ -> data |> DataSource.map PageServerResponse.render
+        { data = \_ -> data |> DataSource.map Server.Response.render
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -284,7 +284,7 @@ preRender :
     -> Builder routeParams data
 preRender { data, head, pages } =
     WithData
-        { data = data >> DataSource.map PageServerResponse.render
+        { data = data >> DataSource.map Server.Response.render
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -314,7 +314,7 @@ preRender { data, head, pages } =
 
 {-| -}
 preRenderWithFallback :
-    { data : routeParams -> DataSource (PageServerResponse data)
+    { data : routeParams -> DataSource (Server.Response.Response data)
     , pages : DataSource (List routeParams)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
@@ -334,7 +334,7 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Request (DataSource (PageServerResponse data))
+    { data : routeParams -> Server.Request.Request (DataSource (Server.Response.Response data))
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data

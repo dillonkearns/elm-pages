@@ -17,10 +17,10 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request exposing (Request)
+import Server.Response as Response exposing (Response)
 import Shared
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -605,7 +605,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request (DataSource (Response Data))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers
@@ -619,7 +619,7 @@ data routeParams =
         , { user = Nothing
           , initialForm = Form.init (form defaultUser)
           }
-            |> PageServerResponse.render
+            |> Response.render
             |> DataSource.succeed
             |> Request.succeed
         ]

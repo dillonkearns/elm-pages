@@ -8,7 +8,6 @@ import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request
@@ -39,7 +38,7 @@ page =
         |> Page.buildNoState { view = view }
 
 
-data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ Request.map2 Data
@@ -48,12 +47,10 @@ data routeParams =
             |> Request.map
                 (\requestData ->
                     requestData
-                        |> PageServerResponse.RenderPage
-                            { statusCode = 200
-                            , headers =
-                                [ ( "x-greeting", "hello there " ++ requestData.username ++ "!" )
-                                ]
-                            }
+                        |> Server.Response.render
+                        |> Server.Response.withHeader
+                            "x-greeting"
+                            ("hello there " ++ requestData.username ++ "!")
                         |> DataSource.succeed
                 )
         , Request.map2 Data
@@ -62,17 +59,15 @@ data routeParams =
             |> Request.map
                 (\requestData ->
                     requestData
-                        |> PageServerResponse.RenderPage
-                            { statusCode = 200
-                            , headers =
-                                [ ( "x-greeting", "hello " ++ requestData.username ++ "!" )
-                                ]
-                            }
+                        |> Server.Response.render
+                        |> Server.Response.withHeader
+                            "x-greeting"
+                            ("hello " ++ requestData.username ++ "!")
                         |> DataSource.succeed
                 )
         , Request.succeed
             (DataSource.succeed
-                (PageServerResponse.ServerResponse (Server.Response.temporaryRedirect "/login"))
+                (Server.Response.temporaryRedirect "/login")
             )
         ]
 

@@ -7,12 +7,11 @@ import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
 import Page exposing (Page, PageWithState, StaticPayload)
-import PageServerResponse exposing (PageServerResponse)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
 import Server.Request as Request
-import Server.Response
+import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
 
@@ -49,7 +48,7 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Request (DataSource (PageServerResponse Data))
+data : RouteParams -> Request.Request (DataSource (Response Data))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "username"
@@ -60,12 +59,12 @@ data routeParams =
                         |> DataSource.succeed
                         |> DataSource.andMap (DataSource.File.rawFile "examples/pokedex/content/secret-note.txt")
                         |> DataSource.map LoggedIn
-                        |> DataSource.map PageServerResponse.render
+                        |> DataSource.map Response.render
                 )
         , Request.succeed
             (NotLoggedIn
                 |> DataSource.succeed
-                |> DataSource.map PageServerResponse.render
+                |> DataSource.map Response.render
              --"/login"
              --    |> ServerResponse.temporaryRedirect
              --    --|> ServerResponse.withStatusCode 404
