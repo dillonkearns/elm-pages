@@ -144,7 +144,7 @@ async function render(event, context) {
     );
     console.log("@@@renderResult", JSON.stringify(renderResult, null, 2));
 
-    const statusCode = renderResult.is404 ? 404 : 200;
+    const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
 
     if (renderResult.kind === "json") {
       return {
@@ -152,6 +152,7 @@ async function render(event, context) {
         headers: {
           "Content-Type": "application/json",
           "x-powered-by": "elm-pages",
+          ...renderResult.headers,
         },
         statusCode,
       };
@@ -169,6 +170,7 @@ async function render(event, context) {
         headers: {
           "Content-Type": "text/html",
           "x-powered-by": "elm-pages",
+          ...renderResult.headers,
         },
         statusCode,
       };

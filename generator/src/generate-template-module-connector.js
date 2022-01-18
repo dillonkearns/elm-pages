@@ -459,7 +459,7 @@ dataForRoute : Maybe Route -> DataSource (PageServerResponse PageData)
 dataForRoute route =
     case route of
         Nothing ->
-            DataSource.succeed (PageServerResponse.RenderPage Data404NotFoundPage____)
+            DataSource.succeed (PageServerResponse.RenderPage { statusCode = 400, headers = [] } Data404NotFoundPage____)
         ${templates
           .map(
             (name) =>

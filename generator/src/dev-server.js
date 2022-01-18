@@ -367,15 +367,17 @@ async function start(options) {
           const is404 = renderResult.is404;
           switch (renderResult.kind) {
             case "json": {
-              res.writeHead(is404 ? 404 : 200, {
+              res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/json",
+                ...renderResult.headers,
               });
               res.end(renderResult.contentJson);
               break;
             }
             case "html": {
-              res.writeHead(is404 ? 404 : 200, {
+              res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "text/html",
+                ...renderResult.headers,
               });
               res.end(renderResult.htmlString);
               break;

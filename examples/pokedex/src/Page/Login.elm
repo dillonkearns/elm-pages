@@ -67,7 +67,7 @@ data routeParams =
                 (\name ->
                     name
                         |> Data
-                        |> PageServerResponse.RenderPage
+                        |> PageServerResponse.render
                         |> DataSource.succeed
                 )
         ]

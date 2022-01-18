@@ -22,6 +22,8 @@ type alias ToJsSuccessPayloadNew =
     , title : String
     , staticHttpCache : Dict String String
     , is404 : Bool
+    , statusCode : Int
+    , headers : List ( String, String )
     }
 
 
@@ -63,6 +65,10 @@ successCodecNew canonicalSiteUrl currentPagePath =
             .staticHttpCache
             (Codec.dict Codec.string)
         |> Codec.field "is404" .is404 Codec.bool
+        |> Codec.field "statusCode" .statusCode Codec.int
+        |> Codec.field "headers"
+            .headers
+            (Codec.dict Codec.string |> Codec.map Dict.toList Dict.fromList)
         |> Codec.buildObject
 
 

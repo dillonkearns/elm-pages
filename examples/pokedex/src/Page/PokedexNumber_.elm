@@ -68,7 +68,7 @@ data { pokedexNumber } =
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
                 )
             )
-            |> DataSource.map PageServerResponse.RenderPage
+            |> DataSource.map PageServerResponse.render
 
 
 notFoundResponse : String -> DataSource (PageServerResponse Data)

@@ -215,7 +215,7 @@ data routeParams =
         , { user = Nothing
           , errors = Form.init (form defaultUser)
           }
-            |> PageServerResponse.RenderPage
+            |> PageServerResponse.render
             |> DataSource.succeed
             |> Request.succeed
         ]

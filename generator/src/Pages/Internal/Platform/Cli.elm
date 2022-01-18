@@ -726,7 +726,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                             case includeHtml of
                                                                 RenderRequest.OnlyJson ->
                                                                     Ok
-                                                                        (PageServerResponse.RenderPage
+                                                                        (PageServerResponse.render
                                                                             { head = []
                                                                             , view = "This page was not rendered because it is a JSON-only request."
                                                                             , title = "This page was not rendered because it is a JSON-only request."
@@ -738,7 +738,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                         |> Result.map
                                                                             (\( pageData_, sharedData ) ->
                                                                                 case pageData_ of
-                                                                                    PageServerResponse.RenderPage pageData ->
+                                                                                    PageServerResponse.RenderPage responseInfo pageData ->
                                                                                         let
                                                                                             pageModel : userModel
                                                                                             pageModel =
@@ -763,7 +763,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                                             viewValue =
                                                                                                 (config.view currentPage Nothing sharedData pageData |> .view) pageModel
                                                                                         in
-                                                                                        PageServerResponse.RenderPage
+                                                                                        PageServerResponse.RenderPage responseInfo
                                                                                             { head = config.view currentPage Nothing sharedData pageData |> .head
                                                                                             , view = viewValue.body |> HtmlPrinter.htmlToString
                                                                                             , title = viewValue.title
@@ -808,7 +808,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                     case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
                                                         Ok ( pageFound, renderedOrApiResponse, siteData ) ->
                                                             case renderedOrApiResponse of
-                                                                PageServerResponse.RenderPage rendered ->
+                                                                PageServerResponse.RenderPage responseInfo rendered ->
                                                                     { route = payload.path |> Path.toRelative
                                                                     , contentJson =
                                                                         --toJsPayload.pages
@@ -821,6 +821,8 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                     , title = rendered.title
                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                     , is404 = False
+                                                                    , statusCode = responseInfo.statusCode
+                                                                    , headers = responseInfo.headers
                                                                     }
                                                                         |> ToJsPayload.PageProgress
                                                                         |> Effect.SendSinglePage False
@@ -896,7 +898,7 @@ sendSinglePageProgress site contentJson config model =
                         case includeHtml of
                             RenderRequest.OnlyJson ->
                                 Ok
-                                    (PageServerResponse.RenderPage
+                                    (PageServerResponse.render
                                         { head = []
                                         , view = "This page was not rendered because it is a JSON-only request."
                                         , title = "This page was not rendered because it is a JSON-only request."
@@ -908,7 +910,7 @@ sendSinglePageProgress site contentJson config model =
                                     |> Result.map
                                         (\( pageData_, sharedData ) ->
                                             case pageData_ of
-                                                PageServerResponse.RenderPage pageData ->
+                                                PageServerResponse.RenderPage responseInfo pageData ->
                                                     let
                                                         pageModel : userModel
                                                         pageModel =
@@ -933,7 +935,7 @@ sendSinglePageProgress site contentJson config model =
                                                         viewValue =
                                                             (config.view currentPage Nothing sharedData pageData |> .view) pageModel
                                                     in
-                                                    PageServerResponse.RenderPage
+                                                    PageServerResponse.RenderPage responseInfo
                                                         { head = config.view currentPage Nothing sharedData pageData |> .head
                                                         , view = viewValue.body |> HtmlPrinter.htmlToString
                                                         , title = viewValue.title
@@ -983,7 +985,7 @@ sendSinglePageProgress site contentJson config model =
                         case maybeNotFoundReason of
                             Nothing ->
                                 case renderedOrApiResponse of
-                                    PageServerResponse.RenderPage rendered ->
+                                    PageServerResponse.RenderPage responseInfo rendered ->
                                         { route = page |> Path.toRelative
                                         , contentJson = contentJson
                                         , html = rendered.view
@@ -992,6 +994,8 @@ sendSinglePageProgress site contentJson config model =
                                         , title = rendered.title
                                         , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                         , is404 = False
+                                        , statusCode = responseInfo.statusCode
+                                        , headers = responseInfo.headers
                                         }
                                             |> ToJsPayload.PageProgress
                                             |> Effect.SendSinglePage True
@@ -1049,6 +1053,8 @@ render404Page config model path notFoundReason =
     , title = notFoundDocument.title
     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
     , is404 = True
+    , statusCode = 404
+    , headers = []
     }
         |> ToJsPayload.PageProgress
         |> Effect.SendSinglePage True

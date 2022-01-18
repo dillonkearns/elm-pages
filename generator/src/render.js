@@ -138,6 +138,8 @@ function runElmApp(
               staticData: args.contentJson,
               is404: args.is404,
             }),
+            statusCode: args.statusCode,
+            headers: args.headers,
           });
         } else {
           resolve(outputString(basePath, fromElm, isDevServer));
@@ -192,6 +194,8 @@ async function outputString(
   contentJson["staticData"] = args.contentJson;
   contentJson["is404"] = args.is404;
   contentJson["path"] = args.route;
+  contentJson["statusCode"] = args.statusCode;
+  contentJson["headers"] = args.headers;
   const normalizedRoute = args.route.replace(/index$/, "");
 
   return {
@@ -199,6 +203,8 @@ async function outputString(
     route: normalizedRoute,
     htmlString: preRenderHtml(basePath, args, contentJson, isDevServer),
     contentJson: args.contentJson,
+    statusCode: args.statusCode,
+    headers: args.headers,
     kind: "html",
   };
 }

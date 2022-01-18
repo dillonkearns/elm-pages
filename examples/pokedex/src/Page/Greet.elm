@@ -49,6 +49,11 @@ data routeParams =
                 (\requestData ->
                     requestData
                         |> PageServerResponse.RenderPage
+                            { statusCode = 200
+                            , headers =
+                                [ ( "x-greeting", "hello there " ++ requestData.username ++ "!" )
+                                ]
+                            }
                         |> DataSource.succeed
                 )
         , Request.map2 Data
@@ -58,6 +63,11 @@ data routeParams =
                 (\requestData ->
                     requestData
                         |> PageServerResponse.RenderPage
+                            { statusCode = 200
+                            , headers =
+                                [ ( "x-greeting", "hello " ++ requestData.username ++ "!" )
+                                ]
+                            }
                         |> DataSource.succeed
                 )
         , Request.succeed

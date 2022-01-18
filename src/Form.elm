@@ -2002,7 +2002,8 @@ submitHandlers myForm toDataSource =
                                     Err model ->
                                         Err () |> toDataSource model
                             )
-                        |> DataSource.map PageServerResponse.RenderPage
+                        -- TODO allow customizing headers or status code, or not?
+                        |> DataSource.map PageServerResponse.render
                 )
         ]
 

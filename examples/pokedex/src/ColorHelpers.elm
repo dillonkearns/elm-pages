@@ -24,7 +24,7 @@ data _ =
     DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
         Decode.string
         |> DataSource.map Data
-        |> DataSource.map PageServerResponse.RenderPage
+        |> DataSource.map PageServerResponse.render
 
 
 head : (routeParams -> String) -> StaticPayload Data routeParams -> List Head.Tag

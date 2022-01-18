@@ -198,13 +198,13 @@ data =`
         ? `Request.succeed ()
         |> Request.thenRespond
             (\\() ->
-                DataSource.succeed (PageServerResponse.RenderPage {})
+                DataSource.succeed (PageServerResponse.render {})
             )
 `
         : withFallback
         ? `    Data
         |> DataSource.succeed
-        |> DataSource.map PageServerResponse.RenderPage
+        |> DataSource.map PageServerResponse.render
 `
         : `DataSource.succeed {}`
     }

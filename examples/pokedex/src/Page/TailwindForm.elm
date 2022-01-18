@@ -619,7 +619,7 @@ data routeParams =
         , { user = Nothing
           , initialForm = Form.init (form defaultUser)
           }
-            |> PageServerResponse.RenderPage
+            |> PageServerResponse.render
             |> DataSource.succeed
             |> Request.succeed
         ]

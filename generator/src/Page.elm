@@ -266,7 +266,7 @@ single :
     -> Builder {} data
 single { data, head } =
     WithData
-        { data = \_ -> data |> DataSource.map PageServerResponse.RenderPage
+        { data = \_ -> data |> DataSource.map PageServerResponse.render
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -284,7 +284,7 @@ preRender :
     -> Builder routeParams data
 preRender { data, head, pages } =
     WithData
-        { data = data >> DataSource.map PageServerResponse.RenderPage
+        { data = data >> DataSource.map PageServerResponse.render
         , staticRoutes = pages
         , head = head
         , serverless = False

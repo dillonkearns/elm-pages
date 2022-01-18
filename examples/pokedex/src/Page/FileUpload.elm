@@ -48,10 +48,10 @@ data routeParams =
             )
             |> Request.map
                 (\file ->
-                    DataSource.succeed (PageServerResponse.RenderPage (Just file))
+                    DataSource.succeed (PageServerResponse.render (Just file))
                 )
         , Request.succeed
-            (DataSource.succeed (PageServerResponse.RenderPage Nothing))
+            (DataSource.succeed (PageServerResponse.render Nothing))
         ]
 
 

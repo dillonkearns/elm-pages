@@ -192,7 +192,7 @@ init config flags url key =
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData_ ) ->
                     case pageData_ of
-                        PageServerResponse.RenderPage pageData ->
+                        PageServerResponse.RenderPage responseInfo pageData ->
                             let
                                 userFlags : Pages.Flags.Flags
                                 userFlags =
@@ -477,7 +477,7 @@ update config appMsg model =
                                 |> Result.andThen
                                     (\pageResponse ->
                                         case pageResponse of
-                                            PageServerResponse.RenderPage renderPagePageData ->
+                                            PageServerResponse.RenderPage responseInfo renderPagePageData ->
                                                 Ok renderPagePageData
 
                                             PageServerResponse.ServerResponse _ ->
@@ -575,7 +575,7 @@ update config appMsg model =
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData_ ) ->
                     case pageData_ of
-                        PageServerResponse.RenderPage pageData ->
+                        PageServerResponse.RenderPage responseInfo pageData ->
                             let
                                 updateResult : Maybe ( userModel, Cmd userMsg )
                                 updateResult =

@@ -60,12 +60,12 @@ data routeParams =
                         |> DataSource.succeed
                         |> DataSource.andMap (DataSource.File.rawFile "examples/pokedex/content/secret-note.txt")
                         |> DataSource.map LoggedIn
-                        |> DataSource.map PageServerResponse.RenderPage
+                        |> DataSource.map PageServerResponse.render
                 )
         , Request.succeed
             (NotLoggedIn
                 |> DataSource.succeed
-                |> DataSource.map PageServerResponse.RenderPage
+                |> DataSource.map PageServerResponse.render
              --"/login"
              --    |> ServerResponse.temporaryRedirect
              --    --|> ServerResponse.withStatusCode 404
