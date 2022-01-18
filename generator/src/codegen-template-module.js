@@ -61,7 +61,7 @@ import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
 ${
   serverRender || withFallback
-    ? "import PageServerResponse exposing (PageServerResponse)"
+    ? "import Server.Response as Response exposing (Response)"
     : ""
 }
 import Pages.PageUrl exposing (PageUrl)
@@ -182,10 +182,10 @@ type alias Data =
 
 ${
   serverRender
-    ? `data : RouteParams -> Request.ServerRequest (DataSource (PageServerResponse Data))
+    ? `data : RouteParams -> Request.ServerRequest (DataSource (Response Data))
 data routeParams =`
     : withFallback
-    ? `data : RouteParams -> DataSource (PageServerResponse Data)
+    ? `data : RouteParams -> DataSource (Response Data)
 data routeParams =`
     : withParams
     ? `data : RouteParams -> DataSource Data
@@ -198,13 +198,13 @@ data =`
         ? `Request.succeed ()
         |> Request.thenRespond
             (\\() ->
-                DataSource.succeed (PageServerResponse.render {})
+                DataSource.succeed (Response.render {})
             )
 `
         : withFallback
         ? `    Data
         |> DataSource.succeed
-        |> DataSource.map PageServerResponse.render
+        |> DataSource.map Response.render
 `
         : `DataSource.succeed {}`
     }
