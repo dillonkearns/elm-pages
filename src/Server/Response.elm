@@ -6,6 +6,7 @@ module Server.Response exposing
     , map
     , withHeader, withStatusCode
     , toJson
+    , withSetCookieHeader
     )
 
 {-|
@@ -57,6 +58,7 @@ You can use `withHeader` and `withStatusCode` to customize either type of Respon
 
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse(..))
+import Server.SetCookie as SetCookie exposing (SetCookie)
 
 
 {-| -}
@@ -182,6 +184,15 @@ withHeader name value serverResponse =
 
         ServerResponse response ->
             ServerResponse { response | headers = ( name, value ) :: response.headers }
+
+
+withSetCookieHeader : SetCookie -> Response data -> Response data
+withSetCookieHeader cookie response =
+    response
+        |> withHeader "Set-Cookie"
+            (cookie
+                |> SetCookie.toString
+            )
 
 
 {-| -}

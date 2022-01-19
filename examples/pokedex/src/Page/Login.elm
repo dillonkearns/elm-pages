@@ -49,15 +49,13 @@ data routeParams =
         [ Request.expectFormPost (\{ field } -> field "name")
             |> Request.map
                 (\name ->
-                    ("/greet"
+                    "/greet"
                         |> Server.Response.temporaryRedirect
-                        |> Server.Response.withHeader "Set-Cookie"
+                        |> Server.Response.withSetCookieHeader
                             (SetCookie.setCookie "username" name
                                 |> SetCookie.httpOnly
                                 |> SetCookie.withPath "/"
-                                |> SetCookie.toString
                             )
-                    )
                         |> DataSource.succeed
                 )
         , Request.cookie "username"
