@@ -28,7 +28,6 @@ routes getStaticRoutes htmlToString =
     , greet
     , fileLength
     , jsonError
-    , greetHtml
     ]
 
 
@@ -84,35 +83,6 @@ greet =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "greet"
-        |> ApiRoute.serverRender
-
-
-greetHtml : ApiRoute ApiRoute.Response
-greetHtml =
-    ApiRoute.succeed
-        (Server.Request.oneOf
-            [ Server.Request.expectFormPost
-                (\{ field, optionalField } ->
-                    field "first"
-                )
-            , Server.Request.expectJsonBody (Decode.field "first" Decode.string)
-            , Server.Request.expectQueryParam "first"
-            , Server.Request.expectMultiPartFormPost
-                (\{ field, optionalField } ->
-                    field "first"
-                )
-            ]
-            |> Server.Request.map
-                (\firstName ->
-                    [ Html.text <| "Hello " ++ firstName ]
-                        |> Html.div []
-                        |> Server.Response.html
-                        |> DataSource.succeed
-                )
-        )
-        |> ApiRoute.literal "api"
-        |> ApiRoute.slash
-        |> ApiRoute.literal "something"
         |> ApiRoute.serverRender
 
 
