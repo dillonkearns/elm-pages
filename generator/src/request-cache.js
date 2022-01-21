@@ -2,6 +2,7 @@ const path = require("path");
 const undici = require("undici");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
+const cookie = require("cookie-signature");
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -56,26 +57,13 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
       } catch (e) {}
 
       if (request.url === "port://encrypt") {
-        const cookie = require("cookie-signature");
-        console.log(
-          "@@@signing",
-          rawRequest.body.args[0],
-          typeof rawRequest.body.args[0]
-        );
-        console.log(
-          "signed",
-          cookie.sign(
-            JSON.stringify(rawRequest.body.args[0], null, 0),
-            "abcdefg"
-          )
-        );
         try {
           await fs.promises.writeFile(
             responsePath,
             JSON.stringify(
               cookie.sign(
-                JSON.stringify(rawRequest.body.args[0], null, 0),
-                "abcdefg"
+                JSON.stringify(rawRequest.body.args[0].values, null, 0),
+                rawRequest.body.args[0].secret
               )
             )
           );
@@ -91,18 +79,14 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
           });
         }
       } else if (request.url === "port://decrypt") {
-        const cookie = require("cookie-signature");
-        console.log("@@@[0]", rawRequest.body.args[0]);
         try {
-          console.log(
-            "unsigned",
-            cookie.unsign(rawRequest.body.args[0], "abcdefg")
-          );
           // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
-          await fs.promises.writeFile(
-            responsePath,
-            cookie.unsign(rawRequest.body.args[0], "abcdefg")
+          const signed = tryDecodeCookie(
+            rawRequest.body.args[0].input,
+            rawRequest.body.args[0].secrets
           );
+
+          await fs.promises.writeFile(responsePath, signed);
           resolve(responsePath);
         } catch (e) {
           reject({
@@ -179,6 +163,19 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
       }
     }
   });
+}
+
+function tryDecodeCookie(input, secrets) {
+  if (secrets.length > 0) {
+    const signed = cookie.unsign(input, secrets[0]);
+    if (signed) {
+      return signed;
+    } else {
+      return tryDecodeCookie(input, secrets.slice(1));
+    }
+  } else {
+    return null;
+  }
 }
 
 /**

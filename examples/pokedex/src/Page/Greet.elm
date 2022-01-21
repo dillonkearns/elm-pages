@@ -57,41 +57,23 @@ withSession config decoder toRequest =
     Request.cookie config.name
         |> Request.map
             (\maybeSessionCookie ->
-                --DataSource.succeed
-                --    (case maybeSessionCookie of
-                --        Just sessionCookie ->
-                --            Debug.todo ""
-                --
-                --        Nothing ->
-                --            Debug.todo ""
-                --    )
                 let
-                    result : Result String decoded
-                    result =
-                        --Err ""
-                        case maybeSessionCookie of
-                            Nothing ->
-                                Err "TODO"
-
-                            Just sessionCookie ->
-                                OptimizedDecoder.decodeString decoder sessionCookie
-                                    |> Result.mapError Json.Decode.errorToString
-
-                    --decrypted : DataSource (Dict String Json.Decode.Value)
+                    decrypted : DataSource (Result String decoded)
                     decrypted =
                         case maybeSessionCookie of
                             Just sessionCookie ->
-                                decrypt decoder sessionCookie
+                                decrypt config.secrets decoder sessionCookie
                                     |> DataSource.map Ok
 
                             Nothing ->
                                 Err "TODO"
                                     |> DataSource.succeed
 
+                    decryptedFull : DataSource (Dict String OptimizedDecoder.Value)
                     decryptedFull =
                         maybeSessionCookie
                             |> Maybe.map
-                                (\sessionCookie -> decrypt (OptimizedDecoder.dict OptimizedDecoder.value) sessionCookie)
+                                (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.value) sessionCookie)
                             |> Maybe.withDefault (DataSource.succeed Dict.empty)
                 in
                 decryptedFull
@@ -100,6 +82,7 @@ withSession config decoder toRequest =
                             DataSource.andThen
                                 (\( sessionUpdate, response ) ->
                                     let
+                                        encodedCookie : Json.Encode.Value
                                         encodedCookie =
                                             Session.setValues sessionUpdate cookieDict
                                     in
@@ -126,11 +109,6 @@ withSession config decoder toRequest =
 
 encrypt : Secrets.Value (List String) -> Json.Encode.Value -> DataSource.DataSource String
 encrypt secrets input =
-    let
-        decoder : OptimizedDecoder.Decoder String
-        decoder =
-            OptimizedDecoder.string
-    in
     DataSource.Http.request
         (secrets
             |> Secrets.map
@@ -140,31 +118,44 @@ encrypt secrets input =
                     , headers = []
 
                     -- TODO pass through secrets here
-                    , body = DataSource.Http.jsonBody input
+                    , body =
+                        DataSource.Http.jsonBody
+                            (Json.Encode.object
+                                [ ( "values", input )
+                                , ( "secret"
+                                  , Json.Encode.string
+                                        (secretList
+                                            |> List.head
+                                            -- TODO use different default - require non-empty list?
+                                            |> Maybe.withDefault ""
+                                        )
+                                  )
+                                ]
+                            )
                     }
                 )
         )
-        decoder
+        OptimizedDecoder.string
 
 
-
---decrypt : String -> DataSource.DataSource (Dict String Json.Decode.Value)
-
-
-decrypt : OptimizedDecoder.Decoder a -> String -> DataSource a
-decrypt decoder input =
-    --let
-    --    decoder : OptimizedDecoder.Decoder (Dict String Json.Decode.Value)
-    --    decoder =
-    --        OptimizedDecoder.dict OptimizedDecoder.value
-    --in
+decrypt : Secrets.Value (List String) -> OptimizedDecoder.Decoder a -> String -> DataSource a
+decrypt secrets decoder input =
     DataSource.Http.request
-        (Secrets.succeed
-            { url = "port://decrypt"
-            , method = "GET"
-            , headers = []
-            , body = DataSource.Http.jsonBody (Json.Encode.string input)
-            }
+        (secrets
+            |> Secrets.map
+                (\secretList ->
+                    { url = "port://decrypt"
+                    , method = "GET"
+                    , headers = []
+                    , body =
+                        DataSource.Http.jsonBody
+                            (Json.Encode.object
+                                [ ( "input", Json.Encode.string input )
+                                , ( "secrets", Json.Encode.list Json.Encode.string secretList )
+                                ]
+                            )
+                    }
+                )
         )
         decoder
 
@@ -201,35 +192,11 @@ data routeParams =
           --                    ("hello " ++ requestData.username ++ "!")
           --                |> DataSource.succeed
           --        ),
-          --, withSession
-          --    { name = "__session"
-          --    , secrets =
-          --        Secrets.succeed
-          --            (\sessionSecret -> [ sessionSecret ])
-          --            |> Secrets.with "SESSION_SECRET"
-          --    , sameSite = "lax" -- TODO custom type
-          --    , codec =
-          --        -- TODO use custom codec API, allowing you to retrieve fields, decode them, and set fields with flash
-          --        Codec.object identity
-          --            |> Codec.field "userId" identity Codec.string
-          --            |> Codec.buildObject
-          --    }
-          --    (\userIdResult ->
-          --        case userIdResult of
-          --            Err error ->
-          --                Debug.todo ""
-          --
-          --            Ok userId ->
-          --                Request.succeed
-          --                    (DataSource.succeed
-          --                        ( userId, Server.Response.temporaryRedirect "/login" )
-          --                    )
-          --    )
           withSession
             { name = "mysession"
             , secrets =
                 Secrets.succeed
-                    (\sessionSecret -> [ sessionSecret ])
+                    (\sessionSecret -> [ "secret4", "secret3", "secret2", sessionSecret ])
                     |> Secrets.with "SESSION_SECRET"
             , sameSite = "lax" -- TODO custom type
             }
