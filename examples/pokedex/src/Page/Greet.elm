@@ -85,32 +85,28 @@ data routeParams =
             , sameSite = "lax" -- TODO custom type
             }
             (OptimizedDecoder.field "userId" OptimizedDecoder.int)
-            (\decryptSession ->
-                decryptSession
-                    |> DataSource.andThen
-                        (\userIdResult ->
-                            case userIdResult of
-                                Err error ->
-                                    DataSource.succeed
-                                        ( Session.oneUpdate "userId" (Json.Encode.int 456)
-                                          --, Server.Response.temporaryRedirect "/login"
-                                        , { username = "NO USER"
-                                          , requestTime = Time.millisToPosix 0
-                                          }
-                                            |> Server.Response.render
-                                        )
+            (\userIdResult ->
+                case userIdResult of
+                    Err error ->
+                        DataSource.succeed
+                            ( Session.oneUpdate "userId" (Json.Encode.int 456)
+                              --, Server.Response.temporaryRedirect "/login"
+                            , { username = "NO USER"
+                              , requestTime = Time.millisToPosix 0
+                              }
+                                |> Server.Response.render
+                            )
 
-                                Ok userId ->
-                                    DataSource.succeed
-                                        ( --Session.oneUpdate "userId" (Json.Encode.int 456)
-                                          Session.noUpdates
-                                        , --Server.Response.temporaryRedirect "/login"
-                                          { username = String.fromInt userId
-                                          , requestTime = Time.millisToPosix 0
-                                          }
-                                            |> Server.Response.render
-                                        )
-                        )
+                    Ok userId ->
+                        DataSource.succeed
+                            ( --Session.oneUpdate "userId" (Json.Encode.int 456)
+                              Session.noUpdates
+                            , --Server.Response.temporaryRedirect "/login"
+                              { username = String.fromInt userId
+                              , requestTime = Time.millisToPosix 0
+                              }
+                                |> Server.Response.render
+                            )
             )
         ]
 

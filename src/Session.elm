@@ -58,7 +58,7 @@ withSession :
     , sameSite : String
     }
     -> Decoder decoded
-    -> (DataSource (Result String decoded) -> DataSource ( SessionUpdate, Response data ))
+    -> (Result String decoded -> DataSource ( SessionUpdate, Response data ))
     -> Request (DataSource (Response data))
 withSession config decoder toRequest =
     Request.cookie config.name
@@ -87,29 +87,37 @@ withSession config decoder toRequest =
                     |> DataSource.andThen
                         (\cookieDict ->
                             DataSource.andThen
-                                (\( sessionUpdate, response ) ->
+                                (\thing ->
                                     let
-                                        encodedCookie : Json.Encode.Value
-                                        encodedCookie =
-                                            setValues sessionUpdate cookieDict
+                                        otherThing =
+                                            toRequest thing
                                     in
-                                    DataSource.map2
-                                        (\encoded originalCookieValues ->
-                                            response
-                                                |> Server.Response.withSetCookieHeader
-                                                    (SetCookie.setCookie config.name encoded
-                                                        |> SetCookie.httpOnly
-                                                        |> SetCookie.withPath "/"
-                                                     -- TODO set expiration time
-                                                     -- TODO do I need to encrypt the session expiration as part of it
-                                                     -- TODO should I update the expiration time every time?
-                                                     --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
+                                    otherThing
+                                        |> DataSource.andThen
+                                            (\( sessionUpdate, response ) ->
+                                                let
+                                                    encodedCookie : Json.Encode.Value
+                                                    encodedCookie =
+                                                        setValues sessionUpdate cookieDict
+                                                in
+                                                DataSource.map2
+                                                    (\encoded originalCookieValues ->
+                                                        response
+                                                            |> Server.Response.withSetCookieHeader
+                                                                (SetCookie.setCookie config.name encoded
+                                                                    |> SetCookie.httpOnly
+                                                                    |> SetCookie.withPath "/"
+                                                                 -- TODO set expiration time
+                                                                 -- TODO do I need to encrypt the session expiration as part of it
+                                                                 -- TODO should I update the expiration time every time?
+                                                                 --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
+                                                                )
                                                     )
-                                        )
-                                        (encrypt config.secrets encodedCookie)
-                                        decryptedFull
+                                                    (encrypt config.secrets encodedCookie)
+                                                    decryptedFull
+                                            )
                                 )
-                                (toRequest decrypted)
+                                decrypted
                         )
             )
 
