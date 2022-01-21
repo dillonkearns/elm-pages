@@ -6,12 +6,16 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
+import Json.Encode
+import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Secrets
 import Server.Request as Request
 import Server.Response
 import Server.SetCookie as SetCookie
+import Session
 import Shared
 import View exposing (View)
 
@@ -43,29 +47,41 @@ type alias Request =
     }
 
 
+withSession =
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            Secrets.succeed
+                (\secret -> [ secret ])
+                |> Secrets.with "SESSION_SECRET"
+        , sameSite = "lax"
+        }
+        (OptimizedDecoder.field "name" OptimizedDecoder.string)
+
+
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
-        [ Request.expectFormPost (\{ field } -> field "name")
-            |> Request.map
-                (\name ->
-                    "/greet"
-                        |> Server.Response.temporaryRedirect
-                        |> Server.Response.withSetCookieHeader
-                            (SetCookie.setCookie "username" name
-                                |> SetCookie.httpOnly
-                                |> SetCookie.withPath "/"
-                            )
-                        |> DataSource.succeed
+        [ withSession
+            (Request.expectFormPost (\{ field } -> field "name"))
+            (\name session ->
+                ( Session.oneUpdate "name" (Json.Encode.string name)
+                , "/greet"
+                    |> Server.Response.temporaryRedirect
                 )
-        , Request.cookie "username"
-            |> Request.map
-                (\name ->
-                    name
-                        |> Data
-                        |> Server.Response.render
-                        |> DataSource.succeed
+                    |> DataSource.succeed
+            )
+        , withSession
+            (Request.succeed ())
+            (\() username ->
+                ( Session.noUpdates
+                , username
+                    |> Result.toMaybe
+                    |> Data
+                    |> Server.Response.render
                 )
+                    |> DataSource.succeed
+            )
         ]
 
 

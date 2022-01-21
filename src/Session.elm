@@ -58,68 +58,70 @@ withSession :
     , sameSite : String
     }
     -> Decoder decoded
-    -> (Result String decoded -> DataSource ( SessionUpdate, Response data ))
+    -> Request request
+    -> (request -> Result String decoded -> DataSource ( SessionUpdate, Response data ))
     -> Request (DataSource (Response data))
-withSession config decoder toRequest =
-    Request.cookie config.name
-        |> Request.map
-            (\maybeSessionCookie ->
-                let
-                    decrypted : DataSource (Result String decoded)
-                    decrypted =
-                        case maybeSessionCookie of
-                            Just sessionCookie ->
-                                decrypt config.secrets decoder sessionCookie
-                                    |> DataSource.map Ok
+withSession config decoder userRequest toRequest =
+    Request.map2
+        (\maybeSessionCookie userRequestData ->
+            let
+                decrypted : DataSource (Result String decoded)
+                decrypted =
+                    case maybeSessionCookie of
+                        Just sessionCookie ->
+                            decrypt config.secrets decoder sessionCookie
+                                |> DataSource.map Ok
 
-                            Nothing ->
-                                Err "TODO"
-                                    |> DataSource.succeed
+                        Nothing ->
+                            Err "TODO"
+                                |> DataSource.succeed
 
-                    decryptedFull : DataSource (Dict String OptimizedDecoder.Value)
-                    decryptedFull =
-                        maybeSessionCookie
-                            |> Maybe.map
-                                (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.value) sessionCookie)
-                            |> Maybe.withDefault (DataSource.succeed Dict.empty)
-                in
-                decryptedFull
-                    |> DataSource.andThen
-                        (\cookieDict ->
-                            DataSource.andThen
-                                (\thing ->
-                                    let
-                                        otherThing =
-                                            toRequest thing
-                                    in
-                                    otherThing
-                                        |> DataSource.andThen
-                                            (\( sessionUpdate, response ) ->
-                                                let
-                                                    encodedCookie : Json.Encode.Value
-                                                    encodedCookie =
-                                                        setValues sessionUpdate cookieDict
-                                                in
-                                                DataSource.map2
-                                                    (\encoded originalCookieValues ->
-                                                        response
-                                                            |> Server.Response.withSetCookieHeader
-                                                                (SetCookie.setCookie config.name encoded
-                                                                    |> SetCookie.httpOnly
-                                                                    |> SetCookie.withPath "/"
-                                                                 -- TODO set expiration time
-                                                                 -- TODO do I need to encrypt the session expiration as part of it
-                                                                 -- TODO should I update the expiration time every time?
-                                                                 --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
-                                                                )
-                                                    )
-                                                    (encrypt config.secrets encodedCookie)
-                                                    decryptedFull
-                                            )
-                                )
-                                decrypted
-                        )
-            )
+                decryptedFull : DataSource (Dict String OptimizedDecoder.Value)
+                decryptedFull =
+                    maybeSessionCookie
+                        |> Maybe.map
+                            (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.value) sessionCookie)
+                        |> Maybe.withDefault (DataSource.succeed Dict.empty)
+            in
+            decryptedFull
+                |> DataSource.andThen
+                    (\cookieDict ->
+                        DataSource.andThen
+                            (\thing ->
+                                let
+                                    otherThing =
+                                        toRequest userRequestData thing
+                                in
+                                otherThing
+                                    |> DataSource.andThen
+                                        (\( sessionUpdate, response ) ->
+                                            let
+                                                encodedCookie : Json.Encode.Value
+                                                encodedCookie =
+                                                    setValues sessionUpdate cookieDict
+                                            in
+                                            DataSource.map2
+                                                (\encoded originalCookieValues ->
+                                                    response
+                                                        |> Server.Response.withSetCookieHeader
+                                                            (SetCookie.setCookie config.name encoded
+                                                                |> SetCookie.httpOnly
+                                                                |> SetCookie.withPath "/"
+                                                             -- TODO set expiration time
+                                                             -- TODO do I need to encrypt the session expiration as part of it
+                                                             -- TODO should I update the expiration time every time?
+                                                             --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
+                                                            )
+                                                )
+                                                (encrypt config.secrets encodedCookie)
+                                                decryptedFull
+                                        )
+                            )
+                            decrypted
+                    )
+        )
+        (Request.cookie config.name)
+        userRequest
 
 
 encrypt : Secrets.Value (List String) -> Json.Encode.Value -> DataSource String

@@ -50,63 +50,50 @@ keys =
     }
 
 
+withSession =
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            Secrets.succeed
+                [ "secret4", "secret3", "secret2" ]
+        , sameSite = "lax" -- TODO custom type
+        }
+        (OptimizedDecoder.field "name" OptimizedDecoder.string)
+
+
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
-        [ --Request.map2 Data
-          --    (Request.expectQueryParam "name")
-          --    Request.requestTime
-          --    |> Request.map
-          --        (\requestData ->
-          --            requestData
-          --                |> Server.Response.render
-          --                |> Server.Response.withHeader
-          --                    "x-greeting"
-          --                    ("hello there " ++ requestData.username ++ "!")
-          --                |> DataSource.succeed
-          --        )
-          --, Request.map2 Data
-          --    (Request.expectCookie "username")
-          --    Request.requestTime
-          --    |> Request.map
-          --        (\requestData ->
-          --            requestData
-          --                |> Server.Response.render
-          --                |> Server.Response.withHeader
-          --                    "x-greeting"
-          --                    ("hello " ++ requestData.username ++ "!")
-          --                |> DataSource.succeed
-          --        ),
-          Session.withSession
-            { name = "mysession"
-            , secrets =
-                Secrets.succeed
-                    [ "secret4", "secret3", "secret2" ]
-            , sameSite = "lax" -- TODO custom type
-            }
-            (OptimizedDecoder.field "userId" OptimizedDecoder.int)
-            (\userIdResult ->
-                case userIdResult of
-                    Err error ->
-                        DataSource.succeed
-                            ( Session.oneUpdate "userId" (Json.Encode.int 456)
-                              --, Server.Response.temporaryRedirect "/login"
-                            , { username = "NO USER"
-                              , requestTime = Time.millisToPosix 0
-                              }
-                                |> Server.Response.render
-                            )
-
-                    Ok userId ->
-                        DataSource.succeed
-                            ( --Session.oneUpdate "userId" (Json.Encode.int 456)
-                              Session.noUpdates
-                            , --Server.Response.temporaryRedirect "/login"
-                              { username = String.fromInt userId
-                              , requestTime = Time.millisToPosix 0
-                              }
-                                |> Server.Response.render
-                            )
+        [ Request.map2 Data
+            (Request.expectQueryParam "name")
+            Request.requestTime
+            |> Request.map
+                (\requestData ->
+                    requestData
+                        |> Server.Response.render
+                        |> Server.Response.withHeader
+                            "x-greeting"
+                            ("hello there " ++ requestData.username ++ "!")
+                        |> DataSource.succeed
+                )
+        , withSession
+            Request.requestTime
+            (\requestTime userIdResult ->
+                let
+                    username =
+                        userIdResult
+                            |> Result.withDefault "TODO username"
+                in
+                ( Session.noUpdates
+                , { username = username
+                  , requestTime = requestTime
+                  }
+                    |> Server.Response.render
+                    |> Server.Response.withHeader
+                        "x-greeting"
+                        ("hello " ++ username ++ "!")
+                )
+                    |> DataSource.succeed
             )
         ]
 
