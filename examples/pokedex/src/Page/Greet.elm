@@ -196,8 +196,7 @@ data routeParams =
             { name = "mysession"
             , secrets =
                 Secrets.succeed
-                    (\sessionSecret -> [ "secret4", "secret3", "secret2", sessionSecret ])
-                    |> Secrets.with "SESSION_SECRET"
+                    [ "secret4", "secret3", "secret2" ]
             , sameSite = "lax" -- TODO custom type
             }
             (OptimizedDecoder.field "userId" OptimizedDecoder.int)
