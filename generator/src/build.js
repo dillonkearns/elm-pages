@@ -241,8 +241,8 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         "--output",
         outputPath,
         ...(options.debug ? ["--debug"] : []),
-        "--report",
-        "json",
+        // "--report",
+        // "json",
       ],
       {
         // ignore stdout

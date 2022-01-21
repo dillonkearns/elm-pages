@@ -1,6 +1,8 @@
 module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), WhatToDo(..), cacheRequestResolution, merge, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
 
+import Base64
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 import Internal.OptimizedDecoder
 import Json.Decode.Exploration
@@ -26,12 +28,39 @@ type WhatToDo
     | CliOnly
     | StripResponse (OptimizedDecoder.Decoder ())
     | DistilledResponse Json.Encode.Value
+    | DistilledBytesResponse Bytes
     | Error (List BuildError)
 
 
 merge : String -> WhatToDo -> WhatToDo -> WhatToDo
 merge key whatToDo1 whatToDo2 =
     case ( whatToDo1, whatToDo2 ) of
+        ( DistilledBytesResponse distilled1, DistilledBytesResponse distilled2 ) ->
+            if distilled1 == distilled2 then
+                DistilledBytesResponse distilled1
+
+            else
+                Error
+                    [ { title = "Non-Unique Distill Keys"
+                      , message =
+                            [ Terminal.text "I encountered DataSource.distill with two matching keys that had differing encoded values.\n\n"
+                            , Terminal.text "Look for "
+                            , Terminal.red <| "DataSource.distill"
+                            , Terminal.text " with the key "
+                            , Terminal.red <| ("\"" ++ key ++ "\"")
+                            , Terminal.text "\n\n-------------------------------\n\n"
+                            ]
+                      , path = "" -- TODO wire in path here?
+                      , fatal = True
+                      }
+                    ]
+
+        ( DistilledBytesResponse distilled1, _ ) ->
+            DistilledBytesResponse distilled1
+
+        ( _, DistilledBytesResponse distilled1 ) ->
+            DistilledBytesResponse distilled1
+
         ( Error buildErrors1, Error buildErrors2 ) ->
             Error (buildErrors1 ++ buildErrors2)
 
@@ -131,6 +160,11 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
 
                     Error buildError ->
                         Err buildError
+
+                    DistilledBytesResponse bytes ->
+                        bytes
+                            |> Base64.fromBytes
+                            |> Ok
                 )
                     |> Result.map (Maybe.map (Tuple.pair k))
             )

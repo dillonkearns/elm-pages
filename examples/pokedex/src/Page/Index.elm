@@ -1,5 +1,8 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import Bytes.Encode
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Head
@@ -12,6 +15,7 @@ import Pages.Url
 import Route
 import Secrets
 import Shared
+import Types
 import View exposing (View)
 
 
@@ -38,10 +42,30 @@ page =
 
 data : DataSource Data
 data =
-    DataSource.Http.get (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=20&offset=0")
+    DataSource.Http.get (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0")
         (Decode.field "results"
             (Decode.list (Decode.field "name" Decode.string))
         )
+        |> DataSource.distillBytes "pokedex-index" encode decode
+
+
+encode : Data -> Bytes
+encode items =
+    Bytes.Encode.encode (Types.w3_encode_Data items)
+
+
+
+--w3_encode_Data
+
+
+decode : Bytes -> Result String Data
+decode items =
+    Bytes.Decode.decode Types.w3_decode_Data items
+        |> Result.fromMaybe "Decoding error"
+
+
+
+--w3_decode_Data |> Result.fromMaybe "Decoding error"
 
 
 head :

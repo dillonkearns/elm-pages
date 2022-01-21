@@ -6,6 +6,7 @@ module DataSource exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , distill, validate, distillCodec, distillSerializeCodec
+    , distillBytes
     )
 
 {-| In an `elm-pages` app, each page can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
@@ -100,6 +101,8 @@ and let the build command tell you about these issues if they arise.
 
 -}
 
+import Base64
+import Bytes exposing (Bytes)
 import Codec
 import Dict exposing (Dict)
 import Dict.Extra
@@ -232,6 +235,67 @@ distill uniqueKey encode decode dataSource =
                         -- TODO should this include a prefix? Probably.
                         uniqueKey
                         (Pages.StaticHttpRequest.DistilledResponse (encode value))
+                )
+                ( []
+                , \_ _ _ ->
+                    value
+                        |> encode
+                        |> decode
+                        |> fromResult
+                )
+
+
+{-| This is the low-level `distill` function. In most cases, you'll want to use `distill` with a `Codec` from either
+[`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/) or
+[`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest/)
+-}
+distillBytes :
+    String
+    -> (raw -> Bytes)
+    -> (Bytes -> Result String distilled)
+    -> DataSource raw
+    -> DataSource distilled
+distillBytes uniqueKey encode decode dataSource =
+    -- elm-review: known-unoptimized-recursion
+    case dataSource of
+        RequestError error ->
+            RequestError error
+
+        Request partiallyStripped ( urls, lookupFn ) ->
+            Request partiallyStripped
+                ( urls
+                , \_ appType rawResponses ->
+                    case appType of
+                        ApplicationType.Browser ->
+                            rawResponses
+                                |> RequestsAndPending.get uniqueKey
+                                |> (\maybeResponse ->
+                                        case maybeResponse of
+                                            Just rawResponse ->
+                                                rawResponse
+                                                    |> Base64.toBytes
+                                                    |> Result.fromMaybe "Could not decode base64 string into bytes."
+                                                    |> Result.andThen decode
+                                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                                                    |> Result.map (Tuple.pair Dict.empty)
+
+                                            Nothing ->
+                                                Err (Pages.StaticHttpRequest.MissingHttpResponse ("distill://" ++ uniqueKey) [])
+                                   )
+                                |> toResult
+
+                        ApplicationType.Cli ->
+                            lookupFn KeepOrDiscard.Discard appType rawResponses
+                                |> distillBytes uniqueKey encode decode
+                )
+
+        ApiRoute strippedResponses value ->
+            Request
+                (strippedResponses
+                    |> Dict.insert
+                        -- TODO should this include a prefix? Probably.
+                        uniqueKey
+                        (Pages.StaticHttpRequest.DistilledBytesResponse (encode value))
                 )
                 ( []
                 , \_ _ _ ->
