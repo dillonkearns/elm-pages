@@ -86,38 +86,38 @@ withSession config decoder userRequest toRequest =
             decryptedFull
                 |> DataSource.andThen
                     (\cookieDict ->
-                        DataSource.andThen
-                            (\thing ->
-                                let
-                                    otherThing =
-                                        toRequest userRequestData thing
-                                in
-                                otherThing
-                                    |> DataSource.andThen
-                                        (\( sessionUpdate, response ) ->
-                                            let
-                                                encodedCookie : Json.Encode.Value
-                                                encodedCookie =
-                                                    setValues sessionUpdate cookieDict
-                                            in
-                                            DataSource.map2
-                                                (\encoded originalCookieValues ->
-                                                    response
-                                                        |> Server.Response.withSetCookieHeader
-                                                            (SetCookie.setCookie config.name encoded
-                                                                |> SetCookie.httpOnly
-                                                                |> SetCookie.withPath "/"
-                                                             -- TODO set expiration time
-                                                             -- TODO do I need to encrypt the session expiration as part of it
-                                                             -- TODO should I update the expiration time every time?
-                                                             --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
-                                                            )
-                                                )
-                                                (encrypt config.secrets encodedCookie)
-                                                decryptedFull
-                                        )
-                            )
-                            decrypted
+                        decrypted
+                            |> DataSource.andThen
+                                (\thing ->
+                                    let
+                                        otherThing =
+                                            toRequest userRequestData thing
+                                    in
+                                    otherThing
+                                        |> DataSource.andThen
+                                            (\( sessionUpdate, response ) ->
+                                                let
+                                                    encodedCookie : Json.Encode.Value
+                                                    encodedCookie =
+                                                        setValues sessionUpdate cookieDict
+                                                in
+                                                DataSource.map2
+                                                    (\encoded originalCookieValues ->
+                                                        response
+                                                            |> Server.Response.withSetCookieHeader
+                                                                (SetCookie.setCookie config.name encoded
+                                                                    |> SetCookie.httpOnly
+                                                                    |> SetCookie.withPath "/"
+                                                                 -- TODO set expiration time
+                                                                 -- TODO do I need to encrypt the session expiration as part of it
+                                                                 -- TODO should I update the expiration time every time?
+                                                                 --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
+                                                                )
+                                                    )
+                                                    (encrypt config.secrets encodedCookie)
+                                                    decryptedFull
+                                            )
+                                )
                     )
         )
         (Request.cookie config.name)

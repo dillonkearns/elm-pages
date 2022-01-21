@@ -55,8 +55,9 @@ withSession =
         { name = "mysession"
         , secrets =
             Secrets.succeed
-                [ "secret4", "secret3", "secret2" ]
-        , sameSite = "lax" -- TODO custom type
+                (\secret -> [ secret ])
+                |> Secrets.with "SESSION_SECRET"
+        , sameSite = "lax"
         }
         (OptimizedDecoder.field "name" OptimizedDecoder.string)
 

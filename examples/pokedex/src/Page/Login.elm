@@ -74,7 +74,7 @@ data routeParams =
         , withSession
             (Request.succeed ())
             (\() username ->
-                ( Session.noUpdates
+                ( Session.oneUpdate "name" (Json.Encode.string (username |> Result.withDefault "error"))
                 , username
                     |> Result.toMaybe
                     |> Data
