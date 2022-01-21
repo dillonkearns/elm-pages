@@ -55,7 +55,66 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
         portDataSourceFound = true;
       } catch (e) {}
 
-      if (request.url.startsWith("port://")) {
+      if (request.url === "port://encrypt") {
+        const cookie = require("cookie-signature");
+        console.log(
+          "@@@signing",
+          rawRequest.body.args[0],
+          typeof rawRequest.body.args[0]
+        );
+        console.log(
+          "signed",
+          cookie.sign(
+            JSON.stringify(rawRequest.body.args[0], null, 0),
+            "abcdefg"
+          )
+        );
+        try {
+          await fs.promises.writeFile(
+            responsePath,
+            JSON.stringify(
+              cookie.sign(
+                JSON.stringify(rawRequest.body.args[0], null, 0),
+                "abcdefg"
+              )
+            )
+          );
+          resolve(responsePath);
+        } catch (e) {
+          reject({
+            title: "DataSource.Port Error",
+            message:
+              e.toString() +
+              e.stack +
+              "\n\n" +
+              JSON.stringify(rawRequest, null, 2),
+          });
+        }
+      } else if (request.url === "port://decrypt") {
+        const cookie = require("cookie-signature");
+        console.log("@@@[0]", rawRequest.body.args[0]);
+        try {
+          console.log(
+            "unsigned",
+            cookie.unsign(rawRequest.body.args[0], "abcdefg")
+          );
+          // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
+          await fs.promises.writeFile(
+            responsePath,
+            cookie.unsign(rawRequest.body.args[0], "abcdefg")
+          );
+          resolve(responsePath);
+        } catch (e) {
+          reject({
+            title: "DataSource.Port Error",
+            message:
+              e.toString() +
+              e.stack +
+              "\n\n" +
+              JSON.stringify(rawRequest, null, 2),
+          });
+        }
+      } else if (request.url.startsWith("port://")) {
         try {
           const portName = request.url.replace(/^port:\/\//, "");
           // console.time(JSON.stringify(request.url));
