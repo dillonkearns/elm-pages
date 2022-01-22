@@ -3,6 +3,7 @@ module Session exposing (..)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Dict exposing (Dict)
+import Dict.Extra
 import Json.Decode
 import Json.Encode
 import OptimizedDecoder
@@ -21,7 +22,7 @@ type alias Decoder decoded =
 
 
 type SessionUpdate
-    = SessionUpdate (Dict String Json.Encode.Value)
+    = SessionUpdate (Dict String String)
 
 
 noUpdates : SessionUpdate
@@ -29,9 +30,24 @@ noUpdates =
     SessionUpdate Dict.empty
 
 
-oneUpdate : String -> Json.Encode.Value -> SessionUpdate
+oneUpdate : String -> String -> SessionUpdate
 oneUpdate string value =
     SessionUpdate (Dict.singleton string value)
+
+
+updateAllFields : Dict String String -> SessionUpdate
+updateAllFields updates =
+    SessionUpdate updates
+
+
+withFlash : String -> String -> SessionUpdate -> SessionUpdate
+withFlash string value (SessionUpdate sessionUpdate) =
+    SessionUpdate (sessionUpdate |> Dict.insert (flashPrefix ++ string) value)
+
+
+flash : String -> String -> SessionUpdate
+flash string value =
+    SessionUpdate (Dict.singleton (flashPrefix ++ string) value)
 
 
 type NotLoadedReason
@@ -45,11 +61,26 @@ succeed constructor =
         |> OptimizedDecoder.succeed
 
 
-setValues : SessionUpdate -> Dict String Json.Decode.Value -> Json.Encode.Value
+setValues : SessionUpdate -> Dict String String -> Json.Encode.Value
 setValues (SessionUpdate dict) original =
     Dict.union dict original
         |> Dict.toList
+        |> List.map (Tuple.mapSecond Json.Encode.string)
         |> Json.Encode.object
+
+
+flashPrefix : String
+flashPrefix =
+    "__flash__"
+
+
+clearFlashCookies : Dict String String -> Dict String String
+clearFlashCookies dict =
+    Dict.Extra.removeWhen
+        (\key _ ->
+            key |> String.startsWith flashPrefix
+        )
+        dict
 
 
 withSession :
@@ -57,30 +88,40 @@ withSession :
     , secrets : Secrets.Value (List String)
     , sameSite : String
     }
-    -> Decoder decoded
     -> Request request
-    -> (request -> Result String decoded -> DataSource ( SessionUpdate, Response data ))
+    -> (request -> Result String (Dict String String) -> DataSource ( SessionUpdate, Response data ))
     -> Request (DataSource (Response data))
-withSession config decoder userRequest toRequest =
+withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                decrypted : DataSource (Result String decoded)
+                decrypted : DataSource (Result String (Dict String String))
                 decrypted =
                     case maybeSessionCookie of
                         Just sessionCookie ->
-                            decrypt config.secrets decoder sessionCookie
+                            sessionCookie
+                                |> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string)
+                                |> DataSource.map
+                                    (Dict.Extra.mapKeys
+                                        (\key ->
+                                            if key |> String.startsWith flashPrefix then
+                                                key |> String.dropLeft (flashPrefix |> String.length)
+
+                                            else
+                                                key
+                                        )
+                                    )
                                 |> DataSource.map Ok
 
                         Nothing ->
                             Err "TODO"
                                 |> DataSource.succeed
 
-                decryptedFull : DataSource (Dict String OptimizedDecoder.Value)
+                decryptedFull : DataSource (Dict String String)
                 decryptedFull =
                     maybeSessionCookie
                         |> Maybe.map
-                            (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.value) sessionCookie)
+                            (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string) sessionCookie)
                         |> Maybe.withDefault (DataSource.succeed Dict.empty)
             in
             decryptedFull
@@ -99,7 +140,7 @@ withSession config decoder userRequest toRequest =
                                                 let
                                                     encodedCookie : Json.Encode.Value
                                                     encodedCookie =
-                                                        setValues sessionUpdate cookieDict
+                                                        setValues sessionUpdate (cookieDict |> clearFlashCookies)
                                                 in
                                                 DataSource.map2
                                                     (\encoded originalCookieValues ->

@@ -6,15 +6,12 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import Json.Encode
-import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Secrets
 import Server.Request as Request
 import Server.Response
-import Server.SetCookie as SetCookie
 import Session
 import Shared
 import View exposing (View)
@@ -56,7 +53,6 @@ withSession =
                 |> Secrets.with "SESSION_SECRET"
         , sameSite = "lax"
         }
-        (OptimizedDecoder.field "name" OptimizedDecoder.string)
 
 
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
@@ -65,7 +61,8 @@ data routeParams =
         [ withSession
             (Request.expectFormPost (\{ field } -> field "name"))
             (\name session ->
-                ( Session.oneUpdate "name" (Json.Encode.string name)
+                ( Session.oneUpdate "name" name
+                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
                 , "/greet"
                     |> Server.Response.temporaryRedirect
                 )
@@ -73,14 +70,28 @@ data routeParams =
             )
         , withSession
             (Request.succeed ())
-            (\() username ->
-                ( Session.oneUpdate "name" (Json.Encode.string (username |> Result.withDefault "error"))
-                , username
-                    |> Result.toMaybe
-                    |> Data
-                    |> Server.Response.render
-                )
-                    |> DataSource.succeed
+            (\() session ->
+                case session of
+                    Ok okSession ->
+                        ( Session.oneUpdate "name"
+                            (okSession
+                                |> Dict.get "name"
+                                |> Maybe.withDefault "error"
+                            )
+                            |> Session.withFlash "message" "Successfully logged in!"
+                        , okSession
+                            |> Dict.get "name"
+                            |> Data
+                            |> Server.Response.render
+                        )
+                            |> DataSource.succeed
+
+                    Err error ->
+                        ( Session.noUpdates
+                        , { username = Nothing }
+                            |> Server.Response.render
+                        )
+                            |> DataSource.succeed
             )
         ]
 

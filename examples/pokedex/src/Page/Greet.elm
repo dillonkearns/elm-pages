@@ -6,7 +6,7 @@ import DataSource.Http
 import Dict exposing (Dict)
 import Head
 import Head.Seo as Seo
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode
 import Json.Encode
@@ -59,13 +59,12 @@ withSession =
                 |> Secrets.with "SESSION_SECRET"
         , sameSite = "lax"
         }
-        (OptimizedDecoder.field "name" OptimizedDecoder.string)
 
 
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
-        [ Request.map2 Data
+        [ Request.map2 (\a b -> Data a b Nothing)
             (Request.expectQueryParam "name")
             Request.requestTime
             |> Request.map
@@ -79,22 +78,36 @@ data routeParams =
                 )
         , withSession
             Request.requestTime
-            (\requestTime userIdResult ->
-                let
-                    username =
-                        userIdResult
-                            |> Result.withDefault "TODO username"
-                in
-                ( Session.noUpdates
-                , { username = username
-                  , requestTime = requestTime
-                  }
-                    |> Server.Response.render
-                    |> Server.Response.withHeader
-                        "x-greeting"
-                        ("hello " ++ username ++ "!")
-                )
-                    |> DataSource.succeed
+            (\requestTime session ->
+                case session of
+                    Ok okSession ->
+                        let
+                            username : String
+                            username =
+                                okSession
+                                    |> Dict.get "name"
+                                    |> Maybe.withDefault "NONAME"
+
+                            flashMessage : Maybe String
+                            flashMessage =
+                                okSession
+                                    |> Dict.get "message"
+                        in
+                        ( Session.noUpdates
+                        , { username = username
+                          , requestTime = requestTime
+                          , flashMessage = flashMessage
+                          }
+                            |> Server.Response.render
+                            |> Server.Response.withHeader
+                                "x-greeting"
+                                ("hello " ++ username ++ "!")
+                        )
+                            |> DataSource.succeed
+
+                    Err error ->
+                        ( Session.noUpdates, Server.Response.temporaryRedirect "/login" )
+                            |> DataSource.succeed
             )
         ]
 
@@ -122,6 +135,7 @@ head static =
 type alias Data =
     { username : String
     , requestTime : Time.Posix
+    , flashMessage : Maybe String
     }
 
 
@@ -133,7 +147,10 @@ view :
 view maybeUrl sharedModel static =
     { title = "Hello!"
     , body =
-        [ Html.text <| "Hello " ++ static.data.username ++ "!"
+        [ static.data.flashMessage
+            |> Maybe.map (\message -> flashView (Ok message))
+            |> Maybe.withDefault (Html.p [] [ Html.text "No flash" ])
+        , Html.text <| "Hello " ++ static.data.username ++ "!"
         , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
         , Html.div []
             [ Html.form
@@ -148,3 +165,18 @@ view maybeUrl sharedModel static =
             ]
         ]
     }
+
+
+flashView : Result String String -> Html msg
+flashView message =
+    Html.p
+        [ Attr.style "background-color" "rgb(163 251 163)"
+        ]
+        [ Html.text <|
+            case message of
+                Ok okMessage ->
+                    okMessage
+
+                Err error ->
+                    "Something went wrong: " ++ error
+        ]
