@@ -1,23 +1,17 @@
 module Page.Greet exposing (Data, Model, Msg, page)
 
-import Codec exposing (Codec)
 import DataSource exposing (DataSource)
-import DataSource.Http
 import Dict exposing (Dict)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Json.Decode
-import Json.Encode
-import OptimizedDecoder
+import MySession
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Secrets as Secrets
 import Pages.Url
 import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
-import Server.SetCookie as SetCookie
 import Session exposing (Session)
 import Shared
 import Time
@@ -45,22 +39,6 @@ page =
         |> Page.buildNoState { view = view }
 
 
-keys =
-    { userId = ( "userId", Codec.int )
-    }
-
-
-withSession =
-    Session.withSession
-        { name = "mysession"
-        , secrets =
-            Secrets.succeed
-                (\secret -> [ secret ])
-                |> Secrets.with "SESSION_SECRET"
-        , sameSite = "lax"
-        }
-
-
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
@@ -76,7 +54,7 @@ data routeParams =
                             ("hello there " ++ requestData.username ++ "!")
                         |> DataSource.succeed
                 )
-        , withSession
+        , MySession.withSession
             Request.requestTime
             (\requestTime session ->
                 case session of

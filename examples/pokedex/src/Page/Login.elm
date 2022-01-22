@@ -6,6 +6,7 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
+import MySession
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -44,21 +45,10 @@ type alias Request =
     }
 
 
-withSession =
-    Session.withSession
-        { name = "mysession"
-        , secrets =
-            Secrets.succeed
-                (\secret -> [ secret ])
-                |> Secrets.with "SESSION_SECRET"
-        , sameSite = "lax"
-        }
-
-
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
-        [ withSession
+        [ MySession.withSession
             (Request.expectFormPost (\{ field } -> field "name"))
             (\name session ->
                 ( Session.oneUpdate "name" name
@@ -68,7 +58,7 @@ data routeParams =
                 )
                     |> DataSource.succeed
             )
-        , withSession
+        , MySession.withSession
             (Request.succeed ())
             (\() session ->
                 case session of
