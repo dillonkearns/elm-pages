@@ -6,12 +6,14 @@ import DataSource.Http
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
+import MySession
 import OptimizedDecoder as Decode
 import Route exposing (Route)
 import Secrets
 import Server.Request
 import Server.Response
 import Server.SetCookie as SetCookie
+import Session
 
 
 routes :
@@ -185,17 +187,13 @@ nonHybridRoute =
 logout : ApiRoute ApiRoute.Response
 logout =
     ApiRoute.succeed
-        (Server.Request.succeed
-            (DataSource.succeed
-                (Server.Response.plainText "You are logged out"
-                    |> Server.Response.withHeader "Set-Cookie"
-                        (SetCookie.setCookie "username" ""
-                            |> SetCookie.httpOnly
-                            |> SetCookie.withPath "/"
-                            |> SetCookie.withImmediateExpiration
-                            |> SetCookie.toString
-                        )
-                )
+        (MySession.withSession
+            (Server.Request.succeed ())
+            (\() sessionResult ->
+                DataSource.succeed
+                    ( Session.empty
+                    , Server.Response.temporaryRedirect "/login"
+                    )
             )
         )
         |> ApiRoute.literal "api"
