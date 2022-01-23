@@ -210,48 +210,33 @@ withSession config userRequest toRequest =
                         Nothing ->
                             Ok Nothing
                                 |> DataSource.succeed
-
-                decryptedFull : DataSource (Dict String String)
-                decryptedFull =
-                    maybeSessionCookie
-                        |> Maybe.map
-                            (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string) sessionCookie)
-                        |> Maybe.withDefault (DataSource.succeed Dict.empty)
             in
-            decryptedFull
+            decrypted
                 |> DataSource.andThen
-                    (\cookieDict ->
-                        decrypted
+                    (\thing ->
+                        thing
+                            |> toRequest userRequestData
                             |> DataSource.andThen
-                                (\thing ->
+                                (\( sessionUpdate, response ) ->
                                     let
-                                        otherThing =
-                                            toRequest userRequestData thing
+                                        encodedCookie : Json.Encode.Value
+                                        encodedCookie =
+                                            setValues sessionUpdate
                                     in
-                                    otherThing
-                                        |> DataSource.andThen
-                                            (\( sessionUpdate, response ) ->
-                                                let
-                                                    encodedCookie : Json.Encode.Value
-                                                    encodedCookie =
-                                                        setValues sessionUpdate
-                                                in
-                                                DataSource.map2
-                                                    (\encoded originalCookieValues ->
-                                                        response
-                                                            |> Server.Response.withSetCookieHeader
-                                                                (SetCookie.setCookie config.name encoded
-                                                                    |> SetCookie.httpOnly
-                                                                    |> SetCookie.withPath "/"
-                                                                 -- TODO set expiration time
-                                                                 -- TODO do I need to encrypt the session expiration as part of it
-                                                                 -- TODO should I update the expiration time every time?
-                                                                 --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
-                                                                )
+                                    DataSource.map
+                                        (\encoded ->
+                                            response
+                                                |> Server.Response.withSetCookieHeader
+                                                    (SetCookie.setCookie config.name encoded
+                                                        |> SetCookie.httpOnly
+                                                        |> SetCookie.withPath "/"
+                                                     -- TODO set expiration time
+                                                     -- TODO do I need to encrypt the session expiration as part of it
+                                                     -- TODO should I update the expiration time every time?
+                                                     --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
                                                     )
-                                                    (encrypt config.secrets encodedCookie)
-                                                    decryptedFull
-                                            )
+                                        )
+                                        (encrypt config.secrets encodedCookie)
                                 )
                     )
         )
