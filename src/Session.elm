@@ -13,12 +13,18 @@ import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
 
 
-type Session decoded
-    = Session decoded
+type Session
+    = Session (Dict String Value)
 
 
 type alias Decoder decoded =
     OptimizedDecoder.Decoder decoded
+
+
+type Value
+    = Persistent String
+    | ExpiringFlash String
+    | NewFlash String
 
 
 type SessionUpdate
@@ -43,6 +49,55 @@ updateAllFields updates =
 withFlash : String -> String -> SessionUpdate -> SessionUpdate
 withFlash string value (SessionUpdate sessionUpdate) =
     SessionUpdate (sessionUpdate |> Dict.insert (flashPrefix ++ string) value)
+
+
+withFlash2 : String -> String -> Session -> Session
+withFlash2 key value (Session session) =
+    session
+        |> Dict.insert key (NewFlash value)
+        |> Session
+
+
+insert : String -> String -> Session -> Session
+insert key value (Session session) =
+    session
+        |> Dict.insert key (Persistent value)
+        |> Session
+
+
+update : String -> (Maybe String -> Maybe String) -> Session -> Session
+update key updateFn (Session session) =
+    session
+        |> Dict.update key
+            (\maybeValue ->
+                case maybeValue of
+                    Just (Persistent value) ->
+                        updateFn (Just value) |> Maybe.map Persistent
+
+                    Just (ExpiringFlash value) ->
+                        updateFn (Just value) |> Maybe.map NewFlash
+
+                    Just (NewFlash value) ->
+                        updateFn (Just value) |> Maybe.map NewFlash
+
+                    Nothing ->
+                        Nothing
+                            |> updateFn
+                            |> Maybe.map Persistent
+            )
+        |> Session
+
+
+remove : String -> Session -> Session
+remove key (Session session) =
+    session
+        |> Dict.remove key
+        |> Session
+
+
+empty : Session
+empty =
+    Session Dict.empty
 
 
 flash : String -> String -> SessionUpdate
