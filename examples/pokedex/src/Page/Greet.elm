@@ -54,38 +54,32 @@ data routeParams =
                             ("hello there " ++ requestData.username ++ "!")
                         |> DataSource.succeed
                 )
-        , MySession.withSession
+        , MySession.expectSessionOrRedirect
             Request.requestTime
             (\requestTime session ->
-                case session of
-                    Ok (Just okSession) ->
-                        let
-                            username : String
-                            username =
-                                okSession
-                                    |> Session.get "name"
-                                    |> Maybe.withDefault "NONAME"
+                let
+                    username : String
+                    username =
+                        session
+                            |> Session.get "name"
+                            |> Maybe.withDefault "NONAME"
 
-                            flashMessage : Maybe String
-                            flashMessage =
-                                okSession
-                                    |> Session.get "message"
-                        in
-                        ( okSession
-                        , { username = username
-                          , requestTime = requestTime
-                          , flashMessage = flashMessage
-                          }
-                            |> Server.Response.render
-                            |> Server.Response.withHeader
-                                "x-greeting"
-                                ("hello " ++ username ++ "!")
-                        )
-                            |> DataSource.succeed
-
-                    _ ->
-                        ( Session.empty, Server.Response.temporaryRedirect "/login" )
-                            |> DataSource.succeed
+                    flashMessage : Maybe String
+                    flashMessage =
+                        session
+                            |> Session.get "message"
+                in
+                ( session
+                , { username = username
+                  , requestTime = requestTime
+                  , flashMessage = flashMessage
+                  }
+                    |> Server.Response.render
+                    |> Server.Response.withHeader
+                        "x-greeting"
+                        ("hello " ++ username ++ "!")
+                )
+                    |> DataSource.succeed
             )
         ]
 

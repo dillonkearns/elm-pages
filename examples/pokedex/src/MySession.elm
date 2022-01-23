@@ -1,11 +1,18 @@
 module MySession exposing (..)
 
 import Codec
+import DataSource exposing (DataSource)
 import Dict
 import Secrets
+import Server.Request exposing (Request)
+import Server.Response as Response exposing (Response)
 import Session
 
 
+withSession :
+    Request request
+    -> (request -> Result String (Maybe Session.Session) -> DataSource ( Session.Session, Response data ))
+    -> Request (DataSource (Response data))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -15,6 +22,59 @@ withSession =
                 |> Secrets.with "SESSION_SECRET"
         , sameSite = "lax"
         }
+
+
+withSessionOrRedirect :
+    Request request
+    -> (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data ))
+    -> Request (DataSource (Response data))
+withSessionOrRedirect handler toRequest =
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            Secrets.succeed
+                (\secret -> [ secret ])
+                |> Secrets.with "SESSION_SECRET"
+        , sameSite = "lax"
+        }
+        handler
+        (\request sessionResult ->
+            sessionResult
+                |> Result.map (toRequest request)
+                |> Result.withDefault
+                    (DataSource.succeed
+                        ( Session.empty
+                        , Response.temporaryRedirect "/login"
+                        )
+                    )
+        )
+
+
+expectSessionOrRedirect :
+    Request request
+    -> (request -> Session.Session -> DataSource ( Session.Session, Response data ))
+    -> Request (DataSource (Response data))
+expectSessionOrRedirect handler toRequest =
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            Secrets.succeed
+                (\secret -> [ secret ])
+                |> Secrets.with "SESSION_SECRET"
+        , sameSite = "lax"
+        }
+        handler
+        (\request sessionResult ->
+            sessionResult
+                |> Result.map (Maybe.map (toRequest request))
+                |> Result.withDefault Nothing
+                |> Maybe.withDefault
+                    (DataSource.succeed
+                        ( Session.empty
+                        , Response.temporaryRedirect "/login"
+                        )
+                    )
+        )
 
 
 schema =
