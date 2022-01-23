@@ -63,15 +63,15 @@ data routeParams =
                             username : String
                             username =
                                 okSession
-                                    |> Dict.get "name"
+                                    |> Session.get "name"
                                     |> Maybe.withDefault "NONAME"
 
                             flashMessage : Maybe String
                             flashMessage =
                                 okSession
-                                    |> Dict.get "message"
+                                    |> Session.get "message"
                         in
-                        ( Session.noUpdates
+                        ( okSession
                         , { username = username
                           , requestTime = requestTime
                           , flashMessage = flashMessage
@@ -84,7 +84,7 @@ data routeParams =
                             |> DataSource.succeed
 
                     _ ->
-                        ( Session.noUpdates, Server.Response.temporaryRedirect "/login" )
+                        ( Session.empty, Server.Response.temporaryRedirect "/login" )
                             |> DataSource.succeed
             )
         ]

@@ -51,8 +51,11 @@ data routeParams =
         [ MySession.withSession
             (Request.expectFormPost (\{ field } -> field "name"))
             (\name session ->
-                ( Session.oneUpdate "name" name
-                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                ( session
+                    |> Result.withDefault Nothing
+                    |> Maybe.withDefault Session.empty
+                    |> Session.insert "name" name
+                    |> Session.withFlash2 "message" ("Welcome " ++ name ++ "!")
                 , "/greet"
                     |> Server.Response.temporaryRedirect
                 )
@@ -63,20 +66,16 @@ data routeParams =
             (\() session ->
                 case session of
                     Ok (Just okSession) ->
-                        ( Session.oneUpdate "name"
-                            (okSession
-                                |> Dict.get "name"
-                                |> Maybe.withDefault "error"
-                            )
+                        ( okSession
                         , okSession
-                            |> Dict.get "name"
+                            |> Session.get "name"
                             |> Data
                             |> Server.Response.render
                         )
                             |> DataSource.succeed
 
                     _ ->
-                        ( Session.noUpdates
+                        ( Session.empty
                         , { username = Nothing }
                             |> Server.Response.render
                         )
