@@ -198,8 +198,8 @@ withSession config userRequest toRequest =
             in
             decrypted
                 |> DataSource.andThen
-                    (\thing ->
-                        thing
+                    (\sessionResult ->
+                        sessionResult
                             |> toRequest userRequestData
                             |> DataSource.andThen
                                 (\( sessionUpdate, response ) ->
