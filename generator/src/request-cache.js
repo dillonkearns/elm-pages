@@ -86,7 +86,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
             rawRequest.body.args[0].secrets
           );
 
-          await fs.promises.writeFile(responsePath, signed);
+          await fs.promises.writeFile(responsePath, signed || "null");
           resolve(responsePath);
         } catch (e) {
           reject({

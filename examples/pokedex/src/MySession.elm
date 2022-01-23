@@ -11,7 +11,7 @@ import Session
 
 withSession :
     Request request
-    -> (request -> Result String (Maybe Session.Session) -> DataSource ( Session.Session, Response data ))
+    -> (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data ))
     -> Request (DataSource (Response data))
 withSession =
     Session.withSession

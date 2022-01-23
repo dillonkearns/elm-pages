@@ -170,31 +170,49 @@ clearFlashCookies dict =
         dict
 
 
+expectSession :
+    { name : String
+    , secrets : Secrets.Value (List String)
+    , sameSite : String
+    }
+    -> Request request
+    -> (request -> Result () Session -> DataSource ( Session, Response data ))
+    -> Request (DataSource (Response data))
+expectSession config userRequest toRequest =
+    Request.map2
+        (\sessionCookie userRequestData ->
+            sessionCookie
+                |> decryptCookie config
+                |> DataSource.andThen
+                    (encodeSessionUpdate config toRequest userRequestData)
+        )
+        (Request.expectCookie config.name)
+        userRequest
+
+
 withSession :
     { name : String
     , secrets : Secrets.Value (List String)
     , sameSite : String
     }
     -> Request request
-    -> (request -> Result String (Maybe Session) -> DataSource ( Session, Response data ))
+    -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data ))
     -> Request (DataSource (Response data))
 withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                decrypted : DataSource (Result String (Maybe Session))
+                decrypted : DataSource (Result () (Maybe Session))
                 decrypted =
-                    (case maybeSessionCookie of
+                    case maybeSessionCookie of
                         Just sessionCookie ->
                             sessionCookie
                                 |> decryptCookie config
-                                |> DataSource.map Just
+                                |> DataSource.map (Result.map Just)
 
                         Nothing ->
-                            Nothing
+                            Ok Nothing
                                 |> DataSource.succeed
-                    )
-                        |> DataSource.map Ok
             in
             decrypted
                 |> DataSource.andThen
@@ -228,26 +246,28 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
             )
 
 
-decryptCookie : { a | secrets : Secrets.Value (List String) } -> String -> DataSource Session
+decryptCookie : { a | secrets : Secrets.Value (List String) } -> String -> DataSource (Result () Session)
 decryptCookie config sessionCookie =
     sessionCookie
         |> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string)
         |> DataSource.map
-            (\dict ->
-                dict
-                    |> Dict.toList
-                    |> List.map
-                        (\( key, value ) ->
-                            if key |> String.startsWith flashPrefix then
-                                ( key |> String.dropLeft (flashPrefix |> String.length)
-                                , ExpiringFlash value
-                                )
+            (Result.map
+                (\dict ->
+                    dict
+                        |> Dict.toList
+                        |> List.map
+                            (\( key, value ) ->
+                                if key |> String.startsWith flashPrefix then
+                                    ( key |> String.dropLeft (flashPrefix |> String.length)
+                                    , ExpiringFlash value
+                                    )
 
-                            else
-                                ( key, Persistent value )
-                        )
-                    |> Dict.fromList
-                    |> Session
+                                else
+                                    ( key, Persistent value )
+                            )
+                        |> Dict.fromList
+                        |> Session
+                )
             )
 
 
@@ -282,7 +302,7 @@ encrypt secrets input =
         OptimizedDecoder.string
 
 
-decrypt : Secrets.Value (List String) -> OptimizedDecoder.Decoder a -> String -> DataSource a
+decrypt : Secrets.Value (List String) -> OptimizedDecoder.Decoder a -> String -> DataSource (Result () a)
 decrypt secrets decoder input =
     DataSource.Http.request
         (secrets
@@ -301,4 +321,4 @@ decrypt secrets decoder input =
                     }
                 )
         )
-        decoder
+        (OptimizedDecoder.nullable decoder |> OptimizedDecoder.map (Result.fromMaybe ()))
