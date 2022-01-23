@@ -65,6 +65,26 @@ insert key value (Session session) =
         |> Session
 
 
+get : String -> Session -> Maybe String
+get key (Session session) =
+    session
+        |> Dict.get key
+        |> Maybe.map unwrap
+
+
+unwrap : Value -> String
+unwrap value =
+    case value of
+        Persistent string ->
+            string
+
+        ExpiringFlash string ->
+            string
+
+        NewFlash string ->
+            string
+
+
 update : String -> (Maybe String -> Maybe String) -> Session -> Session
 update key updateFn (Session session) =
     session
