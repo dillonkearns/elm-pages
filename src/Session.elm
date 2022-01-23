@@ -203,11 +203,6 @@ withSession config userRequest toRequest =
                             |> toRequest userRequestData
                             |> DataSource.andThen
                                 (\( sessionUpdate, response ) ->
-                                    let
-                                        encodedCookie : Json.Encode.Value
-                                        encodedCookie =
-                                            setValues sessionUpdate
-                                    in
                                     DataSource.map
                                         (\encoded ->
                                             response
@@ -221,7 +216,9 @@ withSession config userRequest toRequest =
                                                      --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
                                                     )
                                         )
-                                        (encrypt config.secrets encodedCookie)
+                                        (encrypt config.secrets
+                                            (setValues sessionUpdate)
+                                        )
                                 )
                     )
         )
