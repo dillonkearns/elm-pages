@@ -184,32 +184,17 @@ withSession config userRequest toRequest =
             let
                 decrypted : DataSource (Result String (Maybe Session))
                 decrypted =
-                    case maybeSessionCookie of
+                    (case maybeSessionCookie of
                         Just sessionCookie ->
                             sessionCookie
-                                |> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string)
-                                |> DataSource.map
-                                    (\dict ->
-                                        dict
-                                            |> Dict.toList
-                                            |> List.map
-                                                (\( key, value ) ->
-                                                    if key |> String.startsWith flashPrefix then
-                                                        ( key |> String.dropLeft (flashPrefix |> String.length)
-                                                        , ExpiringFlash value
-                                                        )
-
-                                                    else
-                                                        ( key, Persistent value )
-                                                )
-                                            |> Dict.fromList
-                                            |> Session
-                                    )
-                                |> DataSource.map (Just >> Ok)
+                                |> decryptCookie config
+                                |> DataSource.map Just
 
                         Nothing ->
-                            Ok Nothing
+                            Nothing
                                 |> DataSource.succeed
+                    )
+                        |> DataSource.map Ok
             in
             decrypted
                 |> DataSource.andThen
@@ -242,6 +227,29 @@ withSession config userRequest toRequest =
         )
         (Request.cookie config.name)
         userRequest
+
+
+decryptCookie : { a | secrets : Secrets.Value (List String) } -> String -> DataSource Session
+decryptCookie config sessionCookie =
+    sessionCookie
+        |> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string)
+        |> DataSource.map
+            (\dict ->
+                dict
+                    |> Dict.toList
+                    |> List.map
+                        (\( key, value ) ->
+                            if key |> String.startsWith flashPrefix then
+                                ( key |> String.dropLeft (flashPrefix |> String.length)
+                                , ExpiringFlash value
+                                )
+
+                            else
+                                ( key, Persistent value )
+                        )
+                    |> Dict.fromList
+                    |> Session
+            )
 
 
 encrypt : Secrets.Value (List String) -> Json.Encode.Value -> DataSource String
