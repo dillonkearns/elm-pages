@@ -58,7 +58,7 @@ data routeParams =
             Request.requestTime
             (\requestTime session ->
                 case session of
-                    Ok okSession ->
+                    Ok (Just okSession) ->
                         let
                             username : String
                             username =
@@ -83,7 +83,7 @@ data routeParams =
                         )
                             |> DataSource.succeed
 
-                    Err error ->
+                    _ ->
                         ( Session.noUpdates, Server.Response.temporaryRedirect "/login" )
                             |> DataSource.succeed
             )

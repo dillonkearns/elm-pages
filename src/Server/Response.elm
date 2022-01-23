@@ -155,7 +155,7 @@ permanentRedirect url =
 temporaryRedirect : String -> Response data
 temporaryRedirect url =
     { body = Nothing
-    , statusCode = 307
+    , statusCode = 302
     , headers =
         [ ( "Location", url )
         ]

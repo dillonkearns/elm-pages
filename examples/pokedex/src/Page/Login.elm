@@ -62,13 +62,12 @@ data routeParams =
             (Request.succeed ())
             (\() session ->
                 case session of
-                    Ok okSession ->
+                    Ok (Just okSession) ->
                         ( Session.oneUpdate "name"
                             (okSession
                                 |> Dict.get "name"
                                 |> Maybe.withDefault "error"
                             )
-                            |> Session.withFlash "message" "Successfully logged in!"
                         , okSession
                             |> Dict.get "name"
                             |> Data
@@ -76,7 +75,7 @@ data routeParams =
                         )
                             |> DataSource.succeed
 
-                    Err error ->
+                    _ ->
                         ( Session.noUpdates
                         , { username = Nothing }
                             |> Server.Response.render

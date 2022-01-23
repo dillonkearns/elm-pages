@@ -89,13 +89,13 @@ withSession :
     , sameSite : String
     }
     -> Request request
-    -> (request -> Result String (Dict String String) -> DataSource ( SessionUpdate, Response data ))
+    -> (request -> Result String (Maybe (Dict String String)) -> DataSource ( SessionUpdate, Response data ))
     -> Request (DataSource (Response data))
 withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                decrypted : DataSource (Result String (Dict String String))
+                decrypted : DataSource (Result String (Maybe (Dict String String)))
                 decrypted =
                     case maybeSessionCookie of
                         Just sessionCookie ->
@@ -111,10 +111,10 @@ withSession config userRequest toRequest =
                                                 key
                                         )
                                     )
-                                |> DataSource.map Ok
+                                |> DataSource.map (Just >> Ok)
 
                         Nothing ->
-                            Err "TODO"
+                            Ok Nothing
                                 |> DataSource.succeed
 
                 decryptedFull : DataSource (Dict String String)
