@@ -17,6 +17,7 @@ all =
                     |> expectMatch
                         { method = Request.Get
                         , headers = []
+                        , body = Nothing
                         }
         , test "accept GET" <|
             \() ->
@@ -25,6 +26,7 @@ all =
                     |> expectMatch
                         { method = Request.Get
                         , headers = []
+                        , body = Nothing
                         }
         , test "accept GET doesn't match POST" <|
             \() ->
@@ -33,6 +35,7 @@ all =
                     |> expectNoMatch
                         { method = Request.Get
                         , headers = []
+                        , body = Nothing
                         }
                         "Expected HTTP method POST but was GET"
         , test "unexpected method for form POST" <|
@@ -46,6 +49,7 @@ all =
                         , headers =
                             [ ( "content-type", "application/x-www-form-urlencoded" )
                             ]
+                        , body = Nothing
                         }
                         """Did not match formPost because
 - Form post must have method POST, but the method was GET
@@ -69,6 +73,7 @@ all =
                         , headers =
                             [ ( "content-type", "application/x-www-form-urlencoded" )
                             ]
+                        , body = Nothing
                         }
                         """Server.Request.oneOf failed in the following 4 ways:
 
@@ -94,6 +99,7 @@ Expected HTTP method POST but was GET"""
 type alias Request =
     { method : Request.Method
     , headers : List ( String, String )
+    , body : Maybe String
     }
 
 
