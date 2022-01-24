@@ -12,7 +12,6 @@ import Html
 import Json.Decode as JD
 import Json.Encode as Encode
 import OptimizedDecoder as Decode exposing (Decoder)
-import PageServerResponse
 import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
@@ -28,6 +27,7 @@ import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
 import Secrets
+import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
 import SimulatedEffect.Task
@@ -1041,7 +1041,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            request |> DataSource.map (\_ -> PageServerResponse.RenderPage ())
+                            request |> DataSource.map (\_ -> Response.render ())
 
                         Nothing ->
                             Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
@@ -1198,7 +1198,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            request |> DataSource.map (\_ -> PageServerResponse.RenderPage ())
+                            request |> DataSource.map (\_ -> Response.render ())
 
                         Nothing ->
                             DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
