@@ -58,6 +58,31 @@ all =
                         """Did not match formPost because
 - Form post must have method POST, but the method was GET
 - Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO"""
+        , test "tries multiple form post formats" <|
+            \() ->
+                Request.oneOf
+                    [ Request.oneOf
+                        [ Request.expectFormPost
+                            (\{ field } ->
+                                field "bar"
+                            )
+                        , Request.expectFormPost
+                            (\{ field } ->
+                                field "foo"
+                            )
+                        ]
+                    ]
+                    |> expectMatch
+                        { method = Request.Post
+                        , headers =
+                            [ ( "content-type", "application/x-www-form-urlencoded" )
+                            ]
+                        , body = Just "foo=123"
+                        , formData =
+                            Just
+                                [ ( "foo", "bar" )
+                                ]
+                        }
         , test "one of no match" <|
             \() ->
                 Request.oneOf
