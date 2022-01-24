@@ -39,7 +39,13 @@ async function compileElmForBrowser(options) {
   await runElm(options, "./.elm-pages/Main.elm", pathToClientElm);
   return fs.promises.writeFile(
     "./.elm-pages/cache/elm.js",
-    inject(await fs.promises.readFile(pathToClientElm, "utf-8"))
+    inject(await fs.promises.readFile(pathToClientElm, "utf-8")).replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
+      "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
+        (debug
+          ? "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
+          : "[...(new FormData(event.target))")
+    )
   );
 }
 
