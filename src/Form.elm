@@ -753,7 +753,13 @@ hidden :
     String
     -> String
     -> (List (Html.Attribute Msg) -> view)
-    -> Field error String view {}
+    ->
+        Field
+            error
+            String
+            view
+            { initial : String
+            }
 hidden name value toHtmlFn =
     Field
         { name = name
