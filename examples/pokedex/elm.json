@@ -14,6 +14,7 @@
             "avh4/elm-color": "1.0.0",
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "1.0.1",
+            "dillonkearns/elm-graphql": "5.0.9",
             "dillonkearns/elm-markdown": "6.0.1",
             "dillonkearns/elm-sitemap": "1.0.1",
             "elm/browser": "1.0.2",
@@ -48,6 +49,8 @@
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
             "fredcy/elm-parseint": "2.0.1",
+            "j-maas/elm-ordered-containers": "1.0.0",
+            "lukewestby/elm-string-interpolate": "1.0.4",
             "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-hex": "1.0.0"
         }
