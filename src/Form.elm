@@ -1917,8 +1917,13 @@ toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
                     (\model ->
                         case decoded of
                             Ok ( value, otherValidationErrors ) ->
-                                --if not (hasErrors validationErrors) && (otherValidationErrors |> List.isEmpty) then
-                                if otherValidationErrors |> List.isEmpty then
+                                if
+                                    otherValidationErrors
+                                        |> List.any
+                                            (\( a, entryErrors ) ->
+                                                entryErrors |> List.isEmpty
+                                            )
+                                then
                                     Ok ( model, value )
 
                                 else
@@ -1998,7 +2003,8 @@ submitHandlers myForm toDataSource =
                                             |> toDataSource model
 
                                     Err model ->
-                                        Err () |> toDataSource model
+                                        Err ()
+                                            |> toDataSource model
                             )
                         -- TODO allow customizing headers or status code, or not?
                         |> DataSource.map Server.Response.render
