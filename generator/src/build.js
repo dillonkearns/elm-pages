@@ -229,6 +229,19 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   } else {
     await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
   }
+  const fullOutputPath = path.join(cwd || process.cwd(), outputPath);
+  await fsPromises.writeFile(
+    fullOutputPath,
+    (
+      await fsPromises.readFile(fullOutputPath, "utf-8")
+    ).replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
+      "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
+        (options.debug
+          ? "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
+          : "[...(new FormData(event.target))")
+    )
+  );
 }
 
 function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
