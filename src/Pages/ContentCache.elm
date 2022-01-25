@@ -4,6 +4,7 @@ module Pages.ContentCache exposing
     , Entry(..)
     , Path
     , contentJsonDecoder
+    , eagerLoad
     , init
     , is404
     , lazyLoad
@@ -81,18 +82,27 @@ lazyLoad urls cache =
                 )
 
         Nothing ->
-            urls.currentUrl
-                |> httpTask
-                |> Task.map
-                    (\downloadedContent ->
-                        ( urls.currentUrl
-                        , downloadedContent
-                        , update
-                            cache
-                            urls
-                            downloadedContent
-                        )
-                    )
+            eagerLoad urls cache
+
+
+{-| -}
+eagerLoad :
+    { currentUrl : Url, basePath : List String }
+    -> ContentCache
+    -> Task Http.Error ( Url, ContentJson, ContentCache )
+eagerLoad urls cache =
+    urls.currentUrl
+        |> httpTask
+        |> Task.map
+            (\downloadedContent ->
+                ( urls.currentUrl
+                , downloadedContent
+                , update
+                    cache
+                    urls
+                    downloadedContent
+                )
+            )
 
 
 httpTask : Url -> Task Http.Error ContentJson
