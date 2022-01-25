@@ -472,7 +472,7 @@ formField_ name =
                         ( Ok justValue, [] )
 
                     Nothing ->
-                        ( Err (ValidationError ("Missing form field " ++ name)), [] )
+                        ( Err (ValidationError ("Missing form field '" ++ name ++ "'")), [] )
             )
         |> Request
 
