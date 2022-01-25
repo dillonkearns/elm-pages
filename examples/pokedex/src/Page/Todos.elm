@@ -18,6 +18,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import Page exposing (Page, PageWithState, StaticPayload)
+import Pages
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -86,7 +87,7 @@ update pageUrl maybeNavigationKey sharedModel static msg model =
 
         ReloadPage ->
             ( model
-            , reloadDataSource maybeNavigationKey
+            , Pages.reloadData
             )
 
         MakeHttpRequest items ->
@@ -127,14 +128,6 @@ update pageUrl maybeNavigationKey sharedModel static msg model =
                 , url = "/todos"
                 }
             )
-
-
-reloadDataSource : Maybe Browser.Navigation.Key -> Cmd msg
-reloadDataSource maybeNavigationKey =
-    --maybeNavigationKey
-    --    |> Maybe.map (\key -> Browser.Navigation.pushUrl key "/todos")
-    --    |> Maybe.withDefault Cmd.none
-    Browser.Navigation.reload
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -280,33 +273,39 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toHtml2
-                                    { makeHttpRequest = MakeHttpRequest
-                                    }
+                                    { makeHttpRequest = MakeHttpRequest }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
                     )
             )
         , newItemForm
-            |> Form.toHtml { pageReloadSubmit = True }
+            |> Form.toHtml2
+                { makeHttpRequest = MakeHttpRequest }
                 Html.form
                 (Form.init newItemForm)
-            |> Html.map FormMsg
         ]
     }
 
 
-newItemForm : Form String TodoInput (Html Form.Msg)
+newItemForm : Form String TodoInput (Html Msg)
 newItemForm =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
             (Form.text "description"
                 (\{ toInput } ->
                     Html.input (Attr.autofocus True :: toInput) []
+                        |> Html.map (\_ -> NoOp)
                 )
                 |> Form.required "Required"
             )
-        |> Form.with (Form.submit (\{ attrs } -> Html.button attrs [ Html.text "Submit" ]))
+        |> Form.with
+            (Form.submit
+                (\{ attrs } ->
+                    Html.button attrs [ Html.text "Submit" ]
+                        |> Html.map (\_ -> NoOp)
+                )
+            )
 
 
 deleteItemForm : String -> Form String String (Html Msg)
