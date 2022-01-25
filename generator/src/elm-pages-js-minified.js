@@ -1,1 +1,108 @@
-module.exports = `let prefetchedPages=[window.location.pathname],initialLocationHash=document.location.hash.replace(/^#/,"");function loadContentAndInitializeApp(){let a=window.location.pathname.replace(/(\w)$/,"$1/");a.endsWith("/")||(a+="/");const b=Elm.Main.init({flags:{secrets:null,baseUrl:document.baseURI,isPrerendering:!1,isDevServer:!1,isElmDebugMode:!1,contentJson:JSON.parse(document.getElementById("__ELM_PAGES_DATA__").innerHTML),userFlags:userInit.flags()}});return b.ports.toJsPort.subscribe(()=>{loadNamedAnchor()}),b}function loadNamedAnchor(){if(""!==initialLocationHash){const a=document.querySelector(\`[name=\${initialLocationHash}]\`);a&&a.scrollIntoView()}}function prefetchIfNeeded(a){if(a.host===window.location.host&&!prefetchedPages.includes(a.pathname)){prefetchedPages.push(a.pathname),console.log("Preloading...",a.pathname);const b=document.createElement("link");b.setAttribute("as","fetch"),b.setAttribute("rel","prefetch"),b.setAttribute("href",origin+a.pathname+"/content.json"),document.head.appendChild(b)}}const appPromise=new Promise(function(a){document.addEventListener("DOMContentLoaded",()=>{a(loadContentAndInitializeApp())})});userInit.load(appPromise),"function"==typeof connect&&connect(function(a){appPromise.then(b=>{b.ports.fromJsPort.send({contentJson:a})})});const trigger_prefetch=b=>{const c=find_anchor(b.target);c&&c.href&&c.hasAttribute("elm-pages:prefetch")&&prefetchIfNeeded(c)};let mousemove_timeout;const handle_mousemove=a=>{clearTimeout(mousemove_timeout),mousemove_timeout=setTimeout(()=>{trigger_prefetch(a)},20)};addEventListener("touchstart",trigger_prefetch),addEventListener("mousemove",handle_mousemove);function find_anchor(a){for(;a&&"A"!==a.nodeName.toUpperCase();)a=a.parentNode;return a}`;
+module.exports = `
+let prefetchedPages = [window.location.pathname];
+let initialLocationHash = document.location.hash.replace(/^#/, "");
+
+/**
+ * @returns
+ */
+function loadContentAndInitializeApp() {
+  let path = window.location.pathname.replace(/(\w)$/, "$1/");
+  if (!path.endsWith("/")) {
+    path = path + "/";
+  }
+  const app = Elm.Main.init({
+    flags: {
+      secrets: null,
+      isPrerendering: false,
+      isDevServer: false,
+      isElmDebugMode: false,
+      contentJson: JSON.parse(
+        document.getElementById("__ELM_PAGES_DATA__").innerHTML
+      ),
+      userFlags: userInit.flags(),
+    },
+  });
+
+  app.ports.toJsPort.subscribe((fromElm) => {
+    loadNamedAnchor();
+  });
+
+  app.ports.elmPagesReloadData.subscribe(() => {
+    console.log("RELOAD DATA PORT!");
+    app.ports.fromJsPort.send(null);
+  });
+
+  return app;
+}
+
+function loadNamedAnchor() {
+  if (initialLocationHash !== "") {
+    const namedAnchor = document.querySelector(\`[name=\${initialLocationHash}]\`);
+    namedAnchor && namedAnchor.scrollIntoView();
+  }
+}
+
+function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
+  if (
+    target.host === window.location.host &&
+    !prefetchedPages.includes(target.pathname)
+  ) {
+    prefetchedPages.push(target.pathname);
+    const link = document.createElement("link");
+    link.setAttribute("as", "fetch");
+
+    link.setAttribute("rel", "prefetch");
+    link.setAttribute("href", origin + target.pathname + "/content.json");
+    document.head.appendChild(link);
+  }
+}
+
+const appPromise = new Promise(function (resolve, reject) {
+  document.addEventListener("DOMContentLoaded", (_) => {
+    resolve(loadContentAndInitializeApp());
+  });
+});
+
+userInit.load(appPromise);
+
+if (typeof connect === "function") {
+  connect(function (newContentJson) {
+    appPromise.then((app) => {
+      app.ports.fromJsPort.send({ contentJson: newContentJson });
+    });
+  });
+}
+
+/** @param {MouseEvent} event */
+const trigger_prefetch = (event) => {
+  const a = find_anchor(/** @type {Node} */ (event.target));
+  if (a && a.href && a.hasAttribute("elm-pages:prefetch")) {
+    prefetchIfNeeded(a);
+  }
+};
+
+/** @type {NodeJS.Timeout} */
+let mousemove_timeout;
+
+/** @param {MouseEvent} event */
+const handle_mousemove = (event) => {
+  clearTimeout(mousemove_timeout);
+  mousemove_timeout = setTimeout(() => {
+    trigger_prefetch(event);
+  }, 20);
+};
+
+addEventListener("touchstart", trigger_prefetch);
+addEventListener("mousemove", handle_mousemove);
+
+/**
+ * @param {Node} node
+//  * @rturns {HTMLAnchorElement | SVGAElement}
+ * @returns {HTMLAnchorElement}
+ */
+function find_anchor(node) {
+  while (node && node.nodeName.toUpperCase() !== "A") node = node.parentNode; // SVG <a> elements have a lowercase name
+  return /** @type {HTMLAnchorElement} */ (node);
+}
+
+`;

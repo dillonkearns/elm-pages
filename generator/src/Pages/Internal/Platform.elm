@@ -299,6 +299,7 @@ type Msg userMsg
     | UpdateCacheAndUrl Url (Result Http.Error ( Url, ContentJson, ContentCache ))
     | PageScrollComplete
     | HotReloadComplete ContentJson
+    | ReloadCurrentPageData
     | NoOp
 
 
@@ -414,6 +415,20 @@ update config appMsg model =
                     |> ContentCache.lazyLoad urls
                     |> Task.attempt (UpdateCacheAndUrl url)
                 )
+
+        ReloadCurrentPageData ->
+            let
+                urls : { currentUrl : Url, basePath : List String }
+                urls =
+                    { currentUrl = model.url
+                    , basePath = config.basePath
+                    }
+            in
+            ( model
+            , model.contentCache
+                |> ContentCache.eagerLoad urls
+                |> Task.attempt (UpdateCacheAndUrl model.url)
+            )
 
         UserMsg userMsg ->
             case model.pageData of
@@ -748,7 +763,7 @@ application config =
 
                                             Err _ ->
                                                 -- TODO should be no message here
-                                                NoOp
+                                                ReloadCurrentPageData
                                     )
                             ]
 
@@ -762,7 +777,7 @@ application config =
 
                                         Err _ ->
                                             -- TODO should be no message here
-                                            NoOp
+                                            ReloadCurrentPageData
                                 )
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
