@@ -15,6 +15,7 @@ module Form exposing
     , withMax, withMin
     , withStep
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+    , submitHandlers2, toHtml2
     )
 
 {-|
@@ -123,6 +124,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
 import Form.Value
+import FormDecoder
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -567,6 +569,15 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
     }
 
 
+nonEmptyString : String -> Maybe String
+nonEmptyString string =
+    if string == "" then
+        Nothing
+
+    else
+        Just string
+
+
 toInputRecord :
     FormInfo
     -> String
@@ -576,7 +587,7 @@ toInputRecord :
     -> FieldRenderInfo error
 toInputRecord formInfo name maybeValue info field =
     { toInput =
-        ([ Attr.name name |> Just
+        ([ name |> nonEmptyString |> Maybe.map Attr.name
          , maybeValue
             |> Maybe.withDefault name
             |> Attr.id
@@ -652,7 +663,7 @@ toRadioInputRecord :
     -> FieldRenderInfo error
 toRadioInputRecord formInfo name itemValue info field =
     { toInput =
-        ([ Attr.name name |> Just
+        ([ name |> nonEmptyString |> Maybe.map Attr.name
          , itemValue
             |> Attr.id
             |> Just
@@ -1513,7 +1524,7 @@ with : Field error value view constraints -> Form error (value -> form) view -> 
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
         thing : (String -> Request (Maybe String)) -> Request (DataSource (List ( String, RawFieldState error )))
-        thing optionalFormField_ =
+        thing expectFormField =
             Request.map2
                 (\arg1 arg2 ->
                     arg1
@@ -1540,14 +1551,21 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                     )
                             )
                 )
-                (serverValidations optionalFormField_)
-                (optionalFormField_ field.name)
+                (serverValidations expectFormField)
+                (field.name
+                    |> nonEmptyString
+                    |> Maybe.map expectFormField
+                    |> Maybe.withDefault (Request.succeed Nothing)
+                )
 
         withDecoder : (String -> Request (Maybe String)) -> Request (Result (List ( String, List error )) ( form, List ( String, List error ) ))
-        withDecoder optionalFormField_ =
+        withDecoder expectFormField =
             Request.map2
                 (combineWithDecoder field.name)
-                (optionalFormField_ field.name
+                (field.name
+                    |> nonEmptyString
+                    |> Maybe.map expectFormField
+                    |> Maybe.withDefault (Request.succeed Nothing)
                     |> Request.map
                         (\myValue ->
                             myValue
@@ -1559,7 +1577,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                 |> Result.map (\( okValue, errors ) -> ( ( okValue, errors ), [] ))
                         )
                 )
-                (decoder optionalFormField_)
+                (decoder expectFormField)
     in
     Form
         (addField field fields)
@@ -1702,17 +1720,17 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form 
     Form
         -- TODO is this ordering correct?
         (fields1 ++ fields2)
-        (\optionalFormField_ ->
+        (\expectFormField ->
             Request.map2
                 (map2ResultWithErrors mapFn)
-                (decoder1 optionalFormField_)
-                (decoder2 optionalFormField_)
+                (decoder1 expectFormField)
+                (decoder2 expectFormField)
         )
-        (\optionalFormField_ ->
+        (\expectFormField ->
             Request.map2
                 (DataSource.map2 (++))
-                (serverValidations1 optionalFormField_)
-                (serverValidations2 optionalFormField_)
+                (serverValidations1 expectFormField)
+                (serverValidations2 expectFormField)
         )
         (\model ->
             map2ResultWithErrors mapFn
@@ -1858,6 +1876,64 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder s
         )
 
 
+{-| -}
+toHtml2 :
+    { makeHttpRequest : List ( String, String ) -> msg
+    }
+    -> (List (Html.Attribute msg) -> List view -> view)
+    -> Model
+    -> Form String value view
+    -> view
+toHtml2 config toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
+    let
+        hasErrors_ : Bool
+        hasErrors_ =
+            hasErrors2 serverValidationErrors
+    in
+    toForm
+        ([ [ Attr.method "POST" ]
+         , [ Attr.novalidate True
+           , FormDecoder.formDataOnSubmit |> Attr.map config.makeHttpRequest
+           ]
+         ]
+            |> List.concat
+        )
+        (fields
+            |> List.reverse
+            |> List.concatMap
+                (\( nestedFields, wrapFn ) ->
+                    nestedFields
+                        |> List.reverse
+                        |> List.map
+                            (\field ->
+                                let
+                                    rawFieldState : RawFieldState String
+                                    rawFieldState =
+                                        serverValidationErrors.fields
+                                            |> Dict.get field.name
+                                            |> Maybe.withDefault initField
+
+                                    thing : RawFieldState String
+                                    thing =
+                                        { rawFieldState
+                                            | errors =
+                                                rawFieldState.errors
+                                                    ++ (serverValidationErrors.formErrors
+                                                            |> Dict.get field.name
+                                                            |> Maybe.withDefault []
+                                                       )
+                                        }
+                                in
+                                field.toHtml { submitStatus = serverValidationErrors.isSubmitting }
+                                    hasErrors_
+                                    (simplify3 field)
+                                    (Just thing)
+                            )
+                        |> wrapFn
+                )
+        )
+
+
 apiHandler :
     Form String value view
     -> Request (DataSource (PageServerResponse response))
@@ -1896,13 +1972,13 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
                     )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                decoder optionalField
+            (\{ field } ->
+                decoder (\string -> field string |> Request.map Just)
             )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                serverValidations optionalField
+            (\{ field } ->
+                serverValidations (\string -> field string |> Request.map Just)
             )
         )
         |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
@@ -1940,13 +2016,13 @@ toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
                     )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                decoder optionalField
+            (\{ field } ->
+                decoder (\fieldName -> field fieldName |> Request.map Just)
             )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                serverValidations optionalField
+            (\{ field } ->
+                serverValidations (\string -> field string |> Request.map Just)
                     |> Request.map
                         (DataSource.map
                             (\thing ->
@@ -2014,6 +2090,33 @@ submitHandlers myForm toDataSource =
                             )
                         -- TODO allow customizing headers or status code, or not?
                         |> DataSource.map Server.Response.render
+                )
+        ]
+
+
+submitHandlers2 :
+    Form String decoded view
+    -> (Model -> Result () decoded -> DataSource (PageServerResponse data))
+    -> Request (DataSource (PageServerResponse data))
+submitHandlers2 myForm toDataSource =
+    Request.oneOf
+        [ apiHandler myForm
+        , toRequest2 myForm
+            |> Request.map
+                (\userOrErrors ->
+                    userOrErrors
+                        |> DataSource.andThen
+                            (\result ->
+                                case result of
+                                    Ok ( model, decoded ) ->
+                                        Ok decoded
+                                            |> toDataSource model
+
+                                    Err model ->
+                                        Err ()
+                                            |> toDataSource model
+                            )
+                 -- TODO allow customizing headers or status code, or not?
                 )
         ]
 
