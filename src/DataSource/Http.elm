@@ -172,7 +172,7 @@ request urlWithSecrets decoder =
     unoptimizedRequest urlWithSecrets (ExpectJson decoder)
 
 
-{-| Analgous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
+{-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
 back in your DataSource.Http request.
 
 You can derive `ExpectUnoptimizedJson` from `ExpectString`. Or you could build your own helper to process the String
