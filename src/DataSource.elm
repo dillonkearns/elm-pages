@@ -169,10 +169,10 @@ dontSaveData requestInfo =
 {-| -}
 distillBytes :
     String
-    -> (raw -> Bytes)
-    -> (Bytes -> Result String distilled)
-    -> DataSource raw
-    -> DataSource distilled
+    -> (value -> Bytes)
+    -> (Bytes -> Result String value)
+    -> DataSource value
+    -> DataSource value
 distillBytes uniqueKey encode decode dataSource =
     -- elm-review: known-unoptimized-recursion
     case dataSource of
@@ -217,10 +217,7 @@ distillBytes uniqueKey encode decode dataSource =
                 )
                 ( []
                 , \_ _ _ ->
-                    value
-                        |> encode
-                        |> decode
-                        |> fromResult
+                    succeed value
                 )
 
 
