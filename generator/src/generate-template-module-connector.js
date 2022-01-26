@@ -445,7 +445,11 @@ main =
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
-        , sharedData = Shared.template.data
+        , sharedData =
+            Shared.template.data
+                |> DataSource.distillBytes "SharedData"
+                    (encodeBytes Shared.w3_encode_Data)
+                    (decodeBytes Shared.w3_decode_Data)
         , apiRoutes = ${
           phase === "browser"
             ? `\\_ -> []`
