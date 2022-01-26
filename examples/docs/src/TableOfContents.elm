@@ -1,6 +1,5 @@
 module TableOfContents exposing (..)
 
-import Codec exposing (Codec)
 import Css
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -29,32 +28,6 @@ dataSource docFiles =
                         )
             )
         |> DataSource.resolve
-
-
-codec : Codec (TableOfContents Data)
-codec =
-    Codec.list entryCodec
-
-
-entryCodec : Codec (Entry Data)
-entryCodec =
-    Codec.custom
-        (\vEntry value ->
-            case value of
-                Entry data list ->
-                    vEntry data list
-        )
-        |> Codec.variant2 "Entry" Entry dataCodec (Codec.list (Codec.lazy (\() -> entryCodec)))
-        |> Codec.buildCustom
-
-
-dataCodec : Codec Data
-dataCodec =
-    Codec.object Data
-        |> Codec.field "anchorId" .anchorId Codec.string
-        |> Codec.field "name" .name Codec.string
-        |> Codec.field "level" .level Codec.int
-        |> Codec.buildObject
 
 
 headingsDecoder : String -> String -> DataSource (Entry Data)
