@@ -4,6 +4,7 @@ import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource exposing (DataSource)
+import DataSource.File
 import Date exposing (Date)
 import Head
 import Head.Seo as Seo
@@ -11,6 +12,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
+import Markdown.Block
 import Markdown.Parser
 import Markdown.Renderer
 import MarkdownCodec
@@ -111,7 +113,10 @@ view maybeUrl sharedModel static =
                             [ Tw.prose
                             ]
                         ]
-                        static.data.body
+                        (static.data.body
+                            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                            |> Result.withDefault []
+                        )
                     ]
                 ]
             ]
@@ -226,16 +231,49 @@ head static =
 
 type alias Data =
     { metadata : ArticleMetadata
-    , body : List (Html Msg)
+    , body : List Markdown.Block.Block
     }
 
 
 data : RouteParams -> DataSource Data
 data route =
-    MarkdownCodec.withFrontmatter Data
+    withFrontmatter Data
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
         ("content/blog/" ++ route.slug ++ ".md")
+
+
+withFrontmatter :
+    (frontmatter -> List Markdown.Block.Block -> value)
+    -> Decoder frontmatter
+    -> Markdown.Renderer.Renderer view
+    -> String
+    -> DataSource value
+withFrontmatter constructor frontmatterDecoder_ renderer filePath =
+    DataSource.map2 constructor
+        (DataSource.File.onlyFrontmatter
+            frontmatterDecoder_
+            filePath
+        )
+        (DataSource.File.bodyWithoutFrontmatter
+            filePath
+            |> DataSource.andThen
+                (\rawBody ->
+                    rawBody
+                        |> Markdown.Parser.parse
+                        |> Result.mapError (\_ -> "Couldn't parse markdown.")
+                        |> DataSource.fromResult
+                )
+            |> DataSource.andThen
+                (\blocks ->
+                    blocks
+                        |> Markdown.Renderer.render renderer
+                        -- we don't want to encode the HTML since it contains functions so it's not serializable
+                        -- but we can at least make sure there are no errors turning it into HTML before encoding it
+                        |> Result.map (\_ -> blocks)
+                        |> DataSource.fromResult
+                )
+        )
 
 
 type alias ArticleMetadata =
