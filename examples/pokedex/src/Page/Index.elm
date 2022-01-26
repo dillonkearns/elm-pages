@@ -51,21 +51,23 @@ data =
 
 encode : Data -> Bytes
 encode items =
-    Bytes.Encode.encode (Types.w3_encode_Data items)
-
-
-
---w3_encode_Data
+    encodeBytes w3_encode_Data items
 
 
 decode : Bytes -> Result String Data
 decode items =
-    Bytes.Decode.decode Types.w3_decode_Data items
+    decodeBytes w3_decode_Data items
+
+
+encodeBytes : (b -> Bytes.Encode.Encoder) -> b -> Bytes
+encodeBytes bytesEncoder items =
+    Bytes.Encode.encode (bytesEncoder items)
+
+
+decodeBytes : Bytes.Decode.Decoder a -> Bytes -> Result String a
+decodeBytes bytesDecoder items =
+    Bytes.Decode.decode bytesDecoder items
         |> Result.fromMaybe "Decoding error"
-
-
-
---w3_decode_Data |> Result.fromMaybe "Decoding error"
 
 
 head :
