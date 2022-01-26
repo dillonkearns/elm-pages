@@ -3,9 +3,10 @@ module Timestamps exposing (Timestamps, data, format)
 import DataSource exposing (DataSource)
 import DataSource.Port
 import DateFormat
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
 import Json.Encode
 import List.Extra
-import OptimizedDecoder as Decode exposing (Decoder)
 import Result.Extra
 import Time
 
@@ -31,7 +32,7 @@ data filePath =
                     ]
                 )
             |> Decode.map (firstAndLast Timestamps >> Result.fromMaybe "Error")
-            |> Decode.andThen Decode.fromResult
+            |> Decode.andThen Json.Decode.Extra.fromResult
         )
 
 
