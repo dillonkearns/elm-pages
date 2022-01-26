@@ -8,8 +8,8 @@ module DataSource.Port exposing (get)
 
 import DataSource
 import DataSource.Http
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode
-import OptimizedDecoder exposing (Decoder)
 import Secrets
 
 
