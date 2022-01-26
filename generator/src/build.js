@@ -283,7 +283,11 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         if (!buildError) {
           buildError = true;
           process.exitCode = 1;
-          reject(restoreColor(JSON.parse(commandOutput)));
+          try {
+            reject(restoreColor(JSON.parse(commandOutput)));
+          } catch (error) {
+            reject(commandOutput);
+          }
         } else {
           // avoid unhandled error printing duplicate message, let process.exit in top loop take over
         }
