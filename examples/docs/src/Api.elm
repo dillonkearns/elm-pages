@@ -5,8 +5,8 @@ import Article
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Html exposing (Html)
+import Json.Decode as Decode
 import Json.Encode
-import OptimizedDecoder as Decode
 import Pages
 import Route exposing (Route)
 import Rss
@@ -25,9 +25,9 @@ routes getStaticRoutes htmlToString =
         (\userId ->
             DataSource.succeed
                 (Json.Encode.object
-                    [ ( "id", Json.Encode.int userId )
+                    [ ( "id", Json.Encode.string userId )
                     , ( "name"
-                      , Html.p [] [ Html.text <| "Data for user " ++ String.fromInt userId ]
+                      , Html.p [] [ Html.text <| "Data for user " ++ userId ]
                             |> htmlToString
                             |> Json.Encode.string
                       )
@@ -37,14 +37,14 @@ routes getStaticRoutes htmlToString =
         )
         |> ApiRoute.literal "users"
         |> ApiRoute.slash
-        |> ApiRoute.int
+        |> ApiRoute.capture
         |> ApiRoute.literal ".json"
         |> ApiRoute.preRender
             (\route ->
                 DataSource.succeed
-                    [ route 1
-                    , route 2
-                    , route 3
+                    [ route "1"
+                    , route "2"
+                    , route "3"
                     ]
             )
     , ApiRoute.succeed

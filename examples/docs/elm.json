@@ -11,6 +11,7 @@
         "direct": {
             "MartinSStewart/elm-serialize": "1.2.5",
             "avh4/elm-color": "1.0.0",
+            "danfishgold/base64-bytes": "1.1.0",
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "1.0.1",
             "dillonkearns/elm-markdown": "7.0.0",
@@ -18,6 +19,7 @@
             "dillonkearns/elm-rss": "2.0.2",
             "dillonkearns/elm-sitemap": "1.0.2",
             "elm/browser": "1.0.2",
+            "elm/bytes": "1.0.8",
             "elm/core": "1.0.5",
             "elm/html": "1.0.0",
             "elm/http": "2.0.0",
@@ -28,9 +30,12 @@
             "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.2",
             "elm-community/dict-extra": "2.4.0",
+            "elm-community/json-extra": "4.3.0",
             "elm-community/list-extra": "8.3.0",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "3.2.1",
+            "lamdera/codecs": "1.0.0",
+            "lamdera/core": "1.0.0",
             "matheus23/elm-default-tailwind-modules": "2.0.1",
             "miniBill/elm-codec": "2.0.0",
             "noahzgordon/elm-color-extra": "1.0.2",
@@ -38,15 +43,14 @@
             "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-css": "16.1.1",
             "tripokey/elm-fuzzy": "5.2.1",
+            "turboMaCk/non-empty-list-alias": "1.2.0",
             "vito/elm-ansi": "10.0.1",
             "zwilias/json-decode-exploration": "6.0.0"
         },
         "indirect": {
             "bburdette/toop": "1.0.1",
             "billstclair/elm-xml-eeue56": "2.0.0",
-            "danfishgold/base64-bytes": "1.1.0",
             "dmy/elm-imf-date-time": "1.0.1",
-            "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
             "fredcy/elm-parseint": "2.0.1",
@@ -54,6 +58,7 @@
             "lazamar/dict-parser": "1.0.2",
             "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-hex": "1.0.0",
+            "rtfeldman/elm-iso8601-date-strings": "1.1.4",
             "ryannhg/date-format": "2.3.0"
         }
     },

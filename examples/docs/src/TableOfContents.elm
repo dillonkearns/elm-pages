@@ -9,8 +9,6 @@ import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
 import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
-import OptimizedDecoder
-import Serialize as S
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 
@@ -31,7 +29,6 @@ dataSource docFiles =
                         )
             )
         |> DataSource.resolve
-        |> DataSource.distillSerializeCodec "table-of-contents" serialize
 
 
 codec : Codec (TableOfContents Data)
@@ -58,32 +55,6 @@ dataCodec =
         |> Codec.field "name" .name Codec.string
         |> Codec.field "level" .level Codec.int
         |> Codec.buildObject
-
-
-serialize : S.Codec e (TableOfContents Data)
-serialize =
-    S.list serializeEntry
-
-
-serializeEntry : S.Codec e (Entry Data)
-serializeEntry =
-    S.customType
-        (\vEntry value ->
-            case value of
-                Entry data list ->
-                    vEntry data list
-        )
-        |> S.variant2 Entry serializeData (S.list (S.lazy (\() -> serializeEntry)))
-        |> S.finishCustomType
-
-
-serializeData : S.Codec e Data
-serializeData =
-    S.record Data
-        |> S.field .anchorId S.string
-        |> S.field .name S.string
-        |> S.field .level S.int
-        |> S.finishRecord
 
 
 headingsDecoder : String -> String -> DataSource (Entry Data)

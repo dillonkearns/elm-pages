@@ -152,7 +152,7 @@ This is my first post!
 Then we could read that title for our blog post list page using our `blogPosts` `DataSource` that we defined above.
 
     import DataSource.File
-    import OptimizedDecoder as Decode exposing (Decoder)
+    import Json.Decode as Decode exposing (Decoder)
 
     titles : DataSource (List BlogPost)
     titles =
@@ -213,8 +213,8 @@ That will give us
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Glob exposing (Glob(..))
+import Json.Decode as Decode
 import List.Extra
-import OptimizedDecoder
 import Regex
 import Secrets
 
@@ -945,9 +945,9 @@ toNonEmptyWithDefault default list =
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
     DataSource.Http.get (Secrets.succeed <| "glob://" ++ DataSource.Internal.Glob.toPattern glob)
-        (OptimizedDecoder.string
-            |> OptimizedDecoder.list
-            |> OptimizedDecoder.map
+        (Decode.string
+            |> Decode.list
+            |> Decode.map
                 (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
         )
 

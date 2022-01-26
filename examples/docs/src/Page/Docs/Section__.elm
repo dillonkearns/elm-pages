@@ -11,12 +11,13 @@ import Head.Seo as Seo
 import Heroicon
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import MarkdownCodec
 import NextPrevious
-import OptimizedDecoder as Decode exposing (Decoder)
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -34,7 +35,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
@@ -157,7 +158,6 @@ titleForSection section =
                     |> Result.fromMaybe "Expected to find an H1 heading in this markdown."
                     |> DataSource.fromResult
             )
-        |> DataSource.distillSerializeCodec ("next-previous-" ++ section.slug) NextPrevious.serialize
 
 
 head :
@@ -309,7 +309,7 @@ markdownBodyDecoder rawBody =
     rawBody
         |> Markdown.Parser.parse
         |> Result.mapError (\_ -> "Markdown parsing error")
-        |> Decode.fromResult
+        |> Json.Decode.Extra.fromResult
 
 
 markdownBodyDecoder2 : String -> DataSource (List Block)

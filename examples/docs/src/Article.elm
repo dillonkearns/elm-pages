@@ -5,7 +5,7 @@ import DataSource
 import DataSource.File as File
 import DataSource.Glob as Glob
 import Date exposing (Date)
-import OptimizedDecoder
+import Json.Decode as Decode exposing (Decoder)
 import Pages.Url exposing (Url)
 import Route
 
@@ -67,32 +67,32 @@ type alias ArticleMetadata =
     }
 
 
-frontmatterDecoder : OptimizedDecoder.Decoder ArticleMetadata
+frontmatterDecoder : Decoder ArticleMetadata
 frontmatterDecoder =
-    OptimizedDecoder.map5 ArticleMetadata
-        (OptimizedDecoder.field "title" OptimizedDecoder.string)
-        (OptimizedDecoder.field "description" OptimizedDecoder.string)
-        (OptimizedDecoder.field "published"
-            (OptimizedDecoder.string
-                |> OptimizedDecoder.andThen
+    Decode.map5 ArticleMetadata
+        (Decode.field "title" Decode.string)
+        (Decode.field "description" Decode.string)
+        (Decode.field "published"
+            (Decode.string
+                |> Decode.andThen
                     (\isoString ->
                         case Date.fromIsoString isoString of
                             Ok date ->
-                                OptimizedDecoder.succeed date
+                                Decode.succeed date
 
                             Err error ->
-                                OptimizedDecoder.fail error
+                                Decode.fail error
                     )
             )
         )
-        (OptimizedDecoder.field "image" imageDecoder)
-        (OptimizedDecoder.field "draft" OptimizedDecoder.bool
-            |> OptimizedDecoder.maybe
-            |> OptimizedDecoder.map (Maybe.withDefault False)
+        (Decode.field "image" imageDecoder)
+        (Decode.field "draft" Decode.bool
+            |> Decode.maybe
+            |> Decode.map (Maybe.withDefault False)
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder Url
+imageDecoder : Decoder Url
 imageDecoder =
-    OptimizedDecoder.string
-        |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
+    Decode.string
+        |> Decode.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)

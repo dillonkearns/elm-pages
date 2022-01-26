@@ -2,7 +2,8 @@ module Showcase exposing (..)
 
 import DataSource
 import DataSource.Http
-import OptimizedDecoder as Decode
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
 import Pages.Secrets as Secrets
 
 
@@ -17,7 +18,7 @@ type alias Entry =
     }
 
 
-decoder : Decode.Decoder (List Entry)
+decoder : Decoder (List Entry)
 decoder =
     Decode.field "records" <|
         Decode.list entryDecoder
@@ -32,7 +33,7 @@ entryDecoder =
             (Decode.field "Live URL" Decode.string)
             (Decode.field "Author" Decode.string)
             (Decode.field "Author URL" Decode.string)
-            (Decode.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
+            (Json.Decode.Extra.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 

@@ -9,8 +9,11 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
+import Markdown.Parser
+import Markdown.Renderer
 import MarkdownCodec
-import OptimizedDecoder
 import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -29,7 +32,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
@@ -244,28 +247,28 @@ type alias ArticleMetadata =
     }
 
 
-frontmatterDecoder : OptimizedDecoder.Decoder ArticleMetadata
+frontmatterDecoder : Decoder ArticleMetadata
 frontmatterDecoder =
-    OptimizedDecoder.map5 ArticleMetadata
-        (OptimizedDecoder.field "title" OptimizedDecoder.string)
-        (OptimizedDecoder.field "description" OptimizedDecoder.string)
-        (OptimizedDecoder.field "published"
-            (OptimizedDecoder.string
-                |> OptimizedDecoder.andThen
+    Decode.map5 ArticleMetadata
+        (Decode.field "title" Decode.string)
+        (Decode.field "description" Decode.string)
+        (Decode.field "published"
+            (Decode.string
+                |> Decode.andThen
                     (\isoString ->
                         Date.fromIsoString isoString
-                            |> OptimizedDecoder.fromResult
+                            |> Json.Decode.Extra.fromResult
                     )
             )
         )
-        (OptimizedDecoder.field "image" imageDecoder)
-        (OptimizedDecoder.field "draft" OptimizedDecoder.bool
-            |> OptimizedDecoder.maybe
-            |> OptimizedDecoder.map (Maybe.withDefault False)
+        (Decode.field "image" imageDecoder)
+        (Decode.field "draft" Decode.bool
+            |> Decode.maybe
+            |> Decode.map (Maybe.withDefault False)
         )
 
 
-imageDecoder : OptimizedDecoder.Decoder Pages.Url.Url
+imageDecoder : Decode.Decoder Pages.Url.Url
 imageDecoder =
-    OptimizedDecoder.string
-        |> OptimizedDecoder.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
+    Decode.string
+        |> Decode.map (\cloudinaryAsset -> Cloudinary.url cloudinaryAsset Nothing 800)
