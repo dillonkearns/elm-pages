@@ -5,7 +5,6 @@ module DataSource exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , distill, validate, distillCodec, distillSerializeCodec
     , distillBytes
     )
 
@@ -83,27 +82,10 @@ So it's best to use that mental model to avoid confusion.
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
-
-## Optimizing Page Data
-
-Distilling data lets you reduce the amount of data loaded on the client. You can also use it to perform computations at
-build-time or server-request-time, store the result of the computation and then simply load that result on the client
-without needing redo the computation again on the client.
-
-@docs distill, validate, distillCodec, distillSerializeCodec
-
-
-### Ensuring Unique Distill Keys
-
-If you use the same string key for two different distilled values that have differing encoded JSON, then you
-will get a build error (and an error in the dev server for that page). That means you can safely distill values
-and let the build command tell you about these issues if they arise.
-
 -}
 
 import Base64
 import Bytes exposing (Bytes)
-import Codec
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode as Decode
@@ -184,67 +166,6 @@ dontSaveData requestInfo =
             requestInfo
 
 
-{-| This is the low-level `distill` function. In most cases, you'll want to use `distill` with a `Codec` from either
-[`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/) or
-[`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest/)
--}
-distill :
-    String
-    -> (raw -> Encode.Value)
-    -> (Decode.Value -> Result String distilled)
-    -> DataSource raw
-    -> DataSource distilled
-distill uniqueKey encode decode dataSource =
-    -- elm-review: known-unoptimized-recursion
-    case dataSource of
-        RequestError error ->
-            RequestError error
-
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
-                ( urls
-                , \_ appType rawResponses ->
-                    case appType of
-                        ApplicationType.Browser ->
-                            rawResponses
-                                |> RequestsAndPending.get uniqueKey
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                rawResponse
-                                                    |> Decode.decodeString Decode.value
-                                                    |> Result.mapError Decode.errorToString
-                                                    |> Result.andThen decode
-                                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                                    |> Result.map (Tuple.pair Dict.empty)
-
-                                            Nothing ->
-                                                Err (Pages.StaticHttpRequest.MissingHttpResponse ("distill://" ++ uniqueKey) [])
-                                   )
-                                |> toResult
-
-                        ApplicationType.Cli ->
-                            lookupFn KeepOrDiscard.Discard appType rawResponses
-                                |> distill uniqueKey encode decode
-                )
-
-        ApiRoute strippedResponses value ->
-            Request
-                (strippedResponses
-                    |> Dict.insert
-                        -- TODO should this include a prefix? Probably.
-                        uniqueKey
-                        (Pages.StaticHttpRequest.DistilledResponse (encode value))
-                )
-                ( []
-                , \_ _ _ ->
-                    value
-                        |> encode
-                        |> decode
-                        |> fromResult
-                )
-
-
 {-| -}
 distillBytes :
     String
@@ -303,91 +224,6 @@ distillBytes uniqueKey encode decode dataSource =
                 )
 
 
-{-| [`distill`](#distill) with a `Serialize.Codec` from [`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest).
-
-    import DataSource
-    import DataSource.Http
-    import Secrets
-    import Serialize
-
-    millionRandomSum : DataSource Int
-    millionRandomSum =
-        DataSource.Http.get
-            (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
-            (Decode.list Decode.int)
-            |> DataSource.map List.sum
-            -- all of this expensive computation and data will happen before it hits the client!
-            -- the user's browser simply loads up a single Int and runs an Int decoder to get it
-            |> DataSource.distillSerializeCodec "million-random-sum" Serialize.int
-
-If we didn't distill the data here, then all million Ints would have to be loaded in order to load the page.
-The reason the data for these `DataSource`s needs to be loaded is that `elm-pages` hydrates into an Elm app. If it
-output only HTML then we could build the HTML and throw away the data. But we need to ensure that the hydrated Elm app
-has all the data that a page depends on, even if it the HTML for the page is also pre-rendered.
-
-Using a `Codec` makes it safer to distill data because you know it is reversible.
-
--}
-distillSerializeCodec :
-    String
-    -> Serialize.Codec error value
-    -> DataSource value
-    -> DataSource value
-distillSerializeCodec uniqueKey serializeCodec =
-    distill uniqueKey
-        (Serialize.encodeToJson serializeCodec)
-        (Serialize.decodeFromJson serializeCodec
-            >> Result.mapError
-                (\error ->
-                    case error of
-                        Serialize.DataCorrupted ->
-                            "DataCorrupted"
-
-                        Serialize.CustomError _ ->
-                            "CustomError"
-
-                        Serialize.SerializerOutOfDate ->
-                            "SerializerOutOfDate"
-                )
-        )
-
-
-{-| [`distill`](#distill) with a `Codec` from [`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/).
-
-    import Codec
-    import DataSource
-    import DataSource.Http
-    import Secrets
-
-    millionRandomSum : DataSource Int
-    millionRandomSum =
-        DataSource.Http.get
-            (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
-            (Decode.list Decode.int)
-            |> DataSource.map List.sum
-            -- all of this expensive computation and data will happen before it hits the client!
-            -- the user's browser simply loads up a single Int and runs an Int decoder to get it
-            |> DataSource.distillCodec "million-random-sum" Codec.int
-
-If we didn't distill the data here, then all million Ints would have to be loaded in order to load the page.
-The reason the data for these `DataSource`s needs to be loaded is that `elm-pages` hydrates into an Elm app. If it
-output only HTML then we could build the HTML and throw away the data. But we need to ensure that the hydrated Elm app
-has all the data that a page depends on, even if it the HTML for the page is also pre-rendered.
-
-Using a `Codec` makes it safer to distill data because you know it is reversible.
-
--}
-distillCodec :
-    String
-    -> Codec.Codec value
-    -> DataSource value
-    -> DataSource value
-distillCodec uniqueKey codec =
-    distill uniqueKey
-        (Codec.encodeToValue codec)
-        (Codec.decodeValue codec >> Result.mapError Decode.errorToString)
-
-
 toResult : Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, b ) -> RawRequest b
 toResult result =
     case result of
@@ -396,32 +232,6 @@ toResult result =
 
         Ok ( stripped, okValue ) ->
             ApiRoute stripped okValue
-
-
-{-| -}
-validate :
-    (unvalidated -> validated)
-    -> (unvalidated -> DataSource (Result String ()))
-    -> DataSource unvalidated
-    -> DataSource validated
-validate markValidated validateDataSource unvalidatedDataSource =
-    unvalidatedDataSource
-        |> andThen
-            (\unvalidated ->
-                unvalidated
-                    |> validateDataSource
-                    |> andThen
-                        (\result ->
-                            case result of
-                                Ok () ->
-                                    succeed <| markValidated unvalidated
-
-                                Err error ->
-                                    fail error
-                        )
-                    |> dontSaveData
-            )
-        |> dontSaveData
 
 
 {-| Helper to remove an inner layer of Request wrapping.

@@ -4,7 +4,6 @@ import Base64
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
-import Json.Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import List.Extra
 import Pages.Internal.ApplicationType exposing (ApplicationType)
@@ -23,7 +22,6 @@ type RawRequest value
 type WhatToDo
     = UseRawResponse
     | CliOnly
-    | DistilledResponse Json.Encode.Value
     | DistilledBytesResponse Bytes
     | Error (List BuildError)
 
@@ -72,37 +70,6 @@ merge key whatToDo1 whatToDo2 =
         ( CliOnly, _ ) ->
             whatToDo2
 
-        ( DistilledResponse distilled1, DistilledResponse distilled2 ) ->
-            if Json.Encode.encode 0 distilled1 == Json.Encode.encode 0 distilled2 then
-                DistilledResponse distilled1
-
-            else
-                Error
-                    [ { title = "Non-Unique Distill Keys"
-                      , message =
-                            [ Terminal.text "I encountered DataSource.distill with two matching keys that had differing encoded values.\n\n"
-                            , Terminal.text "Look for "
-                            , Terminal.red <| "DataSource.distill"
-                            , Terminal.text " with the key "
-                            , Terminal.red <| ("\"" ++ key ++ "\"")
-                            , Terminal.text "\n\n"
-                            , Terminal.yellow <| "The first encoded value was:\n"
-                            , Terminal.text <| Json.Encode.encode 2 distilled1
-                            , Terminal.text "\n\n-------------------------------\n\n"
-                            , Terminal.yellow <| "The second encoded value was:\n"
-                            , Terminal.text <| Json.Encode.encode 2 distilled2
-                            ]
-                      , path = "" -- TODO wire in path here?
-                      , fatal = True
-                      }
-                    ]
-
-        ( DistilledResponse distilled1, _ ) ->
-            DistilledResponse distilled1
-
-        ( _, DistilledResponse distilled1 ) ->
-            DistilledResponse distilled1
-
         ( UseRawResponse, UseRawResponse ) ->
             UseRawResponse
 
@@ -126,10 +93,6 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
                     CliOnly ->
                         Nothing
                             |> Ok
-
-                    DistilledResponse value ->
-                        -- TODO delete DistilledResponse, it's now obsolete
-                        Ok Nothing
 
                     Error buildError ->
                         Err buildError
