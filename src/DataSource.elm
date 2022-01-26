@@ -245,10 +245,7 @@ distill uniqueKey encode decode dataSource =
                 )
 
 
-{-| This is the low-level `distill` function. In most cases, you'll want to use `distill` with a `Codec` from either
-[`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/) or
-[`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest/)
--}
+{-| -}
 distillBytes :
     String
     -> (raw -> Bytes)
