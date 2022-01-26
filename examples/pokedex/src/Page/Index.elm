@@ -5,7 +5,7 @@ import DataSource.Http
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
-import OptimizedDecoder as Decode
+import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -38,7 +38,7 @@ page =
 
 data : DataSource Data
 data =
-    DataSource.Http.get (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=20&offset=0")
+    DataSource.Http.get (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0")
         (Decode.field "results"
             (Decode.list (Decode.field "name" Decode.string))
         )

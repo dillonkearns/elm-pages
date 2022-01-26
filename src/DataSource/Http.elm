@@ -65,13 +65,8 @@ your decoders. This can significantly reduce download sizes for your DataSource.
 
 import DataSource exposing (DataSource)
 import Dict
-import Internal.OptimizedDecoder
 import Json.Decode
-import Json.Decode.Exploration
 import Json.Encode as Encode
-import KeepOrDiscard
-import OptimizedDecoder as Decode exposing (Decoder)
-import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.StaticHttpBody as Body
 import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
@@ -127,7 +122,7 @@ type alias Body =
 -}
 get :
     Pages.Secrets.Value String
-    -> Decoder a
+    -> Json.Decode.Decoder a
     -> DataSource a
 get url decoder =
     request
@@ -166,13 +161,13 @@ with this as a low-level detail, or you can use functions like [DataSource.Http.
 -}
 request :
     Pages.Secrets.Value RequestDetails
-    -> Decoder a
+    -> Json.Decode.Decoder a
     -> DataSource a
 request urlWithSecrets decoder =
-    unoptimizedRequest urlWithSecrets (ExpectJson decoder)
+    unoptimizedRequest urlWithSecrets (ExpectUnoptimizedJson decoder)
 
 
-{-| Analgous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
+{-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
 back in your DataSource.Http request.
 
 You can derive `ExpectUnoptimizedJson` from `ExpectString`. Or you could build your own helper to process the String
@@ -181,7 +176,6 @@ as XML, for example, or give an `elm-pages` build error if the response can't be
 -}
 type Expect value
     = ExpectUnoptimizedJson (Json.Decode.Decoder value)
-    | ExpectJson (Decoder value)
     | ExpectString (String -> Result String value)
 
 
@@ -245,128 +239,6 @@ unoptimizedRequest :
     -> DataSource a
 unoptimizedRequest requestWithSecrets expect =
     case expect of
-        ExpectJson decoder ->
-            Request Dict.empty
-                ( [ requestWithSecrets ]
-                , \keepOrDiscard appType rawResponseDict ->
-                    case appType of
-                        ApplicationType.Cli ->
-                            rawResponseDict
-                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                Ok
-                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                        (case keepOrDiscard of
-                                                            KeepOrDiscard.Keep ->
-                                                                Pages.StaticHttpRequest.StripResponse
-                                                                    (Decode.map (\_ -> ()) decoder)
-
-                                                            KeepOrDiscard.Discard ->
-                                                                Pages.StaticHttpRequest.CliOnly
-                                                        )
-                                                    , rawResponse
-                                                    )
-
-                                            Nothing ->
-                                                Err
-                                                    (Pages.StaticHttpRequest.MissingHttpResponse
-                                                        (requestToString (Secrets.maskedLookup requestWithSecrets))
-                                                        [ requestWithSecrets ]
-                                                    )
-                                   )
-                                |> Result.andThen
-                                    (\( strippedResponses, rawResponse ) ->
-                                        rawResponse
-                                            |> Json.Decode.Exploration.decodeString (decoder |> Internal.OptimizedDecoder.jde)
-                                            |> (\decodeResult ->
-                                                    case decodeResult of
-                                                        Json.Decode.Exploration.BadJson ->
-                                                            Pages.StaticHttpRequest.DecoderError ("Payload sent back invalid JSON\n" ++ rawResponse) |> Err
-
-                                                        Json.Decode.Exploration.Errors errors ->
-                                                            errors
-                                                                |> Json.Decode.Exploration.errorsToString
-                                                                |> Pages.StaticHttpRequest.DecoderError
-                                                                |> Err
-
-                                                        Json.Decode.Exploration.WithWarnings _ a ->
-                                                            Ok a
-
-                                                        Json.Decode.Exploration.Success a ->
-                                                            Ok a
-                                               )
-                                            |> Result.map
-                                                (\finalRequest ->
-                                                    ( case keepOrDiscard of
-                                                        KeepOrDiscard.Keep ->
-                                                            strippedResponses
-                                                                |> Dict.insert
-                                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                                    (Pages.StaticHttpRequest.StripResponse
-                                                                        (Decode.map (\_ -> ()) decoder)
-                                                                    )
-
-                                                        KeepOrDiscard.Discard ->
-                                                            strippedResponses
-                                                                |> Dict.insert
-                                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                                    Pages.StaticHttpRequest.CliOnly
-                                                    , finalRequest
-                                                    )
-                                                )
-                                    )
-                                |> toResult
-
-                        ApplicationType.Browser ->
-                            rawResponseDict
-                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                Ok
-                                                    ( -- TODO should this be an empty Dict? Shouldn't matter in the browser.
-                                                      Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                        Pages.StaticHttpRequest.UseRawResponse
-                                                    , rawResponse
-                                                    )
-
-                                            Nothing ->
-                                                Err
-                                                    (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
-                                                        [ requestWithSecrets ]
-                                                    )
-                                   )
-                                |> Result.andThen
-                                    (\( strippedResponses, rawResponse ) ->
-                                        rawResponse
-                                            |> Json.Decode.decodeString (decoder |> Internal.OptimizedDecoder.jd)
-                                            |> (\decodeResult ->
-                                                    case decodeResult of
-                                                        Err error ->
-                                                            Pages.StaticHttpRequest.DecoderError
-                                                                ("Payload sent back invalid JSON\n"
-                                                                    ++ rawResponse
-                                                                    ++ "\n KEYS"
-                                                                    ++ (Dict.keys strippedResponses |> String.join " - ")
-                                                                    ++ Json.Decode.errorToString error
-                                                                )
-                                                                |> Err
-
-                                                        Ok a ->
-                                                            Ok a
-                                               )
-                                            |> Result.map
-                                                (\finalRequest ->
-                                                    ( strippedResponses
-                                                    , finalRequest
-                                                    )
-                                                )
-                                    )
-                                |> toResult
-                )
-
         ExpectUnoptimizedJson decoder ->
             Request Dict.empty
                 ( [ requestWithSecrets ]
@@ -397,7 +269,7 @@ unoptimizedRequest requestWithSecrets expect =
                                             case decodeResult of
                                                 Err error ->
                                                     error
-                                                        |> Decode.errorToString
+                                                        |> Json.Decode.errorToString
                                                         |> Pages.StaticHttpRequest.DecoderError
                                                         |> Err
 

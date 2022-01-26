@@ -2,7 +2,7 @@
   base = "examples/docs/"
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js && (cd functions/process-url && npm i)"
+  command = "curl https://static.lamdera.com/bin/linux/lamdera -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera && export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && cp ./elm-stuff/elm-pages/elm.js functions/render/elm-pages-cli.js && (cd functions/process-url && npm i)"
 
 [[redirects]]
   from = "/screenshot/*"

@@ -8,8 +8,8 @@ module DataSource.Port exposing (get)
 
 import DataSource
 import DataSource.Http
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode
-import OptimizedDecoder exposing (Decoder)
 import Secrets
 
 
@@ -64,7 +64,7 @@ module.exports =
 
 `port-data-source.js`
 
-Any time you throw an exception from a DataaSource.Port definition, it will result in a build error in your `elm-pages build` or dev server. In the example above, if the environment variable
+Any time you throw an exception from a DataSource.Port definition, it will result in a build error in your `elm-pages build` or dev server. In the example above, if the environment variable
 is not found it will result in a build failure. Notice that the NPM package `kleur` is being used in this example to add color to the output for that build error. You can use any tool you
 prefer to add ANSI color codes within the error string in an exception and it will show up with color output in the build output and dev server.
 

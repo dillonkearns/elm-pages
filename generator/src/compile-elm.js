@@ -59,15 +59,15 @@ async function runElm(options, elmEntrypointPath, outputPath, cwd) {
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
-      `elm`,
+      `lamdera`,
       [
         "make",
         elmEntrypointPath,
         "--output",
         outputPath,
         ...(options.debug ? ["--debug"] : []),
-        "--report",
-        "json",
+        // "--report",
+        // "json",
       ],
       { cwd: cwd }
     );

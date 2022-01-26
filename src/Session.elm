@@ -6,7 +6,6 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode
 import Json.Encode
-import OptimizedDecoder
 import Secrets
 import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
@@ -18,7 +17,7 @@ type Session
 
 
 type alias Decoder decoded =
-    OptimizedDecoder.Decoder decoded
+    Json.Decode.Decoder decoded
 
 
 type Value
@@ -133,7 +132,7 @@ type NotLoadedReason
 succeed : constructor -> Decoder constructor
 succeed constructor =
     constructor
-        |> OptimizedDecoder.succeed
+        |> Json.Decode.succeed
 
 
 setValues : Session -> Json.Encode.Value
@@ -249,7 +248,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
 decryptCookie : { a | secrets : Secrets.Value (List String) } -> String -> DataSource (Result () Session)
 decryptCookie config sessionCookie =
     sessionCookie
-        |> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.string)
+        |> decrypt config.secrets (Json.Decode.dict Json.Decode.string)
         |> DataSource.map
             (Result.map
                 (\dict ->
@@ -299,10 +298,10 @@ encrypt secrets input =
                     }
                 )
         )
-        OptimizedDecoder.string
+        Json.Decode.string
 
 
-decrypt : Secrets.Value (List String) -> OptimizedDecoder.Decoder a -> String -> DataSource (Result () a)
+decrypt : Secrets.Value (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
 decrypt secrets decoder input =
     DataSource.Http.request
         (secrets
@@ -321,4 +320,4 @@ decrypt secrets decoder input =
                     }
                 )
         )
-        (OptimizedDecoder.nullable decoder |> OptimizedDecoder.map (Result.fromMaybe ()))
+        (Json.Decode.nullable decoder |> Json.Decode.map (Result.fromMaybe ()))

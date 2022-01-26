@@ -20,7 +20,7 @@ import View exposing (View)
 
 
 type alias Msg =
-    Never
+    ()
 
 
 page : Page RouteParams Data

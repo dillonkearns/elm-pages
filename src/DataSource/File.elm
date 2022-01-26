@@ -30,7 +30,7 @@ The frontmatter is in the [YAML format](https://en.wikipedia.org/wiki/YAML) here
 Hey there! This is my first post :)
 ```
 
-Whether it's YAML or JSON, you use an `OptimizedDecoder` to decode your frontmatter, so it feels just like using
+Whether it's YAML or JSON, you use an `Decode` to decode your frontmatter, so it feels just like using
 plain old JSON in Elm.
 
 @docs bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
@@ -44,20 +44,20 @@ plain old JSON in Elm.
 
 import DataSource exposing (DataSource)
 import DataSource.Http
-import OptimizedDecoder exposing (Decoder)
+import Json.Decode as Decode exposing (Decoder)
 import Secrets
 
 
 frontmatter : Decoder frontmatter -> Decoder frontmatter
 frontmatter frontmatterDecoder =
-    OptimizedDecoder.field "parsedFrontmatter" frontmatterDecoder
+    Decode.field "parsedFrontmatter" frontmatterDecoder
 
 
 {-|
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
-    import OptimizedDecoder as Decode exposing (Decoder)
+    import Decode as Decode exposing (Decoder)
 
     blogPost : DataSource BlogPostMetadata
     blogPost =
@@ -93,8 +93,8 @@ It's common to parse the body with a markdown parser or other format.
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
+    import Decode as Decode exposing (Decoder)
     import Html exposing (Html)
-    import OptimizedDecoder as Decode exposing (Decoder)
 
     example :
         DataSource
@@ -137,7 +137,7 @@ bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource fr
 bodyWithFrontmatter frontmatterDecoder filePath =
     read filePath
         (body
-            |> OptimizedDecoder.andThen
+            |> Decode.andThen
                 (\bodyString ->
                     frontmatter (frontmatterDecoder bodyString)
                 )
@@ -151,7 +151,7 @@ just the metadata.
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
-    import OptimizedDecoder as Decode exposing (Decoder)
+    import Decode as Decode exposing (Decoder)
 
     blogPost : DataSource BlogPostMetadata
     blogPost =
@@ -175,7 +175,7 @@ the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource.Glo
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
-    import OptimizedDecoder as Decode exposing (Decoder)
+    import Decode as Decode exposing (Decoder)
 
     blogPostFiles : DataSource (List String)
     blogPostFiles =
@@ -237,7 +237,7 @@ This is the function you want if you are reading in a file directly. For example
 have frontmatter.
 
 There's a special function for reading in JSON files, [`jsonFile`](#jsonFile). If you're reading a JSON file then be sure to
-use `jsonFile` to get the benefits of the `OptimizedDecoder` here.
+use `jsonFile` to get the benefits of the `Decode` here.
 
 You could read a file called `hello.txt` in your root project directory like this:
 
@@ -251,12 +251,12 @@ You could read a file called `hello.txt` in your root project directory like thi
 -}
 rawFile : String -> DataSource String
 rawFile filePath =
-    read filePath (OptimizedDecoder.field "rawFile" OptimizedDecoder.string)
+    read filePath (Decode.field "rawFile" Decode.string)
 
 
 {-| Read a file as JSON.
 
-The OptimizedDecoder will strip off any unused JSON data.
+The Decode will strip off any unused JSON data.
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
@@ -273,14 +273,14 @@ The OptimizedDecoder will strip off any unused JSON data.
 -}
 jsonFile : Decoder a -> String -> DataSource a
 jsonFile jsonFileDecoder filePath =
-    read filePath (OptimizedDecoder.field "jsonFile" jsonFileDecoder)
+    read filePath (Decode.field "jsonFile" jsonFileDecoder)
 
 
 {-| Gives us the file's content without stripping off frontmatter.
 -}
 body : Decoder String
 body =
-    OptimizedDecoder.field "withoutFrontmatter" OptimizedDecoder.string
+    Decode.field "withoutFrontmatter" Decode.string
 
 
 read : String -> Decoder a -> DataSource a

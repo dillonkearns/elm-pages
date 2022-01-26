@@ -41,6 +41,10 @@ function generateTemplateModuleConnector(basePath, phase) {
     mainModule: `port module Main exposing (..)
 
 import Api
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import Bytes.Encode
+import PageServerResponse
 import Pattern
 import Server.Response
 import ApiRoute
@@ -441,7 +445,11 @@ main =
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
-        , sharedData = Shared.template.data
+        , sharedData =
+            Shared.template.data
+                |> DataSource.distillBytes "SharedData"
+                    (encodeBytes Shared.w3_encode_Data)
+                    (decodeBytes Shared.w3_decode_Data)
         , apiRoutes = ${
           phase === "browser"
             ? `\\_ -> []`
@@ -472,9 +480,15 @@ dataForRoute route =
               )}.page.data ${routeHelpers.referenceRouteParams(
                 name,
                 "routeParams"
-              )} |> DataSource.map (Server.Response.map Data${routeHelpers.routeVariant(
-                name
-              )})`
+              )} 
+                |> distillPageData Page.${name.join(
+                  "."
+                )}.w3_encode_Data Page.${name.join(".")}.w3_decode_Data
+
+                 |> DataSource.map (Server.Response.map Data${routeHelpers.routeVariant(
+                   name
+                 )})
+              `
           )
           .join("\n        ")}
 
@@ -690,6 +704,23 @@ port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 mapBoth : (a -> b) -> (c -> d) -> ( a, c, e ) -> ( b, d, e )
 mapBoth fnA fnB ( a, b, c ) =
     ( fnA a, fnB b, c )
+
+encodeBytes : (b -> Bytes.Encode.Encoder) -> b -> Bytes
+encodeBytes bytesEncoder items =
+    Bytes.Encode.encode (bytesEncoder items)
+
+
+decodeBytes : Bytes.Decode.Decoder a -> Bytes -> Result String a
+decodeBytes bytesDecoder items =
+    Bytes.Decode.decode bytesDecoder items
+        |> Result.fromMaybe "Decoding error"
+
+
+distillPageData encodeThing decodeThing dataSourceSoFar =
+    dataSourceSoFar
+        |> DataSource.distillBytes "PageData"
+            (encodeBytes (Server.Response.w3_encode_Response encodeThing))
+            (decodeBytes (Server.Response.w3_decode_Response decodeThing))
 `,
     routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
 

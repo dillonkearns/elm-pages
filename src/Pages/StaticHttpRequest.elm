@@ -1,13 +1,11 @@
 module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), WhatToDo(..), cacheRequestResolution, merge, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
 
+import Base64
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
 import Dict exposing (Dict)
-import Internal.OptimizedDecoder
-import Json.Decode.Exploration
-import Json.Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import List.Extra
-import OptimizedDecoder
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
@@ -24,41 +22,16 @@ type RawRequest value
 type WhatToDo
     = UseRawResponse
     | CliOnly
-    | StripResponse (OptimizedDecoder.Decoder ())
-    | DistilledResponse Json.Encode.Value
+    | DistilledBytesResponse Bytes
     | Error (List BuildError)
 
 
 merge : String -> WhatToDo -> WhatToDo -> WhatToDo
 merge key whatToDo1 whatToDo2 =
     case ( whatToDo1, whatToDo2 ) of
-        ( Error buildErrors1, Error buildErrors2 ) ->
-            Error (buildErrors1 ++ buildErrors2)
-
-        ( Error buildErrors1, _ ) ->
-            Error buildErrors1
-
-        ( _, Error buildErrors1 ) ->
-            Error buildErrors1
-
-        ( StripResponse strip1, StripResponse strip2 ) ->
-            StripResponse (OptimizedDecoder.map2 (\_ _ -> ()) strip1 strip2)
-
-        ( StripResponse strip1, _ ) ->
-            StripResponse strip1
-
-        ( _, StripResponse strip1 ) ->
-            StripResponse strip1
-
-        ( _, CliOnly ) ->
-            whatToDo1
-
-        ( CliOnly, _ ) ->
-            whatToDo2
-
-        ( DistilledResponse distilled1, DistilledResponse distilled2 ) ->
-            if Json.Encode.encode 0 distilled1 == Json.Encode.encode 0 distilled2 then
-                DistilledResponse distilled1
+        ( DistilledBytesResponse distilled1, DistilledBytesResponse distilled2 ) ->
+            if distilled1 == distilled2 then
+                DistilledBytesResponse distilled1
 
             else
                 Error
@@ -69,23 +42,33 @@ merge key whatToDo1 whatToDo2 =
                             , Terminal.red <| "DataSource.distill"
                             , Terminal.text " with the key "
                             , Terminal.red <| ("\"" ++ key ++ "\"")
-                            , Terminal.text "\n\n"
-                            , Terminal.yellow <| "The first encoded value was:\n"
-                            , Terminal.text <| Json.Encode.encode 2 distilled1
                             , Terminal.text "\n\n-------------------------------\n\n"
-                            , Terminal.yellow <| "The second encoded value was:\n"
-                            , Terminal.text <| Json.Encode.encode 2 distilled2
                             ]
                       , path = "" -- TODO wire in path here?
                       , fatal = True
                       }
                     ]
 
-        ( DistilledResponse distilled1, _ ) ->
-            DistilledResponse distilled1
+        ( DistilledBytesResponse distilled1, _ ) ->
+            DistilledBytesResponse distilled1
 
-        ( _, DistilledResponse distilled1 ) ->
-            DistilledResponse distilled1
+        ( _, DistilledBytesResponse distilled1 ) ->
+            DistilledBytesResponse distilled1
+
+        ( Error buildErrors1, Error buildErrors2 ) ->
+            Error (buildErrors1 ++ buildErrors2)
+
+        ( Error buildErrors1, _ ) ->
+            Error buildErrors1
+
+        ( _, Error buildErrors1 ) ->
+            Error buildErrors1
+
+        ( _, CliOnly ) ->
+            whatToDo1
+
+        ( CliOnly, _ ) ->
+            whatToDo2
 
         ( UseRawResponse, UseRawResponse ) ->
             UseRawResponse
@@ -104,33 +87,20 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
             (\( k, whatToDo ) ->
                 (case whatToDo of
                     UseRawResponse ->
-                        Dict.get k requestsAndPending
-                            |> Maybe.withDefault Nothing
-                            |> Maybe.withDefault ""
-                            |> Just
-                            |> Ok
-
-                    StripResponse decoder ->
-                        Dict.get k requestsAndPending
-                            |> Maybe.withDefault Nothing
-                            |> Maybe.withDefault ""
-                            |> Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder)
-                            |> Result.withDefault "ERROR"
-                            |> Just
-                            |> Ok
+                        -- TODO can UseRawResponse be removed?
+                        Ok Nothing
 
                     CliOnly ->
                         Nothing
                             |> Ok
 
-                    DistilledResponse value ->
-                        value
-                            |> Json.Encode.encode 0
-                            |> Just
-                            |> Ok
-
                     Error buildError ->
                         Err buildError
+
+                    DistilledBytesResponse bytes ->
+                        bytes
+                            |> Base64.fromBytes
+                            |> Ok
                 )
                     |> Result.map (Maybe.map (Tuple.pair k))
             )

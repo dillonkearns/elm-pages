@@ -37,8 +37,8 @@ DataSources dynamically.
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
+import Json.Decode as Decode
 import Json.Encode
-import OptimizedDecoder
 import Pattern exposing (Pattern)
 import Regex
 import Secrets
@@ -95,8 +95,8 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
                         (\toDataSource ->
                             DataSource.Http.get
                                 (Secrets.succeed "$$elm-pages$$headers")
-                                (OptimizedDecoder.oneOf
-                                    [ toDataSource |> Server.Request.getDecoder |> OptimizedDecoder.map Just
+                                (Decode.oneOf
+                                    [ toDataSource |> Server.Request.getDecoder |> Decode.map Just
                                     ]
                                 )
                                 |> DataSource.andThen

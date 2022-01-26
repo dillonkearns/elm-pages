@@ -7,7 +7,7 @@ import SyntaxHighlight
 import Tailwind.Utilities as Tw
 
 
-view : ( String, String ) -> Html Never
+view : ( String, String ) -> Html msg
 view tab =
     div
         [ css
@@ -82,13 +82,13 @@ elmCodeBlock elmCode =
             (Html.pre [] [ Html.code [] [ Html.text elmCode ] ])
 
 
-codeTabs : ( String, String ) -> Html Never
+codeTabs : ( String, String ) -> Html msg
 codeTabs fileName =
     ul [ css [ Tw.flex, Tw.text_sm, Tw.text_blue_200 ], Attr.style "transform" "translateY(0%) translateZ(0px);" ]
         [ codeTab 0 True fileName ]
 
 
-codeTab : Int -> Bool -> ( String, String ) -> Html Never
+codeTab : Int -> Bool -> ( String, String ) -> Html msg
 codeTab index isCurrent ( fileName, fileContents ) =
     li
         [ css [ Tw.flex_none ]

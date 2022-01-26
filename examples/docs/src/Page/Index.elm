@@ -47,7 +47,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
@@ -105,7 +105,7 @@ data =
     DataSource.succeed ()
 
 
-landingView : Html Never
+landingView : Html Msg
 landingView =
     div
         [ css
@@ -294,7 +294,7 @@ firstSection :
     , svgIcon : String
     , code : ( String, String )
     }
-    -> Html Never
+    -> Html Msg
 firstSection info =
     div
         [ css

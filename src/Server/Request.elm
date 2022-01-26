@@ -68,38 +68,37 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Json.Decode
 import List.NonEmpty
-import OptimizedDecoder exposing (Decoder)
 import QueryParams exposing (QueryParams)
 import Time
 
 
 {-| -}
 type Request decodesTo
-    = Request (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError ))
+    = Request (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError ))
 
 
-oneOfInternal : List ValidationError -> List (OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> OptimizedDecoder.Decoder ( Result ValidationError decodesTo, List ValidationError )
+oneOfInternal : List ValidationError -> List (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )
 oneOfInternal previousErrors optimizedDecoders =
     case optimizedDecoders of
         [] ->
-            OptimizedDecoder.succeed ( Err (OneOf previousErrors), [] )
+            Json.Decode.succeed ( Err (OneOf previousErrors), [] )
 
         [ single ] ->
             single
-                |> OptimizedDecoder.map
+                |> Json.Decode.map
                     (\result ->
                         result
                             |> Tuple.mapFirst (Result.mapError (\error -> OneOf (previousErrors ++ [ error ])))
                     )
 
         first :: rest ->
-            OptimizedDecoder.oneOf
+            Json.Decode.oneOf
                 [ first
-                    |> OptimizedDecoder.andThen
+                    |> Json.Decode.andThen
                         (\( firstResult, firstErrors ) ->
                             case ( firstResult, firstErrors ) of
                                 ( Ok okFirstResult, [] ) ->
-                                    OptimizedDecoder.succeed ( Ok okFirstResult, [] )
+                                    Json.Decode.succeed ( Ok okFirstResult, [] )
 
                                 ( Ok okFirstResult, otherErrors ) ->
                                     oneOfInternal (previousErrors ++ otherErrors) rest
@@ -118,15 +117,15 @@ oneOfInternal previousErrors optimizedDecoders =
 {-| -}
 succeed : value -> Request value
 succeed value =
-    Request (OptimizedDecoder.succeed ( Ok value, [] ))
+    Request (Json.Decode.succeed ( Ok value, [] ))
 
 
 {-| TODO internal only
 -}
-getDecoder : Request (DataSource response) -> OptimizedDecoder.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
+getDecoder : Request (DataSource response) -> Json.Decode.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
 getDecoder (Request decoder) =
     decoder
-        |> OptimizedDecoder.map
+        |> Json.Decode.map
             (\( result, validationErrors ) ->
                 case ( result, validationErrors ) of
                     ( Ok value, [] ) ->
@@ -197,7 +196,7 @@ errorToString validationError =
 map : (a -> b) -> Request a -> Request b
 map mapFn (Request decoder) =
     Request
-        (OptimizedDecoder.map
+        (Json.Decode.map
             (\( result, errors ) ->
                 ( Result.map mapFn result, errors )
             )
@@ -238,7 +237,7 @@ andMap =
 
 andThen : (a -> Request b) -> Request a -> Request b
 andThen toRequestB (Request requestA) =
-    OptimizedDecoder.andThen
+    Json.Decode.andThen
         (\value ->
             case value of
                 ( Ok okValue, errors ) ->
@@ -247,13 +246,13 @@ andThen toRequestB (Request requestA) =
                         |> unwrap
 
                 ( Err error, errors ) ->
-                    OptimizedDecoder.succeed ( Err error, errors )
+                    Json.Decode.succeed ( Err error, errors )
         )
         requestA
         |> Request
 
 
-unwrap : Request a -> Decoder ( Result ValidationError a, List ValidationError )
+unwrap : Request a -> Json.Decode.Decoder ( Result ValidationError a, List ValidationError )
 unwrap (Request decoder_) =
     decoder_
 
@@ -262,7 +261,7 @@ unwrap (Request decoder_) =
 map2 : (a -> b -> c) -> Request a -> Request b -> Request c
 map2 f (Request jdA) (Request jdB) =
     Request
-        (OptimizedDecoder.map2
+        (Json.Decode.map2
             (\( result1, errors1 ) ( result2, errors2 ) ->
                 ( Result.map2 f result1 result2
                 , errors1 ++ errors2
@@ -273,12 +272,40 @@ map2 f (Request jdA) (Request jdB) =
         )
 
 
+optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
+optionalField fieldName decoder_ =
+    let
+        finishDecoding : Json.Decode.Value -> Json.Decode.Decoder (Maybe a)
+        finishDecoding json =
+            case Json.Decode.decodeValue (Json.Decode.field fieldName Json.Decode.value) json of
+                Ok _ ->
+                    -- The field is present, so run the decoder on it.
+                    Json.Decode.map Just (Json.Decode.field fieldName decoder_)
+
+                Err _ ->
+                    -- The field was missing, which is fine!
+                    Json.Decode.succeed Nothing
+    in
+    Json.Decode.value
+        |> Json.Decode.andThen finishDecoding
+
+
+fromResult : Result String value -> Json.Decode.Decoder value
+fromResult result =
+    case result of
+        Ok okValue ->
+            Json.Decode.succeed okValue
+
+        Err error ->
+            Json.Decode.fail error
+
+
 {-| -}
 expectHeader : String -> Request String
 expectHeader headerName =
-    OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
-        |> OptimizedDecoder.andThen (\value -> OptimizedDecoder.fromResult (value |> Result.fromMaybe "Missing field headers"))
+    optionalField (headerName |> String.toLower) Json.Decode.string
+        |> Json.Decode.field "headers"
+        |> Json.Decode.andThen (\value -> fromResult (value |> Result.fromMaybe "Missing field headers"))
         |> noErrors
         |> Request
 
@@ -286,41 +313,41 @@ expectHeader headerName =
 {-| -}
 requestTime : Request Time.Posix
 requestTime =
-    OptimizedDecoder.field "requestTime"
-        (OptimizedDecoder.int |> OptimizedDecoder.map Time.millisToPosix)
+    Json.Decode.field "requestTime"
+        (Json.Decode.int |> Json.Decode.map Time.millisToPosix)
         |> noErrors
         |> Request
 
 
-okOrInternalError : OptimizedDecoder.Decoder a -> OptimizedDecoder.Decoder (Result ValidationError a)
+okOrInternalError : Json.Decode.Decoder a -> Json.Decode.Decoder (Result ValidationError a)
 okOrInternalError decoder =
-    OptimizedDecoder.maybe decoder
-        |> OptimizedDecoder.map (Result.fromMaybe InternalError)
+    Json.Decode.maybe decoder
+        |> Json.Decode.map (Result.fromMaybe InternalError)
 
 
 {-| -}
 method : Request Method
 method =
-    (OptimizedDecoder.field "method" OptimizedDecoder.string
-        |> OptimizedDecoder.map methodFromString
+    (Json.Decode.field "method" Json.Decode.string
+        |> Json.Decode.map methodFromString
     )
         |> noErrors
         |> Request
 
 
-noErrors : OptimizedDecoder.Decoder value -> OptimizedDecoder.Decoder ( Result ValidationError value, List ValidationError )
+noErrors : Json.Decode.Decoder value -> Json.Decode.Decoder ( Result ValidationError value, List ValidationError )
 noErrors decoder =
     decoder
-        |> OptimizedDecoder.map (\value -> ( Ok value, [] ))
+        |> Json.Decode.map (\value -> ( Ok value, [] ))
 
 
 {-| -}
 acceptContentTypes : ( String, List String ) -> Request value -> Request value
 acceptContentTypes ( accepted1, accepted ) (Request decoder) =
     -- TODO this should parse content-types so it doesn't need to be an exact match (support `; q=...`, etc.)
-    OptimizedDecoder.optionalField ("Accept" |> String.toLower) OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
-        |> OptimizedDecoder.andThen
+    optionalField ("Accept" |> String.toLower) Json.Decode.string
+        |> Json.Decode.field "headers"
+        |> Json.Decode.andThen
             (\acceptHeader ->
                 if List.NonEmpty.fromCons accepted1 accepted |> List.NonEmpty.member (acceptHeader |> Maybe.withDefault "") then
                     decoder
@@ -338,9 +365,9 @@ acceptContentTypes ( accepted1, accepted ) (Request decoder) =
 {-| -}
 acceptMethod : ( Method, List Method ) -> Request value -> Request value
 acceptMethod ( accepted1, accepted ) (Request decoder) =
-    (OptimizedDecoder.field "method" OptimizedDecoder.string
-        |> OptimizedDecoder.map methodFromString
-        |> OptimizedDecoder.andThen
+    (Json.Decode.field "method" Json.Decode.string
+        |> Json.Decode.map methodFromString
+        |> Json.Decode.andThen
             (\method_ ->
                 if (accepted1 :: accepted) |> List.member method_ then
                     -- TODO distill here - is that possible???
@@ -360,9 +387,9 @@ acceptMethod ( accepted1, accepted ) (Request decoder) =
 {-| -}
 matchesMethod : ( Method, List Method ) -> Request Bool
 matchesMethod ( accepted1, accepted ) =
-    (OptimizedDecoder.field "method" OptimizedDecoder.string
-        |> OptimizedDecoder.map methodFromString
-        |> OptimizedDecoder.map
+    (Json.Decode.field "method" Json.Decode.string
+        |> Json.Decode.map methodFromString
+        |> Json.Decode.map
             (\method_ ->
                 (accepted1 :: accepted) |> List.member method_
             )
@@ -371,17 +398,17 @@ matchesMethod ( accepted1, accepted ) =
         |> Request
 
 
-appendError : ValidationError -> OptimizedDecoder.Decoder ( value, List ValidationError ) -> OptimizedDecoder.Decoder ( value, List ValidationError )
+appendError : ValidationError -> Json.Decode.Decoder ( value, List ValidationError ) -> Json.Decode.Decoder ( value, List ValidationError )
 appendError error decoder =
     decoder
-        |> OptimizedDecoder.map (Tuple.mapSecond (\errors -> error :: errors))
+        |> Json.Decode.map (Tuple.mapSecond (\errors -> error :: errors))
 
 
 {-| -}
 allQueryParams : Request QueryParams
 allQueryParams =
-    OptimizedDecoder.field "query" OptimizedDecoder.string
-        |> OptimizedDecoder.map QueryParams.fromString
+    Json.Decode.field "query" Json.Decode.string
+        |> Json.Decode.map QueryParams.fromString
         |> noErrors
         |> Request
 
@@ -389,8 +416,8 @@ allQueryParams =
 {-| -}
 queryParam : String -> Request (Maybe String)
 queryParam name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> OptimizedDecoder.field "query"
+    optionalField name Json.Decode.string
+        |> Json.Decode.field "query"
         |> noErrors
         |> Request
 
@@ -398,9 +425,9 @@ queryParam name =
 {-| -}
 expectQueryParam : String -> Request String
 expectQueryParam name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> OptimizedDecoder.field "query"
-        |> OptimizedDecoder.map
+    optionalField name Json.Decode.string
+        |> Json.Decode.field "query"
+        |> Json.Decode.map
             (\value ->
                 case value of
                     Just justValue ->
@@ -415,8 +442,8 @@ expectQueryParam name =
 {-| -}
 optionalHeader : String -> Request (Maybe String)
 optionalHeader headerName =
-    OptimizedDecoder.optionalField (headerName |> String.toLower) OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
+    optionalField (headerName |> String.toLower) Json.Decode.string
+        |> Json.Decode.field "headers"
         |> noErrors
         |> Request
 
@@ -424,9 +451,9 @@ optionalHeader headerName =
 {-| -}
 allCookies : Request (Dict String String)
 allCookies =
-    OptimizedDecoder.optionalField "cookie" OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
-        |> OptimizedDecoder.map
+    optionalField "cookie" Json.Decode.string
+        |> Json.Decode.field "headers"
+        |> Json.Decode.map
             (\cookie_ ->
                 cookie_
                     |> Maybe.withDefault ""
@@ -439,9 +466,9 @@ allCookies =
 {-| -}
 expectCookie : String -> Request String
 expectCookie name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> OptimizedDecoder.field "cookies"
-        |> OptimizedDecoder.map
+    optionalField name Json.Decode.string
+        |> Json.Decode.field "cookies"
+        |> Json.Decode.map
             (\value ->
                 case value of
                     Just justValue ->
@@ -456,16 +483,16 @@ expectCookie name =
 {-| -}
 cookie : String -> Request (Maybe String)
 cookie name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> OptimizedDecoder.field "cookies"
+    optionalField name Json.Decode.string
+        |> Json.Decode.field "cookies"
         |> noErrors
         |> Request
 
 
 formField_ : String -> Request String
 formField_ name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
-        |> OptimizedDecoder.map
+    optionalField name Json.Decode.string
+        |> Json.Decode.map
             (\value ->
                 case value of
                     Just justValue ->
@@ -479,7 +506,7 @@ formField_ name =
 
 optionalFormField_ : String -> Request (Maybe String)
 optionalFormField_ name =
-    OptimizedDecoder.optionalField name OptimizedDecoder.string
+    optionalField name Json.Decode.string
         |> noErrors
         |> Request
 
@@ -494,15 +521,15 @@ type alias File =
 
 fileField_ : String -> Request File
 fileField_ name =
-    OptimizedDecoder.optionalField name
-        (OptimizedDecoder.oneOf
-            [ OptimizedDecoder.map3 File
-                (OptimizedDecoder.field "filename" OptimizedDecoder.string)
-                (OptimizedDecoder.field "mimeType" OptimizedDecoder.string)
-                (OptimizedDecoder.field "body" OptimizedDecoder.string)
+    optionalField name
+        (Json.Decode.oneOf
+            [ Json.Decode.map3 File
+                (Json.Decode.field "filename" Json.Decode.string)
+                (Json.Decode.field "mimeType" Json.Decode.string)
+                (Json.Decode.field "body" Json.Decode.string)
             ]
         )
-        |> OptimizedDecoder.map
+        |> Json.Decode.map
             (\value ->
                 case value of
                     Just justValue ->
@@ -529,7 +556,7 @@ expectFormPost toForm =
         |> andThen
             (\( validContentType, validMethod ) ->
                 if not ((validContentType |> Maybe.withDefault False) && validMethod) then
-                    OptimizedDecoder.succeed
+                    Json.Decode.succeed
                         ( Err
                             (NotFormPost
                                 { method = Just Get
@@ -543,8 +570,8 @@ expectFormPost toForm =
                 else
                     toForm { field = formField_, optionalField = optionalFormField_ }
                         |> (\(Request decoder) -> decoder)
-                        |> OptimizedDecoder.optionalField "formData"
-                        |> OptimizedDecoder.map
+                        |> optionalField "formData"
+                        |> Json.Decode.map
                             (\value ->
                                 case value of
                                     Just ( decodedForm, errors ) ->
@@ -575,7 +602,7 @@ expectMultiPartFormPost toForm =
             , fileField = fileField_
             }
             |> (\(Request decoder) -> decoder)
-            |> OptimizedDecoder.field "multiPartFormData"
+            |> Json.Decode.field "multiPartFormData"
             |> Request
             |> acceptMethod ( Post, [] )
         )
@@ -592,9 +619,9 @@ body =
 {-| -}
 expectContentType : String -> Request Bool
 expectContentType expectedContentType =
-    OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
-        |> OptimizedDecoder.map
+    optionalField ("content-type" |> String.toLower) Json.Decode.string
+        |> Json.Decode.field "headers"
+        |> Json.Decode.map
             (\maybeContentType ->
                 case maybeContentType of
                     Nothing ->
@@ -612,9 +639,9 @@ expectContentType expectedContentType =
 
 matchesContentType : String -> Request (Maybe Bool)
 matchesContentType expectedContentType =
-    OptimizedDecoder.optionalField ("content-type" |> String.toLower) OptimizedDecoder.string
-        |> OptimizedDecoder.field "headers"
-        |> OptimizedDecoder.map
+    optionalField ("content-type" |> String.toLower) Json.Decode.string
+        |> Json.Decode.field "headers"
+        |> Json.Decode.map
             (\maybeContentType ->
                 case maybeContentType of
                     Nothing ->
@@ -640,41 +667,41 @@ parseContentType rawContentType =
 
 
 {-| -}
-expectJsonBody : OptimizedDecoder.Decoder value -> Request value
+expectJsonBody : Json.Decode.Decoder value -> Request value
 expectJsonBody jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
-        (OptimizedDecoder.oneOf
-            [ OptimizedDecoder.field "jsonBody" jsonBodyDecoder
-                |> OptimizedDecoder.map Ok
-            , OptimizedDecoder.field "jsonBody" OptimizedDecoder.value
-                |> OptimizedDecoder.map (OptimizedDecoder.decodeValue jsonBodyDecoder)
-                |> OptimizedDecoder.map (Result.mapError JsonDecodeError)
+        (Json.Decode.oneOf
+            [ Json.Decode.field "jsonBody" jsonBodyDecoder
+                |> Json.Decode.map Ok
+            , Json.Decode.field "jsonBody" Json.Decode.value
+                |> Json.Decode.map (Json.Decode.decodeValue jsonBodyDecoder)
+                |> Json.Decode.map (Result.mapError JsonDecodeError)
             ]
-            |> OptimizedDecoder.map (\value -> ( value, [] ))
+            |> Json.Decode.map (\value -> ( value, [] ))
             |> Request
         )
 
 
 {-| -}
-jsonBodyResult : OptimizedDecoder.Decoder value -> Request (Result Json.Decode.Error value)
+jsonBodyResult : Json.Decode.Decoder value -> Request (Result Json.Decode.Error value)
 jsonBodyResult jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
-        (OptimizedDecoder.oneOf
-            [ OptimizedDecoder.field "jsonBody" jsonBodyDecoder
-                |> OptimizedDecoder.map Ok
-            , OptimizedDecoder.field "jsonBody" OptimizedDecoder.value
-                |> OptimizedDecoder.map (OptimizedDecoder.decodeValue jsonBodyDecoder)
+        (Json.Decode.oneOf
+            [ Json.Decode.field "jsonBody" jsonBodyDecoder
+                |> Json.Decode.map Ok
+            , Json.Decode.field "jsonBody" Json.Decode.value
+                |> Json.Decode.map (Json.Decode.decodeValue jsonBodyDecoder)
             ]
             |> noErrors
             |> Request
         )
 
 
-bodyDecoder : OptimizedDecoder.Decoder (Maybe String)
+bodyDecoder : Json.Decode.Decoder (Maybe String)
 bodyDecoder =
-    OptimizedDecoder.field "body" (OptimizedDecoder.nullable OptimizedDecoder.string)
+    Json.Decode.field "body" (Json.Decode.nullable Json.Decode.string)
 
 
 {-| -}

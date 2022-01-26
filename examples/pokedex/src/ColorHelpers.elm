@@ -9,7 +9,7 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import OptimizedDecoder as Decode
+import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
