@@ -16,6 +16,7 @@ import Json.Decode.Extra
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
+import Markdown.Renderer
 import MarkdownCodec
 import NextPrevious
 import Page exposing (Page, PageWithState, StaticPayload)
@@ -184,7 +185,7 @@ head static =
 
 
 type alias Data =
-    { body : List (Html Msg)
+    { body : List Block
     , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
     , editUrl : String
     , metadata : { title : String, description : String }
@@ -241,7 +242,10 @@ view maybeUrl sharedModel static =
                         , Bp.xl [ Tw.pr_36 ]
                         ]
                     ]
-                    (static.data.body
+                    ((static.data.body
+                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                        |> Result.withDefault []
+                     )
                         ++ [ NextPrevious.view static.data.titles.previousAndNext
                            , Html.hr [] []
                            , Html.footer
@@ -285,7 +289,7 @@ filePathDataSource routeParams =
     Glob.expectUniqueMatch (findBySlug slug)
 
 
-pageBody : RouteParams -> DataSource (List (Html msg))
+pageBody : RouteParams -> DataSource (List Block)
 pageBody routeParams =
     routeParams
         |> filePathDataSource

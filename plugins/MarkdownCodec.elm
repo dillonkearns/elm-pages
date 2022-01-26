@@ -166,7 +166,7 @@ titleFromFrontmatter filePath =
 withoutFrontmatter :
     Markdown.Renderer.Renderer view
     -> String
-    -> DataSource (List view)
+    -> DataSource (List Block)
 withoutFrontmatter renderer filePath =
     (filePath
         |> StaticFile.bodyWithoutFrontmatter
@@ -182,23 +182,26 @@ withoutFrontmatter renderer filePath =
             (\blocks ->
                 blocks
                     |> Markdown.Renderer.render renderer
+                    -- we don't want to encode the HTML since it contains functions so it's not serializable
+                    -- but we can at least make sure there are no errors turning it into HTML before encoding it
+                    |> Result.map (\_ -> blocks)
                     |> DataSource.fromResult
             )
 
 
 withFrontmatter :
-    (frontmatter -> List view -> value)
+    (frontmatter -> List Block -> value)
     -> Decoder frontmatter
     -> Markdown.Renderer.Renderer view
     -> String
     -> DataSource value
-withFrontmatter constructor frontmatterDecoder renderer filePath =
+withFrontmatter constructor frontmatterDecoder_ renderer filePath =
     DataSource.map2 constructor
         (StaticFile.onlyFrontmatter
-            frontmatterDecoder
+            frontmatterDecoder_
             filePath
         )
-        ((StaticFile.bodyWithoutFrontmatter
+        (StaticFile.bodyWithoutFrontmatter
             filePath
             |> DataSource.andThen
                 (\rawBody ->
@@ -207,11 +210,13 @@ withFrontmatter constructor frontmatterDecoder renderer filePath =
                         |> Result.mapError (\_ -> "Couldn't parse markdown.")
                         |> DataSource.fromResult
                 )
-         )
             |> DataSource.andThen
                 (\blocks ->
                     blocks
                         |> Markdown.Renderer.render renderer
+                        -- we don't want to encode the HTML since it contains functions so it's not serializable
+                        -- but we can at least make sure there are no errors turning it into HTML before encoding it
+                        |> Result.map (\_ -> blocks)
                         |> DataSource.fromResult
                 )
         )

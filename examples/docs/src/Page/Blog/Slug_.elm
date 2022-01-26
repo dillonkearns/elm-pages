@@ -237,43 +237,10 @@ type alias Data =
 
 data : RouteParams -> DataSource Data
 data route =
-    withFrontmatter Data
+    MarkdownCodec.withFrontmatter Data
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
         ("content/blog/" ++ route.slug ++ ".md")
-
-
-withFrontmatter :
-    (frontmatter -> List Markdown.Block.Block -> value)
-    -> Decoder frontmatter
-    -> Markdown.Renderer.Renderer view
-    -> String
-    -> DataSource value
-withFrontmatter constructor frontmatterDecoder_ renderer filePath =
-    DataSource.map2 constructor
-        (DataSource.File.onlyFrontmatter
-            frontmatterDecoder_
-            filePath
-        )
-        (DataSource.File.bodyWithoutFrontmatter
-            filePath
-            |> DataSource.andThen
-                (\rawBody ->
-                    rawBody
-                        |> Markdown.Parser.parse
-                        |> Result.mapError (\_ -> "Couldn't parse markdown.")
-                        |> DataSource.fromResult
-                )
-            |> DataSource.andThen
-                (\blocks ->
-                    blocks
-                        |> Markdown.Renderer.render renderer
-                        -- we don't want to encode the HTML since it contains functions so it's not serializable
-                        -- but we can at least make sure there are no errors turning it into HTML before encoding it
-                        |> Result.map (\_ -> blocks)
-                        |> DataSource.fromResult
-                )
-        )
 
 
 type alias ArticleMetadata =
