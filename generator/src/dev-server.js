@@ -314,6 +314,7 @@ async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
+        console.log("@@@error", error);
         isImplicitContractError = JSON.parse(error).errors.some(
           (errorItem) => errorItem.name === "Main"
         );
