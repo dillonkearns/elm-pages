@@ -46,7 +46,6 @@ data =
         (Decode.field "results"
             (Decode.list (Decode.field "name" Decode.string))
         )
-        |> DataSource.distillBytes "pokedex-index" encode decode
 
 
 encode : Data -> Bytes
