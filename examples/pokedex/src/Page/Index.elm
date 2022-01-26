@@ -1,21 +1,17 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
-import Bytes exposing (Bytes)
-import Bytes.Decode
-import Bytes.Encode
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
-import OptimizedDecoder as Decode
+import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
 import Secrets
 import Shared
-import Types
 import View exposing (View)
 
 
@@ -46,27 +42,6 @@ data =
         (Decode.field "results"
             (Decode.list (Decode.field "name" Decode.string))
         )
-
-
-encode : Data -> Bytes
-encode items =
-    encodeBytes w3_encode_Data items
-
-
-decode : Bytes -> Result String Data
-decode items =
-    decodeBytes w3_decode_Data items
-
-
-encodeBytes : (b -> Bytes.Encode.Encoder) -> b -> Bytes
-encodeBytes bytesEncoder items =
-    Bytes.Encode.encode (bytesEncoder items)
-
-
-decodeBytes : Bytes.Decode.Decoder a -> Bytes -> Result String a
-decodeBytes bytesDecoder items =
-    Bytes.Decode.decode bytesDecoder items
-        |> Result.fromMaybe "Decoding error"
 
 
 head :

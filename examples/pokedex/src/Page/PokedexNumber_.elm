@@ -6,7 +6,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes exposing (src)
-import OptimizedDecoder as Decode
+import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url

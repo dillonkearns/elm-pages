@@ -120,22 +120,16 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
             (\( k, whatToDo ) ->
                 (case whatToDo of
                     UseRawResponse ->
-                        Dict.get k requestsAndPending
-                            |> Maybe.withDefault Nothing
-                            |> Maybe.withDefault ""
-                            |> Just
-                            |> Ok
+                        -- TODO can UseRawResponse be removed?
+                        Ok Nothing
 
                     CliOnly ->
                         Nothing
                             |> Ok
 
                     DistilledResponse value ->
-                        -- TODO use bytes encoder here
-                        value
-                            |> Json.Encode.encode 0
-                            |> Just
-                            |> Ok
+                        -- TODO delete DistilledResponse, it's now obsolete
+                        Ok Nothing
 
                     Error buildError ->
                         Err buildError

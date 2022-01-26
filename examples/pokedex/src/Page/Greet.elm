@@ -8,9 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import Json.Decode
-import Json.Encode
-import OptimizedDecoder
+import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Secrets as Secrets
@@ -58,44 +56,51 @@ withSession =
                 [ "secret4", "secret3", "secret2" ]
         , sameSite = "lax" -- TODO custom type
         }
-        (OptimizedDecoder.field "name" OptimizedDecoder.string)
+        (Decode.field "name" Decode.string)
 
 
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
 data routeParams =
-    Request.oneOf
-        [ Request.map2 Data
-            (Request.expectQueryParam "name")
-            Request.requestTime
-            |> Request.map
-                (\requestData ->
-                    requestData
-                        |> Server.Response.render
-                        |> Server.Response.withHeader
-                            "x-greeting"
-                            ("hello there " ++ requestData.username ++ "!")
-                        |> DataSource.succeed
-                )
-        , withSession
-            Request.requestTime
-            (\requestTime userIdResult ->
-                let
-                    username =
-                        userIdResult
-                            |> Result.withDefault "TODO username"
-                in
-                ( Session.noUpdates
-                , { username = username
-                  , requestTime = requestTime
-                  }
-                    |> Server.Response.render
-                    |> Server.Response.withHeader
-                        "x-greeting"
-                        ("hello " ++ username ++ "!")
-                )
-                    |> DataSource.succeed
-            )
-        ]
+    Request.succeed
+        (DataSource.succeed
+            (Server.Response.temporaryRedirect "/")
+        )
+
+
+
+--Request.oneOf
+--    [ Request.map2 Data
+--        (Request.expectQueryParam "name")
+--        Request.requestTime
+--        |> Request.map
+--            (\requestData ->
+--                requestData
+--                    |> Server.Response.render
+--                    |> Server.Response.withHeader
+--                        "x-greeting"
+--                        ("hello there " ++ requestData.username ++ "!")
+--                    |> DataSource.succeed
+--            )
+--    , withSession
+--        Request.requestTime
+--        (\requestTime userIdResult ->
+--            let
+--                username =
+--                    userIdResult
+--                        |> Result.withDefault "TODO username"
+--            in
+--            ( Session.noUpdates
+--            , { username = username
+--              , requestTime = requestTime
+--              }
+--                |> Server.Response.render
+--                |> Server.Response.withHeader
+--                    "x-greeting"
+--                    ("hello " ++ username ++ "!")
+--            )
+--                |> DataSource.succeed
+--        )
+--    ]
 
 
 head :

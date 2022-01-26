@@ -6,8 +6,8 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
+import Json.Decode as Decode
 import Json.Encode
-import OptimizedDecoder
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -56,7 +56,7 @@ withSession =
                 |> Secrets.with "SESSION_SECRET"
         , sameSite = "lax"
         }
-        (OptimizedDecoder.field "name" OptimizedDecoder.string)
+        (Decode.field "name" Decode.string)
 
 
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))

@@ -6,7 +6,6 @@ import DataSource.Http
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
-import OptimizedDecoder as Decode
 import Route exposing (Route)
 import Secrets
 import Server.Request
@@ -35,7 +34,7 @@ jsonError : ApiRoute ApiRoute.Response
 jsonError =
     ApiRoute.succeed
         (Server.Request.oneOf
-            [ Server.Request.jsonBodyResult (Decode.field "name" Decode.string)
+            [ Server.Request.jsonBodyResult (Json.Decode.field "name" Json.Decode.string)
                 |> Server.Request.map
                     (\result ->
                         case result of
@@ -67,7 +66,7 @@ greet =
                 (\{ field, optionalField } ->
                     field "first"
                 )
-            , Server.Request.expectJsonBody (Decode.field "first" Decode.string)
+            , Server.Request.expectJsonBody (Json.Decode.field "first" Json.Decode.string)
             , Server.Request.expectQueryParam "first"
             , Server.Request.expectMultiPartFormPost
                 (\{ field, optionalField } ->
@@ -139,7 +138,7 @@ noArgs =
         (Server.Request.succeed
             (DataSource.Http.get
                 (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-                (Decode.field "stargazers_count" Decode.int)
+                (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
                         Json.Encode.object
@@ -161,7 +160,7 @@ nonHybridRoute =
         (\repoName ->
             DataSource.Http.get
                 (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                (Decode.field "stargazers_count" Decode.int)
+                (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
                         Json.Encode.object
@@ -211,7 +210,7 @@ repoStars =
             Server.Request.succeed
                 (DataSource.Http.get
                     (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                    (Decode.field "stargazers_count" Decode.int)
+                    (Json.Decode.field "stargazers_count" Json.Decode.int)
                     |> DataSource.map
                         (\stars ->
                             Json.Encode.object
@@ -237,7 +236,7 @@ repoStars2 =
         (\repoName ->
             DataSource.Http.get
                 (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                (Decode.field "stargazers_count" Decode.int)
+                (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
                         Json.Encode.object
@@ -266,7 +265,7 @@ route1 =
         (\repoName ->
             DataSource.Http.get
                 (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-                (Decode.field "stargazers_count" Decode.int)
+                (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
                         Json.Encode.object

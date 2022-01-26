@@ -5,7 +5,6 @@ import DataSource.Http
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
-import OptimizedDecoder
 import Secrets
 import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
@@ -17,7 +16,7 @@ type Session decoded
 
 
 type alias Decoder decoded =
-    OptimizedDecoder.Decoder decoded
+    Json.Decode.Decoder decoded
 
 
 type SessionUpdate
@@ -42,7 +41,7 @@ type NotLoadedReason
 succeed : constructor -> Decoder constructor
 succeed constructor =
     constructor
-        |> OptimizedDecoder.succeed
+        |> Json.Decode.succeed
 
 
 setValues : SessionUpdate -> Dict String Json.Decode.Value -> Json.Encode.Value
@@ -76,11 +75,11 @@ withSession config decoder userRequest toRequest =
                             Err "TODO"
                                 |> DataSource.succeed
 
-                decryptedFull : DataSource (Dict String OptimizedDecoder.Value)
+                decryptedFull : DataSource (Dict String Json.Decode.Value)
                 decryptedFull =
                     maybeSessionCookie
                         |> Maybe.map
-                            (\sessionCookie -> decrypt config.secrets (OptimizedDecoder.dict OptimizedDecoder.value) sessionCookie)
+                            (\sessionCookie -> decrypt config.secrets (Json.Decode.dict Json.Decode.value) sessionCookie)
                         |> Maybe.withDefault (DataSource.succeed Dict.empty)
             in
             decryptedFull
@@ -152,10 +151,10 @@ encrypt secrets input =
                     }
                 )
         )
-        OptimizedDecoder.string
+        Json.Decode.string
 
 
-decrypt : Secrets.Value (List String) -> OptimizedDecoder.Decoder a -> String -> DataSource a
+decrypt : Secrets.Value (List String) -> Json.Decode.Decoder a -> String -> DataSource a
 decrypt secrets decoder input =
     DataSource.Http.request
         (secrets
