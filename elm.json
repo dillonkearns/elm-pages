@@ -11,8 +11,6 @@
         "Path",
         "Pages.PageUrl",
         "QueryParams",
-        "OptimizedDecoder",
-        "OptimizedDecoder.Pipeline",
         "Pages.Url",
         "DataSource",
         "DataSource.Glob",
@@ -58,8 +56,7 @@
         "stil4m/elm-syntax": "7.2.7 <= v < 8.0.0",
         "tripokey/elm-fuzzy": "5.2.1 <= v < 6.0.0",
         "turboMaCk/non-empty-list-alias": "1.2.0 <= v < 2.0.0",
-        "vito/elm-ansi": "10.0.1 <= v < 11.0.0",
-        "zwilias/json-decode-exploration": "6.0.0 <= v < 7.0.0"
+        "vito/elm-ansi": "10.0.1 <= v < 11.0.0"
     },
     "test-dependencies": {
         "avh4/elm-program-test": "3.1.0 <= v < 4.0.0",
