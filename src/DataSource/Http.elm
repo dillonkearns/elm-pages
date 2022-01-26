@@ -260,8 +260,7 @@ unoptimizedRequest requestWithSecrets expect =
                                                     ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
                                                         (case keepOrDiscard of
                                                             KeepOrDiscard.Keep ->
-                                                                Pages.StaticHttpRequest.StripResponse
-                                                                    (Decode.map (\_ -> ()) decoder)
+                                                                Pages.StaticHttpRequest.UseRawResponse
 
                                                             KeepOrDiscard.Discard ->
                                                                 Pages.StaticHttpRequest.CliOnly
@@ -304,9 +303,7 @@ unoptimizedRequest requestWithSecrets expect =
                                                             strippedResponses
                                                                 |> Dict.insert
                                                                     (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                                    (Pages.StaticHttpRequest.StripResponse
-                                                                        (Decode.map (\_ -> ()) decoder)
-                                                                    )
+                                                                    Pages.StaticHttpRequest.UseRawResponse
 
                                                         KeepOrDiscard.Discard ->
                                                             strippedResponses

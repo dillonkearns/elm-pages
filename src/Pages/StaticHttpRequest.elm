@@ -4,12 +4,9 @@ import Base64
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
-import Internal.OptimizedDecoder
-import Json.Decode.Exploration
 import Json.Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import List.Extra
-import OptimizedDecoder
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
@@ -26,7 +23,6 @@ type RawRequest value
 type WhatToDo
     = UseRawResponse
     | CliOnly
-    | StripResponse (OptimizedDecoder.Decoder ())
     | DistilledResponse Json.Encode.Value
     | DistilledBytesResponse Bytes
     | Error (List BuildError)
@@ -69,15 +65,6 @@ merge key whatToDo1 whatToDo2 =
 
         ( _, Error buildErrors1 ) ->
             Error buildErrors1
-
-        ( StripResponse strip1, StripResponse strip2 ) ->
-            StripResponse (OptimizedDecoder.map2 (\_ _ -> ()) strip1 strip2)
-
-        ( StripResponse strip1, _ ) ->
-            StripResponse strip1
-
-        ( _, StripResponse strip1 ) ->
-            StripResponse strip1
 
         ( _, CliOnly ) ->
             whatToDo1
@@ -139,20 +126,12 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
                             |> Just
                             |> Ok
 
-                    StripResponse decoder ->
-                        Dict.get k requestsAndPending
-                            |> Maybe.withDefault Nothing
-                            |> Maybe.withDefault ""
-                            |> Json.Decode.Exploration.stripString (Internal.OptimizedDecoder.jde decoder)
-                            |> Result.withDefault "ERROR"
-                            |> Just
-                            |> Ok
-
                     CliOnly ->
                         Nothing
                             |> Ok
 
                     DistilledResponse value ->
+                        -- TODO use bytes encoder here
                         value
                             |> Json.Encode.encode 0
                             |> Just
