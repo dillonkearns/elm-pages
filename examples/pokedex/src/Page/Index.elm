@@ -11,7 +11,6 @@ import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
-import Secrets
 import Shared
 import View exposing (View)
 

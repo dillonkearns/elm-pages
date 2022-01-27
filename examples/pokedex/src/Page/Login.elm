@@ -10,7 +10,6 @@ import MySession
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Secrets
 import Server.Request as Request
 import Server.Response
 import Session
