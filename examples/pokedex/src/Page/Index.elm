@@ -5,7 +5,8 @@ import DataSource.Http
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -38,10 +39,25 @@ page =
 
 data : DataSource Data
 data =
-    DataSource.Http.get (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0")
-        (Decode.field "results"
-            (Decode.list (Decode.field "name" Decode.string))
+    DataSource.map2 Data
+        (DataSource.Http.get
+            "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0"
+            (Decode.field "results"
+                (Decode.list (Decode.field "name" Decode.string))
+            )
         )
+        (env "HELLO")
+
+
+env : String -> DataSource.DataSource (Maybe String)
+env envVariableName =
+    DataSource.Http.request
+        { url = "port://env"
+        , method = "GET"
+        , headers = []
+        , body = DataSource.Http.jsonBody (Json.Encode.string envVariableName)
+        }
+        (Decode.nullable Decode.string)
 
 
 head :
@@ -65,7 +81,9 @@ head static =
 
 
 type alias Data =
-    List String
+    { pokemon : List String
+    , envValue : Maybe String
+    }
 
 
 view :
@@ -89,7 +107,8 @@ view maybeUrl sharedModel static =
                             [ text name ]
                         ]
                 )
-                static.data
+                static.data.pokemon
             )
+        , Html.text (Debug.toString static.data.envValue)
         ]
     }

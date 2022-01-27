@@ -216,7 +216,6 @@ import DataSource.Internal.Glob exposing (Glob(..))
 import Json.Decode as Decode
 import List.Extra
 import Regex
-import Secrets
 
 
 {-| A pattern to match local files and capture parts of the path into a nice Elm data type.
@@ -944,7 +943,7 @@ toNonEmptyWithDefault default list =
 -}
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
-    DataSource.Http.get (Secrets.succeed <| "glob://" ++ DataSource.Internal.Glob.toPattern glob)
+    DataSource.Http.get ("glob://" ++ DataSource.Internal.Glob.toPattern glob)
         (Decode.string
             |> Decode.list
             |> Decode.map

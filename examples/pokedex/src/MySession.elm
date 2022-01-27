@@ -2,8 +2,11 @@ module MySession exposing (..)
 
 import Codec
 import DataSource exposing (DataSource)
+import DataSource.Env as Env
+import DataSource.Http
 import Dict
-import Secrets
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Server.Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Session
@@ -16,10 +19,7 @@ withSession :
 withSession =
     Session.withSession
         { name = "mysession"
-        , secrets =
-            Secrets.succeed
-                (\secret -> [ secret ])
-                |> Secrets.with "SESSION_SECRET"
+        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
         , sameSite = "lax"
         }
 
@@ -31,10 +31,7 @@ withSessionOrRedirect :
 withSessionOrRedirect handler toRequest =
     Session.withSession
         { name = "mysession"
-        , secrets =
-            Secrets.succeed
-                (\secret -> [ secret ])
-                |> Secrets.with "SESSION_SECRET"
+        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
         , sameSite = "lax"
         }
         handler
@@ -57,10 +54,7 @@ expectSessionOrRedirect :
 expectSessionOrRedirect handler toRequest =
     Session.withSession
         { name = "mysession"
-        , secrets =
-            Secrets.succeed
-                (\secret -> [ secret ])
-                |> Secrets.with "SESSION_SECRET"
+        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
         , sameSite = "lax"
         }
         handler

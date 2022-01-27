@@ -89,7 +89,6 @@ import Head
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Secrets as Secrets
 import Path exposing (Path)
 import Server.Request
 import Server.Response
@@ -343,7 +342,7 @@ serverRender { data, head } =
         { data =
             \routeParams ->
                 DataSource.Http.get
-                    (Secrets.succeed "$$elm-pages$$headers")
+                    "$$elm-pages$$headers"
                     (routeParams
                         |> data
                         |> Server.Request.getDecoder

@@ -68,11 +68,9 @@ import Dict
 import Json.Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
-import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
-import Secrets
 
 
 {-| Build an empty body for a DataSource.Http request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
@@ -116,25 +114,24 @@ type alias Body =
     getRequest : DataSource Int
     getRequest =
         DataSource.Http.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+            "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
 
 -}
 get :
-    Pages.Secrets.Value String
+    String
     -> Json.Decode.Decoder a
     -> DataSource a
 get url decoder =
     request
-        (Secrets.map
-            (\okUrl ->
-                -- wrap in new variant
-                { url = okUrl
-                , method = "GET"
-                , headers = []
-                , body = emptyBody
-                }
-            )
+        ((\okUrl ->
+            -- wrap in new variant
+            { url = okUrl
+            , method = "GET"
+            , headers = []
+            , body = emptyBody
+            }
+         )
             url
         )
         decoder
@@ -160,7 +157,7 @@ This function takes in all the details to build a `DataSource.Http` request, but
 with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
 -}
 request :
-    Pages.Secrets.Value RequestDetails
+    RequestDetails
     -> Json.Decode.Decoder a
     -> DataSource a
 request urlWithSecrets decoder =
@@ -234,30 +231,30 @@ so you don't need any additional optimization as the payload is already reduced 
 
 -}
 unoptimizedRequest :
-    Pages.Secrets.Value RequestDetails
+    RequestDetails
     -> Expect a
     -> DataSource a
 unoptimizedRequest requestWithSecrets expect =
     case expect of
         ExpectUnoptimizedJson decoder ->
             Request Dict.empty
-                ( [ requestWithSecrets ]
+                ( []
                 , \_ _ rawResponseDict ->
                     rawResponseDict
-                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
                                             ( -- TODO check keepOrDiscard
-                                              Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                              Dict.singleton (requestWithSecrets |> HashRequest.hash)
                                                 Pages.StaticHttpRequest.UseRawResponse
                                             , rawResponse
                                             )
 
                                     Nothing ->
                                         Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
+                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString requestWithSecrets)
                                                 [ requestWithSecrets ]
                                             )
                            )
@@ -281,7 +278,7 @@ unoptimizedRequest requestWithSecrets expect =
                                             ( -- TODO check keepOrDiscard
                                               strippedResponses
                                                 |> Dict.insert
-                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                                                    (requestWithSecrets |> HashRequest.hash)
                                                     Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
@@ -295,19 +292,19 @@ unoptimizedRequest requestWithSecrets expect =
                 ( [ requestWithSecrets ]
                 , \_ _ rawResponseDict ->
                     rawResponseDict
-                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (requestWithSecrets |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
                                             ( -- TODO check keepOrDiscard
-                                              Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
+                                              Dict.singleton (requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
                                             , rawResponse
                                             )
 
                                     Nothing ->
                                         Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
+                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString requestWithSecrets)
                                                 [ requestWithSecrets ]
                                             )
                            )
@@ -320,7 +317,7 @@ unoptimizedRequest requestWithSecrets expect =
                                         (\finalRequest ->
                                             ( -- TODO check keepOrDiscard
                                               strippedResponses
-                                                |> Dict.insert (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
+                                                |> Dict.insert (requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
                                         )

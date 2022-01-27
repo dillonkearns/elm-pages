@@ -9,12 +9,11 @@ import List.Extra
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
-import Secrets
 import TerminalText as Terminal
 
 
 type RawRequest value
-    = Request (Dict String WhatToDo) ( List (Secrets.Value Pages.StaticHttp.Request.Request), KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value )
+    = Request (Dict String WhatToDo) ( List Pages.StaticHttp.Request.Request, KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value )
     | RequestError Error
     | ApiRoute (Dict String WhatToDo) value
 
@@ -167,7 +166,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
 
 
 type Error
-    = MissingHttpResponse String (List (Secrets.Value Pages.StaticHttp.Request.Request))
+    = MissingHttpResponse String (List Pages.StaticHttp.Request.Request)
     | DecoderError String
     | UserCalledStaticHttpFail String
 
@@ -218,19 +217,19 @@ resolve appType request rawResponses =
             Ok value
 
 
-resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request)
+resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> List Pages.StaticHttp.Request.Request
 resolveUrls appType request rawResponses =
     resolveUrlsHelp appType rawResponses [] request
 
 
-resolveUrlsHelp : ApplicationType -> RequestsAndPending -> List (Secrets.Value Pages.StaticHttp.Request.Request) -> RawRequest value -> List (Secrets.Value Pages.StaticHttp.Request.Request)
+resolveUrlsHelp : ApplicationType -> RequestsAndPending -> List Pages.StaticHttp.Request.Request -> RawRequest value -> List Pages.StaticHttp.Request.Request
 resolveUrlsHelp appType rawResponses soFar request =
     case request of
         RequestError error ->
             case error of
                 MissingHttpResponse _ next ->
                     (soFar ++ next)
-                        |> List.Extra.uniqueBy (Secrets.maskedLookup >> Pages.StaticHttp.Request.hash)
+                        |> List.Extra.uniqueBy Pages.StaticHttp.Request.hash
 
                 _ ->
                     soFar
@@ -255,13 +254,13 @@ cacheRequestResolution appType request rawResponses =
 
 
 type Status value
-    = Incomplete (List (Secrets.Value Pages.StaticHttp.Request.Request))
+    = Incomplete (List Pages.StaticHttp.Request.Request)
     | HasPermanentError Error
     | Complete
 
 
 cacheRequestResolutionHelp :
-    List (Secrets.Value Pages.StaticHttp.Request.Request)
+    List Pages.StaticHttp.Request.Request
     -> ApplicationType
     -> RequestsAndPending
     -> RawRequest value

@@ -98,6 +98,19 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
               JSON.stringify(rawRequest, null, 2),
           });
         }
+      } else if (request.url === "port://env") {
+        try {
+          await fs.promises.writeFile(
+            responsePath,
+            JSON.stringify(process.env[rawRequest.body.args[0]] || null)
+          );
+          resolve(responsePath);
+        } catch (e) {
+          reject({
+            title: "DataSource.Port Error",
+            message: `Error getting env variable ${rawRequest}`,
+          });
+        }
       } else if (request.url.startsWith("port://")) {
         try {
           const portName = request.url.replace(/^port:\/\//, "");

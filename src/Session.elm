@@ -6,7 +6,6 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode
 import Json.Encode
-import Secrets
 import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
@@ -171,7 +170,7 @@ clearFlashCookies dict =
 
 expectSession :
     { name : String
-    , secrets : Secrets.Value (List String)
+    , secrets : DataSource (List String)
     , sameSite : String
     }
     -> Request request
@@ -191,7 +190,7 @@ expectSession config userRequest toRequest =
 
 withSession :
     { name : String
-    , secrets : Secrets.Value (List String)
+    , secrets : DataSource (List String)
     , sameSite : String
     }
     -> Request request
@@ -245,7 +244,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
             )
 
 
-decryptCookie : { a | secrets : Secrets.Value (List String) } -> String -> DataSource (Result () Session)
+decryptCookie : { a | secrets : DataSource (List String) } -> String -> DataSource (Result () Session)
 decryptCookie config sessionCookie =
     sessionCookie
         |> decrypt config.secrets (Json.Decode.dict Json.Decode.string)
@@ -270,12 +269,12 @@ decryptCookie config sessionCookie =
             )
 
 
-encrypt : Secrets.Value (List String) -> Json.Encode.Value -> DataSource String
-encrypt secrets input =
-    DataSource.Http.request
-        (secrets
-            |> Secrets.map
-                (\secretList ->
+encrypt : DataSource (List String) -> Json.Encode.Value -> DataSource String
+encrypt getSecrets input =
+    getSecrets
+        |> DataSource.andThen
+            (\secrets ->
+                DataSource.Http.request
                     { url = "port://encrypt"
                     , method = "GET"
                     , headers = []
@@ -287,7 +286,7 @@ encrypt secrets input =
                                 [ ( "values", input )
                                 , ( "secret"
                                   , Json.Encode.string
-                                        (secretList
+                                        (secrets
                                             |> List.head
                                             -- TODO use different default - require non-empty list?
                                             |> Maybe.withDefault ""
@@ -296,17 +295,16 @@ encrypt secrets input =
                                 ]
                             )
                     }
-                )
-        )
-        Json.Decode.string
+                    Json.Decode.string
+            )
 
 
-decrypt : Secrets.Value (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
-decrypt secrets decoder input =
-    DataSource.Http.request
-        (secrets
-            |> Secrets.map
-                (\secretList ->
+decrypt : DataSource (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
+decrypt getSecrets decoder input =
+    getSecrets
+        |> DataSource.andThen
+            (\secrets ->
+                DataSource.Http.request
                     { url = "port://decrypt"
                     , method = "GET"
                     , headers = []
@@ -314,10 +312,9 @@ decrypt secrets decoder input =
                         DataSource.Http.jsonBody
                             (Json.Encode.object
                                 [ ( "input", Json.Encode.string input )
-                                , ( "secrets", Json.Encode.list Json.Encode.string secretList )
+                                , ( "secrets", Json.Encode.list Json.Encode.string secrets )
                                 ]
                             )
                     }
-                )
-        )
-        (Json.Decode.nullable decoder |> Json.Decode.map (Result.fromMaybe ()))
+                    (Json.Decode.nullable decoder |> Json.Decode.map (Result.fromMaybe ()))
+            )

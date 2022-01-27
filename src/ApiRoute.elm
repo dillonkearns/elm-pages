@@ -41,7 +41,6 @@ import Json.Decode as Decode
 import Json.Encode
 import Pattern exposing (Pattern)
 import Regex
-import Secrets
 import Server.Request
 import Server.Response
 
@@ -94,7 +93,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ toString constructor) as fullH
                     |> Maybe.map
                         (\toDataSource ->
                             DataSource.Http.get
-                                (Secrets.succeed "$$elm-pages$$headers")
+                                "$$elm-pages$$headers"
                                 (Decode.oneOf
                                     [ toDataSource |> Server.Request.getDecoder |> Decode.map Just
                                     ]

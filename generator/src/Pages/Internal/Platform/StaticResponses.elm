@@ -17,7 +17,6 @@ import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
-import Secrets
 import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
 import TerminalText as Terminal
@@ -110,8 +109,7 @@ renderApiRequest request =
 
 batchUpdate :
     List
-        { request :
-            { masked : RequestDetails, unmasked : RequestDetails }
+        { request : RequestDetails
         , response : String
         }
     ->
@@ -131,7 +129,7 @@ batchUpdate newEntries model =
             newEntries
                 |> List.map
                     (\newEntry ->
-                        ( HashRequest.hash newEntry.request.masked, newEntry.response )
+                        ( HashRequest.hash newEntry.request, newEntry.response )
                     )
                 |> Dict.fromList
 
@@ -174,7 +172,7 @@ cliDictKey =
 
 
 type NextStep route
-    = Continue (Dict String (Maybe String)) (List { masked : RequestDetails, unmasked : RequestDetails }) (Maybe (List route))
+    = Continue (Dict String (Maybe String)) (List RequestDetails) (Maybe (List route))
     | Finish (FinishKind route)
 
 
@@ -294,7 +292,6 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
                                         )
                                             |> Set.diff
                                                 (knownUrlsToFetch
-                                                    |> List.map Secrets.maskedLookup
                                                     |> List.map HashRequest.hash
                                                     |> Set.fromList
                                                 )
@@ -358,7 +355,7 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
         case
             performStaticHttpRequests allRawResponses secrets requestContinuations
         of
-            Ok urlsToPerform ->
+            urlsToPerform ->
                 let
                     newAllRawResponses : Dict String (Maybe String)
                     newAllRawResponses =
@@ -367,19 +364,18 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
                     dictOfNewUrlsToPerform : Dict String (Maybe String)
                     dictOfNewUrlsToPerform =
                         urlsToPerform
-                            |> List.map .masked
                             |> List.map HashRequest.hash
                             |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
                             |> Dict.fromList
 
-                    maskedToUnmasked : Dict String { masked : RequestDetails, unmasked : RequestDetails }
+                    maskedToUnmasked : Dict String RequestDetails
                     maskedToUnmasked =
                         urlsToPerform
                             --                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
                             |> List.map
                                 (\secureUrl ->
                                     --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
-                                    ( HashRequest.hash secureUrl.masked, secureUrl )
+                                    ( HashRequest.hash secureUrl, secureUrl )
                                 )
                             |> Dict.fromList
 
@@ -389,7 +385,7 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
                             |> Dict.keys
                             |> Set.fromList
 
-                    newThing : List { masked : RequestDetails, unmasked : RequestDetails }
+                    newThing : List RequestDetails
                     newThing =
                         maskedToUnmasked
                             |> Dict.Extra.removeMany alreadyPerformed
@@ -400,9 +396,6 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
                                 )
                 in
                 ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
-
-            Err error_ ->
-                ( model.staticResponses, Finish (Errors <| (error_ ++ failedRequests ++ errors)) )
 
     else
         case model.staticResponses of
@@ -489,7 +482,7 @@ performStaticHttpRequests :
     Dict String (Maybe String)
     -> SecretsDict
     -> List ( String, DataSource a )
-    -> Result (List BuildError) (List { unmasked : RequestDetails, masked : RequestDetails })
+    -> List RequestDetails
 performStaticHttpRequests allRawResponses secrets staticRequests =
     staticRequests
         -- TODO look for performance bottleneck in this double nesting
@@ -497,23 +490,10 @@ performStaticHttpRequests allRawResponses secrets staticRequests =
             (\( _, request ) ->
                 StaticHttpRequest.resolveUrls ApplicationType.Cli request allRawResponses
             )
-        |> List.concat
         -- TODO prevent duplicates... can't because Set needs comparable
         --        |> Set.fromList
         --        |> Set.toList
-        |> List.map
-            (\urlBuilder ->
-                urlBuilder
-                    |> Secrets.lookup secrets
-                    |> Result.map
-                        (\unmasked ->
-                            { unmasked = unmasked
-                            , masked = Secrets.maskedLookup urlBuilder
-                            }
-                        )
-            )
-        |> combineMultipleErrors
-        |> Result.mapError List.concat
+        |> List.concat
 
 
 combineMultipleErrors : List (Result error a) -> Result (List error) (List a)

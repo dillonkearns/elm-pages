@@ -6,7 +6,7 @@ import Pages.Internal.Platform.ToJsPayload exposing (ToJsSuccessPayloadNewCombin
 
 type Effect
     = NoEffect
-    | FetchHttp { masked : RequestDetails, unmasked : RequestDetails }
+    | FetchHttp RequestDetails
     | ReadFile String
     | GetGlob String
     | Batch (List Effect)

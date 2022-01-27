@@ -10,7 +10,6 @@ import DataSource
 import DataSource.Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode
-import Secrets
 
 
 {-| In a vanilla Elm application, ports let you either send or receive JSON data between your Elm application and the JavaScript context in the user's browser at runtime.
@@ -77,11 +76,9 @@ As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For e
 get : String -> Json.Encode.Value -> Decoder b -> DataSource.DataSource b
 get portName input decoder =
     DataSource.Http.request
-        (Secrets.succeed
-            { url = "port://" ++ portName
-            , method = "GET"
-            , headers = []
-            , body = DataSource.Http.jsonBody input
-            }
-        )
+        { url = "port://" ++ portName
+        , method = "GET"
+        , headers = []
+        , body = DataSource.Http.jsonBody input
+        }
         decoder

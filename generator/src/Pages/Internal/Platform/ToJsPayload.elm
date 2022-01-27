@@ -83,7 +83,7 @@ type ToJsSuccessPayloadNewCombined
     | SendApiResponse { body : Json.Encode.Value, staticHttpCache : Dict String String, statusCode : Int }
     | ReadFile String
     | Glob String
-    | DoHttp { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
+    | DoHttp Pages.StaticHttp.Request.Request
     | Port String
     | Errors (List BuildError)
     | ApiResponse
@@ -125,9 +125,8 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.variant1 "DoHttp"
             DoHttp
-            (Codec.object (\masked unmasked -> { masked = masked, unmasked = unmasked })
-                |> Codec.field "masked" .masked Pages.StaticHttp.Request.codec
-                |> Codec.field "unmasked" .unmasked Pages.StaticHttp.Request.codec
+            (Codec.object identity
+                |> Codec.field "unmasked" identity Pages.StaticHttp.Request.codec
                 |> Codec.buildObject
             )
         |> Codec.variant1 "ApiResponse"

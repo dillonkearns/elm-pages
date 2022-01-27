@@ -8,7 +8,6 @@ import Json.Decode
 import Json.Encode
 import MySession
 import Route exposing (Route)
-import Secrets
 import Server.Request
 import Server.Response
 import Server.SetCookie as SetCookie
@@ -139,7 +138,7 @@ noArgs =
     ApiRoute.succeed
         (Server.Request.succeed
             (DataSource.Http.get
-                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
@@ -161,7 +160,7 @@ nonHybridRoute =
     ApiRoute.succeed
         (\repoName ->
             DataSource.Http.get
-                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
@@ -207,7 +206,7 @@ repoStars =
         (\repoName ->
             Server.Request.succeed
                 (DataSource.Http.get
-                    (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                    ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                     (Json.Decode.field "stargazers_count" Json.Decode.int)
                     |> DataSource.map
                         (\stars ->
@@ -233,7 +232,7 @@ repoStars2 =
     ApiRoute.succeed
         (\repoName ->
             DataSource.Http.get
-                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->
@@ -262,7 +261,7 @@ route1 =
     ApiRoute.succeed
         (\repoName ->
             DataSource.Http.get
-                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> DataSource.map
                     (\stars ->

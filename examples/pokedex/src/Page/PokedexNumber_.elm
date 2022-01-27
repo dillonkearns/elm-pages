@@ -10,7 +10,6 @@ import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Secrets
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -58,10 +57,10 @@ data { pokedexNumber } =
 
     else
         DataSource.map2 Data
-            (DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
+            (DataSource.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
                 Decode.string
             )
-            (DataSource.Http.get (Secrets.succeed ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber))
+            (DataSource.Http.get ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
                 (Decode.map2 Pokemon
                     (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))

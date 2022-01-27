@@ -54,7 +54,7 @@ type alias Model route =
     , secrets : SecretsDict
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
-    , pendingRequests : List { masked : RequestDetails, unmasked : RequestDetails }
+    , pendingRequests : List RequestDetails
     , unprocessedPages : List ( Path, route )
     , staticRoutes : Maybe (List ( Path, route ))
     , maybeRequestJson : RenderRequest route
@@ -66,7 +66,7 @@ type alias Model route =
 type Msg
     = GotDataBatch
         (List
-            { request : { masked : RequestDetails, unmasked : RequestDetails }
+            { request : RequestDetails
             , response : String
             }
         )
@@ -151,10 +151,7 @@ cliApplication config =
                                                             (Decode.list
                                                                 (Decode.map2
                                                                     (\requests response ->
-                                                                        { request =
-                                                                            { masked = requests.masked
-                                                                            , unmasked = requests.unmasked
-                                                                            }
+                                                                        { request = requests
                                                                         , response = response
                                                                         }
                                                                     )
@@ -176,11 +173,10 @@ cliApplication config =
 
 
 {-| -}
-requestDecoder : Decode.Decoder { masked : Pages.StaticHttp.Request.Request, unmasked : Pages.StaticHttp.Request.Request }
+requestDecoder : Decode.Decoder Pages.StaticHttp.Request.Request
 requestDecoder =
-    (Codec.object (\masked unmasked -> { masked = masked, unmasked = unmasked })
-        |> Codec.field "masked" .masked Pages.StaticHttp.Request.codec
-        |> Codec.field "unmasked" .unmasked Pages.StaticHttp.Request.codec
+    (Codec.object identity
+        |> Codec.field "unmasked" identity Pages.StaticHttp.Request.codec
         |> Codec.buildObject
     )
         |> Codec.decoder
@@ -227,7 +223,7 @@ perform site renderRequest config toJsPort effect =
                 |> List.map (perform site renderRequest config toJsPort)
                 |> Cmd.batch
 
-        Effect.FetchHttp ({ unmasked, masked } as requests) ->
+        Effect.FetchHttp unmasked ->
             if unmasked.url == "$$elm-pages$$headers" then
                 case
                     renderRequest
@@ -237,7 +233,7 @@ perform site renderRequest config toJsPort effect =
                 of
                     Ok okResponse ->
                         Task.succeed
-                            [ { request = requests
+                            [ { request = unmasked
                               , response = okResponse
                               }
                             ]
@@ -249,8 +245,8 @@ perform site renderRequest config toJsPort effect =
                             [ Terminal.text "I got an error making an HTTP request to this URL: "
 
                             -- TODO include HTTP method, headers, and body
-                            , Terminal.yellow requests.masked.url
-                            , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode requests.masked.body
+                            , Terminal.yellow unmasked.url
+                            , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode unmasked.body
                             , Terminal.text "\n\n"
                             , case error of
                                 Pages.Http.BadStatus metadata body ->
@@ -263,7 +259,7 @@ perform site renderRequest config toJsPort effect =
 
                                 Pages.Http.BadUrl _ ->
                                     -- TODO include HTTP method, headers, and body
-                                    Terminal.text <| "Invalid url: " ++ requests.masked.url
+                                    Terminal.text <| "Invalid url: " ++ unmasked.url
 
                                 Pages.Http.Timeout ->
                                     Terminal.text "Timeout"
@@ -300,7 +296,7 @@ perform site renderRequest config toJsPort effect =
                     |> Cmd.map never
 
             else
-                ToJsPayload.DoHttp { masked = masked, unmasked = unmasked }
+                ToJsPayload.DoHttp unmasked
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                     |> toJsPort
                     |> Cmd.map never
@@ -579,15 +575,15 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
             let
-                nextAndPending : List { masked : RequestDetails, unmasked : RequestDetails }
+                nextAndPending : List RequestDetails
                 nextAndPending =
                     model.pendingRequests ++ httpRequests
 
-                doNow : List { masked : RequestDetails, unmasked : RequestDetails }
+                doNow : List RequestDetails
                 doNow =
                     nextAndPending
 
-                pending : List { masked : RequestDetails, unmasked : RequestDetails }
+                pending : List RequestDetails
                 pending =
                     []
 

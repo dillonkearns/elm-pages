@@ -13,7 +13,6 @@ import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Secrets
 import Server.Response
 import Shared
 import View exposing (View)
@@ -21,7 +20,7 @@ import View exposing (View)
 
 data : routeParams -> DataSource (Server.Response.Response Data)
 data _ =
-    DataSource.Http.get (Secrets.succeed "https://elm-pages-pokedex.netlify.app/.netlify/functions/time")
+    DataSource.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
         Decode.string
         |> DataSource.map Data
         |> DataSource.map Server.Response.render

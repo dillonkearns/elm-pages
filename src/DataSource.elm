@@ -56,7 +56,7 @@ If we define a `DataSource` that hits that endpoint:
 
     data =
         DataSource.Http.get
-            (Secrets.succeed "https://my-api.example.com/increment-counter")
+            "https://my-api.example.com/increment-counter"
             Decode.int
 
 No matter how many places we use that `DataSource`, its response will be "locked in" (let's say the response was `3`, then every page would have the same value of `3` for that request).
@@ -98,7 +98,6 @@ import Json.Encode as Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
-import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
 import RequestsAndPending exposing (RequestsAndPending)
@@ -390,7 +389,7 @@ lookupHelp strippedSoFar keepOrDiscard appType requestInfo rawResponses =
             Ok ( combineReducedDicts stripped strippedSoFar, value )
 
 
-addUrls : List (Pages.Secrets.Value HashRequest.Request) -> DataSource value -> DataSource value
+addUrls : List HashRequest.Request -> DataSource value -> DataSource value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         RequestError error ->
@@ -413,7 +412,7 @@ type alias RequestDetails =
     }
 
 
-lookupUrls : DataSource value -> List (Pages.Secrets.Value RequestDetails)
+lookupUrls : DataSource value -> List RequestDetails
 lookupUrls requestInfo =
     case requestInfo of
         RequestError _ ->

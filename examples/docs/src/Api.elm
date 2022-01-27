@@ -10,7 +10,6 @@ import Json.Encode
 import Pages
 import Route exposing (Route)
 import Rss
-import Secrets
 import SiteOld
 import Sitemap
 import Time
@@ -50,7 +49,7 @@ routes getStaticRoutes htmlToString =
     , ApiRoute.succeed
         (\repoName ->
             DataSource.Http.get
-                (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+                ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Decode.field "stargazers_count" Decode.int)
                 |> DataSource.map
                     (\stars ->
