@@ -1,4 +1,4 @@
-module Shiki exposing (Highlighted, decoder, view)
+module Shiki exposing (Highlighted, ShikiToken, decoder, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attr exposing (class)
