@@ -36,7 +36,6 @@ import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
-import SecretsDict exposing (SecretsDict)
 import Server.Response
 import Task
 import TerminalText as Terminal
@@ -51,7 +50,6 @@ type alias Flags =
 {-| -}
 type alias Model route =
     { staticResponses : StaticResponses
-    , secrets : SecretsDict
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
     , pendingRequests : List RequestDetails
@@ -343,19 +341,16 @@ perform site renderRequest config toJsPort effect =
 
 flagsDecoder :
     Decode.Decoder
-        { secrets : SecretsDict
-        , staticHttpCache : Dict String (Maybe String)
+        { staticHttpCache : Dict String (Maybe String)
         , isDevServer : Bool
         }
 flagsDecoder =
-    Decode.map3
-        (\secrets staticHttpCache isDevServer ->
-            { secrets = secrets
-            , staticHttpCache = staticHttpCache
+    Decode.map2
+        (\staticHttpCache isDevServer ->
+            { staticHttpCache = staticHttpCache
             , isDevServer = isDevServer
             }
         )
-        (Decode.field "secrets" SecretsDict.decoder)
         (Decode.field "staticHttpCache"
             (Decode.dict
                 (Decode.string
@@ -376,8 +371,8 @@ init :
     -> ( Model route, Effect )
 init site renderRequest contentCache config flags =
     case Decode.decodeValue flagsDecoder flags of
-        Ok { secrets, staticHttpCache, isDevServer } ->
-            initLegacy site renderRequest { secrets = secrets, staticHttpCache = staticHttpCache, isDevServer = isDevServer } contentCache config flags
+        Ok { staticHttpCache, isDevServer } ->
+            initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } contentCache config flags
 
         Err error ->
             updateAndSendPortIfDone
@@ -385,7 +380,6 @@ init site renderRequest contentCache config flags =
                 contentCache
                 config
                 { staticResponses = StaticResponses.error
-                , secrets = SecretsDict.masked
                 , errors =
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]
@@ -405,12 +399,12 @@ init site renderRequest contentCache config flags =
 initLegacy :
     SiteConfig siteData
     -> RenderRequest route
-    -> { secrets : SecretsDict, staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
+    -> { staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
     -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-initLegacy site renderRequest { secrets, staticHttpCache, isDevServer } contentCache config flags =
+initLegacy site renderRequest { staticHttpCache, isDevServer } contentCache config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -470,7 +464,6 @@ initLegacy site renderRequest { secrets, staticHttpCache, isDevServer } contentC
         initialModel : Model route
         initialModel =
             { staticResponses = staticResponses
-            , secrets = secrets
             , errors = []
             , allRawResponses = staticHttpCache
             , pendingRequests = []

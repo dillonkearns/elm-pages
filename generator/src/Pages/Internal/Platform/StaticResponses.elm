@@ -17,7 +17,6 @@ import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
-import SecretsDict exposing (SecretsDict)
 import Set exposing (Set)
 import TerminalText as Terminal
 
@@ -194,13 +193,12 @@ nextStep :
     ->
         { model
             | staticResponses : StaticResponses
-            , secrets : SecretsDict
             , errors : List BuildError
             , allRawResponses : Dict String (Maybe String)
         }
     -> Maybe (List route)
     -> ( StaticResponses, NextStep route )
-nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
+nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
     let
         staticResponses : Dict String StaticHttpResult
         staticResponses =
@@ -353,7 +351,7 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
                         )
         in
         case
-            performStaticHttpRequests allRawResponses secrets requestContinuations
+            performStaticHttpRequests allRawResponses requestContinuations
         of
             urlsToPerform ->
                 let
@@ -480,10 +478,9 @@ nextStep config ({ secrets, allRawResponses, errors } as model) maybeRoutes =
 
 performStaticHttpRequests :
     Dict String (Maybe String)
-    -> SecretsDict
     -> List ( String, DataSource a )
     -> List RequestDetails
-performStaticHttpRequests allRawResponses secrets staticRequests =
+performStaticHttpRequests allRawResponses staticRequests =
     staticRequests
         -- TODO look for performance bottleneck in this double nesting
         |> List.map
