@@ -4,14 +4,13 @@ module Server.Request exposing
     , succeed
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
     , acceptMethod, acceptContentTypes
-    , map, map2, oneOf, andMap
+    , map, map2, oneOf, andMap, andThen
     , expectQueryParam
     , cookie, expectCookie
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
     , errorsToString, errorToString, getDecoder
-    , andThen
     )
 
 {-|
@@ -29,7 +28,7 @@ module Server.Request exposing
 
 ## Transforming
 
-@docs map, map2, oneOf, andMap
+@docs map, map2, oneOf, andMap, andThen
 
 
 ## Query Parameters
@@ -235,6 +234,7 @@ andMap =
     map2 (|>)
 
 
+{-| -}
 andThen : (a -> Request b) -> Request a -> Request b
 andThen toRequestB (Request requestA) =
     Json.Decode.andThen

@@ -14,8 +14,8 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
-    , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
     , submitHandlers2, toHtml2
+    , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
     )
 
 {-|
@@ -111,6 +111,11 @@ Steps
 
 
 ## Validations
+
+
+## Not Named Properly Yet
+
+@docs submitHandlers2, toHtml2
 
 
 ## Internals?
@@ -2094,6 +2099,7 @@ submitHandlers myForm toDataSource =
         ]
 
 
+{-| -}
 submitHandlers2 :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource (PageServerResponse data))

@@ -82,6 +82,11 @@ So it's best to use that mental model to avoid confusion.
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
+
+## Internal
+
+@docs distillBytes
+
 -}
 
 import Base64
@@ -97,7 +102,6 @@ import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
 import RequestsAndPending exposing (RequestsAndPending)
-import Serialize
 
 
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
