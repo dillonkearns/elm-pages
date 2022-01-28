@@ -413,6 +413,7 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                         , formErrors = updatedFormErrors
                     }
 
+                updatedFields : Dict String { raw : Maybe String, errors : List String, status : FieldStatus }
                 updatedFields =
                     model.fields
                         |> Dict.update name
