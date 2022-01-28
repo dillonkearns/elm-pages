@@ -325,7 +325,9 @@ encrypt getSecrets input =
                                 ]
                             )
                     }
-                    Json.Decode.string
+                    (DataSource.Http.expectJson
+                        Json.Decode.string
+                    )
             )
 
 
@@ -346,5 +348,9 @@ decrypt getSecrets decoder input =
                                 ]
                             )
                     }
-                    (Json.Decode.nullable decoder |> Json.Decode.map (Result.fromMaybe ()))
+                    (decoder
+                        |> Json.Decode.nullable
+                        |> Json.Decode.map (Result.fromMaybe ())
+                        |> DataSource.Http.expectJson
+                    )
             )

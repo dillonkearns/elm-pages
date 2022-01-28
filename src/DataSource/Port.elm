@@ -81,4 +81,4 @@ get portName input decoder =
         , headers = []
         , body = DataSource.Http.jsonBody input
         }
-        decoder
+        (DataSource.Http.expectJson decoder)

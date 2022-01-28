@@ -56,7 +56,9 @@ env envVariableName =
         , headers = []
         , body = DataSource.Http.jsonBody (Json.Encode.string envVariableName)
         }
-        (Decode.nullable Decode.string)
+        (Decode.nullable Decode.string
+            |> DataSource.Http.expectJson
+        )
 
 
 head :

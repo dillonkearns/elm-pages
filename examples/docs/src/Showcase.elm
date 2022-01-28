@@ -48,7 +48,7 @@ staticRequest =
                     , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
                     , body = DataSource.Http.emptyBody
                     }
-                    decoder
+                    (DataSource.Http.expectJson decoder)
             )
 
 

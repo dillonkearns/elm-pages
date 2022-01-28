@@ -1,9 +1,8 @@
 module DataSource.Http exposing
     ( RequestDetails
     , get, request
-    , Body, emptyBody, stringBody, jsonBody
-    , unoptimizedRequest
     , Expect, expectString, expectJson
+    , Body, emptyBody, stringBody, jsonBody
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -11,7 +10,6 @@ module DataSource.Http exposing
 The key differences are:
 
   - `DataSource.Http.Request`s are performed once at build time (`Http.Request`s are performed at runtime, at whenever point you perform them)
-  - `DataSource.Http.Request`s strip out unused JSON data from the data your decoder doesn't touch to minimize the JSON payload
   - `DataSource.Http.Request`s have a built-in `DataSource.andThen` that allows you to perform follow-up requests without using tasks
 
 
@@ -38,6 +36,11 @@ in [this article introducing DataSource.Http requests and some concepts around i
 @docs get, request
 
 
+## Decoding Request Body
+
+@docs Expect, expectString, expectJson
+
+
 ## Building a DataSource.Http Request Body
 
 The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
@@ -45,20 +48,6 @@ The way you build a body is analogous to the `elm/http` package. Currently, only
 and describe your use case!
 
 @docs Body, emptyBody, stringBody, jsonBody
-
-
-## Unoptimized Requests
-
-Warning - use these at your own risk! It's highly recommended that you use the other request functions that make use of
-`zwilias/json-decode-exploration` in order to allow you to reduce down your JSON to only the values that are used by
-your decoders. This can significantly reduce download sizes for your DataSource.Http requests.
-
-@docs unoptimizedRequest
-
-
-### Expect for unoptimized requests
-
-@docs Expect, expectString, expectJson
 
 -}
 
@@ -133,7 +122,7 @@ get url decoder =
          )
             url
         )
-        decoder
+        (expectJson decoder)
 
 
 {-| The full details to perform a DataSource.Http request.
@@ -149,18 +138,6 @@ type alias RequestDetails =
 requestToString : RequestDetails -> String
 requestToString requestDetails =
     requestDetails.url
-
-
-{-| Build a `DataSource.Http` request (analagous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
-This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
-with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
--}
-request :
-    RequestDetails
-    -> Json.Decode.Decoder a
-    -> DataSource a
-request url decoder =
-    unoptimizedRequest url (ExpectJson decoder)
 
 
 {-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
@@ -219,19 +196,15 @@ expectJson =
     ExpectJson
 
 
-{-| This is an alternative to the other request functions in this module that doesn't perform any optimizations on the
-asset. Be sure to use the optimized versions, like `DataSource.Http.request`, if you can. Using those can significantly reduce
-your asset sizes by removing all unused fields from your JSON.
-
-You may want to use this function instead if you need XML data or plaintext. Or maybe you're hitting a GraphQL API,
-so you don't need any additional optimization as the payload is already reduced down to exactly what you requested.
-
+{-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
+This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
+with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
 -}
-unoptimizedRequest :
+request :
     RequestDetails
     -> Expect a
     -> DataSource a
-unoptimizedRequest request_ expect =
+request request_ expect =
     case expect of
         ExpectJson decoder ->
             Request Dict.empty

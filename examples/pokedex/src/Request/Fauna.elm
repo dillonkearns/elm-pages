@@ -10,7 +10,7 @@ import Json.Encode as Encode
 
 dataSource : String -> SelectionSet value RootQuery -> DataSource value
 dataSource timeStamp selectionSet =
-    DataSource.Http.unoptimizedRequest
+    DataSource.Http.request
         { url =
             faunaUrl
                 -- for now, this timestamp invalidates the dev server cache
@@ -39,7 +39,7 @@ dataSource timeStamp selectionSet =
 
 mutationDataSource : String -> SelectionSet value RootMutation -> DataSource value
 mutationDataSource timeStamp selectionSet =
-    DataSource.Http.unoptimizedRequest
+    DataSource.Http.request
         { url = faunaUrl ++ "?time=" ++ timeStamp
         , method = "POST"
         , headers = [ ( "authorization", faunaAuthValue ) ]

@@ -152,7 +152,7 @@ all =
                     getReq url decoder =
                         DataSource.Http.request
                             (get url)
-                            decoder
+                            (DataSource.Http.expectJson decoder)
 
                     pokemonDetailRequest : DataSource ()
                     pokemonDetailRequest =
@@ -302,7 +302,7 @@ all =
         , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.unoptimizedRequest
+                    (DataSource.Http.request
                         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                         , method = "GET"
                         , headers = []
@@ -323,7 +323,7 @@ all =
         , test "plain string" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.unoptimizedRequest
+                    (DataSource.Http.request
                         { url = "https://example.com/file.txt"
                         , method = "GET"
                         , headers = []
@@ -342,7 +342,7 @@ all =
         , test "Err in String to Result function turns into decode error" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.unoptimizedRequest
+                    (DataSource.Http.request
                         { url = "https://example.com/file.txt"
                         , method = "GET"
                         , headers = []
@@ -380,7 +380,9 @@ String was not uppercased"""
                         , headers = []
                         , body = DataSource.Http.emptyBody
                         }
-                        (JD.field "stargazer_count" JD.int)
+                        (DataSource.Http.expectJson
+                            (JD.field "stargazer_count" JD.int)
+                        )
                     )
                     |> simulateHttp
                         (post "https://api.github.com/repos/dillonkearns/elm-pages")

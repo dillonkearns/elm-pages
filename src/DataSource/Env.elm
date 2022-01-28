@@ -21,7 +21,9 @@ get envVariableName =
         , headers = []
         , body = DataSource.Http.jsonBody (Encode.string envVariableName)
         }
-        (Decode.nullable Decode.string)
+        (DataSource.Http.expectJson
+            (Decode.nullable Decode.string)
+        )
 
 
 {-| -}
