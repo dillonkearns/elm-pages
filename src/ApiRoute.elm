@@ -39,7 +39,7 @@ import DataSource.Http
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Decode as Decode
 import Json.Encode
-import Pattern exposing (Pattern)
+import Pattern
 import Regex
 import Server.Request
 import Server.Response
@@ -55,31 +55,6 @@ single : ApiRouteBuilder (DataSource String) (List String) -> ApiRoute Response
 single handler =
     handler
         |> preRender (\constructor -> DataSource.succeed [ constructor ])
-
-
-normalizePath : String -> String
-normalizePath path =
-    path
-        |> ensureLeadingSlash
-        |> stripTrailingSlash
-
-
-ensureLeadingSlash : String -> String
-ensureLeadingSlash path =
-    if path |> String.startsWith "/" then
-        path
-
-    else
-        "/" ++ path
-
-
-stripTrailingSlash : String -> String
-stripTrailingSlash path =
-    if (path |> String.endsWith "/") && (String.length path > 1) then
-        String.dropRight 1 path
-
-    else
-        path
 
 
 {-| -}
