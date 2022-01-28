@@ -38,8 +38,8 @@ config : List Rule
 config =
     ([ NoExposingEverything.rule
      , NoPrematureLetComputation.rule
-
-     --NoImportingEverything.rule []
+     , NoImportingEverything.rule []
+        |> ignoreInTest
      , NoInconsistentAliases.config
         [ ( "Html.Attributes", "Attr" )
 
