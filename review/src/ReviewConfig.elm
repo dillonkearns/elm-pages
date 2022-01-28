@@ -116,6 +116,7 @@ noUnusedRules =
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
             , "src/RoutePattern.elm"
+            , "src/Form.elm" -- ignored because false positive for unused for Phantom Builder type, see https://github.com/jfmengels/elm-review-unused/issues/60
             ]
     , NoUnused.CustomTypeConstructorArgs.rule
         |> ignoreInTest
@@ -136,6 +137,7 @@ noUnusedRules =
     , NoUnused.Parameters.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/HtmlPrinter.elm" -- magic argument in the HtmlPrinter
+            , "src/FormDecoder.elm" -- magic argument that is tweaked in the JS output
             ]
     , NoUnused.Patterns.rule
     , NoUnused.Variables.rule
