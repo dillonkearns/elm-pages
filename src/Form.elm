@@ -527,6 +527,7 @@ initField =
 init : Form String value view -> Model
 init ((Form fields _ _ modelToValue) as form) =
     let
+        initialFields : Dict String { raw : Maybe String, errors : List String, status : FieldStatus }
         initialFields =
             fields
                 |> List.concatMap Tuple.first
@@ -708,6 +709,7 @@ toRadioInputRecord formInfo name itemValue info field =
     }
 
 
+valueAttr : { a | type_ : String } -> Maybe String -> Maybe (Html.Attribute msg)
 valueAttr field stringValue =
     if field.type_ == "checkbox" then
         if stringValue == Just "on" then
@@ -1229,6 +1231,7 @@ time name toError toHtmlFn =
         }
 
 
+parseTimeOfDay : String -> Result () { hours : Int, minutes : Int }
 parseTimeOfDay rawTimeOfDay =
     case rawTimeOfDay |> String.split ":" |> List.map String.toInt of
         [ Just hours, Just minutes ] ->
