@@ -12,7 +12,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
-import Session exposing (Session)
+import Server.Session as Session
 import Shared
 import Time
 import View exposing (View)

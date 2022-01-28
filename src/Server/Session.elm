@@ -1,4 +1,4 @@
-module Session exposing (Decoder, NotLoadedReason(..), Session(..), SessionUpdate(..), Value(..), clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash2, withSession)
+module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), SessionUpdate(..), Value(..), clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash2, withSession)
 
 {-|
 

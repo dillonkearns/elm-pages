@@ -10,8 +10,7 @@ import MySession
 import Route exposing (Route)
 import Server.Request
 import Server.Response
-import Server.SetCookie as SetCookie
-import Session
+import Server.Session as Session
 
 
 routes :

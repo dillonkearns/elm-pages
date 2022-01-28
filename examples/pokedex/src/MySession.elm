@@ -3,13 +3,10 @@ module MySession exposing (..)
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
-import DataSource.Http
 import Dict
-import Json.Decode as Decode
-import Json.Encode as Encode
 import Server.Request exposing (Request)
 import Server.Response as Response exposing (Response)
-import Session
+import Server.Session as Session
 
 
 withSession :
