@@ -123,6 +123,8 @@ Steps
 
 @docs hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
 
+@docs FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
+
 -}
 
 import DataSource exposing (DataSource)
@@ -222,11 +224,13 @@ type Field error value view constraints
     = Field (FieldInfo error value view)
 
 
+{-| -}
 type alias FormInfo =
     { submitStatus : SubmitStatus
     }
 
 
+{-| -}
 type alias FieldInfoSimple error view =
     { name : String
     , initialValue : Maybe String
@@ -244,6 +248,7 @@ type alias FieldInfoSimple error view =
     }
 
 
+{-| -}
 type alias RawFieldState error =
     { raw : Maybe String
     , errors : List error
@@ -268,6 +273,7 @@ type alias FieldInfo error value view =
     }
 
 
+{-| -}
 type alias FinalFieldInfo error =
     { name : String
     , initialValue : Maybe String
@@ -322,6 +328,7 @@ type alias ServerUpdate =
     Dict String (RawFieldState String)
 
 
+{-| -}
 type alias FieldState error =
     Dict String (RawFieldState error)
 
@@ -1181,8 +1188,11 @@ date name toError toHtmlFn =
         }
 
 
+{-| -}
 type alias TimeOfDay =
-    { hours : Int, minutes : Int }
+    { hours : Int
+    , minutes : Int
+    }
 
 
 {-| -}
@@ -1336,10 +1346,12 @@ withStringProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.string value ) :: field.properties }
 
 
+{-| -}
 type Yes
     = Yes Never
 
 
+{-| -}
 type No
     = No Never
 
