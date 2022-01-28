@@ -4,17 +4,16 @@ import DataSource
 import DataSource.Http
 import Dict
 import Expect
-import OptimizedDecoder as Decode
+import Json.Decode as Decode
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets
 import Test exposing (Test, describe, test)
 
 
 getWithoutSecrets : String -> Decode.Decoder a -> DataSource.DataSource a
 getWithoutSecrets url =
-    DataSource.Http.get (Secrets.succeed url)
+    DataSource.Http.get url
 
 
 requestsDict : List ( Request.Request, b ) -> Dict.Dict String (Maybe b)
@@ -43,7 +42,7 @@ all =
     describe "Static Http Requests unit tests"
         [ test "andThen" <|
             \() ->
-                DataSource.Http.get (Secrets.succeed "first") (Decode.succeed "NEXT")
+                DataSource.Http.get "first" (Decode.succeed "NEXT")
                     |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
@@ -56,7 +55,6 @@ all =
                                     , ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen staring with done" <|
@@ -73,7 +71,6 @@ all =
                                     [ ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "NEXT" ]
                        )
         , test "map" <|
@@ -93,7 +90,6 @@ all =
                                     , ( get "NEXT", "null" )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
@@ -110,7 +106,6 @@ all =
                                     [ ( get "first", "null" )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
@@ -132,7 +127,6 @@ all =
                                     [ ( get "first", "1" )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         ]
