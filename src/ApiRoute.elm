@@ -119,10 +119,6 @@ preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString co
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
-
-        preBuiltMatches : DataSource (List (List String))
-        preBuiltMatches =
-            buildUrls (constructor [])
     in
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
