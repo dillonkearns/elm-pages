@@ -10,6 +10,7 @@ toJson (Pattern segments _) =
 
 segmentToJson : Segment -> Json.Encode.Value
 segmentToJson segment =
+    -- elm-review: known-unoptimized-recursion
     case segment of
         Literal literalString ->
             Json.Encode.object

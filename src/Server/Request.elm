@@ -75,6 +75,7 @@ type Request decodesTo
 
 oneOfInternal : List ValidationError -> List (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )
 oneOfInternal previousErrors optimizedDecoders =
+    -- elm-review: known-unoptimized-recursion
     case optimizedDecoders of
         [] ->
             Json.Decode.succeed ( Err (OneOf previousErrors), [] )
@@ -157,6 +158,7 @@ errorsToString validationErrors =
 -}
 errorToString : ValidationError -> String
 errorToString validationError =
+    -- elm-review: known-unoptimized-recursion
     case validationError of
         ValidationError message ->
             message
