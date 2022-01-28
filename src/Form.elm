@@ -435,6 +435,7 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                                             }
                             )
 
+                updatedFormErrors : Dict String (List String)
                 updatedFormErrors =
                     case modelToValue updatedFields of
                         Ok ( _, errors ) ->
