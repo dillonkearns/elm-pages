@@ -20,7 +20,6 @@ type RawRequest value
 
 type WhatToDo
     = UseRawResponse
-    | CliOnly
     | DistilledBytesResponse Bytes
     | Error (List BuildError)
 
@@ -63,12 +62,6 @@ merge key whatToDo1 whatToDo2 =
         ( _, Error buildErrors1 ) ->
             Error buildErrors1
 
-        ( _, CliOnly ) ->
-            whatToDo1
-
-        ( CliOnly, _ ) ->
-            whatToDo2
-
         ( UseRawResponse, UseRawResponse ) ->
             UseRawResponse
 
@@ -88,10 +81,6 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
                     UseRawResponse ->
                         -- TODO can UseRawResponse be removed?
                         Ok Nothing
-
-                    CliOnly ->
-                        Nothing
-                            |> Ok
 
                     Error buildError ->
                         Err buildError
