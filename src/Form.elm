@@ -406,6 +406,7 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
     case msg of
         OnFieldInput { name, value } ->
             let
+                initialModel : Model
                 initialModel =
                     { model
                         | fields = updatedFields
