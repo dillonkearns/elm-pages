@@ -308,7 +308,7 @@ all =
                         , headers = []
                         , body = DataSource.Http.emptyBody
                         }
-                        (DataSource.Http.expectUnoptimizedJson
+                        (DataSource.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
                     )

@@ -33,7 +33,7 @@ dataSource timeStamp selectionSet =
         }
         (selectionSet
             |> Graphql.Document.decoder
-            |> DataSource.Http.expectUnoptimizedJson
+            |> DataSource.Http.expectJson
         )
 
 
@@ -56,7 +56,7 @@ mutationDataSource timeStamp selectionSet =
         }
         (selectionSet
             |> Graphql.Document.decoder
-            |> DataSource.Http.expectUnoptimizedJson
+            |> DataSource.Http.expectJson
         )
 
 

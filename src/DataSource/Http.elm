@@ -3,7 +3,7 @@ module DataSource.Http exposing
     , get, request
     , Body, emptyBody, stringBody, jsonBody
     , unoptimizedRequest
-    , Expect, expectString, expectUnoptimizedJson
+    , Expect, expectString, expectJson
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -59,7 +59,7 @@ your decoders. This can significantly reduce download sizes for your DataSource.
 
 ### Expect for unoptimized requests
 
-@docs Expect, expectString, expectUnoptimizedJson
+@docs Expect, expectString, expectJson
 
 -}
 
@@ -161,18 +161,18 @@ request :
     -> Json.Decode.Decoder a
     -> DataSource a
 request urlWithSecrets decoder =
-    unoptimizedRequest urlWithSecrets (ExpectUnoptimizedJson decoder)
+    unoptimizedRequest urlWithSecrets (ExpectJson decoder)
 
 
 {-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
 back in your DataSource.Http request.
 
-You can derive `ExpectUnoptimizedJson` from `ExpectString`. Or you could build your own helper to process the String
+You can derive `ExpectJson` from `ExpectString`. Or you could build your own helper to process the String
 as XML, for example, or give an `elm-pages` build error if the response can't be parsed as XML.
 
 -}
 type Expect value
-    = ExpectUnoptimizedJson (Json.Decode.Decoder value)
+    = ExpectJson (Json.Decode.Decoder value)
     | ExpectString (String -> Result String value)
 
 
@@ -217,9 +217,9 @@ If the function you pass to `expectString` yields an `Err`, then you will get a 
 fail your `elm-pages` build and print out the String from the `Err`.
 
 -}
-expectUnoptimizedJson : Json.Decode.Decoder value -> Expect value
-expectUnoptimizedJson =
-    ExpectUnoptimizedJson
+expectJson : Json.Decode.Decoder value -> Expect value
+expectJson =
+    ExpectJson
 
 
 {-| This is an alternative to the other request functions in this module that doesn't perform any optimizations on the
@@ -236,7 +236,7 @@ unoptimizedRequest :
     -> DataSource a
 unoptimizedRequest requestWithSecrets expect =
     case expect of
-        ExpectUnoptimizedJson decoder ->
+        ExpectJson decoder ->
             Request Dict.empty
                 ( []
                 , \_ _ rawResponseDict ->
