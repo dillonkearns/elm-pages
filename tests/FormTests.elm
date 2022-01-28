@@ -387,10 +387,6 @@ expectErrorsAfterUpdates expected form =
 performUpdatesThenExpectErrors : List ( String, String ) -> List ( String, List String ) -> Form.Form String value view -> Expect.Expectation
 performUpdatesThenExpectErrors updatesToPerform expected form =
     let
-        fieldsToUpdate : List String
-        fieldsToUpdate =
-            expected |> List.map Tuple.first
-
         model : Form.Model
         model =
             Form.init form
@@ -408,9 +404,11 @@ performUpdatesThenExpectErrors updatesToPerform expected form =
         ()
 
 
+field : a -> { raw : Maybe a, errors : List b, status : Form.FieldStatus }
 field value =
     { raw = Just value, errors = [], status = Form.NotVisited }
 
 
+toInput : a -> ()
 toInput _ =
     ()
