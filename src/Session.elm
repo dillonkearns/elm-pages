@@ -249,6 +249,7 @@ withSession config userRequest toRequest =
         userRequest
 
 
+encodeSessionUpdate : { a | name : String, secrets : DataSource (List String) } -> (c -> d -> DataSource ( Session, Response data )) -> c -> d -> DataSource (Response data)
 encodeSessionUpdate config toRequest userRequestData sessionResult =
     sessionResult
         |> toRequest userRequestData
