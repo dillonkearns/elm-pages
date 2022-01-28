@@ -12,7 +12,6 @@ The key differences are:
 
   - `DataSource.Http.Request`s are performed once at build time (`Http.Request`s are performed at runtime, at whenever point you perform them)
   - `DataSource.Http.Request`s strip out unused JSON data from the data your decoder doesn't touch to minimize the JSON payload
-  - `DataSource.Http.Request`s can use [`Pages.Secrets`](Pages.Secrets) to securely use credentials from your environment variables which are completely masked in the production assets.
   - `DataSource.Http.Request`s have a built-in `DataSource.andThen` that allows you to perform follow-up requests without using tasks
 
 
@@ -160,8 +159,8 @@ request :
     RequestDetails
     -> Json.Decode.Decoder a
     -> DataSource a
-request urlWithSecrets decoder =
-    unoptimizedRequest urlWithSecrets (ExpectJson decoder)
+request url decoder =
+    unoptimizedRequest url (ExpectJson decoder)
 
 
 {-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
@@ -185,13 +184,11 @@ fail your `elm-pages` build and print out the String from the `Err`.
 
     request =
         DataSource.Http.unoptimizedRequest
-            (Secrets.succeed
-                { url = "https://example.com/file.txt"
-                , method = "GET"
-                , headers = []
-                , body = DataSource.Http.emptyBody
-                }
-            )
+            { url = "https://example.com/file.txt"
+            , method = "GET"
+            , headers = []
+            , body = DataSource.Http.emptyBody
+            }
             (DataSource.Http.expectString
                 (\string ->
                     if String.toUpper string == string then
@@ -234,28 +231,28 @@ unoptimizedRequest :
     RequestDetails
     -> Expect a
     -> DataSource a
-unoptimizedRequest requestWithSecrets expect =
+unoptimizedRequest request_ expect =
     case expect of
         ExpectJson decoder ->
             Request Dict.empty
                 ( []
                 , \_ _ rawResponseDict ->
                     rawResponseDict
-                        |> RequestsAndPending.get (requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (request_ |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
                                             ( -- TODO check keepOrDiscard
-                                              Dict.singleton (requestWithSecrets |> HashRequest.hash)
+                                              Dict.singleton (request_ |> HashRequest.hash)
                                                 Pages.StaticHttpRequest.UseRawResponse
                                             , rawResponse
                                             )
 
                                     Nothing ->
                                         Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString requestWithSecrets)
-                                                [ requestWithSecrets ]
+                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_)
+                                                [ request_ ]
                                             )
                            )
                         |> Result.andThen
@@ -278,7 +275,7 @@ unoptimizedRequest requestWithSecrets expect =
                                             ( -- TODO check keepOrDiscard
                                               strippedResponses
                                                 |> Dict.insert
-                                                    (requestWithSecrets |> HashRequest.hash)
+                                                    (request_ |> HashRequest.hash)
                                                     Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
@@ -289,23 +286,23 @@ unoptimizedRequest requestWithSecrets expect =
 
         ExpectString mapStringFn ->
             Request Dict.empty
-                ( [ requestWithSecrets ]
+                ( [ request_ ]
                 , \_ _ rawResponseDict ->
                     rawResponseDict
-                        |> RequestsAndPending.get (requestWithSecrets |> HashRequest.hash)
+                        |> RequestsAndPending.get (request_ |> HashRequest.hash)
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
                                             ( -- TODO check keepOrDiscard
-                                              Dict.singleton (requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
+                                              Dict.singleton (request_ |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
                                             , rawResponse
                                             )
 
                                     Nothing ->
                                         Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString requestWithSecrets)
-                                                [ requestWithSecrets ]
+                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_)
+                                                [ request_ ]
                                             )
                            )
                         |> Result.andThen
@@ -317,7 +314,7 @@ unoptimizedRequest requestWithSecrets expect =
                                         (\finalRequest ->
                                             ( -- TODO check keepOrDiscard
                                               strippedResponses
-                                                |> Dict.insert (requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
+                                                |> Dict.insert (request_ |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
                                         )
