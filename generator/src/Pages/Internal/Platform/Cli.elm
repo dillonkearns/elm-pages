@@ -657,7 +657,6 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                             StaticHttpRequest.resolve ApplicationType.Cli
                                                 thing
                                                 model.allRawResponses
-                                                |> Debug.log "@@@ matchesToResponse"
                                                 |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
                                                 |> (\response ->
                                                         case response of
