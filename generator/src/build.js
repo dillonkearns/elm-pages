@@ -223,11 +223,11 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
  * @param {string | undefined} cwd
  */
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  if (options.debug) {
-    await runElmMake(options, elmEntrypointPath, outputPath, cwd);
-  } else {
-    await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
-  }
+  // if (options.debug) {
+  await runElmMake(options, elmEntrypointPath, outputPath, cwd);
+  // } else {
+  // await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
+  // }
   const fullOutputPath = path.join(cwd || process.cwd(), outputPath);
   await fsPromises.writeFile(
     fullOutputPath,
@@ -252,7 +252,7 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        ...(options.debug ? ["--debug"] : []),
+        ...(options.debug ? ["--debug"] : ["--optimize"]),
         "--report",
         "json",
       ],
