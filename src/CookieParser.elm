@@ -7,14 +7,14 @@ import Url
 
 parse : String -> Dict String String
 parse input =
-    Parser.run parser input
+    run parser input
         |> Result.withDefault Dict.empty
 
 
 parser : Parser (Dict String String)
 parser =
     loop [] keyValuePair
-        |> Parser.map Dict.fromList
+        |> map Dict.fromList
 
 
 keyValuePair : List ( String, String ) -> Parser (Step (List ( String, String )) (List ( String, String )))

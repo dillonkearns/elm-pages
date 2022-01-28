@@ -93,8 +93,6 @@ import Base64
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 import Dict.Extra
-import Json.Decode as Decode
-import Json.Encode as Encode
 import KeepOrDiscard exposing (KeepOrDiscard)
 import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
@@ -150,23 +148,6 @@ map fn requestInfo =
 
         ApiRoute stripped value ->
             ApiRoute stripped (fn value)
-
-
-dontSaveData : DataSource a -> DataSource a
-dontSaveData requestInfo =
-    case requestInfo of
-        RequestError _ ->
-            requestInfo
-
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
-                ( urls
-                , \_ appType rawResponses ->
-                    lookupFn KeepOrDiscard.Discard appType rawResponses
-                )
-
-        ApiRoute _ _ ->
-            requestInfo
 
 
 {-| -}

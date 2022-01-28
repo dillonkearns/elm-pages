@@ -14,7 +14,6 @@ import BuildError exposing (BuildError)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
-import Internal.ServerRequest
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
@@ -192,7 +191,7 @@ init config flags url key =
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData_ ) ->
                     case pageData_ of
-                        PageServerResponse.RenderPage responseInfo pageData ->
+                        PageServerResponse.RenderPage _ pageData ->
                             let
                                 userFlags : Pages.Flags.Flags
                                 userFlags =
@@ -379,7 +378,7 @@ update config appMsg model =
                                         , pageData = pageData.pageData
                                         }
 
-                                ( userModel, userCmd ) =
+                                ( userModel, _ ) =
                                     config.update
                                         pageData.sharedData
                                         pageData.pageData
@@ -443,14 +442,14 @@ update config appMsg model =
                     in
                     ( { model | pageData = updatedPageData }, userCmd |> Cmd.map UserMsg )
 
-                Err error ->
+                Err _ ->
                     ( model, Cmd.none )
 
         UpdateCache cacheUpdateResult ->
             case cacheUpdateResult of
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
-                Ok ( url, contentJson, updatedCache ) ->
+                Ok ( _, _, updatedCache ) ->
                     ( { model | contentCache = updatedCache }
                     , Cmd.none
                     )
@@ -461,7 +460,7 @@ update config appMsg model =
 
         UpdateCacheAndUrl url cacheUpdateResult ->
             case
-                Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\error -> "Http error")) model.pageData
+                Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\_ -> "Http error")) model.pageData
             of
                 -- TODO can there be race conditions here? Might need to set something in the model
                 -- to keep track of the last url change
@@ -492,7 +491,7 @@ update config appMsg model =
                                 |> Result.andThen
                                     (\pageResponse ->
                                         case pageResponse of
-                                            PageServerResponse.RenderPage responseInfo renderPagePageData ->
+                                            PageServerResponse.RenderPage _ renderPagePageData ->
                                                 Ok renderPagePageData
 
                                             PageServerResponse.ServerResponse _ ->
@@ -533,7 +532,7 @@ update config appMsg model =
                         ]
                     )
 
-                Err error ->
+                Err _ ->
                     {-
                        When there is an error loading the content.json, we are either
                        1) in the dev server, and should show the relevant DataSource error for the page
@@ -590,7 +589,7 @@ update config appMsg model =
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData_ ) ->
                     case pageData_ of
-                        PageServerResponse.RenderPage responseInfo pageData ->
+                        PageServerResponse.RenderPage _ pageData ->
                             let
                                 updateResult : Maybe ( userModel, Cmd userMsg )
                                 updateResult =
@@ -614,7 +613,7 @@ update config appMsg model =
                                                     pageData2_.userModel
                                                     |> Just
 
-                                            Err error ->
+                                            Err _ ->
                                                 Nothing
 
                                     else
@@ -707,10 +706,10 @@ update config appMsg model =
                                     , userCmd |> Cmd.map UserMsg
                                     )
 
-                        PageServerResponse.ServerResponse serverResponse ->
+                        PageServerResponse.ServerResponse _ ->
                             ( model, Cmd.none )
 
-                Err error ->
+                Err _ ->
                     ( { model
                         | contentCache =
                             ContentCache.init

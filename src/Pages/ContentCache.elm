@@ -12,10 +12,8 @@ module Pages.ContentCache exposing
     , pathForUrl
     )
 
-import BuildError exposing (BuildError)
 import Codec
 import Dict exposing (Dict)
-import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Pages.Internal.NotFoundReason
@@ -25,28 +23,12 @@ import Task exposing (Task)
 import Url exposing (Url)
 
 
-type alias Content =
-    List ( List String, { extension : String, frontMatter : String, body : Maybe String } )
-
-
 type alias ContentCache =
-    Dict Path Entry
-
-
-type alias Errors =
-    List ( Html Never, BuildError )
-
-
-type alias ContentCacheInner =
     Dict Path Entry
 
 
 type Entry
     = Parsed ContentJson
-
-
-type alias ParseError =
-    String
 
 
 type alias Path =

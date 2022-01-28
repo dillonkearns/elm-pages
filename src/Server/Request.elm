@@ -10,7 +10,7 @@ module Server.Request exposing
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
-    , errorsToString, errorToString, getDecoder
+    , errorsToString, errorToString, getDecoder, ValidationError
     )
 
 {-|
@@ -58,16 +58,13 @@ module Server.Request exposing
 
 ## Internals
 
-@docs errorsToString, errorToString, getDecoder
+@docs errorsToString, errorToString, getDecoder, ValidationError
 
 -}
 
-import CookieParser
 import DataSource exposing (DataSource)
-import Dict exposing (Dict)
 import Json.Decode
 import List.NonEmpty
-import QueryParams exposing (QueryParams)
 import Time
 
 
@@ -99,10 +96,10 @@ oneOfInternal previousErrors optimizedDecoders =
                                 ( Ok okFirstResult, [] ) ->
                                     Json.Decode.succeed ( Ok okFirstResult, [] )
 
-                                ( Ok okFirstResult, otherErrors ) ->
+                                ( Ok _, otherErrors ) ->
                                     oneOfInternal (previousErrors ++ otherErrors) rest
 
-                                ( Err error, otherErrors ) ->
+                                ( Err error, _ ) ->
                                     case error of
                                         OneOf errors ->
                                             oneOfInternal (previousErrors ++ errors) rest
@@ -139,11 +136,10 @@ getDecoder (Request decoder) =
             )
 
 
+{-| -}
 type ValidationError
     = ValidationError String
     | OneOf (List ValidationError)
-      -- unexpected because violation of the contract - could be adapter issue, or issue with this package
-    | InternalError
     | JsonDecodeError Json.Decode.Error
     | NotFormPost { method : Maybe Method, contentType : Maybe String }
 
@@ -164,9 +160,6 @@ errorToString validationError =
     case validationError of
         ValidationError message ->
             message
-
-        InternalError ->
-            "InternalError"
 
         JsonDecodeError error ->
             "Unable to parse JSON body\n" ++ Json.Decode.errorToString error
@@ -240,7 +233,7 @@ andThen toRequestB (Request requestA) =
     Json.Decode.andThen
         (\value ->
             case value of
-                ( Ok okValue, errors ) ->
+                ( Ok okValue, _ ) ->
                     okValue
                         |> toRequestB
                         |> unwrap
@@ -319,22 +312,6 @@ requestTime =
         |> Request
 
 
-okOrInternalError : Json.Decode.Decoder a -> Json.Decode.Decoder (Result ValidationError a)
-okOrInternalError decoder =
-    Json.Decode.maybe decoder
-        |> Json.Decode.map (Result.fromMaybe InternalError)
-
-
-{-| -}
-method : Request Method
-method =
-    (Json.Decode.field "method" Json.Decode.string
-        |> Json.Decode.map methodFromString
-    )
-        |> noErrors
-        |> Request
-
-
 noErrors : Json.Decode.Decoder value -> Json.Decode.Decoder ( Result ValidationError value, List ValidationError )
 noErrors decoder =
     decoder
@@ -405,24 +382,6 @@ appendError error decoder =
 
 
 {-| -}
-allQueryParams : Request QueryParams
-allQueryParams =
-    Json.Decode.field "query" Json.Decode.string
-        |> Json.Decode.map QueryParams.fromString
-        |> noErrors
-        |> Request
-
-
-{-| -}
-queryParam : String -> Request (Maybe String)
-queryParam name =
-    optionalField name Json.Decode.string
-        |> Json.Decode.field "query"
-        |> noErrors
-        |> Request
-
-
-{-| -}
 expectQueryParam : String -> Request String
 expectQueryParam name =
     optionalField name Json.Decode.string
@@ -444,21 +403,6 @@ optionalHeader : String -> Request (Maybe String)
 optionalHeader headerName =
     optionalField (headerName |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
-        |> noErrors
-        |> Request
-
-
-{-| -}
-allCookies : Request (Dict String String)
-allCookies =
-    optionalField "cookie" Json.Decode.string
-        |> Json.Decode.field "headers"
-        |> Json.Decode.map
-            (\cookie_ ->
-                cookie_
-                    |> Maybe.withDefault ""
-                    |> CookieParser.parse
-            )
         |> noErrors
         |> Request
 
@@ -609,14 +553,6 @@ expectMultiPartFormPost toForm =
 
 
 {-| -}
-body : Request (Maybe String)
-body =
-    bodyDecoder
-        |> noErrors
-        |> Request
-
-
-{-| -}
 expectContentType : String -> Request Bool
 expectContentType expectedContentType =
     optionalField ("content-type" |> String.toLower) Json.Decode.string
@@ -697,11 +633,6 @@ jsonBodyResult jsonBodyDecoder =
             |> noErrors
             |> Request
         )
-
-
-bodyDecoder : Json.Decode.Decoder (Maybe String)
-bodyDecoder =
-    Json.Decode.field "body" (Json.Decode.nullable Json.Decode.string)
 
 
 {-| -}

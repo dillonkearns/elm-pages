@@ -8,7 +8,7 @@ module DataSource.Port exposing (get)
 
 import DataSource
 import DataSource.Http
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode exposing (Decoder)
 import Json.Encode
 
 
