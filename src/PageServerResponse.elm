@@ -1,4 +1,4 @@
-module PageServerResponse exposing (PageServerResponse(..), toJson)
+module PageServerResponse exposing (PageServerResponse(..), Response, toJson)
 
 import Json.Encode
 import List.Extra
