@@ -2,7 +2,7 @@ const fs = require("./dir-helpers.js");
 const fsPromises = require("fs").promises;
 
 const { runElmReview } = require("./compile-elm.js");
-const { restoreColor } = require("./error-formatter");
+const { restoreColorSafe } = require("./error-formatter");
 const path = require("path");
 const spawnCallback = require("cross-spawn").spawn;
 const codegen = require("./codegen.js");
@@ -22,7 +22,7 @@ const DIR_PATH = path.join(process.cwd());
 const OUTPUT_FILE_NAME = "elm.js";
 
 process.on("unhandledRejection", (error) => {
-  console.trace("Unhandled: ", error);
+  console.log(error);
   process.exitCode = 1;
 });
 
@@ -84,13 +84,12 @@ async function run(options) {
       if (isParsingError) {
         console.error(error);
       } else {
-        console.error(restoreColor(reviewOutput));
+        console.error(restoreColorSafe(reviewOutput));
       }
-      process.exit(1);
+      process.exitCode = 1;
     } catch (noElmReviewErrors) {
       console.error(error);
     } finally {
-      process.exit(1);
     }
   }
 }
@@ -112,7 +111,7 @@ function initWorker(basePath) {
           pagesReady(JSON.parse(message.data));
         } else if (message.tag === "error") {
           process.exitCode = 1;
-          console.error(restoreColor(message.data));
+          console.error(restoreColorSafe(message.data));
           buildNextPage(newWorker);
         } else if (message.tag === "done") {
           buildNextPage(newWorker);
@@ -282,9 +281,8 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
       } else {
         if (!buildError) {
           buildError = true;
-          process.exitCode = 1;
           try {
-            reject(restoreColor(JSON.parse(commandOutput)));
+            reject(restoreColorSafe(commandOutput));
           } catch (error) {
             reject(commandOutput);
           }
