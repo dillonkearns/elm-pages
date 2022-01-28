@@ -118,7 +118,6 @@ noUnusedRules =
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
             , "src/RoutePattern.elm"
-            , "src/Form.elm" -- ignored because false positive for unused for Phantom Builder type, see https://github.com/jfmengels/elm-review-unused/issues/60
             ]
     , NoUnused.CustomTypeConstructorArgs.rule
         |> ignoreInTest

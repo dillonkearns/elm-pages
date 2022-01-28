@@ -1337,11 +1337,11 @@ withStringProperty ( key, value ) (Field field) =
 
 
 type Yes
-    = Yes
+    = Yes Never
 
 
 type No
-    = No
+    = No Never
 
 
 {-| -}
