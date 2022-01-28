@@ -1539,18 +1539,18 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
         withDecoder
         thing
         (\fields_ ->
-            let
-                maybeValue : Maybe String
-                maybeValue =
-                    fields_
-                        |> Dict.get field.name
-                        |> Maybe.andThen .raw
-            in
             case modelToValue fields_ of
                 Err error ->
                     Err error
 
                 Ok ( okSoFar, formErrors ) ->
+                    let
+                        maybeValue : Maybe String
+                        maybeValue =
+                            fields_
+                                |> Dict.get field.name
+                                |> Maybe.andThen .raw
+                    in
                     maybeValue
                         |> field.decode
                         |> Result.mapError

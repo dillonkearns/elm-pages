@@ -134,6 +134,21 @@ init config flags url key =
             ContentCache.init
                 (Maybe.map
                     (\cj ->
+                        let
+                            currentPath : List String
+                            currentPath =
+                                flags
+                                    |> Decode.decodeValue
+                                        (Decode.at [ "contentJson", "path" ]
+                                            (Decode.string
+                                                |> Decode.map Path.fromString
+                                                |> Decode.map Path.toSegments
+                                            )
+                                        )
+                                    |> Result.mapError Decode.errorToString
+                                    |> Result.toMaybe
+                                    |> Maybe.withDefault []
+                        in
                         ( currentPath
                         , cj
                         )
@@ -141,31 +156,11 @@ init config flags url key =
                     contentJson
                 )
 
-        currentPath : List String
-        currentPath =
-            flags
-                |> Decode.decodeValue
-                    (Decode.at [ "contentJson", "path" ]
-                        (Decode.string
-                            |> Decode.map Path.fromString
-                            |> Decode.map Path.toSegments
-                        )
-                    )
-                |> Result.mapError Decode.errorToString
-                |> Result.toMaybe
-                |> Maybe.withDefault []
-
         contentJson : Maybe ContentJson
         contentJson =
             flags
                 |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
                 |> Result.toMaybe
-
-        urls : { currentUrl : Url, basePath : List String }
-        urls =
-            { currentUrl = url
-            , basePath = config.basePath
-            }
     in
     case contentJson |> Maybe.map .staticData of
         Just justContentJson ->
@@ -183,16 +178,22 @@ init config flags url key =
                         config.sharedData
                         justContentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
-
-                pagePath : Path
-                pagePath =
-                    urlsToPagePath urls
             in
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData_ ) ->
                     case pageData_ of
                         PageServerResponse.RenderPage _ pageData ->
                             let
+                                urls : { currentUrl : Url, basePath : List String }
+                                urls =
+                                    { currentUrl = url
+                                    , basePath = config.basePath
+                                    }
+
+                                pagePath : Path
+                                pagePath =
+                                    urlsToPagePath urls
+
                                 userFlags : Pages.Flags.Flags
                                 userFlags =
                                     flags
@@ -576,21 +577,21 @@ update config appMsg model =
                         config.sharedData
                         contentJson.staticData
                         |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
-
-                from404ToNon404 : Bool
-                from404ToNon404 =
-                    not contentJson.is404
-                        && was404
-
-                was404 : Bool
-                was404 =
-                    ContentCache.is404 model.contentCache urls
             in
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
                 Ok ( sharedData, pageData_ ) ->
                     case pageData_ of
                         PageServerResponse.RenderPage _ pageData ->
                             let
+                                was404 : Bool
+                                was404 =
+                                    ContentCache.is404 model.contentCache urls
+
+                                from404ToNon404 : Bool
+                                from404ToNon404 =
+                                    not contentJson.is404
+                                        && was404
+
                                 updateResult : Maybe ( userModel, Cmd userMsg )
                                 updateResult =
                                     if from404ToNon404 then
@@ -741,13 +742,13 @@ application config =
         , update = update config
         , subscriptions =
             \model ->
-                let
-                    urls : { currentUrl : Url }
-                    urls =
-                        { currentUrl = model.url }
-                in
                 case model.pageData of
                     Ok pageData ->
+                        let
+                            urls : { currentUrl : Url }
+                            urls =
+                                { currentUrl = model.url }
+                        in
                         Sub.batch
                             [ config.subscriptions (model.url |> config.urlToRoute)
                                 (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> Path.join)

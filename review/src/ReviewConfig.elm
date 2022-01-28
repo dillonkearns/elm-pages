@@ -20,6 +20,7 @@ import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
 import NoModuleOnExposedNames
+import NoPrematureLetComputation
 import NoUnmatchedUnit
 import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
@@ -36,6 +37,7 @@ import Review.Rule as Rule exposing (Rule)
 config : List Rule
 config =
     ([ NoExposingEverything.rule
+     , NoPrematureLetComputation.rule
 
      --NoImportingEverything.rule []
      , NoInconsistentAliases.config
