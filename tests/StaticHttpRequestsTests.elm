@@ -3,8 +3,6 @@ module StaticHttpRequestsTests exposing (all)
 import ApiRoute
 import Codec
 import DataSource exposing (DataSource)
-import DataSource.File
-import DataSource.Glob as Glob
 import DataSource.Http
 import Dict
 import Expect
@@ -150,7 +148,7 @@ all =
         , test "andThen chain avoids repeat requests" <|
             \() ->
                 let
-                    getReq : String -> JD.Decoder a -> DataSource a
+                    getReq : String -> Decoder a -> DataSource a
                     getReq url decoder =
                         DataSource.Http.request
                             (get url)
@@ -1295,49 +1293,6 @@ simulateMultipleHttp requests program =
                                 ]
                         )
                         requests
-                  )
-                ]
-            )
-
-
-simulateHttpAssert : Request.Request -> String -> (Request.Request -> Expect.Expectation) -> ProgramTest model msg effect -> ProgramTest model msg effect
-simulateHttpAssert request response checkRequest program =
-    program
-        |> ProgramTest.ensureOutgoingPortValues
-            "toJsPort"
-            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-            (\actualPorts ->
-                case actualPorts of
-                    [ ToJsPayload.DoHttp actualReq ] ->
-                        --Expect.pass
-                        checkRequest actualReq
-
-                    _ ->
-                        Expect.fail <|
-                            "Expected an HTTP request, got:\n"
-                                ++ Debug.toString actualPorts
-            )
-        |> ProgramTest.simulateIncomingPort "fromJsPort"
-            (Encode.object
-                [ ( "tag", Encode.string "GotBatch" )
-                , ( "data"
-                  , Encode.list
-                        (\req ->
-                            Encode.object
-                                [ ( "request"
-                                  , Encode.object
-                                        [ ( "masked"
-                                          , Codec.encodeToValue Request.codec req
-                                          )
-                                        , ( "unmasked"
-                                          , Codec.encodeToValue Request.codec req
-                                          )
-                                        ]
-                                  )
-                                , ( "response", Encode.string response )
-                                ]
-                        )
-                        [ request ]
                   )
                 ]
             )
