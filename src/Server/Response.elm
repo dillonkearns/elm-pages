@@ -75,7 +75,7 @@ type alias RawResponse =
 
 
 {-| -}
-map : (data -> mappedData) -> PageServerResponse data -> PageServerResponse mappedData
+map : (data -> mappedData) -> Response data -> Response mappedData
 map mapFn pageServerResponse =
     case pageServerResponse of
         RenderPage response data ->
@@ -97,7 +97,7 @@ plainText string =
 
 
 {-| -}
-render : data -> PageServerResponse data
+render : data -> Response data
 render data =
     RenderPage
         { statusCode = 200, headers = [] }
