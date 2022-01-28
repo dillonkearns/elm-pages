@@ -1,7 +1,7 @@
 module SetCookieTest exposing (all)
 
 import Expect
-import Server.SetCookie as SetCookie exposing (..)
+import Server.SetCookie exposing (..)
 import Test exposing (Test, describe, test)
 import Time
 
@@ -73,7 +73,7 @@ all =
             \() ->
                 setCookie "id" "a3fWa"
                     |> nonSecure
-                    |> withSameSite SetCookie.Strict
+                    |> withSameSite Strict
                     |> toString
                     |> Expect.equal "id=a3fWa; SameSite=Strict"
         ]

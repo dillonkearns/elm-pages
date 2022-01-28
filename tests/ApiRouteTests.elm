@@ -89,12 +89,12 @@ all =
                                 )
                         )
                         |> literal "no-dynamic-segments.json"
-                        |> ApiRoute.serverRender
+                        |> serverRender
                         |> Internal.ApiRoute.toPattern
                         |> Expect.equal (Pattern [ Pattern.Literal "no-dynamic-segments.json" ] Pattern.NoPendingSlash)
             , test "two literal segments" <|
                 \() ->
-                    ApiRoute.succeed
+                    succeed
                         (Server.Request.succeed ()
                             |> Server.Request.map
                                 (\() ->
@@ -103,10 +103,10 @@ all =
                                         |> DataSource.succeed
                                 )
                         )
-                        |> ApiRoute.literal "api"
-                        |> ApiRoute.slash
-                        |> ApiRoute.literal "stars"
-                        |> ApiRoute.serverRender
+                        |> literal "api"
+                        |> slash
+                        |> literal "stars"
+                        |> serverRender
                         |> Internal.ApiRoute.toPattern
                         |> Expect.equal
                             (Pattern
@@ -154,12 +154,12 @@ all =
                                         DataSource.succeed ("Data for repo " ++ repo |> Server.Response.plainText)
                                     )
                         )
-                        |> ApiRoute.literal "api"
-                        |> ApiRoute.slash
-                        |> ApiRoute.literal "repo"
-                        |> ApiRoute.slash
-                        |> ApiRoute.capture
-                        |> ApiRoute.literal ".json"
+                        |> literal "api"
+                        |> slash
+                        |> literal "repo"
+                        |> slash
+                        |> capture
+                        |> literal ".json"
                         |> serverRender
                         |> Internal.ApiRoute.toPattern
                         |> Expect.equal

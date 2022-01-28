@@ -1,6 +1,6 @@
 module FormDataTest exposing (all)
 
-import Dict exposing (Dict)
+import Dict
 import Expect
 import FormData
 import Test exposing (Test, describe, test)

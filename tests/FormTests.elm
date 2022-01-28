@@ -5,7 +5,7 @@ import Dict
 import Expect
 import Form
 import Form.Value
-import Test exposing (Test, describe, only, skip, test)
+import Test exposing (Test, describe, skip, test)
 import Time
 
 
@@ -117,7 +117,7 @@ all =
                             |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                         )
                     |> Form.validate
-                        (\( checkin, checkout ) ->
+                        (\_ ->
                             [ ( "checkin", [ "Must be before checkout date." ] )
                             ]
                         )
@@ -237,7 +237,7 @@ all =
                                 |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
                             )
                         |> Form.validate
-                            (\( checkin, checkout ) ->
+                            (\_ ->
                                 [ ( "checkin", [ "Must be before checkout date." ] )
                                 ]
                             )
@@ -377,7 +377,7 @@ expectErrorsAfterUpdates expected form =
             |> List.map
                 (\formModel () ->
                     formModel.fields
-                        |> Dict.map (\key value -> value.errors)
+                        |> Dict.map (\_ value -> value.errors)
                         |> Expect.equalDicts (Dict.fromList expected)
                 )
         )
@@ -401,7 +401,7 @@ performUpdatesThenExpectErrors updatesToPerform expected form =
             |> List.map
                 (\formModel () ->
                     formModel.fields
-                        |> Dict.map (\key value -> value.errors)
+                        |> Dict.map (\_ value -> value.errors)
                         |> Expect.equalDicts (Dict.fromList expected)
                 )
         )

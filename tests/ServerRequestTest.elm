@@ -5,7 +5,7 @@ import Json.Decode
 import Json.Encode
 import OptimizedDecoder
 import Server.Request as Request
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 
 
 all : Test
@@ -87,13 +87,13 @@ all =
             \() ->
                 Request.oneOf
                     [ Request.expectFormPost
-                        (\{ field, optionalField } ->
+                        (\{ field } ->
                             field "first"
                         )
                     , Request.expectJsonBody (OptimizedDecoder.field "first" OptimizedDecoder.string)
                     , Request.expectQueryParam "first"
                     , Request.expectMultiPartFormPost
-                        (\{ field, optionalField } ->
+                        (\{ field } ->
                             field "first"
                         )
                     ]
@@ -143,7 +143,7 @@ expectMatch request (Request.Request decoder) =
     of
         Ok ok ->
             case ok of
-                ( Ok inner, [] ) ->
+                ( Ok _, [] ) ->
                     Expect.pass
 
                 ( Err innerError, otherErrors ) ->
@@ -171,7 +171,7 @@ expectNoMatch request expectedErrorString (Request.Request decoder) =
     of
         Ok ok ->
             case ok of
-                ( Ok inner, [] ) ->
+                ( Ok _, [] ) ->
                     Expect.fail "Expected this request not to match, but instead it did match."
 
                 ( Err innerError, otherErrors ) ->
