@@ -1,4 +1,10 @@
-module Session exposing (..)
+module Session exposing (Decoder, NotLoadedReason(..), Session(..), SessionUpdate(..), Value(..), clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash2, withSession)
+
+{-|
+
+@docs Decoder, NotLoadedReason, Session, SessionUpdate, Value, clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash2, withSession
+
+-}
 
 import DataSource exposing (DataSource)
 import DataSource.Http
@@ -11,44 +17,53 @@ import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
 
 
+{-| -}
 type Session
     = Session (Dict String Value)
 
 
+{-| -}
 type alias Decoder decoded =
     Json.Decode.Decoder decoded
 
 
+{-| -}
 type Value
     = Persistent String
     | ExpiringFlash String
     | NewFlash String
 
 
+{-| -}
 type SessionUpdate
     = SessionUpdate (Dict String String)
 
 
+{-| -}
 noUpdates : SessionUpdate
 noUpdates =
     SessionUpdate Dict.empty
 
 
+{-| -}
 oneUpdate : String -> String -> SessionUpdate
 oneUpdate string value =
     SessionUpdate (Dict.singleton string value)
 
 
+{-| -}
 updateAllFields : Dict String String -> SessionUpdate
 updateAllFields updates =
     SessionUpdate updates
 
 
+{-| -}
 withFlash : String -> String -> SessionUpdate -> SessionUpdate
 withFlash string value (SessionUpdate sessionUpdate) =
     SessionUpdate (sessionUpdate |> Dict.insert (flashPrefix ++ string) value)
 
 
+{-| -}
 withFlash2 : String -> String -> Session -> Session
 withFlash2 key value (Session session) =
     session
@@ -56,6 +71,7 @@ withFlash2 key value (Session session) =
         |> Session
 
 
+{-| -}
 insert : String -> String -> Session -> Session
 insert key value (Session session) =
     session
@@ -63,6 +79,7 @@ insert key value (Session session) =
         |> Session
 
 
+{-| -}
 get : String -> Session -> Maybe String
 get key (Session session) =
     session
@@ -70,6 +87,7 @@ get key (Session session) =
         |> Maybe.map unwrap
 
 
+{-| -}
 unwrap : Value -> String
 unwrap value =
     case value of
@@ -83,6 +101,7 @@ unwrap value =
             string
 
 
+{-| -}
 update : String -> (Maybe String -> Maybe String) -> Session -> Session
 update key updateFn (Session session) =
     session
@@ -106,6 +125,7 @@ update key updateFn (Session session) =
         |> Session
 
 
+{-| -}
 remove : String -> Session -> Session
 remove key (Session session) =
     session
@@ -113,27 +133,32 @@ remove key (Session session) =
         |> Session
 
 
+{-| -}
 empty : Session
 empty =
     Session Dict.empty
 
 
+{-| -}
 flash : String -> String -> SessionUpdate
 flash string value =
     SessionUpdate (Dict.singleton (flashPrefix ++ string) value)
 
 
+{-| -}
 type NotLoadedReason
     = NoCookies
     | MissingHeaders
 
 
+{-| -}
 succeed : constructor -> Decoder constructor
 succeed constructor =
     constructor
         |> Json.Decode.succeed
 
 
+{-| -}
 setValues : Session -> Json.Encode.Value
 setValues (Session session) =
     session
@@ -154,11 +179,13 @@ setValues (Session session) =
         |> Json.Encode.object
 
 
+{-| -}
 flashPrefix : String
 flashPrefix =
     "__flash__"
 
 
+{-| -}
 clearFlashCookies : Dict String String -> Dict String String
 clearFlashCookies dict =
     Dict.Extra.removeWhen
@@ -168,6 +195,7 @@ clearFlashCookies dict =
         dict
 
 
+{-| -}
 expectSession :
     { name : String
     , secrets : DataSource (List String)
@@ -188,6 +216,7 @@ expectSession config userRequest toRequest =
         userRequest
 
 
+{-| -}
 withSession :
     { name : String
     , secrets : DataSource (List String)

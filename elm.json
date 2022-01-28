@@ -18,6 +18,7 @@
         "DataSource.File",
         "DataSource.Port",
         "DataSource.Env",
+        "Session",
         "Server.Request",
         "Server.SetCookie",
         "Server.Response",
