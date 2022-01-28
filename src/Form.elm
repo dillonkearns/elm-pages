@@ -16,6 +16,7 @@ module Form exposing
     , withStep
     , submitHandlers2, toHtml2
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+    , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     )
 
 {-|
@@ -130,11 +131,11 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Form.Value
 import FormDecoder
-import Html exposing (Html)
+import Html
 import Html.Attributes as Attr
 import Html.Events
 import Http
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
@@ -190,12 +191,6 @@ http url_ (Form fields decoder serverValidations modelToValue) model =
         , tracker = Nothing
         , url = url_
         }
-
-
-type alias RawModel error =
-    { fields : List ( String, List error )
-    , formErrors : Dict String (List error)
-    }
 
 
 {-| -}
@@ -337,7 +332,7 @@ rawValues : Model -> Dict String String
 rawValues model =
     model.fields
         |> Dict.map
-            (\key value ->
+            (\_ value ->
                 value.raw |> Maybe.withDefault ""
             )
 
@@ -422,7 +417,7 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
                         |> Dict.update name
                             (\entry ->
                                 case entry of
-                                    Just { raw, errors, status } ->
+                                    Just { status } ->
                                         Just
                                             { raw = Just value
                                             , errors = runValidation form { name = name, value = value }
@@ -440,7 +435,7 @@ update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as
 
                 updatedFormErrors =
                     case modelToValue updatedFields of
-                        Ok ( decodedModel, errors ) ->
+                        Ok ( _, errors ) ->
                             errors
                                 |> Dict.fromList
 
@@ -564,7 +559,7 @@ init ((Form fields decoder serverValidations modelToValue) as form) =
     , isSubmitting = NotSubmitted
     , formErrors =
         case modelToValue initialFields of
-            Ok ( decodedModel, errors ) ->
+            Ok ( _, errors ) ->
                 errors
                     |> Dict.fromList
 
@@ -832,7 +827,7 @@ radio name invalidError nonEmptyItemMapping toHtmlFn wrapFn =
 
         toString : item -> String
         toString targetItem =
-            case nonEmptyItemMapping |> List.NonEmpty.toList |> List.filter (\( string, item ) -> item == targetItem) |> List.head of
+            case nonEmptyItemMapping |> List.NonEmpty.toList |> List.filter (\( _, item ) -> item == targetItem) |> List.head of
                 Just ( string, _ ) ->
                     string
 
@@ -908,15 +903,7 @@ submit toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ formHasErrors fieldInfo info ->
-                let
-                    disabledAttrs =
-                        if formHasErrors then
-                            [ Attr.attribute "disabled" "" ]
-
-                        else
-                            []
-                in
+            \_ formHasErrors _ _ ->
                 toHtmlFn
                     { attrs =
                         [ Attr.type_ "submit"
@@ -925,27 +912,6 @@ submit toHtmlFn =
                     --++ disabledAttrs
                     , formHasErrors = formHasErrors
                     }
-        , decode =
-            \_ ->
-                Ok ()
-                    |> toFieldResult
-        , properties = []
-        }
-
-
-view :
-    view
-    -> Field error () view constraints
-view viewFn =
-    Field
-        { name = ""
-        , initialValue = Nothing
-        , type_ = "submit"
-        , required = False
-        , serverValidation = \_ -> DataSource.succeed []
-        , toHtml =
-            \_ _ fieldInfo info ->
-                viewFn
         , decode =
             \_ ->
                 Ok ()
@@ -1348,12 +1314,6 @@ withStep max field =
     withStringProperty ( "step", Form.Value.toString max ) field
 
 
-type_ : String -> Field error value view constraints -> Field error value view constraints
-type_ typeName (Field field) =
-    Field
-        { field | type_ = typeName }
-
-
 {-| -}
 withInitialValue : Form.Value.Value valueType -> Field error value view { constraints | initial : valueType } -> Field error value view constraints
 withInitialValue initialValue (Field field) =
@@ -1369,11 +1329,6 @@ multiple (Field field) =
 withStringProperty : ( String, String ) -> Field error value view constraints1 -> Field error value view constraints2
 withStringProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.string value ) :: field.properties }
-
-
-withBoolProperty : ( String, Bool ) -> Field error value view constraints1 -> Field error value view constraints2
-withBoolProperty ( key, value ) (Field field) =
-    Field { field | properties = ( key, Encode.bool value ) :: field.properties }
 
 
 type Yes
@@ -1411,7 +1366,7 @@ required missingError (Field field) =
                     Ok ( Just decoded, errors ) ->
                         Ok ( decoded, errors )
 
-                    Ok ( Nothing, errors ) ->
+                    Ok ( Nothing, _ ) ->
                         Err [ missingError ]
 
                     Err errors ->
@@ -1466,7 +1421,7 @@ withServerValidation serverValidation (Field field) =
                                 (serverValidation decoded)
                                 (DataSource.succeed errors)
 
-                        Err errors ->
+                        Err _ ->
                             {- We can't decode the form data, which means there were errors previously in the pipeline
                                we return an empty list, effectively short-circuiting remaining validation and letting
                                the fatal errors propagate through
@@ -1537,16 +1492,6 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                             (field.serverValidation arg2
                                 |> DataSource.map
                                     (\validationErrors ->
-                                        let
-                                            clientErrors : List error
-                                            clientErrors =
-                                                case field.decode arg2 of
-                                                    Ok ( value, errors ) ->
-                                                        errors
-
-                                                    Err error ->
-                                                        error
-                                        in
                                         ( field.name
                                         , { errors = validationErrors --++ clientErrors
                                           , raw = arg2
@@ -1604,7 +1549,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                     maybeValue
                         |> field.decode
                         |> Result.mapError
-                            (\fieldErrors ->
+                            (\_ ->
                                 [ ( field.name
                                   , {- these errors are ignored here because we run each field-level validation independently
                                        but we still need to transform the values. We only want to get the form-level validations
@@ -1615,7 +1560,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                 ]
                             )
                         |> Result.map
-                            (\( value, fieldErrors ) ->
+                            (\( value, _ ) ->
                                 ( okSoFar value
                                 , -- We also ignore the field-level errors here to avoid duplicates.
                                   formErrors
@@ -1963,7 +1908,7 @@ apiHandler (Form fields decoder serverValidations modelToValue) =
                 |> Encode.object
     in
     Request.map2
-        (\decoded errors ->
+        (\_ errors ->
             errors
                 |> DataSource.map
                     (\validationErrors ->
@@ -2007,7 +1952,7 @@ toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
                                 if
                                     otherValidationErrors
                                         |> List.any
-                                            (\( a, entryErrors ) ->
+                                            (\( _, entryErrors ) ->
                                                 entryErrors |> List.isEmpty
                                             )
                                 then
@@ -2016,7 +1961,7 @@ toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
                                 else
                                     Err model
 
-                            Err otherValidationErrors ->
+                            Err _ ->
                                 Err model
                     )
         )
