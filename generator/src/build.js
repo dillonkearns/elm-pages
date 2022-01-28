@@ -178,12 +178,14 @@ async function compileElm(options) {
   }
 }
 
-function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
+function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
+    const optimizedOutputPath = outputPath + ".opt";
     const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
+    const fullOptimizedOutputPath = fullOutputPath + ".opt";
     const subprocess = spawnCallback(
       `elm-optimize-level-2`,
-      [elmEntrypointPath, "--output", outputPath],
+      [outputPath, "--output", optimizedOutputPath],
       {
         // ignore stdout
         // stdio: ["inherit", "ignore", "inherit"],
@@ -201,8 +203,9 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
       if (
         code === 0 &&
         commandOutput === "" &&
-        (await fs.fileExists(fullOutputPath))
+        (await fs.fileExists(fullOptimizedOutputPath))
       ) {
+        await fs.copyFile(fullOptimizedOutputPath, fullOutputPath);
         resolve();
       } else {
         if (!buildError) {
@@ -223,11 +226,10 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
  * @param {string | undefined} cwd
  */
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  // if (options.debug) {
   await runElmMake(options, elmEntrypointPath, outputPath, cwd);
-  // } else {
-  // await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
-  // }
+  if (!options.debug) {
+    await elmOptimizeLevel2(outputPath, cwd);
+  }
   const fullOutputPath = path.join(cwd || process.cwd(), outputPath);
   await fsPromises.writeFile(
     fullOutputPath,
