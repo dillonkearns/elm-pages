@@ -59,6 +59,9 @@ config =
         |> ignoreInTest
      , NoMissingTypeAnnotation.rule
      , NoMissingTypeAnnotationInLetIn.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "tests/FormTests.elm"
+            ]
      , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"
@@ -86,6 +89,12 @@ config =
                                 , "src/RoutePattern.elm" -- used in generated code
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
                                 , "src/DataSource/ServerRequest.elm" -- temporarily removed from exposed modules for alpha serverless
+                                , "src/BuildError.elm"
+                                , "src/Internal/ApiRoute.elm"
+                                , "src/Pages/StaticHttpRequest.elm"
+                                , "src/RenderRequest.elm"
+                                , "tests/Pages/Internal/Platform.elm"
+                                , "tests/Pages/Internal/Router.elm"
                                 ]
                     )
            )
