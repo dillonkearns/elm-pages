@@ -155,7 +155,7 @@ type FieldStatus
 
 
 http : String -> Form error value view -> Model -> Cmd (Result Http.Error (FieldState String))
-http url_ (Form fields decoder serverValidations modelToValue) model =
+http url_ (Form _ _ _ _) model =
     Http.request
         { method = "POST"
         , headers =
@@ -290,7 +290,7 @@ succeed constructor =
 
 {-| -}
 runClientValidations : Model -> Form String value view -> Result (List ( String, List String )) ( value, List ( String, List String ) )
-runClientValidations model (Form fields decoder serverValidations modelToValue) =
+runClientValidations model (Form _ _ _ modelToValue) =
     modelToValue model.fields
 
 
@@ -338,7 +338,7 @@ rawValues model =
 
 
 runValidation : Form error value view -> { name : String, value : String } -> List error
-runValidation (Form fields decoder serverValidations modelToValue) newInput =
+runValidation (Form fields _ _ _) newInput =
     let
         matchingDecoder : Maybe (FieldInfoSimple error view)
         matchingDecoder =
@@ -402,7 +402,7 @@ isAtLeast atLeastStatus currentStatus =
 
 {-| -}
 update : (Msg -> msg) -> (Result Http.Error (FieldState String) -> msg) -> Form String value view -> Msg -> Model -> ( Model, Cmd msg )
-update toMsg onResponse ((Form fields decoder serverValidations modelToValue) as form) msg model =
+update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
     case msg of
         OnFieldInput { name, value } ->
             let
@@ -526,7 +526,7 @@ initField =
 
 {-| -}
 init : Form String value view -> Model
-init ((Form fields decoder serverValidations modelToValue) as form) =
+init ((Form fields _ _ modelToValue) as form) =
     let
         initialFields =
             fields
@@ -774,7 +774,7 @@ hidden :
             view
             { initial : String
             }
-hidden name value toHtmlFn =
+hidden name _ toHtmlFn =
     Field
         { name = name
         , initialValue = Nothing
@@ -1775,7 +1775,7 @@ toHtml :
     -> Model
     -> Form String value view
     -> view
-toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
+toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
     let
         hasErrors_ : Bool
         hasErrors_ =
@@ -1837,7 +1837,7 @@ toHtml2 :
     -> Model
     -> Form String value view
     -> view
-toHtml2 config toForm serverValidationErrors (Form fields decoder serverValidations modelToValue) =
+toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
     let
         hasErrors_ : Bool
         hasErrors_ =
@@ -1890,7 +1890,7 @@ toHtml2 config toForm serverValidationErrors (Form fields decoder serverValidati
 apiHandler :
     Form String value view
     -> Request (DataSource (PageServerResponse response))
-apiHandler (Form fields decoder serverValidations modelToValue) =
+apiHandler (Form _ decoder serverValidations _) =
     let
         encodeErrors : List ( String, RawFieldState String ) -> Encode.Value
         encodeErrors errors =
@@ -1944,7 +1944,7 @@ toRequest2 :
             (DataSource
                 (Result Model ( Model, value ))
             )
-toRequest2 ((Form fields decoder serverValidations modelToValue) as form) =
+toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
     Request.map2
         (\decoded errors ->
             errors
