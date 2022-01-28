@@ -139,9 +139,8 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
-import PageServerResponse exposing (PageServerResponse)
 import Server.Request as Request exposing (Request)
-import Server.Response
+import Server.Response exposing (Response)
 import Task
 import Url
 
@@ -1889,7 +1888,7 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
 
 apiHandler :
     Form String value view
-    -> Request (DataSource (PageServerResponse response))
+    -> Request (DataSource (Response response))
 apiHandler (Form _ decoder serverValidations _) =
     let
         encodeErrors : List ( String, RawFieldState String ) -> Encode.Value
@@ -2022,7 +2021,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
 submitHandlers :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource data)
-    -> Request (DataSource (PageServerResponse data))
+    -> Request (DataSource (Response data))
 submitHandlers myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
@@ -2050,8 +2049,8 @@ submitHandlers myForm toDataSource =
 {-| -}
 submitHandlers2 :
     Form String decoded view
-    -> (Model -> Result () decoded -> DataSource (PageServerResponse data))
-    -> Request (DataSource (PageServerResponse data))
+    -> (Model -> Result () decoded -> DataSource (Response data))
+    -> Request (DataSource (Response data))
 submitHandlers2 myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
