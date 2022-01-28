@@ -3,7 +3,6 @@ module ServerRequestTest exposing (all)
 import Expect exposing (Expectation)
 import Json.Decode
 import Json.Encode
-import OptimizedDecoder
 import Server.Request as Request
 import Test exposing (Test, describe, test)
 
@@ -90,7 +89,7 @@ all =
                         (\{ field } ->
                             field "first"
                         )
-                    , Request.expectJsonBody (OptimizedDecoder.field "first" OptimizedDecoder.string)
+                    , Request.expectJsonBody (Json.Decode.field "first" Json.Decode.string)
                     , Request.expectQueryParam "first"
                     , Request.expectMultiPartFormPost
                         (\{ field } ->
@@ -139,7 +138,7 @@ expectMatch request (Request.Request decoder) =
     case
         request
             |> requestToJson
-            |> OptimizedDecoder.decodeValue decoder
+            |> Json.Decode.decodeValue decoder
     of
         Ok ok ->
             case ok of
@@ -167,7 +166,7 @@ expectNoMatch request expectedErrorString (Request.Request decoder) =
     case
         request
             |> requestToJson
-            |> OptimizedDecoder.decodeValue decoder
+            |> Json.Decode.decodeValue decoder
     of
         Ok ok ->
             case ok of
