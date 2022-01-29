@@ -22,26 +22,6 @@ import View exposing (View)
 import View.CodeTab as CodeTab
 
 
-
-{-
-   example : String -> String -> DataSourceString
-   example bandName songName =
-       DataSource.Http.get
-           (Secrets.succeed
-               (Url.Builder.absolute
-                   [ "https://private-anon-bc5d0d71a9-lyricsovh.apiary-proxy.com"
-                   , "v1"
-                   , bandName
-                   , songName
-                   ]
-                   []
-               )
-           )
-           (Decode.field "lyrics" Decode.string)
-
--}
-
-
 type alias Model =
     {}
 
