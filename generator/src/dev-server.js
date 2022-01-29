@@ -14,7 +14,7 @@ const codegen = require("./codegen.js");
 const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
-const { restoreColor } = require("./error-formatter");
+const { restoreColorSafe } = require("./error-formatter");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
@@ -314,7 +314,6 @@ async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
-        console.log("@@@error", error);
         isImplicitContractError = JSON.parse(error).errors.some(
           (errorItem) => errorItem.name === "Main"
         );
@@ -323,7 +322,7 @@ async function start(options) {
       }
       if (isImplicitContractError) {
         const reviewOutput = await runElmReview();
-        console.log(restoreColor(JSON.parse(reviewOutput)));
+        console.log(restoreColorSafe(reviewOutput));
 
         if (req.url.includes("content.json")) {
           res.writeHead(500, { "Content-Type": "application/json" });
@@ -337,7 +336,7 @@ async function start(options) {
           res.end(errorHtml());
         }
       } else {
-        console.log(restoreColor(JSON.parse(error)));
+        console.log(restoreColorSafe(error));
         if (req.url.includes("content.json")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(error);
@@ -415,7 +414,7 @@ async function start(options) {
         },
 
         function (error) {
-          console.log(restoreColor(error));
+          console.log(restoreColorSafe(error));
           if (req.url.includes("content.json")) {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify(error));
