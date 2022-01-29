@@ -400,7 +400,7 @@ async function start(options) {
                 res.writeHead(renderResult.statusCode, {
                   "Content-Type": mimeType,
                 });
-                res.end(renderResult.body);
+                res.end(renderResult.body.body);
                 // TODO - if route is static, write file to api-route-cache/ directory
                 // TODO - get 404 or other status code from elm-pages renderer
               } else {
