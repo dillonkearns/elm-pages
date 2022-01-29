@@ -27,7 +27,7 @@ function loadContentAndInitializeApp() {
     loadNamedAnchor();
   });
 
-  app.ports.elmPagesReloadData.subscribe(() => {
+  app.ports.elmPagesReloadData && app.ports.elmPagesReloadData.subscribe(() => {
     console.log("RELOAD DATA PORT!");
     app.ports.fromJsPort.send(null);
   });
