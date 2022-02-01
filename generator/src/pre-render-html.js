@@ -65,8 +65,8 @@ ${elmPagesJsMinified}
       }
     )}</script>
     <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${Buffer.from(
-      _arrayBufferToBase64(contentDatPayload.buffer)
-    )}</script>
+      contentDatPayload.buffer
+    ).toString("base64")}</script>
     
     </head>
     <body>
@@ -76,16 +76,6 @@ ${elmPagesJsMinified}
   </html>
   `;
   };
-
-function _arrayBufferToBase64(buffer) {
-  var binary = "";
-  var bytes = new Uint8Array(buffer);
-  var len = bytes.byteLength;
-  for (var i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 /**
  * @param {string} route
