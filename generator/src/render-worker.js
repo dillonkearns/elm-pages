@@ -27,6 +27,7 @@ async function run({ mode, pathname, serverRequest }) {
     if (mode === "dev-server") {
       parentPort.postMessage({ tag: "done", data: renderResult });
     } else if (mode === "build") {
+      console.log("@@@renderResult", renderResult);
       outputString(renderResult, pathname);
     } else {
       throw `Unknown mode ${mode}`;
@@ -61,6 +62,7 @@ async function outputString(
   /** @type { { kind: 'page'; data: PageProgress } | { kind: 'api'; data: Object }  } */ fromElm,
   /** @type string */ pathname
 ) {
+  console.log("@@@build fromElm", Object.keys(fromElm));
   switch (fromElm.kind) {
     case "html": {
       const args = fromElm;
@@ -76,6 +78,15 @@ async function outputString(
         `dist/${normalizedRoute}/content.json`,
         contentJsonString
       );
+      console.log(
+        "Buffer thing",
+        args.contentBytes && Buffer.from(args.contentBytes.buffer)
+      );
+      args.contentBytes &&
+        fs.writeFileSync(
+          `dist/${normalizedRoute}/content.dat`,
+          Buffer.from(args.contentBytes.buffer)
+        );
       parentPort.postMessage({ tag: "done" });
       break;
     }
