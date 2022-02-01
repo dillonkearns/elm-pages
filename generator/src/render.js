@@ -230,11 +230,18 @@ async function outputString(
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(basePath, args, contentJson, isDevServer),
+    htmlString: preRenderHtml(
+      basePath,
+      args,
+      contentJson,
+      isDevServer,
+      contentDatPayload
+    ),
     contentJson: args.contentJson,
     statusCode: args.statusCode,
     headers: args.headers,
     kind: "html",
+    contentDatPayload,
   };
 }
 

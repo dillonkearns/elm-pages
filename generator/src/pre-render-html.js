@@ -15,7 +15,13 @@ module.exports =
    * @param {boolean} devServer
    * @returns {string}
    */
-  function wrapHtml(basePath, fromElm, contentJson, devServer) {
+  function wrapHtml(
+    basePath,
+    fromElm,
+    contentJson,
+    devServer,
+    contentDatPayload
+  ) {
     const devServerOnly = (/** @type {string} */ devServerOnlyString) =>
       devServer ? devServerOnlyString : "";
     const seoData = seo.gather(fromElm.head);
@@ -29,9 +35,9 @@ module.exports =
     <link rel="modulepreload" href="${path.join(basePath, "index.js")}">
     ${devServerOnly(
       /* html */ `<script defer="defer" src="${path.join(
-      basePath,
-      "hmr.js"
-    )}" type="text/javascript"></script>`
+        basePath,
+        "hmr.js"
+      )}" type="text/javascript"></script>`
     )}
     <script defer="defer" src="${path.join(
       basePath,
@@ -58,6 +64,10 @@ ${elmPagesJsMinified}
         json: true,
       }
     )}</script>
+    <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${Buffer.from(
+      _arrayBufferToBase64(contentDatPayload.buffer)
+    )}</script>
+    
     </head>
     <body>
       <div data-url="" display="none"></div>
@@ -66,6 +76,16 @@ ${elmPagesJsMinified}
   </html>
   `;
   };
+
+function _arrayBufferToBase64(buffer) {
+  var binary = "";
+  var bytes = new Uint8Array(buffer);
+  var len = bytes.byteLength;
+  for (var i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 /**
  * @param {string} route
@@ -81,10 +101,10 @@ function pathToRoot(cleanedRoute) {
   return cleanedRoute === ""
     ? cleanedRoute
     : cleanedRoute
-      .split("/")
-      .map((_) => "..")
-      .join("/")
-      .replace(/\.$/, "./");
+        .split("/")
+        .map((_) => "..")
+        .join("/")
+        .replace(/\.$/, "./");
 }
 
 function devServerStyleTag() {
