@@ -8,6 +8,8 @@ module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cli
 
 import ApiRoute
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
+import Bytes.Encode
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
@@ -321,6 +323,35 @@ perform site renderRequest config toJsPort effect =
                   else
                     Task.succeed ()
                         |> Task.perform (\_ -> Continue)
+                ]
+
+        Effect.SendSinglePageNew done rawBytes info ->
+            let
+                currentPagePath : String
+                currentPagePath =
+                    case info of
+                        ToJsPayload.PageProgress toJsSuccessPayloadNew ->
+                            toJsSuccessPayloadNew.route
+
+                        _ ->
+                            ""
+
+                newCommandThing =
+                    { oldThing =
+                        info
+                            |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
+                    , binaryPageData = rawBytes
+                    }
+                        |> config.sendPageData
+                        |> Cmd.map never
+            in
+            Cmd.batch
+                [ newCommandThing
+                , if True then
+                    Cmd.none
+
+                  else
+                    Cmd.none
                 ]
 
         Effect.Continue ->
@@ -792,11 +823,30 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                 site.data
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
+
+                                                        byteEncodedPageData : Bytes
+                                                        byteEncodedPageData =
+                                                            case pageDataResult of
+                                                                Ok pageServerResponse ->
+                                                                    case pageServerResponse of
+                                                                        PageServerResponse.RenderPage _ pageData ->
+                                                                            Bytes.Encode.encode (config.byteEncodePageData pageData)
+
+                                                                        PageServerResponse.ServerResponse serverResponse ->
+                                                                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+
+                                                                _ ->
+                                                                    -- TODO handle error?
+                                                                    Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
                                                     in
                                                     case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
                                                         Ok ( pageFound, renderedOrApiResponse, siteData ) ->
                                                             case renderedOrApiResponse of
                                                                 PageServerResponse.RenderPage responseInfo rendered ->
+                                                                    let
+                                                                        _ =
+                                                                            Debug.log "@@@SendOld" 4
+                                                                    in
                                                                     { route = payload.path |> Path.toRelative
                                                                     , contentJson =
                                                                         --toJsPayload.pages
@@ -813,7 +863,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                     , headers = responseInfo.headers
                                                                     }
                                                                         |> ToJsPayload.PageProgress
-                                                                        |> Effect.SendSinglePage False
+                                                                        |> Effect.SendSinglePageNew False byteEncodedPageData
 
                                                                 PageServerResponse.ServerResponse serverResponse ->
                                                                     { body = serverResponse |> PageServerResponse.toJson
@@ -840,18 +890,76 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                     )
 
                 StaticResponses.Page contentJson ->
+                    let
+                        currentUrl : Url.Url
+                        currentUrl =
+                            { protocol = Url.Https
+                            , host = site.canonicalUrl
+                            , port_ = Nothing
+                            , path = "TODO" --payload.path |> Path.toRelative
+                            , query = Nothing
+                            , fragment = Nothing
+                            }
+
+                        routeResult : Result BuildError route
+                        routeResult =
+                            model.staticRoutes
+                                |> Maybe.map (List.map Tuple.second)
+                                |> Maybe.andThen List.head
+                                -- TODO is it possible to remove the Maybe here?
+                                |> Result.fromMaybe (StaticHttpRequest.toBuildError "TODO url" (StaticHttpRequest.DecoderError "Expected route"))
+
+                        pageDataResult : Result BuildError (PageServerResponse pageData)
+                        pageDataResult =
+                            routeResult
+                                |> Result.andThen
+                                    (\route ->
+                                        StaticHttpRequest.resolve ApplicationType.Browser
+                                            (config.data route)
+                                            (contentJson |> Dict.map (\_ v -> Just v))
+                                            |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
+                                    )
+
+                        byteEncodedPageData : Bytes
+                        byteEncodedPageData =
+                            case pageDataResult of
+                                Ok pageServerResponse ->
+                                    case pageServerResponse of
+                                        PageServerResponse.RenderPage _ pageData ->
+                                            Bytes.Encode.encode (config.byteEncodePageData pageData)
+
+                                        PageServerResponse.ServerResponse serverResponse ->
+                                            -- TODO handle error?
+                                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+
+                                _ ->
+                                    -- TODO handle error?
+                                    Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                    in
                     case model.unprocessedPages |> List.head of
                         Just pageAndMetadata ->
+                            let
+                                _ =
+                                    Debug.log "@@@SendOld" 14
+                            in
                             ( model
                             , sendSinglePageProgress site contentJson config model pageAndMetadata
                             )
 
                         Nothing ->
+                            let
+                                _ =
+                                    Debug.log "@@@SendOld" 13
+                            in
                             ( model
-                            , [] |> ToJsPayload.Errors |> Effect.SendSinglePage True
+                            , [] |> ToJsPayload.Errors |> Effect.SendSinglePageNew True byteEncodedPageData
                             )
 
                 StaticResponses.Errors errors ->
+                    let
+                        _ =
+                            Debug.log "@@@SendOld" 12
+                    in
                     ( model
                     , errors |> ToJsPayload.Errors |> Effect.SendSinglePage True
                     )
@@ -986,7 +1094,7 @@ sendSinglePageProgress site contentJson config model =
                                         , headers = responseInfo.headers
                                         }
                                             |> ToJsPayload.PageProgress
-                                            |> Effect.SendSinglePage True
+                                            |> Effect.SendSinglePageNew True byteEncodedPageData
 
                                     PageServerResponse.ServerResponse serverResponse ->
                                         { body = serverResponse |> PageServerResponse.toJson

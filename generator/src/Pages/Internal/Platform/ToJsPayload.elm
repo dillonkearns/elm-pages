@@ -1,10 +1,13 @@
 module Pages.Internal.Platform.ToJsPayload exposing
-    ( ToJsSuccessPayloadNew
+    ( NewThing
+    , NewThingForPort
+    , ToJsSuccessPayloadNew
     , ToJsSuccessPayloadNewCombined(..)
     , successCodecNew2
     )
 
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
 import Codec exposing (Codec)
 import Dict exposing (Dict)
 import Head
@@ -44,6 +47,18 @@ errorCodec =
                 (Decode.succeed [ { title = "TODO", message = [], fatal = True, path = "" } ])
             )
         |> Codec.buildObject
+
+
+type alias NewThing =
+    { oldThing : ToJsSuccessPayloadNew
+    , binaryPageData : Bytes
+    }
+
+
+type alias NewThingForPort =
+    { oldThing : Json.Encode.Value
+    , binaryPageData : Bytes
+    }
 
 
 successCodecNew : String -> String -> Codec ToJsSuccessPayloadNew

@@ -46,11 +46,13 @@ import Bytes.Decode
 import Bytes.Encode
 import PageServerResponse
 import Pattern
+import Pages.Internal.String
+import Pages.Internal.Platform.ToJsPayload
 import Server.Response
 import ApiRoute
 import Browser.Navigation
 import Route exposing (Route)
-import View
+import Http
 import Json.Decode
 import Json.Encode
 import Pages.Flags
@@ -71,6 +73,9 @@ import Pages.Internal.RoutePattern
 import Url
 import DataSource exposing (DataSource)
 import QueryParams
+import Task exposing (Task)
+import Url exposing (Url)
+import View
 
 ${templates.map((name) => `import Page.${name.join(".")}`).join("\n")}
 
@@ -461,6 +466,91 @@ main =
           .filter((segment) => segment !== "")
           .map((segment) => `"${segment}"`)
           .join(", ")} ]
+        , fetchPageData = fetchPageData
+        , sendPageData = sendPageData
+        , byteEncodePageData = byteEncodePageData
+        }
+
+
+byteEncodePageData : PageData -> Bytes.Encode.Encoder
+byteEncodePageData pageData =
+    case pageData of
+        Data404NotFoundPage____ ->
+            Bytes.Encode.unsignedInt8 0
+
+${templates
+  .map(
+    (name) => `        Data${pathNormalizedName(name)} thisPageData ->
+            Page.${name.join(".")}.w3_encode_Data thisPageData
+`
+  )
+  .join("\n")}
+
+port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
+
+fetchPageData : Url -> Task Http.Error PageData
+fetchPageData url =
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url =
+            url.path
+                |> Pages.Internal.String.chopForwardSlashes
+                |> String.split "/"
+                |> List.filter ((/=) "")
+                |> (\\l -> l ++ [ "content.dat" ])
+                |> String.join "/"
+                |> String.append "/"
+        , body = Http.emptyBody
+        , resolver =
+            Http.bytesResolver
+                (\\response ->
+                    let
+                        routeThing =
+                            Route.urlToRoute url
+                    in
+                    case response of
+                        Http.BadUrl_ url_ ->
+                            Err (Http.BadUrl url_)
+
+                        Http.Timeout_ ->
+                            Err Http.Timeout
+
+                        Http.NetworkError_ ->
+                            Err Http.NetworkError
+
+                        Http.BadStatus_ metadata _ ->
+                            Err (Http.BadStatus metadata.statusCode)
+
+                        Http.GoodStatus_ _ body ->
+                            let
+                                decoder : Bytes.Decode.Decoder PageData
+                                decoder =
+                                    case routeThing of
+                                        Nothing -> Debug.todo "No route"
+${templates
+  .map(
+    (name) =>
+      `                                        Just (${
+        emptyRouteParams(name)
+          ? `Route.${routeHelpers.routeVariant(name)}`
+          : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
+      }) ->\n                                            Page.${name.join(
+        "."
+      )}.w3_decode_Data |> Bytes.Decode.map Data${routeHelpers.routeVariant(
+        name
+      )}
+
+`
+  )
+  .join("\n")}
+                            in
+                            body
+                                |> decodeBytes decoder
+                                |> Result.mapError
+                                    (\\err -> Http.BadBody err)
+                )
+        , timeout = Nothing
         }
 
 dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData)

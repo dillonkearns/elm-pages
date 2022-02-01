@@ -84,8 +84,11 @@ function runElmApp(
   let app = null;
   let killApp;
   return new Promise((resolve, reject) => {
+    const isBytes = pagePath.match(/content\.dat\/?$/);
     const isJson = pagePath.match(/content\.json\/?$/);
-    const route = pagePath.replace(/content\.json\/?$/, "");
+    const route = pagePath
+      .replace(/content\.json\/?$/, "")
+      .replace(/content\.dat\/?$/, "");
 
     const modifiedRequest = { ...request, path: route };
     // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
@@ -104,12 +107,21 @@ function runElmApp(
 
     killApp = () => {
       app.ports.toJsPort.unsubscribe(portHandler);
+      app.ports.sendPageData.unsubscribe(portHandler);
       app.die();
       app = null;
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ fromElm) {
+    async function portHandler(/** @type { FromElm }  */ newThing) {
+      let fromElm;
+      let contentDatPayload;
+      if ("oldThing" in newThing) {
+        fromElm = newThing.oldThing;
+        contentDatPayload = newThing.binaryPageData;
+      } else {
+        fromElm = newThing;
+      }
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
@@ -130,7 +142,19 @@ function runElmApp(
           global.staticHttpCache = args.staticHttpCache;
         }
 
-        if (isJson) {
+        if (isBytes) {
+          resolve({
+            kind: "bytes",
+            is404: false,
+            contentJson: JSON.stringify({
+              staticData: args.contentJson,
+              is404: false,
+            }),
+            statusCode: args.statusCode,
+            headers: args.headers,
+            contentDatPayload,
+          });
+        } else if (isJson) {
           resolve({
             kind: "json",
             is404: args.is404,
@@ -140,9 +164,12 @@ function runElmApp(
             }),
             statusCode: args.statusCode,
             headers: args.headers,
+            contentDatPayload,
           });
         } else {
-          resolve(outputString(basePath, fromElm, isDevServer));
+          resolve(
+            outputString(basePath, fromElm, isDevServer, contentDatPayload)
+          );
         }
       } else if (fromElm.tag === "ReadFile") {
         const filePath = fromElm.args[0];
@@ -173,6 +200,7 @@ function runElmApp(
       }
     }
     app.ports.toJsPort.subscribe(portHandler);
+    app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
     // addDataSourceWatcher(patternsToWatch);
     killApp();
@@ -187,7 +215,8 @@ function runElmApp(
 async function outputString(
   basePath,
   /** @type { PageProgress } */ fromElm,
-  isDevServer
+  isDevServer,
+  contentDatPayload
 ) {
   const args = fromElm.args[0];
   let contentJson = {};

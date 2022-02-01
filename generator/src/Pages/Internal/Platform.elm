@@ -26,13 +26,13 @@ import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import QueryParams
-import Task
+import Task exposing (Task)
 import Url exposing (Url)
 
 
 {-| -}
 type alias Program userModel userMsg pageData sharedData =
-    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg)
+    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData)
 
 
 mainView :
@@ -87,7 +87,7 @@ urlsToPagePath urls =
 view :
     ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model userModel pageData sharedData
-    -> Browser.Document (Msg userMsg)
+    -> Browser.Document (Msg userMsg pageData)
 view config model =
     let
         { title, body } =
@@ -126,7 +126,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg) )
+    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData) )
 init config flags url key =
     let
         contentCache : ContentCache
@@ -222,7 +222,7 @@ init config flags url key =
                                         }
                                         |> config.init userFlags sharedData pageData (Just key)
 
-                                cmd : Cmd (Msg userMsg)
+                                cmd : Cmd (Msg userMsg pageData)
                                 cmd =
                                     [ userCmd
                                         |> Cmd.map UserMsg
@@ -291,12 +291,13 @@ init config flags url key =
 
 
 {-| -}
-type Msg userMsg
+type Msg userMsg pageData
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
     | UpdateCache (Result Http.Error ( Url, ContentJson, ContentCache ))
     | UpdateCacheAndUrl Url (Result Http.Error ( Url, ContentJson, ContentCache ))
+    | UpdateCacheAndUrlNew Url (Result Http.Error pageData)
     | PageScrollComplete
     | HotReloadComplete ContentJson
     | ReloadCurrentPageData
@@ -323,9 +324,9 @@ type alias Model userModel pageData sharedData =
 {-| -}
 update :
     ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> Msg userMsg
+    -> Msg userMsg pageData
     -> Model userModel pageData sharedData
-    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg) )
+    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData) )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -411,9 +412,8 @@ update config appMsg model =
 
             else
                 ( model
-                , model.contentCache
-                    |> ContentCache.lazyLoad urls
-                    |> Task.attempt (UpdateCacheAndUrl url)
+                , config.fetchPageData url
+                    |> Task.attempt (UpdateCacheAndUrlNew url)
                 )
 
         ReloadCurrentPageData ->
@@ -458,6 +458,70 @@ update config appMsg model =
                 Err _ ->
                     -- TODO handle error
                     ( model, Cmd.none )
+
+        UpdateCacheAndUrlNew url cacheUpdateResult ->
+            case Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\_ -> "Http error")) model.pageData of
+                Ok ( newPageData, previousPageData ) ->
+                    let
+                        updatedPageData : { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                        updatedPageData =
+                            { userModel = userModel
+                            , sharedData = previousPageData.sharedData
+                            , pageData = newPageData
+                            }
+
+                        ( userModel, userCmd ) =
+                            config.update
+                                previousPageData.sharedData
+                                newPageData
+                                (Just model.key)
+                                (config.onPageChange
+                                    { protocol = model.url.protocol
+                                    , host = model.url.host
+                                    , port_ = model.url.port_
+                                    , path = url |> urlPathToPath config
+                                    , query = url.query
+                                    , fragment = url.fragment
+                                    , metadata = config.urlToRoute url
+                                    }
+                                )
+                                previousPageData.userModel
+
+                        updatedModel : Model userModel pageData sharedData
+                        updatedModel =
+                            { model
+                                | url = url
+                                , pageData = Ok updatedPageData
+                            }
+                    in
+                    ( { updatedModel
+                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                      }
+                    , Cmd.batch
+                        [ userCmd |> Cmd.map UserMsg
+                        , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+                        ]
+                    )
+
+                Err error ->
+                    {-
+                       When there is an error loading the content.json, we are either
+                       1) in the dev server, and should show the relevant DataSource error for the page
+                          we're navigating to. This could be done more cleanly, but it's simplest to just
+                          do a fresh page load and use the code path for presenting an error for a fresh page.
+                       2) In a production app. That means we had a successful build, so there were no DataSource failures,
+                          so the app must be stale (unless it's in some unexpected state from a bug). In the future,
+                          it probably makes sense to include some sort of hash of the app version we are fetching, match
+                          it with the current version that's running, and perform this logic when we see there is a mismatch.
+                          But for now, if there is any error we do a full page load (not a single-page navigation), which
+                          gives us a fresh version of the app to make sure things are in sync.
+
+                    -}
+                    ( model
+                    , url
+                        |> Url.toString
+                        |> Browser.Navigation.load
+                    )
 
         UpdateCacheAndUrl url cacheUpdateResult ->
             case
@@ -732,7 +796,7 @@ update config appMsg model =
 {-| -}
 application :
     ProgramConfig userMsg userModel route staticData pageData sharedData
-    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg)
+    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData)
 application config =
     Browser.application
         { init =

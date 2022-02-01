@@ -2,18 +2,22 @@ module Pages.ProgramConfig exposing (ProgramConfig)
 
 import ApiRoute
 import Browser.Navigation
+import Bytes.Encode
 import DataSource
 import Head
 import Html exposing (Html)
+import Http
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
+import Task exposing (Task)
 import Url exposing (Url)
 
 
@@ -71,4 +75,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     , pathPatterns : List RoutePattern
     , basePath : List String
+    , fetchPageData : Url -> Task Http.Error pageData
+    , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
+    , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     }

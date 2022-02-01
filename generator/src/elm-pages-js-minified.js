@@ -52,7 +52,7 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     link.setAttribute("as", "fetch");
 
     link.setAttribute("rel", "prefetch");
-    link.setAttribute("href", origin + target.pathname + "/content.json");
+    link.setAttribute("href", origin + target.pathname + "/content.dat");
     document.head.appendChild(link);
   }
 }
