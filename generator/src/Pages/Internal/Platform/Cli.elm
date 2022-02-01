@@ -794,6 +794,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
 
                                                         staticData : Dict String String
                                                         staticData =
+                                                            -- TODO this is causing the bug with loading for Site.elm!
                                                             --toJsPayload.pages
                                                             --    |> Dict.get (Path.toRelative page)
                                                             --    |> Maybe.withDefault Dict.empty
