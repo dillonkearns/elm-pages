@@ -527,7 +527,7 @@ fetchPageData url =
                                 decoder : Bytes.Decode.Decoder PageData
                                 decoder =
                                     case routeThing of
-                                        Nothing -> Debug.todo "No route"
+                                        Nothing -> Bytes.Decode.fail
 ${templates
   .map(
     (name) =>
