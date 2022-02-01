@@ -1083,6 +1083,23 @@ sendSinglePageProgress site contentJson config model =
                             Nothing ->
                                 case renderedOrApiResponse of
                                     PageServerResponse.RenderPage responseInfo rendered ->
+                                        let
+                                            byteEncodedPageData : Bytes
+                                            byteEncodedPageData =
+                                                case pageDataResult of
+                                                    Ok pageServerResponse ->
+                                                        case pageServerResponse of
+                                                            PageServerResponse.RenderPage _ pageData ->
+                                                                Bytes.Encode.encode (config.byteEncodePageData pageData)
+
+                                                            PageServerResponse.ServerResponse serverResponse ->
+                                                                -- TODO handle error?
+                                                                Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+
+                                                    _ ->
+                                                        -- TODO handle error?
+                                                        Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                        in
                                         { route = page |> Path.toRelative
                                         , contentJson = contentJson
                                         , html = rendered.view
