@@ -844,10 +844,6 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                         Ok ( pageFound, renderedOrApiResponse, siteData ) ->
                                                             case renderedOrApiResponse of
                                                                 PageServerResponse.RenderPage responseInfo rendered ->
-                                                                    let
-                                                                        _ =
-                                                                            Debug.log "@@@SendOld" 4
-                                                                    in
                                                                     { route = payload.path |> Path.toRelative
                                                                     , contentJson =
                                                                         --toJsPayload.pages
@@ -939,28 +935,16 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                     in
                     case model.unprocessedPages |> List.head of
                         Just pageAndMetadata ->
-                            let
-                                _ =
-                                    Debug.log "@@@SendOld" 14
-                            in
                             ( model
                             , sendSinglePageProgress site contentJson config model pageAndMetadata
                             )
 
                         Nothing ->
-                            let
-                                _ =
-                                    Debug.log "@@@SendOld" 13
-                            in
                             ( model
                             , [] |> ToJsPayload.Errors |> Effect.SendSinglePageNew True byteEncodedPageData
                             )
 
                 StaticResponses.Errors errors ->
-                    let
-                        _ =
-                            Debug.log "@@@SendOld" 12
-                    in
                     ( model
                     , errors |> ToJsPayload.Errors |> Effect.SendSinglePage True
                     )
