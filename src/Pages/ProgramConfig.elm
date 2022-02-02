@@ -2,6 +2,7 @@ module Pages.ProgramConfig exposing (ProgramConfig)
 
 import ApiRoute
 import Browser.Navigation
+import Bytes.Decode
 import Bytes.Encode
 import DataSource
 import Head
@@ -78,4 +79,5 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , fetchPageData : Url -> Task Http.Error pageData
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
+    , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
     }

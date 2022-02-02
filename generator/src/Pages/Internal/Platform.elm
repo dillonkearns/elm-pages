@@ -7,10 +7,12 @@ module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application
 -}
 
 import AriaLiveAnnouncer
+import Base64
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
 import BuildError exposing (BuildError)
+import Bytes.Decode
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
@@ -165,12 +167,20 @@ init config flags url key =
     case contentJson |> Maybe.map .staticData of
         Just justContentJson ->
             let
-                pageDataResult : Result BuildError (PageServerResponse pageData)
+                pageDataResult : Result BuildError pageData
                 pageDataResult =
-                    StaticHttpRequest.resolve ApplicationType.Browser
-                        (config.data (config.urlToRoute url))
-                        justContentJson
-                        |> Result.mapError (StaticHttpRequest.toBuildError url.path)
+                    flags
+                        |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
+                        |> Result.toMaybe
+                        |> Maybe.andThen Base64.toBytes
+                        |> Maybe.andThen
+                            (Bytes.Decode.decode
+                                (config.byteDecodePageData (config.urlToRoute url))
+                            )
+                        |> Result.fromMaybe
+                            (StaticHttpRequest.DecoderError "Bytes decode error"
+                                |> StaticHttpRequest.toBuildError url.path
+                            )
 
                 sharedDataResult : Result BuildError sharedData
                 sharedDataResult =
@@ -180,92 +190,79 @@ init config flags url key =
                         |> Result.mapError (StaticHttpRequest.toBuildError url.path)
             in
             case Result.map2 Tuple.pair sharedDataResult pageDataResult of
-                Ok ( sharedData, pageData_ ) ->
-                    case pageData_ of
-                        PageServerResponse.RenderPage _ pageData ->
-                            let
-                                urls : { currentUrl : Url, basePath : List String }
-                                urls =
-                                    { currentUrl = url
-                                    , basePath = config.basePath
+                Ok ( sharedData, pageData ) ->
+                    let
+                        urls : { currentUrl : Url, basePath : List String }
+                        urls =
+                            { currentUrl = url
+                            , basePath = config.basePath
+                            }
+
+                        pagePath : Path
+                        pagePath =
+                            urlsToPagePath urls
+
+                        userFlags : Pages.Flags.Flags
+                        userFlags =
+                            flags
+                                |> Decode.decodeValue
+                                    (Decode.field "userFlags" Decode.value)
+                                |> Result.withDefault Json.Encode.null
+                                |> Pages.Flags.BrowserFlags
+
+                        ( userModel, userCmd ) =
+                            Just
+                                { path =
+                                    { path = pagePath
+                                    , query = url.query
+                                    , fragment = url.fragment
                                     }
-
-                                pagePath : Path
-                                pagePath =
-                                    urlsToPagePath urls
-
-                                userFlags : Pages.Flags.Flags
-                                userFlags =
-                                    flags
-                                        |> Decode.decodeValue
-                                            (Decode.field "userFlags" Decode.value)
-                                        |> Result.withDefault Json.Encode.null
-                                        |> Pages.Flags.BrowserFlags
-
-                                ( userModel, userCmd ) =
+                                , metadata = config.urlToRoute url
+                                , pageUrl =
                                     Just
-                                        { path =
-                                            { path = pagePath
-                                            , query = url.query
-                                            , fragment = url.fragment
-                                            }
-                                        , metadata = config.urlToRoute url
-                                        , pageUrl =
-                                            Just
-                                                { protocol = url.protocol
-                                                , host = url.host
-                                                , port_ = url.port_
-                                                , path = pagePath
-                                                , query = url.query |> Maybe.map QueryParams.fromString
-                                                , fragment = url.fragment
-                                                }
+                                        { protocol = url.protocol
+                                        , host = url.host
+                                        , port_ = url.port_
+                                        , path = pagePath
+                                        , query = url.query |> Maybe.map QueryParams.fromString
+                                        , fragment = url.fragment
                                         }
-                                        |> config.init userFlags sharedData pageData (Just key)
+                                }
+                                |> config.init userFlags sharedData pageData (Just key)
 
-                                cmd : Cmd (Msg userMsg pageData)
-                                cmd =
-                                    [ userCmd
-                                        |> Cmd.map UserMsg
-                                        |> Just
-                                    , contentCache
-                                        |> ContentCache.lazyLoad urls
-                                        |> Task.attempt UpdateCache
-                                        |> Just
-                                    ]
-                                        |> List.filterMap identity
-                                        |> Cmd.batch
+                        cmd : Cmd (Msg userMsg pageData)
+                        cmd =
+                            [ userCmd
+                                |> Cmd.map UserMsg
+                                |> Just
+                            , contentCache
+                                |> ContentCache.lazyLoad urls
+                                |> Task.attempt UpdateCache
+                                |> Just
+                            ]
+                                |> List.filterMap identity
+                                |> Cmd.batch
 
-                                initialModel : Model userModel pageData sharedData
-                                initialModel =
-                                    { key = key
-                                    , url = url
-                                    , contentCache = contentCache
-                                    , pageData =
-                                        Ok
-                                            { pageData = pageData
-                                            , sharedData = sharedData
-                                            , userModel = userModel
-                                            }
-                                    , ariaNavigationAnnouncement = ""
-                                    , userFlags = flags
+                        initialModel : Model userModel pageData sharedData
+                        initialModel =
+                            { key = key
+                            , url = url
+                            , contentCache = contentCache
+                            , pageData =
+                                Ok
+                                    { pageData = pageData
+                                    , sharedData = sharedData
+                                    , userModel = userModel
                                     }
-                            in
-                            ( { initialModel
-                                | ariaNavigationAnnouncement = mainView config initialModel |> .title
-                              }
-                            , cmd
-                            )
-
-                        _ ->
-                            ( { key = key
-                              , url = url
-                              , contentCache = contentCache
-                              , pageData = "Didn't expect to render page for API response" |> Err
-                              , ariaNavigationAnnouncement = "Error"
-                              , userFlags = flags
-                              }
-                            , Cmd.none
-                            )
+                            , ariaNavigationAnnouncement = ""
+                            , userFlags = flags
+                            }
+                    in
+                    ( { initialModel
+                        | ariaNavigationAnnouncement = mainView config initialModel |> .title
+                      }
+                    , cmd
+                    )
 
                 Err error ->
                     ( { key = key

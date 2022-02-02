@@ -469,6 +469,7 @@ main =
         , fetchPageData = fetchPageData
         , sendPageData = sendPageData
         , byteEncodePageData = byteEncodePageData
+        , byteDecodePageData = byteDecodePageData
         }
 
 
@@ -552,6 +553,26 @@ ${templates
                 )
         , timeout = Nothing
         }
+
+byteDecodePageData : Maybe Route -> Bytes.Decode.Decoder PageData
+byteDecodePageData route =
+    case route of
+        Nothing -> Bytes.Decode.fail
+${templates
+  .map(
+    (name) =>
+      `        (Just ${
+        emptyRouteParams(name)
+          ? `Route.${routeHelpers.routeVariant(name)}`
+          : `(Route.${routeHelpers.routeVariant(name)} _)`
+      }) ->\n            Page.${name.join(
+        "."
+      )}.w3_decode_Data |> Bytes.Decode.map Data${routeHelpers.routeVariant(
+        name
+      )}
+`
+  )
+  .join("\n")}
 
 dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData)
 dataForRoute route =
