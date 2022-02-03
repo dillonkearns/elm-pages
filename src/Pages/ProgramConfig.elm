@@ -15,6 +15,7 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
+import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -78,8 +79,10 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     , pathPatterns : List RoutePattern
     , basePath : List String
-    , fetchPageData : Url -> Task Http.Error pageData
+    , fetchPageData : Url -> Task Http.Error (ResponseSketch pageData sharedData)
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
+    , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
+    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
     }

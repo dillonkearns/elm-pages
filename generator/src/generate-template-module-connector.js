@@ -48,6 +48,7 @@ import PageServerResponse
 import Pattern
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
+import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Server.Response
 import ApiRoute
 import Browser.Navigation
@@ -471,7 +472,19 @@ main =
         , byteEncodePageData = byteEncodePageData
         , byteDecodePageData = byteDecodePageData
         , hotReloadData = hotReloadData identity
+        , encodeResponse = encodeResponse
+        , decodeResponse = decodeResponse
         }
+
+
+encodeResponse : ResponseSketch PageData Shared.Data -> Bytes.Encode.Encoder
+encodeResponse =
+    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData Shared.w3_encode_Data
+
+
+decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData Shared.Data)
+decodeResponse =
+    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData Shared.w3_decode_Data
 
 
 port hotReloadData : (Bytes -> msg) -> Sub msg
@@ -493,7 +506,7 @@ ${templates
 
 port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
 
-fetchPageData : Url -> Task Http.Error PageData
+fetchPageData : Url -> Task Http.Error (ResponseSketch PageData Shared.Data)
 fetchPageData url =
     Http.task
         { method = "GET"
@@ -528,32 +541,9 @@ fetchPageData url =
                             Err (Http.BadStatus metadata.statusCode)
 
                         Http.GoodStatus_ _ body ->
-                            let
-                                decoder : Bytes.Decode.Decoder PageData
-                                decoder =
-                                    case routeThing of
-                                        Nothing -> Bytes.Decode.fail
-${templates
-  .map(
-    (name) =>
-      `                                        Just (${
-        emptyRouteParams(name)
-          ? `Route.${routeHelpers.routeVariant(name)}`
-          : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
-      }) ->\n                                            Page.${name.join(
-        "."
-      )}.w3_decode_Data |> Bytes.Decode.map Data${routeHelpers.routeVariant(
-        name
-      )}
-
-`
-  )
-  .join("\n")}
-                            in
                             body
-                                |> decodeBytes decoder
-                                |> Result.mapError
-                                    (\\err -> Http.BadBody err)
+                                |> decodeBytes decodeResponse
+                                |> Result.mapError Http.BadBody
                 )
         , timeout = Nothing
         }

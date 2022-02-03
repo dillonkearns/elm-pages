@@ -24,6 +24,7 @@ import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson, c
 import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason
+import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -35,7 +36,7 @@ import Url exposing (Url)
 
 {-| -}
 type alias Program userModel userMsg pageData sharedData =
-    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData)
+    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData)
 
 
 mainView :
@@ -90,7 +91,7 @@ urlsToPagePath urls =
 view :
     ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model userModel pageData sharedData
-    -> Browser.Document (Msg userMsg pageData)
+    -> Browser.Document (Msg userMsg pageData sharedData)
 view config model =
     let
         { title, body } =
@@ -129,7 +130,7 @@ init :
     -> Flags
     -> Url
     -> Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData) )
+    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
 init config flags url key =
     let
         contentCache : ContentCache
@@ -175,8 +176,18 @@ init config flags url key =
                         |> Result.toMaybe
                         |> Maybe.andThen Base64.toBytes
                         |> Maybe.andThen
-                            (Bytes.Decode.decode
-                                (config.byteDecodePageData (config.urlToRoute url))
+                            (\justBytes ->
+                                case
+                                    Bytes.Decode.decode
+                                        -- TODO should this use byteDecodePageData, or should it be decoding ResponseSketch data?
+                                        config.decodeResponse
+                                        justBytes
+                                of
+                                    Just (ResponseSketch.RenderPage pageData) ->
+                                        Just pageData
+
+                                    _ ->
+                                        Nothing
                             )
                         |> Result.fromMaybe
                             (StaticHttpRequest.DecoderError "Bytes decode error"
@@ -231,7 +242,7 @@ init config flags url key =
                                 }
                                 |> config.init userFlags sharedData pageData (Just key)
 
-                        cmd : Cmd (Msg userMsg pageData)
+                        cmd : Cmd (Msg userMsg pageData sharedData)
                         cmd =
                             [ userCmd
                                 |> Cmd.map UserMsg
@@ -289,13 +300,13 @@ init config flags url key =
 
 
 {-| -}
-type Msg userMsg pageData
+type Msg userMsg pageData sharedData
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
     | UpdateCache (Result Http.Error ( Url, ContentJson, ContentCache ))
     | UpdateCacheAndUrl Url (Result Http.Error ( Url, ContentJson, ContentCache ))
-    | UpdateCacheAndUrlNew Url (Result Http.Error pageData)
+    | UpdateCacheAndUrlNew Url (Result Http.Error (ResponseSketch pageData sharedData))
     | PageScrollComplete
     | HotReloadComplete ContentJson
     | HotReloadCompleteNew Bytes
@@ -323,9 +334,9 @@ type alias Model userModel pageData sharedData =
 {-| -}
 update :
     ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> Msg userMsg pageData
+    -> Msg userMsg pageData sharedData
     -> Model userModel pageData sharedData
-    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData) )
+    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -466,13 +477,25 @@ update config appMsg model =
                         updatedPageData =
                             { userModel = userModel
                             , sharedData = previousPageData.sharedData
-                            , pageData = newPageData
+                            , pageData =
+                                case newPageData of
+                                    ResponseSketch.RenderPage pageData ->
+                                        pageData
+
+                                    _ ->
+                                        previousPageData.pageData
                             }
 
                         ( userModel, userCmd ) =
                             config.update
                                 previousPageData.sharedData
-                                newPageData
+                                (case newPageData of
+                                    ResponseSketch.RenderPage pageData ->
+                                        pageData
+
+                                    _ ->
+                                        previousPageData.pageData
+                                )
                                 (Just model.key)
                                 (config.onPageChange
                                     { protocol = model.url.protocol
@@ -584,7 +607,6 @@ update config appMsg model =
                             { model
                                 | url = url
                                 , contentCache = updatedCache
-                                , pageData = updatedPageData
                             }
                     in
                     ( { updatedModel
@@ -626,11 +648,10 @@ update config appMsg model =
                     model.url
                         |> config.urlToRoute
 
-                newThing : Maybe pageData
+                newThing : Maybe (ResponseSketch pageData sharedData)
                 newThing =
                     pageDataBytes
-                        |> Bytes.Decode.decode
-                            (config.byteDecodePageData route)
+                        |> Bytes.Decode.decode config.decodeResponse
             in
             model.pageData
                 |> Result.map
@@ -638,13 +659,20 @@ update config appMsg model =
                         let
                             updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
                             updatedPageData =
-                                Ok
-                                    { userModel = pageData.userModel
-                                    , sharedData = pageData.sharedData
-                                    , pageData =
-                                        newThing
-                                            |> Maybe.withDefault pageData.pageData
-                                    }
+                                case newThing of
+                                    Just (ResponseSketch.RenderPage newPageData) ->
+                                        Ok
+                                            { userModel = pageData.userModel
+                                            , sharedData = pageData.sharedData
+                                            , pageData = newPageData
+                                            }
+
+                                    _ ->
+                                        Ok
+                                            { userModel = pageData.userModel
+                                            , sharedData = pageData.sharedData
+                                            , pageData = pageData.pageData
+                                            }
                         in
                         ( { model
                             | pageData = updatedPageData
@@ -830,7 +858,7 @@ update config appMsg model =
 {-| -}
 application :
     ProgramConfig userMsg userModel route staticData pageData sharedData
-    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData)
+    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData)
 application config =
     Browser.application
         { init =

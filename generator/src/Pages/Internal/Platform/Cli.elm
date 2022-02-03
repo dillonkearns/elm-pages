@@ -31,6 +31,7 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
+import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -831,7 +832,10 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                 Ok pageServerResponse ->
                                                                     case pageServerResponse of
                                                                         PageServerResponse.RenderPage _ pageData ->
-                                                                            Bytes.Encode.encode (config.byteEncodePageData pageData)
+                                                                            pageData
+                                                                                |> ResponseSketch.RenderPage
+                                                                                |> config.encodeResponse
+                                                                                |> Bytes.Encode.encode
 
                                                                         PageServerResponse.ServerResponse serverResponse ->
                                                                             Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
@@ -923,7 +927,10 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                 Ok pageServerResponse ->
                                     case pageServerResponse of
                                         PageServerResponse.RenderPage _ pageData ->
-                                            Bytes.Encode.encode (config.byteEncodePageData pageData)
+                                            pageData
+                                                |> ResponseSketch.RenderPage
+                                                |> config.encodeResponse
+                                                |> Bytes.Encode.encode
 
                                         PageServerResponse.ServerResponse serverResponse ->
                                             -- TODO handle error?
@@ -1074,7 +1081,10 @@ sendSinglePageProgress site contentJson config model =
                                                     Ok pageServerResponse ->
                                                         case pageServerResponse of
                                                             PageServerResponse.RenderPage _ pageData ->
-                                                                Bytes.Encode.encode (config.byteEncodePageData pageData)
+                                                                pageData
+                                                                    |> ResponseSketch.RenderPage
+                                                                    |> config.encodeResponse
+                                                                    |> Bytes.Encode.encode
 
                                                             PageServerResponse.ServerResponse serverResponse ->
                                                                 -- TODO handle error?
