@@ -196,7 +196,7 @@ async function start(options) {
             elmMakeRunning = false;
           });
         clients.forEach((client) => {
-          client.response.write(`data: content.json\n\n`);
+          client.response.write(`data: content.dat\n\n`);
         });
       }
     } else {
@@ -218,7 +218,7 @@ async function start(options) {
       //   }
       // });
       clients.forEach((client) => {
-        client.response.write(`data: content.json\n\n`);
+        client.response.write(`data: content.dat\n\n`);
       });
     }
   });
@@ -324,7 +324,7 @@ async function start(options) {
         const reviewOutput = await runElmReview();
         console.log(restoreColorSafe(reviewOutput));
 
-        if (req.url.includes("content.json")) {
+        if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           if (emptyReviewError(reviewOutput)) {
             res.end(error);
@@ -337,7 +337,7 @@ async function start(options) {
         }
       } else {
         console.log(restoreColorSafe(error));
-        if (req.url.includes("content.json")) {
+        if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(error);
         } else {
@@ -423,7 +423,7 @@ async function start(options) {
 
         function (error) {
           console.log(restoreColorSafe(error));
-          if (req.url.includes("content.json")) {
+          if (req.url.includes("content.dat")) {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify(error));
           } else {

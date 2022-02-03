@@ -67,9 +67,9 @@ const appPromise = new Promise(function (resolve, reject) {
 userInit.load(appPromise);
 
 if (typeof connect === "function") {
-  connect(function (newContentJson) {
+  connect(function (bytesData) {
     appPromise.then((app) => {
-      app.ports.fromJsPort.send({ contentJson: newContentJson });
+      app.ports.hotReloadData.send(bytesData);
     });
   });
 }

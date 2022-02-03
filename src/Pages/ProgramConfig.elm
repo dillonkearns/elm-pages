@@ -2,6 +2,7 @@ module Pages.ProgramConfig exposing (ProgramConfig)
 
 import ApiRoute
 import Browser.Navigation
+import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
 import DataSource
@@ -61,6 +62,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , site : Maybe (SiteConfig siteData)
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
+    , hotReloadData : Sub Bytes
     , onPageChange :
         { protocol : Url.Protocol
         , host : String

@@ -12,6 +12,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
 import Bytes.Decode
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -297,6 +298,7 @@ type Msg userMsg pageData
     | UpdateCacheAndUrlNew Url (Result Http.Error pageData)
     | PageScrollComplete
     | HotReloadComplete ContentJson
+    | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData
     | NoOp
 
@@ -617,6 +619,41 @@ update config appMsg model =
         PageScrollComplete ->
             ( model, Cmd.none )
 
+        HotReloadCompleteNew pageDataBytes ->
+            let
+                route : route
+                route =
+                    model.url
+                        |> config.urlToRoute
+
+                newThing : Maybe pageData
+                newThing =
+                    pageDataBytes
+                        |> Bytes.Decode.decode
+                            (config.byteDecodePageData route)
+            in
+            model.pageData
+                |> Result.map
+                    (\pageData ->
+                        let
+                            updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                            updatedPageData =
+                                Ok
+                                    { userModel = pageData.userModel
+                                    , sharedData = pageData.sharedData
+                                    , pageData =
+                                        newThing
+                                            |> Maybe.withDefault pageData.pageData
+                                    }
+                        in
+                        ( { model
+                            | pageData = updatedPageData
+                          }
+                        , Cmd.none
+                        )
+                    )
+                |> Result.withDefault ( model, Cmd.none )
+
         HotReloadComplete contentJson ->
             let
                 urls : { currentUrl : Url, basePath : List String }
@@ -817,29 +854,17 @@ application config =
                                 |> Sub.map UserMsg
                             , config.fromJsPort
                                 |> Sub.map
-                                    (\decodeValue ->
-                                        case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
-                                            Ok contentJson ->
-                                                HotReloadComplete contentJson
-
-                                            Err _ ->
-                                                -- TODO should be no message here
-                                                ReloadCurrentPageData
+                                    (\_ ->
+                                        -- TODO should be no message here
+                                        ReloadCurrentPageData
                                     )
+                            , config.hotReloadData
+                                |> Sub.map HotReloadCompleteNew
                             ]
 
                     Err _ ->
-                        config.fromJsPort
-                            |> Sub.map
-                                (\decodeValue ->
-                                    case decodeValue |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder) of
-                                        Ok contentJson ->
-                                            HotReloadComplete contentJson
-
-                                        Err _ ->
-                                            -- TODO should be no message here
-                                            ReloadCurrentPageData
-                                )
+                        config.hotReloadData
+                            |> Sub.map HotReloadCompleteNew
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }

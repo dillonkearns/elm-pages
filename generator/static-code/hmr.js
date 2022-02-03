@@ -9,7 +9,7 @@ function connect(sendContentJsonPort, initialErrorPage) {
   eventSource = new EventSource("/stream");
   window.reloadOnOk = initialErrorPage;
   if (initialErrorPage) {
-    handleEvent(sendContentJsonPort, { data: "content.json" });
+    handleEvent(sendContentJsonPort, { data: "content.dat" });
   }
   eventSource.onmessage = async function (evt) {
     handleEvent(sendContentJsonPort, evt);
@@ -17,7 +17,7 @@ function connect(sendContentJsonPort, initialErrorPage) {
 }
 
 async function handleEvent(sendContentJsonPort, evt) {
-  if (evt.data === "content.json") {
+  if (evt.data === "content.dat") {
     showCompiling("");
     const elmJsRequest = elmJsFetch();
     const fetchContentJson = fetchContentJsonForCurrentPage();
@@ -32,7 +32,7 @@ async function handleEvent(sendContentJsonPort, evt) {
       thenApplyHmr(elmJsResponse);
     } catch (errorJson) {
       if (typeof errorJson === "string") {
-        errorJson = JSON.parse(errorJson)
+        errorJson = JSON.parse(errorJson);
       }
       if (errorJson.type) {
         showError(errorJson);
@@ -42,7 +42,7 @@ async function handleEvent(sendContentJsonPort, evt) {
           errors: errorJson,
         });
       } else {
-          showError(JSON.parse(errorJson.errorsJson.errors));
+        showError(JSON.parse(errorJson.errorsJson.errors));
       }
     }
   } else if (evt.data === "elm.js") {
@@ -84,7 +84,7 @@ async function updateContentJsonWith(
     } catch (errorJson) {
       if (errorJson.type) {
         showError(errorJson);
-      } else if (typeof errorJson === 'string') {
+      } else if (typeof errorJson === "string") {
         showError(JSON.parse(errorJson));
       } else {
         showError(errorJson);
@@ -98,10 +98,12 @@ function fetchContentJsonForCurrentPage() {
     let currentPath = window.location.pathname.replace(/(\w)$/, "$1/");
 
     const contentJsonForPage = await fetch(
-      `${window.location.origin}${currentPath}content.json`
+      `${window.location.origin}${currentPath}content.dat`
     );
     if (contentJsonForPage.ok || contentJsonForPage.status === 404) {
-      resolve(await contentJsonForPage.json());
+      resolve(
+        new DataView(await (await contentJsonForPage.blob()).arrayBuffer())
+      );
     } else {
       try {
         reject(await contentJsonForPage.json());

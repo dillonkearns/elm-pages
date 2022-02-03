@@ -470,7 +470,11 @@ main =
         , sendPageData = sendPageData
         , byteEncodePageData = byteEncodePageData
         , byteDecodePageData = byteDecodePageData
+        , hotReloadData = hotReloadData identity
         }
+
+
+port hotReloadData : (Bytes -> msg) -> Sub msg
 
 
 byteEncodePageData : PageData -> Bytes.Encode.Encoder
