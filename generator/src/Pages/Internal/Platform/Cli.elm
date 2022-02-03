@@ -1139,6 +1139,13 @@ render404Page config model path notFoundReason =
             , reason = notFoundReason
             }
                 |> Pages.Internal.NotFoundReason.document config.pathPatterns
+
+        byteEncodedPageData : Bytes
+        byteEncodedPageData =
+            { reason = notFoundReason, path = path }
+                |> ResponseSketch.NotFound
+                |> config.encodeResponse
+                |> Bytes.Encode.encode
     in
     { route = Path.toAbsolute path
     , contentJson =
@@ -1165,4 +1172,4 @@ render404Page config model path notFoundReason =
     , headers = []
     }
         |> ToJsPayload.PageProgress
-        |> Effect.SendSinglePage True
+        |> Effect.SendSinglePageNew True byteEncodedPageData

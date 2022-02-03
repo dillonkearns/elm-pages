@@ -23,7 +23,7 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson, contentJsonDecoder)
 import Pages.Flags
 import Pages.Internal.ApplicationType as ApplicationType
-import Pages.Internal.NotFoundReason
+import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.ProgramConfig exposing (ProgramConfig)
@@ -51,9 +51,9 @@ mainView config model =
             , basePath = config.basePath
             }
     in
-    case ContentCache.notFoundReason model.contentCache urls of
-        Just notFoundReason ->
-            Pages.Internal.NotFoundReason.document config.pathPatterns notFoundReason
+    case model.notFound of
+        Just info ->
+            Pages.Internal.NotFoundReason.document config.pathPatterns info
 
         Nothing ->
             case model.pageData of
@@ -268,6 +268,7 @@ init config flags url key =
                                     }
                             , ariaNavigationAnnouncement = ""
                             , userFlags = flags
+                            , notFound = Nothing
                             }
                     in
                     ( { initialModel
@@ -283,6 +284,7 @@ init config flags url key =
                       , pageData = BuildError.errorToString error |> Err
                       , ariaNavigationAnnouncement = "Error"
                       , userFlags = flags
+                      , notFound = Nothing
                       }
                     , Cmd.none
                     )
@@ -294,6 +296,7 @@ init config flags url key =
               , pageData = Err "TODO"
               , ariaNavigationAnnouncement = "Error"
               , userFlags = flags
+              , notFound = Nothing
               }
             , Cmd.none
             )
@@ -327,6 +330,7 @@ type alias Model userModel pageData sharedData =
             , pageData : pageData
             , sharedData : sharedData
             }
+    , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
     }
 
@@ -656,29 +660,25 @@ update config appMsg model =
             model.pageData
                 |> Result.map
                     (\pageData ->
-                        let
-                            updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
-                            updatedPageData =
-                                case newThing of
-                                    Just (ResponseSketch.RenderPage newPageData) ->
+                        case newThing of
+                            Just (ResponseSketch.RenderPage newPageData) ->
+                                ( { model
+                                    | pageData =
                                         Ok
                                             { userModel = pageData.userModel
                                             , sharedData = pageData.sharedData
                                             , pageData = newPageData
                                             }
+                                    , notFound = Nothing
+                                  }
+                                , Cmd.none
+                                )
 
-                                    _ ->
-                                        Ok
-                                            { userModel = pageData.userModel
-                                            , sharedData = pageData.sharedData
-                                            , pageData = pageData.pageData
-                                            }
-                        in
-                        ( { model
-                            | pageData = updatedPageData
-                          }
-                        , Cmd.none
-                        )
+                            Just (ResponseSketch.NotFound info) ->
+                                ( { model | notFound = Just info }, Cmd.none )
+
+                            _ ->
+                                ( model, Cmd.none )
                     )
                 |> Result.withDefault ( model, Cmd.none )
 
