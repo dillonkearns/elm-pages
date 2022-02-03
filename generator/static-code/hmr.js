@@ -148,7 +148,10 @@ var module = {
 // Thanks to the elm-live maintainers and contributors for this code for rendering errors as an HTML overlay
 // https://github.com/wking-io/elm-live/blob/e317b4914c471addea7243c47f28dcebe27a5d36/lib/src/websocket.js
 
-const pipe = (...fns) => (x) => fns.reduce((y, f) => f(y), x);
+const pipe =
+  (...fns) =>
+  (x) =>
+    fns.reduce((y, f) => f(y), x);
 
 function elmJsFetch() {
   var elmJsRequest = new Request("/elm.js");
@@ -253,51 +256,51 @@ const consoleMsg = ({ error, style }, msg) => ({
 
 const joinMessage = ({ error, style }) => [error.join("")].concat(style);
 
-const parseConsoleErrors = (path) => 
-/**
- * @param {{ title: string; message: Message[]}} info
- * */
-(info) => {
-  if (info.rule) {
-  return joinMessage(
-    info.formatted.reduce(consoleMsg, {
-      error: [consoleHeader(info.rule, path)],
-      style: [styleColor("blue")],
-    })
-  );
-  } else {
-  return joinMessage(
-    info.message.reduce(consoleMsg, {
-      error: [consoleHeader(info.title, path)],
-      style: [styleColor("blue")],
-    })
-  );
-  }
-}
-
+const parseConsoleErrors =
+  (path) =>
   /**
-   * @param {RootObject} error
+   * @param {{ title: string; message: Message[]}} info
    * */
-const restoreColorConsole = (error) => {
+  (info) => {
+    if (info.rule) {
+      return joinMessage(
+        info.formatted.reduce(consoleMsg, {
+          error: [consoleHeader(info.rule, path)],
+          style: [styleColor("blue")],
+        })
+      );
+    } else {
+      return joinMessage(
+        info.message.reduce(consoleMsg, {
+          error: [consoleHeader(info.title, path)],
+          style: [styleColor("blue")],
+        })
+      );
+    }
+  };
 
-  if (error.type === 'compile-errors' && error.errors) {
+/**
+ * @param {RootObject} error
+ * */
+const restoreColorConsole = (error) => {
+  if (error.type === "compile-errors" && error.errors) {
     return error.errors.reduce(
       (acc, { problems, path }) =>
         acc.concat(problems.map(parseConsoleErrors(path))),
       []
     );
-  } else if (error.type === 'review-errors' && error.errors) {
+  } else if (error.type === "review-errors" && error.errors) {
     return error.errors.reduce(
       (acc, { errors, path }) =>
         acc.concat(errors.map(parseConsoleErrors(path))),
       []
     );
-  } else if (error.type === 'error') {
-      return parseConsoleErrors(error.path)(error)
+  } else if (error.type === "error") {
+    return parseConsoleErrors(error.path)(error);
   } else {
     console.error(`Unknown error type ${error}`);
   }
-}
+};
 
 /*
   |-------------------------------------------------------------------------------
@@ -318,36 +321,35 @@ const htmlMsg = (acc, msg) =>
 
 const parseHtmlErrors = (path) => (info) => {
   if (info.rule) {
-   return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path)); 
+    return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path));
   } else {
-
-   return info.message.reduce(htmlMsg, htmlHeader(info.title, path)); 
+    return info.message.reduce(htmlMsg, htmlHeader(info.title, path));
   }
-}
+};
 
-const restoreColorHtml = 
-/** 
- *  @param {RootObject} error
- * */
-(error) => {
-  if (error.type === 'compile-errors') {
-    return error.errors.reduce(
-      (acc, { problems, path }) =>
-        acc.concat(problems.map(parseHtmlErrors(path))),
-      []
-    );
-    } else if (error.type === 'review-errors') {
-    return error.errors.reduce(
-      (acc, { errors, path }) =>
-        acc.concat(errors.map(parseHtmlErrors(path))),
-      []
-    );
-  } else if (error.type === 'error') {
-    return parseHtmlErrors(error.path)(error);
-  } else {
-    throw new Error(`Unknown error type ${error}`);
-  }
-}
+const restoreColorHtml =
+  /**
+   *  @param {RootObject} error
+   * */
+  (error) => {
+    if (error.type === "compile-errors") {
+      return error.errors.reduce(
+        (acc, { problems, path }) =>
+          acc.concat(problems.map(parseHtmlErrors(path))),
+        []
+      );
+    } else if (error.type === "review-errors") {
+      return error.errors.reduce(
+        (acc, { errors, path }) =>
+          acc.concat(errors.map(parseHtmlErrors(path))),
+        []
+      );
+    } else if (error.type === "error") {
+      return parseHtmlErrors(error.path)(error);
+    } else {
+      throw new Error(`Unknown error type ${error}`);
+    }
+  };
 
 /*
   |-------------------------------------------------------------------------------
