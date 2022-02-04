@@ -115,6 +115,8 @@ function restoreColorSafe(error) {
     if (typeof error === "string") {
       const asJson = JSON.parse(error);
       return restoreColor(asJson);
+    } else if (Array.isArray(error)) {
+      return error.map(restoreColor).join("\n\n\n");
     } else {
       return restoreColor(error);
     }
