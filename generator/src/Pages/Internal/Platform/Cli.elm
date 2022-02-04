@@ -773,24 +773,6 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                 site.data
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
-
-                                                        byteEncodedPageData : Bytes
-                                                        byteEncodedPageData =
-                                                            case pageDataResult of
-                                                                Ok pageServerResponse ->
-                                                                    case pageServerResponse of
-                                                                        PageServerResponse.RenderPage _ pageData ->
-                                                                            pageData
-                                                                                |> ResponseSketch.RenderPage
-                                                                                |> config.encodeResponse
-                                                                                |> Bytes.Encode.encode
-
-                                                                        PageServerResponse.ServerResponse serverResponse ->
-                                                                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
-
-                                                                _ ->
-                                                                    -- TODO handle error?
-                                                                    Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
                                                     in
                                                     case
                                                         Result.map2 Tuple.pair pageDataResult sharedDataResult
@@ -821,6 +803,20 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                         viewValue : { title : String, body : Html userMsg }
                                                                         viewValue =
                                                                             (config.view currentPage Nothing sharedData__ pageData |> .view) pageModel
+
+                                                                        byteEncodedPageData : Bytes
+                                                                        byteEncodedPageData =
+                                                                            if model.isDevServer then
+                                                                                ResponseSketch.HotUpdate pageData
+                                                                                    sharedData__
+                                                                                    |> config.encodeResponse
+                                                                                    |> Bytes.Encode.encode
+
+                                                                            else
+                                                                                pageData
+                                                                                    |> ResponseSketch.RenderPage
+                                                                                    |> config.encodeResponse
+                                                                                    |> Bytes.Encode.encode
                                                                     in
                                                                     case includeHtml of
                                                                         RenderRequest.OnlyJson ->
@@ -862,7 +858,6 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                                 |> Effect.SendSinglePageNew False byteEncodedPageData
 
                                                                 PageServerResponse.ServerResponse serverResponse ->
-                                                                    --PageServerResponse.ServerResponse serverResponse
                                                                     { body = serverResponse |> PageServerResponse.toJson
                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                     , statusCode = 200
@@ -1077,10 +1072,18 @@ sendSinglePageProgress site contentJson config model =
                                                     Ok pageServerResponse ->
                                                         case pageServerResponse of
                                                             PageServerResponse.RenderPage _ pageData ->
-                                                                pageData
-                                                                    |> ResponseSketch.RenderPage
-                                                                    |> config.encodeResponse
-                                                                    |> Bytes.Encode.encode
+                                                                if model.isDevServer then
+                                                                    sharedDataResult
+                                                                        |> Result.map (ResponseSketch.HotUpdate pageData)
+                                                                        |> Result.withDefault (ResponseSketch.RenderPage pageData)
+                                                                        |> config.encodeResponse
+                                                                        |> Bytes.Encode.encode
+
+                                                                else
+                                                                    pageData
+                                                                        |> ResponseSketch.RenderPage
+                                                                        |> config.encodeResponse
+                                                                        |> Bytes.Encode.encode
 
                                                             PageServerResponse.ServerResponse serverResponse ->
                                                                 -- TODO handle error?

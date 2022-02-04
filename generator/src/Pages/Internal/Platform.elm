@@ -186,6 +186,9 @@ init config flags url key =
                                     Just (ResponseSketch.RenderPage pageData) ->
                                         Just pageData
 
+                                    Just (ResponseSketch.HotUpdate pageData shared) ->
+                                        Just pageData
+
                                     _ ->
                                         Nothing
                             )
@@ -475,31 +478,30 @@ update config appMsg model =
 
         UpdateCacheAndUrlNew url cacheUpdateResult ->
             case Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\_ -> "Http error")) model.pageData of
-                Ok ( newPageData, previousPageData ) ->
+                Ok ( newData, previousPageData ) ->
                     let
+                        ( newPageData, newSharedData ) =
+                            case newData of
+                                ResponseSketch.RenderPage pageData ->
+                                    ( pageData, previousPageData.sharedData )
+
+                                ResponseSketch.HotUpdate pageData sharedData ->
+                                    ( pageData, sharedData )
+
+                                _ ->
+                                    ( previousPageData.pageData, previousPageData.sharedData )
+
                         updatedPageData : { userModel : userModel, sharedData : sharedData, pageData : pageData }
                         updatedPageData =
                             { userModel = userModel
-                            , sharedData = previousPageData.sharedData
-                            , pageData =
-                                case newPageData of
-                                    ResponseSketch.RenderPage pageData ->
-                                        pageData
-
-                                    _ ->
-                                        previousPageData.pageData
+                            , sharedData = newSharedData
+                            , pageData = newPageData
                             }
 
                         ( userModel, userCmd ) =
                             config.update
-                                previousPageData.sharedData
-                                (case newPageData of
-                                    ResponseSketch.RenderPage pageData ->
-                                        pageData
-
-                                    _ ->
-                                        previousPageData.pageData
-                                )
+                                newSharedData
+                                newPageData
                                 (Just model.key)
                                 (config.onPageChange
                                     { protocol = model.url.protocol
@@ -667,6 +669,19 @@ update config appMsg model =
                                         Ok
                                             { userModel = pageData.userModel
                                             , sharedData = pageData.sharedData
+                                            , pageData = newPageData
+                                            }
+                                    , notFound = Nothing
+                                  }
+                                , Cmd.none
+                                )
+
+                            Just (ResponseSketch.HotUpdate newPageData newSharedData) ->
+                                ( { model
+                                    | pageData =
+                                        Ok
+                                            { userModel = pageData.userModel
+                                            , sharedData = newSharedData
                                             , pageData = newPageData
                                             }
                                     , notFound = Nothing
