@@ -57,13 +57,6 @@ ${elmPagesJsMinified}
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     ${seoData.headTags}
-    <script id="__ELM_PAGES_DATA__" type="application/json">${jsesc(
-      contentJson,
-      {
-        isScriptContext: true,
-        json: true,
-      }
-    )}</script>
     <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${Buffer.from(
       contentDatPayload.buffer
     ).toString("base64")}</script>

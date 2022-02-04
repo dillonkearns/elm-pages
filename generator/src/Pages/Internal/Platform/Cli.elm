@@ -806,7 +806,10 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
 
                                                                         byteEncodedPageData : Bytes
                                                                         byteEncodedPageData =
-                                                                            if model.isDevServer then
+                                                                            if True then
+                                                                                -- TODO want to encode both shared and page data in dev server and HTML-embedded data
+                                                                                -- but not for writing out the content.dat files - would be good to optimize this redundant data out
+                                                                                --if model.isDevServer then
                                                                                 ResponseSketch.HotUpdate pageData
                                                                                     sharedData__
                                                                                     |> config.encodeResponse
@@ -821,11 +824,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                     case includeHtml of
                                                                         RenderRequest.OnlyJson ->
                                                                             { route = payload.path |> Path.toRelative
-                                                                            , contentJson =
-                                                                                --toJsPayload.pages
-                                                                                --    |> Dict.get (Path.toRelative page)
-                                                                                --    |> Maybe.withDefault Dict.empty
-                                                                                Dict.empty
+                                                                            , contentJson = Dict.empty
                                                                             , html = "This page was not rendered because it is a JSON-only request."
                                                                             , errors = []
                                                                             , head = []
@@ -840,11 +839,7 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
 
                                                                         RenderRequest.HtmlAndJson ->
                                                                             { route = payload.path |> Path.toRelative
-                                                                            , contentJson =
-                                                                                --toJsPayload.pages
-                                                                                --    |> Dict.get (Path.toRelative page)
-                                                                                --    |> Maybe.withDefault Dict.empty
-                                                                                Dict.empty
+                                                                            , contentJson = Dict.empty
                                                                             , html = viewValue.body |> HtmlPrinter.htmlToString
                                                                             , errors = []
                                                                             , head = config.view currentPage Nothing sharedData__ pageData |> .head
@@ -1072,7 +1067,10 @@ sendSinglePageProgress site contentJson config model =
                                                     Ok pageServerResponse ->
                                                         case pageServerResponse of
                                                             PageServerResponse.RenderPage _ pageData ->
-                                                                if model.isDevServer then
+                                                                -- TODO want to encode both shared and page data in dev server and HTML-embedded data
+                                                                -- but not for writing out the content.dat files - would be good to optimize this redundant data out
+                                                                --if model.isDevServer then
+                                                                if True then
                                                                     sharedDataResult
                                                                         |> Result.map (ResponseSketch.HotUpdate pageData)
                                                                         |> Result.withDefault (ResponseSketch.RenderPage pageData)
@@ -1094,7 +1092,7 @@ sendSinglePageProgress site contentJson config model =
                                                         Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
                                         in
                                         { route = page |> Path.toRelative
-                                        , contentJson = contentJson
+                                        , contentJson = Dict.empty
                                         , html = rendered.view
                                         , errors = []
                                         , head = rendered.head ++ site.head siteData
@@ -1147,20 +1145,7 @@ render404Page config model path notFoundReason =
                 |> Bytes.Encode.encode
     in
     { route = Path.toAbsolute path
-    , contentJson =
-        Dict.fromList
-            [ ( "notFoundReason"
-              , Json.Encode.encode 0
-                    (Codec.encoder Pages.Internal.NotFoundReason.codec
-                        { path = path
-                        , reason = notFoundReason
-                        }
-                    )
-              )
-            , ( "path", Path.toAbsolute path )
-            ]
-
-    -- TODO include the needed info for content.json?
+    , contentJson = Dict.empty
     , html = HtmlPrinter.htmlToString notFoundDocument.body
     , errors = []
     , head = []

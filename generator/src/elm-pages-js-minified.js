@@ -16,9 +16,7 @@ function loadContentAndInitializeApp() {
       isPrerendering: false,
       isDevServer: false,
       isElmDebugMode: false,
-      contentJson: JSON.parse(
-        document.getElementById("__ELM_PAGES_DATA__").innerHTML
-      ),
+      contentJson: {},
       pageDataBase64: document.getElementById("__ELM_PAGES_BYTES_DATA__").innerHTML,
       userFlags: userInit.flags(),
     },

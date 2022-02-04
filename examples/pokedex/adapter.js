@@ -49,10 +49,10 @@ async function run({
       .map((route) => {
         if (route.kind === "prerender-with-fallback") {
           return `${route.pathPattern} /.netlify/builders/render 200
-${route.pathPattern}/content.json /.netlify/builders/render 200`;
+${route.pathPattern}/content.dat /.netlify/builders/render 200`;
         } else {
           return `${route.pathPattern} /.netlify/functions/server-render 200
-${route.pathPattern}/content.json /.netlify/functions/server-render 200`;
+${route.pathPattern}/content.dat /.netlify/functions/server-render 200`;
         }
       })
       .join("\n") +

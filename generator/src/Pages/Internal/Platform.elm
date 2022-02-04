@@ -19,10 +19,8 @@ import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import PageServerResponse exposing (PageServerResponse)
-import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson, contentJsonDecoder)
+import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson)
 import Pages.Flags
-import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
@@ -133,170 +131,109 @@ init :
     -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
 init config flags url key =
     let
-        contentCache : ContentCache
-        contentCache =
-            ContentCache.init
-                (Maybe.map
-                    (\cj ->
-                        let
-                            currentPath : List String
-                            currentPath =
-                                flags
-                                    |> Decode.decodeValue
-                                        (Decode.at [ "contentJson", "path" ]
-                                            (Decode.string
-                                                |> Decode.map Path.fromString
-                                                |> Decode.map Path.toSegments
-                                            )
-                                        )
-                                    |> Result.mapError Decode.errorToString
-                                    |> Result.toMaybe
-                                    |> Maybe.withDefault []
-                        in
-                        ( currentPath
-                        , cj
-                        )
-                    )
-                    contentJson
-                )
-
-        contentJson : Maybe ContentJson
-        contentJson =
+        pageDataResult : Result BuildError ( pageData, sharedData )
+        pageDataResult =
             flags
-                |> Decode.decodeValue (Decode.field "contentJson" contentJsonDecoder)
+                |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
                 |> Result.toMaybe
+                |> Maybe.andThen Base64.toBytes
+                |> Maybe.andThen
+                    (\justBytes ->
+                        case
+                            Bytes.Decode.decode
+                                -- TODO should this use byteDecodePageData, or should it be decoding ResponseSketch data?
+                                config.decodeResponse
+                                justBytes
+                        of
+                            Just (ResponseSketch.RenderPage pageData) ->
+                                Nothing
+
+                            Just (ResponseSketch.HotUpdate pageData shared) ->
+                                Just ( pageData, shared )
+
+                            _ ->
+                                Nothing
+                    )
+                |> Result.fromMaybe
+                    (StaticHttpRequest.DecoderError "Bytes decode error"
+                        |> StaticHttpRequest.toBuildError url.path
+                    )
     in
-    case contentJson |> Maybe.map .staticData of
-        Just justContentJson ->
+    case pageDataResult of
+        Ok ( pageData, sharedData ) ->
             let
-                pageDataResult : Result BuildError pageData
-                pageDataResult =
+                urls : { currentUrl : Url, basePath : List String }
+                urls =
+                    { currentUrl = url
+                    , basePath = config.basePath
+                    }
+
+                pagePath : Path
+                pagePath =
+                    urlsToPagePath urls
+
+                userFlags : Pages.Flags.Flags
+                userFlags =
                     flags
-                        |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
-                        |> Result.toMaybe
-                        |> Maybe.andThen Base64.toBytes
-                        |> Maybe.andThen
-                            (\justBytes ->
-                                case
-                                    Bytes.Decode.decode
-                                        -- TODO should this use byteDecodePageData, or should it be decoding ResponseSketch data?
-                                        config.decodeResponse
-                                        justBytes
-                                of
-                                    Just (ResponseSketch.RenderPage pageData) ->
-                                        Just pageData
+                        |> Decode.decodeValue
+                            (Decode.field "userFlags" Decode.value)
+                        |> Result.withDefault Json.Encode.null
+                        |> Pages.Flags.BrowserFlags
 
-                                    Just (ResponseSketch.HotUpdate pageData shared) ->
-                                        Just pageData
-
-                                    _ ->
-                                        Nothing
-                            )
-                        |> Result.fromMaybe
-                            (StaticHttpRequest.DecoderError "Bytes decode error"
-                                |> StaticHttpRequest.toBuildError url.path
-                            )
-
-                sharedDataResult : Result BuildError sharedData
-                sharedDataResult =
-                    StaticHttpRequest.resolve ApplicationType.Browser
-                        config.sharedData
-                        justContentJson
-                        |> Result.mapError (StaticHttpRequest.toBuildError url.path)
-            in
-            case Result.map2 Tuple.pair sharedDataResult pageDataResult of
-                Ok ( sharedData, pageData ) ->
-                    let
-                        urls : { currentUrl : Url, basePath : List String }
-                        urls =
-                            { currentUrl = url
-                            , basePath = config.basePath
+                ( userModel, userCmd ) =
+                    Just
+                        { path =
+                            { path = pagePath
+                            , query = url.query
+                            , fragment = url.fragment
                             }
-
-                        pagePath : Path
-                        pagePath =
-                            urlsToPagePath urls
-
-                        userFlags : Pages.Flags.Flags
-                        userFlags =
-                            flags
-                                |> Decode.decodeValue
-                                    (Decode.field "userFlags" Decode.value)
-                                |> Result.withDefault Json.Encode.null
-                                |> Pages.Flags.BrowserFlags
-
-                        ( userModel, userCmd ) =
+                        , metadata = config.urlToRoute url
+                        , pageUrl =
                             Just
-                                { path =
-                                    { path = pagePath
-                                    , query = url.query
-                                    , fragment = url.fragment
-                                    }
-                                , metadata = config.urlToRoute url
-                                , pageUrl =
-                                    Just
-                                        { protocol = url.protocol
-                                        , host = url.host
-                                        , port_ = url.port_
-                                        , path = pagePath
-                                        , query = url.query |> Maybe.map QueryParams.fromString
-                                        , fragment = url.fragment
-                                        }
+                                { protocol = url.protocol
+                                , host = url.host
+                                , port_ = url.port_
+                                , path = pagePath
+                                , query = url.query |> Maybe.map QueryParams.fromString
+                                , fragment = url.fragment
                                 }
-                                |> config.init userFlags sharedData pageData (Just key)
+                        }
+                        |> config.init userFlags sharedData pageData (Just key)
 
-                        cmd : Cmd (Msg userMsg pageData sharedData)
-                        cmd =
-                            [ userCmd
-                                |> Cmd.map UserMsg
-                                |> Just
-                            , contentCache
-                                |> ContentCache.lazyLoad urls
-                                |> Task.attempt UpdateCache
-                                |> Just
-                            ]
-                                |> List.filterMap identity
-                                |> Cmd.batch
+                cmd : Cmd (Msg userMsg pageData sharedData)
+                cmd =
+                    [ userCmd
+                        |> Cmd.map UserMsg
+                        |> Just
+                    ]
+                        |> List.filterMap identity
+                        |> Cmd.batch
 
-                        initialModel : Model userModel pageData sharedData
-                        initialModel =
-                            { key = key
-                            , url = url
-                            , contentCache = contentCache
-                            , pageData =
-                                Ok
-                                    { pageData = pageData
-                                    , sharedData = sharedData
-                                    , userModel = userModel
-                                    }
-                            , ariaNavigationAnnouncement = ""
-                            , userFlags = flags
-                            , notFound = Nothing
+                initialModel : Model userModel pageData sharedData
+                initialModel =
+                    { key = key
+                    , url = url
+                    , pageData =
+                        Ok
+                            { pageData = pageData
+                            , sharedData = sharedData
+                            , userModel = userModel
                             }
-                    in
-                    ( { initialModel
-                        | ariaNavigationAnnouncement = mainView config initialModel |> .title
-                      }
-                    , cmd
-                    )
+                    , ariaNavigationAnnouncement = ""
+                    , userFlags = flags
+                    , notFound = Nothing
+                    }
+            in
+            ( { initialModel
+                | ariaNavigationAnnouncement = mainView config initialModel |> .title
+              }
+            , cmd
+            )
 
-                Err error ->
-                    ( { key = key
-                      , url = url
-                      , contentCache = contentCache
-                      , pageData = BuildError.errorToString error |> Err
-                      , ariaNavigationAnnouncement = "Error"
-                      , userFlags = flags
-                      , notFound = Nothing
-                      }
-                    , Cmd.none
-                    )
-
-        Nothing ->
+        Err error ->
             ( { key = key
               , url = url
-              , contentCache = contentCache
-              , pageData = Err "TODO"
+              , pageData = BuildError.errorToString error |> Err
               , ariaNavigationAnnouncement = "Error"
               , userFlags = flags
               , notFound = Nothing
@@ -310,11 +247,8 @@ type Msg userMsg pageData sharedData
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCache (Result Http.Error ( Url, ContentJson, ContentCache ))
-    | UpdateCacheAndUrl Url (Result Http.Error ( Url, ContentJson, ContentCache ))
     | UpdateCacheAndUrlNew Url (Result Http.Error (ResponseSketch pageData sharedData))
     | PageScrollComplete
-    | HotReloadComplete ContentJson
     | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData
     | NoOp
@@ -324,7 +258,6 @@ type Msg userMsg pageData sharedData
 type alias Model userModel pageData sharedData =
     { key : Browser.Navigation.Key
     , url : Url
-    , contentCache : ContentCache
     , ariaNavigationAnnouncement : String
     , pageData :
         Result
@@ -442,9 +375,11 @@ update config appMsg model =
                     }
             in
             ( model
-            , model.contentCache
-                |> ContentCache.eagerLoad urls
-                |> Task.attempt (UpdateCacheAndUrl model.url)
+            , Cmd.none
+              -- @@@ TODO re-implement with Bytes decoding
+              --model.contentCache
+              --    |> ContentCache.eagerLoad urls
+              --    |> Task.attempt (UpdateCacheAndUrl model.url)
             )
 
         UserMsg userMsg ->
@@ -461,19 +396,6 @@ update config appMsg model =
                     ( { model | pageData = updatedPageData }, userCmd |> Cmd.map UserMsg )
 
                 Err _ ->
-                    ( model, Cmd.none )
-
-        UpdateCache cacheUpdateResult ->
-            case cacheUpdateResult of
-                -- TODO can there be race conditions here? Might need to set something in the model
-                -- to keep track of the last url change
-                Ok ( _, _, updatedCache ) ->
-                    ( { model | contentCache = updatedCache }
-                    , Cmd.none
-                    )
-
-                Err _ ->
-                    -- TODO handle error
                     ( model, Cmd.none )
 
         UpdateCacheAndUrlNew url cacheUpdateResult ->
@@ -533,100 +455,7 @@ update config appMsg model =
 
                 Err error ->
                     {-
-                       When there is an error loading the content.json, we are either
-                       1) in the dev server, and should show the relevant DataSource error for the page
-                          we're navigating to. This could be done more cleanly, but it's simplest to just
-                          do a fresh page load and use the code path for presenting an error for a fresh page.
-                       2) In a production app. That means we had a successful build, so there were no DataSource failures,
-                          so the app must be stale (unless it's in some unexpected state from a bug). In the future,
-                          it probably makes sense to include some sort of hash of the app version we are fetching, match
-                          it with the current version that's running, and perform this logic when we see there is a mismatch.
-                          But for now, if there is any error we do a full page load (not a single-page navigation), which
-                          gives us a fresh version of the app to make sure things are in sync.
-
-                    -}
-                    ( model
-                    , url
-                        |> Url.toString
-                        |> Browser.Navigation.load
-                    )
-
-        UpdateCacheAndUrl url cacheUpdateResult ->
-            case
-                Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\_ -> "Http error")) model.pageData
-            of
-                -- TODO can there be race conditions here? Might need to set something in the model
-                -- to keep track of the last url change
-                Ok ( ( _, contentJson, updatedCache ), pageData ) ->
-                    let
-                        updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
-                        updatedPageData =
-                            updatedPageStaticData
-                                |> Result.map
-                                    (\pageStaticData ->
-                                        { userModel = userModel
-                                        , sharedData = pageData.sharedData
-                                        , pageData = pageStaticData
-                                        }
-                                    )
-
-                        updatedPageStaticData : Result String pageData
-                        updatedPageStaticData =
-                            StaticHttpRequest.resolve ApplicationType.Browser
-                                (config.data (config.urlToRoute url))
-                                contentJson.staticData
-                                |> Result.mapError
-                                    (\error ->
-                                        error
-                                            |> StaticHttpRequest.toBuildError ""
-                                            |> BuildError.errorToString
-                                    )
-                                |> Result.andThen
-                                    (\pageResponse ->
-                                        case pageResponse of
-                                            PageServerResponse.RenderPage _ renderPagePageData ->
-                                                Ok renderPagePageData
-
-                                            PageServerResponse.ServerResponse _ ->
-                                                Err "Unexpected ServerResponse - was expecting RenderPage response."
-                                    )
-
-                        ( userModel, userCmd ) =
-                            config.update
-                                pageData.sharedData
-                                (updatedPageStaticData |> Result.withDefault pageData.pageData)
-                                (Just model.key)
-                                (config.onPageChange
-                                    { protocol = model.url.protocol
-                                    , host = model.url.host
-                                    , port_ = model.url.port_
-                                    , path = url |> urlPathToPath config
-                                    , query = url.query
-                                    , fragment = url.fragment
-                                    , metadata = config.urlToRoute url
-                                    }
-                                )
-                                pageData.userModel
-
-                        updatedModel : Model userModel pageData sharedData
-                        updatedModel =
-                            { model
-                                | url = url
-                                , contentCache = updatedCache
-                            }
-                    in
-                    ( { updatedModel
-                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                      }
-                    , Cmd.batch
-                        [ userCmd |> Cmd.map UserMsg
-                        , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
-                        ]
-                    )
-
-                Err _ ->
-                    {-
-                       When there is an error loading the content.json, we are either
+                       When there is an error loading the content.dat, we are either
                        1) in the dev server, and should show the relevant DataSource error for the page
                           we're navigating to. This could be done more cleanly, but it's simplest to just
                           do a fresh page load and use the code path for presenting an error for a fresh page.
@@ -696,175 +525,6 @@ update config appMsg model =
                                 ( model, Cmd.none )
                     )
                 |> Result.withDefault ( model, Cmd.none )
-
-        HotReloadComplete contentJson ->
-            let
-                urls : { currentUrl : Url, basePath : List String }
-                urls =
-                    { currentUrl = model.url
-                    , basePath = config.basePath
-                    }
-
-                pageDataResult : Result BuildError (PageServerResponse pageData)
-                pageDataResult =
-                    StaticHttpRequest.resolve ApplicationType.Browser
-                        (config.data (config.urlToRoute model.url))
-                        contentJson.staticData
-                        |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
-
-                sharedDataResult : Result BuildError sharedData
-                sharedDataResult =
-                    StaticHttpRequest.resolve ApplicationType.Browser
-                        config.sharedData
-                        contentJson.staticData
-                        |> Result.mapError (StaticHttpRequest.toBuildError model.url.path)
-            in
-            case Result.map2 Tuple.pair sharedDataResult pageDataResult of
-                Ok ( sharedData, pageData_ ) ->
-                    case pageData_ of
-                        PageServerResponse.RenderPage _ pageData ->
-                            let
-                                was404 : Bool
-                                was404 =
-                                    ContentCache.is404 model.contentCache urls
-
-                                from404ToNon404 : Bool
-                                from404ToNon404 =
-                                    not contentJson.is404
-                                        && was404
-
-                                updateResult : Maybe ( userModel, Cmd userMsg )
-                                updateResult =
-                                    if from404ToNon404 then
-                                        case model.pageData of
-                                            Ok pageData2_ ->
-                                                config.update
-                                                    sharedData
-                                                    pageData
-                                                    (Just model.key)
-                                                    (config.onPageChange
-                                                        { protocol = model.url.protocol
-                                                        , host = model.url.host
-                                                        , port_ = model.url.port_
-                                                        , path = model.url |> urlPathToPath config
-                                                        , query = model.url.query
-                                                        , fragment = model.url.fragment
-                                                        , metadata = config.urlToRoute model.url
-                                                        }
-                                                    )
-                                                    pageData2_.userModel
-                                                    |> Just
-
-                                            Err _ ->
-                                                Nothing
-
-                                    else
-                                        Nothing
-                            in
-                            case updateResult of
-                                Just ( userModel, userCmd ) ->
-                                    ( { model
-                                        | contentCache =
-                                            ContentCache.init
-                                                (Just
-                                                    ( urls.currentUrl
-                                                        |> config.urlToRoute
-                                                        |> config.routeToPath
-                                                    , contentJson
-                                                    )
-                                                )
-                                        , pageData =
-                                            Ok
-                                                { pageData = pageData
-                                                , sharedData = sharedData
-                                                , userModel = userModel
-                                                }
-                                      }
-                                    , Cmd.batch
-                                        [ userCmd |> Cmd.map UserMsg
-                                        ]
-                                    )
-
-                                Nothing ->
-                                    let
-                                        pagePath : Path
-                                        pagePath =
-                                            urlsToPagePath urls
-
-                                        userFlags : Pages.Flags.Flags
-                                        userFlags =
-                                            model.userFlags
-                                                |> Decode.decodeValue
-                                                    (Decode.field "userFlags" Decode.value)
-                                                |> Result.withDefault Json.Encode.null
-                                                |> Pages.Flags.BrowserFlags
-
-                                        ( userModel, userCmd ) =
-                                            Just
-                                                { path =
-                                                    { path = pagePath
-                                                    , query = model.url.query
-                                                    , fragment = model.url.fragment
-                                                    }
-                                                , metadata = config.urlToRoute model.url
-                                                , pageUrl =
-                                                    Just
-                                                        { protocol = model.url.protocol
-                                                        , host = model.url.host
-                                                        , port_ = model.url.port_
-                                                        , path = pagePath
-                                                        , query = model.url.query |> Maybe.map QueryParams.fromString
-                                                        , fragment = model.url.fragment
-                                                        }
-                                                }
-                                                |> config.init userFlags sharedData pageData (Just model.key)
-                                    in
-                                    ( { model
-                                        | contentCache =
-                                            ContentCache.init
-                                                (Just
-                                                    ( urls.currentUrl
-                                                        |> config.urlToRoute
-                                                        |> config.routeToPath
-                                                    , contentJson
-                                                    )
-                                                )
-                                        , pageData =
-                                            model.pageData
-                                                |> Result.map
-                                                    (\previousPageData ->
-                                                        { pageData = pageData
-                                                        , sharedData = sharedData
-                                                        , userModel = previousPageData.userModel
-                                                        }
-                                                    )
-                                                |> Result.withDefault
-                                                    { pageData = pageData
-                                                    , sharedData = sharedData
-                                                    , userModel = userModel
-                                                    }
-                                                |> Ok
-                                      }
-                                    , userCmd |> Cmd.map UserMsg
-                                    )
-
-                        PageServerResponse.ServerResponse _ ->
-                            ( model, Cmd.none )
-
-                Err _ ->
-                    ( { model
-                        | contentCache =
-                            ContentCache.init
-                                (Just
-                                    ( urls.currentUrl
-                                        |> config.urlToRoute
-                                        |> config.routeToPath
-                                    , contentJson
-                                    )
-                                )
-                      }
-                    , Cmd.none
-                    )
 
         NoOp ->
             ( model, Cmd.none )

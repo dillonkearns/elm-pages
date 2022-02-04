@@ -85,7 +85,6 @@ function runElmApp(
   let killApp;
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
-    const isJson = pagePath.match(/content\.json\/?$/);
     const route = pagePath
       .replace(/content\.json\/?$/, "")
       .replace(/content\.dat\/?$/, "");
@@ -100,7 +99,7 @@ function runElmApp(
         request: {
           payload: modifiedRequest,
           kind: "single-page",
-          jsonOnly: !!isJson,
+          jsonOnly: !!isBytes,
         },
       },
     });
@@ -149,18 +148,6 @@ function runElmApp(
             contentJson: JSON.stringify({
               staticData: args.contentJson,
               is404: false,
-            }),
-            statusCode: args.statusCode,
-            headers: args.headers,
-            contentDatPayload,
-          });
-        } else if (isJson) {
-          resolve({
-            kind: "json",
-            is404: args.is404,
-            contentJson: JSON.stringify({
-              staticData: args.contentJson,
-              is404: args.is404,
             }),
             statusCode: args.statusCode,
             headers: args.headers,
