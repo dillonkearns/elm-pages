@@ -19,7 +19,7 @@ import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import Json.Encode
-import Pages.ContentCache as ContentCache exposing (ContentCache, ContentJson)
+import Pages.ContentCache as ContentCache
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
@@ -28,7 +28,7 @@ import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import QueryParams
-import Task exposing (Task)
+import Task
 import Url exposing (Url)
 
 
@@ -145,7 +145,7 @@ init config flags url key =
                                 config.decodeResponse
                                 justBytes
                         of
-                            Just (ResponseSketch.RenderPage pageData) ->
+                            Just (ResponseSketch.RenderPage _) ->
                                 Nothing
 
                             Just (ResponseSketch.HotUpdate pageData shared) ->
@@ -251,7 +251,6 @@ type Msg userMsg pageData sharedData
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData
-    | NoOp
 
 
 {-| -}
@@ -367,13 +366,6 @@ update config appMsg model =
                 )
 
         ReloadCurrentPageData ->
-            let
-                urls : { currentUrl : Url, basePath : List String }
-                urls =
-                    { currentUrl = model.url
-                    , basePath = config.basePath
-                    }
-            in
             ( model
             , Cmd.none
               -- @@@ TODO re-implement with Bytes decoding
@@ -453,7 +445,7 @@ update config appMsg model =
                         ]
                     )
 
-                Err error ->
+                Err _ ->
                     {-
                        When there is an error loading the content.dat, we are either
                        1) in the dev server, and should show the relevant DataSource error for the page
@@ -477,12 +469,6 @@ update config appMsg model =
             ( model, Cmd.none )
 
         HotReloadCompleteNew pageDataBytes ->
-            let
-                route : route
-                route =
-                    model.url
-                        |> config.urlToRoute
-            in
             model.pageData
                 |> Result.map
                     (\pageData ->
@@ -526,9 +512,6 @@ update config appMsg model =
                                 ( model, Cmd.none )
                     )
                 |> Result.withDefault ( model, Cmd.none )
-
-        NoOp ->
-            ( model, Cmd.none )
 
 
 {-| -}

@@ -18,7 +18,6 @@ import Dict.Extra
 import Head
 import Html exposing (Html)
 import HtmlPrinter
-import Http
 import Internal.ApiRoute exposing (ApiRoute(..))
 import Json.Decode as Decode
 import Json.Encode
@@ -30,7 +29,7 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
-import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
+import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -173,24 +172,6 @@ requestDecoder : Decode.Decoder Pages.StaticHttp.Request.Request
 requestDecoder =
     Pages.StaticHttp.Request.codec
         |> Codec.decoder
-
-
-gotStaticFileDecoder : Decode.Decoder ( String, Decode.Value )
-gotStaticFileDecoder =
-    Decode.field "data"
-        (Decode.map2 Tuple.pair
-            (Decode.field "filePath" Decode.string)
-            Decode.value
-        )
-
-
-gotPortDecoder : Decode.Decoder ( String, Decode.Value )
-gotPortDecoder =
-    Decode.field "data"
-        (Decode.map2 Tuple.pair
-            (Decode.field "portName" Decode.string)
-            (Decode.field "portResponse" Decode.value)
-        )
 
 
 perform :
@@ -452,7 +433,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config flags =
                             StaticResponses.renderApiRequest
                                 (apiRequest.matchesToResponse path)
 
-                        RenderRequest.NotFound path ->
+                        RenderRequest.NotFound _ ->
                             StaticResponses.renderApiRequest
                                 (DataSource.succeed [])
 
@@ -467,7 +448,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config flags =
                         RenderRequest.Api _ ->
                             []
 
-                        RenderRequest.NotFound path ->
+                        RenderRequest.NotFound _ ->
                             []
 
         unprocessedPagesState : Maybe (List ( Path, route ))
@@ -481,7 +462,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config flags =
                         RenderRequest.Api _ ->
                             Nothing
 
-                        RenderRequest.NotFound path ->
+                        RenderRequest.NotFound _ ->
                             Just []
 
         initialModel : Model route
@@ -664,7 +645,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                         apiResponse : Effect
                         apiResponse =
                             case model.maybeRequestJson of
-                                RenderRequest.SinglePage includeHtml requestPayload value ->
+                                RenderRequest.SinglePage includeHtml requestPayload _ ->
                                     case requestPayload of
                                         RenderRequest.Api ( path, ApiRoute apiHandler ) ->
                                             let
@@ -913,7 +894,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                         |> config.encodeResponse
                                                         |> Bytes.Encode.encode
 
-                                                PageServerResponse.ServerResponse serverResponse ->
+                                                PageServerResponse.ServerResponse _ ->
                                                     -- TODO handle error?
                                                     Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
 
@@ -1071,7 +1052,7 @@ sendSinglePageProgress site contentJson config model =
                                                                         |> config.encodeResponse
                                                                         |> Bytes.Encode.encode
 
-                                                            PageServerResponse.ServerResponse serverResponse ->
+                                                            PageServerResponse.ServerResponse _ ->
                                                                 -- TODO handle error?
                                                                 Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
 

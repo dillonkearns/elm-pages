@@ -18,21 +18,11 @@ type RawRequest value
 
 type WhatToDo
     = UseRawResponse
-    | Error (List BuildError)
 
 
 merge : String -> WhatToDo -> WhatToDo -> WhatToDo
 merge key whatToDo1 whatToDo2 =
     case ( whatToDo1, whatToDo2 ) of
-        ( Error buildErrors1, Error buildErrors2 ) ->
-            Error (buildErrors1 ++ buildErrors2)
-
-        ( Error buildErrors1, _ ) ->
-            Error buildErrors1
-
-        ( _, Error buildErrors1 ) ->
-            Error buildErrors1
-
         ( UseRawResponse, UseRawResponse ) ->
             UseRawResponse
 
@@ -55,9 +45,6 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
                             |> Maybe.withDefault ""
                             |> Just
                             |> Ok
-
-                    Error buildError ->
-                        Err buildError
                 )
                     |> Result.map (Maybe.map (Tuple.pair k))
             )
