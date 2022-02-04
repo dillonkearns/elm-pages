@@ -2,7 +2,6 @@ module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), 
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
-import KeepOrDiscard exposing (KeepOrDiscard)
 import List.Extra
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
@@ -11,7 +10,7 @@ import TerminalText as Terminal
 
 
 type RawRequest value
-    = Request (Dict String WhatToDo) ( List Pages.StaticHttp.Request.Request, KeepOrDiscard -> ApplicationType -> RequestsAndPending -> RawRequest value )
+    = Request (Dict String WhatToDo) ( List Pages.StaticHttp.Request.Request, ApplicationType -> RequestsAndPending -> RawRequest value )
     | RequestError Error
     | ApiRoute (Dict String WhatToDo) value
 
@@ -21,10 +20,8 @@ type WhatToDo
 
 
 merge : String -> WhatToDo -> WhatToDo -> WhatToDo
-merge key whatToDo1 whatToDo2 =
-    case ( whatToDo1, whatToDo2 ) of
-        ( UseRawResponse, UseRawResponse ) ->
-            UseRawResponse
+merge _ _ _ =
+    UseRawResponse
 
 
 strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
@@ -85,7 +82,7 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
             usedSoFar
 
         Request partiallyStrippedResponses ( _, lookupFn ) ->
-            case lookupFn KeepOrDiscard.Keep appType rawResponses of
+            case lookupFn appType rawResponses of
                 followupRequest ->
                     strippedResponsesHelp
                         (Dict.merge
@@ -154,7 +151,7 @@ resolve appType request rawResponses =
             Err error
 
         Request _ ( _, lookupFn ) ->
-            case lookupFn KeepOrDiscard.Keep appType rawResponses of
+            case lookupFn appType rawResponses of
                 nextRequest ->
                     resolve appType nextRequest rawResponses
 
@@ -183,7 +180,7 @@ resolveUrlsHelp appType rawResponses soFar request =
             resolveUrlsHelp appType
                 rawResponses
                 (soFar ++ urlList)
-                (lookupFn KeepOrDiscard.Keep appType rawResponses)
+                (lookupFn appType rawResponses)
 
         ApiRoute _ _ ->
             soFar
@@ -228,7 +225,7 @@ cacheRequestResolutionHelp foundUrls appType rawResponses request =
             cacheRequestResolutionHelp urlList
                 appType
                 rawResponses
-                (lookupFn KeepOrDiscard.Keep appType rawResponses)
+                (lookupFn appType rawResponses)
 
         ApiRoute _ _ ->
             Complete
