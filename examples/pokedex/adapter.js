@@ -142,15 +142,14 @@ async function render(event, context) {
       addWatcher,
       false
     );
-    console.log("@@@renderResult", JSON.stringify(renderResult, null, 2));
 
     const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
 
-    if (renderResult.kind === "json") {
+    if (renderResult.kind === "bytes") {
       return {
-        body: renderResult.contentJson,
+        body: Buffer.from(renderResult.contentDatPayload.buffer),
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/octet-stream",
           "x-powered-by": "elm-pages",
           ...renderResult.headers,
         },
