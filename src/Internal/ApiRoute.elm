@@ -77,7 +77,7 @@ withRoutes buildUrls (ApiRouteBuilder _ _ _ toString constructor) =
 
 {-| -}
 tryMatch : String -> ApiRouteBuilder response constructor -> Maybe response
-tryMatch path (ApiRouteBuilder patterns pattern handler _ _) =
+tryMatch path (ApiRouteBuilder _ pattern handler _ _) =
     let
         matches : List String
         matches =

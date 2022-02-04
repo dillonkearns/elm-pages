@@ -338,7 +338,7 @@ update config appMsg model =
                                             { protocol = model.url.protocol
                                             , host = model.url.host
                                             , port_ = model.url.port_
-                                            , path = urlPathToPath config urls.currentUrl
+                                            , path = urlPathToPath urls.currentUrl
                                             , query = url.query
                                             , fragment = url.fragment
                                             , metadata = config.urlToRoute url
@@ -421,7 +421,7 @@ update config appMsg model =
                                     { protocol = model.url.protocol
                                     , host = model.url.host
                                     , port_ = model.url.port_
-                                    , path = url |> urlPathToPath config
+                                    , path = url |> urlPathToPath
                                     , query = url.query
                                     , fragment = url.fragment
                                     , metadata = config.urlToRoute url
@@ -557,6 +557,6 @@ application config =
         }
 
 
-urlPathToPath : ProgramConfig userMsg userModel route siteData pageData sharedData -> Url -> Path
-urlPathToPath config urls =
+urlPathToPath : Url -> Path
+urlPathToPath urls =
     urls.path |> Path.fromString
