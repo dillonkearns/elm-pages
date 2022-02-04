@@ -329,6 +329,7 @@ perform site renderRequest config toJsPort effect =
                         _ ->
                             ""
 
+                newCommandThing : Cmd a
                 newCommandThing =
                     { oldThing =
                         info
@@ -892,25 +893,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                             (contentJson |> Dict.map (\_ v -> Just v))
                                             |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
                                     )
-
-                        byteEncodedPageData : Bytes
-                        byteEncodedPageData =
-                            case pageDataResult of
-                                Ok pageServerResponse ->
-                                    case pageServerResponse of
-                                        PageServerResponse.RenderPage _ pageData ->
-                                            pageData
-                                                |> ResponseSketch.RenderPage
-                                                |> config.encodeResponse
-                                                |> Bytes.Encode.encode
-
-                                        PageServerResponse.ServerResponse serverResponse ->
-                                            -- TODO handle error?
-                                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
-
-                                _ ->
-                                    -- TODO handle error?
-                                    Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
                     in
                     case model.unprocessedPages |> List.head of
                         Just pageAndMetadata ->
@@ -919,6 +901,26 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                             )
 
                         Nothing ->
+                            let
+                                byteEncodedPageData : Bytes
+                                byteEncodedPageData =
+                                    case pageDataResult of
+                                        Ok pageServerResponse ->
+                                            case pageServerResponse of
+                                                PageServerResponse.RenderPage _ pageData ->
+                                                    pageData
+                                                        |> ResponseSketch.RenderPage
+                                                        |> config.encodeResponse
+                                                        |> Bytes.Encode.encode
+
+                                                PageServerResponse.ServerResponse serverResponse ->
+                                                    -- TODO handle error?
+                                                    Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+
+                                        _ ->
+                                            -- TODO handle error?
+                                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                            in
                             ( model
                             , [] |> ToJsPayload.Errors |> Effect.SendSinglePageNew True byteEncodedPageData
                             )
