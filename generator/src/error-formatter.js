@@ -112,8 +112,12 @@ const restoreColor = (error) => {
  */
 function restoreColorSafe(error) {
   try {
-    const asJson = JSON.parse(error);
-    return restoreColor(asJson);
+    if (typeof error === "string") {
+      const asJson = JSON.parse(error);
+      return restoreColor(asJson);
+    } else {
+      return restoreColor(error);
+    }
   } catch (e) {
     return error;
   }
