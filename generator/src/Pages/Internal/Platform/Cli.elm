@@ -844,8 +844,8 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                                     -- TODO handle error?
                                                                     Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
                                                     in
-                                                    case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
-                                                        Ok ( pageFound, renderedOrApiResponse, siteData ) ->
+                                                    case renderedResult of
+                                                        Ok renderedOrApiResponse ->
                                                             case renderedOrApiResponse of
                                                                 PageServerResponse.RenderPage responseInfo rendered ->
                                                                     { route = payload.path |> Path.toRelative
