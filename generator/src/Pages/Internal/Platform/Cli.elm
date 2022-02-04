@@ -703,7 +703,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                             let
                                                 pageFoundResult : Result BuildError (Maybe NotFoundReason)
                                                 pageFoundResult =
-                                                    StaticHttpRequest.resolve ApplicationType.Browser
+                                                    StaticHttpRequest.resolve ApplicationType.Cli
                                                         (if model.isDevServer then
                                                             config.handleRoute payload.frontmatter
 
@@ -740,14 +740,14 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
                                                         pageDataResult : Result BuildError (PageServerResponse pageData)
                                                         pageDataResult =
-                                                            StaticHttpRequest.resolve ApplicationType.Browser
+                                                            StaticHttpRequest.resolve ApplicationType.Cli
                                                                 (config.data (config.urlToRoute currentUrl))
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         sharedDataResult : Result BuildError sharedData
                                                         sharedDataResult =
-                                                            StaticHttpRequest.resolve ApplicationType.Browser
+                                                            StaticHttpRequest.resolve ApplicationType.Cli
                                                                 config.sharedData
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
@@ -886,7 +886,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                             routeResult
                                 |> Result.andThen
                                     (\route ->
-                                        StaticHttpRequest.resolve ApplicationType.Browser
+                                        StaticHttpRequest.resolve ApplicationType.Cli
                                             (config.data route)
                                             (contentJson |> Dict.map (\_ v -> Just v))
                                             |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
@@ -942,7 +942,7 @@ sendSinglePageProgress site contentJson config model =
                 let
                     pageFoundResult : Result BuildError (Maybe NotFoundReason)
                     pageFoundResult =
-                        StaticHttpRequest.resolve ApplicationType.Browser
+                        StaticHttpRequest.resolve ApplicationType.Cli
                             (if model.isDevServer then
                                 config.handleRoute route
 
@@ -1020,14 +1020,14 @@ sendSinglePageProgress site contentJson config model =
 
                     pageDataResult : Result BuildError (PageServerResponse pageData)
                     pageDataResult =
-                        StaticHttpRequest.resolve ApplicationType.Browser
+                        StaticHttpRequest.resolve ApplicationType.Cli
                             (config.data (config.urlToRoute currentUrl))
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     sharedDataResult : Result BuildError sharedData
                     sharedDataResult =
-                        StaticHttpRequest.resolve ApplicationType.Browser
+                        StaticHttpRequest.resolve ApplicationType.Cli
                             config.sharedData
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
