@@ -5,7 +5,6 @@ module DataSource exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , distillBytes
     )
 
 {-| In an `elm-pages` app, each page can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
@@ -82,15 +81,8 @@ So it's best to use that mental model to avoid confusion.
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
-
-## Internal
-
-@docs distillBytes
-
 -}
 
-import Base64
-import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 import Dict.Extra
 import KeepOrDiscard exposing (KeepOrDiscard)
@@ -148,61 +140,6 @@ map fn requestInfo =
 
         ApiRoute stripped value ->
             ApiRoute stripped (fn value)
-
-
-{-| -}
-distillBytes :
-    String
-    -> (value -> Bytes)
-    -> (Bytes -> Result String value)
-    -> DataSource value
-    -> DataSource value
-distillBytes uniqueKey encode decode dataSource =
-    -- elm-review: known-unoptimized-recursion
-    case dataSource of
-        RequestError error ->
-            RequestError error
-
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
-                ( urls
-                , \_ appType rawResponses ->
-                    case appType of
-                        ApplicationType.Browser ->
-                            rawResponses
-                                |> RequestsAndPending.get uniqueKey
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                rawResponse
-                                                    |> Base64.toBytes
-                                                    |> Result.fromMaybe "Could not decode base64 string into bytes."
-                                                    |> Result.andThen decode
-                                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                                    |> Result.map (Tuple.pair Dict.empty)
-
-                                            Nothing ->
-                                                Err (Pages.StaticHttpRequest.MissingHttpResponse ("distill://" ++ uniqueKey) [])
-                                   )
-                                |> toResult
-
-                        ApplicationType.Cli ->
-                            lookupFn KeepOrDiscard.Discard appType rawResponses
-                                |> distillBytes uniqueKey encode decode
-                )
-
-        ApiRoute strippedResponses value ->
-            Request
-                (strippedResponses
-                    |> Dict.insert
-                        -- TODO should this include a prefix? Probably.
-                        uniqueKey
-                        (Pages.StaticHttpRequest.DistilledBytesResponse (encode value))
-                )
-                ( []
-                , \_ _ _ ->
-                    succeed value
-                )
 
 
 toResult : Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, b ) -> RawRequest b
