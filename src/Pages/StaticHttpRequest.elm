@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), WhatToDo(..), cacheRequestResolution, merge, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), WhatToDo(..), cacheRequestResolution, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
