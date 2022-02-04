@@ -9,7 +9,6 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "MartinSStewart/elm-serialize": "1.2.5",
             "avh4/elm-color": "1.0.0",
             "danfishgold/base64-bytes": "1.1.0",
             "danyx23/elm-mimetype": "4.0.1",
@@ -42,21 +41,16 @@
             "pablohirafuji/elm-syntax-highlight": "3.4.0",
             "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-css": "16.1.1",
-            "tripokey/elm-fuzzy": "5.2.1",
             "turboMaCk/non-empty-list-alias": "1.2.0",
-            "vito/elm-ansi": "10.0.1",
-            "zwilias/json-decode-exploration": "6.0.0"
+            "vito/elm-ansi": "10.0.1"
         },
         "indirect": {
-            "bburdette/toop": "1.0.1",
             "billstclair/elm-xml-eeue56": "2.0.0",
             "dmy/elm-imf-date-time": "1.0.1",
             "elm/file": "1.0.5",
-            "elm/random": "1.0.0",
             "fredcy/elm-parseint": "2.0.1",
             "justinmimbs/time-extra": "1.1.0",
             "lazamar/dict-parser": "1.0.2",
-            "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-hex": "1.0.0",
             "rtfeldman/elm-iso8601-date-strings": "1.1.4",
             "ryannhg/date-format": "2.3.0"
@@ -66,6 +60,8 @@
         "direct": {
             "elm-explorations/test": "1.2.2"
         },
-        "indirect": {}
+        "indirect": {
+            "elm/random": "1.0.0"
+        }
     }
 }
