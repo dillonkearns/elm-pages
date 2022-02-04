@@ -3,7 +3,6 @@ module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
 import List.Extra
-import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import Set exposing (Set)
@@ -11,19 +10,19 @@ import TerminalText as Terminal
 
 
 type RawRequest value
-    = Request (Set String) ( List Pages.StaticHttp.Request.Request, ApplicationType -> RequestsAndPending -> RawRequest value )
+    = Request (Set String) ( List Pages.StaticHttp.Request.Request, RequestsAndPending -> RawRequest value )
     | RequestError Error
     | ApiRoute (Set String) value
 
 
-strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Set String
+strippedResponses : RawRequest value -> RequestsAndPending -> Set String
 strippedResponses =
     strippedResponsesHelp Set.empty
 
 
-strippedResponsesEncode : ApplicationType -> RawRequest value -> RequestsAndPending -> Result (List BuildError) (Dict String String)
-strippedResponsesEncode appType rawRequest requestsAndPending =
-    strippedResponses appType rawRequest requestsAndPending
+strippedResponsesEncode : RawRequest value -> RequestsAndPending -> Result (List BuildError) (Dict String String)
+strippedResponsesEncode rawRequest requestsAndPending =
+    strippedResponses rawRequest requestsAndPending
         |> Set.toList
         |> List.map
             (\k ->
@@ -65,21 +64,20 @@ combineMultipleErrors results =
         results
 
 
-strippedResponsesHelp : Set String -> ApplicationType -> RawRequest value -> RequestsAndPending -> Set String
-strippedResponsesHelp usedSoFar appType request rawResponses =
+strippedResponsesHelp : Set String -> RawRequest value -> RequestsAndPending -> Set String
+strippedResponsesHelp usedSoFar request rawResponses =
     case request of
         RequestError _ ->
             usedSoFar
 
         Request partiallyStrippedResponses ( _, lookupFn ) ->
-            case lookupFn appType rawResponses of
+            case lookupFn rawResponses of
                 followupRequest ->
                     strippedResponsesHelp
                         (Set.union
                             usedSoFar
                             partiallyStrippedResponses
                         )
-                        appType
                         followupRequest
                         rawResponses
 
@@ -126,28 +124,28 @@ toBuildError path error =
             }
 
 
-resolve : ApplicationType -> RawRequest value -> RequestsAndPending -> Result Error value
-resolve appType request rawResponses =
+resolve : RawRequest value -> RequestsAndPending -> Result Error value
+resolve request rawResponses =
     case request of
         RequestError error ->
             Err error
 
         Request _ ( _, lookupFn ) ->
-            case lookupFn appType rawResponses of
+            case lookupFn rawResponses of
                 nextRequest ->
-                    resolve appType nextRequest rawResponses
+                    resolve nextRequest rawResponses
 
         ApiRoute _ value ->
             Ok value
 
 
-resolveUrls : ApplicationType -> RawRequest value -> RequestsAndPending -> List Pages.StaticHttp.Request.Request
-resolveUrls appType request rawResponses =
-    resolveUrlsHelp appType rawResponses [] request
+resolveUrls : RawRequest value -> RequestsAndPending -> List Pages.StaticHttp.Request.Request
+resolveUrls request rawResponses =
+    resolveUrlsHelp rawResponses [] request
 
 
-resolveUrlsHelp : ApplicationType -> RequestsAndPending -> List Pages.StaticHttp.Request.Request -> RawRequest value -> List Pages.StaticHttp.Request.Request
-resolveUrlsHelp appType rawResponses soFar request =
+resolveUrlsHelp : RequestsAndPending -> List Pages.StaticHttp.Request.Request -> RawRequest value -> List Pages.StaticHttp.Request.Request
+resolveUrlsHelp rawResponses soFar request =
     case request of
         RequestError error ->
             case error of
@@ -159,22 +157,21 @@ resolveUrlsHelp appType rawResponses soFar request =
                     soFar
 
         Request _ ( urlList, lookupFn ) ->
-            resolveUrlsHelp appType
+            resolveUrlsHelp
                 rawResponses
                 (soFar ++ urlList)
-                (lookupFn appType rawResponses)
+                (lookupFn rawResponses)
 
         ApiRoute _ _ ->
             soFar
 
 
 cacheRequestResolution :
-    ApplicationType
-    -> RawRequest value
+    RawRequest value
     -> RequestsAndPending
     -> Status value
-cacheRequestResolution appType request rawResponses =
-    cacheRequestResolutionHelp [] appType rawResponses request
+cacheRequestResolution request rawResponses =
+    cacheRequestResolutionHelp [] rawResponses request
 
 
 type Status value
@@ -185,11 +182,10 @@ type Status value
 
 cacheRequestResolutionHelp :
     List Pages.StaticHttp.Request.Request
-    -> ApplicationType
     -> RequestsAndPending
     -> RawRequest value
     -> Status value
-cacheRequestResolutionHelp foundUrls appType rawResponses request =
+cacheRequestResolutionHelp foundUrls rawResponses request =
     case request of
         RequestError error ->
             case error of
@@ -205,9 +201,8 @@ cacheRequestResolutionHelp foundUrls appType rawResponses request =
 
         Request _ ( urlList, lookupFn ) ->
             cacheRequestResolutionHelp urlList
-                appType
                 rawResponses
-                (lookupFn appType rawResponses)
+                (lookupFn rawResponses)
 
         ApiRoute _ _ ->
             Complete

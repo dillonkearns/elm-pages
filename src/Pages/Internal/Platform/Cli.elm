@@ -24,7 +24,6 @@ import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Http
-import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
@@ -652,7 +651,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                 thing =
                                                     apiHandler.matchesToResponse path
                                             in
-                                            StaticHttpRequest.resolve ApplicationType.Cli
+                                            StaticHttpRequest.resolve
                                                 thing
                                                 model.allRawResponses
                                                 |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
@@ -684,7 +683,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                             let
                                                 pageFoundResult : Result BuildError (Maybe NotFoundReason)
                                                 pageFoundResult =
-                                                    StaticHttpRequest.resolve ApplicationType.Cli
+                                                    StaticHttpRequest.resolve
                                                         (if model.isDevServer then
                                                             config.handleRoute payload.frontmatter
 
@@ -717,21 +716,21 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
                                                         pageDataResult : Result BuildError (PageServerResponse pageData)
                                                         pageDataResult =
-                                                            StaticHttpRequest.resolve ApplicationType.Cli
+                                                            StaticHttpRequest.resolve
                                                                 (config.data (config.urlToRoute currentUrl))
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         sharedDataResult : Result BuildError sharedData
                                                         sharedDataResult =
-                                                            StaticHttpRequest.resolve ApplicationType.Cli
+                                                            StaticHttpRequest.resolve
                                                                 config.sharedData
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         siteDataResult : Result BuildError siteData
                                                         siteDataResult =
-                                                            StaticHttpRequest.resolve ApplicationType.Cli
+                                                            StaticHttpRequest.resolve
                                                                 site.data
                                                                 (staticData |> Dict.map (\_ v -> Just v))
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
@@ -884,7 +883,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                     routeResult
                                         |> Result.andThen
                                             (\route ->
-                                                StaticHttpRequest.resolve ApplicationType.Cli
+                                                StaticHttpRequest.resolve
                                                     (config.data route)
                                                     (contentJson |> Dict.map (\_ v -> Just v))
                                                     |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
@@ -914,7 +913,7 @@ sendSinglePageProgress site contentJson config model =
                 let
                     pageFoundResult : Result BuildError (Maybe NotFoundReason)
                     pageFoundResult =
-                        StaticHttpRequest.resolve ApplicationType.Cli
+                        StaticHttpRequest.resolve
                             (if model.isDevServer then
                                 config.handleRoute route
 
@@ -992,21 +991,21 @@ sendSinglePageProgress site contentJson config model =
 
                     pageDataResult : Result BuildError (PageServerResponse pageData)
                     pageDataResult =
-                        StaticHttpRequest.resolve ApplicationType.Cli
+                        StaticHttpRequest.resolve
                             (config.data (config.urlToRoute currentUrl))
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     sharedDataResult : Result BuildError sharedData
                     sharedDataResult =
-                        StaticHttpRequest.resolve ApplicationType.Cli
+                        StaticHttpRequest.resolve
                             config.sharedData
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     siteDataResult : Result BuildError siteData
                     siteDataResult =
-                        StaticHttpRequest.resolve ApplicationType.Cli
+                        StaticHttpRequest.resolve
                             site.data
                             (contentJson |> Dict.map (\_ v -> Just v))
                             |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")

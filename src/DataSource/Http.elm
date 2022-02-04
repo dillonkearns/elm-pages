@@ -209,7 +209,7 @@ request request_ expect =
         ExpectJson decoder ->
             Request Set.empty
                 ( [ request_ ]
-                , \_ rawResponseDict ->
+                , \rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (request_ |> HashRequest.hash)
                         |> (\maybeResponse ->
@@ -257,7 +257,7 @@ request request_ expect =
         ExpectString mapStringFn ->
             Request Set.empty
                 ( [ request_ ]
-                , \_ rawResponseDict ->
+                , \rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (request_ |> HashRequest.hash)
                         |> (\maybeResponse ->

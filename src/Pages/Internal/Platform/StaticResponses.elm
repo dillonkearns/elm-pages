@@ -10,7 +10,6 @@ import Html exposing (Html)
 import HtmlPrinter exposing (htmlToString)
 import Internal.ApiRoute exposing (ApiRoute(..))
 import Json.Encode
-import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
@@ -157,7 +156,7 @@ encode requestsAndPending staticResponses =
         |> Dict.toList
         |> List.map
             (\( key, NotFetched request _ ) ->
-                StaticHttpRequest.strippedResponsesEncode ApplicationType.Cli request requestsAndPending
+                StaticHttpRequest.strippedResponsesEncode request requestsAndPending
                     |> Result.map (Tuple.pair key)
             )
         |> combineMultipleErrors
@@ -223,7 +222,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                     staticRequestsStatus : StaticHttpRequest.Status ()
                                     staticRequestsStatus =
                                         allRawResponses
-                                            |> StaticHttpRequest.cacheRequestResolution ApplicationType.Cli request
+                                            |> StaticHttpRequest.cacheRequestResolution request
 
                                     hasPermanentError : Bool
                                     hasPermanentError =
@@ -359,7 +358,6 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                                 staticRequestsStatus : StaticHttpRequest.Status ()
                                                 staticRequestsStatus =
                                                     StaticHttpRequest.cacheRequestResolution
-                                                        ApplicationType.Cli
                                                         request
                                                         usableRawResponses
 
@@ -395,7 +393,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
 
                                     resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
                                     resolvedGenerateFilesResult =
-                                        StaticHttpRequest.resolve ApplicationType.Cli
+                                        StaticHttpRequest.resolve
                                             (buildTimeFilesRequest config)
                                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
                                 in
@@ -449,7 +447,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 let
                     pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
                     pageFoundResult =
-                        StaticHttpRequest.resolve ApplicationType.Cli
+                        StaticHttpRequest.resolve
                             pageFoundDataSource
                             (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
                 in
@@ -475,7 +473,6 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                                 staticRequestsStatus : StaticHttpRequest.Status ()
                                                 staticRequestsStatus =
                                                     StaticHttpRequest.cacheRequestResolution
-                                                        ApplicationType.Cli
                                                         request
                                                         usableRawResponses
 
@@ -526,7 +523,7 @@ performStaticHttpRequests allRawResponses staticRequests =
         -- TODO look for performance bottleneck in this double nesting
         |> List.map
             (\( _, request ) ->
-                StaticHttpRequest.resolveUrls ApplicationType.Cli request allRawResponses
+                StaticHttpRequest.resolveUrls request allRawResponses
             )
         -- TODO prevent duplicates... can't because Set needs comparable
         --        |> Set.fromList

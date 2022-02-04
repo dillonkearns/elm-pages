@@ -83,7 +83,6 @@ So it's best to use that mental model to avoid confusion.
 
 -}
 
-import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
@@ -132,8 +131,8 @@ map fn requestInfo =
         Request partiallyStripped ( urls, lookupFn ) ->
             Request partiallyStripped
                 ( urls
-                , \appType rawResponses ->
-                    map fn (lookupFn appType rawResponses)
+                , \rawResponses ->
+                    map fn (lookupFn rawResponses)
                 )
 
         ApiRoute stripped value ->
@@ -222,28 +221,28 @@ map2 fn request1 request2 =
         ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
             Request (combineReducedDicts newDict1 newDict2)
                 ( urls1 ++ urls2
-                , \appType rawResponses ->
+                , \rawResponses ->
                     map2 fn
-                        (lookupFn1 appType rawResponses)
-                        (lookupFn2 appType rawResponses)
+                        (lookupFn1 rawResponses)
+                        (lookupFn2 rawResponses)
                 )
 
         ( Request dict1 ( urls1, lookupFn1 ), ApiRoute stripped2 value2 ) ->
             Request dict1
                 ( urls1
-                , \appType rawResponses ->
+                , \rawResponses ->
                     map2 fn
-                        (lookupFn1 appType rawResponses)
+                        (lookupFn1 rawResponses)
                         (ApiRoute stripped2 value2)
                 )
 
         ( ApiRoute stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
-                , \appType rawResponses ->
+                , \rawResponses ->
                     map2 fn
                         (ApiRoute stripped2 value2)
-                        (lookupFn1 appType rawResponses)
+                        (lookupFn1 rawResponses)
                 )
 
         ( ApiRoute stripped1 value1, ApiRoute stripped2 value2 ) ->
@@ -261,21 +260,20 @@ combineReducedDicts dict1 dict2 =
     Set.union dict1 dict2
 
 
-lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
+lookup : DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
 lookup =
     lookupHelp Set.empty
 
 
-lookupHelp : Set String -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
-lookupHelp strippedSoFar appType requestInfo rawResponses =
+lookupHelp : Set String -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
+lookupHelp strippedSoFar requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
             Err error
 
         Request strippedResponses ( urls, lookupFn ) ->
             lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
-                appType
-                (addUrls urls (lookupFn appType rawResponses))
+                (addUrls urls (lookupFn rawResponses))
                 rawResponses
 
         ApiRoute stripped value ->
@@ -341,9 +339,8 @@ andThen fn requestInfo =
     -- TODO should this be non-empty Dict? Or should it be passed down some other way?
     Request Set.empty
         ( lookupUrls requestInfo
-        , \appType rawResponses ->
+        , \rawResponses ->
             lookup
-                appType
                 requestInfo
                 rawResponses
                 |> (\result ->
