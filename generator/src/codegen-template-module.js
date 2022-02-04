@@ -53,7 +53,7 @@ function fileContentWithParams(
 ) {
   return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
 
-${serverRender ? `import Server.Request as Request\n` : ""}
+${serverRender ? `import Server.Request as Request exposing (Request)\n` : ""}
 ${withState ? "\nimport Browser.Navigation" : ""}
 import DataSource exposing (DataSource)
 import Head
@@ -182,7 +182,7 @@ type alias Data =
 
 ${
   serverRender
-    ? `data : RouteParams -> Request.ServerRequest (DataSource (Response Data))
+    ? `data : RouteParams -> Request (DataSource (Response Data))
 data routeParams =`
     : withFallback
     ? `data : RouteParams -> DataSource (Response Data)
@@ -195,11 +195,7 @@ data =`
 }
     ${
       serverRender
-        ? `Request.succeed ()
-        |> Request.thenRespond
-            (\\() ->
-                DataSource.succeed (Response.render {})
-            )
+        ? `Request.succeed (DataSource.succeed (Response.render {}))
 `
         : withFallback
         ? `    Data
