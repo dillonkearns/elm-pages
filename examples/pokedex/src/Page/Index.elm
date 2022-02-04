@@ -37,9 +37,7 @@ page =
 
 
 type alias Data =
-    { pokemon : List String
-    , envValue : Maybe String
-    }
+    { pokemon : List String, envValue : Maybe String }
 
 
 data : DataSource Data

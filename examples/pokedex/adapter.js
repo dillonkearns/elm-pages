@@ -142,12 +142,14 @@ async function render(event, context) {
       addWatcher,
       false
     );
+    console.log("@@@renderResult", JSON.stringify(renderResult, null, 2));
 
     const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
 
     if (renderResult.kind === "bytes") {
       return {
-        body: Buffer.from(renderResult.contentDatPayload.buffer),
+        body: Buffer.from(renderResult.contentDatPayload.buffer).toString("base64"),
+        isBase64Encoded: true,
         headers: {
           "Content-Type": "application/octet-stream",
           "x-powered-by": "elm-pages",
