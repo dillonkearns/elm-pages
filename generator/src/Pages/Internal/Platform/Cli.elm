@@ -23,7 +23,6 @@ import Internal.ApiRoute exposing (ApiRoute(..))
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
-import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Flags
 import Pages.Http
 import Pages.Internal.ApplicationType as ApplicationType
@@ -86,10 +85,6 @@ cliApplication :
     -> Program (Maybe route)
 cliApplication config =
     let
-        contentCache : ContentCache
-        contentCache =
-            ContentCache.init Nothing
-
         site : SiteConfig siteData
         site =
             getSiteConfig config
@@ -112,11 +107,11 @@ cliApplication config =
                         Decode.decodeValue (RenderRequest.decoder config) flags
                             |> Result.withDefault RenderRequest.default
                 in
-                init site renderRequest contentCache config flags
+                init site renderRequest config flags
                     |> Tuple.mapSecond (perform site renderRequest config config.toJsPort)
         , update =
             \msg model ->
-                update site contentCache config msg model
+                update site config msg model
                     |> Tuple.mapSecond (perform site model.maybeRequestJson config config.toJsPort)
         , subscriptions =
             \_ ->
@@ -397,19 +392,17 @@ flagsDecoder =
 init :
     SiteConfig siteData
     -> RenderRequest route
-    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-init site renderRequest contentCache config flags =
+init site renderRequest config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { staticHttpCache, isDevServer } ->
-            initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } contentCache config flags
+            initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } config flags
 
         Err error ->
             updateAndSendPortIfDone
                 site
-                contentCache
                 config
                 { staticResponses = StaticResponses.error
                 , errors =
@@ -432,11 +425,10 @@ initLegacy :
     SiteConfig siteData
     -> RenderRequest route
     -> { staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
-    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
-initLegacy site renderRequest { staticHttpCache, isDevServer } contentCache config flags =
+initLegacy site renderRequest { staticHttpCache, isDevServer } config flags =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -507,34 +499,31 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } contentCache conf
     in
     StaticResponses.nextStep config initialModel Nothing
         |> nextStepToEffect site
-            contentCache
             config
             initialModel
 
 
 updateAndSendPortIfDone :
     SiteConfig siteData
-    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( Model route, Effect )
-updateAndSendPortIfDone site contentCache config model =
+updateAndSendPortIfDone site config model =
     StaticResponses.nextStep
         config
         model
         Nothing
-        |> nextStepToEffect site contentCache config model
+        |> nextStepToEffect site config model
 
 
 {-| -}
 update :
     SiteConfig siteData
-    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Msg
     -> Model route
     -> ( Model route, Effect )
-update site contentCache config msg model =
+update site config msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -561,7 +550,7 @@ update site contentCache config msg model =
             StaticResponses.nextStep config
                 updatedModel
                 Nothing
-                |> nextStepToEffect site contentCache config updatedModel
+                |> nextStepToEffect site config updatedModel
 
         Continue ->
             let
@@ -572,7 +561,7 @@ update site contentCache config msg model =
             StaticResponses.nextStep config
                 updatedModel
                 Nothing
-                |> nextStepToEffect site contentCache config updatedModel
+                |> nextStepToEffect site config updatedModel
 
         GotBuildError buildError ->
             let
@@ -586,17 +575,16 @@ update site contentCache config msg model =
             StaticResponses.nextStep config
                 updatedModel
                 Nothing
-                |> nextStepToEffect site contentCache config updatedModel
+                |> nextStepToEffect site config updatedModel
 
 
 nextStepToEffect :
     SiteConfig siteData
-    -> ContentCache
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
-nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
             let
@@ -655,7 +643,6 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
             in
             if List.isEmpty doNow && updatedRoutes /= model.staticRoutes then
                 nextStepToEffect site
-                    contentCache
                     config
                     updatedModel
                     (StaticResponses.nextStep config
