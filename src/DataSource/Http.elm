@@ -59,6 +59,7 @@ import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
+import Set exposing (Set)
 
 
 {-| Build an empty body for a DataSource.Http request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
@@ -207,7 +208,7 @@ request :
 request request_ expect =
     case expect of
         ExpectJson decoder ->
-            Request Dict.empty
+            Request Set.empty
                 ( [ request_ ]
                 , \_ rawResponseDict ->
                     rawResponseDict
@@ -216,9 +217,7 @@ request request_ expect =
                                 case maybeResponse of
                                     Just rawResponse ->
                                         Ok
-                                            ( -- TODO check keepOrDiscard
-                                              Dict.singleton (request_ |> HashRequest.hash)
-                                                Pages.StaticHttpRequest.UseRawResponse
+                                            ( Set.singleton (request_ |> HashRequest.hash)
                                             , rawResponse
                                             )
 
@@ -247,9 +246,8 @@ request request_ expect =
                                         (\finalRequest ->
                                             ( -- TODO check keepOrDiscard
                                               strippedResponses
-                                                |> Dict.insert
+                                                |> Set.insert
                                                     (request_ |> HashRequest.hash)
-                                                    Pages.StaticHttpRequest.UseRawResponse
                                             , finalRequest
                                             )
                                         )
@@ -258,7 +256,7 @@ request request_ expect =
                 )
 
         ExpectString mapStringFn ->
-            Request Dict.empty
+            Request Set.empty
                 ( [ request_ ]
                 , \_ rawResponseDict ->
                     rawResponseDict
@@ -268,7 +266,7 @@ request request_ expect =
                                     Just rawResponse ->
                                         Ok
                                             ( -- TODO check keepOrDiscard
-                                              Dict.singleton (request_ |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
+                                              Set.singleton (request_ |> HashRequest.hash)
                                             , rawResponse
                                             )
 
@@ -287,7 +285,7 @@ request request_ expect =
                                         (\finalRequest ->
                                             ( -- TODO check keepOrDiscard
                                               strippedResponses
-                                                |> Dict.insert (request_ |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
+                                                |> Set.insert (request_ |> HashRequest.hash)
                                             , finalRequest
                                             )
                                         )
@@ -296,7 +294,7 @@ request request_ expect =
                 )
 
 
-toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, b ) -> RawRequest b
+toResult : Result Pages.StaticHttpRequest.Error ( Set String, b ) -> RawRequest b
 toResult result =
     case result of
         Err error ->

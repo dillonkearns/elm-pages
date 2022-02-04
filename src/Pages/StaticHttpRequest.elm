@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), WhatToDo(..), cacheRequestResolution, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict exposing (Dict)
@@ -6,42 +6,32 @@ import List.Extra
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
+import Set exposing (Set)
 import TerminalText as Terminal
 
 
 type RawRequest value
-    = Request (Dict String WhatToDo) ( List Pages.StaticHttp.Request.Request, ApplicationType -> RequestsAndPending -> RawRequest value )
+    = Request (Set String) ( List Pages.StaticHttp.Request.Request, ApplicationType -> RequestsAndPending -> RawRequest value )
     | RequestError Error
-    | ApiRoute (Dict String WhatToDo) value
+    | ApiRoute (Set String) value
 
 
-type WhatToDo
-    = UseRawResponse
-
-
-merge : String -> WhatToDo -> WhatToDo -> WhatToDo
-merge _ _ _ =
-    UseRawResponse
-
-
-strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
+strippedResponses : ApplicationType -> RawRequest value -> RequestsAndPending -> Set String
 strippedResponses =
-    strippedResponsesHelp Dict.empty
+    strippedResponsesHelp Set.empty
 
 
 strippedResponsesEncode : ApplicationType -> RawRequest value -> RequestsAndPending -> Result (List BuildError) (Dict String String)
 strippedResponsesEncode appType rawRequest requestsAndPending =
     strippedResponses appType rawRequest requestsAndPending
-        |> Dict.toList
+        |> Set.toList
         |> List.map
-            (\( k, whatToDo ) ->
-                (case whatToDo of
-                    UseRawResponse ->
-                        Dict.get k requestsAndPending
-                            |> Maybe.withDefault Nothing
-                            |> Maybe.withDefault ""
-                            |> Just
-                            |> Ok
+            (\k ->
+                (Dict.get k requestsAndPending
+                    |> Maybe.withDefault Nothing
+                    |> Maybe.withDefault ""
+                    |> Just
+                    |> Ok
                 )
                     |> Result.map (Maybe.map (Tuple.pair k))
             )
@@ -75,7 +65,7 @@ combineMultipleErrors results =
         results
 
 
-strippedResponsesHelp : Dict String WhatToDo -> ApplicationType -> RawRequest value -> RequestsAndPending -> Dict String WhatToDo
+strippedResponsesHelp : Set String -> ApplicationType -> RawRequest value -> RequestsAndPending -> Set String
 strippedResponsesHelp usedSoFar appType request rawResponses =
     case request of
         RequestError _ ->
@@ -85,26 +75,18 @@ strippedResponsesHelp usedSoFar appType request rawResponses =
             case lookupFn appType rawResponses of
                 followupRequest ->
                     strippedResponsesHelp
-                        (Dict.merge
-                            (\key a -> Dict.insert key a)
-                            (\key a b -> Dict.insert key (merge key a b))
-                            (\key b -> Dict.insert key b)
+                        (Set.union
                             usedSoFar
                             partiallyStrippedResponses
-                            Dict.empty
                         )
                         appType
                         followupRequest
                         rawResponses
 
         ApiRoute partiallyStrippedResponses _ ->
-            Dict.merge
-                (\key a -> Dict.insert key a)
-                (\key a b -> Dict.insert key (merge key a b))
-                (\key b -> Dict.insert key b)
+            Set.union
                 usedSoFar
                 partiallyStrippedResponses
-                Dict.empty
 
 
 type Error

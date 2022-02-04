@@ -87,8 +87,9 @@ import Dict exposing (Dict)
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
-import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
+import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending exposing (RequestsAndPending)
+import Set exposing (Set)
 
 
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
@@ -256,17 +257,17 @@ map2 fn request1 request2 =
 This is assuming that there are no duplicate URLs, so it can safely choose between either a raw or a reduced response.
 It would not work correctly if it chose between two responses that were reduced with different `Json.Decode.Exploration.Decoder`s.
 -}
-combineReducedDicts : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
+combineReducedDicts : Set String -> Set String -> Set String
 combineReducedDicts dict1 dict2 =
-    Dict.union dict1 dict2
+    Set.union dict1 dict2
 
 
-lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
+lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
 lookup =
-    lookupHelp Dict.empty
+    lookupHelp Set.empty
 
 
-lookupHelp : Dict String WhatToDo -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
+lookupHelp : Set String -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
 lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
@@ -339,7 +340,7 @@ from the previous response to build up the URL, headers, etc. that you send to t
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
     -- TODO should this be non-empty Dict? Or should it be passed down some other way?
-    Request Dict.empty
+    Request Set.empty
         ( lookupUrls requestInfo
         , \appType rawResponses ->
             lookup
@@ -400,7 +401,7 @@ andMap =
 -}
 succeed : a -> DataSource a
 succeed value =
-    ApiRoute Dict.empty value
+    ApiRoute Set.empty value
 
 
 {-| Stop the StaticHttp chain with the given error message. If you reach a `fail` in your request,

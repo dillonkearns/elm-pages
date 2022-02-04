@@ -266,6 +266,43 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                 else
                                     True
                     )
+
+        failedRequests : List BuildError
+        failedRequests =
+            staticResponses
+                |> Dict.toList
+                |> List.concatMap
+                    (\( path, NotFetched request _ ) ->
+                        let
+                            staticRequestsStatus : StaticHttpRequest.Status ()
+                            staticRequestsStatus =
+                                StaticHttpRequest.cacheRequestResolution
+                                    ApplicationType.Cli
+                                    request
+                                    usableRawResponses
+
+                            usableRawResponses : RequestsAndPending
+                            usableRawResponses =
+                                allRawResponses
+
+                            maybePermanentError : Maybe StaticHttpRequest.Error
+                            maybePermanentError =
+                                case staticRequestsStatus of
+                                    StaticHttpRequest.HasPermanentError theError ->
+                                        Just theError
+
+                                    _ ->
+                                        Nothing
+
+                            decoderErrors : List BuildError
+                            decoderErrors =
+                                maybePermanentError
+                                    |> Maybe.map (StaticHttpRequest.toBuildError path)
+                                    |> Maybe.map List.singleton
+                                    |> Maybe.withDefault []
+                        in
+                        decoderErrors
+                    )
     in
     if pendingRequests then
         let
@@ -359,43 +396,6 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                     allErrors : List BuildError
                     allErrors =
                         errors ++ failedRequests ++ generatedFileErrors
-
-                    failedRequests : List BuildError
-                    failedRequests =
-                        staticResponses
-                            |> Dict.toList
-                            |> List.concatMap
-                                (\( path, NotFetched request _ ) ->
-                                    let
-                                        staticRequestsStatus : StaticHttpRequest.Status ()
-                                        staticRequestsStatus =
-                                            StaticHttpRequest.cacheRequestResolution
-                                                ApplicationType.Cli
-                                                request
-                                                usableRawResponses
-
-                                        usableRawResponses : RequestsAndPending
-                                        usableRawResponses =
-                                            allRawResponses
-
-                                        maybePermanentError : Maybe StaticHttpRequest.Error
-                                        maybePermanentError =
-                                            case staticRequestsStatus of
-                                                StaticHttpRequest.HasPermanentError theError ->
-                                                    Just theError
-
-                                                _ ->
-                                                    Nothing
-
-                                        decoderErrors : List BuildError
-                                        decoderErrors =
-                                            maybePermanentError
-                                                |> Maybe.map (StaticHttpRequest.toBuildError path)
-                                                |> Maybe.map List.singleton
-                                                |> Maybe.withDefault []
-                                    in
-                                    decoderErrors
-                                )
 
                     generatedFileErrors : List BuildError
                     generatedFileErrors =
