@@ -84,22 +84,26 @@ async function copyToBoth(moduleToCopy) {
  * @returns {Promise<string[]>}
  */
 async function listFiles(dir) {
-  const fullDir = path.join(__dirname, dir);
-  const files = await fs.promises.readdir(fullDir);
-  return merge(
-    await Promise.all(
-      files.flatMap(async (file_) => {
-        const file = path.join(dir, path.basename(file_));
-        if (
-          (await fs.promises.stat(path.join(__dirname, file))).isDirectory()
-        ) {
-          return await listFiles(file);
-        } else {
-          return [file];
-        }
-      })
-    )
-  );
+  try {
+    const fullDir = path.join(__dirname, dir);
+    const files = await fs.promises.readdir(fullDir);
+    return merge(
+      await Promise.all(
+        files.flatMap(async (file_) => {
+          const file = path.join(dir, path.basename(file_));
+          if (
+            (await fs.promises.stat(path.join(__dirname, file))).isDirectory()
+          ) {
+            return await listFiles(file);
+          } else {
+            return [file];
+          }
+        })
+      )
+    );
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
