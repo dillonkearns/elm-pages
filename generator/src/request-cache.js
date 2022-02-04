@@ -130,8 +130,6 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
             )
           );
           resolve(responsePath);
-
-          // console.timeEnd(JSON.stringify(requestToPerform.masked));
         } catch (error) {
           console.trace(error);
           reject({

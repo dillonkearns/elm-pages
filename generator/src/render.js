@@ -263,18 +263,10 @@ async function runJob(app, filePath) {
 
     pendingDataSourceResponses.push({
       request: {
-        masked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        unmasked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
+        url: `file://${filePath}`,
+        method: "GET",
+        headers: [],
+        body: { tag: "EmptyBody", args: [] },
       },
       response: JSON.stringify({
         parsedFrontmatter: parsedFile.data,
@@ -303,7 +295,7 @@ async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
   try {
     const responseFilePath = await lookupOrPerform(
       mode,
-      requestToPerform.unmasked,
+      requestToPerform,
       hasFsAccess
     );
 
@@ -371,18 +363,10 @@ async function globTask(globPattern) {
 
     return {
       request: {
-        masked: {
-          url: `glob://${globPattern}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        unmasked: {
-          url: `glob://${globPattern}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
+        url: `glob://${globPattern}`,
+        method: "GET",
+        headers: [],
+        body: { tag: "EmptyBody", args: [] },
       },
       response: JSON.stringify(matchedPaths),
     };

@@ -140,10 +140,7 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.variant1 "DoHttp"
             DoHttp
-            (Codec.object identity
-                |> Codec.field "unmasked" identity Pages.StaticHttp.Request.codec
-                |> Codec.buildObject
-            )
+            Pages.StaticHttp.Request.codec
         |> Codec.variant1 "ApiResponse"
             SendApiResponse
             (Codec.object (\body staticHttpCache statusCode -> { body = body, staticHttpCache = staticHttpCache, statusCode = statusCode })

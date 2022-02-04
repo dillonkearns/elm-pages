@@ -451,11 +451,7 @@ main =
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , data = dataForRoute
-        , sharedData =
-            Shared.template.data
-                |> DataSource.distillBytes "SharedData"
-                    (encodeBytes Shared.w3_encode_Data)
-                    (decodeBytes Shared.w3_decode_Data)
+        , sharedData = Shared.template.data
         , apiRoutes = ${
           phase === "browser"
             ? `\\_ -> []`
@@ -823,9 +819,6 @@ decodeBytes bytesDecoder items =
 
 distillPageData encodeThing decodeThing dataSourceSoFar =
     dataSourceSoFar
-        |> DataSource.distillBytes "PageData"
-            (encodeBytes (Server.Response.w3_encode_Response encodeThing))
-            (decodeBytes (Server.Response.w3_decode_Response decodeThing))
 `,
     routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
 

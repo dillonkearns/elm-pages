@@ -79,8 +79,11 @@ strippedResponsesEncode appType rawRequest requestsAndPending =
             (\( k, whatToDo ) ->
                 (case whatToDo of
                     UseRawResponse ->
-                        -- TODO can UseRawResponse be removed?
-                        Ok Nothing
+                        Dict.get k requestsAndPending
+                            |> Maybe.withDefault Nothing
+                            |> Maybe.withDefault ""
+                            |> Just
+                            |> Ok
 
                     Error buildError ->
                         Err buildError

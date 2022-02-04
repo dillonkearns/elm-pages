@@ -171,10 +171,7 @@ cliApplication config =
 {-| -}
 requestDecoder : Decode.Decoder Pages.StaticHttp.Request.Request
 requestDecoder =
-    (Codec.object identity
-        |> Codec.field "unmasked" identity Pages.StaticHttp.Request.codec
-        |> Codec.buildObject
-    )
+    Pages.StaticHttp.Request.codec
         |> Codec.decoder
 
 
@@ -343,11 +340,12 @@ perform site renderRequest config toJsPort effect =
             in
             Cmd.batch
                 [ newCommandThing
-                , if True then
+                , if done then
                     Cmd.none
 
                   else
-                    Cmd.none
+                    Task.succeed ()
+                        |> Task.perform (\_ -> Continue)
                 ]
 
         Effect.Continue ->

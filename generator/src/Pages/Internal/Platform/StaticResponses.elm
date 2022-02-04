@@ -150,10 +150,10 @@ batchUpdate newEntries model =
 encode : RequestsAndPending -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
 encode requestsAndPending staticResponses =
     staticResponses
-        |> Dict.filter
-            (\key _ ->
-                key /= cliDictKey
-            )
+        --|> Dict.filter
+        --    (\key _ ->
+        --        key /= cliDictKey
+        --    )
         |> Dict.toList
         |> List.map
             (\( key, NotFetched request _ ) ->

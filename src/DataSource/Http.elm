@@ -208,7 +208,7 @@ request request_ expect =
     case expect of
         ExpectJson decoder ->
             Request Dict.empty
-                ( []
+                ( [ request_ ]
                 , \_ _ rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (request_ |> HashRequest.hash)
