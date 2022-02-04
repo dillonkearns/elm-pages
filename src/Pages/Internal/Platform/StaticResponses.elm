@@ -266,43 +266,6 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                 else
                                     True
                     )
-
-        failedRequests : List BuildError
-        failedRequests =
-            staticResponses
-                |> Dict.toList
-                |> List.concatMap
-                    (\( path, NotFetched request _ ) ->
-                        let
-                            staticRequestsStatus : StaticHttpRequest.Status ()
-                            staticRequestsStatus =
-                                StaticHttpRequest.cacheRequestResolution
-                                    ApplicationType.Cli
-                                    request
-                                    usableRawResponses
-
-                            usableRawResponses : RequestsAndPending
-                            usableRawResponses =
-                                allRawResponses
-
-                            maybePermanentError : Maybe StaticHttpRequest.Error
-                            maybePermanentError =
-                                case staticRequestsStatus of
-                                    StaticHttpRequest.HasPermanentError theError ->
-                                        Just theError
-
-                                    _ ->
-                                        Nothing
-
-                            decoderErrors : List BuildError
-                            decoderErrors =
-                                maybePermanentError
-                                    |> Maybe.map (StaticHttpRequest.toBuildError path)
-                                    |> Maybe.map List.singleton
-                                    |> Maybe.withDefault []
-                        in
-                        decoderErrors
-                    )
     in
     if pendingRequests then
         let
@@ -383,40 +346,79 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 --
                 --    Ok okSiteStaticData ->
                 let
-                    generatedFiles : List (Result String { path : List String, content : String })
-                    generatedFiles =
-                        resolvedGenerateFilesResult |> Result.withDefault []
-
-                    resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
-                    resolvedGenerateFilesResult =
-                        StaticHttpRequest.resolve ApplicationType.Cli
-                            (buildTimeFilesRequest config)
-                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
-
                     allErrors : List BuildError
                     allErrors =
+                        let
+                            failedRequests : List BuildError
+                            failedRequests =
+                                staticResponses
+                                    |> Dict.toList
+                                    |> List.concatMap
+                                        (\( path, NotFetched request _ ) ->
+                                            let
+                                                staticRequestsStatus : StaticHttpRequest.Status ()
+                                                staticRequestsStatus =
+                                                    StaticHttpRequest.cacheRequestResolution
+                                                        ApplicationType.Cli
+                                                        request
+                                                        usableRawResponses
+
+                                                usableRawResponses : RequestsAndPending
+                                                usableRawResponses =
+                                                    allRawResponses
+
+                                                maybePermanentError : Maybe StaticHttpRequest.Error
+                                                maybePermanentError =
+                                                    case staticRequestsStatus of
+                                                        StaticHttpRequest.HasPermanentError theError ->
+                                                            Just theError
+
+                                                        _ ->
+                                                            Nothing
+
+                                                decoderErrors : List BuildError
+                                                decoderErrors =
+                                                    maybePermanentError
+                                                        |> Maybe.map (StaticHttpRequest.toBuildError path)
+                                                        |> Maybe.map List.singleton
+                                                        |> Maybe.withDefault []
+                                            in
+                                            decoderErrors
+                                        )
+
+                            generatedFileErrors : List BuildError
+                            generatedFileErrors =
+                                let
+                                    generatedFiles : List (Result String { path : List String, content : String })
+                                    generatedFiles =
+                                        resolvedGenerateFilesResult |> Result.withDefault []
+
+                                    resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
+                                    resolvedGenerateFilesResult =
+                                        StaticHttpRequest.resolve ApplicationType.Cli
+                                            (buildTimeFilesRequest config)
+                                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                                in
+                                generatedFiles
+                                    |> List.filterMap
+                                        (\result ->
+                                            case result of
+                                                Ok _ ->
+                                                    Nothing
+
+                                                Err error_ ->
+                                                    Just
+                                                        { title = "Generate Files Error"
+                                                        , message =
+                                                            [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
+                                                            , Terminal.text <| "Error: " ++ error_
+                                                            ]
+                                                        , path = "Site.elm"
+                                                        , fatal = True
+                                                        }
+                                        )
+                        in
                         errors ++ failedRequests ++ generatedFileErrors
-
-                    generatedFileErrors : List BuildError
-                    generatedFileErrors =
-                        generatedFiles
-                            |> List.filterMap
-                                (\result ->
-                                    case result of
-                                        Ok _ ->
-                                            Nothing
-
-                                        Err error_ ->
-                                            Just
-                                                { title = "Generate Files Error"
-                                                , message =
-                                                    [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
-                                                    , Terminal.text <| "Error: " ++ error_
-                                                    ]
-                                                , path = "Site.elm"
-                                                , fatal = True
-                                                }
-                                )
                 in
                 ( model.staticResponses
                 , case encode allRawResponses staticResponses of
@@ -462,6 +464,44 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                         )
 
                     Err error_ ->
+                        let
+                            failedRequests : List BuildError
+                            failedRequests =
+                                staticResponses
+                                    |> Dict.toList
+                                    |> List.concatMap
+                                        (\( path, NotFetched request _ ) ->
+                                            let
+                                                staticRequestsStatus : StaticHttpRequest.Status ()
+                                                staticRequestsStatus =
+                                                    StaticHttpRequest.cacheRequestResolution
+                                                        ApplicationType.Cli
+                                                        request
+                                                        usableRawResponses
+
+                                                usableRawResponses : RequestsAndPending
+                                                usableRawResponses =
+                                                    allRawResponses
+
+                                                maybePermanentError : Maybe StaticHttpRequest.Error
+                                                maybePermanentError =
+                                                    case staticRequestsStatus of
+                                                        StaticHttpRequest.HasPermanentError theError ->
+                                                            Just theError
+
+                                                        _ ->
+                                                            Nothing
+
+                                                decoderErrors : List BuildError
+                                                decoderErrors =
+                                                    maybePermanentError
+                                                        |> Maybe.map (StaticHttpRequest.toBuildError path)
+                                                        |> Maybe.map List.singleton
+                                                        |> Maybe.withDefault []
+                                            in
+                                            decoderErrors
+                                        )
+                        in
                         ( model.staticResponses
                         , Finish
                             (Errors <|

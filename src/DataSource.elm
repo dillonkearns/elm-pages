@@ -83,7 +83,6 @@ So it's best to use that mental model to avoid confusion.
 
 -}
 
-import Dict exposing (Dict)
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest

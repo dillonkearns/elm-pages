@@ -52,7 +52,6 @@ and describe your use case!
 -}
 
 import DataSource exposing (DataSource)
-import Dict
 import Json.Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
