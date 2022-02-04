@@ -36,6 +36,12 @@ page =
         |> Page.buildNoState { view = view }
 
 
+type alias Data =
+    { pokemon : List String
+    , envValue : Maybe String
+    }
+
+
 data : DataSource Data
 data =
     DataSource.map2 Data
@@ -79,12 +85,6 @@ head static =
         , title = "Elm Pages Pokedex Example"
         }
         |> Seo.website
-
-
-type alias Data =
-    { pokemon : List String
-    , envValue : Maybe String
-    }
 
 
 view :
