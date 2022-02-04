@@ -42,13 +42,6 @@ mainView :
     -> Model userModel pageData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
-    let
-        urls : { currentUrl : Url, basePath : List String }
-        urls =
-            { currentUrl = model.url
-            , basePath = config.basePath
-            }
-    in
     case model.notFound of
         Just info ->
             Pages.Internal.NotFoundReason.document config.pathPatterns info
@@ -56,6 +49,13 @@ mainView config model =
         Nothing ->
             case model.pageData of
                 Ok pageData ->
+                    let
+                        urls : { currentUrl : Url, basePath : List String }
+                        urls =
+                            { currentUrl = model.url
+                            , basePath = config.basePath
+                            }
+                    in
                     (config.view
                         { path = ContentCache.pathForUrl urls |> Path.join
                         , route = config.urlToRoute model.url
@@ -305,12 +305,6 @@ update config appMsg model =
                 navigatingToSamePage : Bool
                 navigatingToSamePage =
                     (url.path == model.url.path) && (url /= model.url)
-
-                urls : { currentUrl : Url, basePath : List String }
-                urls =
-                    { currentUrl = url
-                    , basePath = config.basePath
-                    }
             in
             if navigatingToSamePage then
                 -- this saves a few CPU cycles, but also
@@ -322,6 +316,12 @@ update config appMsg model =
                     |> Result.map
                         (\pageData ->
                             let
+                                urls : { currentUrl : Url, basePath : List String }
+                                urls =
+                                    { currentUrl = url
+                                    , basePath = config.basePath
+                                    }
+
                                 updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
                                 updatedPageData =
                                     Ok
@@ -482,15 +482,16 @@ update config appMsg model =
                 route =
                     model.url
                         |> config.urlToRoute
-
-                newThing : Maybe (ResponseSketch pageData sharedData)
-                newThing =
-                    pageDataBytes
-                        |> Bytes.Decode.decode config.decodeResponse
             in
             model.pageData
                 |> Result.map
                     (\pageData ->
+                        let
+                            newThing : Maybe (ResponseSketch pageData sharedData)
+                            newThing =
+                                pageDataBytes
+                                    |> Bytes.Decode.decode config.decodeResponse
+                        in
                         case newThing of
                             Just (ResponseSketch.RenderPage newPageData) ->
                                 ( { model
