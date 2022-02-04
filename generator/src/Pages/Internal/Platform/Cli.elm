@@ -796,74 +796,73 @@ nextStepToEffect site contentCache config model ( updatedStaticResponsesModel, n
                                                         Result.map2 Tuple.pair pageDataResult sharedDataResult
                                                     of
                                                         Ok ( pageData__, sharedData__ ) ->
-                                                            let
-                                                                renderedOrApiResponse : PageServerResponse { head : List Head.Tag, view : String, title : String }
-                                                                renderedOrApiResponse =
+                                                            case pageData__ of
+                                                                PageServerResponse.RenderPage responseInfo pageData ->
+                                                                    let
+                                                                        pageModel : userModel
+                                                                        pageModel =
+                                                                            config.init
+                                                                                Pages.Flags.PreRenderFlags
+                                                                                sharedData__
+                                                                                pageData
+                                                                                Nothing
+                                                                                (Just
+                                                                                    { path =
+                                                                                        { path = currentPage.path
+                                                                                        , query = Nothing
+                                                                                        , fragment = Nothing
+                                                                                        }
+                                                                                    , metadata = currentPage.route
+                                                                                    , pageUrl = Nothing
+                                                                                    }
+                                                                                )
+                                                                                |> Tuple.first
+
+                                                                        viewValue : { title : String, body : Html userMsg }
+                                                                        viewValue =
+                                                                            (config.view currentPage Nothing sharedData__ pageData |> .view) pageModel
+                                                                    in
                                                                     case includeHtml of
                                                                         RenderRequest.OnlyJson ->
-                                                                            Server.Response.render
-                                                                                { head = []
-                                                                                , view = "This page was not rendered because it is a JSON-only request."
-                                                                                , title = "This page was not rendered because it is a JSON-only request."
-                                                                                }
+                                                                            { route = payload.path |> Path.toRelative
+                                                                            , contentJson =
+                                                                                --toJsPayload.pages
+                                                                                --    |> Dict.get (Path.toRelative page)
+                                                                                --    |> Maybe.withDefault Dict.empty
+                                                                                Dict.empty
+                                                                            , html = "This page was not rendered because it is a JSON-only request."
+                                                                            , errors = []
+                                                                            , head = []
+                                                                            , title = "This page was not rendered because it is a JSON-only request."
+                                                                            , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                            , is404 = False
+                                                                            , statusCode = responseInfo.statusCode
+                                                                            , headers = responseInfo.headers
+                                                                            }
+                                                                                |> ToJsPayload.PageProgress
+                                                                                |> Effect.SendSinglePageNew False byteEncodedPageData
 
                                                                         RenderRequest.HtmlAndJson ->
-                                                                            case pageData__ of
-                                                                                PageServerResponse.RenderPage responseInfo pageData ->
-                                                                                    let
-                                                                                        pageModel : userModel
-                                                                                        pageModel =
-                                                                                            config.init
-                                                                                                Pages.Flags.PreRenderFlags
-                                                                                                sharedData__
-                                                                                                pageData
-                                                                                                Nothing
-                                                                                                (Just
-                                                                                                    { path =
-                                                                                                        { path = currentPage.path
-                                                                                                        , query = Nothing
-                                                                                                        , fragment = Nothing
-                                                                                                        }
-                                                                                                    , metadata = currentPage.route
-                                                                                                    , pageUrl = Nothing
-                                                                                                    }
-                                                                                                )
-                                                                                                |> Tuple.first
-
-                                                                                        viewValue : { title : String, body : Html userMsg }
-                                                                                        viewValue =
-                                                                                            (config.view currentPage Nothing sharedData__ pageData |> .view) pageModel
-                                                                                    in
-                                                                                    PageServerResponse.RenderPage responseInfo
-                                                                                        { head = config.view currentPage Nothing sharedData__ pageData |> .head
-                                                                                        , view = viewValue.body |> HtmlPrinter.htmlToString
-                                                                                        , title = viewValue.title
-                                                                                        }
-
-                                                                                PageServerResponse.ServerResponse serverResponse ->
-                                                                                    PageServerResponse.ServerResponse serverResponse
-                                                            in
-                                                            case renderedOrApiResponse of
-                                                                PageServerResponse.RenderPage responseInfo rendered ->
-                                                                    { route = payload.path |> Path.toRelative
-                                                                    , contentJson =
-                                                                        --toJsPayload.pages
-                                                                        --    |> Dict.get (Path.toRelative page)
-                                                                        --    |> Maybe.withDefault Dict.empty
-                                                                        Dict.empty
-                                                                    , html = rendered.view
-                                                                    , errors = []
-                                                                    , head = rendered.head
-                                                                    , title = rendered.title
-                                                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                    , is404 = False
-                                                                    , statusCode = responseInfo.statusCode
-                                                                    , headers = responseInfo.headers
-                                                                    }
-                                                                        |> ToJsPayload.PageProgress
-                                                                        |> Effect.SendSinglePageNew False byteEncodedPageData
+                                                                            { route = payload.path |> Path.toRelative
+                                                                            , contentJson =
+                                                                                --toJsPayload.pages
+                                                                                --    |> Dict.get (Path.toRelative page)
+                                                                                --    |> Maybe.withDefault Dict.empty
+                                                                                Dict.empty
+                                                                            , html = viewValue.body |> HtmlPrinter.htmlToString
+                                                                            , errors = []
+                                                                            , head = config.view currentPage Nothing sharedData__ pageData |> .head
+                                                                            , title = viewValue.title
+                                                                            , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                            , is404 = False
+                                                                            , statusCode = responseInfo.statusCode
+                                                                            , headers = responseInfo.headers
+                                                                            }
+                                                                                |> ToJsPayload.PageProgress
+                                                                                |> Effect.SendSinglePageNew False byteEncodedPageData
 
                                                                 PageServerResponse.ServerResponse serverResponse ->
+                                                                    --PageServerResponse.ServerResponse serverResponse
                                                                     { body = serverResponse |> PageServerResponse.toJson
                                                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                     , statusCode = 200
