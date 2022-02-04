@@ -378,7 +378,7 @@ init :
 init site renderRequest config flags =
     case Decode.decodeValue flagsDecoder flags of
         Ok { staticHttpCache, isDevServer } ->
-            initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } config flags
+            initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } config
 
         Err error ->
             updateAndSendPortIfDone
@@ -406,9 +406,8 @@ initLegacy :
     -> RenderRequest route
     -> { staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> Decode.Value
     -> ( Model route, Effect )
-initLegacy site renderRequest { staticHttpCache, isDevServer } config flags =
+initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -845,36 +844,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                     )
 
                 StaticResponses.Page contentJson ->
-                    let
-                        currentUrl : Url.Url
-                        currentUrl =
-                            { protocol = Url.Https
-                            , host = site.canonicalUrl
-                            , port_ = Nothing
-                            , path = "TODO" --payload.path |> Path.toRelative
-                            , query = Nothing
-                            , fragment = Nothing
-                            }
-
-                        routeResult : Result BuildError route
-                        routeResult =
-                            model.staticRoutes
-                                |> Maybe.map (List.map Tuple.second)
-                                |> Maybe.andThen List.head
-                                -- TODO is it possible to remove the Maybe here?
-                                |> Result.fromMaybe (StaticHttpRequest.toBuildError "TODO url" (StaticHttpRequest.DecoderError "Expected route"))
-
-                        pageDataResult : Result BuildError (PageServerResponse pageData)
-                        pageDataResult =
-                            routeResult
-                                |> Result.andThen
-                                    (\route ->
-                                        StaticHttpRequest.resolve ApplicationType.Cli
-                                            (config.data route)
-                                            (contentJson |> Dict.map (\_ v -> Just v))
-                                            |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
-                                    )
-                    in
                     case model.unprocessedPages |> List.head of
                         Just pageAndMetadata ->
                             ( model
@@ -883,6 +852,14 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
                         Nothing ->
                             let
+                                routeResult : Result BuildError route
+                                routeResult =
+                                    model.staticRoutes
+                                        |> Maybe.map (List.map Tuple.second)
+                                        |> Maybe.andThen List.head
+                                        -- TODO is it possible to remove the Maybe here?
+                                        |> Result.fromMaybe (StaticHttpRequest.toBuildError "TODO url" (StaticHttpRequest.DecoderError "Expected route"))
+
                                 byteEncodedPageData : Bytes
                                 byteEncodedPageData =
                                     case pageDataResult of
@@ -901,6 +878,17 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                         _ ->
                                             -- TODO handle error?
                                             Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+
+                                pageDataResult : Result BuildError (PageServerResponse pageData)
+                                pageDataResult =
+                                    routeResult
+                                        |> Result.andThen
+                                            (\route ->
+                                                StaticHttpRequest.resolve ApplicationType.Cli
+                                                    (config.data route)
+                                                    (contentJson |> Dict.map (\_ v -> Just v))
+                                                    |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
+                                            )
                             in
                             ( model
                             , [] |> ToJsPayload.Errors |> Effect.SendSinglePageNew True byteEncodedPageData

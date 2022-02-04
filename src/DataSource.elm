@@ -84,7 +84,6 @@ So it's best to use that mental model to avoid confusion.
 -}
 
 import Dict exposing (Dict)
-import KeepOrDiscard exposing (KeepOrDiscard)
 import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
@@ -133,8 +132,8 @@ map fn requestInfo =
         Request partiallyStripped ( urls, lookupFn ) ->
             Request partiallyStripped
                 ( urls
-                , \keepOrDiscard appType rawResponses ->
-                    map fn (lookupFn keepOrDiscard appType rawResponses)
+                , \appType rawResponses ->
+                    map fn (lookupFn appType rawResponses)
                 )
 
         ApiRoute stripped value ->
@@ -223,28 +222,28 @@ map2 fn request1 request2 =
         ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
             Request (combineReducedDicts newDict1 newDict2)
                 ( urls1 ++ urls2
-                , \keepOrDiscard appType rawResponses ->
+                , \appType rawResponses ->
                     map2 fn
-                        (lookupFn1 keepOrDiscard appType rawResponses)
-                        (lookupFn2 keepOrDiscard appType rawResponses)
+                        (lookupFn1 appType rawResponses)
+                        (lookupFn2 appType rawResponses)
                 )
 
         ( Request dict1 ( urls1, lookupFn1 ), ApiRoute stripped2 value2 ) ->
             Request dict1
                 ( urls1
-                , \keepOrDiscard appType rawResponses ->
+                , \appType rawResponses ->
                     map2 fn
-                        (lookupFn1 keepOrDiscard appType rawResponses)
+                        (lookupFn1 appType rawResponses)
                         (ApiRoute stripped2 value2)
                 )
 
         ( ApiRoute stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
-                , \keepOrDiscard appType rawResponses ->
+                , \appType rawResponses ->
                     map2 fn
                         (ApiRoute stripped2 value2)
-                        (lookupFn1 keepOrDiscard appType rawResponses)
+                        (lookupFn1 appType rawResponses)
                 )
 
         ( ApiRoute stripped1 value1, ApiRoute stripped2 value2 ) ->
@@ -262,22 +261,21 @@ combineReducedDicts dict1 dict2 =
     Dict.union dict1 dict2
 
 
-lookup : KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
+lookup : ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
 lookup =
     lookupHelp Dict.empty
 
 
-lookupHelp : Dict String WhatToDo -> KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
-lookupHelp strippedSoFar keepOrDiscard appType requestInfo rawResponses =
+lookupHelp : Dict String WhatToDo -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
+lookupHelp strippedSoFar appType requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
             Err error
 
         Request strippedResponses ( urls, lookupFn ) ->
             lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
-                keepOrDiscard
                 appType
-                (addUrls urls (lookupFn keepOrDiscard appType rawResponses))
+                (addUrls urls (lookupFn appType rawResponses))
                 rawResponses
 
         ApiRoute stripped value ->
@@ -343,9 +341,8 @@ andThen fn requestInfo =
     -- TODO should this be non-empty Dict? Or should it be passed down some other way?
     Request Dict.empty
         ( lookupUrls requestInfo
-        , \keepOrDiscard appType rawResponses ->
+        , \appType rawResponses ->
             lookup
-                keepOrDiscard
                 appType
                 requestInfo
                 rawResponses

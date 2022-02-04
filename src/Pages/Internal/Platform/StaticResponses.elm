@@ -212,37 +212,6 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 CheckIfHandled _ staticHttpResult _ ->
                     Dict.singleton cliDictKey staticHttpResult
 
-        generatedFiles : List (Result String { path : List String, content : String })
-        generatedFiles =
-            resolvedGenerateFilesResult |> Result.withDefault []
-
-        resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
-        resolvedGenerateFilesResult =
-            StaticHttpRequest.resolve ApplicationType.Cli
-                (buildTimeFilesRequest config)
-                (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
-
-        generatedFileErrors : List BuildError
-        generatedFileErrors =
-            generatedFiles
-                |> List.filterMap
-                    (\result ->
-                        case result of
-                            Ok _ ->
-                                Nothing
-
-                            Err error_ ->
-                                Just
-                                    { title = "Generate Files Error"
-                                    , message =
-                                        [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
-                                        , Terminal.text <| "Error: " ++ error_
-                                        ]
-                                    , path = "Site.elm"
-                                    , fatal = True
-                                    }
-                    )
-
         pendingRequests : Bool
         pendingRequests =
             staticResponses
@@ -414,9 +383,40 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 --
                 --    Ok okSiteStaticData ->
                 let
+                    generatedFiles : List (Result String { path : List String, content : String })
+                    generatedFiles =
+                        resolvedGenerateFilesResult |> Result.withDefault []
+
+                    resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
+                    resolvedGenerateFilesResult =
+                        StaticHttpRequest.resolve ApplicationType.Cli
+                            (buildTimeFilesRequest config)
+                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+
                     allErrors : List BuildError
                     allErrors =
                         errors ++ failedRequests ++ generatedFileErrors
+
+                    generatedFileErrors : List BuildError
+                    generatedFileErrors =
+                        generatedFiles
+                            |> List.filterMap
+                                (\result ->
+                                    case result of
+                                        Ok _ ->
+                                            Nothing
+
+                                        Err error_ ->
+                                            Just
+                                                { title = "Generate Files Error"
+                                                , message =
+                                                    [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
+                                                    , Terminal.text <| "Error: " ++ error_
+                                                    ]
+                                                , path = "Site.elm"
+                                                , fatal = True
+                                                }
+                                )
                 in
                 ( model.staticResponses
                 , case encode allRawResponses staticResponses of
