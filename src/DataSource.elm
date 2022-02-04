@@ -86,7 +86,7 @@ So it's best to use that mental model to avoid confusion.
 import Dict exposing (Dict)
 import Dict.Extra
 import KeepOrDiscard exposing (KeepOrDiscard)
-import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
+import Pages.Internal.ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
@@ -140,16 +140,6 @@ map fn requestInfo =
 
         ApiRoute stripped value ->
             ApiRoute stripped (fn value)
-
-
-toResult : Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, b ) -> RawRequest b
-toResult result =
-    case result of
-        Err error ->
-            RequestError error
-
-        Ok ( stripped, okValue ) ->
-            ApiRoute stripped okValue
 
 
 {-| Helper to remove an inner layer of Request wrapping.
