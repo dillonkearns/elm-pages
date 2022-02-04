@@ -36,7 +36,6 @@ function fullPath(request, hasFsAccess) {
  * @returns {Promise<string>}
  */
 function lookupOrPerform(mode, rawRequest, hasFsAccess) {
-  console.log({ hasFsAccess });
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);

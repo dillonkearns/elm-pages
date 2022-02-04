@@ -36,7 +36,6 @@ module.exports =
     addDataSourceWatcher,
     hasFsAccess
   ) {
-    console.log({ hasFsAccess });
     const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(
       hasFsAccess
     );
