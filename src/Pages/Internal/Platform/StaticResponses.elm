@@ -243,10 +243,6 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                     }
                     )
 
-        allErrors : List BuildError
-        allErrors =
-            errors ++ failedRequests ++ generatedFileErrors
-
         pendingRequests : Bool
         pendingRequests =
             staticResponses
@@ -417,6 +413,11 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 --        )
                 --
                 --    Ok okSiteStaticData ->
+                let
+                    allErrors : List BuildError
+                    allErrors =
+                        errors ++ failedRequests ++ generatedFileErrors
+                in
                 ( model.staticResponses
                 , case encode allRawResponses staticResponses of
                     Ok encodedResponses ->

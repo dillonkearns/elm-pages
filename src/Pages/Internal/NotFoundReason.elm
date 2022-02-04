@@ -1,12 +1,11 @@
-module Pages.Internal.NotFoundReason exposing (codec, ModuleContext, NotFoundReason(..), Payload, Record, document)
+module Pages.Internal.NotFoundReason exposing (ModuleContext, NotFoundReason(..), Payload, Record, document)
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs codec, ModuleContext, NotFoundReason, Payload, Record, document
+@docs ModuleContext, NotFoundReason, Payload, Record, document
 
 -}
 
-import Codec exposing (Codec)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Internal.RoutePattern exposing (RoutePattern)
@@ -185,57 +184,6 @@ prerenderedOptionsView moduleContext routes =
                     , Html.text "."
                     ]
                 ]
-
-
-{-| -}
-codec : Codec Payload
-codec =
-    Codec.object Payload
-        |> Codec.field "path"
-            .path
-            (Codec.list Codec.string
-                |> Codec.map Path.join Path.toSegments
-            )
-        |> Codec.field "reason" .reason reasonCodec
-        |> Codec.buildObject
-
-
-reasonCodec : Codec NotFoundReason
-reasonCodec =
-    Codec.custom
-        (\vNoMatchingRoute vNotPrerendered vNotPrerenderedOrHandledByFallback vUnhandledServerRoute value ->
-            case value of
-                NoMatchingRoute ->
-                    vNoMatchingRoute
-
-                NotPrerendered moduleContext prerenderedRoutes ->
-                    vNotPrerendered moduleContext prerenderedRoutes
-
-                NotPrerenderedOrHandledByFallback moduleContext prerenderedRoutes ->
-                    vNotPrerenderedOrHandledByFallback moduleContext prerenderedRoutes
-
-                UnhandledServerRoute moduleContext ->
-                    vUnhandledServerRoute moduleContext
-        )
-        |> Codec.variant0 "NoMatchingRoute" NoMatchingRoute
-        |> Codec.variant2 "NotPrerendered" NotPrerendered moduleContextCodec (Codec.list recordCodec)
-        |> Codec.variant2 "NotPrerenderedOrHandledByFallback" NotPrerenderedOrHandledByFallback moduleContextCodec (Codec.list recordCodec)
-        |> Codec.variant1 "UnhandledServerRoute" UnhandledServerRoute moduleContextCodec
-        |> Codec.buildCustom
-
-
-moduleContextCodec : Codec ModuleContext
-moduleContextCodec =
-    Codec.object ModuleContext
-        |> Codec.field "moduleName" .moduleName (Codec.list Codec.string)
-        |> Codec.field "routePattern" .routePattern Pages.Internal.RoutePattern.codec
-        |> Codec.field "matchedRouteParams" .matchedRouteParams recordCodec
-        |> Codec.buildObject
-
-
-recordCodec : Codec (List ( String, String ))
-recordCodec =
-    Codec.list (Codec.tuple Codec.string Codec.string)
 
 
 recordToString : List ( String, String ) -> String

@@ -734,10 +734,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                             --    |> Maybe.withDefault Dict.empty
                                                             Dict.empty
 
-                                                        currentPage : { path : Path, route : route }
-                                                        currentPage =
-                                                            { path = payload.path, route = config.urlToRoute currentUrl }
-
                                                         pageDataResult : Result BuildError (PageServerResponse pageData)
                                                         pageDataResult =
                                                             StaticHttpRequest.resolve ApplicationType.Cli
@@ -766,29 +762,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                             case pageData__ of
                                                                 PageServerResponse.RenderPage responseInfo pageData ->
                                                                     let
-                                                                        pageModel : userModel
-                                                                        pageModel =
-                                                                            config.init
-                                                                                Pages.Flags.PreRenderFlags
-                                                                                sharedData__
-                                                                                pageData
-                                                                                Nothing
-                                                                                (Just
-                                                                                    { path =
-                                                                                        { path = currentPage.path
-                                                                                        , query = Nothing
-                                                                                        , fragment = Nothing
-                                                                                        }
-                                                                                    , metadata = currentPage.route
-                                                                                    , pageUrl = Nothing
-                                                                                    }
-                                                                                )
-                                                                                |> Tuple.first
-
-                                                                        viewValue : { title : String, body : Html userMsg }
-                                                                        viewValue =
-                                                                            (config.view currentPage Nothing sharedData__ pageData |> .view) pageModel
-
                                                                         byteEncodedPageData : Bytes
                                                                         byteEncodedPageData =
                                                                             if True then
@@ -823,6 +796,34 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                                                 |> Effect.SendSinglePageNew False byteEncodedPageData
 
                                                                         RenderRequest.HtmlAndJson ->
+                                                                            let
+                                                                                currentPage : { path : Path, route : route }
+                                                                                currentPage =
+                                                                                    { path = payload.path, route = config.urlToRoute currentUrl }
+
+                                                                                pageModel : userModel
+                                                                                pageModel =
+                                                                                    config.init
+                                                                                        Pages.Flags.PreRenderFlags
+                                                                                        sharedData__
+                                                                                        pageData
+                                                                                        Nothing
+                                                                                        (Just
+                                                                                            { path =
+                                                                                                { path = currentPage.path
+                                                                                                , query = Nothing
+                                                                                                , fragment = Nothing
+                                                                                                }
+                                                                                            , metadata = currentPage.route
+                                                                                            , pageUrl = Nothing
+                                                                                            }
+                                                                                        )
+                                                                                        |> Tuple.first
+
+                                                                                viewValue : { title : String, body : Html userMsg }
+                                                                                viewValue =
+                                                                                    (config.view currentPage Nothing sharedData__ pageData |> .view) pageModel
+                                                                            in
                                                                             { route = payload.path |> Path.toRelative
                                                                             , contentJson = Dict.empty
                                                                             , html = viewValue.body |> HtmlPrinter.htmlToString
@@ -971,6 +972,10 @@ sendSinglePageProgress site contentJson config model =
                                             case pageData_ of
                                                 PageServerResponse.RenderPage responseInfo pageData ->
                                                     let
+                                                        currentPage : { path : Path, route : route }
+                                                        currentPage =
+                                                            { path = page, route = config.urlToRoute currentUrl }
+
                                                         pageModel : userModel
                                                         pageModel =
                                                             config.init
@@ -1013,10 +1018,6 @@ sendSinglePageProgress site contentJson config model =
                         , query = Nothing
                         , fragment = Nothing
                         }
-
-                    currentPage : { path : Path, route : route }
-                    currentPage =
-                        { path = page, route = config.urlToRoute currentUrl }
 
                     pageDataResult : Result BuildError (PageServerResponse pageData)
                     pageDataResult =
