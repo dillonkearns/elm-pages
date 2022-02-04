@@ -582,10 +582,6 @@ dataForRoute route =
                 name,
                 "routeParams"
               )} 
-                |> distillPageData Page.${name.join(
-                  "."
-                )}.w3_encode_Data Page.${name.join(".")}.w3_decode_Data
-
                  |> DataSource.map (Server.Response.map Data${routeHelpers.routeVariant(
                    name
                  )})
@@ -815,10 +811,6 @@ decodeBytes : Bytes.Decode.Decoder a -> Bytes -> Result String a
 decodeBytes bytesDecoder items =
     Bytes.Decode.decode bytesDecoder items
         |> Result.fromMaybe "Decoding error"
-
-
-distillPageData encodeThing decodeThing dataSourceSoFar =
-    dataSourceSoFar
 `,
     routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
 
