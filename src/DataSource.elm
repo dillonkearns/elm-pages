@@ -260,19 +260,7 @@ It would not work correctly if it chose between two responses that were reduced 
 -}
 combineReducedDicts : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
 combineReducedDicts dict1 dict2 =
-    if Dict.size dict1 > Dict.size dict2 then
-        uniqueInsertAll dict2 dict1
-
-    else
-        uniqueInsertAll dict1 dict2
-
-
-uniqueInsertAll : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
-uniqueInsertAll dictToDedupeMerge startingDict =
-    Dict.foldl
-        (\key value acc -> Dict.Extra.insertDedupe (Pages.StaticHttpRequest.merge key) key value acc)
-        startingDict
-        dictToDedupeMerge
+    Dict.union dict1 dict2
 
 
 lookup : KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
