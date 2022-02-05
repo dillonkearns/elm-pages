@@ -79,7 +79,7 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     , pathPatterns : List RoutePattern
     , basePath : List String
-    , fetchPageData : Url -> Task Http.Error (ResponseSketch pageData sharedData)
+    , fetchPageData : Url -> Task Http.Error ( Url, ResponseSketch pageData sharedData )
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData

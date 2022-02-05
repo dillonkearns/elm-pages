@@ -1039,9 +1039,18 @@ sendSinglePageProgress site contentJson config model =
                                                                         |> config.encodeResponse
                                                                         |> Bytes.Encode.encode
 
-                                                            PageServerResponse.ServerResponse _ ->
+                                                            PageServerResponse.ServerResponse serverResponse ->
                                                                 -- TODO handle error?
-                                                                Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                                                PageServerResponse.toRedirect serverResponse
+                                                                    |> Maybe.map
+                                                                        (\{ location } ->
+                                                                            location
+                                                                                |> ResponseSketch.Redirect
+                                                                                |> config.encodeResponse
+                                                                        )
+                                                                    -- TODO handle other cases besides redirects?
+                                                                    |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
+                                                                    |> Bytes.Encode.encode
 
                                                     _ ->
                                                         -- TODO handle error?

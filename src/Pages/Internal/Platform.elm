@@ -247,7 +247,7 @@ type Msg userMsg pageData sharedData
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCacheAndUrlNew Url (Result Http.Error (ResponseSketch pageData sharedData))
+    | UpdateCacheAndUrlNew Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData
@@ -293,7 +293,8 @@ update config appMsg model =
 
                     else
                         ( model
-                        , Browser.Navigation.pushUrl model.key (Url.toString url)
+                        , config.fetchPageData url
+                            |> Task.attempt (UpdateCacheAndUrlNew True url)
                         )
 
                 Browser.External href ->
@@ -303,7 +304,7 @@ update config appMsg model =
             let
                 navigatingToSamePage : Bool
                 navigatingToSamePage =
-                    (url.path == model.url.path) && (url /= model.url)
+                    url.path == model.url.path
             in
             if navigatingToSamePage then
                 -- this saves a few CPU cycles, but also
@@ -362,7 +363,7 @@ update config appMsg model =
             else
                 ( model
                 , config.fetchPageData url
-                    |> Task.attempt (UpdateCacheAndUrlNew url)
+                    |> Task.attempt (UpdateCacheAndUrlNew False url)
                 )
 
         ReloadCurrentPageData ->
@@ -390,9 +391,9 @@ update config appMsg model =
                 Err _ ->
                     ( model, Cmd.none )
 
-        UpdateCacheAndUrlNew url cacheUpdateResult ->
-            case Result.map2 Tuple.pair (cacheUpdateResult |> Result.mapError (\_ -> "Http error")) model.pageData of
-                Ok ( newData, previousPageData ) ->
+        UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution updateResult ->
+            case Result.map2 Tuple.pair (updateResult |> Result.mapError (\_ -> "Http error")) model.pageData of
+                Ok ( ( newUrl, newData ), previousPageData ) ->
                     let
                         ( newPageData, newSharedData ) =
                             case newData of
@@ -421,10 +422,10 @@ update config appMsg model =
                                     { protocol = model.url.protocol
                                     , host = model.url.host
                                     , port_ = model.url.port_
-                                    , path = url |> urlPathToPath
-                                    , query = url.query
-                                    , fragment = url.fragment
-                                    , metadata = config.urlToRoute url
+                                    , path = newUrl |> urlPathToPath
+                                    , query = newUrl.query
+                                    , fragment = newUrl.fragment
+                                    , metadata = config.urlToRoute newUrl
                                     }
                                 )
                                 previousPageData.userModel
@@ -432,7 +433,7 @@ update config appMsg model =
                         updatedModel : Model userModel pageData sharedData
                         updatedModel =
                             { model
-                                | url = url
+                                | url = newUrl
                                 , pageData = Ok updatedPageData
                             }
                     in
@@ -442,6 +443,11 @@ update config appMsg model =
                     , Cmd.batch
                         [ userCmd |> Cmd.map UserMsg
                         , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+                        , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
+                            Browser.Navigation.pushUrl model.key newUrl.path
+
+                          else
+                            Cmd.none
                         ]
                     )
 
@@ -460,7 +466,7 @@ update config appMsg model =
 
                     -}
                     ( model
-                    , url
+                    , urlWithoutRedirectResolution
                         |> Url.toString
                         |> Browser.Navigation.load
                     )

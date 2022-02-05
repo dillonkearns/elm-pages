@@ -1,5 +1,6 @@
-module PageServerResponse exposing (PageServerResponse(..), Response, toJson)
+module PageServerResponse exposing (PageServerResponse(..), Response, toJson, toRedirect)
 
+import Dict
 import Json.Encode
 import List.Extra
 
@@ -11,6 +12,21 @@ type PageServerResponse data
         }
         data
     | ServerResponse Response
+
+
+toRedirect : Response -> Maybe { statusCode : Int, location : String }
+toRedirect response =
+    response.headers
+        |> Dict.fromList
+        |> Dict.get "Location"
+        |> Maybe.andThen
+            (\location ->
+                if response.statusCode == 302 then
+                    Just { statusCode = 302, location = location }
+
+                else
+                    Nothing
+            )
 
 
 type alias Response =
