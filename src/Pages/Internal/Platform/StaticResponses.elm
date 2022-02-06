@@ -104,37 +104,35 @@ batchUpdate :
     ->
         { model
             | staticResponses : StaticResponses
-            , allRawResponses : Dict String (Maybe String)
+            , allRawResponses : RequestsAndPending
         }
     ->
         { model
             | staticResponses : StaticResponses
-            , allRawResponses : Dict String (Maybe String)
+            , allRawResponses : RequestsAndPending
         }
 batchUpdate newEntries model =
-    let
-        newResponses : Dict String String
-        newResponses =
-            newEntries
-                |> List.map
-                    (\newEntry ->
-                        ( HashRequest.hash newEntry.request, newEntry.response )
-                    )
-                |> Dict.fromList
-
-        updatedAllResponses : Dict String (Maybe String)
-        updatedAllResponses =
-            Dict.merge
-                (\key a -> Dict.insert key (Just a))
-                (\key a _ -> Dict.insert key (Just a))
-                (\key b -> Dict.insert key b)
-                newResponses
-                model.allRawResponses
-                Dict.empty
-    in
     { model
-        | allRawResponses = updatedAllResponses
+        | allRawResponses = insertAll newEntries model.allRawResponses
     }
+
+
+insertAll :
+    List
+        { request : RequestDetails
+        , response : String
+        }
+    -> RequestsAndPending
+    -> RequestsAndPending
+insertAll newEntries dict =
+    case newEntries of
+        [] ->
+            dict
+
+        info :: rest ->
+            insertAll
+                rest
+                (Dict.update (HashRequest.hash info.request) (\_ -> Just (Just info.response)) dict)
 
 
 encode : RequestsAndPending -> StaticHttpResult -> Result (List BuildError) RequestsAndPending
