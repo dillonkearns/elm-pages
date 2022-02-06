@@ -384,7 +384,7 @@ init site renderRequest config flags =
             updateAndSendPortIfDone
                 site
                 config
-                { staticResponses = StaticResponses.error
+                { staticResponses = StaticResponses.empty
                 , errors =
                     [ { title = "Internal Error"
                       , message = [ Terminal.text <| "Failed to parse flags: " ++ Decode.errorToString error ]

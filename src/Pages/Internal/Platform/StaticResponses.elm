@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, error, nextStep, renderApiRequest, renderSingleRoute)
+module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest, renderSingleRoute)
 
 import ApiRoute
 import BuildError exposing (BuildError)
@@ -22,17 +22,18 @@ import TerminalText as Terminal
 
 type StaticResponses
     = ApiRequest StaticHttpResult
-    | StaticResponses (Dict String StaticHttpResult)
-    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult (Dict String StaticHttpResult)
+    | StaticResponses StaticHttpResult
+    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult StaticHttpResult
 
 
 type StaticHttpResult
     = NotFetched (DataSource ()) (Dict String (Result () String))
 
 
-error : StaticResponses
-error =
-    StaticResponses Dict.empty
+empty : StaticResponses
+empty =
+    StaticResponses
+        (NotFetched (DataSource.succeed ()) Dict.empty)
 
 
 buildTimeFilesRequest :
@@ -86,12 +87,7 @@ renderSingleRoute config pathAndRoute request cliData =
             )
             Dict.empty
         )
-        (Dict.fromList
-            [ ( config.routeToPath pathAndRoute.frontmatter |> String.join "/"
-              , NotFetched (DataSource.map (\_ -> ()) request) Dict.empty
-              )
-            ]
-        )
+        (NotFetched (DataSource.map (\_ -> ()) request) Dict.empty)
 
 
 renderApiRequest :
@@ -146,34 +142,17 @@ batchUpdate newEntries model =
     }
 
 
-encode : RequestsAndPending -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String RequestsAndPending)
+encode : RequestsAndPending -> StaticHttpResult -> Result (List BuildError) RequestsAndPending
 encode requestsAndPending staticResponses =
-    staticResponses
-        --|> Dict.filter
-        --    (\key _ ->
-        --        key /= cliDictKey
-        --    )
-        |> Dict.toList
-        |> List.map
-            (\( key, NotFetched request _ ) ->
-                StaticHttpRequest.strippedResponsesEncode request requestsAndPending
-                    |> Result.map (Tuple.pair key)
-            )
-        |> combineMultipleErrors
-        |> Result.mapError List.concat
-        |> Result.map Dict.fromList
-        |> Result.map
-            (Dict.map
-                (\key value ->
-                    Dict.map (\_ nestedValue -> Just nestedValue)
-                        value
-                )
-            )
-
-
-cliDictKey : String
-cliDictKey =
-    "////elm-pages-CLI////"
+    case staticResponses of
+        NotFetched request _ ->
+            StaticHttpRequest.strippedResponsesEncode request requestsAndPending
+                |> Result.map
+                    (Dict.map
+                        (\key value ->
+                            Just value
+                        )
+                    )
 
 
 type NextStep route
@@ -206,83 +185,76 @@ nextStep :
     -> ( StaticResponses, NextStep route )
 nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
     let
-        staticResponses : Dict String StaticHttpResult
+        staticResponses : StaticHttpResult
         staticResponses =
             case model.staticResponses of
                 StaticResponses s ->
                     s
 
                 ApiRequest staticHttpResult ->
-                    Dict.singleton cliDictKey staticHttpResult
+                    staticHttpResult
 
                 CheckIfHandled _ staticHttpResult _ ->
-                    Dict.singleton cliDictKey staticHttpResult
+                    staticHttpResult
 
         pendingRequests : Bool
         pendingRequests =
-            staticResponses
-                |> Dict.Extra.any
-                    (\_ entry ->
-                        case entry of
-                            NotFetched request rawResponses ->
-                                let
-                                    staticRequestsStatus : StaticHttpRequest.Status ()
-                                    staticRequestsStatus =
-                                        allRawResponses
-                                            |> StaticHttpRequest.cacheRequestResolution request
+            case staticResponses of
+                NotFetched request rawResponses ->
+                    let
+                        staticRequestsStatus : StaticHttpRequest.Status ()
+                        staticRequestsStatus =
+                            allRawResponses
+                                |> StaticHttpRequest.cacheRequestResolution request
 
-                                    hasPermanentError : Bool
-                                    hasPermanentError =
-                                        case staticRequestsStatus of
-                                            StaticHttpRequest.HasPermanentError _ ->
-                                                True
+                        hasPermanentError : Bool
+                        hasPermanentError =
+                            case staticRequestsStatus of
+                                StaticHttpRequest.HasPermanentError _ ->
+                                    True
 
-                                            _ ->
-                                                False
-
-                                    hasPermanentHttpError : Bool
-                                    hasPermanentHttpError =
-                                        not (List.isEmpty errors)
-
-                                    ( allUrlsKnown, knownUrlsToFetch ) =
-                                        case staticRequestsStatus of
-                                            StaticHttpRequest.Incomplete newUrlsToFetch ->
-                                                ( False, newUrlsToFetch )
-
-                                            _ ->
-                                                ( True, [] )
-
-                                    fetchedAllKnownUrls : Bool
-                                    fetchedAllKnownUrls =
-                                        (rawResponses
-                                            |> Dict.keys
-                                            |> Set.fromList
-                                            |> Set.union (allRawResponses |> Dict.keys |> Set.fromList)
-                                        )
-                                            |> Set.diff
-                                                (knownUrlsToFetch
-                                                    |> List.map HashRequest.hash
-                                                    |> Set.fromList
-                                                )
-                                            |> Set.isEmpty
-                                in
-                                if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
+                                _ ->
                                     False
 
-                                else
-                                    True
-                    )
+                        hasPermanentHttpError : Bool
+                        hasPermanentHttpError =
+                            not (List.isEmpty errors)
+
+                        ( allUrlsKnown, knownUrlsToFetch ) =
+                            case staticRequestsStatus of
+                                StaticHttpRequest.Incomplete newUrlsToFetch ->
+                                    ( False, newUrlsToFetch )
+
+                                _ ->
+                                    ( True, [] )
+
+                        fetchedAllKnownUrls : Bool
+                        fetchedAllKnownUrls =
+                            (rawResponses
+                                |> Dict.keys
+                                |> Set.fromList
+                                |> Set.union (allRawResponses |> Dict.keys |> Set.fromList)
+                            )
+                                |> Set.diff
+                                    (knownUrlsToFetch
+                                        |> List.map HashRequest.hash
+                                        |> Set.fromList
+                                    )
+                                |> Set.isEmpty
+                    in
+                    if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
+                        False
+
+                    else
+                        True
     in
     if pendingRequests then
         let
-            requestContinuations : List ( String, DataSource () )
+            requestContinuations : DataSource ()
             requestContinuations =
-                staticResponses
-                    |> Dict.toList
-                    |> List.map
-                        (\( path, NotFetched request _ ) ->
-                            ( path, request )
-                        )
+                case staticResponses of
+                    NotFetched request _ ->
+                        request
         in
         case
             performStaticHttpRequests allRawResponses requestContinuations
@@ -357,39 +329,36 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                         let
                             failedRequests : List BuildError
                             failedRequests =
-                                staticResponses
-                                    |> Dict.toList
-                                    |> List.concatMap
-                                        (\( path, NotFetched request _ ) ->
-                                            let
-                                                staticRequestsStatus : StaticHttpRequest.Status ()
-                                                staticRequestsStatus =
-                                                    StaticHttpRequest.cacheRequestResolution
-                                                        request
-                                                        usableRawResponses
+                                case staticResponses of
+                                    NotFetched request _ ->
+                                        let
+                                            staticRequestsStatus : StaticHttpRequest.Status ()
+                                            staticRequestsStatus =
+                                                StaticHttpRequest.cacheRequestResolution
+                                                    request
+                                                    usableRawResponses
 
-                                                usableRawResponses : RequestsAndPending
-                                                usableRawResponses =
-                                                    allRawResponses
+                                            usableRawResponses : RequestsAndPending
+                                            usableRawResponses =
+                                                allRawResponses
 
-                                                maybePermanentError : Maybe StaticHttpRequest.Error
-                                                maybePermanentError =
-                                                    case staticRequestsStatus of
-                                                        StaticHttpRequest.HasPermanentError theError ->
-                                                            Just theError
+                                            maybePermanentError : Maybe StaticHttpRequest.Error
+                                            maybePermanentError =
+                                                case staticRequestsStatus of
+                                                    StaticHttpRequest.HasPermanentError theError ->
+                                                        Just theError
 
-                                                        _ ->
-                                                            Nothing
+                                                    _ ->
+                                                        Nothing
 
-                                                decoderErrors : List BuildError
-                                                decoderErrors =
-                                                    maybePermanentError
-                                                        |> Maybe.map (StaticHttpRequest.toBuildError path)
-                                                        |> Maybe.map List.singleton
-                                                        |> Maybe.withDefault []
-                                            in
-                                            decoderErrors
-                                        )
+                                            decoderErrors : List BuildError
+                                            decoderErrors =
+                                                maybePermanentError
+                                                    |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
+                                                    |> Maybe.map List.singleton
+                                                    |> Maybe.withDefault []
+                                        in
+                                        decoderErrors
 
                             generatedFileErrors : List BuildError
                             generatedFileErrors =
@@ -435,7 +404,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                 |> Finish
 
                         else
-                            Page (encodedResponses |> Dict.values |> List.head |> Maybe.withDefault Dict.empty)
+                            Page encodedResponses
                                 |> Finish
 
                     Err buildErrors ->
@@ -463,7 +432,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                         nextStep config { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
 
                     Ok (Just _) ->
-                        ( StaticResponses Dict.empty
+                        ( empty
                         , Finish ApiResponse
                           -- TODO should there be a new type for 404response? Or something else?
                         )
@@ -472,39 +441,36 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                         let
                             failedRequests : List BuildError
                             failedRequests =
-                                staticResponses
-                                    |> Dict.toList
-                                    |> List.concatMap
-                                        (\( path, NotFetched request _ ) ->
-                                            let
-                                                staticRequestsStatus : StaticHttpRequest.Status ()
-                                                staticRequestsStatus =
-                                                    StaticHttpRequest.cacheRequestResolution
-                                                        request
-                                                        usableRawResponses
+                                case staticResponses of
+                                    NotFetched request _ ->
+                                        let
+                                            staticRequestsStatus : StaticHttpRequest.Status ()
+                                            staticRequestsStatus =
+                                                StaticHttpRequest.cacheRequestResolution
+                                                    request
+                                                    usableRawResponses
 
-                                                usableRawResponses : RequestsAndPending
-                                                usableRawResponses =
-                                                    allRawResponses
+                                            usableRawResponses : RequestsAndPending
+                                            usableRawResponses =
+                                                allRawResponses
 
-                                                maybePermanentError : Maybe StaticHttpRequest.Error
-                                                maybePermanentError =
-                                                    case staticRequestsStatus of
-                                                        StaticHttpRequest.HasPermanentError theError ->
-                                                            Just theError
+                                            maybePermanentError : Maybe StaticHttpRequest.Error
+                                            maybePermanentError =
+                                                case staticRequestsStatus of
+                                                    StaticHttpRequest.HasPermanentError theError ->
+                                                        Just theError
 
-                                                        _ ->
-                                                            Nothing
+                                                    _ ->
+                                                        Nothing
 
-                                                decoderErrors : List BuildError
-                                                decoderErrors =
-                                                    maybePermanentError
-                                                        |> Maybe.map (StaticHttpRequest.toBuildError path)
-                                                        |> Maybe.map List.singleton
-                                                        |> Maybe.withDefault []
-                                            in
-                                            decoderErrors
-                                        )
+                                            decoderErrors : List BuildError
+                                            decoderErrors =
+                                                maybePermanentError
+                                                    |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
+                                                    |> Maybe.map List.singleton
+                                                    |> Maybe.withDefault []
+                                        in
+                                        decoderErrors
                         in
                         ( model.staticResponses
                         , Finish
@@ -523,41 +489,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
 
 performStaticHttpRequests :
     Dict String (Maybe String)
-    -> List ( String, DataSource a )
+    -> DataSource a
     -> List RequestDetails
-performStaticHttpRequests allRawResponses staticRequests =
-    staticRequests
-        -- TODO look for performance bottleneck in this double nesting
-        |> List.map
-            (\( _, request ) ->
-                StaticHttpRequest.resolveUrls request allRawResponses
-            )
-        -- TODO prevent duplicates... can't because Set needs comparable
-        --        |> Set.fromList
-        --        |> Set.toList
-        |> List.concat
-
-
-combineMultipleErrors : List (Result error a) -> Result (List error) (List a)
-combineMultipleErrors results =
-    List.foldr
-        (\result soFarResult ->
-            case soFarResult of
-                Ok soFarOk ->
-                    case result of
-                        Ok value ->
-                            value :: soFarOk |> Ok
-
-                        Err error_ ->
-                            Err [ error_ ]
-
-                Err errorsSoFar ->
-                    case result of
-                        Ok _ ->
-                            Err errorsSoFar
-
-                        Err error_ ->
-                            Err <| error_ :: errorsSoFar
-        )
-        (Ok [])
-        results
+performStaticHttpRequests allRawResponses request =
+    StaticHttpRequest.resolveUrls request allRawResponses
