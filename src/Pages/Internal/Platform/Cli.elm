@@ -333,18 +333,6 @@ perform site renderRequest config toJsPort effect =
         Effect.Continue ->
             Cmd.none
 
-        Effect.ReadFile filePath ->
-            ToJsPayload.ReadFile filePath
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                |> toJsPort
-                |> Cmd.map never
-
-        Effect.GetGlob globPattern ->
-            ToJsPayload.Glob globPattern
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                |> toJsPort
-                |> Cmd.map never
-
 
 flagsDecoder :
     Decode.Decoder

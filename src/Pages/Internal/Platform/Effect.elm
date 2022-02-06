@@ -8,8 +8,6 @@ import Pages.Internal.Platform.ToJsPayload exposing (ToJsSuccessPayloadNewCombin
 type Effect
     = NoEffect
     | FetchHttp RequestDetails
-    | ReadFile String
-    | GetGlob String
     | Batch (List Effect)
     | SendSinglePage Bool ToJsSuccessPayloadNewCombined
     | SendSinglePageNew Bool Bytes ToJsSuccessPayloadNewCombined
