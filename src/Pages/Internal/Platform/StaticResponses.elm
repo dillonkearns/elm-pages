@@ -277,11 +277,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                     newThing =
                         maskedToUnmasked
                             |> Dict.Extra.removeMany alreadyPerformed
-                            |> Dict.toList
-                            |> List.map
-                                (\( _, secureUrl ) ->
-                                    secureUrl
-                                )
+                            |> Dict.values
                 in
                 ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
