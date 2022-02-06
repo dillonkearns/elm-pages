@@ -122,7 +122,6 @@ A common use for this is to map your data into your elm-pages view:
 -}
 map : (a -> b) -> DataSource a -> DataSource b
 map fn requestInfo =
-    -- elm-review: known-unoptimized-recursion
     case requestInfo of
         RequestError error ->
             RequestError error
@@ -130,12 +129,15 @@ map fn requestInfo =
         Request urls lookupFn ->
             Request
                 urls
-                (\rawResponses ->
-                    map fn (lookupFn rawResponses)
-                )
+                (mapLookupFn fn lookupFn)
 
         ApiRoute value ->
             ApiRoute (fn value)
+
+
+mapLookupFn : (a -> b) -> (c -> DataSource a) -> c -> DataSource b
+mapLookupFn fn lookupFn requests =
+    map fn (lookupFn requests)
 
 
 {-| Helper to remove an inner layer of Request wrapping.
