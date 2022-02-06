@@ -217,29 +217,17 @@ request request_ expect =
                                         Ok rawResponse
 
                                     Nothing ->
-                                        Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_)
-                                                [ request_ ]
-                                            )
+                                        Err (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_) [ request_ ])
                            )
                         |> Result.andThen
                             (\rawResponse ->
                                 rawResponse
                                     |> Json.Decode.decodeString decoder
-                                    |> (\decodeResult ->
-                                            case decodeResult of
-                                                Err error ->
-                                                    error
-                                                        |> Json.Decode.errorToString
-                                                        |> Pages.StaticHttpRequest.DecoderError
-                                                        |> Err
-
-                                                Ok a ->
-                                                    Ok a
-                                       )
-                                    |> Result.map
-                                        (\finalRequest ->
-                                            finalRequest
+                                    |> Result.mapError
+                                        (\error ->
+                                            error
+                                                |> Json.Decode.errorToString
+                                                |> Pages.StaticHttpRequest.DecoderError
                                         )
                             )
                         |> toResult
