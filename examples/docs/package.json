@@ -5,7 +5,7 @@
   "scripts": {
     "start": "elm-pages dev",
     "start:https": "elm-pages dev --https",
-    "build": "elm-pages build"
+    "build": "elm-pages build --keep-cache"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
