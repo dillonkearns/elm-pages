@@ -11,7 +11,7 @@ import TerminalText as Terminal
 type RawRequest value
     = Request (Set String) ( List Pages.StaticHttp.Request.Request, RequestsAndPending -> RawRequest value )
     | RequestError Error
-    | ApiRoute (Set String) value
+    | ApiRoute value
 
 
 type Error
@@ -62,7 +62,7 @@ resolve request rawResponses =
                 nextRequest ->
                     resolve nextRequest rawResponses
 
-        ApiRoute _ value ->
+        ApiRoute value ->
             Ok value
 
 
@@ -89,7 +89,7 @@ resolveUrlsHelp rawResponses soFar request =
                 (soFar ++ urlList)
                 (lookupFn rawResponses)
 
-        ApiRoute _ _ ->
+        ApiRoute _ ->
             soFar
 
 
@@ -131,5 +131,5 @@ cacheRequestResolutionHelp foundUrls rawResponses request =
                 rawResponses
                 (lookupFn rawResponses)
 
-        ApiRoute _ _ ->
+        ApiRoute _ ->
             Complete

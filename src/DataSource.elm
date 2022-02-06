@@ -135,8 +135,8 @@ map fn requestInfo =
                     map fn (lookupFn rawResponses)
                 )
 
-        ApiRoute stripped value ->
-            ApiRoute stripped (fn value)
+        ApiRoute value ->
+            ApiRoute (fn value)
 
 
 {-| Helper to remove an inner layer of Request wrapping.
@@ -219,7 +219,7 @@ map2 fn request1 request2 =
             RequestError error
 
         ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
-            Request (combineReducedDicts newDict1 newDict2)
+            Request (Set.union newDict1 newDict2)
                 ( urls1 ++ urls2
                 , \rawResponses ->
                     map2 fn
@@ -227,57 +227,41 @@ map2 fn request1 request2 =
                         (lookupFn2 rawResponses)
                 )
 
-        ( Request dict1 ( urls1, lookupFn1 ), ApiRoute stripped2 value2 ) ->
+        ( Request dict1 ( urls1, lookupFn1 ), ApiRoute value2 ) ->
             Request dict1
                 ( urls1
                 , \rawResponses ->
                     map2 fn
                         (lookupFn1 rawResponses)
-                        (ApiRoute stripped2 value2)
+                        (ApiRoute value2)
                 )
 
-        ( ApiRoute stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
+        ( ApiRoute value2, Request dict1 ( urls1, lookupFn1 ) ) ->
             Request dict1
                 ( urls1
                 , \rawResponses ->
                     map2 fn
-                        (ApiRoute stripped2 value2)
+                        (ApiRoute value2)
                         (lookupFn1 rawResponses)
                 )
 
-        ( ApiRoute stripped1 value1, ApiRoute stripped2 value2 ) ->
-            ApiRoute
-                (combineReducedDicts stripped1 stripped2)
-                (fn value1 value2)
+        ( ApiRoute value1, ApiRoute value2 ) ->
+            ApiRoute (fn value1 value2)
 
 
-{-| Takes two dicts representing responses, some of which have been reduced, and picks the shorter of the two.
-This is assuming that there are no duplicate URLs, so it can safely choose between either a raw or a reduced response.
-It would not work correctly if it chose between two responses that were reduced with different `Json.Decode.Exploration.Decoder`s.
--}
-combineReducedDicts : Set String -> Set String -> Set String
-combineReducedDicts dict1 dict2 =
-    Set.union dict1 dict2
-
-
-lookup : DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
-lookup =
-    lookupHelp Set.empty
-
-
-lookupHelp : Set String -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Set String, value )
-lookupHelp strippedSoFar requestInfo rawResponses =
+lookup : DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
+lookup requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
             Err error
 
         Request strippedResponses ( urls, lookupFn ) ->
-            lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
+            lookup
                 (addUrls urls (lookupFn rawResponses))
                 rawResponses
 
-        ApiRoute stripped value ->
-            Ok ( combineReducedDicts stripped strippedSoFar, value )
+        ApiRoute value ->
+            Ok value
 
 
 addUrls : List HashRequest.Request -> DataSource value -> DataSource value
@@ -289,8 +273,8 @@ addUrls urlsToAdd requestInfo =
         Request stripped ( initialUrls, function ) ->
             Request stripped ( initialUrls ++ urlsToAdd, function )
 
-        ApiRoute stripped value ->
-            ApiRoute stripped value
+        ApiRoute value ->
+            ApiRoute value
 
 
 {-| The full details to perform a StaticHttp request.
@@ -313,7 +297,7 @@ lookupUrls requestInfo =
         Request _ ( urls, _ ) ->
             urls
 
-        ApiRoute _ _ ->
+        ApiRoute _ ->
             []
 
 
@@ -350,16 +334,16 @@ andThen fn requestInfo =
                                 --( strippedResponses, fn value )
                                 RequestError error
 
-                            Ok ( strippedResponses, value ) ->
+                            Ok value ->
                                 case fn value of
                                     Request dict ( values, function ) ->
-                                        Request (combineReducedDicts strippedResponses dict) ( values, function )
+                                        Request dict ( values, function )
 
                                     RequestError error ->
                                         RequestError error
 
-                                    ApiRoute dict finalValue ->
-                                        ApiRoute (combineReducedDicts strippedResponses dict) finalValue
+                                    ApiRoute finalValue ->
+                                        ApiRoute finalValue
                    )
         )
 
@@ -397,7 +381,7 @@ andMap =
 -}
 succeed : a -> DataSource a
 succeed value =
-    ApiRoute Set.empty value
+    ApiRoute value
 
 
 {-| Stop the StaticHttp chain with the given error message. If you reach a `fail` in your request,

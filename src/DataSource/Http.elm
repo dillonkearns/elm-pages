@@ -215,10 +215,7 @@ request request_ expect =
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
-                                        Ok
-                                            ( Set.singleton (request_ |> HashRequest.hash)
-                                            , rawResponse
-                                            )
+                                        Ok rawResponse
 
                                     Nothing ->
                                         Err
@@ -227,7 +224,7 @@ request request_ expect =
                                             )
                            )
                         |> Result.andThen
-                            (\( strippedResponses, rawResponse ) ->
+                            (\rawResponse ->
                                 rawResponse
                                     |> Json.Decode.decodeString decoder
                                     |> (\decodeResult ->
@@ -243,12 +240,7 @@ request request_ expect =
                                        )
                                     |> Result.map
                                         (\finalRequest ->
-                                            ( -- TODO check keepOrDiscard
-                                              strippedResponses
-                                                |> Set.insert
-                                                    (request_ |> HashRequest.hash)
-                                            , finalRequest
-                                            )
+                                            finalRequest
                                         )
                             )
                         |> toResult
@@ -266,10 +258,6 @@ request request_ expect =
                                         rawResponse
                                             |> mapStringFn
                                             |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                            |> Result.map
-                                                (\decoded ->
-                                                    ( Set.singleton (request_ |> HashRequest.hash), decoded )
-                                                )
                                             |> toResult
 
                                     Nothing ->
@@ -280,11 +268,11 @@ request request_ expect =
                 )
 
 
-toResult : Result Pages.StaticHttpRequest.Error ( Set String, b ) -> RawRequest b
+toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest b
 toResult result =
     case result of
         Err error ->
             RequestError error
 
-        Ok ( stripped, okValue ) ->
-            ApiRoute stripped okValue
+        Ok okValue ->
+            ApiRoute okValue
