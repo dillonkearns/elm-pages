@@ -706,7 +706,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                             , fragment = Nothing
                                                             }
 
-                                                        staticData : Dict String String
+                                                        staticData : RequestsAndPending
                                                         staticData =
                                                             -- TODO this is causing the bug with loading for Site.elm!
                                                             --toJsPayload.pages
@@ -718,21 +718,21 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                         pageDataResult =
                                                             StaticHttpRequest.resolve
                                                                 (config.data (config.urlToRoute currentUrl))
-                                                                (staticData |> Dict.map (\_ v -> Just v))
+                                                                staticData
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         sharedDataResult : Result BuildError sharedData
                                                         sharedDataResult =
                                                             StaticHttpRequest.resolve
                                                                 config.sharedData
-                                                                (staticData |> Dict.map (\_ v -> Just v))
+                                                                staticData
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         siteDataResult : Result BuildError siteData
                                                         siteDataResult =
                                                             StaticHttpRequest.resolve
                                                                 site.data
-                                                                (staticData |> Dict.map (\_ v -> Just v))
+                                                                staticData
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                                                     in
                                                     case
