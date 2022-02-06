@@ -255,17 +255,14 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                     dictOfNewUrlsToPerform : Dict String (Maybe String)
                     dictOfNewUrlsToPerform =
                         urlsToPerform
-                            |> List.map HashRequest.hash
-                            |> List.map (\hashedUrl -> ( hashedUrl, Nothing ))
+                            |> List.map (\url -> ( HashRequest.hash url, Nothing ))
                             |> Dict.fromList
 
                     maskedToUnmasked : Dict String RequestDetails
                     maskedToUnmasked =
                         urlsToPerform
-                            --                                    |> List.map (\secureUrl -> ( Pages.Internal.Secrets.masked secureUrl, secureUrl ))
                             |> List.map
                                 (\secureUrl ->
-                                    --                                            ( hashUrl secureUrl, { unmasked = secureUrl, masked = secureUrl } )
                                     ( HashRequest.hash secureUrl, secureUrl )
                                 )
                             |> Dict.fromList
@@ -408,7 +405,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                     pageFoundResult =
                         StaticHttpRequest.resolve
                             pageFoundDataSource
-                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                            allRawResponses
                 in
                 case pageFoundResult of
                     Ok Nothing ->
