@@ -211,7 +211,6 @@ combine =
 -}
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
-    -- elm-review: known-unoptimized-recursion
     case ( request1, request2 ) of
         ( RequestError error, _ ) ->
             RequestError error
@@ -222,32 +221,27 @@ map2 fn request1 request2 =
         ( Request urls1 lookupFn1, Request urls2 lookupFn2 ) ->
             Request
                 (urls1 ++ urls2)
-                (\rawResponses ->
-                    map2 fn
-                        (lookupFn1 rawResponses)
-                        (lookupFn2 rawResponses)
-                )
+                (mapReq fn lookupFn1 lookupFn2)
 
         ( Request urls1 lookupFn1, ApiRoute value2 ) ->
             Request
                 urls1
-                (\rawResponses ->
-                    map2 fn
-                        (lookupFn1 rawResponses)
-                        (ApiRoute value2)
-                )
+                (mapReq fn lookupFn1 (\_ -> ApiRoute value2))
 
         ( ApiRoute value2, Request urls1 lookupFn1 ) ->
             Request
                 urls1
-                (\rawResponses ->
-                    map2 fn
-                        (ApiRoute value2)
-                        (lookupFn1 rawResponses)
-                )
+                (mapReq fn (\_ -> ApiRoute value2) lookupFn1)
 
         ( ApiRoute value1, ApiRoute value2 ) ->
             ApiRoute (fn value1 value2)
+
+
+mapReq : (a -> b -> c) -> (d -> DataSource a) -> (d -> DataSource b) -> d -> DataSource c
+mapReq fn lookupFn1 lookupFn2 rawResponses =
+    map2 fn
+        (lookupFn1 rawResponses)
+        (lookupFn2 rawResponses)
 
 
 lookup : DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
