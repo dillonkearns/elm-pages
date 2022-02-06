@@ -415,8 +415,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                 RenderRequest.SinglePage _ singleRequest _ ->
                     case singleRequest of
                         RenderRequest.Page serverRequestPayload ->
-                            StaticResponses.renderSingleRoute config
-                                serverRequestPayload
+                            StaticResponses.renderSingleRoute
                                 (DataSource.map2 (\_ _ -> ())
                                     (config.data serverRequestPayload.frontmatter)
                                     config.sharedData

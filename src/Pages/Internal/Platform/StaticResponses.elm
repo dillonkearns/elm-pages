@@ -14,7 +14,6 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Path exposing (Path)
 import RequestsAndPending exposing (RequestsAndPending)
 import Set exposing (Set)
 import TerminalText as Terminal
@@ -72,14 +71,10 @@ buildTimeFilesRequest config =
 
 
 renderSingleRoute :
-    { config
-        | routeToPath : route -> List String
-    }
-    -> { path : Path, frontmatter : route }
-    -> DataSource a
+    DataSource a
     -> DataSource (Maybe NotFoundReason)
     -> StaticResponses
-renderSingleRoute config pathAndRoute request cliData =
+renderSingleRoute request cliData =
     CheckIfHandled cliData
         (NotFetched
             (cliData
@@ -149,7 +144,7 @@ encode requestsAndPending staticResponses =
             StaticHttpRequest.strippedResponsesEncode request requestsAndPending
                 |> Result.map
                     (Dict.map
-                        (\key value ->
+                        (\_ value ->
                             Just value
                         )
                     )
