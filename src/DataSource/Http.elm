@@ -263,33 +263,20 @@ request request_ expect =
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
-                                        Ok
-                                            ( -- TODO check keepOrDiscard
-                                              Set.singleton (request_ |> HashRequest.hash)
-                                            , rawResponse
-                                            )
+                                        rawResponse
+                                            |> mapStringFn
+                                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                                            |> Result.map
+                                                (\decoded ->
+                                                    ( Set.singleton (request_ |> HashRequest.hash), decoded )
+                                                )
+                                            |> toResult
 
                                     Nothing ->
-                                        Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_)
-                                                [ request_ ]
-                                            )
+                                        Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_)
+                                            [ request_ ]
+                                            |> RequestError
                            )
-                        |> Result.andThen
-                            (\( strippedResponses, rawResponse ) ->
-                                rawResponse
-                                    |> mapStringFn
-                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                    |> Result.map
-                                        (\finalRequest ->
-                                            ( -- TODO check keepOrDiscard
-                                              strippedResponses
-                                                |> Set.insert (request_ |> HashRequest.hash)
-                                            , finalRequest
-                                            )
-                                        )
-                            )
-                        |> toResult
                 )
 
 
