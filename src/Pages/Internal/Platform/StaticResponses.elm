@@ -351,7 +351,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                                     resolvedGenerateFilesResult =
                                         StaticHttpRequest.resolve
                                             (buildTimeFilesRequest config)
-                                            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
+                                            allRawResponses
                                 in
                                 generatedFiles
                                     |> List.filterMap
