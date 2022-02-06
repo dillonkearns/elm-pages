@@ -135,17 +135,11 @@ insertAll newEntries dict =
                 (Dict.update (HashRequest.hash info.request) (\_ -> Just (Just info.response)) dict)
 
 
-encode : RequestsAndPending -> StaticHttpResult -> Result (List BuildError) RequestsAndPending
+encode : RequestsAndPending -> StaticHttpResult -> RequestsAndPending
 encode requestsAndPending staticResponses =
     case staticResponses of
-        NotFetched request _ ->
-            StaticHttpRequest.strippedResponsesEncode request requestsAndPending
-                |> Result.map
-                    (Dict.map
-                        (\_ value ->
-                            Just value
-                        )
-                    )
+        NotFetched _ _ ->
+            requestsAndPending
 
 
 type NextStep route
@@ -388,22 +382,18 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                         errors ++ failedRequests ++ generatedFileErrors
                 in
                 ( model.staticResponses
-                , case encode allRawResponses staticResponses of
-                    Ok encodedResponses ->
-                        -- TODO send all global head tags on initial call
-                        if List.length allErrors > 0 then
-                            allErrors
-                                |> Errors
-                                |> Finish
+                , encode allRawResponses staticResponses
+                    |> (\encodedResponses ->
+                            -- TODO send all global head tags on initial call
+                            if List.length allErrors > 0 then
+                                allErrors
+                                    |> Errors
+                                    |> Finish
 
-                        else
-                            Page encodedResponses
-                                |> Finish
-
-                    Err buildErrors ->
-                        (allErrors ++ buildErrors)
-                            |> Errors
-                            |> Finish
+                            else
+                                Page encodedResponses
+                                    |> Finish
+                       )
                 )
 
             ApiRequest _ ->

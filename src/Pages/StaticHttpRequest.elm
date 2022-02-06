@@ -1,7 +1,6 @@
-module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, resolve, resolveUrls, strippedResponsesEncode, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, resolve, resolveUrls, toBuildError)
 
 import BuildError exposing (BuildError)
-import Dict exposing (Dict)
 import List.Extra
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
@@ -13,78 +12,6 @@ type RawRequest value
     = Request (Set String) ( List Pages.StaticHttp.Request.Request, RequestsAndPending -> RawRequest value )
     | RequestError Error
     | ApiRoute (Set String) value
-
-
-strippedResponses : RawRequest value -> RequestsAndPending -> Set String
-strippedResponses =
-    strippedResponsesHelp Set.empty
-
-
-strippedResponsesEncode : RawRequest value -> RequestsAndPending -> Result (List BuildError) (Dict String String)
-strippedResponsesEncode rawRequest requestsAndPending =
-    strippedResponses rawRequest requestsAndPending
-        |> Set.toList
-        |> List.map
-            (\k ->
-                (Dict.get k requestsAndPending
-                    |> Maybe.withDefault Nothing
-                    |> Maybe.withDefault ""
-                    |> Just
-                    |> Ok
-                )
-                    |> Result.map (Maybe.map (Tuple.pair k))
-            )
-        |> combineMultipleErrors
-        |> Result.map (List.filterMap identity)
-        |> Result.map Dict.fromList
-
-
-combineMultipleErrors : List (Result (List error) a) -> Result (List error) (List a)
-combineMultipleErrors results =
-    List.foldr
-        (\result soFarResult ->
-            case soFarResult of
-                Ok soFarOk ->
-                    case result of
-                        Ok value ->
-                            value :: soFarOk |> Ok
-
-                        Err error_ ->
-                            Err error_
-
-                Err errorsSoFar ->
-                    case result of
-                        Ok _ ->
-                            Err errorsSoFar
-
-                        Err error_ ->
-                            Err <| error_ ++ errorsSoFar
-        )
-        (Ok [])
-        results
-
-
-strippedResponsesHelp : Set String -> RawRequest value -> RequestsAndPending -> Set String
-strippedResponsesHelp usedSoFar request rawResponses =
-    case request of
-        RequestError _ ->
-            usedSoFar
-
-        Request partiallyStrippedResponses ( _, lookupFn ) ->
-            case lookupFn rawResponses of
-                followupRequest ->
-                    strippedResponsesHelp
-                        (Set.union
-                            usedSoFar
-                            partiallyStrippedResponses
-                        )
-                        followupRequest
-                        rawResponses
-
-        ApiRoute partiallyStrippedResponses _ ->
-            Set.union
-                usedSoFar
-                partiallyStrippedResponses
 
 
 type Error
