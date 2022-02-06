@@ -8,7 +8,7 @@ import TerminalText as Terminal
 
 
 type RawRequest value
-    = Request ( List Pages.StaticHttp.Request.Request, RequestsAndPending -> RawRequest value )
+    = Request (List Pages.StaticHttp.Request.Request) (RequestsAndPending -> RawRequest value)
     | RequestError Error
     | ApiRoute value
 
@@ -56,7 +56,7 @@ resolve request rawResponses =
         RequestError error ->
             Err error
 
-        Request ( _, lookupFn ) ->
+        Request _ lookupFn ->
             case lookupFn rawResponses of
                 nextRequest ->
                     resolve nextRequest rawResponses
@@ -82,7 +82,7 @@ resolveUrlsHelp rawResponses soFar request =
                 _ ->
                     soFar
 
-        Request ( urlList, lookupFn ) ->
+        Request urlList lookupFn ->
             resolveUrlsHelp
                 rawResponses
                 (soFar ++ urlList)
@@ -125,7 +125,7 @@ cacheRequestResolutionHelp foundUrls rawResponses request =
                 UserCalledStaticHttpFail _ ->
                     HasPermanentError error
 
-        Request ( urlList, lookupFn ) ->
+        Request urlList lookupFn ->
             cacheRequestResolutionHelp urlList
                 rawResponses
                 (lookupFn rawResponses)

@@ -207,8 +207,8 @@ request request_ expect =
     case expect of
         ExpectJson decoder ->
             Request
-                ( [ request_ ]
-                , \rawResponseDict ->
+                [ request_ ]
+                (\rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (request_ |> HashRequest.hash)
                         |> (\maybeResponse ->
@@ -235,8 +235,8 @@ request request_ expect =
 
         ExpectString mapStringFn ->
             Request
-                ( [ request_ ]
-                , \rawResponseDict ->
+                [ request_ ]
+                (\rawResponseDict ->
                     rawResponseDict
                         |> RequestsAndPending.get (request_ |> HashRequest.hash)
                         |> (\maybeResponse ->
