@@ -146,7 +146,7 @@ batchUpdate newEntries model =
     }
 
 
-encode : RequestsAndPending -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String (Dict String String))
+encode : RequestsAndPending -> Dict String StaticHttpResult -> Result (List BuildError) (Dict String RequestsAndPending)
 encode requestsAndPending staticResponses =
     staticResponses
         --|> Dict.filter
@@ -162,6 +162,13 @@ encode requestsAndPending staticResponses =
         |> combineMultipleErrors
         |> Result.mapError List.concat
         |> Result.map Dict.fromList
+        |> Result.map
+            (Dict.map
+                (\key value ->
+                    Dict.map (\_ nestedValue -> Just nestedValue)
+                        value
+                )
+            )
 
 
 cliDictKey : String
@@ -177,7 +184,7 @@ type NextStep route
 type FinishKind route
     = ApiResponse
     | Errors (List BuildError)
-    | Page (Dict String String)
+    | Page RequestsAndPending
 
 
 nextStep :

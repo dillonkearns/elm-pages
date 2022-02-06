@@ -36,6 +36,7 @@ import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
+import RequestsAndPending exposing (RequestsAndPending)
 import Server.Response
 import Task
 import TerminalText as Terminal
@@ -885,7 +886,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                             (\route ->
                                                 StaticHttpRequest.resolve
                                                     (config.data route)
-                                                    (contentJson |> Dict.map (\_ v -> Just v))
+                                                    contentJson
                                                     |> Result.mapError (StaticHttpRequest.toBuildError "TODO url")
                                             )
                             in
@@ -901,7 +902,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
 sendSinglePageProgress :
     SiteConfig siteData
-    -> Dict String String
+    -> RequestsAndPending
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
     -> Model route
     -> ( Path, route )
@@ -993,21 +994,21 @@ sendSinglePageProgress site contentJson config model =
                     pageDataResult =
                         StaticHttpRequest.resolve
                             (config.data (config.urlToRoute currentUrl))
-                            (contentJson |> Dict.map (\_ v -> Just v))
+                            contentJson
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     sharedDataResult : Result BuildError sharedData
                     sharedDataResult =
                         StaticHttpRequest.resolve
                             config.sharedData
-                            (contentJson |> Dict.map (\_ v -> Just v))
+                            contentJson
                             |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                     siteDataResult : Result BuildError siteData
                     siteDataResult =
                         StaticHttpRequest.resolve
                             site.data
-                            (contentJson |> Dict.map (\_ v -> Just v))
+                            contentJson
                             |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
                 case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
