@@ -34,6 +34,6 @@ expect envVariableName =
         |> DataSource.andThen
             (\maybeValue ->
                 maybeValue
-                    |> Result.fromMaybe "Couldn't find env variable"
+                    |> Result.fromMaybe ("DataSource.Env.expect was expecting a variable `" ++ envVariableName ++ "` but couldn't find a variable with that name.")
                     |> DataSource.fromResult
             )
