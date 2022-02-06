@@ -70,7 +70,12 @@ async function run(options) {
 
     const compileCli = compileCliApp(options);
     const compileClientDone = compileElm(options);
-    await compileCli;
+    try {
+      await compileCli;
+    } catch (cliError) {
+      console.error(cliError);
+      process.exit(1);
+    }
     const cliDone = runCli(options);
 
     await Promise.all([copyDone, cliDone, compileClientDone]);
@@ -278,7 +283,11 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
     });
 
     subprocess.on("close", async (code) => {
-      if (code == 0 && (await fs.fileExists(fullOutputPath))) {
+      if (
+        code == 0 &&
+        (await fs.fileExists(fullOutputPath)) &&
+        commandOutput === ""
+      ) {
         resolve();
       } else {
         if (!buildError) {
