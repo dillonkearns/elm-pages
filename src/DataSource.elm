@@ -87,7 +87,6 @@ import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending exposing (RequestsAndPending)
-import Set exposing (Set)
 
 
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
@@ -128,8 +127,8 @@ map fn requestInfo =
         RequestError error ->
             RequestError error
 
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
+        Request ( urls, lookupFn ) ->
+            Request
                 ( urls
                 , \rawResponses ->
                     map fn (lookupFn rawResponses)
@@ -218,8 +217,8 @@ map2 fn request1 request2 =
         ( _, RequestError error ) ->
             RequestError error
 
-        ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
-            Request (Set.union newDict1 newDict2)
+        ( Request ( urls1, lookupFn1 ), Request ( urls2, lookupFn2 ) ) ->
+            Request
                 ( urls1 ++ urls2
                 , \rawResponses ->
                     map2 fn
@@ -227,8 +226,8 @@ map2 fn request1 request2 =
                         (lookupFn2 rawResponses)
                 )
 
-        ( Request dict1 ( urls1, lookupFn1 ), ApiRoute value2 ) ->
-            Request dict1
+        ( Request ( urls1, lookupFn1 ), ApiRoute value2 ) ->
+            Request
                 ( urls1
                 , \rawResponses ->
                     map2 fn
@@ -236,8 +235,8 @@ map2 fn request1 request2 =
                         (ApiRoute value2)
                 )
 
-        ( ApiRoute value2, Request dict1 ( urls1, lookupFn1 ) ) ->
-            Request dict1
+        ( ApiRoute value2, Request ( urls1, lookupFn1 ) ) ->
+            Request
                 ( urls1
                 , \rawResponses ->
                     map2 fn
@@ -255,7 +254,7 @@ lookup requestInfo rawResponses =
         RequestError error ->
             Err error
 
-        Request strippedResponses ( urls, lookupFn ) ->
+        Request ( urls, lookupFn ) ->
             lookup
                 (addUrls urls (lookupFn rawResponses))
                 rawResponses
@@ -270,8 +269,8 @@ addUrls urlsToAdd requestInfo =
         RequestError error ->
             RequestError error
 
-        Request stripped ( initialUrls, function ) ->
-            Request stripped ( initialUrls ++ urlsToAdd, function )
+        Request ( initialUrls, function ) ->
+            Request ( initialUrls ++ urlsToAdd, function )
 
         ApiRoute value ->
             ApiRoute value
@@ -294,7 +293,7 @@ lookupUrls requestInfo =
             -- TODO should this have URLs passed through?
             []
 
-        Request _ ( urls, _ ) ->
+        Request ( urls, _ ) ->
             urls
 
         ApiRoute _ ->
@@ -321,7 +320,7 @@ from the previous response to build up the URL, headers, etc. that you send to t
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
     -- TODO should this be non-empty Dict? Or should it be passed down some other way?
-    Request Set.empty
+    Request
         ( lookupUrls requestInfo
         , \rawResponses ->
             lookup
@@ -330,14 +329,12 @@ andThen fn requestInfo =
                 |> (\result ->
                         case result of
                             Err error ->
-                                -- TODO should I pass through strippedResponses here?
-                                --( strippedResponses, fn value )
                                 RequestError error
 
                             Ok value ->
                                 case fn value of
-                                    Request dict ( values, function ) ->
-                                        Request dict ( values, function )
+                                    Request ( values, function ) ->
+                                        Request ( values, function )
 
                                     RequestError error ->
                                         RequestError error

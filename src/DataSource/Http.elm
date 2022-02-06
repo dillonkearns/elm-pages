@@ -58,7 +58,6 @@ import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
-import Set exposing (Set)
 
 
 {-| Build an empty body for a DataSource.Http request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
@@ -207,7 +206,7 @@ request :
 request request_ expect =
     case expect of
         ExpectJson decoder ->
-            Request Set.empty
+            Request
                 ( [ request_ ]
                 , \rawResponseDict ->
                     rawResponseDict
@@ -247,7 +246,7 @@ request request_ expect =
                 )
 
         ExpectString mapStringFn ->
-            Request Set.empty
+            Request
                 ( [ request_ ]
                 , \rawResponseDict ->
                     rawResponseDict
