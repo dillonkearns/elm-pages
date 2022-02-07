@@ -24,7 +24,7 @@ import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Http
-import Pages.Internal.NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.NotFoundReason as NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
@@ -670,12 +670,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                                     |> Effect.SendSinglePage True
 
                                                             Ok Nothing ->
-                                                                { body = Json.Encode.string "Hello1!"
-                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                , statusCode = 404
-                                                                }
-                                                                    |> ToJsPayload.SendApiResponse
-                                                                    |> Effect.SendSinglePage True
+                                                                render404Page config model (Path.fromString path) NotFoundReason.NoMatchingRoute
 
                                                             Err error ->
                                                                 [ error ]
@@ -840,7 +835,19 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                     [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage True
 
                                         RenderRequest.NotFound path ->
-                                            render404Page config model path Pages.Internal.NotFoundReason.NoMatchingRoute
+                                            render404Page config
+                                                model
+                                                path
+                                                (NotFoundReason.NotPrerendered
+                                                    { moduleName = []
+                                                    , routePattern =
+                                                        { segments = []
+                                                        , ending = Nothing
+                                                        }
+                                                    , matchedRouteParams = []
+                                                    }
+                                                    []
+                                                )
                     in
                     ( { model | staticRoutes = Just [] }
                     , apiResponse
@@ -1104,7 +1111,7 @@ render404Page config model path notFoundReason =
             { path = path
             , reason = notFoundReason
             }
-                |> Pages.Internal.NotFoundReason.document config.pathPatterns
+                |> NotFoundReason.document config.pathPatterns
 
         byteEncodedPageData : Bytes
         byteEncodedPageData =

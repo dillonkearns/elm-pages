@@ -122,6 +122,11 @@ type alias Flags =
     Decode.Value
 
 
+type InitKind shared page
+    = OkPage shared page
+    | NotFound { reason : NotFoundReason, path : Path }
+
+
 {-| -}
 init :
     ProgramConfig userMsg userModel route staticData pageData sharedData
@@ -131,7 +136,7 @@ init :
     -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
 init config flags url key =
     let
-        pageDataResult : Result BuildError ( pageData, sharedData )
+        pageDataResult : Result BuildError (InitKind sharedData pageData)
         pageDataResult =
             flags
                 |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
@@ -149,7 +154,12 @@ init config flags url key =
                                 Nothing
 
                             Just (ResponseSketch.HotUpdate pageData shared) ->
-                                Just ( pageData, shared )
+                                OkPage shared pageData
+                                    |> Just
+
+                            Just (ResponseSketch.NotFound notFound) ->
+                                NotFound notFound
+                                    |> Just
 
                             _ ->
                                 Nothing
@@ -160,7 +170,7 @@ init config flags url key =
                     )
     in
     case pageDataResult of
-        Ok ( pageData, sharedData ) ->
+        Ok (OkPage sharedData pageData) ->
             let
                 urls : { currentUrl : Url, basePath : List String }
                 urls =
@@ -228,6 +238,17 @@ init config flags url key =
                 | ariaNavigationAnnouncement = mainView config initialModel |> .title
               }
             , cmd
+            )
+
+        Ok (NotFound info) ->
+            ( { key = key
+              , url = url
+              , pageData = "Bytes decode error" |> Err
+              , ariaNavigationAnnouncement = "Error"
+              , userFlags = flags
+              , notFound = Just info
+              }
+            , Cmd.none
             )
 
         Err error ->
