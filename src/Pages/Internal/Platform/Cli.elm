@@ -107,11 +107,11 @@ cliApplication config =
                             |> Result.withDefault RenderRequest.default
                 in
                 init site renderRequest config flags
-                    |> Tuple.mapSecond (perform site renderRequest config config.toJsPort)
+                    |> Tuple.mapSecond (perform site renderRequest config)
         , update =
             \msg model ->
                 update site config msg model
-                    |> Tuple.mapSecond (perform site model.maybeRequestJson config config.toJsPort)
+                    |> Tuple.mapSecond (perform site model.maybeRequestJson config)
         , subscriptions =
             \_ ->
                 config.fromJsPort
@@ -174,15 +174,33 @@ requestDecoder =
         |> Codec.decoder
 
 
+flatten : SiteConfig siteData -> RenderRequest route -> ProgramConfig userMsg userModel route siteData pageData sharedData -> List Effect -> Cmd Msg
+flatten site renderRequest config list =
+    Cmd.batch (flattenHelp [] site renderRequest config list)
+
+
+flattenHelp : List (Cmd Msg) -> SiteConfig siteData -> RenderRequest route -> ProgramConfig userMsg userModel route siteData pageData sharedData -> List Effect -> List (Cmd Msg)
+flattenHelp soFar site renderRequest config list =
+    case list of
+        first :: rest ->
+            flattenHelp
+                (perform site renderRequest config first :: soFar)
+                site
+                renderRequest
+                config
+                rest
+
+        [] ->
+            soFar
+
+
 perform :
     SiteConfig siteData
     -> RenderRequest route
     -> ProgramConfig userMsg userModel route siteData pageData sharedData
-    -> (Codec.Value -> Cmd Never)
     -> Effect
     -> Cmd Msg
-perform site renderRequest config toJsPort effect =
-    -- elm-review: known-unoptimized-recursion
+perform site renderRequest config effect =
     let
         canonicalSiteUrl : String
         canonicalSiteUrl =
@@ -193,9 +211,7 @@ perform site renderRequest config toJsPort effect =
             Cmd.none
 
         Effect.Batch list ->
-            list
-                |> List.map (perform site renderRequest config toJsPort)
-                |> Cmd.batch
+            flatten site renderRequest config list
 
         Effect.FetchHttp unmasked ->
             if unmasked.url == "$$elm-pages$$headers" then
@@ -255,7 +271,7 @@ perform site renderRequest config toJsPort effect =
                 in
                 ToJsPayload.ReadFile filePath
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> toJsPort
+                    |> config.toJsPort
                     |> Cmd.map never
 
             else if unmasked.url |> String.startsWith "glob://" then
@@ -266,13 +282,13 @@ perform site renderRequest config toJsPort effect =
                 in
                 ToJsPayload.Glob globPattern
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> toJsPort
+                    |> config.toJsPort
                     |> Cmd.map never
 
             else
                 ToJsPayload.DoHttp unmasked
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> toJsPort
+                    |> config.toJsPort
                     |> Cmd.map never
 
         Effect.SendSinglePage done info ->
@@ -289,7 +305,7 @@ perform site renderRequest config toJsPort effect =
             Cmd.batch
                 [ info
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                    |> toJsPort
+                    |> config.toJsPort
                     |> Cmd.map never
                 , if done then
                     Cmd.none
