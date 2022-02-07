@@ -1,12 +1,15 @@
 module StaticHttpRequestsTests exposing (all)
 
 import ApiRoute
+import Bytes.Decode
+import Bytes.Encode
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Dict
 import Expect
 import Html
+import Http
 import Json.Decode as JD exposing (Decoder)
 import Json.Encode as Encode
 import Pages.ContentCache as ContentCache exposing (ContentCache)
@@ -23,10 +26,13 @@ import Path
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
+import Server.Request
 import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
+import SimulatedEffect.Sub
 import SimulatedEffect.Task
+import Task
 import Test exposing (Test, describe, test)
 
 
@@ -641,10 +647,6 @@ startLowLevel :
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel apiRoutes staticHttpCache pages =
     let
-        contentCache : ContentCache
-        contentCache =
-            ContentCache.init Nothing
-
         pageToLoad : List String
         pageToLoad =
             case pages |> List.head |> Maybe.map Tuple.first of
@@ -713,6 +715,13 @@ startLowLevel apiRoutes staticHttpCache pages =
             , onPageChange = \_ -> Continue
             , apiRoutes = \_ -> apiRoutes
             , pathPatterns = []
+            , byteDecodePageData = \_ -> Bytes.Decode.fail
+            , sendPageData = \_ -> Cmd.none
+            , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
+            , hotReloadData = Sub.none
+            , decodeResponse = Bytes.Decode.fail
+            , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
+            , fetchPageData = \_ -> Task.fail Http.NetworkError
             }
 
         encodedFlags : Encode.Value
@@ -762,9 +771,8 @@ startLowLevel apiRoutes staticHttpCache pages =
                     )
                     (Encode.object [])
                 )
-                contentCache
                 config
-        , update = update site contentCache config
+        , update = update site config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -798,10 +806,6 @@ startWithRoutes :
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
     let
-        contentCache : ContentCache
-        contentCache =
-            ContentCache.init Nothing
-
         config : ProgramConfig Msg () Route () () ()
         config =
             { toJsPort = toJsPort
@@ -843,7 +847,8 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                     in
                     case thing of
                         Just request ->
-                            request |> DataSource.map (\_ -> Response.render ())
+                            request
+                                |> DataSource.map (\_ -> Response.render ())
 
                         Nothing ->
                             DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
@@ -870,6 +875,13 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , onPageChange = \_ -> Continue
             , apiRoutes = \_ -> []
             , pathPatterns = []
+            , byteDecodePageData = \_ -> Bytes.Decode.fail
+            , sendPageData = \_ -> Cmd.none
+            , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
+            , hotReloadData = Sub.none
+            , decodeResponse = Bytes.Decode.fail
+            , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
+            , fetchPageData = \_ -> Task.fail Http.NetworkError
             }
 
         encodedFlags : Encode.Value
@@ -919,9 +931,8 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                     )
                     (Encode.object [])
                 )
-                contentCache
                 config
-        , update = update site contentCache config
+        , update = update site config
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -1007,6 +1018,19 @@ simulateEffects effect =
 
         Effect.Continue ->
             SimulatedEffect.Cmd.none
+
+        Effect.SendSinglePageNew done bytes toJsSuccessPayloadNewCombined ->
+            SimulatedEffect.Cmd.batch
+                [ toJsSuccessPayloadNewCombined
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
+                    |> SimulatedEffect.Ports.send "toJsPort"
+                , if done then
+                    SimulatedEffect.Cmd.none
+
+                  else
+                    SimulatedEffect.Task.succeed ()
+                        |> SimulatedEffect.Task.perform (\_ -> Continue)
+                ]
 
 
 expectErrorsPort : String -> List ToJsPayload.ToJsSuccessPayloadNewCombined -> Expect.Expectation
