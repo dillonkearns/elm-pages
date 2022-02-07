@@ -1008,12 +1008,6 @@ simulateEffects effect =
         Effect.Continue ->
             SimulatedEffect.Cmd.none
 
-        Effect.ReadFile _ ->
-            SimulatedEffect.Cmd.none
-
-        Effect.GetGlob _ ->
-            SimulatedEffect.Cmd.none
-
 
 expectErrorsPort : String -> List ToJsPayload.ToJsSuccessPayloadNewCombined -> Expect.Expectation
 expectErrorsPort expectedPlainString actualPorts =

@@ -5,7 +5,6 @@ import DataSource.Http
 import Dict
 import Expect
 import Json.Decode as Decode
-import Pages.Internal.ApplicationType as ApplicationType
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Test exposing (Test, describe, test)
@@ -48,7 +47,7 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
                                     [ ( get "first", "null" )
@@ -65,7 +64,7 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
                                     [ ( get "NEXT", "null" )
@@ -83,7 +82,7 @@ all =
                         )
                     |> DataSource.map (\_ -> ())
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
                                     [ ( get "first", "null" )
@@ -100,7 +99,7 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
                                     [ ( get "first", "null" )
@@ -121,7 +120,7 @@ all =
                                     )
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
                                     [ ( get "first", "1" )
