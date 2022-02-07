@@ -66,6 +66,7 @@ pathToMatches path (ApiRouteBuilder _ pattern _ _ _) =
         path
         |> List.concatMap .submatches
         |> List.filterMap identity
+        |> List.reverse
 
 
 {-| -}
@@ -88,6 +89,7 @@ tryMatch path (ApiRouteBuilder _ pattern handler _ _) =
                 path
                 |> List.concatMap .submatches
                 |> List.filterMap identity
+                |> List.reverse
     in
     handler matches
         |> Just

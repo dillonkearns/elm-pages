@@ -76,6 +76,38 @@ all =
                         [ "users/100.json"
                         , "users/101.json"
                         ]
+        , test "matches with two dynamic segments" <|
+            \() ->
+                succeed
+                    (\author name ->
+                        author ++ " - " ++ name
+                    )
+                    |> literal "package"
+                    |> slash
+                    |> capture
+                    |> slash
+                    |> capture
+                    |> tryMatch "package/dillonkearns/elm-pages"
+                    |> Expect.equal (Just "dillonkearns - elm-pages")
+        , test "routes with two dynamic segments" <|
+            \() ->
+                succeed
+                    (\author name ->
+                        author ++ " - " ++ name
+                    )
+                    |> literal "package"
+                    |> slash
+                    |> capture
+                    |> slash
+                    |> capture
+                    |> withRoutes
+                        (\constructor ->
+                            [ constructor "dillonkearns" "elm-pages"
+                            ]
+                        )
+                    |> Expect.equal
+                        [ "package/dillonkearns/elm-pages"
+                        ]
         , describe "toPattern"
             [ test "no dynamic segments" <|
                 \() ->
