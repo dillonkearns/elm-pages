@@ -44,7 +44,6 @@ plain old JSON in Elm.
 
 import DataSource exposing (DataSource)
 import DataSource.Http
-import DataSource.Internal.Glob
 import Json.Decode as Decode exposing (Decoder)
 
 

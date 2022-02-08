@@ -12,7 +12,6 @@ import Html
 import Http
 import Json.Decode as JD exposing (Decoder)
 import Json.Encode as Encode
-import Pages.ContentCache as ContentCache exposing (ContentCache)
 import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -26,11 +25,9 @@ import Path
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
-import Server.Request
 import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
-import SimulatedEffect.Sub
 import SimulatedEffect.Task
 import Task
 import Test exposing (Test, describe, test)
@@ -1019,7 +1016,7 @@ simulateEffects effect =
         Effect.Continue ->
             SimulatedEffect.Cmd.none
 
-        Effect.SendSinglePageNew done bytes toJsSuccessPayloadNewCombined ->
+        Effect.SendSinglePageNew done _ toJsSuccessPayloadNewCombined ->
             SimulatedEffect.Cmd.batch
                 [ toJsSuccessPayloadNewCombined
                     |> Codec.encoder (ToJsPayload.successCodecNew2 "" "")
