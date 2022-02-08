@@ -41,7 +41,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request, hasFsAccess);
 
-    if (fs.existsSync(responsePath)) {
+    if (checkFileExists(fs, responsePath)) {
       // console.log("Skipping request, found file.");
       resolve(responsePath);
     } else {
@@ -202,7 +202,15 @@ function toRequest(elmRequest) {
     body: toBody(elmRequest.body),
   };
 }
-
+/**
+ * @param {string} file
+ */
+function checkFileExists(fs, file) {
+  return fs.promises
+    .access(file, fs.constants.F_OK)
+    .then(() => true)
+    .catch(() => false);
+}
 /**
  * @param {Body} body
  */
