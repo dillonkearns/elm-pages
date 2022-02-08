@@ -943,11 +943,19 @@ toNonEmptyWithDefault default list =
 -}
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
-    DataSource.Http.get ("glob://" ++ DataSource.Internal.Glob.toPattern glob)
+    DataSource.Http.request
+        { url = "elm-pages-internal://glob"
+        , method = "GET"
+        , headers = []
+        , body =
+            DataSource.Internal.Glob.toPattern glob
+                |> DataSource.Http.stringBody "glob"
+        }
         (Decode.string
             |> Decode.list
             |> Decode.map
                 (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
+            |> DataSource.Http.expectJson
         )
 
 

@@ -96,8 +96,6 @@ headCodec canonicalSiteUrl currentPagePath =
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
     | SendApiResponse { body : Json.Encode.Value, staticHttpCache : Dict String String, statusCode : Int }
-    | ReadFile String
-    | Glob String
     | DoHttp Pages.StaticHttp.Request.Request
     | Port String
     | Errors (List BuildError)
@@ -107,7 +105,7 @@ type ToJsSuccessPayloadNewCombined
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
     Codec.custom
-        (\errorsTag vApiResponse success vReadFile vGlob vDoHttp vSendApiResponse vPort value ->
+        (\errorsTag vApiResponse success vDoHttp vSendApiResponse vPort value ->
             case value of
                 ApiResponse ->
                     vApiResponse
@@ -117,12 +115,6 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
 
                 PageProgress payload ->
                     success payload
-
-                ReadFile filePath ->
-                    vReadFile filePath
-
-                Glob globPattern ->
-                    vGlob globPattern
 
                 DoHttp requestUrl ->
                     vDoHttp requestUrl
@@ -136,8 +128,6 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "Errors" Errors errorCodec
         |> Codec.variant0 "ApiResponse" ApiResponse
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
-        |> Codec.variant1 "ReadFile" ReadFile Codec.string
-        |> Codec.variant1 "Glob" Glob Codec.string
         |> Codec.variant1 "DoHttp"
             DoHttp
             Pages.StaticHttp.Request.codec

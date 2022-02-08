@@ -263,28 +263,6 @@ perform site renderRequest config effect =
                             |> Task.succeed
                             |> Task.perform GotBuildError
 
-            else if unmasked.url |> String.startsWith "file://" then
-                let
-                    filePath : String
-                    filePath =
-                        String.dropLeft 7 unmasked.url
-                in
-                ToJsPayload.ReadFile filePath
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> config.toJsPort
-                    |> Cmd.map never
-
-            else if unmasked.url |> String.startsWith "glob://" then
-                let
-                    globPattern : String
-                    globPattern =
-                        String.dropLeft 7 unmasked.url
-                in
-                ToJsPayload.Glob globPattern
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> config.toJsPort
-                    |> Cmd.map never
-
             else
                 ToJsPayload.DoHttp unmasked
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")

@@ -157,27 +157,20 @@ function runElmApp(
             outputString(basePath, fromElm, isDevServer, contentDatPayload)
           );
         }
-      } else if (fromElm.tag === "ReadFile") {
-        const filePath = fromElm.args[0];
-        try {
-          patternsToWatch.add(filePath);
-
-          runJob(app, filePath);
-        } catch (error) {
-          sendError(app, {
-            title: "DataSource.File Error",
-            message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-              filePath
-            )}`,
-          });
-        }
       } else if (fromElm.tag === "DoHttp") {
         const requestToPerform = fromElm.args[0];
-        runHttpJob(app, mode, requestToPerform, fs, hasFsAccess);
-      } else if (fromElm.tag === "Glob") {
-        const globPattern = fromElm.args[0];
-        patternsToWatch.add(globPattern);
-        runGlobJob(app, globPattern);
+        if (requestToPerform.url.startsWith("elm-pages-internal://")) {
+          runInternalJob(
+            app,
+            mode,
+            requestToPerform,
+            fs,
+            hasFsAccess,
+            patternsToWatch
+          );
+        } else {
+          runHttpJob(app, mode, requestToPerform, fs, hasFsAccess);
+        }
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         reject(fromElm.args[0]);
@@ -313,20 +306,81 @@ async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
   }
 }
 
-async function runGlobJob(app, globPattern) {
+async function runInternalJob(
+  app,
+  mode,
+  requestToPerform,
+  fs,
+  hasFsAccess,
+  patternsToWatch
+) {
   try {
-    // if (pendingDataSourceCount > 0) {
-    //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
-    // }
     pendingDataSourceCount += 1;
 
-    pendingDataSourceResponses.push(await globTask(globPattern));
+    if (requestToPerform.url === "elm-pages-internal://read-file") {
+      pendingDataSourceResponses.push(
+        await readFileJobNew(requestToPerform, patternsToWatch)
+      );
+    } else if (requestToPerform.url === "elm-pages-internal://glob") {
+      pendingDataSourceResponses.push(
+        await runGlobNew(requestToPerform, patternsToWatch)
+      );
+    } else {
+      throw `Unexpected internal DataSource request format: ${kleur.yellow(
+        JSON.stringify(2, null, requestToPerform)
+      )}`;
+    }
   } catch (error) {
-    console.log(`Error running glob pattern ${globPattern}`);
-    throw error;
+    sendError(app, error);
   } finally {
     pendingDataSourceCount -= 1;
     flushIfDone(app);
+  }
+}
+
+async function readFileJobNew(req, patternsToWatch) {
+  const filePath = req.body.args[1];
+  try {
+    patternsToWatch.add(filePath);
+
+    const fileContents = (
+      await fsPromises.readFile(
+        path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
+      )
+    ).toString();
+    const parsedFile = matter(fileContents);
+
+    return {
+      request: req,
+      response: JSON.stringify({
+        parsedFrontmatter: parsedFile.data,
+        withoutFrontmatter: parsedFile.content,
+        rawFile: fileContents,
+        jsonFile: jsonOrNull(fileContents),
+      }),
+    };
+  } catch (error) {
+    throw {
+      title: "DataSource.File Error",
+      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
+        filePath
+      )}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+
+async function runGlobNew(req, patternsToWatch) {
+  try {
+    const matchedPaths = await globby(req.body.args[1]);
+    patternsToWatch.add(req.body.args[1]);
+
+    return {
+      request: req,
+      response: JSON.stringify(matchedPaths),
+    };
+  } catch (e) {
+    console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
+    throw e;
   }
 }
 
