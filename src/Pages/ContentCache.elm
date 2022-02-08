@@ -1,15 +1,10 @@
 module Pages.ContentCache exposing
-    ( Entry(..)
-    , Path
+    ( Path
     , pathForUrl
     )
 
 import Pages.Internal.String as String
 import Url exposing (Url)
-
-
-type Entry
-    = Parsed
 
 
 type alias Path =
