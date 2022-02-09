@@ -398,9 +398,10 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                     case singleRequest of
                         RenderRequest.Page serverRequestPayload ->
                             StaticResponses.renderSingleRoute
-                                (DataSource.map2 (\_ _ -> ())
+                                (DataSource.map3 (\_ _ _ -> ())
                                     (config.data serverRequestPayload.frontmatter)
                                     config.sharedData
+                                    site.data
                                 )
                                 (if isDevServer then
                                     config.handleRoute serverRequestPayload.frontmatter
@@ -411,11 +412,17 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
 
                         RenderRequest.Api ( path, ApiRoute apiRequest ) ->
                             StaticResponses.renderApiRequest
-                                (apiRequest.matchesToResponse path)
+                                (DataSource.map2 (\_ _ -> ())
+                                    (apiRequest.matchesToResponse path)
+                                    site.data
+                                )
 
                         RenderRequest.NotFound _ ->
                             StaticResponses.renderApiRequest
-                                (DataSource.succeed [])
+                                (DataSource.map2 (\_ _ -> ())
+                                    (DataSource.succeed [])
+                                    site.data
+                                )
 
         unprocessedPages : List ( Path, route )
         unprocessedPages =
@@ -683,39 +690,31 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                             , fragment = Nothing
                                                             }
 
-                                                        staticData : RequestsAndPending
-                                                        staticData =
-                                                            -- TODO this is causing the bug with loading for Site.elm!
-                                                            --toJsPayload.pages
-                                                            --    |> Dict.get (Path.toRelative page)
-                                                            --    |> Maybe.withDefault Dict.empty
-                                                            Dict.empty
-
                                                         pageDataResult : Result BuildError (PageServerResponse pageData)
                                                         pageDataResult =
                                                             StaticHttpRequest.resolve
                                                                 (config.data (config.urlToRoute currentUrl))
-                                                                staticData
+                                                                model.allRawResponses
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         sharedDataResult : Result BuildError sharedData
                                                         sharedDataResult =
                                                             StaticHttpRequest.resolve
                                                                 config.sharedData
-                                                                staticData
+                                                                model.allRawResponses
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
                                                         siteDataResult : Result BuildError siteData
                                                         siteDataResult =
                                                             StaticHttpRequest.resolve
                                                                 site.data
-                                                                staticData
+                                                                model.allRawResponses
                                                                 |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                                                     in
                                                     case
-                                                        Result.map2 Tuple.pair pageDataResult sharedDataResult
+                                                        Result.map3 (\a b c -> ( a, b, c )) pageDataResult sharedDataResult siteDataResult
                                                     of
-                                                        Ok ( pageData__, sharedData__ ) ->
+                                                        Ok ( pageData__, sharedData__, siteData__ ) ->
                                                             case pageData__ of
                                                                 PageServerResponse.RenderPage responseInfo pageData ->
                                                                     let
@@ -785,7 +784,9 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                                             , contentJson = Dict.empty
                                                                             , html = viewValue.body |> HtmlPrinter.htmlToString
                                                                             , errors = []
-                                                                            , head = config.view currentPage Nothing sharedData__ pageData |> .head
+                                                                            , head =
+                                                                                (config.view currentPage Nothing sharedData__ pageData |> .head)
+                                                                                    ++ site.head siteData__
                                                                             , title = viewValue.title
                                                                             , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                             , is404 = False
@@ -996,7 +997,7 @@ sendSinglePageProgress site contentJson config model =
                     siteDataResult =
                         StaticHttpRequest.resolve
                             site.data
-                            contentJson
+                            model.allRawResponses
                             |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
                 in
                 case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
