@@ -51,7 +51,6 @@ ${elmPagesJsMinified}
     </script>
     <title>${fromElm.title}</title>
     <meta name="generator" content="elm-pages v${cliVersion}">
-    <link rel="manifest" href="${path.join(basePath, "manifest.json")}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">

@@ -4,9 +4,7 @@ import Cloudinary
 import DataSource exposing (DataSource)
 import Head
 import MimeType
-import Pages.Manifest as Manifest
 import Pages.Url
-import Route
 import SiteConfig exposing (SiteConfig)
 
 
@@ -14,18 +12,18 @@ config : SiteConfig Data
 config =
     { data = data
     , canonicalUrl = canonicalUrl
-    , manifest = manifest
     , head = head
     }
 
 
 type alias Data =
-    ()
+    String
 
 
 data : DataSource.DataSource Data
 data =
-    DataSource.succeed ()
+    --DataSource.File.rawFile "hello.txt"
+    DataSource.succeed "hello"
 
 
 head : Data -> List Head.Tag
@@ -36,6 +34,7 @@ head static =
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     , Head.rssLink "/blog/feed.xml"
     , Head.sitemapLink "/sitemap.xml"
+    , Head.manifestLink "manifest.json"
     ]
 
 
@@ -44,42 +43,9 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-manifest : Data -> Manifest.Config
-manifest static =
-    Manifest.init
-        { name = "elm-pages"
-        , description = "elm-pages - " ++ tagline
-        , startUrl = Route.Index |> Route.toPath
-        , icons =
-            [ icon webp 192
-            , icon webp 512
-            , icon MimeType.Png 192
-            , icon MimeType.Png 512
-            ]
-        }
-        |> Manifest.withShortName "elm-pages"
-
-
 tagline : String
 tagline =
     "pull in typed elm data to your pages"
-
-
-webp : MimeType.MimeImage
-webp =
-    MimeType.OtherImage "webp"
-
-
-icon :
-    MimeType.MimeImage
-    -> Int
-    -> Manifest.Icon
-icon format width =
-    { src = cloudinaryIcon format width
-    , sizes = [ ( width, width ) ]
-    , mimeType = format |> Just
-    , purposes = [ Manifest.IconPurposeAny, Manifest.IconPurposeMaskable ]
-    }
 
 
 cloudinaryIcon :

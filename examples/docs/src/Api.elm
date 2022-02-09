@@ -7,6 +7,7 @@ import DataSource.Http
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
+import Manifest
 import Pages
 import Route exposing (Route)
 import Rss
@@ -94,6 +95,7 @@ routes getStaticRoutes htmlToString =
         )
         |> ApiRoute.literal "sitemap.xml"
         |> ApiRoute.single
+    , Manifest.handler
     ]
 
 

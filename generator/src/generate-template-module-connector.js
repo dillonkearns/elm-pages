@@ -62,7 +62,6 @@ import ${
         ? "Pages.Internal.Platform"
         : "Pages.Internal.Platform.Cli"
     }
-import Pages.Manifest as Manifest
 import Shared
 import Site
 import Head
@@ -385,11 +384,6 @@ update sharedData pageData navigationKey msg model =
           .join("\n        ")}
 
 
-type alias SiteConfig =
-    { canonicalUrl : String
-    , manifest : Manifest.Config
-    }
-
 templateSubscriptions : Maybe Route -> Path -> Model -> Sub Msg
 templateSubscriptions route path model =
     case ( model.page, route ) of
@@ -455,7 +449,7 @@ main =
         , apiRoutes = ${
           phase === "browser"
             ? `\\_ -> []`
-            : `\\htmlToString -> pathsToGenerateHandler :: routePatterns :: apiPatterns :: manifestHandler :: Api.routes getStaticRoutes htmlToString`
+            : `\\htmlToString -> pathsToGenerateHandler :: routePatterns :: apiPatterns :: Api.routes getStaticRoutes htmlToString`
         }
         , pathPatterns = routePatterns3
         , basePath = [ ${basePath
@@ -774,7 +768,7 @@ pathsToGenerateHandler =
                 )
                 getStaticRoutes
             )
-            ((routePatterns :: apiPatterns :: manifestHandler :: Api.routes getStaticRoutes (\\_ -> ""))
+            ((routePatterns :: apiPatterns :: Api.routes getStaticRoutes (\\_ -> ""))
                 |> List.map ApiRoute.getBuildTimeRoutes
                 |> DataSource.combine
                 |> DataSource.map List.concat
@@ -782,28 +776,6 @@ pathsToGenerateHandler =
         )
         |> ApiRoute.literal "all-paths.json"
         |> ApiRoute.single
-
-
-manifestHandler : ApiRoute.ApiRoute ApiRoute.Response
-manifestHandler =
-    ApiRoute.succeed
-        (Site.config
-            |> .data
-            |> DataSource.map
-                (\\data ->
-                    Site.config.manifest data
-                        |> manifestToFile (Site.config.canonicalUrl)
-                )
-        )
-        |> ApiRoute.literal "manifest.json"
-        |> ApiRoute.single
-
-
-manifestToFile : String -> Manifest.Config -> String
-manifestToFile resolvedCanonicalUrl manifestConfig =
-    manifestConfig
-        |> Manifest.toJson resolvedCanonicalUrl
-        |> (\\manifestJsonValue -> Json.Encode.encode 0 manifestJsonValue)
 
 
 port toJsPort : Json.Encode.Value -> Cmd msg
