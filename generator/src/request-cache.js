@@ -41,7 +41,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request, hasFsAccess);
 
-    if (checkFileExists(fs, responsePath)) {
+    if (await checkFileExists(fs, responsePath)) {
       // console.log("Skipping request, found file.");
       resolve(responsePath);
     } else {
