@@ -313,7 +313,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                     Ok (Just _) ->
                         ( empty
                         , Finish ApiResponse
-                          -- TODO should there be a new type for 404response? Or something else?
+                          -- TODO change data type here so you can avoid running `resolve` again from `Cli.elm` since it can be expensive
                         )
 
                     Err error_ ->
