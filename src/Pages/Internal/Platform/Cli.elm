@@ -53,9 +53,7 @@ type alias Model route =
     { staticResponses : StaticResponses
     , errors : List BuildError
     , allRawResponses : Dict String (Maybe String)
-    , pendingRequests : List RequestDetails
     , unprocessedPages : List ( Path, route )
-    , staticRoutes : Maybe (List ( Path, route ))
     , maybeRequestJson : RenderRequest route
     , isDevServer : Bool
     }
@@ -375,9 +373,7 @@ init site renderRequest config flags =
                       }
                     ]
                 , allRawResponses = Dict.empty
-                , pendingRequests = []
                 , unprocessedPages = []
-                , staticRoutes = Just []
                 , maybeRequestJson = renderRequest
                 , isDevServer = False
                 }
@@ -438,28 +434,12 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                         RenderRequest.NotFound _ ->
                             []
 
-        unprocessedPagesState : Maybe (List ( Path, route ))
-        unprocessedPagesState =
-            case renderRequest of
-                RenderRequest.SinglePage _ serverRequestPayload _ ->
-                    case serverRequestPayload of
-                        RenderRequest.Page pageData ->
-                            Just [ ( pageData.path, pageData.frontmatter ) ]
-
-                        RenderRequest.Api _ ->
-                            Nothing
-
-                        RenderRequest.NotFound _ ->
-                            Just []
-
         initialModel : Model route
         initialModel =
             { staticResponses = staticResponses
             , errors = []
             , allRawResponses = staticHttpCache
-            , pendingRequests = []
             , unprocessedPages = unprocessedPages
-            , staticRoutes = unprocessedPagesState
             , maybeRequestJson = renderRequest
             , isDevServer = isDevServer
             }
@@ -496,22 +476,7 @@ update site config msg model =
             let
                 updatedModel : Model route
                 updatedModel =
-                    (case batch of
-                        [ single ] ->
-                            { model
-                                | pendingRequests =
-                                    model.pendingRequests
-                                        |> List.filter
-                                            (\pending ->
-                                                pending /= single.request
-                                            )
-                            }
-
-                        _ ->
-                            { model
-                                | pendingRequests = [] -- TODO is it safe to clear it entirely?
-                            }
-                    )
+                    model
                         |> StaticResponses.batchUpdate batch
             in
             StaticResponses.nextStep config
@@ -555,34 +520,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
         StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
             let
-                nextAndPending : List RequestDetails
-                nextAndPending =
-                    model.pendingRequests ++ httpRequests
-
-                doNow : List RequestDetails
-                doNow =
-                    nextAndPending
-
-                pending : List RequestDetails
-                pending =
-                    []
-
-                updatedRoutes : Maybe (List ( Path, route ))
-                updatedRoutes =
-                    case maybeRoutes of
-                        Just newRoutes ->
-                            newRoutes
-                                |> List.map
-                                    (\route ->
-                                        ( Path.join (config.routeToPath route)
-                                        , route
-                                        )
-                                    )
-                                |> Just
-
-                        Nothing ->
-                            model.staticRoutes
-
                 updatedUnprocessedPages : List ( Path, route )
                 updatedUnprocessedPages =
                     case maybeRoutes of
@@ -602,13 +539,11 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                 updatedModel =
                     { model
                         | allRawResponses = updatedAllRawResponses
-                        , pendingRequests = pending
                         , staticResponses = updatedStaticResponsesModel
-                        , staticRoutes = updatedRoutes
                         , unprocessedPages = updatedUnprocessedPages
                     }
             in
-            if List.isEmpty doNow && updatedRoutes /= model.staticRoutes then
+            if List.isEmpty httpRequests then
                 nextStepToEffect site
                     config
                     updatedModel
@@ -619,7 +554,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
             else
                 ( updatedModel
-                , (doNow
+                , (httpRequests
                     |> List.map Effect.FetchHttp
                   )
                     |> Effect.Batch
@@ -702,7 +637,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                     []
                                                 )
                     in
-                    ( { model | staticRoutes = Just [] }
+                    ( model
                     , apiResponse
                     )
 
