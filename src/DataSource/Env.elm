@@ -16,7 +16,7 @@ import Json.Encode as Encode
 get : String -> DataSource (Maybe String)
 get envVariableName =
     DataSource.Http.request
-        { url = "port://env"
+        { url = "elm-pages-internal://env"
         , method = "GET"
         , headers = []
         , body = DataSource.Http.jsonBody (Encode.string envVariableName)

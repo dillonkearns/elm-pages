@@ -325,6 +325,10 @@ async function runInternalJob(
       pendingDataSourceResponses.push(
         await runGlobNew(requestToPerform, patternsToWatch)
       );
+    } else if (requestToPerform.url === "elm-pages-internal://env") {
+      pendingDataSourceResponses.push(
+        await runEnvJob(requestToPerform, patternsToWatch)
+      );
     } else {
       throw `Unexpected internal DataSource request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
@@ -380,6 +384,20 @@ async function runGlobNew(req, patternsToWatch) {
     };
   } catch (e) {
     console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
+    throw e;
+  }
+}
+
+async function runEnvJob(req, patternsToWatch) {
+  try {
+    const expectedEnv = req.body.args[0];
+
+    return {
+      request: req,
+      response: JSON.stringify(process.env[expectedEnv] || null),
+    };
+  } catch (e) {
+    console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
