@@ -1,6 +1,7 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
+import DataSource.Env as Env
 import DataSource.Http
 import Head
 import Head.Seo as Seo
@@ -49,20 +50,7 @@ data =
                 (Decode.list (Decode.field "name" Decode.string))
             )
         )
-        (env "HELLO")
-
-
-env : String -> DataSource.DataSource (Maybe String)
-env envVariableName =
-    DataSource.Http.request
-        { url = "port://env"
-        , method = "GET"
-        , headers = []
-        , body = DataSource.Http.jsonBody (Json.Encode.string envVariableName)
-        }
-        (Decode.nullable Decode.string
-            |> DataSource.Http.expectJson
-        )
+        (Env.get "HELLO")
 
 
 head :
