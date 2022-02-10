@@ -267,7 +267,7 @@ perform site renderRequest config effect =
                     |> config.toJsPort
                     |> Cmd.map never
 
-        Effect.SendSinglePage done info ->
+        Effect.SendSinglePage info ->
             let
                 currentPagePath : String
                 currentPagePath =
@@ -283,7 +283,7 @@ perform site renderRequest config effect =
                 |> config.toJsPort
                 |> Cmd.map never
 
-        Effect.SendSinglePageNew done rawBytes info ->
+        Effect.SendSinglePageNew rawBytes info ->
             let
                 currentPagePath : String
                 currentPagePath =
@@ -424,7 +424,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
             , isDevServer = isDevServer
             }
     in
-    StaticResponses.nextStep config initialModel Nothing
+    StaticResponses.nextStep initialModel Nothing
         |> nextStepToEffect site
             config
             initialModel
@@ -437,7 +437,6 @@ updateAndSendPortIfDone :
     -> ( Model route, Effect )
 updateAndSendPortIfDone site config model =
     StaticResponses.nextStep
-        config
         model
         Nothing
         |> nextStepToEffect site config model
@@ -459,7 +458,7 @@ update site config msg model =
                     model
                         |> StaticResponses.batchUpdate batch
             in
-            StaticResponses.nextStep config
+            StaticResponses.nextStep
                 updatedModel
                 Nothing
                 |> nextStepToEffect site config updatedModel
@@ -470,7 +469,7 @@ update site config msg model =
                 updatedModel =
                     model
             in
-            StaticResponses.nextStep config
+            StaticResponses.nextStep
                 updatedModel
                 Nothing
                 |> nextStepToEffect site config updatedModel
@@ -484,7 +483,7 @@ update site config msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep config
+            StaticResponses.nextStep
                 updatedModel
                 Nothing
                 |> nextStepToEffect site config updatedModel
@@ -527,7 +526,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                 nextStepToEffect site
                     config
                     updatedModel
-                    (StaticResponses.nextStep config
+                    (StaticResponses.nextStep
                         updatedModel
                         Nothing
                     )
@@ -547,7 +546,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                         apiResponse : Effect
                         apiResponse =
                             case model.maybeRequestJson of
-                                RenderRequest.SinglePage includeHtml requestPayload _ ->
+                                RenderRequest.SinglePage _ requestPayload _ ->
                                     case requestPayload of
                                         RenderRequest.Api ( path, ApiRoute apiHandler ) ->
                                             let
@@ -567,7 +566,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                                 , statusCode = 200
                                                                 }
                                                                     |> ToJsPayload.SendApiResponse
-                                                                    |> Effect.SendSinglePage True
+                                                                    |> Effect.SendSinglePage
 
                                                             Ok Nothing ->
                                                                 render404Page config model (Path.fromString path) NotFoundReason.NoMatchingRoute
@@ -575,7 +574,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                             Err error ->
                                                                 [ error ]
                                                                     |> ToJsPayload.Errors
-                                                                    |> Effect.SendSinglePage True
+                                                                    |> Effect.SendSinglePage
                                                    )
 
                                         RenderRequest.Page payload ->
@@ -600,7 +599,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                     render404Page config model payload.path notFoundReason
 
                                                 Err error ->
-                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage True
+                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage
 
                                         RenderRequest.NotFound path ->
                                             render404Page config
@@ -623,7 +622,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
                 StaticResponses.Errors errors ->
                     ( model
-                    , errors |> ToJsPayload.Errors |> Effect.SendSinglePage True
+                    , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
                     )
 
 
@@ -799,7 +798,7 @@ sendSinglePageProgress site contentJson config model info =
                                     , headers = responseInfo.headers
                                     }
                                         |> ToJsPayload.PageProgress
-                                        |> Effect.SendSinglePageNew True byteEncodedPageData
+                                        |> Effect.SendSinglePageNew byteEncodedPageData
 
                                 PageServerResponse.ServerResponse serverResponse ->
                                     { body = serverResponse |> PageServerResponse.toJson
@@ -807,7 +806,7 @@ sendSinglePageProgress site contentJson config model info =
                                     , statusCode = 200
                                     }
                                         |> ToJsPayload.SendApiResponse
-                                        |> Effect.SendSinglePage True
+                                        |> Effect.SendSinglePage
 
                         Just notFoundReason ->
                             render404Page config model page notFoundReason
@@ -815,7 +814,7 @@ sendSinglePageProgress site contentJson config model info =
                 Err error ->
                     [ error ]
                         |> ToJsPayload.Errors
-                        |> Effect.SendSinglePage True
+                        |> Effect.SendSinglePage
 
 
 render404Page :
@@ -852,4 +851,4 @@ render404Page config model path notFoundReason =
     , headers = []
     }
         |> ToJsPayload.PageProgress
-        |> Effect.SendSinglePageNew True byteEncodedPageData
+        |> Effect.SendSinglePageNew byteEncodedPageData

@@ -1,14 +1,11 @@
 module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest, renderSingleRoute)
 
-import ApiRoute
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
-import Html exposing (Html)
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
-import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -107,23 +104,14 @@ type FinishKind route
 
 
 nextStep :
-    { config
-        | getStaticRoutes : DataSource (List route)
-        , routeToPath : route -> List String
-        , data : route -> DataSource pageData
-        , sharedData : DataSource sharedData
-        , site : Maybe (SiteConfig siteData)
-        , apiRoutes : (Html Never -> String) -> List (ApiRoute.ApiRoute ApiRoute.Response)
+    { model
+        | staticResponses : StaticResponses
+        , errors : List BuildError
+        , allRawResponses : Dict String (Maybe String)
     }
-    ->
-        { model
-            | staticResponses : StaticResponses
-            , errors : List BuildError
-            , allRawResponses : Dict String (Maybe String)
-        }
     -> Maybe (List route)
     -> ( StaticResponses, NextStep route )
-nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
+nextStep ({ allRawResponses, errors } as model) maybeRoutes =
     let
         staticResponses : StaticHttpResult
         staticResponses =
@@ -308,7 +296,7 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 in
                 case pageFoundResult of
                     Ok Nothing ->
-                        nextStep config { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
+                        nextStep { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
 
                     Ok (Just _) ->
                         ( empty

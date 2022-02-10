@@ -9,6 +9,6 @@ type Effect
     = NoEffect
     | FetchHttp RequestDetails
     | Batch (List Effect)
-    | SendSinglePage Bool ToJsSuccessPayloadNewCombined
-    | SendSinglePageNew Bool Bytes ToJsSuccessPayloadNewCombined
+    | SendSinglePage ToJsSuccessPayloadNewCombined
+    | SendSinglePageNew Bytes ToJsSuccessPayloadNewCombined
     | Continue
