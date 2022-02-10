@@ -269,8 +269,6 @@ async function runJob(app, filePath) {
       }),
     });
   } catch (e) {
-    console.log(fsPromises);
-    console.error("222@@@", e);
     sendError(app, {
       title: "Error reading file",
       message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
