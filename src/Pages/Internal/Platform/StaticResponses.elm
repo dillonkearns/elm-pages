@@ -16,7 +16,6 @@ import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 import Set exposing (Set)
-import TerminalText as Terminal
 
 
 type StaticResponses
@@ -150,7 +149,6 @@ type NextStep route
 type FinishKind route
     = ApiResponse
     | Errors (List BuildError)
-    | Page RequestsAndPending
 
 
 nextStep :
@@ -282,117 +280,67 @@ nextStep config ({ allRawResponses, errors } as model) maybeRoutes =
                 ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
     else
+        let
+            allErrors : List BuildError
+            allErrors =
+                let
+                    failedRequests : List BuildError
+                    failedRequests =
+                        case staticResponses of
+                            NotFetched request _ ->
+                                let
+                                    staticRequestsStatus : StaticHttpRequest.Status ()
+                                    staticRequestsStatus =
+                                        StaticHttpRequest.cacheRequestResolution
+                                            request
+                                            usableRawResponses
+
+                                    usableRawResponses : RequestsAndPending
+                                    usableRawResponses =
+                                        allRawResponses
+
+                                    maybePermanentError : Maybe StaticHttpRequest.Error
+                                    maybePermanentError =
+                                        case staticRequestsStatus of
+                                            StaticHttpRequest.HasPermanentError theError ->
+                                                Just theError
+
+                                            _ ->
+                                                Nothing
+
+                                    decoderErrors : List BuildError
+                                    decoderErrors =
+                                        maybePermanentError
+                                            |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
+                                            |> Maybe.map List.singleton
+                                            |> Maybe.withDefault []
+                                in
+                                decoderErrors
+                in
+                errors ++ failedRequests
+        in
         case model.staticResponses of
             StaticResponses _ ->
-                --let
-                --    siteStaticData =
-                --        StaticHttpRequest.resolve ApplicationType.Cli
-                --            config.site.staticData
-                --            (allRawResponses |> Dict.Extra.filterMap (\_ value -> Just value))
-                --            |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
-                --in
-                --case siteStaticData of
-                --    Err siteStaticDataError ->
-                --        ( staticResponses_
-                --        , ToJsPayload.toJsPayload
-                --            (encode allRawResponses mode staticResponses)
-                --            generatedOkayFiles
-                --            allRawResponses
-                --            (siteStaticDataError :: allErrors)
-                --            |> Finish
-                --        )
-                --
-                --    Ok okSiteStaticData ->
-                let
-                    allErrors : List BuildError
-                    allErrors =
-                        let
-                            failedRequests : List BuildError
-                            failedRequests =
-                                case staticResponses of
-                                    NotFetched request _ ->
-                                        let
-                                            staticRequestsStatus : StaticHttpRequest.Status ()
-                                            staticRequestsStatus =
-                                                StaticHttpRequest.cacheRequestResolution
-                                                    request
-                                                    usableRawResponses
-
-                                            usableRawResponses : RequestsAndPending
-                                            usableRawResponses =
-                                                allRawResponses
-
-                                            maybePermanentError : Maybe StaticHttpRequest.Error
-                                            maybePermanentError =
-                                                case staticRequestsStatus of
-                                                    StaticHttpRequest.HasPermanentError theError ->
-                                                        Just theError
-
-                                                    _ ->
-                                                        Nothing
-
-                                            decoderErrors : List BuildError
-                                            decoderErrors =
-                                                maybePermanentError
-                                                    |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
-                                                    |> Maybe.map List.singleton
-                                                    |> Maybe.withDefault []
-                                        in
-                                        decoderErrors
-
-                            generatedFileErrors : List BuildError
-                            generatedFileErrors =
-                                let
-                                    generatedFiles : List (Result String { path : List String, content : String })
-                                    generatedFiles =
-                                        resolvedGenerateFilesResult |> Result.withDefault []
-
-                                    resolvedGenerateFilesResult : Result StaticHttpRequest.Error (List (Result String { path : List String, content : String }))
-                                    resolvedGenerateFilesResult =
-                                        StaticHttpRequest.resolve
-                                            (buildTimeFilesRequest config)
-                                            allRawResponses
-                                in
-                                generatedFiles
-                                    |> List.filterMap
-                                        (\result ->
-                                            case result of
-                                                Ok _ ->
-                                                    Nothing
-
-                                                Err error_ ->
-                                                    Just
-                                                        { title = "Generate Files Error"
-                                                        , message =
-                                                            [ Terminal.text "I encountered an Err from your generateFiles function. Message:\n"
-                                                            , Terminal.text <| "Error: " ++ error_
-                                                            ]
-                                                        , path = "Site.elm"
-                                                        , fatal = True
-                                                        }
-                                        )
-                        in
-                        errors ++ failedRequests ++ generatedFileErrors
-                in
                 ( model.staticResponses
-                , encode allRawResponses staticResponses
-                    |> (\encodedResponses ->
-                            -- TODO send all global head tags on initial call
-                            if List.length allErrors > 0 then
-                                allErrors
-                                    |> Errors
-                                    |> Finish
+                , if List.length allErrors > 0 then
+                    allErrors
+                        |> Errors
+                        |> Finish
 
-                            else
-                                Page encodedResponses
-                                    |> Finish
-                       )
+                  else
+                    Finish ApiResponse
                 )
 
             ApiRequest _ ->
                 ( model.staticResponses
-                , ApiResponse
-                    |> Finish
+                , if List.length allErrors > 0 then
+                    allErrors
+                        |> Errors
+                        |> Finish
+
+                  else
+                    ApiResponse
+                        |> Finish
                 )
 
             CheckIfHandled pageFoundDataSource (NotFetched _ _) andThenRequest ->
