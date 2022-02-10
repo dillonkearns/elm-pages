@@ -7,9 +7,6 @@ import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
 import Dict.Extra
 import Html exposing (Html)
-import HtmlPrinter exposing (htmlToString)
-import Internal.ApiRoute exposing (ApiRoute(..))
-import Json.Encode
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as HashRequest
@@ -32,41 +29,6 @@ empty : StaticResponses
 empty =
     StaticResponses
         (NotFetched (DataSource.succeed ()) Dict.empty)
-
-
-buildTimeFilesRequest :
-    { config
-        | apiRoutes :
-            (Html Never -> String)
-            -> List (ApiRoute.ApiRoute ApiRoute.Response)
-    }
-    -> DataSource (List (Result String { path : List String, content : String }))
-buildTimeFilesRequest config =
-    config.apiRoutes htmlToString
-        |> List.map
-            (\(ApiRoute handler) ->
-                handler.buildTimeRoutes
-                    |> DataSource.andThen
-                        (\paths ->
-                            paths
-                                |> List.map
-                                    (\path ->
-                                        handler.matchesToResponse path
-                                            |> DataSource.map
-                                                (\maybeResponse ->
-                                                    case maybeResponse of
-                                                        Nothing ->
-                                                            Err ""
-
-                                                        Just response ->
-                                                            Ok { path = path |> String.split "/", content = response |> Json.Encode.encode 0 }
-                                                )
-                                    )
-                                |> DataSource.combine
-                        )
-            )
-        |> DataSource.combine
-        |> DataSource.map List.concat
 
 
 renderSingleRoute :
@@ -132,13 +94,6 @@ insertAll newEntries dict =
             insertAll
                 rest
                 (Dict.update (HashRequest.hash info.request) (\_ -> Just (Just info.response)) dict)
-
-
-encode : RequestsAndPending -> StaticHttpResult -> RequestsAndPending
-encode requestsAndPending staticResponses =
-    case staticResponses of
-        NotFetched _ _ ->
-            requestsAndPending
 
 
 type NextStep route
