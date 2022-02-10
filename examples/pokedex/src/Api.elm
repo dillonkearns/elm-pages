@@ -7,10 +7,12 @@ import Html exposing (Html)
 import Json.Decode
 import Json.Encode
 import MySession
+import Pages.Manifest as Manifest
 import Route exposing (Route)
 import Server.Request
 import Server.Response
 import Server.Session as Session
+import Site
 
 
 routes :
@@ -27,6 +29,7 @@ routes getStaticRoutes htmlToString =
     , greet
     , fileLength
     , jsonError
+    , manifest |> Manifest.generator Site.canonicalUrl
     ]
 
 
@@ -275,3 +278,13 @@ route1 =
         |> ApiRoute.slash
         |> ApiRoute.capture
         |> ApiRoute.literal ".json"
+
+
+manifest : Manifest.Config
+manifest =
+    Manifest.init
+        { name = "Site Name"
+        , description = "Description"
+        , startUrl = Route.Index |> Route.toPath
+        , icons = []
+        }
