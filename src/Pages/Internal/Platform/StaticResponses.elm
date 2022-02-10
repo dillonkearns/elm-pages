@@ -183,43 +183,43 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         True
     in
     if pendingRequests then
-        case
-            performStaticHttpRequests allRawResponses request
-        of
-            urlsToPerform ->
-                let
-                    newAllRawResponses : Dict String (Maybe String)
-                    newAllRawResponses =
-                        Dict.union allRawResponses dictOfNewUrlsToPerform
+        let
+            urlsToPerform : List HashRequest.Request
+            urlsToPerform =
+                StaticHttpRequest.resolveUrls request allRawResponses
 
-                    dictOfNewUrlsToPerform : Dict String (Maybe String)
-                    dictOfNewUrlsToPerform =
-                        urlsToPerform
-                            |> List.map (\url -> ( HashRequest.hash url, Nothing ))
-                            |> Dict.fromList
+            newAllRawResponses : Dict String (Maybe String)
+            newAllRawResponses =
+                Dict.union allRawResponses dictOfNewUrlsToPerform
 
-                    maskedToUnmasked : Dict String RequestDetails
-                    maskedToUnmasked =
-                        urlsToPerform
-                            |> List.map
-                                (\secureUrl ->
-                                    ( HashRequest.hash secureUrl, secureUrl )
-                                )
-                            |> Dict.fromList
+            dictOfNewUrlsToPerform : Dict String (Maybe String)
+            dictOfNewUrlsToPerform =
+                urlsToPerform
+                    |> List.map (\url -> ( HashRequest.hash url, Nothing ))
+                    |> Dict.fromList
 
-                    alreadyPerformed : Set String
-                    alreadyPerformed =
-                        allRawResponses
-                            |> Dict.keys
-                            |> Set.fromList
+            maskedToUnmasked : Dict String RequestDetails
+            maskedToUnmasked =
+                urlsToPerform
+                    |> List.map
+                        (\secureUrl ->
+                            ( HashRequest.hash secureUrl, secureUrl )
+                        )
+                    |> Dict.fromList
 
-                    newThing : List RequestDetails
-                    newThing =
-                        maskedToUnmasked
-                            |> Dict.Extra.removeMany alreadyPerformed
-                            |> Dict.values
-                in
-                ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
+            alreadyPerformed : Set String
+            alreadyPerformed =
+                allRawResponses
+                    |> Dict.keys
+                    |> Set.fromList
+
+            newThing : List RequestDetails
+            newThing =
+                maskedToUnmasked
+                    |> Dict.Extra.removeMany alreadyPerformed
+                    |> Dict.values
+        in
+        ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
     else
         let
@@ -327,11 +327,3 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                 )
                             )
                         )
-
-
-performStaticHttpRequests :
-    Dict String (Maybe String)
-    -> DataSource a
-    -> List RequestDetails
-performStaticHttpRequests allRawResponses request =
-    StaticHttpRequest.resolveUrls request allRawResponses
