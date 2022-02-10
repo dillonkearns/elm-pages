@@ -278,18 +278,10 @@ perform site renderRequest config effect =
                         _ ->
                             ""
             in
-            Cmd.batch
-                [ info
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                    |> config.toJsPort
-                    |> Cmd.map never
-                , if done then
-                    Cmd.none
-
-                  else
-                    Task.succeed ()
-                        |> Task.perform (\_ -> Continue)
-                ]
+            info
+                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
+                |> config.toJsPort
+                |> Cmd.map never
 
         Effect.SendSinglePageNew done rawBytes info ->
             let
@@ -301,26 +293,14 @@ perform site renderRequest config effect =
 
                         _ ->
                             ""
-
-                newCommandThing : Cmd a
-                newCommandThing =
-                    { oldThing =
-                        info
-                            |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                    , binaryPageData = rawBytes
-                    }
-                        |> config.sendPageData
-                        |> Cmd.map never
             in
-            Cmd.batch
-                [ newCommandThing
-                , if done then
-                    Cmd.none
-
-                  else
-                    Task.succeed ()
-                        |> Task.perform (\_ -> Continue)
-                ]
+            { oldThing =
+                info
+                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
+            , binaryPageData = rawBytes
+            }
+                |> config.sendPageData
+                |> Cmd.map never
 
         Effect.Continue ->
             Cmd.none
