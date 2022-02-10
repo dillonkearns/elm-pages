@@ -173,7 +173,7 @@ function runElmApp(
         }
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
-        reject(fromElm.args[0]);
+        reject(fromElm.args[0].errorsJson);
       } else {
         console.log(fromElm);
       }
