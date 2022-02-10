@@ -163,7 +163,7 @@ async function runCli(options) {
 
   const getPathsWorker = initWorker(options.base);
   getPathsWorker.then(prepareStaticPathsNew);
-  const threadsToCreate = Math.max(1, cpuCount / 2 - 1);
+  const threadsToCreate = Math.max(1, cpuCount - 1);
   pool.push(getPathsWorker);
   for (let index = 0; index < threadsToCreate - 1; index++) {
     pool.push(initWorker(options.base));
