@@ -113,6 +113,17 @@ nextStep :
     -> ( StaticResponses, NextStep route )
 nextStep ({ allRawResponses, errors } as model) maybeRoutes =
     let
+        staticRequestsStatus : StaticHttpRequest.Status ()
+        staticRequestsStatus =
+            allRawResponses
+                |> StaticHttpRequest.cacheRequestResolution request
+
+        request : DataSource ()
+        request =
+            case staticResponses of
+                NotFetched request_ _ ->
+                    request_
+
         staticResponses : StaticHttpResult
         staticResponses =
             case model.staticResponses of
@@ -128,13 +139,8 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
         pendingRequests : Bool
         pendingRequests =
             case staticResponses of
-                NotFetched request rawResponses ->
+                NotFetched _ rawResponses ->
                     let
-                        staticRequestsStatus : StaticHttpRequest.Status ()
-                        staticRequestsStatus =
-                            allRawResponses
-                                |> StaticHttpRequest.cacheRequestResolution request
-
                         hasPermanentError : Bool
                         hasPermanentError =
                             case staticRequestsStatus of
@@ -177,15 +183,8 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         True
     in
     if pendingRequests then
-        let
-            requestContinuations : DataSource ()
-            requestContinuations =
-                case staticResponses of
-                    NotFetched request _ ->
-                        request
-        in
         case
-            performStaticHttpRequests allRawResponses requestContinuations
+            performStaticHttpRequests allRawResponses request
         of
             urlsToPerform ->
                 let
@@ -229,36 +228,24 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 let
                     failedRequests : List BuildError
                     failedRequests =
-                        case staticResponses of
-                            NotFetched request _ ->
-                                let
-                                    staticRequestsStatus : StaticHttpRequest.Status ()
-                                    staticRequestsStatus =
-                                        StaticHttpRequest.cacheRequestResolution
-                                            request
-                                            usableRawResponses
+                        let
+                            maybePermanentError : Maybe StaticHttpRequest.Error
+                            maybePermanentError =
+                                case staticRequestsStatus of
+                                    StaticHttpRequest.HasPermanentError theError ->
+                                        Just theError
 
-                                    usableRawResponses : RequestsAndPending
-                                    usableRawResponses =
-                                        allRawResponses
+                                    _ ->
+                                        Nothing
 
-                                    maybePermanentError : Maybe StaticHttpRequest.Error
-                                    maybePermanentError =
-                                        case staticRequestsStatus of
-                                            StaticHttpRequest.HasPermanentError theError ->
-                                                Just theError
-
-                                            _ ->
-                                                Nothing
-
-                                    decoderErrors : List BuildError
-                                    decoderErrors =
-                                        maybePermanentError
-                                            |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
-                                            |> Maybe.map List.singleton
-                                            |> Maybe.withDefault []
-                                in
-                                decoderErrors
+                            decoderErrors : List BuildError
+                            decoderErrors =
+                                maybePermanentError
+                                    |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
+                                    |> Maybe.map List.singleton
+                                    |> Maybe.withDefault []
+                        in
+                        decoderErrors
                 in
                 errors ++ failedRequests
         in
@@ -308,36 +295,24 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         let
                             failedRequests : List BuildError
                             failedRequests =
-                                case staticResponses of
-                                    NotFetched request _ ->
-                                        let
-                                            staticRequestsStatus : StaticHttpRequest.Status ()
-                                            staticRequestsStatus =
-                                                StaticHttpRequest.cacheRequestResolution
-                                                    request
-                                                    usableRawResponses
+                                let
+                                    maybePermanentError : Maybe StaticHttpRequest.Error
+                                    maybePermanentError =
+                                        case staticRequestsStatus of
+                                            StaticHttpRequest.HasPermanentError theError ->
+                                                Just theError
 
-                                            usableRawResponses : RequestsAndPending
-                                            usableRawResponses =
-                                                allRawResponses
+                                            _ ->
+                                                Nothing
 
-                                            maybePermanentError : Maybe StaticHttpRequest.Error
-                                            maybePermanentError =
-                                                case staticRequestsStatus of
-                                                    StaticHttpRequest.HasPermanentError theError ->
-                                                        Just theError
-
-                                                    _ ->
-                                                        Nothing
-
-                                            decoderErrors : List BuildError
-                                            decoderErrors =
-                                                maybePermanentError
-                                                    |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
-                                                    |> Maybe.map List.singleton
-                                                    |> Maybe.withDefault []
-                                        in
-                                        decoderErrors
+                                    decoderErrors : List BuildError
+                                    decoderErrors =
+                                        maybePermanentError
+                                            |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
+                                            |> Maybe.map List.singleton
+                                            |> Maybe.withDefault []
+                                in
+                                decoderErrors
                         in
                         ( model.staticResponses
                         , Finish
