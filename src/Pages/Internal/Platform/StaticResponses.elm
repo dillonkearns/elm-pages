@@ -186,6 +186,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
         let
             urlsToPerform : List HashRequest.Request
             urlsToPerform =
+                -- TODO is this redundant with cacheRequestResolution?
                 StaticHttpRequest.resolveUrls request allRawResponses
 
             newAllRawResponses : Dict String (Maybe String)
