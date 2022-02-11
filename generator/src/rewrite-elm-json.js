@@ -20,7 +20,7 @@ function rewriteElmJson(elmJson) {
   // 1. remove existing path that looks at `Pages.elm`
   elmJson["source-directories"] = elmJson["source-directories"].filter(
     (item) => {
-      return item != ".elm-pages";
+      return item != ".elm-pages" && item != "app";
     }
   );
   // 2. prepend ../../../ to remaining

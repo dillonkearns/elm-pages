@@ -14,7 +14,7 @@ async function run({ moduleName, withState, serverRender, withFallback }) {
     withFallback
   );
   const fullFilePath = path.join(
-    `src/Page/`,
+    `app/Page/`,
     moduleName.replace(/\./g, "/") + ".elm"
   );
   await fs.tryMkdir(path.dirname(fullFilePath));
