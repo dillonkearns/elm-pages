@@ -1,5 +1,5 @@
 module Head exposing
-    ( Tag, metaName, metaProperty, metaRedirect
+    ( Tag, node, metaName, metaProperty, metaRedirect
     , rssLink, sitemapLink, rootLanguage
     , structuredData
     , AttributeValue
