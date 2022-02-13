@@ -193,7 +193,6 @@ async function compileElm(options) {
 function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const optimizedOutputPath = outputPath + ".opt";
-    const fullOptimizedOutputPath = outputPath + ".opt";
     const subprocess = spawnCallback(
       `elm-optimize-level-2`,
       [outputPath, "--output", optimizedOutputPath],
@@ -214,9 +213,9 @@ function elmOptimizeLevel2(outputPath, cwd) {
       if (
         code === 0 &&
         commandOutput === "" &&
-        (await fs.fileExists(fullOptimizedOutputPath))
+        (await fs.fileExists(optimizedOutputPath))
       ) {
-        await fs.copyFile(fullOptimizedOutputPath, outputPath);
+        await fs.copyFile(optimizedOutputPath, outputPath);
         resolve();
       } else {
         if (!buildError) {
@@ -365,9 +364,9 @@ async function copyAssets() {
 async function compileCliApp(options) {
   await spawnElmMake(
     options,
-    ".elm-pages/Main.elm",
-    path.join(process.cwd(), "elm.js"),
-    "./elm-stuff/elm-pages"
+    path.join(process.cwd(), "elm-stuff/elm-pages/.elm-pages/Main.elm"),
+    path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
+    path.join(process.cwd(), "elm-stuff/elm-pages")
   );
 
   const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH, "utf-8");
