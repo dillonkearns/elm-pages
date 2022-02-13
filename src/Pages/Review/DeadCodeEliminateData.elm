@@ -107,11 +107,21 @@ expressionVisitor node context =
                                         , details = [ "" ]
                                         }
                                         (Node.range dataValue)
-                                        [ if pageBuilderName == "preRender" then
-                                            Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> DataSource.fail \"\""
+                                        [ case pageBuilderName of
+                                            "preRender" ->
+                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> DataSource.fail \"\""
 
-                                          else
-                                            Review.Fix.replaceRangeBy (Node.range dataValue) "data = DataSource.fail \"\"\n       "
+                                            "preRenderWithFallback" ->
+                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> DataSource.fail \"\""
+
+                                            "serverRender" ->
+                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> Request.oneOf []\n        "
+
+                                            "single" ->
+                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = DataSource.fail \"\"\n       "
+
+                                            _ ->
+                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = data"
                                         ]
                                   ]
                                 , context
