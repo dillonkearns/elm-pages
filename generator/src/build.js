@@ -10,6 +10,7 @@ const terser = require("terser");
 const os = require("os");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const { ensureDirSync } = require("./file-helpers.js");
+const { generateClientFolder } = require("./codegen.js");
 const which = require("which");
 let pool = [];
 let pagesReady;
@@ -174,9 +175,15 @@ async function runCli(options) {
 }
 
 async function compileElm(options) {
-  const outputPath = `dist/elm.js`;
-  const fullOutputPath = path.join(process.cwd(), `dist/elm.js`);
-  await spawnElmMake(options, ".elm-pages/Main.elm", outputPath);
+  ensureDirSync("dist");
+  const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
+  await generateClientFolder(options.base);
+  await spawnElmMake(
+    options,
+    ".elm-pages/Main.elm",
+    fullOutputPath,
+    path.join(process.cwd(), "./elm-stuff/elm-pages/client")
+  );
 
   if (!options.debug) {
     await runTerser(fullOutputPath);
@@ -186,8 +193,7 @@ async function compileElm(options) {
 function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const optimizedOutputPath = outputPath + ".opt";
-    const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-    const fullOptimizedOutputPath = fullOutputPath + ".opt";
+    const fullOptimizedOutputPath = outputPath + ".opt";
     const subprocess = spawnCallback(
       `elm-optimize-level-2`,
       [outputPath, "--output", optimizedOutputPath],
@@ -210,7 +216,7 @@ function elmOptimizeLevel2(outputPath, cwd) {
         commandOutput === "" &&
         (await fs.fileExists(fullOptimizedOutputPath))
       ) {
-        await fs.copyFile(fullOptimizedOutputPath, fullOutputPath);
+        await fs.copyFile(fullOptimizedOutputPath, outputPath);
         resolve();
       } else {
         if (!buildError) {
@@ -235,11 +241,10 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (!options.debug) {
     await elmOptimizeLevel2(outputPath, cwd);
   }
-  const fullOutputPath = path.join(cwd || process.cwd(), outputPath);
   await fsPromises.writeFile(
-    fullOutputPath,
+    outputPath,
     (
-      await fsPromises.readFile(fullOutputPath, "utf-8")
+      await fsPromises.readFile(outputPath, "utf-8")
     ).replace(
       /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
       "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
@@ -270,9 +275,8 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         cwd: cwd,
       }
     );
-    const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-    if (await fs.fileExists(fullOutputPath)) {
-      await fsPromises.unlink(fullOutputPath, {
+    if (await fs.fileExists(outputPath)) {
+      await fsPromises.unlink(outputPath, {
         force: true /* ignore errors if file doesn't exist */,
       });
     }
@@ -281,11 +285,14 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
     subprocess.stderr.on("data", function (data) {
       commandOutput += data;
     });
+    subprocess.on("error", function () {
+      reject(commandOutput);
+    });
 
     subprocess.on("close", async (code) => {
       if (
         code == 0 &&
-        (await fs.fileExists(fullOutputPath)) &&
+        (await fs.fileExists(outputPath)) &&
         commandOutput === ""
       ) {
         resolve();
@@ -359,7 +366,7 @@ async function compileCliApp(options) {
   await spawnElmMake(
     options,
     ".elm-pages/Main.elm",
-    "elm.js",
+    path.join(process.cwd(), "elm.js"),
     "./elm-stuff/elm-pages"
   );
 

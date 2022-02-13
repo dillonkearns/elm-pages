@@ -47,7 +47,7 @@
         "elm/virtual-dom": "1.0.2 <= v < 2.0.0",
         "elm-community/dict-extra": "2.4.0 <= v < 3.0.0",
         "elm-community/list-extra": "8.3.0 <= v < 9.0.0",
-        "jfmengels/elm-review": "2.5.0 <= v < 3.0.0",
+        "jfmengels/elm-review": "2.7.0 <= v < 3.0.0",
         "jluckyiv/elm-utc-date-strings": "1.0.0 <= v < 2.0.0",
         "justinmimbs/date": "4.0.0 <= v < 5.0.0",
         "miniBill/elm-codec": "2.0.0 <= v < 3.0.0",

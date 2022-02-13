@@ -8,7 +8,7 @@ module.exports = async function () {
   // write new elm.json
 
   await writeFileIfChanged(
-    "./elm-stuff/elm-pages/elm.json",
+    "./elm-stuff/elm-pages/client/elm.json",
     JSON.stringify(rewriteElmJson(elmJson))
   );
 };
@@ -20,15 +20,16 @@ function rewriteElmJson(elmJson) {
   // 1. remove existing path that looks at `Pages.elm`
   elmJson["source-directories"] = elmJson["source-directories"].filter(
     (item) => {
-      return item != ".elm-pages";
+      return item != ".elm-pages" && item != "app";
     }
   );
   // 2. prepend ../../../ to remaining
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
-    return "../../" + item;
+    return "../../../" + item;
   });
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
+  elmJson["source-directories"].push("app");
   return elmJson;
 }
 
