@@ -4,6 +4,7 @@ const copyModifiedElmJson = require("./rewrite-elm-json.js");
 const copyModifiedElmJsonClient = require("./rewrite-client-elm-json.js");
 const { elmPagesCliFile, elmPagesUiFile } = require("./elm-file-constants.js");
 const spawnCallback = require("cross-spawn").spawn;
+const which = require("which");
 const {
   generateTemplateModuleConnector,
 } = require("./generate-template-module-connector.js");
@@ -96,7 +97,7 @@ async function generateClientFolder(basePath) {
  * @param {string} [ cwd ]
  */
 async function runElmReviewCodemod(cwd) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const child = spawnCallback(
       `elm-review`,
       [
@@ -109,6 +110,8 @@ async function runElmReviewCodemod(cwd) {
         path.join(__dirname, "../../generator/dead-code-review"),
         "--elmjson",
         "elm.json",
+        "--compiler",
+        await which("lamdera"),
       ],
       { cwd: path.join(process.cwd(), cwd || ".") }
     );
