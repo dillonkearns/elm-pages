@@ -9,12 +9,6 @@
   to = "/.netlify/functions/screenshot"
   status = 200
 
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/render"
-  status = 200
-  # force = true
-
 [dev]
   command = "npm start"
   targetPort = 1234
