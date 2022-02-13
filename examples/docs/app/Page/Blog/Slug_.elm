@@ -4,7 +4,6 @@ import Article
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource exposing (DataSource)
-import DataSource.File
 import Date exposing (Date)
 import Head
 import Head.Seo as Seo
@@ -13,7 +12,6 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import Markdown.Block
-import Markdown.Parser
 import Markdown.Renderer
 import MarkdownCodec
 import Page exposing (Page, StaticPayload)

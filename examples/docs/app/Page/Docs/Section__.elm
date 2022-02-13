@@ -308,14 +308,6 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBodyDecoder : String -> Decoder (List Block)
-markdownBodyDecoder rawBody =
-    rawBody
-        |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> "Markdown parsing error")
-        |> Json.Decode.Extra.fromResult
-
-
 markdownBodyDecoder2 : String -> DataSource (List Block)
 markdownBodyDecoder2 rawBody =
     rawBody
