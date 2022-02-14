@@ -742,13 +742,6 @@ sendSinglePageProgress site contentJson config model info =
                         (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
                         model.allRawResponses
                         |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
-
-                apiRouteHeadTags : DataSource (List Head.Tag)
-                apiRouteHeadTags =
-                    config.apiRoutes HtmlPrinter.htmlToString
-                        |> List.filterMap ApiRoute.getGlobalHeadTagsDataSource
-                        |> DataSource.combine
-                        |> DataSource.map List.concat
             in
             case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
                 Ok ( maybeNotFoundReason, renderedOrApiResponse, siteData ) ->
