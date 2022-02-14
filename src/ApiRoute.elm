@@ -295,11 +295,14 @@ getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
 
 
+{-| Include head tags on every page's HTML.
+-}
 withGlobalHeadTags : DataSource (List Head.Tag) -> ApiRoute response -> ApiRoute response
 withGlobalHeadTags globalHeadTags (ApiRoute handler) =
     ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
+{-| -}
 getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource (List Head.Tag))
 getGlobalHeadTagsDataSource (ApiRoute handler) =
     handler.globalHeadTags
