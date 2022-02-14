@@ -470,8 +470,11 @@ main =
 
 globalHeadTags : DataSource (List Head.Tag)
 globalHeadTags =
-    (Site.config.head :: (Api.routes getStaticRoutes HtmlPrinter.htmlToString
-        |> List.filterMap ApiRoute.getGlobalHeadTagsDataSource))
+    (Site.config.head
+        :: (Api.routes getStaticRoutes HtmlPrinter.htmlToString
+                |> List.filterMap ApiRoute.getGlobalHeadTagsDataSource
+           )
+    )
         |> DataSource.combine
         |> DataSource.map List.concat
 
