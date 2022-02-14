@@ -5,7 +5,7 @@ import Browser.Navigation
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
-import DataSource
+import DataSource exposing (DataSource)
 import Head
 import Html exposing (Html)
 import Http
@@ -24,7 +24,7 @@ import Task exposing (Task)
 import Url exposing (Url)
 
 
-type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
+type alias ProgramConfig userMsg userModel route pageData sharedData =
     { init :
         Pages.Flags.Flags
         -> sharedData
@@ -43,8 +43,8 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
         -> ( userModel, Cmd userMsg )
     , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
-    , sharedData : DataSource.DataSource sharedData
-    , data : route -> DataSource.DataSource (PageServerResponse pageData)
+    , sharedData : DataSource sharedData
+    , data : route -> DataSource (PageServerResponse pageData)
     , view :
         { path : Path
         , route : route
@@ -56,11 +56,11 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
             { view : userModel -> { title : String, body : Html userMsg }
             , head : List Head.Tag
             }
-    , handleRoute : route -> DataSource.DataSource (Maybe NotFoundReason)
-    , getStaticRoutes : DataSource.DataSource (List route)
+    , handleRoute : route -> DataSource (Maybe NotFoundReason)
+    , getStaticRoutes : DataSource (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
-    , site : Maybe (SiteConfig siteData)
+    , site : Maybe SiteConfig
     , toJsPort : Json.Encode.Value -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , hotReloadData : Sub Bytes
@@ -85,4 +85,5 @@ type alias ProgramConfig userMsg userModel route siteData pageData sharedData =
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
     , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
+    , globalHeadTags : Maybe (DataSource (List Head.Tag))
     }

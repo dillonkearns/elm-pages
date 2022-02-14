@@ -44,6 +44,7 @@ import Api
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
+import HtmlPrinter
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
@@ -425,6 +426,9 @@ main =
         , urlToRoute = Route.urlToRoute
         , routeToPath = \\route -> route |> Maybe.map Route.routeToPath |> Maybe.withDefault []
         , site = ${phase === "browser" ? `Nothing` : `Just Site.config`}
+        , globalHeadTags = ${
+          phase === "browser" ? `Nothing` : `Just globalHeadTags`
+        }
         , getStaticRoutes = ${
           phase === "browser"
             ? `DataSource.succeed []`
@@ -463,6 +467,13 @@ main =
         , encodeResponse = encodeResponse
         , decodeResponse = decodeResponse
         }
+
+globalHeadTags : DataSource (List Head.Tag)
+globalHeadTags =
+    (Site.config.head :: (Api.routes getStaticRoutes HtmlPrinter.htmlToString
+        |> List.filterMap ApiRoute.getGlobalHeadTagsDataSource))
+        |> DataSource.combine
+        |> DataSource.map List.concat
 
 
 encodeResponse : ResponseSketch PageData Shared.Data -> Bytes.Encode.Encoder

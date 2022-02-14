@@ -78,15 +78,15 @@ type alias Program route =
 
 {-| -}
 cliApplication :
-    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    ProgramConfig userMsg userModel (Maybe route) pageData sharedData
     -> Program (Maybe route)
 cliApplication config =
     let
-        site : SiteConfig siteData
+        site : SiteConfig
         site =
             getSiteConfig config
 
-        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData -> SiteConfig siteData
+        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData sharedData -> SiteConfig
         getSiteConfig fullConfig =
             case fullConfig.site of
                 Just mySite ->
@@ -172,12 +172,12 @@ requestDecoder =
         |> Codec.decoder
 
 
-flatten : SiteConfig siteData -> RenderRequest route -> ProgramConfig userMsg userModel route siteData pageData sharedData -> List Effect -> Cmd Msg
+flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData -> List Effect -> Cmd Msg
 flatten site renderRequest config list =
     Cmd.batch (flattenHelp [] site renderRequest config list)
 
 
-flattenHelp : List (Cmd Msg) -> SiteConfig siteData -> RenderRequest route -> ProgramConfig userMsg userModel route siteData pageData sharedData -> List Effect -> List (Cmd Msg)
+flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData -> List Effect -> List (Cmd Msg)
 flattenHelp soFar site renderRequest config list =
     case list of
         first :: rest ->
@@ -193,9 +193,9 @@ flattenHelp soFar site renderRequest config list =
 
 
 perform :
-    SiteConfig siteData
+    SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> Effect
     -> Cmd Msg
 perform site renderRequest config effect =
@@ -330,9 +330,9 @@ flagsDecoder =
 
 {-| -}
 init :
-    SiteConfig siteData
+    SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> Decode.Value
     -> ( Model route, Effect )
 init site renderRequest config flags =
@@ -360,10 +360,10 @@ init site renderRequest config flags =
 
 
 initLegacy :
-    SiteConfig siteData
+    SiteConfig
     -> RenderRequest route
     -> { staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
@@ -377,7 +377,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                 (DataSource.map3 (\_ _ _ -> ())
                                     (config.data serverRequestPayload.frontmatter)
                                     config.sharedData
-                                    site.data
+                                    (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
                                 )
                                 (if isDevServer then
                                     config.handleRoute serverRequestPayload.frontmatter
@@ -390,14 +390,14 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                             StaticResponses.renderApiRequest
                                 (DataSource.map2 (\_ _ -> ())
                                     (apiRequest.matchesToResponse path)
-                                    site.data
+                                    (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
                                 )
 
                         RenderRequest.NotFound _ ->
                             StaticResponses.renderApiRequest
                                 (DataSource.map2 (\_ _ -> ())
                                     (DataSource.succeed [])
-                                    site.data
+                                    (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
                                 )
 
         unprocessedPages : List ( Path, route )
@@ -431,8 +431,8 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
 
 
 updateAndSendPortIfDone :
-    SiteConfig siteData
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    SiteConfig
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone site config model =
@@ -444,8 +444,8 @@ updateAndSendPortIfDone site config model =
 
 {-| -}
 update :
-    SiteConfig siteData
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    SiteConfig
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> Msg
     -> Model route
     -> ( Model route, Effect )
@@ -490,8 +490,8 @@ update site config msg model =
 
 
 nextStepToEffect :
-    SiteConfig siteData
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    SiteConfig
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
@@ -583,6 +583,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                 pageFoundResult =
                                                     StaticHttpRequest.resolve
                                                         (if model.isDevServer then
+                                                            -- TODO OPTIMIZATION this is redundant
                                                             config.handleRoute payload.frontmatter
 
                                                          else
@@ -627,9 +628,9 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 
 
 sendSinglePageProgress :
-    SiteConfig siteData
+    SiteConfig
     -> RequestsAndPending
-    -> ProgramConfig userMsg userModel route siteData pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData
     -> Model route
     -> { path : Path, frontmatter : route }
     -> Effect
@@ -643,6 +644,7 @@ sendSinglePageProgress site contentJson config model info =
             let
                 pageFoundResult : Result BuildError (Maybe NotFoundReason)
                 pageFoundResult =
+                    -- TODO OPTIMIZATION this is redundant
                     StaticHttpRequest.resolve
                         (if model.isDevServer then
                             config.handleRoute route
@@ -721,6 +723,7 @@ sendSinglePageProgress site contentJson config model info =
 
                 pageDataResult : Result BuildError (PageServerResponse pageData)
                 pageDataResult =
+                    -- TODO OPTIMIZATION can these three be included in StaticResponses.Finish?
                     StaticHttpRequest.resolve
                         (config.data (config.urlToRoute currentUrl))
                         contentJson
@@ -733,12 +736,19 @@ sendSinglePageProgress site contentJson config model info =
                         contentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                siteDataResult : Result BuildError siteData
+                siteDataResult : Result BuildError (List Head.Tag)
                 siteDataResult =
                     StaticHttpRequest.resolve
-                        site.data
+                        (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
                         model.allRawResponses
                         |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
+
+                apiRouteHeadTags : DataSource (List Head.Tag)
+                apiRouteHeadTags =
+                    config.apiRoutes HtmlPrinter.htmlToString
+                        |> List.filterMap ApiRoute.getGlobalHeadTagsDataSource
+                        |> DataSource.combine
+                        |> DataSource.map List.concat
             in
             case Result.map3 (\a b c -> ( a, b, c )) pageFoundResult renderedResult siteDataResult of
                 Ok ( maybeNotFoundReason, renderedOrApiResponse, siteData ) ->
@@ -790,7 +800,7 @@ sendSinglePageProgress site contentJson config model info =
                                     , contentJson = Dict.empty
                                     , html = rendered.view
                                     , errors = []
-                                    , head = rendered.head ++ site.head siteData
+                                    , head = rendered.head ++ siteData
                                     , title = rendered.title
                                     , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                     , is404 = False
@@ -818,7 +828,7 @@ sendSinglePageProgress site contentJson config model info =
 
 
 render404Page :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData
     -> Model route
     -> Path
     -> NotFoundReason

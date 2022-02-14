@@ -4,13 +4,16 @@ import ApiRoute
 import Article
 import DataSource exposing (DataSource)
 import DataSource.Http
+import Head
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode
 import Manifest
 import Pages
+import Pages.Manifest
 import Route exposing (Route)
 import Rss
+import Site
 import SiteOld
 import Sitemap
 import Time
@@ -95,7 +98,8 @@ routes getStaticRoutes htmlToString =
         )
         |> ApiRoute.literal "sitemap.xml"
         |> ApiRoute.single
-    , Manifest.handler
+        |> ApiRoute.withGlobalHeadTags (DataSource.succeed [ Head.sitemapLink "/sitemap.xml" ])
+    , Pages.Manifest.generator Site.canonicalUrl Manifest.config
     ]
 
 
@@ -149,3 +153,8 @@ rss options itemsRequest =
         )
         |> ApiRoute.literal "blog/feed.xml"
         |> ApiRoute.single
+        |> ApiRoute.withGlobalHeadTags
+            (DataSource.succeed
+                [ Head.rssLink "/blog/feed.xml"
+                ]
+            )

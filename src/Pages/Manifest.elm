@@ -60,7 +60,8 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 import ApiRoute
 import Color exposing (Color)
 import Color.Convert
-import DataSource
+import DataSource exposing (DataSource)
+import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
 import LanguageTag.Country as Country
@@ -323,16 +324,19 @@ nonEmptyList list =
 
 {-| A generator for Api.elm to include a manifest.json.
 -}
-generator : String -> Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator : String -> DataSource Config -> ApiRoute.ApiRoute ApiRoute.Response
 generator canonicalSiteUrl config =
     ApiRoute.succeed
         (config
-            |> toJson canonicalSiteUrl
-            |> Encode.encode 0
-            |> DataSource.succeed
+            |> DataSource.map (toJson canonicalSiteUrl >> Encode.encode 0)
         )
         |> ApiRoute.literal "manifest.json"
         |> ApiRoute.single
+        |> ApiRoute.withGlobalHeadTags
+            (DataSource.succeed
+                [ Head.manifestLink "manifest.json"
+                ]
+            )
 
 
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated

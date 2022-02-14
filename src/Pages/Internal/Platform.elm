@@ -38,7 +38,7 @@ type alias Program userModel userMsg pageData sharedData =
 
 
 mainView :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData
     -> Model userModel pageData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
@@ -87,7 +87,7 @@ urlsToPagePath urls =
 
 
 view :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData
     -> Model userModel pageData sharedData
     -> Browser.Document (Msg userMsg pageData sharedData)
 view config model =
@@ -129,7 +129,7 @@ type InitKind shared page
 
 {-| -}
 init :
-    ProgramConfig userMsg userModel route staticData pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData
     -> Flags
     -> Url
     -> Browser.Navigation.Key
@@ -293,7 +293,7 @@ type alias Model userModel pageData sharedData =
 
 {-| -}
 update :
-    ProgramConfig userMsg userModel route siteData pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData
     -> Msg userMsg pageData sharedData
     -> Model userModel pageData sharedData
     -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
@@ -543,7 +543,7 @@ update config appMsg model =
 
 {-| -}
 application :
-    ProgramConfig userMsg userModel route staticData pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData
     -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData)
 application config =
     Browser.application

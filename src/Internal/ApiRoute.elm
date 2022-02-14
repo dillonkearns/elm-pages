@@ -9,6 +9,7 @@ module Internal.ApiRoute exposing
     )
 
 import DataSource exposing (DataSource)
+import Head
 import Pattern exposing (Pattern)
 import Regex exposing (Regex)
 
@@ -48,6 +49,7 @@ type ApiRoute response
         , handleRoute : String -> DataSource Bool
         , pattern : Pattern
         , kind : String
+        , globalHeadTags : Maybe (DataSource (List Head.Tag))
         }
 
 

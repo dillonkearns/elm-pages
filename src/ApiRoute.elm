@@ -3,7 +3,8 @@ module ApiRoute exposing
     , capture, literal, slash, succeed
     , single, preRender
     , preRenderWithFallback, serverRender
-    , toJson, getBuildTimeRoutes
+    , withGlobalHeadTags
+    , toJson, getBuildTimeRoutes, getGlobalHeadTagsDataSource
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
@@ -28,14 +29,20 @@ DataSources dynamically.
 @docs preRenderWithFallback, serverRender
 
 
+## Including Head Tags
+
+@docs withGlobalHeadTags
+
+
 ## Internals
 
-@docs toJson, getBuildTimeRoutes
+@docs toJson, getBuildTimeRoutes, getGlobalHeadTagsDataSource
 
 -}
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Decode as Decode
 import Json.Encode
@@ -108,6 +115,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                     )
         , pattern = patterns
         , kind = "serverless"
+        , globalHeadTags = Nothing
         }
 
 
@@ -141,6 +149,7 @@ preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString co
                     )
         , pattern = patterns
         , kind = "prerender-with-fallback"
+        , globalHeadTags = Nothing
         }
 
 
@@ -202,6 +211,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                     |> DataSource.map (List.member matches)
         , pattern = patterns
         , kind = "prerender"
+        , globalHeadTags = Nothing
         }
 
 
@@ -283,6 +293,16 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
 getBuildTimeRoutes : ApiRoute response -> DataSource (List String)
 getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
+
+
+withGlobalHeadTags : DataSource (List Head.Tag) -> ApiRoute response -> ApiRoute response
+withGlobalHeadTags globalHeadTags (ApiRoute handler) =
+    ApiRoute { handler | globalHeadTags = Just globalHeadTags }
+
+
+getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource (List Head.Tag))
+getGlobalHeadTagsDataSource (ApiRoute handler) =
+    handler.globalHeadTags
 
 
 

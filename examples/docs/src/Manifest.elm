@@ -1,36 +1,15 @@
-module Manifest exposing (handler)
+module Manifest exposing (config)
 
-import ApiRoute
 import Cloudinary
 import DataSource exposing (DataSource)
-import Json.Encode
 import MimeType
 import Pages.Manifest as Manifest
 import Pages.Url
 import Route
 
 
-handler : ApiRoute.ApiRoute ApiRoute.Response
-handler =
-    ApiRoute.succeed
-        (manifest
-            |> DataSource.map (manifestToFile canonicalUrl)
-        )
-        |> ApiRoute.literal "manifest.json"
-        |> ApiRoute.single
-
-
-manifestToFile : String -> Manifest.Config -> String
-manifestToFile resolvedCanonicalUrl manifestConfig =
-    manifestConfig
-        |> Manifest.toJson resolvedCanonicalUrl
-        |> (\manifestJsonValue ->
-                Json.Encode.encode 0 manifestJsonValue
-           )
-
-
-manifest : DataSource Manifest.Config
-manifest =
+config : DataSource Manifest.Config
+config =
     Manifest.init
         { name = "elm-pages"
         , description = "elm-pages - " ++ tagline
@@ -54,11 +33,6 @@ tagline =
 webp : MimeType.MimeImage
 webp =
     MimeType.OtherImage "webp"
-
-
-canonicalUrl : String
-canonicalUrl =
-    "https://elm-pages.com"
 
 
 icon :
