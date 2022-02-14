@@ -4,7 +4,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Fix
-import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 
 
 rule : Rule
@@ -21,12 +21,7 @@ rule =
 declarationVisitor : Node Declaration -> context -> ( List (Error {}), context )
 declarationVisitor node context =
     case Node.value node of
-        Declaration.FunctionDeclaration { documentation, declaration } ->
-            let
-                functionName : String
-                functionName =
-                    Node.value declaration |> .name |> Node.value
-            in
+        Declaration.FunctionDeclaration { declaration } ->
             case Node.value declaration of
                 { name, expression } ->
                     case ( Node.value name, Node.value expression ) of
@@ -130,7 +125,7 @@ expressionVisitor node context =
                         |> Maybe.withDefault
                             ( [], context )
 
-                rest ->
+                _ ->
                     ( [], context )
 
         _ ->
@@ -144,7 +139,7 @@ isAlreadyApplied expression =
             case Node.value info.expression of
                 Expression.Application applicationNodes ->
                     case applicationNodes |> List.map Node.value of
-                        (Expression.FunctionOrValue [ "DataSource" ] "fail") :: rest ->
+                        (Expression.FunctionOrValue [ "DataSource" ] "fail") :: _ ->
                             True
 
                         _ ->
@@ -155,7 +150,7 @@ isAlreadyApplied expression =
 
         Expression.Application applicationNodes ->
             case applicationNodes |> List.map Node.value of
-                (Expression.FunctionOrValue [ "DataSource" ] "fail") :: rest ->
+                (Expression.FunctionOrValue [ "DataSource" ] "fail") :: _ ->
                     True
 
                 _ ->
