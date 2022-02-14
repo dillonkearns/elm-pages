@@ -44,8 +44,6 @@ import Api
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
-import PageServerResponse
-import Pattern
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
