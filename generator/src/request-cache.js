@@ -41,6 +41,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
     const request = toRequest(rawRequest);
     const responsePath = fullPath(request, hasFsAccess);
 
+    // TODO check cache expiration time and delete and go to else if expired
     if (await checkFileExists(fs, responsePath)) {
       // console.log("Skipping request, found file.");
       resolve(responsePath);
@@ -125,38 +126,34 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
           });
         }
       } else {
-        undici
-          .stream(
-            request.url,
-            {
-              method: request.method,
-              body: request.body,
-              headers: {
-                "User-Agent": "request",
-                ...request.headers,
-              },
+        try {
+          const response = await undici.fetch(request.url, {
+            method: request.method,
+            body: request.body,
+            headers: {
+              "User-Agent": "request",
+              ...request.headers,
             },
-            (response) => {
-              const writeStream = fs.createWriteStream(responsePath);
-              writeStream.on("finish", async () => {
-                resolve(responsePath);
-              });
-
-              return writeStream;
-            }
-          )
-          .catch((error) => {
-            let errorMessage = error.toString();
-            if (error.code === "ENOTFOUND") {
-              errorMessage = `Could not reach URL.`;
-            }
-            reject({
-              title: "DataSource.Http Error",
-              message: `${kleur
-                .yellow()
-                .underline(request.url)} ${errorMessage}`,
-            });
           });
+          const asText = await response.text();
+          await fs.promises.writeFile(
+            responsePath,
+            JSON.stringify({
+              headers: Object.fromEntries(response.headers.entries()),
+              statusCode: response.status,
+              body: asText,
+              url: response.url,
+              statusText: response.statusText,
+            })
+          );
+
+          resolve(responsePath);
+        } catch (error) {
+          reject({
+            title: "DataSource.Port Error",
+            message: error.toString(),
+          });
+        }
       }
     }
   });

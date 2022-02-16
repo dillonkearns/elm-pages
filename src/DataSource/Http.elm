@@ -2,7 +2,9 @@ module DataSource.Http exposing
     ( RequestDetails
     , get, request
     , Expect, expectString, expectJson
+    , expectResponse
     , Body, emptyBody, stringBody, jsonBody
+    , Error(..), Metadata, Response(..), expectStringResponse, internalRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -41,6 +43,11 @@ in [this article introducing DataSource.Http requests and some concepts around i
 @docs Expect, expectString, expectJson
 
 
+## Expecting Responses
+
+@docs expectResponse
+
+
 ## Building a DataSource.Http Request Body
 
 The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
@@ -52,6 +59,7 @@ and describe your use case!
 -}
 
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
@@ -149,6 +157,7 @@ as XML, for example, or give an `elm-pages` build error if the response can't be
 type Expect value
     = ExpectJson (Json.Decode.Decoder value)
     | ExpectString (String -> Result String value)
+    | ExpectResponse (Response String -> value)
 
 
 {-| Request a raw String. You can validate the String if you need to check the formatting, or try to parse it
@@ -195,15 +204,26 @@ expectJson =
     ExpectJson
 
 
+{-| -}
+expectResponse : (Response String -> value) -> Expect value
+expectResponse =
+    ExpectResponse
+
+
+expectStringResponse : (Result error body -> msg) -> (Response String -> Result error body) -> Expect msg
+expectStringResponse toMsg toResult_ =
+    ExpectResponse (toResult_ >> toMsg)
+
+
 {-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
 This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
 with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
 -}
-request :
+internalRequest :
     RequestDetails
     -> Expect a
     -> DataSource a
-request request_ expect =
+internalRequest request_ expect =
     case expect of
         ExpectJson decoder ->
             Request
@@ -253,6 +273,133 @@ request request_ expect =
                                             |> RequestError
                            )
                 )
+
+        ExpectResponse function ->
+            Pages.StaticHttpRequest.DecoderError "Not handled yet TODO"
+                |> RequestError
+
+
+{-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
+This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
+with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
+-}
+request :
+    RequestDetails
+    -> Expect a
+    -> DataSource a
+request request__ expect =
+    let
+        request_ : RequestDetails
+        request_ =
+            { request__
+                | headers =
+                    ( "elm-pages-internal", "new" )
+                        :: request__.headers
+            }
+    in
+    Request
+        [ request_ ]
+        (\rawResponseDict ->
+            rawResponseDict
+                |> RequestsAndPending.get (request_ |> HashRequest.hash)
+                |> (\maybeResponse ->
+                        case maybeResponse of
+                            Just rawResponse ->
+                                case Json.Decode.decodeString responseDecoder rawResponse of
+                                    Ok decodedResponse ->
+                                        Ok decodedResponse
+
+                                    Err error ->
+                                        Err (Pages.StaticHttpRequest.DecoderError ("Internal error decoding JSON!\n" ++ Json.Decode.errorToString error ++ "\n\n" ++ request_.url))
+
+                            Nothing ->
+                                Err (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_) [ request_ ])
+                   )
+                |> Result.andThen
+                    (\rawResponse ->
+                        case expect of
+                            ExpectJson decoder ->
+                                rawResponse.body
+                                    |> Json.Decode.decodeString decoder
+                                    |> Result.mapError
+                                        (\error ->
+                                            error
+                                                |> Json.Decode.errorToString
+                                                |> Pages.StaticHttpRequest.DecoderError
+                                        )
+
+                            ExpectString mapStringFn ->
+                                rawResponse.body
+                                    |> mapStringFn
+                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
+
+                            ExpectResponse mapResponse ->
+                                let
+                                    asMetadata : Metadata
+                                    asMetadata =
+                                        { url = rawResponse.url
+                                        , statusCode = rawResponse.statusCode
+                                        , statusText = rawResponse.statusText
+                                        , headers = rawResponse.headers
+                                        }
+
+                                    rawResponseToResponse : Response String
+                                    rawResponseToResponse =
+                                        if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
+                                            GoodStatus_ asMetadata rawResponse.body
+
+                                        else
+                                            BadStatus_ asMetadata rawResponse.body
+                                in
+                                rawResponseToResponse
+                                    |> mapResponse
+                                    |> Ok
+                    )
+                |> toResult
+        )
+
+
+type alias Metadata =
+    { url : String
+    , statusCode : Int
+    , statusText : String
+    , headers : Dict String String
+    }
+
+
+type alias RawResponse body =
+    { body : body
+    , statusCode : Int
+    , statusText : String
+    , headers : Dict String String
+    , url : String
+    }
+
+
+type Response body
+    = BadUrl_ String
+    | Timeout_
+    | NetworkError_
+    | BadStatus_ Metadata body
+    | GoodStatus_ Metadata body
+
+
+type Error
+    = BadUrl String
+    | Timeout
+    | NetworkError
+    | BadStatus Metadata String
+    | BadBody String
+
+
+responseDecoder : Json.Decode.Decoder (RawResponse String)
+responseDecoder =
+    Json.Decode.map5 RawResponse
+        (Json.Decode.field "body" Json.Decode.string)
+        (Json.Decode.field "statusCode" Json.Decode.int)
+        (Json.Decode.field "statusText" Json.Decode.string)
+        (Json.Decode.field "headers" (Json.Decode.dict Json.Decode.string))
+        (Json.Decode.field "url" Json.Decode.string)
 
 
 toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest b

@@ -943,7 +943,7 @@ toNonEmptyWithDefault default list =
 -}
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
-    DataSource.Http.request
+    DataSource.Http.internalRequest
         { url = "elm-pages-internal://glob"
         , method = "GET"
         , headers = []
