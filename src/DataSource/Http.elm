@@ -274,9 +274,22 @@ internalRequest request_ expect =
                            )
                 )
 
-        ExpectResponse function ->
+        ExpectResponse _ ->
             Pages.StaticHttpRequest.DecoderError "Not handled yet TODO"
                 |> RequestError
+
+
+expectToString : Expect a -> String
+expectToString expect =
+    case expect of
+        ExpectJson _ ->
+            "ExpectJson"
+
+        ExpectString _ ->
+            "ExpectString"
+
+        ExpectResponse _ ->
+            "ExpectResponse"
 
 
 {-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
@@ -293,7 +306,7 @@ request request__ expect =
         request_ =
             { request__
                 | headers =
-                    ( "elm-pages-internal", "new" )
+                    ( "elm-pages-internal", expectToString expect )
                         :: request__.headers
             }
     in
@@ -320,7 +333,7 @@ request request__ expect =
                         case expect of
                             ExpectJson decoder ->
                                 rawResponse.body
-                                    |> Json.Decode.decodeString decoder
+                                    |> Json.Decode.decodeValue decoder
                                     |> Result.mapError
                                         (\error ->
                                             error
@@ -330,7 +343,9 @@ request request__ expect =
 
                             ExpectString mapStringFn ->
                                 rawResponse.body
-                                    |> mapStringFn
+                                    |> Json.Decode.decodeValue Json.Decode.string
+                                    |> Result.mapError Json.Decode.errorToString
+                                    |> Result.andThen mapStringFn
                                     |> Result.mapError Pages.StaticHttpRequest.DecoderError
 
                             ExpectResponse mapResponse ->
@@ -343,13 +358,19 @@ request request__ expect =
                                         , headers = rawResponse.headers
                                         }
 
+                                    asStringBody : String
+                                    asStringBody =
+                                        rawResponse.body
+                                            |> Json.Decode.decodeValue Json.Decode.string
+                                            |> Result.withDefault ""
+
                                     rawResponseToResponse : Response String
                                     rawResponseToResponse =
                                         if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
-                                            GoodStatus_ asMetadata rawResponse.body
+                                            GoodStatus_ asMetadata asStringBody
 
                                         else
-                                            BadStatus_ asMetadata rawResponse.body
+                                            BadStatus_ asMetadata asStringBody
                                 in
                                 rawResponseToResponse
                                     |> mapResponse
@@ -392,10 +413,10 @@ type Error
     | BadBody String
 
 
-responseDecoder : Json.Decode.Decoder (RawResponse String)
+responseDecoder : Json.Decode.Decoder (RawResponse Json.Decode.Value)
 responseDecoder =
     Json.Decode.map5 RawResponse
-        (Json.Decode.field "body" Json.Decode.string)
+        (Json.Decode.field "body" Json.Decode.value)
         (Json.Decode.field "statusCode" Json.Decode.int)
         (Json.Decode.field "statusText" Json.Decode.string)
         (Json.Decode.field "headers" (Json.Decode.dict Json.Decode.string))

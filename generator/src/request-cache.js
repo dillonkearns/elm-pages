@@ -135,23 +135,45 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
               ...request.headers,
             },
           });
-          const asText = await response.text();
-          await fs.promises.writeFile(
-            responsePath,
-            JSON.stringify({
-              headers: Object.fromEntries(response.headers.entries()),
-              statusCode: response.status,
-              body: asText,
-              url: response.url,
-              statusText: response.statusText,
-            })
-          );
+          const expectString = request.headers["elm-pages-internal"];
 
-          resolve(responsePath);
+          if (response.ok || expectString === "ExpectResponse") {
+            let body;
+            if (expectString === "ExpectJson") {
+              body = await response.json();
+            } else {
+              body = await response.text();
+            }
+            await fs.promises.writeFile(
+              responsePath,
+              JSON.stringify({
+                headers: Object.fromEntries(response.headers.entries()),
+                statusCode: response.status,
+                body: body,
+                url: response.url,
+                statusText: response.statusText,
+              })
+            );
+
+            resolve(responsePath);
+          } else {
+            reject({
+              title: "DataSource.Http Error",
+              message: `${kleur
+                .yellow()
+                .underline(request.url)} Bad HTTP response ${response.status} ${
+                response.statusText
+              }
+`,
+            });
+          }
         } catch (error) {
           reject({
-            title: "DataSource.Port Error",
-            message: error.toString(),
+            title: "DataSource.Http Error",
+            message: `${kleur
+              .yellow()
+              .underline(request.url)} ${error.toString()}
+`,
           });
         }
       }
