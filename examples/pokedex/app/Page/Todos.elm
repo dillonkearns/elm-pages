@@ -2,6 +2,7 @@ module Page.Todos exposing (Data, Model, Msg, page)
 
 import Api.InputObject
 import Api.Mutation
+import Api.Object
 import Api.Object.Todo
 import Api.Object.TodoPage
 import Api.Query
@@ -16,7 +17,6 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Http
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages
 import Pages.PageUrl exposing (PageUrl)
@@ -27,7 +27,6 @@ import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import Time
-import Url
 import View exposing (View)
 
 
@@ -38,8 +37,7 @@ type alias Model =
 type Msg
     = FormMsg Form.Msg
     | NoOp
-    | MakeHttpRequest (List ( String, String ))
-    | ReloadPage
+    | MakeHttpRequest (Cmd Msg)
 
 
 type alias RouteParams =
@@ -85,49 +83,8 @@ update pageUrl maybeNavigationKey sharedModel static msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        ReloadPage ->
-            ( model
-            , Pages.reloadData
-            )
-
-        MakeHttpRequest items ->
-            ( model
-            , Http.request
-                { method = "POST"
-                , headers =
-                    [--Http.header "accept" "TODO which format?"
-                    ]
-                , body =
-                    items
-                        |> List.map
-                            (\( name, value ) ->
-                                Url.percentEncode name ++ "=" ++ Url.percentEncode value
-                            )
-                        |> String.join "&"
-                        |> Http.stringBody "application/x-www-form-urlencoded"
-                , expect =
-                    -- TODO how should this be decoded? Only check for errors? Or custom Ok response decoding?
-                    -- Should the error response give back a Form.Model?
-                    Http.expectWhatever (\_ -> ReloadPage)
-
-                --Http.expectJson identity
-                --    (Decode.dict
-                --        (Decode.map2
-                --            (\raw errors ->
-                --                { raw = raw
-                --                , errors = errors
-                --                , status = NotVisited
-                --                }
-                --            )
-                --            (Decode.field "raw" (Decode.nullable Decode.string))
-                --            (Decode.field "errors" (Decode.list Decode.string))
-                --        )
-                --    )
-                , timeout = Nothing
-                , tracker = Nothing
-                , url = "/todos"
-                }
-            )
+        MakeHttpRequest cmd ->
+            ( model, cmd )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -177,6 +134,7 @@ deleteTodo id =
         |> SelectionSet.map (Maybe.withDefault ())
 
 
+todoSelection : SelectionSet.SelectionSet Todo Api.Object.Todo
 todoSelection =
     SelectionSet.map2 Todo
         Api.Object.Todo.description
@@ -273,7 +231,9 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toHtml2
-                                    { makeHttpRequest = MakeHttpRequest }
+                                    { makeHttpRequest = MakeHttpRequest
+                                    , reloadData = Pages.reloadData
+                                    }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
@@ -281,7 +241,9 @@ view maybeUrl sharedModel model static =
             )
         , newItemForm
             |> Form.toHtml2
-                { makeHttpRequest = MakeHttpRequest }
+                { makeHttpRequest = MakeHttpRequest
+                , reloadData = Pages.reloadData
+                }
                 Html.form
                 (Form.init newItemForm)
         ]

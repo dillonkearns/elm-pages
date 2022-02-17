@@ -511,10 +511,10 @@ ${templates
 
 port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
 
-fetchPageData : Url -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data )
-fetchPageData url =
+fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data )
+fetchPageData url details =
     Http.task
-        { method = "GET"
+        { method = details |> Maybe.map (\\_ -> "POST") |> Maybe.withDefault "GET"
         , headers = []
         , url =
             url.path
@@ -524,14 +524,10 @@ fetchPageData url =
                 |> (\\l -> l ++ [ "content.dat" ])
                 |> String.join "/"
                 |> String.append "/"
-        , body = Http.emptyBody
+        , body = details |> Maybe.map (\\justDetails -> Http.stringBody justDetails.contentType justDetails.body) |> Maybe.withDefault Http.emptyBody
         , resolver =
             Http.bytesResolver
                 (\\response ->
-                    let
-                        routeThing =
-                            Route.urlToRoute url
-                    in
                     case response of
                         Http.BadUrl_ url_ ->
                             Err (Http.BadUrl url_)
@@ -558,7 +554,7 @@ fetchPageData url =
                 case response of
                     Pages.Internal.ResponseSketch.Redirect location ->
                         -- TODO what if it redirects to external URL? Need to handle that somehow, or is it an error?
-                        fetchPageData { url | path = location }
+                        fetchPageData { url | path = location } Nothing
 
                     _ ->
                         Task.succeed ( url, response )

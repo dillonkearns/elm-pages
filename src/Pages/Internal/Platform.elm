@@ -271,7 +271,7 @@ type Msg userMsg pageData sharedData
     | UpdateCacheAndUrlNew Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
-    | ReloadCurrentPageData
+    | ReloadCurrentPageData RequestInfo
 
 
 {-| -}
@@ -314,7 +314,7 @@ update config appMsg model =
 
                     else
                         ( model
-                        , config.fetchPageData url
+                        , config.fetchPageData url Nothing
                             |> Task.attempt (UpdateCacheAndUrlNew True url)
                         )
 
@@ -383,13 +383,14 @@ update config appMsg model =
 
             else
                 ( model
-                , config.fetchPageData url
+                , config.fetchPageData url Nothing
                     |> Task.attempt (UpdateCacheAndUrlNew False url)
                 )
 
-        ReloadCurrentPageData ->
+        ReloadCurrentPageData requestInfo ->
             ( model
-            , Cmd.none
+            , config.fetchPageData model.url (Just requestInfo)
+                |> Task.attempt (UpdateCacheAndUrlNew False model.url)
               -- @@@ TODO re-implement with Bytes decoding
               --model.contentCache
               --    |> ContentCache.eagerLoad urls
@@ -568,9 +569,13 @@ application config =
                                 |> Sub.map UserMsg
                             , config.fromJsPort
                                 |> Sub.map
-                                    (\_ ->
-                                        -- TODO should be no message here
-                                        ReloadCurrentPageData
+                                    (\value ->
+                                        case value |> Decode.decodeValue fromJsPortDecoder of
+                                            Ok requestInfo ->
+                                                ReloadCurrentPageData requestInfo
+
+                                            Err _ ->
+                                                PageScrollComplete
                                     )
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
@@ -582,6 +587,30 @@ application config =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
+
+
+type alias RequestInfo =
+    { contentType : String
+    , body : String
+    }
+
+
+fromJsPortDecoder : Decode.Decoder RequestInfo
+fromJsPortDecoder =
+    Decode.field "tag" Decode.string
+        |> Decode.andThen
+            (\tag ->
+                case tag of
+                    "Reload" ->
+                        Decode.field "data"
+                            (Decode.map2 RequestInfo
+                                (Decode.field "content-type" Decode.string)
+                                (Decode.field "body" Decode.string)
+                            )
+
+                    _ ->
+                        Decode.fail <| "Unexpected tag " ++ tag
+            )
 
 
 urlPathToPath : Url -> Path
