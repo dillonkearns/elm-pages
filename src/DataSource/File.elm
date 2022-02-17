@@ -44,6 +44,7 @@ plain old JSON in Elm.
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import DataSource.Internal.Request
 import Json.Decode as Decode exposing (Decoder)
 
 
@@ -284,7 +285,7 @@ body =
 
 read : String -> Decoder a -> DataSource a
 read filePath decoder =
-    DataSource.Http.internalRequest
+    DataSource.Internal.Request.request
         { name = "read-file"
         , body = DataSource.Http.stringBody "" filePath
         , expect = decoder |> DataSource.Http.expectJson

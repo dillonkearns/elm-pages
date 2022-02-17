@@ -213,6 +213,7 @@ That will give us
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Glob exposing (Glob(..))
+import DataSource.Internal.Request
 import Json.Decode as Decode
 import List.Extra
 import Regex
@@ -943,7 +944,7 @@ toNonEmptyWithDefault default list =
 -}
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
-    DataSource.Http.internalRequest
+    DataSource.Internal.Request.request
         { name = "glob"
         , body =
             DataSource.Internal.Glob.toPattern glob

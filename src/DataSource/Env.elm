@@ -8,6 +8,7 @@ module DataSource.Env exposing (get, expect)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import DataSource.Internal.Request
 import Json.Decode as Decode
 import Json.Encode as Encode
 
@@ -15,7 +16,7 @@ import Json.Encode as Encode
 {-| -}
 get : String -> DataSource (Maybe String)
 get envVariableName =
-    DataSource.Http.internalRequest
+    DataSource.Internal.Request.request
         { name = "env"
         , body = DataSource.Http.jsonBody (Encode.string envVariableName)
         , expect =

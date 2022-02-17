@@ -1,10 +1,10 @@
 module DataSource.Http exposing
     ( RequestDetails
     , get, request
-    , Expect, expectString, expectJson
-    , expectResponse
+    , Expect, expectString, expectJson, expectBytes, expectWhatever
+    , Response(..), Metadata, Error(..)
+    , expectResponse, expectStringResponse, expectBytesResponse
     , Body, emptyBody, stringBody, jsonBody
-    , Error(..), Metadata, Response(..), expectBytes, expectBytesResponse, expectStringResponse, expectWhatever, internalRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -40,12 +40,14 @@ in [this article introducing DataSource.Http requests and some concepts around i
 
 ## Decoding Request Body
 
-@docs Expect, expectString, expectJson
+@docs Expect, expectString, expectJson, expectBytes, expectWhatever
 
 
 ## Expecting Responses
 
-@docs expectResponse
+@docs Response, Metadata, Error
+
+@docs expectResponse, expectStringResponse, expectBytesResponse
 
 
 ## Building a DataSource.Http Request Body
@@ -227,6 +229,7 @@ expectWhatever =
     ExpectWhatever
 
 
+{-| -}
 expectStringResponse : (Result error body -> msg) -> (Response String -> Result error body) -> Expect msg
 expectStringResponse toMsg toResult_ =
     ExpectResponse (toResult_ >> toMsg)
@@ -236,26 +239,6 @@ expectStringResponse toMsg toResult_ =
 expectBytesResponse : (Result error body -> msg) -> (Response Bytes -> Result error body) -> Expect msg
 expectBytesResponse toMsg toResult_ =
     ExpectBytesResponse (toResult_ >> toMsg)
-
-
-{-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
-This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
-with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
--}
-internalRequest :
-    { name : String
-    , body : Body
-    , expect : Expect a
-    }
-    -> DataSource a
-internalRequest { name, body, expect } =
-    request
-        { url = "elm-pages-internal://" ++ name
-        , method = "GET"
-        , headers = []
-        , body = body
-        }
-        expect
 
 
 expectToString : Expect a -> String
@@ -394,6 +377,7 @@ request request__ expect =
         )
 
 
+{-| -}
 type alias Metadata =
     { url : String
     , statusCode : Int
@@ -402,6 +386,7 @@ type alias Metadata =
     }
 
 
+{-| -}
 type Response body
     = BadUrl_ String
     | Timeout_
@@ -410,6 +395,7 @@ type Response body
     | GoodStatus_ Metadata body
 
 
+{-| -}
 type Error
     = BadUrl String
     | Timeout

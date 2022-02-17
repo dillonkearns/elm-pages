@@ -8,6 +8,7 @@ module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Sessi
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import DataSource.Internal.Request
 import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode
@@ -304,7 +305,7 @@ encrypt getSecrets input =
     getSecrets
         |> DataSource.andThen
             (\secrets ->
-                DataSource.Http.internalRequest
+                DataSource.Internal.Request.request
                     { name = "encrypt"
                     , body =
                         DataSource.Http.jsonBody
@@ -332,7 +333,7 @@ decrypt getSecrets decoder input =
     getSecrets
         |> DataSource.andThen
             (\secrets ->
-                DataSource.Http.internalRequest
+                DataSource.Internal.Request.request
                     { name = "decrypt"
                     , body =
                         DataSource.Http.jsonBody
