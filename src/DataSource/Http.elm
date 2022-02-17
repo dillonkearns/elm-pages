@@ -337,15 +337,6 @@ type alias Metadata =
     }
 
 
-type alias RawResponse body =
-    { body : body
-    , statusCode : Int
-    , statusText : String
-    , headers : Dict String String
-    , url : String
-    }
-
-
 type Response body
     = BadUrl_ String
     | Timeout_
@@ -360,16 +351,6 @@ type Error
     | NetworkError
     | BadStatus Metadata String
     | BadBody String
-
-
-responseDecoder : Json.Decode.Decoder (RawResponse Json.Decode.Value)
-responseDecoder =
-    Json.Decode.map5 RawResponse
-        (Json.Decode.field "body" Json.Decode.value)
-        (Json.Decode.field "statusCode" Json.Decode.int)
-        (Json.Decode.field "statusText" Json.Decode.string)
-        (Json.Decode.field "headers" (Json.Decode.dict Json.Decode.string))
-        (Json.Decode.field "url" Json.Decode.string)
 
 
 toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest b

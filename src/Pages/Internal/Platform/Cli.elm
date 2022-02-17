@@ -13,7 +13,7 @@ import Bytes.Encode
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
-import Dict exposing (Dict)
+import Dict
 import Head
 import Html exposing (Html)
 import HtmlPrinter
