@@ -3,7 +3,7 @@ module DataSource.Http exposing
     , get, request
     , Expect, expectString, expectJson, expectBytes, expectWhatever
     , Response(..), Metadata, Error(..)
-    , expectResponse, expectStringResponse, expectBytesResponse
+    , expectStringResponse, expectBytesResponse
     , Body, emptyBody, stringBody, jsonBody
     )
 
@@ -47,7 +47,7 @@ in [this article introducing DataSource.Http requests and some concepts around i
 
 @docs Response, Metadata, Error
 
-@docs expectResponse, expectStringResponse, expectBytesResponse
+@docs expectStringResponse, expectBytesResponse
 
 
 ## Building a DataSource.Http Request Body
@@ -160,7 +160,7 @@ as XML, for example, or give an `elm-pages` build error if the response can't be
 -}
 type Expect value
     = ExpectJson (Json.Decode.Decoder value)
-    | ExpectString (String -> Result String value)
+    | ExpectString (String -> value)
     | ExpectResponse (Response String -> value)
     | ExpectBytesResponse (Response Bytes -> value)
     | ExpectBytes (Bytes.Decode.Decoder value)
@@ -192,7 +192,7 @@ fail your `elm-pages` build and print out the String from the `Err`.
             )
 
 -}
-expectString : (String -> Result String value) -> Expect value
+expectString : (String -> value) -> Expect value
 expectString =
     ExpectString
 
@@ -218,27 +218,21 @@ expectBytes =
 
 
 {-| -}
-expectResponse : (Response String -> value) -> Expect value
-expectResponse =
-    ExpectResponse
-
-
-{-| -}
 expectWhatever : value -> Expect value
 expectWhatever =
     ExpectWhatever
 
 
 {-| -}
-expectStringResponse : (Result error body -> msg) -> (Response String -> Result error body) -> Expect msg
-expectStringResponse toMsg toResult_ =
-    ExpectResponse (toResult_ >> toMsg)
+expectStringResponse : (Response String -> value) -> Expect value
+expectStringResponse =
+    ExpectResponse
 
 
 {-| -}
-expectBytesResponse : (Result error body -> msg) -> (Response Bytes -> Result error body) -> Expect msg
-expectBytesResponse toMsg toResult_ =
-    ExpectBytesResponse (toResult_ >> toMsg)
+expectBytesResponse : (Response Bytes -> value) -> Expect value
+expectBytesResponse =
+    ExpectBytesResponse
 
 
 expectToString : Expect a -> String
@@ -310,7 +304,7 @@ request request__ expect =
                             ( ExpectString mapStringFn, RequestsAndPending.StringBody string, _ ) ->
                                 string
                                     |> mapStringFn
-                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
+                                    |> Ok
 
                             ( ExpectResponse mapResponse, RequestsAndPending.StringBody asStringBody, Just rawResponse ) ->
                                 let
