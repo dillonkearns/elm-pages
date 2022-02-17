@@ -944,19 +944,17 @@ toNonEmptyWithDefault default list =
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
     DataSource.Http.internalRequest
-        { url = "elm-pages-internal://glob"
-        , method = "GET"
-        , headers = []
+        { name = "glob"
         , body =
             DataSource.Internal.Glob.toPattern glob
                 |> DataSource.Http.stringBody "glob"
+        , expect =
+            Decode.string
+                |> Decode.list
+                |> Decode.map
+                    (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
+                |> DataSource.Http.expectJson
         }
-        (Decode.string
-            |> Decode.list
-            |> Decode.map
-                (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
-            |> DataSource.Http.expectJson
-        )
 
 
 {-| Sometimes you want to make sure there is a unique file matching a particular pattern.

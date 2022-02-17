@@ -305,9 +305,7 @@ encrypt getSecrets input =
         |> DataSource.andThen
             (\secrets ->
                 DataSource.Http.internalRequest
-                    { url = "elm-pages-internal://encrypt"
-                    , method = "GET"
-                    , headers = []
+                    { name = "encrypt"
                     , body =
                         DataSource.Http.jsonBody
                             (Json.Encode.object
@@ -322,10 +320,10 @@ encrypt getSecrets input =
                                   )
                                 ]
                             )
+                    , expect =
+                        DataSource.Http.expectJson
+                            Json.Decode.string
                     }
-                    (DataSource.Http.expectJson
-                        Json.Decode.string
-                    )
             )
 
 
@@ -335,9 +333,7 @@ decrypt getSecrets decoder input =
         |> DataSource.andThen
             (\secrets ->
                 DataSource.Http.internalRequest
-                    { url = "elm-pages-internal://decrypt"
-                    , method = "GET"
-                    , headers = []
+                    { name = "decrypt"
                     , body =
                         DataSource.Http.jsonBody
                             (Json.Encode.object
@@ -345,10 +341,10 @@ decrypt getSecrets decoder input =
                                 , ( "secrets", Json.Encode.list Json.Encode.string secrets )
                                 ]
                             )
+                    , expect =
+                        decoder
+                            |> Json.Decode.nullable
+                            |> Json.Decode.map (Result.fromMaybe ())
+                            |> DataSource.Http.expectJson
                     }
-                    (decoder
-                        |> Json.Decode.nullable
-                        |> Json.Decode.map (Result.fromMaybe ())
-                        |> DataSource.Http.expectJson
-                    )
             )

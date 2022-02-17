@@ -285,9 +285,7 @@ body =
 read : String -> Decoder a -> DataSource a
 read filePath decoder =
     DataSource.Http.internalRequest
-        { url = "elm-pages-internal://read-file"
-        , method = "GET"
-        , headers = []
+        { name = "read-file"
         , body = DataSource.Http.stringBody "" filePath
+        , expect = decoder |> DataSource.Http.expectJson
         }
-        (decoder |> DataSource.Http.expectJson)

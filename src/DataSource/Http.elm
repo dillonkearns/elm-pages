@@ -220,11 +220,19 @@ This function takes in all the details to build a `DataSource.Http` request, but
 with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
 -}
 internalRequest :
-    RequestDetails
-    -> Expect a
+    { name : String
+    , body : Body
+    , expect : Expect a
+    }
     -> DataSource a
-internalRequest request_ expect =
-    request request_ expect
+internalRequest { name, body, expect } =
+    request
+        { url = "elm-pages-internal://" ++ name
+        , method = "GET"
+        , headers = []
+        , body = body
+        }
+        expect
 
 
 expectToString : Expect a -> String

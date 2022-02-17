@@ -16,14 +16,12 @@ import Json.Encode as Encode
 get : String -> DataSource (Maybe String)
 get envVariableName =
     DataSource.Http.internalRequest
-        { url = "elm-pages-internal://env"
-        , method = "GET"
-        , headers = []
+        { name = "env"
         , body = DataSource.Http.jsonBody (Encode.string envVariableName)
+        , expect =
+            DataSource.Http.expectJson
+                (Decode.nullable Decode.string)
         }
-        (DataSource.Http.expectJson
-            (Decode.nullable Decode.string)
-        )
 
 
 {-| -}
