@@ -29,7 +29,7 @@ routes getStaticRoutes htmlToString =
     , greet
     , fileLength
     , jsonError
-    , manifest |> Manifest.generator Site.canonicalUrl
+    , DataSource.succeed manifest |> Manifest.generator Site.canonicalUrl
     ]
 
 
