@@ -240,15 +240,22 @@ internalRequest request_ expect =
                                         Err (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_) [ request_ ])
                            )
                         |> Result.andThen
-                            (\rawResponse ->
-                                rawResponse
-                                    |> Json.Decode.decodeString decoder
-                                    |> Result.mapError
-                                        (\error ->
-                                            error
-                                                |> Json.Decode.errorToString
-                                                |> Pages.StaticHttpRequest.DecoderError
-                                        )
+                            (\(RequestsAndPending.Response maybeResponse body) ->
+                                case body of
+                                    RequestsAndPending.JsonBody json ->
+                                        json
+                                            |> Json.Decode.decodeValue decoder
+                                            |> Result.mapError
+                                                (\error ->
+                                                    error
+                                                        |> Json.Decode.errorToString
+                                                        |> Pages.StaticHttpRequest.DecoderError
+                                                )
+
+                                    _ ->
+                                        ("Unexpected Response type. Expected JSON but was " ++ RequestsAndPending.responseKindString body)
+                                            |> Pages.StaticHttpRequest.DecoderError
+                                            |> Err
                             )
                         |> toResult
                 )
@@ -262,16 +269,25 @@ internalRequest request_ expect =
                         |> (\maybeResponse ->
                                 case maybeResponse of
                                     Just rawResponse ->
-                                        rawResponse
-                                            |> mapStringFn
-                                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                            |> toResult
+                                        Ok rawResponse
 
                                     Nothing ->
-                                        Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_)
-                                            [ request_ ]
-                                            |> RequestError
+                                        Err (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_) [ request_ ])
                            )
+                        |> Result.andThen
+                            (\(RequestsAndPending.Response maybeResponse body) ->
+                                case body of
+                                    RequestsAndPending.StringBody string ->
+                                        string
+                                            |> mapStringFn
+                                            |> Result.mapError Pages.StaticHttpRequest.DecoderError
+
+                                    _ ->
+                                        ("Unexpected Response type. Expected String but was " ++ RequestsAndPending.responseKindString body)
+                                            |> Pages.StaticHttpRequest.DecoderError
+                                            |> Err
+                            )
+                        |> toResult
                 )
 
         ExpectResponse _ ->
@@ -318,21 +334,16 @@ request request__ expect =
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->
-                                case Json.Decode.decodeString responseDecoder rawResponse of
-                                    Ok decodedResponse ->
-                                        Ok decodedResponse
-
-                                    Err error ->
-                                        Err (Pages.StaticHttpRequest.DecoderError ("Internal error decoding JSON!\n" ++ Json.Decode.errorToString error ++ "\n\n" ++ request_.url))
+                                Ok rawResponse
 
                             Nothing ->
                                 Err (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_) [ request_ ])
                    )
                 |> Result.andThen
-                    (\rawResponse ->
-                        case expect of
-                            ExpectJson decoder ->
-                                rawResponse.body
+                    (\(RequestsAndPending.Response maybeResponse body) ->
+                        case ( expect, body, maybeResponse ) of
+                            ( ExpectJson decoder, RequestsAndPending.JsonBody json, _ ) ->
+                                json
                                     |> Json.Decode.decodeValue decoder
                                     |> Result.mapError
                                         (\error ->
@@ -341,14 +352,12 @@ request request__ expect =
                                                 |> Pages.StaticHttpRequest.DecoderError
                                         )
 
-                            ExpectString mapStringFn ->
-                                rawResponse.body
-                                    |> Json.Decode.decodeValue Json.Decode.string
-                                    |> Result.mapError Json.Decode.errorToString
-                                    |> Result.andThen mapStringFn
+                            ( ExpectString mapStringFn, RequestsAndPending.StringBody string, _ ) ->
+                                string
+                                    |> mapStringFn
                                     |> Result.mapError Pages.StaticHttpRequest.DecoderError
 
-                            ExpectResponse mapResponse ->
+                            ( ExpectResponse mapResponse, RequestsAndPending.StringBody asStringBody, Just rawResponse ) ->
                                 let
                                     asMetadata : Metadata
                                     asMetadata =
@@ -357,12 +366,6 @@ request request__ expect =
                                         , statusText = rawResponse.statusText
                                         , headers = rawResponse.headers
                                         }
-
-                                    asStringBody : String
-                                    asStringBody =
-                                        rawResponse.body
-                                            |> Json.Decode.decodeValue Json.Decode.string
-                                            |> Result.withDefault ""
 
                                     rawResponseToResponse : Response String
                                     rawResponseToResponse =
@@ -375,6 +378,12 @@ request request__ expect =
                                 rawResponseToResponse
                                     |> mapResponse
                                     |> Ok
+
+                            _ ->
+                                Err
+                                    (Pages.StaticHttpRequest.DecoderError
+                                        "Internal error - unexpected body, expect, and raw response combination."
+                                    )
                     )
                 |> toResult
         )

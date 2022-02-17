@@ -254,20 +254,22 @@ async function runJob(app, filePath) {
     ).toString();
     const parsedFile = matter(fileContents);
 
-    pendingDataSourceResponses.push({
-      request: {
-        url: `file://${filePath}`,
-        method: "GET",
-        headers: [],
-        body: { tag: "EmptyBody", args: [] },
-      },
-      response: JSON.stringify({
-        parsedFrontmatter: parsedFile.data,
-        withoutFrontmatter: parsedFile.content,
-        rawFile: fileContents,
-        jsonFile: jsonOrNull(fileContents),
-      }),
-    });
+    pendingDataSourceResponses.push(
+      jsonResponse(
+        {
+          url: `file://${filePath}`,
+          method: "GET",
+          headers: [],
+          body: { tag: "EmptyBody", args: [] },
+        },
+        {
+          parsedFrontmatter: parsedFile.data,
+          withoutFrontmatter: parsedFile.content,
+          rawFile: fileContents,
+          jsonFile: jsonOrNull(fileContents),
+        }
+      )
+    );
   } catch (e) {
     sendError(app, {
       title: "Error reading file",
@@ -291,10 +293,13 @@ async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
     );
 
     pendingDataSourceResponses.push({
-      request: requestToPerform,
-      response: (
-        await fs.promises.readFile(responseFilePath, "utf8")
-      ).toString(),
+      requestAndResponse: {
+        request: requestToPerform,
+        response: JSON.parse(
+          (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+        ),
+      },
+      maybeBytes: null,
     });
   } catch (error) {
     sendError(app, error);
@@ -302,6 +307,22 @@ async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
     pendingDataSourceCount -= 1;
     flushIfDone(app);
   }
+}
+
+function stringResponse(request, string) {
+  return {
+    requestAndResponse: {
+      request,
+      response: { bodyKind: "string", body: string },
+    },
+    maybeBytes: null,
+  };
+}
+function jsonResponse(request, json) {
+  return {
+    requestAndResponse: { request, response: { bodyKind: "json", body: json } },
+    maybeBytes: null,
+  };
 }
 
 async function runInternalJob(
@@ -352,15 +373,12 @@ async function readFileJobNew(req, patternsToWatch) {
     ).toString();
     const parsedFile = matter(fileContents);
 
-    return {
-      request: req,
-      response: JSON.stringify({
-        parsedFrontmatter: parsedFile.data,
-        withoutFrontmatter: parsedFile.content,
-        rawFile: fileContents,
-        jsonFile: jsonOrNull(fileContents),
-      }),
-    };
+    return jsonResponse(req, {
+      parsedFrontmatter: parsedFile.data,
+      withoutFrontmatter: parsedFile.content,
+      rawFile: fileContents,
+      jsonFile: jsonOrNull(fileContents),
+    });
   } catch (error) {
     throw {
       title: "DataSource.File Error",
@@ -376,10 +394,7 @@ async function runGlobNew(req, patternsToWatch) {
     const matchedPaths = await globby(req.body.args[1]);
     patternsToWatch.add(req.body.args[1]);
 
-    return {
-      request: req,
-      response: JSON.stringify(matchedPaths),
-    };
+    return jsonResponse(req, matchedPaths);
   } catch (e) {
     console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
     throw e;
@@ -389,11 +404,7 @@ async function runGlobNew(req, patternsToWatch) {
 async function runEnvJob(req, patternsToWatch) {
   try {
     const expectedEnv = req.body.args[0];
-
-    return {
-      request: req,
-      response: JSON.stringify(process.env[expectedEnv] || null),
-    };
+    return jsonResponse(req, process.env[expectedEnv] || null);
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
@@ -416,10 +427,7 @@ function flushQueue(app) {
   const temp = pendingDataSourceResponses;
   pendingDataSourceResponses = [];
   // console.log("@@@ FLUSHING", temp.length);
-  app.ports.fromJsPort.send({
-    tag: "GotBatch",
-    data: temp,
-  });
+  app.ports.gotBatchSub.send(temp);
 }
 
 /**
@@ -438,7 +446,7 @@ async function globTask(globPattern) {
         headers: [],
         body: { tag: "EmptyBody", args: [] },
       },
-      response: JSON.stringify(matchedPaths),
+      response: jsonResponse(matchedPaths),
     };
   } catch (e) {
     console.log(`Error performing glob '${globPattern}'`);

@@ -14,7 +14,6 @@ import Codec
 import DataSource exposing (DataSource)
 import DataSource.Http exposing (RequestDetails)
 import Dict exposing (Dict)
-import Dict.Extra
 import Head
 import Html exposing (Html)
 import HtmlPrinter
@@ -52,7 +51,7 @@ type alias Flags =
 type alias Model route =
     { staticResponses : StaticResponses
     , errors : List BuildError
-    , allRawResponses : Dict String (Maybe String)
+    , allRawResponses : RequestsAndPending
     , unprocessedPages : List ( Path, route )
     , maybeRequestJson : RenderRequest route
     , isDevServer : Bool
@@ -64,7 +63,7 @@ type Msg
     = GotDataBatch
         (List
             { request : RequestDetails
-            , response : String
+            , response : RequestsAndPending.Response
             }
         )
     | GotBuildError BuildError
@@ -112,57 +111,88 @@ cliApplication config =
                     |> Tuple.mapSecond (perform site model.maybeRequestJson config)
         , subscriptions =
             \_ ->
-                config.fromJsPort
-                    |> Sub.map
-                        (\jsonValue ->
-                            let
-                                decoder : Decode.Decoder Msg
-                                decoder =
-                                    Decode.field "tag" Decode.string
-                                        |> Decode.andThen
-                                            (\tag ->
-                                                -- tag: "GotGlob"
-                                                -- tag: "GotFile"
-                                                case tag of
-                                                    "BuildError" ->
-                                                        Decode.field "data"
-                                                            (Decode.map2
-                                                                (\message title ->
-                                                                    { title = title
-                                                                    , message = message
-                                                                    , fatal = True
-                                                                    , path = "" -- TODO wire in current path here
-                                                                    }
-                                                                )
-                                                                (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
-                                                                (Decode.field "title" Decode.string)
-                                                            )
-                                                            |> Decode.map GotBuildError
-
-                                                    "GotBatch" ->
-                                                        Decode.field "data"
-                                                            (Decode.list
+                Sub.batch
+                    [ config.fromJsPort
+                        |> Sub.map
+                            (\jsonValue ->
+                                let
+                                    decoder : Decode.Decoder Msg
+                                    decoder =
+                                        Decode.field "tag" Decode.string
+                                            |> Decode.andThen
+                                                (\tag ->
+                                                    case tag of
+                                                        "BuildError" ->
+                                                            Decode.field "data"
                                                                 (Decode.map2
-                                                                    (\requests response ->
-                                                                        { request = requests
-                                                                        , response = response
+                                                                    (\message title ->
+                                                                        { title = title
+                                                                        , message = message
+                                                                        , fatal = True
+                                                                        , path = "" -- TODO wire in current path here
                                                                         }
                                                                     )
-                                                                    (Decode.field "request" requestDecoder)
-                                                                    (Decode.field "response" Decode.string)
+                                                                    (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
+                                                                    (Decode.field "title" Decode.string)
                                                                 )
-                                                            )
-                                                            |> Decode.map GotDataBatch
+                                                                |> Decode.map GotBuildError
 
-                                                    _ ->
-                                                        Decode.fail "Unhandled msg"
-                                            )
-                            in
-                            Decode.decodeValue decoder jsonValue
-                                |> Result.mapError Decode.errorToString
-                                |> Result.withDefault Continue
-                        )
+                                                        _ ->
+                                                            Decode.fail "Unhandled msg"
+                                                )
+                                in
+                                Decode.decodeValue decoder jsonValue
+                                    |> Result.mapError Decode.errorToString
+                                    |> Result.withDefault Continue
+                            )
+                    , config.gotBatchSub
+                        |> Sub.map
+                            (\newBatch ->
+                                newBatch
+                                    |> List.foldl
+                                        (\item batchSoFar ->
+                                            case batchSoFar of
+                                                Err error ->
+                                                    Err error
+
+                                                Ok okBatchSoFar ->
+                                                    case
+                                                        Result.map2
+                                                            (\request response ->
+                                                                { request = request
+                                                                , response = response
+                                                                }
+                                                            )
+                                                            (item.requestAndResponse
+                                                                |> Decode.decodeValue (Decode.field "request" requestDecoder)
+                                                            )
+                                                            (item.requestAndResponse
+                                                                |> Decode.decodeValue (Decode.field "response" (RequestsAndPending.decoder item.maybeBytes))
+                                                            )
+                                                    of
+                                                        Ok okValue ->
+                                                            Ok (okValue :: okBatchSoFar)
+
+                                                        Err error ->
+                                                            Err (Decode.errorToString error |> BuildError.internal)
+                                        )
+                                        (Ok [])
+                                    |> Result.map GotDataBatch
+                                    |> Result.mapError GotBuildError
+                                    |> mergeResult
+                            )
+                    ]
         }
+
+
+mergeResult : Result a a -> a
+mergeResult r =
+    case r of
+        Ok rr ->
+            rr
+
+        Err rr ->
+            rr
 
 
 {-| -}
@@ -216,7 +246,7 @@ perform site renderRequest config effect =
                 case
                     renderRequest
                         |> RenderRequest.maybeRequestPayload
-                        |> Maybe.map (Json.Encode.encode 0)
+                        |> Maybe.map (\json -> RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody json))
                         |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
                 of
                     Ok okResponse ->
@@ -308,7 +338,7 @@ perform site renderRequest config effect =
 
 flagsDecoder :
     Decode.Decoder
-        { staticHttpCache : Dict String (Maybe String)
+        { staticHttpCache : RequestsAndPending
         , isDevServer : Bool
         }
 flagsDecoder =
@@ -318,13 +348,15 @@ flagsDecoder =
             , isDevServer = isDevServer
             }
         )
-        (Decode.field "staticHttpCache"
-            (Decode.dict
-                (Decode.string
-                    |> Decode.map Just
-                )
-            )
-        )
+        --(Decode.field "staticHttpCache"
+        --    (Decode.dict
+        --        (Decode.string
+        --            |> Decode.map Just
+        --        )
+        --    )
+        --)
+        -- TODO remove hardcoding and decode staticHttpCache here
+        (Decode.succeed Dict.empty)
         (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
 
 
@@ -362,7 +394,7 @@ init site renderRequest config flags =
 initLegacy :
     SiteConfig
     -> RenderRequest route
-    -> { staticHttpCache : Dict String (Maybe String), isDevServer : Bool }
+    -> { staticHttpCache : RequestsAndPending, isDevServer : Bool }
     -> ProgramConfig userMsg userModel route pageData sharedData
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
@@ -562,7 +594,9 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                         case response of
                                                             Ok (Just okResponse) ->
                                                                 { body = okResponse
-                                                                , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                                , staticHttpCache = Dict.empty -- TODO do I need to serialize the full cache here, or can I handle that from the JS side?
+
+                                                                -- model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                                                 , statusCode = 200
                                                                 }
                                                                     |> ToJsPayload.SendApiResponse
@@ -795,7 +829,10 @@ sendSinglePageProgress site contentJson config model info =
                                     , errors = []
                                     , head = rendered.head ++ siteData
                                     , title = rendered.title
-                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                    , staticHttpCache = Dict.empty
+
+                                    -- TODO can I handle caching from the JS-side only?
+                                    --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                     , is404 = False
                                     , statusCode = responseInfo.statusCode
                                     , headers = responseInfo.headers
@@ -805,7 +842,10 @@ sendSinglePageProgress site contentJson config model info =
 
                                 PageServerResponse.ServerResponse serverResponse ->
                                     { body = serverResponse |> PageServerResponse.toJson
-                                    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                    , staticHttpCache = Dict.empty
+
+                                    -- TODO can I handle caching from the JS-side only?
+                                    --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                     , statusCode = 200
                                     }
                                         |> ToJsPayload.SendApiResponse
@@ -848,7 +888,10 @@ render404Page config model path notFoundReason =
     , errors = []
     , head = []
     , title = notFoundDocument.title
-    , staticHttpCache = model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+    , staticHttpCache = Dict.empty
+
+    -- TODO can I handle caching from the JS-side only?
+    --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
     , is404 = True
     , statusCode = 404
     , headers = []

@@ -144,12 +144,23 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
             } else {
               body = await response.text();
             }
+            let bodyKind;
+            if (expectString === "ExpectJson") {
+              bodyKind = "json";
+            } else if (expectString === "ExpectResponse") {
+              bodyKind = "string";
+            } else if (expectString === "ExpectString") {
+              bodyKind = "string";
+            } else {
+              throw `Unexpected expectString ${expectString}`;
+            }
             await fs.promises.writeFile(
               responsePath,
               JSON.stringify({
                 headers: Object.fromEntries(response.headers.entries()),
                 statusCode: response.status,
                 body: body,
+                bodyKind,
                 url: response.url,
                 statusText: response.statusText,
               })

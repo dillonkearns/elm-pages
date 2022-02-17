@@ -57,7 +57,7 @@ renderApiRequest request =
 batchUpdate :
     List
         { request : RequestDetails
-        , response : String
+        , response : RequestsAndPending.Response
         }
     ->
         { model
@@ -78,7 +78,7 @@ batchUpdate newEntries model =
 insertAll :
     List
         { request : RequestDetails
-        , response : String
+        , response : RequestsAndPending.Response
         }
     -> RequestsAndPending
     -> RequestsAndPending
@@ -94,7 +94,7 @@ insertAll newEntries dict =
 
 
 type NextStep route
-    = Continue (Dict String (Maybe String)) (List RequestDetails) (Maybe (List route))
+    = Continue RequestsAndPending (List RequestDetails) (Maybe (List route))
     | Finish (FinishKind route)
 
 
@@ -107,7 +107,7 @@ nextStep :
     { model
         | staticResponses : StaticResponses
         , errors : List BuildError
-        , allRawResponses : Dict String (Maybe String)
+        , allRawResponses : RequestsAndPending
     }
     -> Maybe (List route)
     -> ( StaticResponses, NextStep route )
@@ -147,7 +147,10 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                 StaticHttpRequest.HasPermanentError _ ->
                                     True
 
-                                _ ->
+                                StaticHttpRequest.Incomplete newUrlsToFetch ->
+                                    False
+
+                                StaticHttpRequest.Complete resolvedData ->
                                     False
 
                         hasPermanentHttpError : Bool
@@ -189,11 +192,11 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 -- TODO is this redundant with cacheRequestResolution?
                 StaticHttpRequest.resolveUrls request allRawResponses
 
-            newAllRawResponses : Dict String (Maybe String)
+            newAllRawResponses : RequestsAndPending
             newAllRawResponses =
                 Dict.union allRawResponses dictOfNewUrlsToPerform
 
-            dictOfNewUrlsToPerform : Dict String (Maybe String)
+            dictOfNewUrlsToPerform : RequestsAndPending
             dictOfNewUrlsToPerform =
                 urlsToPerform
                     |> List.map (\url -> ( HashRequest.hash url, Nothing ))
