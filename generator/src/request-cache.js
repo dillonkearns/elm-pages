@@ -100,7 +100,10 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
             if (expectString === "ExpectJson") {
               body = await response.json();
               bodyKind = "json";
-            } else if (expectString === "ExpectBytes") {
+            } else if (
+              expectString === "ExpectBytes" ||
+              expectString === "ExpectBytesResponse"
+            ) {
               bodyKind = "bytes";
               const arrayBuffer = await response.arrayBuffer();
               body = Buffer.from(arrayBuffer).toString("base64");

@@ -4,7 +4,7 @@ module DataSource.Http exposing
     , Expect, expectString, expectJson
     , expectResponse
     , Body, emptyBody, stringBody, jsonBody
-    , Error(..), Metadata, Response(..), expectBytes, expectStringResponse, expectWhatever, internalRequest
+    , Error(..), Metadata, Response(..), expectBytes, expectBytesResponse, expectStringResponse, expectWhatever, internalRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -58,6 +58,7 @@ and describe your use case!
 
 -}
 
+import Bytes exposing (Bytes)
 import Bytes.Decode
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
@@ -159,6 +160,7 @@ type Expect value
     = ExpectJson (Json.Decode.Decoder value)
     | ExpectString (String -> Result String value)
     | ExpectResponse (Response String -> value)
+    | ExpectBytesResponse (Response Bytes -> value)
     | ExpectBytes (Bytes.Decode.Decoder value)
     | ExpectWhatever value
 
@@ -230,6 +232,12 @@ expectStringResponse toMsg toResult_ =
     ExpectResponse (toResult_ >> toMsg)
 
 
+{-| -}
+expectBytesResponse : (Result error body -> msg) -> (Response Bytes -> Result error body) -> Expect msg
+expectBytesResponse toMsg toResult_ =
+    ExpectBytesResponse (toResult_ >> toMsg)
+
+
 {-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
 This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
 with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
@@ -267,6 +275,9 @@ expectToString expect =
 
         ExpectWhatever _ ->
             "ExpectWhatever"
+
+        ExpectBytesResponse _ ->
+            "ExpectBytesResponse"
 
 
 {-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
@@ -335,6 +346,28 @@ request request__ expect =
 
                                         else
                                             BadStatus_ asMetadata asStringBody
+                                in
+                                rawResponseToResponse
+                                    |> mapResponse
+                                    |> Ok
+
+                            ( ExpectBytesResponse mapResponse, RequestsAndPending.BytesBody rawBytesBody, Just rawResponse ) ->
+                                let
+                                    asMetadata : Metadata
+                                    asMetadata =
+                                        { url = rawResponse.url
+                                        , statusCode = rawResponse.statusCode
+                                        , statusText = rawResponse.statusText
+                                        , headers = rawResponse.headers
+                                        }
+
+                                    rawResponseToResponse : Response Bytes
+                                    rawResponseToResponse =
+                                        if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
+                                            GoodStatus_ asMetadata rawBytesBody
+
+                                        else
+                                            BadStatus_ asMetadata rawBytesBody
                                 in
                                 rawResponseToResponse
                                     |> mapResponse
