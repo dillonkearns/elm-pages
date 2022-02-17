@@ -4,7 +4,7 @@ module DataSource.Http exposing
     , Expect, expectString, expectJson
     , expectResponse
     , Body, emptyBody, stringBody, jsonBody
-    , Error(..), Metadata, Response(..), expectBytes, expectStringResponse, internalRequest
+    , Error(..), Metadata, Response(..), expectBytes, expectStringResponse, expectWhatever, internalRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -160,6 +160,7 @@ type Expect value
     | ExpectString (String -> Result String value)
     | ExpectResponse (Response String -> value)
     | ExpectBytes (Bytes.Decode.Decoder value)
+    | ExpectWhatever value
 
 
 {-| Request a raw String. You can validate the String if you need to check the formatting, or try to parse it
@@ -206,6 +207,7 @@ expectJson =
     ExpectJson
 
 
+{-| -}
 expectBytes : Bytes.Decode.Decoder value -> Expect value
 expectBytes =
     ExpectBytes
@@ -215,6 +217,12 @@ expectBytes =
 expectResponse : (Response String -> value) -> Expect value
 expectResponse =
     ExpectResponse
+
+
+{-| -}
+expectWhatever : value -> Expect value
+expectWhatever =
+    ExpectWhatever
 
 
 expectStringResponse : (Result error body -> msg) -> (Response String -> Result error body) -> Expect msg
@@ -256,6 +264,9 @@ expectToString expect =
 
         ExpectBytes _ ->
             "ExpectBytes"
+
+        ExpectWhatever _ ->
+            "ExpectWhatever"
 
 
 {-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
@@ -336,6 +347,9 @@ request request__ expect =
                                         (Pages.StaticHttpRequest.DecoderError
                                             "Bytes decoding failed."
                                         )
+
+                            ( ExpectWhatever whateverValue, RequestsAndPending.WhateverBody, _ ) ->
+                                Ok whateverValue
 
                             _ ->
                                 Err

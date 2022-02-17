@@ -96,26 +96,27 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
 
           if (response.ok || expectString === "ExpectResponse") {
             let body;
-            if (expectString === "ExpectJson") {
-              body = await response.json();
-            } else if (expectString === "ExpectBytes") {
-              const arrayBuffer = await response.arrayBuffer();
-              body = Buffer.from(arrayBuffer).toString("base64");
-            } else {
-              body = await response.text();
-            }
             let bodyKind;
             if (expectString === "ExpectJson") {
+              body = await response.json();
               bodyKind = "json";
-            } else if (expectString === "ExpectResponse") {
-              bodyKind = "string";
-            } else if (expectString === "ExpectString") {
-              bodyKind = "string";
             } else if (expectString === "ExpectBytes") {
               bodyKind = "bytes";
+              const arrayBuffer = await response.arrayBuffer();
+              body = Buffer.from(arrayBuffer).toString("base64");
+            } else if (expectString === "ExpectWhatever") {
+              bodyKind = "whatever";
+              body = null;
+            } else if (
+              expectString === "ExpectResponse" ||
+              expectString === "ExpectString"
+            ) {
+              bodyKind = "string";
+              body = await response.text();
             } else {
               throw `Unexpected expectString ${expectString}`;
             }
+
             await fs.promises.writeFile(
               responsePath,
               JSON.stringify({
