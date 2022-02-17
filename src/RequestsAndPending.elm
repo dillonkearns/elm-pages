@@ -1,5 +1,6 @@
 module RequestsAndPending exposing (RequestsAndPending, Response(..), ResponseBody(..), decoder, get, responseKindString)
 
+import Base64
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder)
@@ -31,9 +32,14 @@ decoder_ maybeBytesBody =
                 Decode.field "body"
                     (case bodyKind of
                         "bytes" ->
-                            maybeBytesBody
-                                |> Maybe.map (BytesBody >> Decode.succeed)
-                                |> Maybe.withDefault (Decode.fail "Internal error - found bytes body so I expected maybeBytes but was Nothing.")
+                            Decode.string
+                                |> Decode.andThen
+                                    (\base64String ->
+                                        base64String
+                                            |> Base64.toBytes
+                                            |> Maybe.map (BytesBody >> Decode.succeed)
+                                            |> Maybe.withDefault (Decode.fail "Couldn't parse base64 string into Bytes.")
+                                    )
 
                         "string" ->
                             Decode.string |> Decode.map StringBody

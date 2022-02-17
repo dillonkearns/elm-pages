@@ -4,7 +4,7 @@ module DataSource.Http exposing
     , Expect, expectString, expectJson
     , expectResponse
     , Body, emptyBody, stringBody, jsonBody
-    , Error(..), Metadata, Response(..), expectStringResponse, internalRequest
+    , Error(..), Metadata, Response(..), expectBytes, expectStringResponse, internalRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -58,6 +58,7 @@ and describe your use case!
 
 -}
 
+import Bytes.Decode
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Json.Decode
@@ -158,6 +159,7 @@ type Expect value
     = ExpectJson (Json.Decode.Decoder value)
     | ExpectString (String -> Result String value)
     | ExpectResponse (Response String -> value)
+    | ExpectBytes (Bytes.Decode.Decoder value)
 
 
 {-| Request a raw String. You can validate the String if you need to check the formatting, or try to parse it
@@ -204,6 +206,11 @@ expectJson =
     ExpectJson
 
 
+expectBytes : Bytes.Decode.Decoder value -> Expect value
+expectBytes =
+    ExpectBytes
+
+
 {-| -}
 expectResponse : (Response String -> value) -> Expect value
 expectResponse =
@@ -246,6 +253,9 @@ expectToString expect =
 
         ExpectResponse _ ->
             "ExpectResponse"
+
+        ExpectBytes _ ->
+            "ExpectBytes"
 
 
 {-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
@@ -318,6 +328,14 @@ request request__ expect =
                                 rawResponseToResponse
                                     |> mapResponse
                                     |> Ok
+
+                            ( ExpectBytes bytesDecoder, RequestsAndPending.BytesBody rawBytes, _ ) ->
+                                rawBytes
+                                    |> Bytes.Decode.decode bytesDecoder
+                                    |> Result.fromMaybe
+                                        (Pages.StaticHttpRequest.DecoderError
+                                            "Bytes decoding failed."
+                                        )
 
                             _ ->
                                 Err

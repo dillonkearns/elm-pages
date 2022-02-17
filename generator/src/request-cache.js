@@ -98,6 +98,9 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
             let body;
             if (expectString === "ExpectJson") {
               body = await response.json();
+            } else if (expectString === "ExpectBytes") {
+              const arrayBuffer = await response.arrayBuffer();
+              body = Buffer.from(arrayBuffer).toString("base64");
             } else {
               body = await response.text();
             }
@@ -108,6 +111,8 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
               bodyKind = "string";
             } else if (expectString === "ExpectString") {
               bodyKind = "string";
+            } else if (expectString === "ExpectBytes") {
+              bodyKind = "bytes";
             } else {
               throw `Unexpected expectString ${expectString}`;
             }
