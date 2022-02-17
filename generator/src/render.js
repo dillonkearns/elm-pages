@@ -7,6 +7,7 @@ const fsPromises = require("fs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
+const cookie = require("cookie-signature");
 kleur.enabled = true;
 
 process.on("unhandledRejection", (error) => {
@@ -348,13 +349,21 @@ async function runInternalJob(
       pendingDataSourceResponses.push(
         await runEnvJob(requestToPerform, patternsToWatch)
       );
+    } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
+      pendingDataSourceResponses.push(
+        await runEncryptJob(requestToPerform, patternsToWatch)
+      );
+    } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
+      pendingDataSourceResponses.push(
+        await runDecryptJob(requestToPerform, patternsToWatch)
+      );
     } else {
       throw `Unexpected internal DataSource request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
       )}`;
     }
   } catch (error) {
-    sendError(app, error);
+    throw error;
   } finally {
     pendingDataSourceCount -= 1;
     flushIfDone(app);
@@ -408,6 +417,40 @@ async function runEnvJob(req, patternsToWatch) {
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
+  }
+}
+async function runEncryptJob(req, patternsToWatch) {
+  try {
+    return jsonResponse(
+      req,
+      cookie.sign(
+        JSON.stringify(req.body.args[0].values, null, 0),
+        req.body.args[0].secret
+      )
+    );
+  } catch (e) {
+    throw {
+      title: "DataSource Encrypt Error",
+      message:
+        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+    };
+  }
+}
+async function runDecryptJob(req, patternsToWatch) {
+  try {
+    // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
+    const signed = tryDecodeCookie(
+      req.body.args[0].input,
+      req.body.args[0].secrets
+    );
+
+    return jsonResponse(req, JSON.parse(signed || "null"));
+  } catch (e) {
+    throw {
+      title: "DataSource Decrypt Error",
+      message:
+        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+    };
   }
 }
 
@@ -474,4 +517,16 @@ function sendError(app, error) {
     tag: "BuildError",
     data: error,
   });
+}
+function tryDecodeCookie(input, secrets) {
+  if (secrets.length > 0) {
+    const signed = cookie.unsign(input, secrets[0]);
+    if (signed) {
+      return signed;
+    } else {
+      return tryDecodeCookie(input, secrets.slice(1));
+    }
+  } else {
+    return null;
+  }
 }

@@ -304,12 +304,10 @@ encrypt getSecrets input =
     getSecrets
         |> DataSource.andThen
             (\secrets ->
-                DataSource.Http.request
-                    { url = "port://encrypt"
+                DataSource.Http.internalRequest
+                    { url = "elm-pages-internal://encrypt"
                     , method = "GET"
                     , headers = []
-
-                    -- TODO pass through secrets here
                     , body =
                         DataSource.Http.jsonBody
                             (Json.Encode.object
@@ -336,8 +334,8 @@ decrypt getSecrets decoder input =
     getSecrets
         |> DataSource.andThen
             (\secrets ->
-                DataSource.Http.request
-                    { url = "port://decrypt"
+                DataSource.Http.internalRequest
+                    { url = "elm-pages-internal://decrypt"
                     , method = "GET"
                     , headers = []
                     , body =

@@ -2,7 +2,6 @@ const path = require("path");
 const undici = require("undici");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
-const cookie = require("cookie-signature");
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -56,49 +55,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
         portDataSourceFound = true;
       } catch (e) {}
 
-      if (request.url === "port://encrypt") {
-        try {
-          await fs.promises.writeFile(
-            responsePath,
-            JSON.stringify(
-              cookie.sign(
-                JSON.stringify(rawRequest.body.args[0].values, null, 0),
-                rawRequest.body.args[0].secret
-              )
-            )
-          );
-          resolve(responsePath);
-        } catch (e) {
-          reject({
-            title: "DataSource.Port Error",
-            message:
-              e.toString() +
-              e.stack +
-              "\n\n" +
-              JSON.stringify(rawRequest, null, 2),
-          });
-        }
-      } else if (request.url === "port://decrypt") {
-        try {
-          // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
-          const signed = tryDecodeCookie(
-            rawRequest.body.args[0].input,
-            rawRequest.body.args[0].secrets
-          );
-
-          await fs.promises.writeFile(responsePath, signed || "null");
-          resolve(responsePath);
-        } catch (e) {
-          reject({
-            title: "DataSource.Port Error",
-            message:
-              e.toString() +
-              e.stack +
-              "\n\n" +
-              JSON.stringify(rawRequest, null, 2),
-          });
-        }
-      } else if (request.url.startsWith("port://")) {
+      if (request.url.startsWith("port://")) {
         try {
           const portName = request.url.replace(/^port:\/\//, "");
           // console.time(JSON.stringify(request.url));
@@ -190,19 +147,6 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
       }
     }
   });
-}
-
-function tryDecodeCookie(input, secrets) {
-  if (secrets.length > 0) {
-    const signed = cookie.unsign(input, secrets[0]);
-    if (signed) {
-      return signed;
-    } else {
-      return tryDecodeCookie(input, secrets.slice(1));
-    }
-  } else {
-    return null;
-  }
 }
 
 /**
