@@ -142,6 +142,9 @@ isAlreadyApplied expression =
                         (Expression.FunctionOrValue [ "DataSource" ] "fail") :: _ ->
                             True
 
+                        (Expression.FunctionOrValue [ "Request" ] "oneOf") :: (Expression.ListExpr []) :: _ ->
+                            True
+
                         _ ->
                             False
 

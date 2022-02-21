@@ -259,6 +259,32 @@ page =
         |> Page.buildNoState { view = view }
 """
                         ]
+        , test "no Request.oneOf fix after replacement is made" <|
+            \() ->
+                """module Page.Login exposing (Data, Model, Msg, page)
+
+type alias Model =
+    {}
+
+
+type alias Msg =
+    ()
+
+
+type alias RouteParams =
+    {}
+
+
+page : Page RouteParams Data
+page =
+    Page.serverRender
+        { head = head
+        , data = \\_ -> Request.oneOf []
+        }
+        |> Page.buildNoState { view = view }
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
         , test "no fix after replacement is made" <|
             \() ->
                 """module Page.Index exposing (Data, Model, Msg, page)
