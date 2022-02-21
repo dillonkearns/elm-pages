@@ -66,12 +66,11 @@ async function outputString(
       const args = fromElm;
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
-      const contentJsonString = JSON.stringify({
-        is404: args.is404,
-        staticData: args.contentJson,
-        path: args.route,
-      });
-      fs.writeFileSync(`dist/${normalizedRoute}/index.html`, args.htmlString);
+      const template = await fs.readFileSync("./dist/template.html", "utf8");
+      fs.writeFileSync(
+        `dist/${normalizedRoute}/index.html`,
+        renderTemplate(template, fromElm)
+      );
       args.contentDatPayload &&
         fs.writeFileSync(
           `dist/${normalizedRoute}/content.dat`,
@@ -93,6 +92,18 @@ async function outputString(
       break;
     }
   }
+}
+
+function renderTemplate(template, renderResult) {
+  const info = renderResult.htmlString;
+  return template
+    .replace(
+      /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+      `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+    )
+    .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+    .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html);
 }
 
 parentPort.on("message", run);

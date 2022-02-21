@@ -334,7 +334,7 @@ generator canonicalSiteUrl config =
         |> ApiRoute.single
         |> ApiRoute.withGlobalHeadTags
             (DataSource.succeed
-                [ Head.manifestLink "manifest.json"
+                [ Head.manifestLink "/manifest.json"
                 ]
             )
 

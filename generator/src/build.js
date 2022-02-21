@@ -12,6 +12,8 @@ const { Worker, SHARE_ENV } = require("worker_threads");
 const { ensureDirSync } = require("./file-helpers.js");
 const { generateClientFolder } = require("./codegen.js");
 const which = require("which");
+const { build } = require("vite");
+
 let pool = [];
 let pagesReady;
 let pages = new Promise((resolve, reject) => {
@@ -66,11 +68,18 @@ async function run(options) {
 
     const generateCode = codegen.generate(options.base);
 
-    const copyDone = copyAssets();
     await generateCode;
 
-    const compileCli = compileCliApp(options);
+    await build({
+      build: {
+        outDir: "dist",
+      },
+    });
     const compileClientDone = compileElm(options);
+    await compileClientDone;
+    await fsPromises.copyFile("dist/index.html", "dist/template.html");
+
+    const compileCli = compileCliApp(options);
     try {
       await compileCli;
     } catch (cliError) {
@@ -78,8 +87,8 @@ async function run(options) {
       process.exit(1);
     }
     const cliDone = runCli(options);
+    await cliDone;
 
-    await Promise.all([copyDone, cliDone, compileClientDone]);
   } catch (error) {
     buildError = true;
     try {
@@ -355,10 +364,6 @@ async function runTerser(filePath) {
   } else {
     throw "Error running terser.";
   }
-}
-
-async function copyAssets() {
-  fs.copyDirFlat("public", "dist");
 }
 
 async function compileCliApp(options) {

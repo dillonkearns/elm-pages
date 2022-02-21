@@ -213,7 +213,7 @@ async function outputString(
     htmlString: preRenderHtml(
       basePath,
       args,
-      contentJson,
+      contentJson, // TODO remove contentJson argument, it's unused
       isDevServer,
       contentDatPayload
     ),

@@ -22,6 +22,8 @@ const baseMiddleware = require("./basepath-middleware.js");
 const devcert = require("devcert");
 const cookie = require("cookie");
 const busboy = require("busboy");
+const { createServer: createViteServer } = require("vite");
+const cliVersion = require("../../package.json").version;
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -36,7 +38,6 @@ async function start(options) {
   const useHttps = options.https;
   let elmMakeRunning = true;
 
-  const serve = serveStatic("public/", { index: false });
   fs.mkdirSync(".elm-pages/cache", { recursive: true });
   const serveCachedFiles = serveStatic(".elm-pages/cache", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
@@ -104,7 +105,6 @@ async function start(options) {
     );
 
     watcher.add(sourceDirs);
-    watcher.add("./public/*.css");
     watcher.add("./port-data-source.js");
   }
 
@@ -116,15 +116,19 @@ async function start(options) {
       "elm-stuff/elm-pages/"
     );
   }
+  const vite = await createViteServer({
+    server: { middlewareMode: "ssr" },
+  });
 
   const app = connect()
     .use(timeMiddleware())
-    .use(baseMiddleware(options.base))
-    .use(awaitElmMiddleware)
-    .use(serveCachedFiles)
     .use(serveStaticCode)
-    .use(serve)
+    .use(awaitElmMiddleware)
+    // .use(baseMiddleware(options.base))
+    .use(serveCachedFiles)
+    .use(vite.middlewares)
     .use(processRequest);
+
   if (useHttps) {
     const ssl = await devcert.certificateFor("localhost");
     https.createServer(ssl, app).listen(port);
@@ -147,10 +151,6 @@ async function start(options) {
   watcher.on("all", async function (eventName, pathThatChanged) {
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs(false);
-    } else if (pathThatChanged.endsWith(".css")) {
-      clients.forEach((client) => {
-        client.response.write(`data: style.css\n\n`);
-      });
     } else if (pathThatChanged.endsWith(".elm")) {
       if (elmMakeRunning) {
       } else {
@@ -363,7 +363,7 @@ async function start(options) {
       await runRenderThread(
         await reqToJson(req, body, requestTime),
         pathname,
-        function (renderResult) {
+        async function (renderResult) {
           const is404 = renderResult.is404;
           switch (renderResult.kind) {
             case "bytes": {
@@ -383,11 +383,67 @@ async function start(options) {
               break;
             }
             case "html": {
-              res.writeHead(is404 ? 404 : renderResult.statusCode, {
-                "Content-Type": "text/html",
-                ...renderResult.headers,
-              });
-              res.end(renderResult.htmlString);
+              try {
+                const template =
+                  /*html*/
+                  `<!DOCTYPE html>
+<html lang="en">
+  <!-- TODO seoData.rootElement -->
+  <head>
+    <script src="/hmr.js" type="text/javascript"></script>
+    <script src="/elm.js" type="text/javascript"></script>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="modulepreload" href="/index.js" />
+    <script type="module">
+      import { setup } from "${path.join(
+        __dirname,
+        "../static-code/elm-pages.js"
+      )}";
+      setup();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title><!-- PLACEHOLDER_TITLE --></title>
+    <meta name="generator" content="elm-pages v${cliVersion}" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <!-- PLACEHOLDER_HEAD_AND_DATA -->
+  </head>
+  <body>
+    <div data-url="" display="none"></div>
+    <!-- PLACEHOLDER_HTML -->
+  </body>
+</html>
+                `;
+                const processedTemplate = await vite.transformIndexHtml(
+                  req.originalUrl,
+                  template
+                  // renderResult.htmlString
+                );
+                const info = renderResult.htmlString;
+                const renderedHtml = processedTemplate
+                  .replace(
+                    /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+                    `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+                  )
+                  .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html);
+
+                res.writeHead(renderResult.statusCode, {
+                  "Content-Type": "text/html",
+                  ...renderResult.headers,
+                });
+                res.end(renderedHtml);
+              } catch (e) {
+                vite.ssrFixStacktrace(e);
+                next(e);
+              }
               break;
             }
             case "api-response": {
@@ -417,6 +473,10 @@ async function start(options) {
                 );
               }
               break;
+            }
+            default: {
+              console.dir(renderResult);
+              throw "Unexpected renderResult kind: " + renderResult.kind;
             }
           }
         },
@@ -571,7 +631,7 @@ function errorHtml() {
     <link rel="preload" href="/index.js" as="script">
     <!--<link rel="preload" href="/elm.js" as="script">-->
     <script src="/hmr.js" type="text/javascript"></script>
-    <!--<script defer="defer" src="/elm.js" type="text/javascript"></script>-->
+    <script src="/elm.js" type="text/javascript"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>

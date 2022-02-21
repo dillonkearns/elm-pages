@@ -147,10 +147,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                 StaticHttpRequest.HasPermanentError _ ->
                                     True
 
-                                StaticHttpRequest.Incomplete newUrlsToFetch ->
-                                    False
-
-                                StaticHttpRequest.Complete resolvedData ->
+                                _ ->
                                     False
 
                         hasPermanentHttpError : Bool

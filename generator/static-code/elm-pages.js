@@ -1,8 +1,7 @@
 import userInit from "/index.js";
 
-let prefetchedPages = [window.location.pathname];
-let initialLocationHash = document.location.hash.replace(/^#/, "");
-
+let prefetchedPages;
+let initialLocationHash;
 /**
  * @returns
  */
@@ -59,43 +58,46 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
   }
 }
 
-const appPromise = new Promise(function (resolve, reject) {
-  document.addEventListener("DOMContentLoaded", (_) => {
-    resolve(loadContentAndInitializeApp());
-  });
-});
-
-userInit.load(appPromise);
-
-if (typeof connect === "function") {
-  connect(function (bytesData) {
-    appPromise.then((app) => {
-      app.ports.hotReloadData.send(bytesData);
+export function setup() {
+  prefetchedPages = [window.location.pathname];
+  initialLocationHash = document.location.hash.replace(/^#/, "");
+  const appPromise = new Promise(function (resolve, reject) {
+    document.addEventListener("DOMContentLoaded", (_) => {
+      resolve(loadContentAndInitializeApp());
     });
   });
-}
+  userInit.load(appPromise);
 
-/** @param {MouseEvent} event */
-const trigger_prefetch = (event) => {
-  const a = find_anchor(/** @type {Node} */ (event.target));
-  if (a && a.href && a.hasAttribute("elm-pages:prefetch")) {
-    prefetchIfNeeded(a);
+  if (typeof connect === "function") {
+    connect(function (bytesData) {
+      appPromise.then((app) => {
+        app.ports.hotReloadData.send(bytesData);
+      });
+    });
   }
-};
 
-/** @type {NodeJS.Timeout} */
-let mousemove_timeout;
+  /** @param {MouseEvent} event */
+  const trigger_prefetch = (event) => {
+    const a = find_anchor(/** @type {Node} */ (event.target));
+    if (a && a.href && a.hasAttribute("elm-pages:prefetch")) {
+      prefetchIfNeeded(a);
+    }
+  };
 
-/** @param {MouseEvent} event */
-const handle_mousemove = (event) => {
-  clearTimeout(mousemove_timeout);
-  mousemove_timeout = setTimeout(() => {
-    trigger_prefetch(event);
-  }, 20);
-};
+  /** @type {NodeJS.Timeout} */
+  let mousemove_timeout;
 
-addEventListener("touchstart", trigger_prefetch);
-addEventListener("mousemove", handle_mousemove);
+  /** @param {MouseEvent} event */
+  const handle_mousemove = (event) => {
+    clearTimeout(mousemove_timeout);
+    mousemove_timeout = setTimeout(() => {
+      trigger_prefetch(event);
+    }, 20);
+  };
+
+  addEventListener("touchstart", trigger_prefetch);
+  addEventListener("mousemove", handle_mousemove);
+}
 
 /**
  * @param {Node} node

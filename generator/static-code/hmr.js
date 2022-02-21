@@ -48,15 +48,6 @@ async function handleEvent(sendContentJsonPort, evt) {
   } else if (evt.data === "elm.js") {
     showCompiling("");
     elmJsFetch().then(thenApplyHmr);
-  } else if (evt.data === "style.css") {
-    // https://stackoverflow.com/a/43161591
-    const links = document.getElementsByTagName("link");
-    for (var i = 0; i < links.length; i++) {
-      const link = links[i];
-      if (link.rel === "stylesheet") {
-        link.href += "";
-      }
-    }
   } else {
     console.log("Unhandled", evt.data);
   }
@@ -154,8 +145,7 @@ const pipe =
     fns.reduce((y, f) => f(y), x);
 
 function elmJsFetch() {
-  var elmJsRequest = new Request("/elm.js");
-  elmJsRequest.cache = "no-cache";
+  var elmJsRequest = new Request("/elm.js", { cache: "no-cache" });
   return fetch(elmJsRequest);
 }
 
@@ -172,7 +162,7 @@ async function thenApplyHmr(response) {
     } else {
       response.text().then(function (value) {
         module.hot.apply();
-        delete Elm;
+        delete window.Elm;
         eval(value);
       });
     }
@@ -669,3 +659,5 @@ function hideCompiling(velocity) {
 
 /** @typedef  {  { start: IPosition; end: IPosition; } } IRegion */
 /** @typedef  {   { line: number; column: number; } } IPosition */
+
+window.connect = connect;
