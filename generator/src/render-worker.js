@@ -103,7 +103,8 @@ function renderTemplate(template, renderResult) {
                   <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
     )
     .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
-    .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html);
+    .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+    .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
 }
 
 parentPort.on("message", run);

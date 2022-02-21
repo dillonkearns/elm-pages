@@ -387,8 +387,7 @@ async function start(options) {
                 const template =
                   /*html*/
                   `<!DOCTYPE html>
-<html lang="en">
-  <!-- TODO seoData.rootElement -->
+<!-- ROOT --><html lang="en">
   <head>
     <script src="/hmr.js" type="text/javascript"></script>
     <script src="/elm.js" type="text/javascript"></script>
@@ -433,8 +432,11 @@ async function start(options) {
                   <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
                   )
                   .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
-                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html);
-
+                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+                  .replace(
+                    /<!-- ROOT -->\S*<html lang="en">/m,
+                    info.rootElement
+                  );
                 res.writeHead(renderResult.statusCode, {
                   "Content-Type": "text/html",
                   ...renderResult.headers,

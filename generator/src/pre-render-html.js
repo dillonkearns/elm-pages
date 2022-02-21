@@ -32,6 +32,7 @@ module.exports = function wrapHtml(
     html: fromElm.html,
     bytesData: Buffer.from(contentDatPayload.buffer).toString("base64"),
     headTags: seoData.headTags,
+    rootElement: seoData.rootElement,
   };
 };
 /**
