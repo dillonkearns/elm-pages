@@ -101,7 +101,7 @@ async function runElmReviewCodemod(cwd) {
     const child = spawnCallback(
       `elm-review`,
       [
-        "--fix-all",
+        "--fix-all-without-prompt",
         "--report",
         "json",
         "--namespace",
@@ -122,8 +122,6 @@ async function runElmReviewCodemod(cwd) {
     child.stdout.on("data", function (/** @type {string} */ data) {
       scriptOutput += data.toString();
     });
-
-    child.stdin.write("y\n");
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", function (/** @type {string} */ data) {
