@@ -210,13 +210,7 @@ async function outputString(
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(
-      basePath,
-      args,
-      contentJson, // TODO remove contentJson argument, it's unused
-      isDevServer,
-      contentDatPayload
-    ),
+    htmlString: preRenderHtml.wrapHtml(basePath, args, contentDatPayload),
     contentJson: args.contentJson,
     statusCode: args.statusCode,
     headers: args.headers,

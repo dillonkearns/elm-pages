@@ -13,6 +13,7 @@ const { ensureDirSync } = require("./file-helpers.js");
 const { generateClientFolder } = require("./codegen.js");
 const which = require("which");
 const { build } = require("vite");
+const preRenderHtml = require("./pre-render-html.js");
 
 let pool = [];
 let pagesReady;
@@ -69,15 +70,25 @@ async function run(options) {
     const generateCode = codegen.generate(options.base);
 
     await generateCode;
+    await fsPromises.writeFile(
+      "elm-stuff/elm-pages/index.html",
+      preRenderHtml.templateHtml()
+    );
 
     await build({
       build: {
         outDir: "dist",
+        rollupOptions: {
+          input: "elm-stuff/elm-pages/index.html",
+        },
       },
     });
     const compileClientDone = compileElm(options);
     await compileClientDone;
-    await fsPromises.copyFile("dist/index.html", "dist/template.html");
+    await fsPromises.copyFile(
+      "dist/elm-stuff/elm-pages/index.html",
+      "dist/template.html"
+    );
 
     const compileCli = compileCliApp(options);
     try {
