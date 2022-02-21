@@ -10,8 +10,6 @@ module.exports = function wrapHtml(
   devServer,
   contentDatPayload
 ) {
-  const devServerOnly = (/** @type {string} */ devServerOnlyString) =>
-    devServer ? devServerOnlyString : "";
   const seoData = seo.gather(fromElm.head);
   return {
     kind: "html-template",
