@@ -17,7 +17,7 @@ async function run({
     "./functions/server-render/elm-pages-cli.js"
   );
   const processedHtml = fs.readFileSync(
-    "elm-stuff/elm-pages/index.html",
+    "./dist/elm-stuff/elm-pages/index.html",
     "utf-8"
   );
   fs.writeFileSync(
@@ -103,7 +103,11 @@ function isServerSide(route) {
     console.log("Success - Adapter script complete");
   } catch (error) {
     console.error("ERROR - Adapter script failed");
-    console.error(error);
+    try {
+      console.error(JSON.stringify(error));
+    } catch (parsingError) {
+      console.error(error);
+    }
     process.exit(1);
   }
 })();
