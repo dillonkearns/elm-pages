@@ -79,7 +79,23 @@ function templateHtml() {
 </html>`;
 }
 
+/**
+ * @param {string} processedTemplate
+ */
+function replaceTemplate(processedTemplate, info) {
+  processedTemplate
+    .replace(
+      /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+      `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+    )
+    .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+    .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+    .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
+}
+
 module.exports = {
   wrapHtml,
   templateHtml,
+  replaceTemplate,
 };

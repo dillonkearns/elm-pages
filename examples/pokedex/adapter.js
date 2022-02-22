@@ -16,8 +16,18 @@ async function run({
     renderFunctionFilePath,
     "./functions/server-render/elm-pages-cli.js"
   );
-  fs.writeFileSync("./functions/render/index.js", rendererCode(true));
-  fs.writeFileSync("./functions/server-render/index.js", rendererCode(false));
+  const processedHtml = fs.readFileSync(
+    "elm-stuff/elm-pages/index.html",
+    "utf-8"
+  );
+  fs.writeFileSync(
+    "./functions/render/index.js",
+    rendererCode(true, processedHtml)
+  );
+  fs.writeFileSync(
+    "./functions/server-render/index.js",
+    rendererCode(false, processedHtml)
+  );
   // TODO rename functions/render to functions/fallback-render
   // TODO prepend instead of writing file
 
@@ -100,11 +110,13 @@ function isServerSide(route) {
 
 /**
  * @param {boolean} isOnDemand
+ * @param {string} processedHtml
  */
-function rendererCode(isOnDemand) {
+function rendererCode(isOnDemand, processedHtml) {
   return `const path = require("path");
 const cookie = require("cookie");
 const busboy = require("busboy");
+const processedHtml = ${JSON.stringify(processedHtml)};
 
 ${
   isOnDemand
@@ -128,6 +140,7 @@ async function render(event, context) {
 
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
   const renderer = require("../../../../generator/src/render");
+  const preRenderHtml = require("../../../../generator/src/pre-render-html");
   try {
     const basePath = "/";
     const mode = "build";
@@ -166,8 +179,9 @@ async function render(event, context) {
         isBase64Encoded: serverResponse.isBase64Encoded,
       };
     } else {
+      console.log('@rendering', preRenderHtml.replaceTemplate(processedHtml, renderResult.htmlString))
       return {
-        body: renderResult.htmlString,
+        body: preRenderHtml.replaceTemplate(processedHtml, renderResult.htmlString),
         headers: {
           "Content-Type": "text/html",
           "x-powered-by": "elm-pages",
