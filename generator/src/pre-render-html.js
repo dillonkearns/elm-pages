@@ -83,7 +83,7 @@ function templateHtml() {
  * @param {string} processedTemplate
  */
 function replaceTemplate(processedTemplate, info) {
-  processedTemplate
+  return processedTemplate
     .replace(
       /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
       `${info.headTags}
