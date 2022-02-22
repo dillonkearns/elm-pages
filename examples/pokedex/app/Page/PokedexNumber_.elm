@@ -71,7 +71,8 @@ data { pokedexNumber } =
 
 notFoundResponse : String -> DataSource (Response Data)
 notFoundResponse message =
-    Response.plainText ("Not found.\n\n" ++ message)
+    Response.plainText
+        ("Not found.\n\n" ++ message)
         |> Response.withStatusCode 404
         |> DataSource.succeed
 

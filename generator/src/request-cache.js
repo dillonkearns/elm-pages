@@ -134,6 +134,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
 
             resolve(responsePath);
           } else {
+            console.log("@@@ request-cache1 bad HTTP response");
             reject({
               title: "DataSource.Http Error",
               message: `${kleur
@@ -145,6 +146,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
             });
           }
         } catch (error) {
+          console.trace("@@@ request-cache2 HTTP error", error);
           reject({
             title: "DataSource.Http Error",
             message: `${kleur
