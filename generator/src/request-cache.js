@@ -1,5 +1,5 @@
 const path = require("path");
-const undici = require("undici");
+const fetch = require("node-fetch");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
 
@@ -84,7 +84,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
         }
       } else {
         try {
-          const response = await undici.fetch(request.url, {
+          const response = await fetch(request.url, {
             method: request.method,
             body: request.body,
             headers: {
