@@ -63,10 +63,8 @@ async function newCopyBoth(modulePath) {
 }
 
 async function generateClientFolder(basePath) {
-  console.log("@@@generateClientFolder", basePath);
   const browserCode = generateTemplateModuleConnector(basePath, "browser");
   const uiFileContent = elmPagesUiFile();
-  // console.log("@@@ generateClientFolder", process.cwd());
   ensureDirSync("./elm-stuff/elm-pages/client/app");
   ensureDirSync("./elm-stuff/elm-pages/client/.elm-pages");
   await newCopyBoth("Page.elm");
