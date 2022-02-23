@@ -1,6 +1,6 @@
 module Site exposing (config)
 
-import DataSource
+import DataSource exposing (DataSource)
 import Head
 import Pages.Manifest as Manifest
 import Route
@@ -11,24 +11,18 @@ type alias Data =
     ()
 
 
-config : SiteConfig Data
+config : SiteConfig
 config =
-    { data = data
-    , canonicalUrl = "https://elm-pages.com"
-    , manifest = manifest
+    { canonicalUrl = "https://elm-pages.com"
     , head = head
     }
 
 
-data : DataSource.DataSource Data
-data =
-    DataSource.succeed ()
-
-
-head : Data -> List Head.Tag
-head static =
+head : DataSource (List Head.Tag)
+head =
     [ Head.sitemapLink "/sitemap.xml"
     ]
+        |> DataSource.succeed
 
 
 manifest : Data -> Manifest.Config
