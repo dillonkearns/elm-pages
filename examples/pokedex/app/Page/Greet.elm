@@ -54,33 +54,33 @@ data routeParams =
                             ("hello there " ++ requestData.username ++ "!")
                         |> DataSource.succeed
                 )
-        , MySession.expectSessionOrRedirect
-            Request.requestTime
-            (\requestTime session ->
-                let
-                    username : String
-                    username =
-                        session
-                            |> Session.get "name"
-                            |> Maybe.withDefault "NONAME"
+        , Request.requestTime
+            |> MySession.expectSessionOrRedirect
+                (\requestTime session ->
+                    let
+                        username : String
+                        username =
+                            session
+                                |> Session.get "name"
+                                |> Maybe.withDefault "NONAME"
 
-                    flashMessage : Maybe String
-                    flashMessage =
-                        session
-                            |> Session.get "message"
-                in
-                ( session
-                , { username = username
-                  , requestTime = requestTime
-                  , flashMessage = flashMessage
-                  }
-                    |> Server.Response.render
-                    |> Server.Response.withHeader
-                        "x-greeting"
-                        ("hello " ++ username ++ "!")
+                        flashMessage : Maybe String
+                        flashMessage =
+                            session
+                                |> Session.get "message"
+                    in
+                    ( session
+                    , { username = username
+                      , requestTime = requestTime
+                      , flashMessage = flashMessage
+                      }
+                        |> Server.Response.render
+                        |> Server.Response.withHeader
+                            "x-greeting"
+                            ("hello " ++ username ++ "!")
+                    )
+                        |> DataSource.succeed
                 )
-                    |> DataSource.succeed
-            )
         ]
 
 

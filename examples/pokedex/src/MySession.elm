@@ -45,10 +45,10 @@ withSessionOrRedirect handler toRequest =
 
 
 expectSessionOrRedirect :
-    Request request
-    -> (request -> Session.Session -> DataSource ( Session.Session, Response data ))
+    (request -> Session.Session -> DataSource ( Session.Session, Response data ))
+    -> Request request
     -> Request (DataSource (Response data))
-expectSessionOrRedirect handler toRequest =
+expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
         , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
