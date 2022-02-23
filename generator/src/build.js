@@ -22,7 +22,7 @@ let pages = new Promise((resolve, reject) => {
 });
 let buildError = false;
 
-const DIR_PATH = path.join(process.cwd());
+const DIR_PATH = process.cwd();
 const OUTPUT_FILE_NAME = "elm.js";
 
 process.on("unhandledRejection", (error) => {
