@@ -354,9 +354,13 @@ var delay = 20;
  * @param {RootObject} error
  */
 function showError(error) {
-  restoreColorConsole(error).forEach((error) => {
-    console.log.apply(this, error);
-  });
+  try {
+    restoreColorConsole(error).forEach((error) => {
+      console.log.apply(this, error);
+    });
+  } catch (e) {
+    console.log("Error", error);
+  }
   hideCompiling("fast");
   setTimeout(function () {
     showError_(restoreColorHtml(error));
