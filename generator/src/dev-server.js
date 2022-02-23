@@ -406,14 +406,7 @@ async function start(options) {
     <script src="/hmr.js" type="text/javascript"></script>
     <script src="/elm.js" type="text/javascript"></script>
     <link rel="stylesheet" href="/style.css" />
-    <link rel="modulepreload" href="/index.js" />
-    <script type="module">
-      import { setup } from "${path.join(
-        __dirname,
-        "../static-code/elm-pages.js"
-      )}";
-      setup();
-    </script>
+    <script src="/elm-pages.js" type="module"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title><!-- PLACEHOLDER_TITLE --></title>
@@ -436,7 +429,6 @@ async function start(options) {
                 const processedTemplate = await vite.transformIndexHtml(
                   req.originalUrl,
                   template
-                  // renderResult.htmlString
                 );
                 const info = renderResult.htmlString;
                 const renderedHtml = processedTemplate

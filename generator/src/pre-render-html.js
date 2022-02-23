@@ -50,15 +50,12 @@ function templateHtml() {
 <!-- ROOT --><html lang="en">
   <head>
     <script defer src="/elm.js" type="text/javascript"></script>
+    <script defer src="${path.join(
+      __dirname,
+      "../static-code/elm-pages.js"
+    )}" type="module"></script>
     <link rel="stylesheet" href="/style.css" />
     <link rel="modulepreload" href="/index.js" />
-    <script type="module">
-      import { setup } from "${path.join(
-        __dirname,
-        "../static-code/elm-pages.js"
-      )}";
-      setup();
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title><!-- PLACEHOLDER_TITLE --></title>
