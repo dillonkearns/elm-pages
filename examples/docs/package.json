@@ -14,7 +14,8 @@
     "elm-optimize-level-2": "^0.3.4",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.3.0",
-    "puppeteer": "^9.1.1"
+    "puppeteer": "^9.1.1",
+    "vite-plugin-webfont-dl": "^1.0.9"
   },
   "dependencies": {
     "airtable": "^0.11.1",

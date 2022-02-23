@@ -65,7 +65,6 @@ async function run(options) {
     await ensureRequiredExecutables();
     // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-    XMLHttpRequest = {};
 
     const generateCode = codegen.generate(options.base);
 
@@ -75,13 +74,30 @@ async function run(options) {
       preRenderHtml.templateHtml()
     );
 
+    const viteConfig = await import(
+      path.join(process.cwd(), "elm-pages.config.mjs")
+    )
+      .then(async (elmPagesConfig) => {
+        return elmPagesConfig.default.vite || {};
+      })
+      .catch((error) => {
+        console.trace("Config loading error", error);
+        process.exit(1);
+      });
+
     await build({
+      configFile: false,
+      root: process.cwd(),
+      base: options.base,
+
       build: {
         outDir: "dist",
         rollupOptions: {
+          ssr: false,
           input: "elm-stuff/elm-pages/index.html",
         },
       },
+      ...viteConfig,
     });
     const compileClientDone = compileElm(options);
     await compileClientDone;
@@ -90,6 +106,7 @@ async function run(options) {
       "dist/template.html"
     );
 
+    XMLHttpRequest = {};
     const compileCli = compileCliApp(options);
     try {
       await compileCli;

@@ -116,15 +116,29 @@ async function start(options) {
       "elm-stuff/elm-pages/"
     );
   }
+  const viteConfig = await import(
+    path.join(process.cwd(), "elm-pages.config.mjs")
+  )
+    .then(async (elmPagesConfig) => {
+      return elmPagesConfig.default.vite || {};
+    })
+    .catch((error) => {
+      console.trace("Config loading error", error);
+      process.exit(1);
+    });
   const vite = await createViteServer({
-    server: { middlewareMode: "ssr" },
+    server: { middlewareMode: "ssr", base: options.base, port: options.port },
+    configFile: false,
+    root: process.cwd(),
+    base: options.base,
+    ...viteConfig,
   });
 
   const app = connect()
     .use(timeMiddleware())
     .use(serveStaticCode)
     .use(awaitElmMiddleware)
-    // .use(baseMiddleware(options.base))
+    .use(baseMiddleware(options.base))
     .use(serveCachedFiles)
     .use(vite.middlewares)
     .use(processRequest);
