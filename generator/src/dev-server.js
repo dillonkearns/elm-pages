@@ -123,8 +123,12 @@ async function start(options) {
       return elmPagesConfig.default.vite || {};
     })
     .catch((error) => {
-      console.trace("Config loading error", error);
-      process.exit(1);
+      console.warn(
+        kleur.yellow(
+          "No `elm-pages.config.mjs` file found. Using default config."
+        )
+      );
+      return {};
     });
   const vite = await createViteServer({
     server: { middlewareMode: "ssr", base: options.base, port: options.port },
