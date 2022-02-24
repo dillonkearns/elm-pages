@@ -81,8 +81,8 @@ async function run(options) {
         return elmPagesConfig.default.vite || {};
       })
       .catch((error) => {
-        console.trace("Config loading error", error);
-        process.exit(1);
+        console.warn("Using default config.", error);
+        return {};
       });
 
     await build({
