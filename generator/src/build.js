@@ -89,11 +89,11 @@ async function run(options) {
       configFile: false,
       root: process.cwd(),
       base: options.base,
+      ssr: false,
 
       build: {
         outDir: "dist",
         rollupOptions: {
-          ssr: false,
           input: "elm-stuff/elm-pages/index.html",
         },
       },
