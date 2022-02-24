@@ -4,7 +4,7 @@
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
-    "vercel-build": "(cd ../../ && npm install -f --no-optional) && npm install -f && curl https://static.lamdera.com/bin/linux/lamdera -o ./node_modules/.bin/lamdera && chmod a+x ./node_modules/.bin/lamdera && npx --no-install elm-tooling install && npx elm-pages build",
+    "vercel-build": "(cd ../../ && npm install --no-optional) && npm install && curl https://static.lamdera.com/bin/linux/lamdera -o ./node_modules/.bin/lamdera && chmod a+x ./node_modules/.bin/lamdera && npx --no-install elm-tooling install && npx elm-pages build",
     "start:https": "elm-pages dev --https",
     "build": "elm-pages build --keep-cache"
   },
