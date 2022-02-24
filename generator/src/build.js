@@ -116,8 +116,8 @@ async function run(options) {
     }
     const cliDone = runCli(options);
     await cliDone;
-
   } catch (error) {
+    console.error(error);
     buildError = true;
     try {
       const reviewOutput = JSON.parse(await runElmReview());
