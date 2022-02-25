@@ -677,6 +677,13 @@ expectJsonBody jsonBodyDecoder =
         )
 
 
+rawUrl : Request String
+rawUrl =
+    Json.Decode.field "rawUrl" Json.Decode.string
+        |> noErrors
+        |> Request
+
+
 {-| -}
 jsonBodyResult : Json.Decode.Decoder value -> Request (Result Json.Decode.Error value)
 jsonBodyResult jsonBodyDecoder =
