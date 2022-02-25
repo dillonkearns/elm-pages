@@ -148,41 +148,27 @@ cliApplication config =
                     , config.gotBatchSub
                         |> Sub.map
                             (\newBatch ->
-                                newBatch
-                                    |> List.foldl
-                                        (\item batchSoFar ->
-                                            case batchSoFar of
-                                                Err error ->
-                                                    Err error
-
-                                                Ok okBatchSoFar ->
-                                                    case
-                                                        Result.map2
-                                                            (\request response ->
-                                                                { request = request
-                                                                , response = response
-                                                                }
-                                                            )
-                                                            (item
-                                                                |> Decode.decodeValue (Decode.field "request" requestDecoder)
-                                                            )
-                                                            (item
-                                                                |> Decode.decodeValue (Decode.field "response" RequestsAndPending.decoder)
-                                                            )
-                                                    of
-                                                        Ok okValue ->
-                                                            Ok (okValue :: okBatchSoFar)
-
-                                                        Err error ->
-                                                            Err (Decode.errorToString error |> BuildError.internal)
-                                        )
-                                        (Ok [])
+                                Decode.decodeValue batchDecoder newBatch
                                     |> Result.map GotDataBatch
-                                    |> Result.mapError GotBuildError
+                                    |> Result.mapError
+                                        (\error ->
+                                            error
+                                                |> Decode.errorToString
+                                                |> BuildError.internal
+                                                |> GotBuildError
+                                        )
                                     |> mergeResult
                             )
                     ]
         }
+
+
+batchDecoder : Decode.Decoder (List { request : Pages.StaticHttp.Request.Request, response : RequestsAndPending.Response })
+batchDecoder =
+    Decode.map2 (\request response -> { request = request, response = response })
+        (Decode.field "request" requestDecoder)
+        (Decode.field "response" RequestsAndPending.decoder)
+        |> Decode.list
 
 
 mergeResult : Result a a -> a
