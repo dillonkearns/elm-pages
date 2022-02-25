@@ -1,5 +1,18 @@
-it("greets", () => {
+it("JSON body", () => {
   cy.request("GET", "/api/greet", { first: "Dillon" }).then((res) => {
+    expect(res.headers["content-type"]).to.eq("text/plain");
+    expect(res.status).to.eq(200);
+    expect(res.body).to.eq("Hello Dillon");
+  });
+});
+
+it("JSON body with content-type metadata", () => {
+  cy.request({
+    method: "POST",
+    url: "/api/greet",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ first: "Dillon" }),
+  }).then((res) => {
     expect(res.headers["content-type"]).to.eq("text/plain");
     expect(res.status).to.eq(200);
     expect(res.body).to.eq("Hello Dillon");
