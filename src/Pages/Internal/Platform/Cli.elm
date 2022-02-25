@@ -640,16 +640,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                             render404Page config
                                                 model
                                                 path
-                                                (NotFoundReason.NotPrerendered
-                                                    { moduleName = []
-                                                    , routePattern =
-                                                        { segments = []
-                                                        , ending = Nothing
-                                                        }
-                                                    , matchedRouteParams = []
-                                                    }
-                                                    []
-                                                )
+                                                NotFoundReason.NoMatchingRoute
                     in
                     ( model
                     , apiResponse
