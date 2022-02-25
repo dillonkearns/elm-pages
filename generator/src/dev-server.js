@@ -410,7 +410,8 @@ async function start(options) {
   <head>
     <script src="/hmr.js" type="text/javascript"></script>
     <script src="/elm.js" type="text/javascript"></script>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/dev-style.css">
     <script src="/elm-pages.js" type="module"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -630,17 +631,8 @@ function errorHtml() {
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
-    <link rel="stylesheet" href="/style.css"></link>
-    <style>
-@keyframes lds-default {
-    0%, 20%, 80%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.5);
-    }
-  }
-    </style>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/dev-style.css">
     <link rel="preload" href="/index.js" as="script">
     <!--<link rel="preload" href="/elm.js" as="script">-->
     <script src="/hmr.js" type="text/javascript"></script>
