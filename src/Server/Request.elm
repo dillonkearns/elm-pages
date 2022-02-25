@@ -10,6 +10,7 @@ module Server.Request exposing
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
+    , map3
     , errorsToString, errorToString, getDecoder, ValidationError
     )
 
@@ -56,6 +57,11 @@ module Server.Request exposing
 @docs File, expectMultiPartFormPost
 
 
+## Map Functions
+
+@docs map3
+
+
 ## Internals
 
 @docs errorsToString, errorToString, getDecoder, ValidationError
@@ -63,9 +69,13 @@ module Server.Request exposing
 -}
 
 import DataSource exposing (DataSource)
+import Dict
+import FormData
 import Json.Decode
+import Json.Encode
 import List.NonEmpty
 import Time
+import Url
 
 
 {-| -}
@@ -265,6 +275,20 @@ map2 f (Request jdA) (Request jdB) =
             jdA
             jdB
         )
+
+
+{-| -}
+map3 :
+    (value1 -> value2 -> value3 -> valueCombined)
+    -> Request value1
+    -> Request value2
+    -> Request value3
+    -> Request valueCombined
+map3 combineFn request1 request2 request3 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
 
 
 optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
@@ -514,19 +538,38 @@ expectFormPost toForm =
                         |> Request
 
                 else
-                    toForm { field = formField_, optionalField = optionalFormField_ }
-                        |> (\(Request decoder) -> decoder)
-                        |> optionalField "formData"
-                        |> Json.Decode.map
-                            (\value ->
-                                case value of
-                                    Just ( decodedForm, errors ) ->
-                                        ( decodedForm, errors )
-
-                                    Nothing ->
-                                        ( Err (ValidationError "Expected form data"), [] )
+                    Json.Decode.field "body" Json.Decode.string
+                        |> Json.Decode.map FormData.parse
+                        |> Json.Decode.andThen
+                            (\parsedForm ->
+                                let
+                                    thing =
+                                        parsedForm
+                                            |> Dict.toList
+                                            |> List.map
+                                                (Tuple.mapSecond
+                                                    (\( first, rest ) ->
+                                                        Json.Encode.string first
+                                                    )
+                                                )
+                                            |> Json.Encode.object
+                                in
+                                Json.Decode.succeed thing
                             )
+                        |> noErrors
                         |> Request
+                        |> andThen
+                            (\parsedForm ->
+                                let
+                                    innerDecoder =
+                                        toForm { field = formField_, optionalField = optionalFormField_ }
+                                            |> (\(Request decoder) -> decoder)
+                                in
+                                Json.Decode.decodeValue innerDecoder parsedForm
+                                    |> Result.mapError Json.Decode.errorToString
+                                    |> fromResult
+                                    |> Request
+                            )
             )
 
 
@@ -540,7 +583,14 @@ expectMultiPartFormPost :
     )
     -> Request decodedForm
 expectMultiPartFormPost toForm =
-    map2 (\_ value -> value)
+    map3
+        (\_ value rawBody ->
+            let
+                _ =
+                    Debug.log "rawBody" rawBody
+            in
+            value
+        )
         (expectContentType "multipart/form-data")
         (toForm
             { field = formField_
@@ -551,6 +601,10 @@ expectMultiPartFormPost toForm =
             |> Json.Decode.field "multiPartFormData"
             |> Request
             |> acceptMethod ( Post, [] )
+        )
+        (Json.Decode.field "body" Json.Decode.string
+            |> noErrors
+            |> Request
         )
 
 
@@ -604,19 +658,21 @@ parseContentType rawContentType =
         |> Maybe.withDefault rawContentType
 
 
-{-| -}
 expectJsonBody : Json.Decode.Decoder value -> Request value
 expectJsonBody jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
         (Json.Decode.oneOf
-            [ Json.Decode.field "jsonBody" jsonBodyDecoder
-                |> Json.Decode.map Ok
-            , Json.Decode.field "jsonBody" Json.Decode.value
-                |> Json.Decode.map (Json.Decode.decodeValue jsonBodyDecoder)
-                |> Json.Decode.map (Result.mapError JsonDecodeError)
+            [ Json.Decode.field "body" Json.Decode.string
+                |> Json.Decode.andThen
+                    (\rawBody ->
+                        Json.Decode.decodeString jsonBodyDecoder rawBody
+                            |> Result.mapError Json.Decode.errorToString
+                            |> fromResult
+                    )
+                |> noErrors
+            , Json.Decode.succeed ( Err (ValidationError "No body"), [] )
             ]
-            |> Json.Decode.map (\value -> ( value, [] ))
             |> Request
         )
 

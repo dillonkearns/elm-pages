@@ -729,29 +729,24 @@ function reqToJson(req, body, requestTime) {
   });
 }
 
+/**
+ * @param {http.IncomingMessage} req
+ * @param {string | null} body
+ * @param {Date} requestTime
+ * @param {Object | null} multiPartFormData
+ */
 function toJsonHelper(req, body, requestTime, multiPartFormData) {
-  const url = new URL(req.url, "http://localhost:1234");
-  let jsonBody = null;
-  try {
-    jsonBody = body && JSON.parse(body);
-  } catch (jsonParseError) {}
+  const url = new URL(req.url, `http://${req.headers.host}`);
   return {
     method: req.method,
     hostname: req.hostname,
     query: paramsToObject(url.searchParams),
     headers: req.headers,
-    host: url.host,
-    pathname: url.pathname,
-    port: url.port,
-    protocol: url.protocol,
-    rawUrl: req.url,
+    rawUrl: url.toString(),
     body: body,
     requestTime: Math.round(requestTime.getTime()),
     cookies: cookie.parse(req.headers.cookie || ""),
-    // TODO skip parsing if content-type is not x-www-form-urlencoded
-    formData: paramsToObject(new URLSearchParams(body || "")),
     multiPartFormData: multiPartFormData,
-    jsonBody: jsonBody,
   };
 }
 // TODO capture repeat entries into a list of values
