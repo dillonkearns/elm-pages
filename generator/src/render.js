@@ -288,13 +288,10 @@ async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
     );
 
     pendingDataSourceResponses.push({
-      requestAndResponse: {
-        request: requestToPerform,
-        response: JSON.parse(
-          (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-        ),
-      },
-      maybeBytes: null,
+      request: requestToPerform,
+      response: JSON.parse(
+        (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+      ),
     });
   } catch (error) {
     sendError(app, error);
@@ -306,17 +303,14 @@ async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
 
 function stringResponse(request, string) {
   return {
-    requestAndResponse: {
-      request,
-      response: { bodyKind: "string", body: string },
-    },
-    maybeBytes: null,
+    request,
+    response: { bodyKind: "string", body: string },
   };
 }
 function jsonResponse(request, json) {
   return {
-    requestAndResponse: { request, response: { bodyKind: "json", body: json } },
-    maybeBytes: null,
+    request,
+    response: { bodyKind: "json", body: json },
   };
 }
 

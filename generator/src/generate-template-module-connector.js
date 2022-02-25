@@ -793,7 +793,7 @@ port toJsPort : Json.Encode.Value -> Cmd msg
 
 port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
-port gotBatchSub : (List { requestAndResponse : Json.Decode.Value, maybeBytes : Maybe Bytes } -> msg) -> Sub msg
+port gotBatchSub : (List Json.Decode.Value -> msg) -> Sub msg
 
 
 mapBoth : (a -> b) -> (c -> d) -> ( a, c, e ) -> ( b, d, e )

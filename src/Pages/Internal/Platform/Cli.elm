@@ -163,11 +163,11 @@ cliApplication config =
                                                                 , response = response
                                                                 }
                                                             )
-                                                            (item.requestAndResponse
+                                                            (item
                                                                 |> Decode.decodeValue (Decode.field "request" requestDecoder)
                                                             )
-                                                            (item.requestAndResponse
-                                                                |> Decode.decodeValue (Decode.field "response" (RequestsAndPending.decoder item.maybeBytes))
+                                                            (item
+                                                                |> Decode.decodeValue (Decode.field "response" RequestsAndPending.decoder)
                                                             )
                                                     of
                                                         Ok okValue ->

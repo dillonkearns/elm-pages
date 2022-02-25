@@ -17,15 +17,15 @@ type ResponseBody
     | WhateverBody
 
 
-decoder : Maybe Bytes -> Decoder Response
-decoder maybeBytes =
+decoder : Decoder Response
+decoder =
     Decode.map2 Response
         (Decode.maybe responseDecoder)
-        (decoder_ maybeBytes)
+        bodyDecoder
 
 
-decoder_ : Maybe Bytes -> Decoder ResponseBody
-decoder_ maybeBytesBody =
+bodyDecoder : Decoder ResponseBody
+bodyDecoder =
     Decode.field "bodyKind" Decode.string
         |> Decode.andThen
             (\bodyKind ->
