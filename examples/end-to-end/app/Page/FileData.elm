@@ -5,7 +5,7 @@ import DataSource.File
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
-import OptimizedDecoder as Decode
+import Json.Decode as Decode
 import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -18,7 +18,7 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
