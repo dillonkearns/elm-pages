@@ -427,9 +427,11 @@ function showError_(error) {
 `;
 
   setTimeout(function () {
-    document.getElementById("elm-live:elmErrorBackground").style.opacity = 1;
-    document.getElementById("elm-live:elmError").style.transform =
-      "rotateX(0deg)";
+    try {
+      document.getElementById("elm-live:elmErrorBackground").style.opacity = 1;
+      document.getElementById("elm-live:elmError").style.transform =
+        "rotateX(0deg)";
+    } catch (error) {}
   }, delay);
 }
 
@@ -437,13 +439,21 @@ function hideError(velocity) {
   var node = document.getElementById("elm-live:elmErrorContainer");
   if (node) {
     if (velocity === "fast") {
-      document.getElementById("elm-live:elmErrorContainer").remove();
-    } else {
-      document.getElementById("elm-live:elmErrorBackground").style.opacity = 0;
-      document.getElementById("elm-live:elmError").style.transform =
-        "rotateX(90deg)";
-      setTimeout(function () {
+      try {
         document.getElementById("elm-live:elmErrorContainer").remove();
+      } catch (error) {}
+    } else {
+      try {
+        document.getElementById(
+          "elm-live:elmErrorBackground"
+        ).style.opacity = 0;
+        document.getElementById("elm-live:elmError").style.transform =
+          "rotateX(90deg)";
+      } catch (error) {}
+      setTimeout(function () {
+        try {
+          document.getElementById("elm-live:elmErrorContainer").remove();
+        } catch (error) {}
       }, speed);
     }
   }

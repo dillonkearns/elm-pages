@@ -332,9 +332,10 @@ async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
-        isImplicitContractError = JSON.parse(error).errors.some(
-          (errorItem) => errorItem.name === "Main"
-        );
+        let jsonParsed = JSON.parse(error);
+        isImplicitContractError =
+          jsonParsed.errors &&
+          jsonParsed.errors.some((errorItem) => errorItem.name === "Main");
       } catch (unexpectedError) {
         console.log("Unexpected error", unexpectedError);
       }
