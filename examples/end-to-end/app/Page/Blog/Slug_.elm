@@ -1,16 +1,12 @@
-module Page.Blog.Slug_ exposing (Model, Msg, Data, page)
-
-
+module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
 import Page exposing (Page, PageWithState, StaticPayload)
-
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
-
 import View exposing (View)
 
 
@@ -21,8 +17,10 @@ type alias Model =
 type alias Msg =
     ()
 
+
 type alias RouteParams =
     { slug : String }
+
 
 page : Page RouteParams Data
 page =
@@ -34,11 +32,9 @@ page =
         |> Page.buildNoState { view = view }
 
 
-
 pages : DataSource (List RouteParams)
 pages =
     DataSource.succeed []
-
 
 
 type alias Data =
@@ -48,6 +44,7 @@ type alias Data =
 data : RouteParams -> DataSource Data
 data routeParams =
     DataSource.succeed {}
+
 
 head :
     StaticPayload Data RouteParams
@@ -67,7 +64,6 @@ head static =
         , title = "TODO title" -- metadata.title -- TODO
         }
         |> Seo.website
-
 
 
 view :
