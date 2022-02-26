@@ -153,6 +153,7 @@ type ValidationError
     = ValidationError String
     | OneOf (List ValidationError)
     | NotFormPost { method : Maybe Method, contentType : Maybe String }
+    | MissingQueryParam { missingParam : String, allQueryParams : String }
 
 
 {-| -}
@@ -191,6 +192,9 @@ errorToString validationError =
                         |> List.filterMap identity
                         |> String.join "\n"
                    )
+
+        MissingQueryParam record ->
+            "Missing query param \"" ++ record.missingParam ++ "\". Query string was `" ++ record.allQueryParams ++ "`"
 
 
 {-| -}
@@ -426,19 +430,25 @@ expectQueryParam name =
                                 succeed okParamValue
 
                             Nothing ->
-                                skipMatch ("Missing query param \"" ++ name ++ "\"")
+                                --skipMatch (ValidationError ("Missing query param \"" ++ name ++ "\""))
+                                skipMatch
+                                    (MissingQueryParam
+                                        { missingParam = name
+                                        , allQueryParams = queryString
+                                        }
+                                    )
 
                     Nothing ->
-                        skipMatch ("Expected query param \"" ++ name ++ "\", but there were no query params.")
+                        skipMatch (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
             )
 
 
 {-| -}
-skipMatch : String -> Request value
-skipMatch reason =
+skipMatch : ValidationError -> Request value
+skipMatch validationError =
     Request
         (Json.Decode.succeed
-            ( Err (ValidationError reason), [] )
+            ( Err validationError, [] )
         )
 
 
