@@ -287,39 +287,39 @@ all =
                         }
                         (StringBody "This is a raw text file.")
                     |> expectSuccess []
-        , skip <|
-            test "Err in String to Result function turns into decode error" <|
-                \() ->
-                    startSimple []
-                        (DataSource.Http.request
-                            { url = "https://example.com/file.txt"
-                            , method = "GET"
-                            , headers = []
-                            , body = DataSource.Http.emptyBody
-                            }
-                            (DataSource.Http.expectString
-                                (\string ->
-                                    if String.toUpper string == string then
-                                        Ok string
+        , test "Err in String to Result function turns into decode error" <|
+            \() ->
+                startSimple []
+                    (DataSource.Http.request
+                        { url = "https://example.com/file.txt"
+                        , method = "GET"
+                        , headers = []
+                        , body = DataSource.Http.emptyBody
+                        }
+                        (DataSource.Http.expectString
+                            (\string ->
+                                if String.toUpper string == string then
+                                    Ok string
 
-                                    else
-                                        Err "String was not uppercased"
-                                )
+                                else
+                                    Err "String was not uppercased"
                             )
                         )
-                        |> simulateHttp
-                            (get "https://example.com/file.txt")
-                            (StringBody "This is a raw text file.")
-                        |> ProgramTest.expectOutgoingPortValues
-                            "toJsPort"
-                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                            (expectErrorsPort
-                                """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+                        |> DataSource.andThen DataSource.fromResult
+                    )
+                    |> simulateHttp
+                        (get "https://example.com/file.txt")
+                        (StringBody "This is a raw text file.")
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                        (expectErrorsPort
+                            """-- CALLED STATIC HTTP FAIL ----------------------------------------------------- elm-pages
 
 
 
-String was not uppercased"""
-                            )
+I ran into a call to `DataSource.fail` with message: String was not uppercased"""
+                        )
         , test "POST method works" <|
             \() ->
                 startSimple []
