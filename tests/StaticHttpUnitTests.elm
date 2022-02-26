@@ -5,8 +5,10 @@ import DataSource.Http
 import Dict
 import Expect
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
+import RequestsAndPending
 import Test exposing (Test, describe, test)
 
 
@@ -50,8 +52,8 @@ all =
                             StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "null" )
-                                    , ( get "NEXT", "null" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
+                                    , ( get "NEXT", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
@@ -67,7 +69,7 @@ all =
                             StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "NEXT", "null" )
+                                    [ ( get "NEXT", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
                                 |> Expect.equal [ getReq "NEXT" ]
@@ -85,8 +87,8 @@ all =
                             StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "null" )
-                                    , ( get "NEXT", "null" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
+                                    , ( get "NEXT", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
@@ -102,7 +104,7 @@ all =
                             StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "null" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
@@ -123,7 +125,7 @@ all =
                             StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "1" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody (Encode.int 1)) )
                                     ]
                                 )
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
