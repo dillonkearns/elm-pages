@@ -132,38 +132,31 @@ all =
                         (get "NEXT-REQUEST")
                         """null"""
                     |> expectSuccess []
-        , skip <|
-            test "andThen chain avoids repeat requests" <|
-                \() ->
-                    let
-                        getReq : String -> Decoder a -> DataSource a
-                        getReq url decoder =
-                            DataSource.Http.request
-                                (get url)
-                                (DataSource.Http.expectJson decoder)
-
-                        pokemonDetailRequest : DataSource ()
-                        pokemonDetailRequest =
-                            getReq
-                                "https://pokeapi.co/api/v2/pokemon/"
-                                (JD.list
-                                    (JD.field "url" JD.string
-                                        |> JD.map
-                                            (\url ->
-                                                getReq url
-                                                    (JD.field "image" JD.string)
-                                            )
-                                    )
+        , test "andThen chain avoids repeat requests" <|
+            \() ->
+                let
+                    pokemonDetailRequest : DataSource ()
+                    pokemonDetailRequest =
+                        DataSource.Http.get
+                            "https://pokeapi.co/api/v2/pokemon/"
+                            (JD.list
+                                (JD.field "url" JD.string
+                                    |> JD.map
+                                        (\url ->
+                                            DataSource.Http.get url
+                                                (JD.field "image" JD.string)
+                                        )
                                 )
-                                |> DataSource.resolve
-                                |> DataSource.map (\_ -> ())
-                    in
-                    startSimple
-                        [ "elm-pages" ]
-                        pokemonDetailRequest
-                        |> simulateMultipleHttp
-                            [ ( get "https://pokeapi.co/api/v2/pokemon/"
-                              , """[
+                            )
+                            |> DataSource.resolve
+                            |> DataSource.map (\_ -> ())
+                in
+                startSimple
+                    [ "elm-pages" ]
+                    pokemonDetailRequest
+                    |> simulateMultipleHttp
+                        [ ( get "https://pokeapi.co/api/v2/pokemon/"
+                          , """[
                             {"url": "url1"},
                             {"url": "url2"},
                             {"url": "url3"},
@@ -175,73 +168,39 @@ all =
                             {"url": "url9"},
                             {"url": "url10"}
                             ]"""
-                              )
-                            , ( get "url1"
-                              , """{"image": "image1.jpg"}"""
-                              )
-                            , ( get "url2"
-                              , """{"image": "image2.jpg"}"""
-                              )
-                            , ( get "url3"
-                              , """{"image": "image3.jpg"}"""
-                              )
-                            , ( get "url4"
-                              , """{"image": "image4.jpg"}"""
-                              )
-                            , ( get "url5"
-                              , """{"image": "image5.jpg"}"""
-                              )
-                            , ( get "url6"
-                              , """{"image": "image6.jpg"}"""
-                              )
-                            , ( get "url7"
-                              , """{"image": "image7.jpg"}"""
-                              )
-                            , ( get "url8"
-                              , """{"image": "image8.jpg"}"""
-                              )
-                            , ( get "url9"
-                              , """{"image": "image9.jpg"}"""
-                              )
-                            , ( get "url10"
-                              , """{"image": "image10.jpg"}"""
-                              )
-                            ]
-                        |> expectSuccess
-                            [ ( get "https://pokeapi.co/api/v2/pokemon/"
-                              , """[{"url":"url1"},{"url":"url2"},{"url":"url3"},{"url":"url4"},{"url":"url5"},{"url":"url6"},{"url":"url7"},{"url":"url8"},{"url":"url9"},{"url":"url10"}]"""
-                              )
-                            , ( get "url1"
-                              , """{"image":"image1.jpg"}"""
-                              )
-                            , ( get "url2"
-                              , """{"image":"image2.jpg"}"""
-                              )
-                            , ( get "url3"
-                              , """{"image":"image3.jpg"}"""
-                              )
-                            , ( get "url4"
-                              , """{"image":"image4.jpg"}"""
-                              )
-                            , ( get "url5"
-                              , """{"image":"image5.jpg"}"""
-                              )
-                            , ( get "url6"
-                              , """{"image":"image6.jpg"}"""
-                              )
-                            , ( get "url7"
-                              , """{"image":"image7.jpg"}"""
-                              )
-                            , ( get "url8"
-                              , """{"image":"image8.jpg"}"""
-                              )
-                            , ( get "url9"
-                              , """{"image":"image9.jpg"}"""
-                              )
-                            , ( get "url10"
-                              , """{"image":"image10.jpg"}"""
-                              )
-                            ]
+                          )
+                        , ( get "url1"
+                          , """{"image": "image1.jpg"}"""
+                          )
+                        , ( get "url2"
+                          , """{"image": "image2.jpg"}"""
+                          )
+                        , ( get "url3"
+                          , """{"image": "image3.jpg"}"""
+                          )
+                        , ( get "url4"
+                          , """{"image": "image4.jpg"}"""
+                          )
+                        , ( get "url5"
+                          , """{"image": "image5.jpg"}"""
+                          )
+                        , ( get "url6"
+                          , """{"image": "image6.jpg"}"""
+                          )
+                        , ( get "url7"
+                          , """{"image": "image7.jpg"}"""
+                          )
+                        , ( get "url8"
+                          , """{"image": "image8.jpg"}"""
+                          )
+                        , ( get "url9"
+                          , """{"image": "image9.jpg"}"""
+                          )
+                        , ( get "url10"
+                          , """{"image": "image10.jpg"}"""
+                          )
+                        ]
+                    |> expectSuccess []
 
         --, test "port is sent out once all requests are finished" <|
         --    \() ->
