@@ -388,28 +388,27 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
                         (get "http://example.com")
                         (jsonBody """null""")
                     |> expectSuccess []
-        , skip <|
-            test "an error is sent out for decoder failures" <|
-                \() ->
-                    startSimple [ "elm-pages" ]
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI."))
-                        |> simulateHttp
-                            (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            (jsonBody """{ "stargazer_count": 86 }""")
-                        |> ProgramTest.expectOutgoingPortValues
-                            "toJsPort"
-                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                            (expectErrorsPort
-                                """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+        , test "an error is sent out for decoder failures" <|
+            \() ->
+                startSimple [ "elm-pages" ]
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI."))
+                    |> simulateHttp
+                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                        (jsonBody """{ "stargazer_count": 86 }""")
+                    |> ProgramTest.expectOutgoingPortValues
+                        "toJsPort"
+                        (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                        (expectErrorsPort
+                            """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
 
-I encountered some errors while decoding this JSON:
+Problem with the given value:
 
-  The user should get this message from the CLI.
+{
+   "stargazer_count": 86
+}
 
-    {
-      "stargazer_count": 86
-    }"""
-                            )
+The user should get this message from the CLI."""
+                        )
         , describe "staticHttpCache"
             [ skip <|
                 test "it doesn't perform http requests that are provided in the http cache flag" <|
