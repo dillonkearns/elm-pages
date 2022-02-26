@@ -1034,9 +1034,7 @@ get : String -> Request.Request
 get url =
     { method = "GET"
     , url = url
-    , headers =
-        [--( "elm-pages-internal", "ExpectJson" )
-        ]
+    , headers = []
     , body = DataSource.Http.emptyBody
     }
 
@@ -1045,9 +1043,7 @@ post : String -> Request.Request
 post url =
     { method = "POST"
     , url = url
-    , headers =
-        [--( "elm-pages-internal", "ExpectJson" )
-        ]
+    , headers = []
     , body = DataSource.Http.emptyBody
     }
 
