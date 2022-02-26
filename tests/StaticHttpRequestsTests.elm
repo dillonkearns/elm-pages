@@ -46,10 +46,7 @@ all =
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         """{ "stargazer_count": 86 }"""
                     |> expectSuccess
-                        [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                          , """{"stargazer_count":86}"""
-                          )
-                        ]
+                        []
         , test "StaticHttp request for initial are resolved" <|
             \() ->
                 startSimple
@@ -58,11 +55,7 @@ all =
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         """{ "stargazer_count": 86 }"""
-                    |> expectSuccess
-                        [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                          , """{"stargazer_count":86}"""
-                          )
-                        ]
+                    |> expectSuccess []
         , describe "single page renders"
             [ test "single pages that are pre-rendered" <|
                 \() ->
@@ -121,11 +114,7 @@ all =
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         """{ "stargazer_count": 86, "language": "Elm" }"""
-                    |> expectSuccess
-                        [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                          , """{"stargazer_count":86,"language":"Elm"}"""
-                          )
-                        ]
+                    |> expectSuccess []
         , test "andThen" <|
             \() ->
                 startSimple
@@ -142,14 +131,7 @@ all =
                     |> simulateHttp
                         (get "NEXT-REQUEST")
                         """null"""
-                    |> expectSuccess
-                        [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                          , """null"""
-                          )
-                        , ( get "NEXT-REQUEST"
-                          , """null"""
-                          )
-                        ]
+                    |> expectSuccess []
         , skip <|
             test "andThen chain avoids repeat requests" <|
                 \() ->
@@ -293,41 +275,31 @@ all =
         --                    ]
         --                  )
         --                ]
-        , skip <|
-            test "reduced JSON is sent out" <|
-                \() ->
-                    startSimple []
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
-                        |> simulateHttp
-                            (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            """{ "stargazer_count": 86, "unused_field": 123 }"""
-                        |> expectSuccess
-                            [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                              , """{"stargazer_count":86}"""
-                              )
-                            ]
-        , skip <|
-            test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
-                \() ->
-                    startSimple []
-                        (DataSource.Http.request
-                            { url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                            , method = "GET"
-                            , headers = []
-                            , body = DataSource.Http.emptyBody
-                            }
-                            (DataSource.Http.expectJson
-                                (JD.field "stargazer_count" JD.int)
-                            )
+        , test "reduced JSON is sent out" <|
+            \() ->
+                startSimple []
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
+                    |> simulateHttp
+                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                    |> expectSuccess []
+        , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
+            \() ->
+                startSimple []
+                    (DataSource.Http.request
+                        { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                        , method = "GET"
+                        , headers = []
+                        , body = DataSource.Http.emptyBody
+                        }
+                        (DataSource.Http.expectJson
+                            (JD.field "stargazer_count" JD.int)
                         )
-                        |> simulateHttp
-                            (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            """{ "stargazer_count": 86, "unused_field": 123 }"""
-                        |> expectSuccess
-                            [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                              , """{ "stargazer_count": 86, "unused_field": 123 }"""
-                              )
-                            ]
+                    )
+                    |> simulateHttp
+                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                    |> expectSuccess []
         , skip <|
             test "plain string" <|
                 \() ->
@@ -407,30 +379,22 @@ String was not uppercased"""
                               , """{"stargazer_count":86}"""
                               )
                             ]
-        , skip <|
-            test "json is reduced from andThen chains" <|
-                \() ->
-                    startSimple []
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
-                            |> DataSource.andThen
-                                (\_ ->
-                                    DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
-                                )
-                        )
-                        |> simulateHttp
-                            (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            """{ "stargazer_count": 100, "unused_field": 123 }"""
-                        |> simulateHttp
-                            (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
-                            """{ "stargazer_count": 50, "unused_field": 456 }"""
-                        |> expectSuccess
-                            [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                              , """{"stargazer_count":100}"""
-                              )
-                            , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                              , """{"stargazer_count":50}"""
-                              )
-                            ]
+        , test "json is reduced from andThen chains" <|
+            \() ->
+                startSimple []
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                        |> DataSource.andThen
+                            (\_ ->
+                                DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
+                            )
+                    )
+                    |> simulateHttp
+                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                        """{ "stargazer_count": 100, "unused_field": 123 }"""
+                    |> simulateHttp
+                        (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                        """{ "stargazer_count": 50, "unused_field": 456 }"""
+                    |> expectSuccess []
         , skip <|
             test "reduced json is preserved by StaticHttp.map2" <|
                 \() ->
@@ -447,14 +411,7 @@ String was not uppercased"""
                               , """{ "stargazer_count": 50, "unused_field": 456 }"""
                               )
                             ]
-                        |> expectSuccess
-                            [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                              , """{"stargazer_count":100}"""
-                              )
-                            , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                              , """{"stargazer_count":50}"""
-                              )
-                            ]
+                        |> expectSuccess []
         , skip <|
             test "the port sends out even if there are no http requests" <|
                 \() ->
@@ -1184,7 +1141,7 @@ simulateHttp request response program =
                         , ( "response"
                           , Encode.object
                                 [ ( "bodyKind", Encode.string "json" )
-                                , ( "body", Encode.string response )
+                                , ( "body", JD.decodeString JD.value response |> Result.withDefault Encode.null )
                                 ]
                           )
                         ]
