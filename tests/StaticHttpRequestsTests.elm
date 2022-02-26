@@ -24,7 +24,7 @@ import Path
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
-import RequestsAndPending
+import RequestsAndPending exposing (ResponseBody(..))
 import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
@@ -41,9 +41,10 @@ all =
                     (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """{ "stargazer_count": 86 }"""
-                    |> expectSuccess
-                        []
+                        (JsonBody
+                            (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
+                        )
+                    |> expectSuccess []
         , test "StaticHttp request for initial are resolved" <|
             \() ->
                 startSimple
@@ -51,7 +52,9 @@ all =
                     (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """{ "stargazer_count": 86 }"""
+                        (JsonBody
+                            (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
+                        )
                     |> expectSuccess []
         , describe "single page renders"
             [ test "single pages that are pre-rendered" <|
@@ -60,7 +63,9 @@ all =
                         (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
                         |> simulateHttp
                             (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            """{ "stargazer_count": 86 }"""
+                            (JsonBody
+                                (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
+                            )
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
                             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
@@ -110,7 +115,13 @@ all =
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """{ "stargazer_count": 86, "language": "Elm" }"""
+                        (JsonBody
+                            (Encode.object
+                                [ ( "stargazer_count", Encode.int 86 )
+                                , ( "language", Encode.string "Elm" )
+                                ]
+                            )
+                        )
                     |> expectSuccess []
         , test "andThen" <|
             \() ->
@@ -124,10 +135,10 @@ all =
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """null"""
+                        (JsonBody Encode.null)
                     |> simulateHttp
                         (get "NEXT-REQUEST")
-                        """null"""
+                        (JsonBody Encode.null)
                     |> expectSuccess []
         , test "andThen chain avoids repeat requests" <|
             \() ->
@@ -153,7 +164,7 @@ all =
                     pokemonDetailRequest
                     |> simulateMultipleHttp
                         [ ( get "https://pokeapi.co/api/v2/pokemon/"
-                          , """[
+                          , jsonBody """[
                             {"url": "url1"},
                             {"url": "url2"},
                             {"url": "url3"},
@@ -167,34 +178,34 @@ all =
                             ]"""
                           )
                         , ( get "url1"
-                          , """{"image": "image1.jpg"}"""
+                          , jsonBody """{"image": "image1.jpg"}"""
                           )
                         , ( get "url2"
-                          , """{"image": "image2.jpg"}"""
+                          , jsonBody """{"image": "image2.jpg"}"""
                           )
                         , ( get "url3"
-                          , """{"image": "image3.jpg"}"""
+                          , jsonBody """{"image": "image3.jpg"}"""
                           )
                         , ( get "url4"
-                          , """{"image": "image4.jpg"}"""
+                          , jsonBody """{"image": "image4.jpg"}"""
                           )
                         , ( get "url5"
-                          , """{"image": "image5.jpg"}"""
+                          , jsonBody """{"image": "image5.jpg"}"""
                           )
                         , ( get "url6"
-                          , """{"image": "image6.jpg"}"""
+                          , jsonBody """{"image": "image6.jpg"}"""
                           )
                         , ( get "url7"
-                          , """{"image": "image7.jpg"}"""
+                          , jsonBody """{"image": "image7.jpg"}"""
                           )
                         , ( get "url8"
-                          , """{"image": "image8.jpg"}"""
+                          , jsonBody """{"image": "image8.jpg"}"""
                           )
                         , ( get "url9"
-                          , """{"image": "image9.jpg"}"""
+                          , jsonBody """{"image": "image9.jpg"}"""
                           )
                         , ( get "url10"
-                          , """{"image": "image10.jpg"}"""
+                          , jsonBody """{"image": "image10.jpg"}"""
                           )
                         ]
                     |> expectSuccess []
@@ -237,7 +248,7 @@ all =
                     (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                        (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
                     |> expectSuccess []
         , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
             \() ->
@@ -254,28 +265,28 @@ all =
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """{ "stargazer_count": 86, "unused_field": 123 }"""
+                        (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
                     |> expectSuccess []
-        , skip <|
-            test "plain string" <|
-                \() ->
-                    startSimple []
-                        (DataSource.Http.request
-                            { url = "https://example.com/file.txt"
-                            , method = "GET"
-                            , headers = []
-                            , body = DataSource.Http.emptyBody
-                            }
-                            (DataSource.Http.expectString Ok)
-                        )
-                        |> simulateHttp
-                            (get "https://example.com/file.txt")
-                            "This is a raw text file."
-                        |> expectSuccess
-                            [ ( get "https://example.com/file.txt"
-                              , "This is a raw text file."
-                              )
-                            ]
+        , test "plain string" <|
+            \() ->
+                startSimple []
+                    (DataSource.Http.request
+                        { url = "https://example.com/file.txt"
+                        , method = "GET"
+                        , headers = []
+                        , body = DataSource.Http.emptyBody
+                        }
+                        (DataSource.Http.expectString Ok)
+                    )
+                    |> simulateHttp
+                        { method = "GET"
+                        , url = "https://example.com/file.txt"
+                        , headers =
+                            []
+                        , body = DataSource.Http.emptyBody
+                        }
+                        (StringBody "This is a raw text file.")
+                    |> expectSuccess []
         , skip <|
             test "Err in String to Result function turns into decode error" <|
                 \() ->
@@ -298,7 +309,7 @@ all =
                         )
                         |> simulateHttp
                             (get "https://example.com/file.txt")
-                            "This is a raw text file."
+                            (StringBody "This is a raw text file.")
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
                             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
@@ -325,7 +336,7 @@ String was not uppercased"""
                         )
                         |> simulateHttp
                             (post "https://api.github.com/repos/dillonkearns/elm-pages")
-                            """{ "stargazer_count": 86, "unused_field": 123 }"""
+                            (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
                         |> expectSuccess
                             [ ( { method = "POST"
                                 , url = "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -346,10 +357,10 @@ String was not uppercased"""
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        """{ "stargazer_count": 100, "unused_field": 123 }"""
+                        (jsonBody """{ "stargazer_count": 100, "unused_field": 123 }""")
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
-                        """{ "stargazer_count": 50, "unused_field": 456 }"""
+                        (jsonBody """{ "stargazer_count": 50, "unused_field": 456 }""")
                     |> expectSuccess []
         , test "reduced json is preserved by StaticHttp.map2" <|
             \() ->
@@ -360,38 +371,32 @@ String was not uppercased"""
                     )
                     |> simulateMultipleHttp
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                          , """{ "stargazer_count": 100, "unused_field": 123 }"""
+                          , jsonBody """{ "stargazer_count": 100, "unused_field": 123 }"""
                           )
                         , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                          , """{ "stargazer_count": 50, "unused_field": 456 }"""
+                          , jsonBody """{ "stargazer_count": 50, "unused_field": 456 }"""
                           )
                         ]
                     |> expectSuccess []
-        , skip <|
-            test "the port sends out even if there are no http requests" <|
-                \() ->
-                    start
-                        [ ( []
-                          , DataSource.succeed ()
-                          )
-                        ]
-                        |> expectSuccess []
-        , skip <|
-            test "the port sends out when there are duplicate http requests for the same page" <|
-                \() ->
-                    startSimple []
-                        (DataSource.map2 (\_ _ -> ())
-                            (DataSource.Http.get "http://example.com" (JD.succeed ()))
-                            (DataSource.Http.get "http://example.com" (JD.succeed ()))
-                        )
-                        |> simulateHttp
-                            (get "http://example.com")
-                            """null"""
-                        |> expectSuccess
-                            [ ( get "http://example.com"
-                              , """null"""
-                              )
-                            ]
+        , test "the port sends out even if there are no http requests" <|
+            \() ->
+                start
+                    [ ( []
+                      , DataSource.succeed ()
+                      )
+                    ]
+                    |> expectSuccess []
+        , test "the port sends out when there are duplicate http requests for the same page" <|
+            \() ->
+                startSimple []
+                    (DataSource.map2 (\_ _ -> ())
+                        (DataSource.Http.get "http://example.com" (JD.succeed ()))
+                        (DataSource.Http.get "http://example.com" (JD.succeed ()))
+                    )
+                    |> simulateHttp
+                        (get "http://example.com")
+                        (jsonBody """null""")
+                    |> expectSuccess []
         , skip <|
             test "an error is sent out for decoder failures" <|
                 \() ->
@@ -399,7 +404,7 @@ String was not uppercased"""
                         (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI."))
                         |> simulateHttp
                             (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            """{ "stargazer_count": 86 }"""
+                            (jsonBody """{ "stargazer_count": 86 }""")
                         |> ProgramTest.expectOutgoingPortValues
                             "toJsPort"
                             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
@@ -414,9 +419,9 @@ I encountered some errors while decoding this JSON:
       "stargazer_count": 86
     }"""
                             )
-        , skip <|
-            describe "staticHttpCache"
-                [ test "it doesn't perform http requests that are provided in the http cache flag" <|
+        , describe "staticHttpCache"
+            [ skip <|
+                test "it doesn't perform http requests that are provided in the http cache flag" <|
                     \() ->
                         startWithHttpCache
                             [ ( { url = "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -431,32 +436,24 @@ I encountered some errors while decoding this JSON:
                               , DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder
                               )
                             ]
-                            |> expectSuccess
-                                [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                                  , """{"stargazer_count":86}"""
-                                  )
-                                ]
-                , test "it ignores unused cache" <|
-                    \() ->
-                        startSimpleWithCache []
-                            (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
-                            [ ( { url = "https://this-is-never-used.example.com/"
-                                , method = "GET"
-                                , headers = []
-                                , body = StaticHttpBody.EmptyBody
-                                }
-                              , """{"stargazer_count":86}"""
-                              )
-                            ]
-                            |> simulateHttp
-                                (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                                """{ "stargazer_count": 86 }"""
-                            |> expectSuccess
-                                [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                                  , """{"stargazer_count":86}"""
-                                  )
-                                ]
-                ]
+                            |> expectSuccess []
+            , test "it ignores unused cache" <|
+                \() ->
+                    startSimpleWithCache []
+                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                        [ ( { url = "https://this-is-never-used.example.com/"
+                            , method = "GET"
+                            , headers = []
+                            , body = StaticHttpBody.EmptyBody
+                            }
+                          , """{"stargazer_count":86}"""
+                          )
+                        ]
+                        |> simulateHttp
+                            (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                            (jsonBody """{ "stargazer_count": 86 }""")
+                        |> expectSuccess []
+            ]
 
         --, describe "generateFiles"
         --    [ test "initial requests are sent out" <|
@@ -904,7 +901,10 @@ simulateEffects effect =
                     |> SimulatedEffect.Cmd.map never
 
             else
-                ToJsPayload.DoHttp unmasked
+                ToJsPayload.DoHttp
+                    (unmasked
+                     --|> withInternalHeader
+                    )
                     |> sendToJsPort
                     |> SimulatedEffect.Cmd.map never
 
@@ -1043,7 +1043,9 @@ get : String -> Request.Request
 get url =
     { method = "GET"
     , url = url
-    , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
+    , headers =
+        [--( "elm-pages-internal", "ExpectJson" )
+        ]
     , body = DataSource.Http.emptyBody
     }
 
@@ -1052,12 +1054,14 @@ post : String -> Request.Request
 post url =
     { method = "POST"
     , url = url
-    , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
+    , headers =
+        [--( "elm-pages-internal", "ExpectJson" )
+        ]
     , body = DataSource.Http.emptyBody
     }
 
 
-simulateHttp : Request.Request -> String -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateHttp : Request.Request -> RequestsAndPending.ResponseBody -> ProgramTest model msg effect -> ProgramTest model msg effect
 simulateHttp request response program =
     program
         |> ProgramTest.ensureOutgoingPortValues
@@ -1079,7 +1083,7 @@ simulateHttp request response program =
             )
 
 
-simulateMultipleHttp : List ( Request.Request, String ) -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateMultipleHttp : List ( Request.Request, ResponseBody ) -> ProgramTest model msg effect -> ProgramTest model msg effect
 simulateMultipleHttp requests program =
     program
         |> ProgramTest.ensureOutgoingPortValues
@@ -1105,16 +1109,48 @@ simulateMultipleHttp requests program =
             )
 
 
-encodeBatchEntry : Request.Request -> String -> Encode.Value
+jsonBody : String -> ResponseBody
+jsonBody jsonString =
+    JsonBody
+        (jsonString
+            |> JD.decodeString JD.value
+            |> Result.withDefault Encode.null
+        )
+
+
+encodeBatchEntry : Request.Request -> ResponseBody -> Encode.Value
 encodeBatchEntry req response =
     Encode.object
         [ ( "request"
-          , Codec.encodeToValue Request.codec req
+          , Codec.encodeToValue Request.codec
+                (withInternalHeader response req)
           )
         , ( "response"
-          , Encode.object
-                [ ( "bodyKind", Encode.string "json" )
-                , ( "body", JD.decodeString JD.value response |> Result.withDefault Encode.null )
-                ]
+          , RequestsAndPending.bodyEncoder response
+            --Encode.object
+            --[ ( "bodyKind", Encode.string "json" )
+            --, ( "body", JD.decodeString JD.value response |> Result.withDefault Encode.null )
+            --]
           )
         ]
+
+
+withInternalHeader res req =
+    { req
+        | headers =
+            ( "elm-pages-internal"
+            , case res of
+                JsonBody _ ->
+                    "ExpectJson"
+
+                BytesBody _ ->
+                    "ExpectBytes"
+
+                StringBody _ ->
+                    "ExpectString"
+
+                WhateverBody ->
+                    "ExpectWhatever"
+            )
+                :: req.headers
+    }

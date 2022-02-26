@@ -7,7 +7,7 @@ import Test exposing (Test, describe, test)
 
 all : Test
 all =
-    describe "Pages.Review.DeadCodeEliminateDataTest"
+    describe "dead code elimination"
         [ test "replaces data record setter" <|
             \() ->
                 """module Page.Index exposing (Data, Model, Msg, page)

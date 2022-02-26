@@ -1,10 +1,11 @@
-module RequestsAndPending exposing (RequestsAndPending, Response(..), ResponseBody(..), batchDecoder, decoder, get)
+module RequestsAndPending exposing (RequestsAndPending, Response(..), ResponseBody(..), batchDecoder, bodyEncoder, decoder, get)
 
 import Base64
 import Bytes exposing (Bytes)
 import Codec
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Pages.StaticHttp.Request
 
 
@@ -68,6 +69,29 @@ bodyDecoder =
                             Decode.fail "Unexpected bodyKind."
                     )
             )
+
+
+bodyEncoder : ResponseBody -> Encode.Value
+bodyEncoder body =
+    (case body of
+        JsonBody jsonValue ->
+            ( "json", jsonValue )
+
+        StringBody string ->
+            ( "string", Encode.string string )
+
+        BytesBody bytes ->
+            ( "Unhandled", Encode.null )
+
+        WhateverBody ->
+            ( "whatever", Encode.null )
+    )
+        |> (\( bodyKind, encodedBody ) ->
+                Encode.object
+                    [ ( "bodyKind", Encode.string bodyKind )
+                    , ( "body", encodedBody )
+                    ]
+           )
 
 
 type alias RawResponse =
