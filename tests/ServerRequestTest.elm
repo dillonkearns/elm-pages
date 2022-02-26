@@ -1,10 +1,13 @@
 module ServerRequestTest exposing (all)
 
+import Dict exposing (Dict)
 import Expect exposing (Expectation)
-import Json.Decode
+import FormData
+import Json.Decode as Decode
 import Json.Encode
+import List.NonEmpty as NonEmpty exposing (NonEmpty)
 import Server.Request as Request
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, only, test)
 
 
 all : Test
@@ -17,7 +20,6 @@ all =
                         { method = Request.Get
                         , headers = []
                         , body = Nothing
-                        , formData = Nothing
                         }
         , test "accept GET" <|
             \() ->
@@ -27,7 +29,6 @@ all =
                         { method = Request.Get
                         , headers = []
                         , body = Nothing
-                        , formData = Nothing
                         }
         , test "accept GET doesn't match POST" <|
             \() ->
@@ -37,7 +38,6 @@ all =
                         { method = Request.Get
                         , headers = []
                         , body = Nothing
-                        , formData = Nothing
                         }
                         "Expected HTTP method POST but was GET"
         , test "unexpected method for form POST" <|
@@ -52,7 +52,6 @@ all =
                             [ ( "content-type", "application/x-www-form-urlencoded" )
                             ]
                         , body = Nothing
-                        , formData = Nothing
                         }
                         """Did not match formPost because
 - Form post must have method POST, but the method was GET
@@ -76,11 +75,11 @@ all =
                         , headers =
                             [ ( "content-type", "application/x-www-form-urlencoded" )
                             ]
-                        , body = Just "foo=123"
-                        , formData =
+                        , body =
                             Just
-                                [ ( "foo", "bar" )
-                                ]
+                                (FormData
+                                    (Dict.fromList [ ( "foo", NonEmpty.singleton "bar" ) ])
+                                )
                         }
         , test "one of no match" <|
             \() ->
@@ -89,7 +88,7 @@ all =
                         (\{ field } ->
                             field "first"
                         )
-                    , Request.expectJsonBody (Json.Decode.field "first" Json.Decode.string)
+                    , Request.expectJsonBody (Decode.field "first" Decode.string)
                     , Request.expectQueryParam "first"
                     , Request.expectMultiPartFormPost
                         (\{ field } ->
@@ -102,7 +101,6 @@ all =
                             [ ( "content-type", "application/x-www-form-urlencoded" )
                             ]
                         , body = Nothing
-                        , formData = Nothing
                         }
                         """Server.Request.oneOf failed in the following 4 ways:
 
@@ -110,12 +108,7 @@ all =
 - Form post must have method POST, but the method was GET
 - Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO
 
-(2) Unable to parse JSON body
-Problem with the given value:
-
-null
-
-Expecting an OBJECT with a field named `first`
+(2) Tried to parse JSON body but the request had no body.
 
 (3) Missing query param "first"
 
@@ -128,9 +121,14 @@ Expected HTTP method POST but was GET"""
 type alias Request =
     { method : Request.Method
     , headers : List ( String, String )
-    , body : Maybe String
-    , formData : Maybe (List ( String, String ))
+    , body : Maybe Body
     }
+
+
+type Body
+    = FormData (Dict String (NonEmpty String))
+    | JsonBody Decode.Value
+    | StringBody String
 
 
 expectMatch : Request -> Request.Request value -> Expectation
@@ -138,7 +136,7 @@ expectMatch request (Request.Request decoder) =
     case
         request
             |> requestToJson
-            |> Json.Decode.decodeValue decoder
+            |> Decode.decodeValue decoder
     of
         Ok ok ->
             case ok of
@@ -158,7 +156,7 @@ expectMatch request (Request.Request decoder) =
                         |> Expect.fail
 
         Err error ->
-            Expect.fail (Json.Decode.errorToString error)
+            Expect.fail (Decode.errorToString error)
 
 
 expectNoMatch : Request -> String -> Request.Request value -> Expectation
@@ -166,7 +164,7 @@ expectNoMatch request expectedErrorString (Request.Request decoder) =
     case
         request
             |> requestToJson
-            |> Json.Decode.decodeValue decoder
+            |> Decode.decodeValue decoder
     of
         Ok ok ->
             case ok of
@@ -188,7 +186,7 @@ expectNoMatch request expectedErrorString (Request.Request decoder) =
         Err error ->
             Expect.fail
                 ("Expected this request to not match, but instead there was an internal error: "
-                    ++ Json.Decode.errorToString error
+                    ++ Decode.errorToString error
                 )
 
 
@@ -209,17 +207,24 @@ requestToJson request =
                     request.headers
                 )
           )
-        , ( "formData"
-          , request.formData
-                |> Maybe.map
-                    (\fields ->
-                        fields
-                            |> List.map (Tuple.mapSecond Json.Encode.string)
-                            |> Json.Encode.object
-                    )
+        , ( "body"
+          , request.body
+                |> Maybe.map encodeBody
                 |> Maybe.withDefault Json.Encode.null
           )
-        , ( "jsonBody", Json.Encode.null )
         , ( "query", Json.Encode.null )
         , ( "multiPartFormData", Json.Encode.null )
         ]
+
+
+encodeBody : Body -> Decode.Value
+encodeBody body =
+    case body of
+        JsonBody json ->
+            json
+
+        FormData formData ->
+            formData |> FormData.encode |> Json.Encode.string
+
+        StringBody string ->
+            string |> Json.Encode.string

@@ -583,12 +583,8 @@ expectMultiPartFormPost :
     )
     -> Request decodedForm
 expectMultiPartFormPost toForm =
-    map3
-        (\_ value rawBody ->
-            let
-                _ =
-                    Debug.log "rawBody" rawBody
-            in
+    map2
+        (\_ value ->
             value
         )
         (expectContentType "multipart/form-data")
@@ -601,10 +597,6 @@ expectMultiPartFormPost toForm =
             |> Json.Decode.field "multiPartFormData"
             |> Request
             |> acceptMethod ( Post, [] )
-        )
-        (Json.Decode.field "body" Json.Decode.string
-            |> noErrors
-            |> Request
         )
 
 
@@ -671,7 +663,7 @@ expectJsonBody jsonBodyDecoder =
                             |> fromResult
                     )
                 |> noErrors
-            , Json.Decode.succeed ( Err (ValidationError "No body"), [] )
+            , Json.Decode.succeed ( Err (ValidationError "Tried to parse JSON body but the request had no body."), [] )
             ]
             |> Request
         )
