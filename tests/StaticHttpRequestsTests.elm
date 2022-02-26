@@ -395,23 +395,22 @@ String was not uppercased"""
                         (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
                         """{ "stargazer_count": 50, "unused_field": 456 }"""
                     |> expectSuccess []
-        , skip <|
-            test "reduced json is preserved by StaticHttp.map2" <|
-                \() ->
-                    startSimple []
-                        (DataSource.map2 (\_ _ -> ())
-                            (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
-                            (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int))
-                        )
-                        |> simulateMultipleHttp
-                            [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                              , """{ "stargazer_count": 100, "unused_field": 123 }"""
-                              )
-                            , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                              , """{ "stargazer_count": 50, "unused_field": 456 }"""
-                              )
-                            ]
-                        |> expectSuccess []
+        , test "reduced json is preserved by StaticHttp.map2" <|
+            \() ->
+                startSimple []
+                    (DataSource.map2 (\_ _ -> ())
+                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
+                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int))
+                    )
+                    |> simulateMultipleHttp
+                        [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                          , """{ "stargazer_count": 100, "unused_field": 123 }"""
+                          )
+                        , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                          , """{ "stargazer_count": 50, "unused_field": 456 }"""
+                          )
+                        ]
+                    |> expectSuccess []
         , skip <|
             test "the port sends out even if there are no http requests" <|
                 \() ->
@@ -1132,20 +1131,7 @@ simulateHttp request response program =
                                 ++ Debug.toString actualPorts
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
-            (Encode.list
-                (\req ->
-                    Encode.object
-                        [ ( "request"
-                          , Codec.encodeToValue Request.codec req
-                          )
-                        , ( "response"
-                          , Encode.object
-                                [ ( "bodyKind", Encode.string "json" )
-                                , ( "body", JD.decodeString JD.value response |> Result.withDefault Encode.null )
-                                ]
-                          )
-                        ]
-                )
+            (Encode.list (\req -> encodeBatchEntry req response)
                 [ request ]
             )
 
@@ -1175,16 +1161,21 @@ simulateMultipleHttp requests program =
             (requests
                 |> Encode.list
                     (\( req, response ) ->
-                        Encode.object
-                            [ ( "request"
-                              , Codec.encodeToValue Request.codec req
-                              )
-                            , ( "response"
-                              , Encode.object
-                                    [ ( "bodyKind", Encode.string "json" )
-                                    , ( "body", Encode.string response )
-                                    ]
-                              )
-                            ]
+                        encodeBatchEntry req response
                     )
             )
+
+
+encodeBatchEntry : Request.Request -> String -> Encode.Value
+encodeBatchEntry req response =
+    Encode.object
+        [ ( "request"
+          , Codec.encodeToValue Request.codec req
+          )
+        , ( "response"
+          , Encode.object
+                [ ( "bodyKind", Encode.string "json" )
+                , ( "body", JD.decodeString JD.value response |> Result.withDefault Encode.null )
+                ]
+          )
+        ]
