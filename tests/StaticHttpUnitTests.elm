@@ -33,7 +33,9 @@ get : String -> Request.Request
 get url =
     { method = "GET"
     , url = url
-    , headers = []
+
+    -- TODO try to abstract away hardcoding of elm-pages-internal in test code
+    , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
     , body = DataSource.Http.emptyBody
     }
 
@@ -137,6 +139,8 @@ getReq : String -> DataSource.Http.RequestDetails
 getReq url =
     { url = url
     , method = "GET"
-    , headers = []
+
+    -- TODO try to abstract away hardcoding of elm-pages-internal in test code
+    , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
     , body = DataSource.Http.emptyBody
     }
