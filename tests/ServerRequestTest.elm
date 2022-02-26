@@ -110,7 +110,7 @@ all =
 
 (2) Tried to parse JSON body but the request had no body.
 
-(3) Missing query param "first"
+(3) Internal error - expected rawUrl field but the adapter script didn't provide one.
 
 (4) Missing form field 'first'
 Expected content-type to be multipart/form-data but it was application/x-www-form-urlencoded
