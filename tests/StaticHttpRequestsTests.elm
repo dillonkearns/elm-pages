@@ -320,32 +320,23 @@ all =
 
 String was not uppercased"""
                             )
-        , skip <|
-            test "POST method works" <|
-                \() ->
-                    startSimple []
-                        (DataSource.Http.request
-                            { method = "POST"
-                            , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                            , headers = []
-                            , body = DataSource.Http.emptyBody
-                            }
-                            (DataSource.Http.expectJson
-                                (JD.field "stargazer_count" JD.int)
-                            )
+        , test "POST method works" <|
+            \() ->
+                startSimple []
+                    (DataSource.Http.request
+                        { method = "POST"
+                        , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                        , headers = []
+                        , body = DataSource.Http.emptyBody
+                        }
+                        (DataSource.Http.expectJson
+                            (JD.field "stargazer_count" JD.int)
                         )
-                        |> simulateHttp
-                            (post "https://api.github.com/repos/dillonkearns/elm-pages")
-                            (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
-                        |> expectSuccess
-                            [ ( { method = "POST"
-                                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                                , headers = []
-                                , body = DataSource.Http.emptyBody
-                                }
-                              , """{"stargazer_count":86}"""
-                              )
-                            ]
+                    )
+                    |> simulateHttp
+                        (post "https://api.github.com/repos/dillonkearns/elm-pages")
+                        (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
+                    |> expectSuccess []
         , test "json is reduced from andThen chains" <|
             \() ->
                 startSimple []
