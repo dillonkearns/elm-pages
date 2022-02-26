@@ -142,8 +142,14 @@ cliApplication config =
                                                 )
                                 in
                                 Decode.decodeValue decoder jsonValue
-                                    |> Result.mapError Decode.errorToString
-                                    |> Result.withDefault Continue
+                                    |> Result.mapError
+                                        (\error ->
+                                            error
+                                                |> Decode.errorToString
+                                                |> BuildError.internal
+                                                |> GotBuildError
+                                        )
+                                    |> mergeResult
                             )
                     , config.gotBatchSub
                         |> Sub.map
