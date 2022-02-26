@@ -74,7 +74,9 @@ import FormData
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
+import QueryParams
 import Time
+import Url
 
 
 {-| -}
@@ -405,16 +407,56 @@ appendError error decoder =
 {-| -}
 expectQueryParam : String -> Request String
 expectQueryParam name =
-    optionalField name Json.Decode.string
-        |> Json.Decode.field "query"
+    rawUrl
+        |> andThen
+            (\url_ ->
+                case url_ |> Url.fromString |> Maybe.andThen .query of
+                    Just queryString ->
+                        let
+                            maybeParamValue : Maybe String
+                            maybeParamValue =
+                                queryString
+                                    |> QueryParams.fromString
+                                    |> QueryParams.toDict
+                                    |> Dict.get name
+                                    |> Maybe.andThen List.head
+                        in
+                        case maybeParamValue of
+                            Just okParamValue ->
+                                succeed okParamValue
+
+                            Nothing ->
+                                skipMatch ("Missing query param \"" ++ name ++ "\"")
+
+                    Nothing ->
+                        skipMatch ("Expected query param \"" ++ name ++ "\", but there were no query params.")
+            )
+
+
+{-| -}
+skipMatch : String -> Request value
+skipMatch reason =
+    Request
+        (Json.Decode.succeed
+            ( Err (ValidationError reason), [] )
+        )
+
+
+{-| -}
+rawUrl : Request String
+rawUrl =
+    Json.Decode.maybe
+        (Json.Decode.string
+            |> Json.Decode.field "rawUrl"
+        )
         |> Json.Decode.map
-            (\value ->
-                case value of
+            (\url_ ->
+                case url_ of
                     Just justValue ->
                         ( Ok justValue, [] )
 
                     Nothing ->
-                        ( Err (ValidationError ("Missing query param \"" ++ name ++ "\"")), [] )
+                        ( Err (ValidationError "Internal error - expected rawUrl field but the adapter script didn't provide one."), [] )
             )
         |> Request
 
@@ -432,6 +474,7 @@ optionalHeader headerName =
 expectCookie : String -> Request String
 expectCookie name =
     optionalField name Json.Decode.string
+        -- @@@ TODO do cookie parsing in pure Elm (and get from "headers")
         |> Json.Decode.field "cookies"
         |> Json.Decode.map
             (\value ->
@@ -449,6 +492,7 @@ expectCookie name =
 cookie : String -> Request (Maybe String)
 cookie name =
     optionalField name Json.Decode.string
+        -- @@@ TODO do cookie parsing in pure Elm (and get from "headers")
         |> Json.Decode.field "cookies"
         |> noErrors
         |> Request
@@ -591,6 +635,7 @@ expectMultiPartFormPost toForm =
             , fileField = fileField_
             }
             |> (\(Request decoder) -> decoder)
+            -- @@@ TODO is it possible to do multipart form data parsing in pure Elm?
             |> Json.Decode.field "multiPartFormData"
             |> Request
             |> acceptMethod ( Post, [] )
@@ -666,21 +711,17 @@ expectJsonBody jsonBodyDecoder =
         )
 
 
-rawUrl : Request String
-rawUrl =
-    Json.Decode.field "rawUrl" Json.Decode.string
-        |> noErrors
-        |> Request
-
-
 {-| -}
 jsonBodyResult : Json.Decode.Decoder value -> Request (Result Json.Decode.Error value)
 jsonBodyResult jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
         (Json.Decode.oneOf
+            -- @@@ TODO use "body" instead of "jsonBody"
             [ Json.Decode.field "jsonBody" jsonBodyDecoder
                 |> Json.Decode.map Ok
+
+            -- @@@ TODO use "body" instead of "jsonBody"
             , Json.Decode.field "jsonBody" Json.Decode.value
                 |> Json.Decode.map (Json.Decode.decodeValue jsonBodyDecoder)
             ]
