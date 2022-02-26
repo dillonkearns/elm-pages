@@ -7,7 +7,7 @@ import Json.Decode as Decode
 import Json.Encode
 import List.NonEmpty as NonEmpty exposing (NonEmpty)
 import Server.Request as Request
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 
 
 all : Test

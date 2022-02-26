@@ -75,7 +75,6 @@ import Json.Decode
 import Json.Encode
 import List.NonEmpty
 import Time
-import Url
 
 
 {-| -}
@@ -151,7 +150,6 @@ getDecoder (Request decoder) =
 type ValidationError
     = ValidationError String
     | OneOf (List ValidationError)
-    | JsonDecodeError Json.Decode.Error
     | NotFormPost { method : Maybe Method, contentType : Maybe String }
 
 
@@ -172,9 +170,6 @@ errorToString validationError =
     case validationError of
         ValidationError message ->
             message
-
-        JsonDecodeError error ->
-            "Unable to parse JSON body\n" ++ Json.Decode.errorToString error
 
         OneOf validationErrors ->
             "Server.Request.oneOf failed in the following "
@@ -543,12 +538,13 @@ expectFormPost toForm =
                         |> Json.Decode.andThen
                             (\parsedForm ->
                                 let
+                                    thing : Json.Encode.Value
                                     thing =
                                         parsedForm
                                             |> Dict.toList
                                             |> List.map
                                                 (Tuple.mapSecond
-                                                    (\( first, rest ) ->
+                                                    (\( first, _ ) ->
                                                         Json.Encode.string first
                                                     )
                                                 )
@@ -561,6 +557,7 @@ expectFormPost toForm =
                         |> andThen
                             (\parsedForm ->
                                 let
+                                    innerDecoder : Json.Decode.Decoder ( Result ValidationError decodedForm, List ValidationError )
                                     innerDecoder =
                                         toForm { field = formField_, optionalField = optionalFormField_ }
                                             |> (\(Request decoder) -> decoder)

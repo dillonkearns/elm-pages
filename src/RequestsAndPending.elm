@@ -1,4 +1,4 @@
-module RequestsAndPending exposing (RequestsAndPending, Response(..), ResponseBody(..), batchDecoder, decoder, get, responseKindString)
+module RequestsAndPending exposing (RequestsAndPending, Response(..), ResponseBody(..), batchDecoder, decoder, get)
 
 import Base64
 import Bytes exposing (Bytes)
@@ -19,7 +19,7 @@ type ResponseBody
     | WhateverBody
 
 
-batchDecoder : Decode.Decoder (List { request : Pages.StaticHttp.Request.Request, response : Response })
+batchDecoder : Decoder (List { request : Pages.StaticHttp.Request.Request, response : Response })
 batchDecoder =
     Decode.map2 (\request response -> { request = request, response = response })
         (Decode.field "request"
@@ -80,22 +80,6 @@ type alias RawResponse =
 
 type Response
     = Response (Maybe RawResponse) ResponseBody
-
-
-responseKindString : ResponseBody -> String
-responseKindString body =
-    case body of
-        BytesBody _ ->
-            "BytesBody"
-
-        StringBody _ ->
-            "StringBody"
-
-        JsonBody _ ->
-            "JsonBody"
-
-        WhateverBody ->
-            "WhateverBody"
 
 
 responseDecoder : Decoder RawResponse

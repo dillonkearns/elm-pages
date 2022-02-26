@@ -27,6 +27,7 @@ declarationVisitor node context =
                     case ( Node.value name, Node.value expression ) of
                         ( "template", Expression.RecordExpr setters ) ->
                             let
+                                dataFieldValue : Maybe (Node ( Node String, Node Expression ))
                                 dataFieldValue =
                                     setters
                                         |> List.filterMap
@@ -76,6 +77,7 @@ expressionVisitor node context =
             case applicationExpressions |> List.map Node.value of
                 [ Expression.FunctionOrValue [ "Page" ] pageBuilderName, Expression.RecordExpr fields ] ->
                     let
+                        dataFieldValue : Maybe (Node ( Node String, Node Expression ))
                         dataFieldValue =
                             fields
                                 |> List.filterMap

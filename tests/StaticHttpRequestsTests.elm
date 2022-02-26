@@ -17,7 +17,6 @@ import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.StaticHttpBody as StaticHttpBody
-import Pages.Manifest as Manifest
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as Request
@@ -29,10 +28,8 @@ import RequestsAndPending
 import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
-import SimulatedEffect.Sub
-import SimulatedEffect.Task
 import Task
-import Test exposing (Test, describe, only, skip, test)
+import Test exposing (Test, describe, skip, test)
 
 
 all : Test
@@ -573,9 +570,6 @@ startLowLevel :
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel apiRoutes staticHttpCache pages =
     let
-        _ =
-            Debug.log "start" ()
-
         pageToLoad : List String
         pageToLoad =
             case pages |> List.head |> Maybe.map Tuple.first of
@@ -990,16 +984,6 @@ fromJsPort =
     Sub.none
 
 
-manifest : Manifest.Config
-manifest =
-    Manifest.init
-        { description = "elm-pages - A statically typed site generator."
-        , name = "elm-pages docs"
-        , startUrl = Path.join []
-        , icons = []
-        }
-
-
 starDecoder : Decoder Int
 starDecoder =
     JD.field "stargazer_count" JD.int
@@ -1097,10 +1081,6 @@ simulateHttp request response program =
 
 simulateMultipleHttp : List ( Request.Request, String ) -> ProgramTest model msg effect -> ProgramTest model msg effect
 simulateMultipleHttp requests program =
-    let
-        _ =
-            Debug.log "simulateMultiple" requests
-    in
     program
         |> ProgramTest.ensureOutgoingPortValues
             "toJsPort"
