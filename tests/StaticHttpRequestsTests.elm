@@ -276,7 +276,7 @@ all =
                         , headers = []
                         , body = DataSource.Http.emptyBody
                         }
-                        (DataSource.Http.expectString Ok)
+                        DataSource.Http.expectString
                     )
                     |> simulateHttp
                         { method = "GET"
@@ -296,7 +296,8 @@ all =
                         , headers = []
                         , body = DataSource.Http.emptyBody
                         }
-                        (DataSource.Http.expectString
+                        DataSource.Http.expectString
+                        |> DataSource.map
                             (\string ->
                                 if String.toUpper string == string then
                                     Ok string
@@ -304,7 +305,6 @@ all =
                                 else
                                     Err "String was not uppercased"
                             )
-                        )
                         |> DataSource.andThen DataSource.fromResult
                     )
                     |> simulateHttp

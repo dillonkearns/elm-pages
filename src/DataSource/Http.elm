@@ -167,34 +167,25 @@ type Expect value
     | ExpectWhatever value
 
 
-{-| Request a raw String. You can validate the String if you need to check the formatting, or try to parse it
-in something besides JSON. Be sure to use the `DataSource.Http.request` function if you want an optimized request that
-strips out unused JSON to optimize your asset size.
+{-| Gives the HTTP response body as a raw String.
 
-If the function you pass to `expectString` yields an `Err`, then you will get a build error that will
-fail your `elm-pages` build and print out the String from the `Err`.
+    import DataSource exposing (DataSource)
+    import DataSource.Http
 
+    request : DataSource String
     request =
-        DataSource.Http.unoptimizedRequest
+        DataSource.Http.request
             { url = "https://example.com/file.txt"
             , method = "GET"
             , headers = []
             , body = DataSource.Http.emptyBody
             }
-            (DataSource.Http.expectString
-                (\string ->
-                    if String.toUpper string == string then
-                        Ok string
-
-                    else
-                        Err "String was not uppercased"
-                )
-            )
+            DataSource.Http.expectString
 
 -}
-expectString : (String -> value) -> Expect value
+expectString : Expect String
 expectString =
-    ExpectString
+    ExpectString identity
 
 
 {-| Handle the incoming response as JSON and don't optimize the asset and strip out unused values.
