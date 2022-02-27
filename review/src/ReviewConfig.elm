@@ -56,7 +56,6 @@ config =
      , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
         |> ignoreInTest
      , NoDebug.Log.rule
-        |> ignoreInTest
      , NoDebug.TodoOrToString.rule
         |> ignoreInTest
      , NoMissingTypeAnnotation.rule

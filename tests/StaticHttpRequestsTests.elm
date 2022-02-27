@@ -869,7 +869,7 @@ sendToJsPort value =
 
 simulateEffects : Effect -> ProgramTest.SimulatedEffect Msg
 simulateEffects effect =
-    case effect |> Debug.log "effect" of
+    case effect of
         Effect.NoEffect ->
             SimulatedEffect.Cmd.none
 
@@ -1025,7 +1025,7 @@ simulateSubscriptions : a -> ProgramTest.SimulatedSub Msg
 simulateSubscriptions _ =
     -- TODO handle build errors or not needed?
     SimulatedEffect.Ports.subscribe "gotBatchSub"
-        (RequestsAndPending.batchDecoder |> JD.map GotDataBatch |> JD.map (Debug.log "GotBatch"))
+        (RequestsAndPending.batchDecoder |> JD.map GotDataBatch)
         identity
 
 
@@ -1047,7 +1047,7 @@ post url =
     }
 
 
-simulateHttp : Request.Request -> RequestsAndPending.ResponseBody -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateHttp : Request.Request -> ResponseBody -> ProgramTest model msg effect -> ProgramTest model msg effect
 simulateHttp request response program =
     program
         |> ProgramTest.ensureOutgoingPortValues
@@ -1113,14 +1113,11 @@ encodeBatchEntry req response =
           )
         , ( "response"
           , RequestsAndPending.bodyEncoder response
-            --Encode.object
-            --[ ( "bodyKind", Encode.string "json" )
-            --, ( "body", JD.decodeString JD.value response |> Result.withDefault Encode.null )
-            --]
           )
         ]
 
 
+withInternalHeader : ResponseBody -> { a | headers : List ( String, String ) } -> { a | headers : List ( String, String ) }
 withInternalHeader res req =
     { req
         | headers =

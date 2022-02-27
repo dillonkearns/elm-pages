@@ -80,7 +80,7 @@ bodyEncoder body =
         StringBody string ->
             ( "string", Encode.string string )
 
-        BytesBody bytes ->
+        BytesBody _ ->
             ( "Unhandled", Encode.null )
 
         WhateverBody ->
