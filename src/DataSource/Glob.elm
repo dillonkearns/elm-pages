@@ -417,7 +417,7 @@ See [`int`](#int) for a convenience function to get an Int value instead of a St
 -}
 digits : Glob String
 digits =
-    Glob "[0-9]+"
+    Glob "([0-9]+)"
         "([0-9]+?)"
         (\_ captures ->
             case captures of
@@ -950,10 +950,19 @@ toDataSource glob =
             DataSource.Internal.Glob.toPattern glob
                 |> DataSource.Http.stringBody "glob"
         , expect =
-            Decode.string
+            Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
+                (Decode.field "fullPath" Decode.string)
+                (Decode.field "captures" (Decode.list Decode.string))
                 |> Decode.list
                 |> Decode.map
-                    (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
+                    (\rawGlob ->
+                        rawGlob
+                            |> List.map
+                                (\{ fullPath, captures } ->
+                                    DataSource.Internal.Glob.run fullPath captures glob
+                                        |> .match
+                                )
+                    )
                 |> DataSource.Http.expectJson
         }
 

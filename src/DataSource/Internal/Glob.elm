@@ -14,8 +14,8 @@ type Glob a
     = Glob String String (String -> List String -> ( a, List String ))
 
 
-run : String -> Glob a -> { match : a, pattern : String }
-run rawInput (Glob pattern regex applyCapture) =
+run : String -> List String -> Glob a -> { match : a, pattern : String }
+run rawInput captures (Glob pattern regex applyCapture) =
     let
         fullRegex : String
         fullRegex =
@@ -32,7 +32,7 @@ run rawInput (Glob pattern regex applyCapture) =
             Regex.fromString fullRegex |> Maybe.withDefault Regex.never
     in
     { match =
-        regexCaptures
+        captures
             |> List.reverse
             |> applyCapture rawInput
             |> Tuple.first

@@ -1,6 +1,7 @@
 // @ts-check
 
 const path = require("path");
+const mm = require("micromatch");
 const matter = require("gray-matter");
 const globby = require("globby");
 const fsPromises = require("fs").promises;
@@ -388,10 +389,19 @@ async function readFileJobNew(req, patternsToWatch) {
 
 async function runGlobNew(req, patternsToWatch) {
   try {
-    const matchedPaths = await globby(req.body.args[1]);
-    patternsToWatch.add(req.body.args[1]);
+    const pattern = req.body.args[1];
+    const matchedPaths = await globby(pattern, {});
+    patternsToWatch.add(pattern);
 
-    return jsonResponse(req, matchedPaths);
+    return jsonResponse(
+      req,
+      matchedPaths.map((fullPath) => {
+        return {
+          fullPath,
+          captures: mm.capture(pattern, fullPath),
+        };
+      })
+    );
   } catch (e) {
     console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
     throw e;
