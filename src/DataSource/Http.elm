@@ -215,15 +215,15 @@ expectWhatever =
 
 
 {-| -}
-expectStringResponse : (Response String -> value) -> Expect value
+expectStringResponse : Expect (Response String)
 expectStringResponse =
-    ExpectResponse
+    ExpectResponse identity
 
 
 {-| -}
-expectBytesResponse : (Response Bytes -> value) -> Expect value
+expectBytesResponse : Expect (Response Bytes)
 expectBytesResponse =
-    ExpectBytesResponse
+    ExpectBytesResponse identity
 
 
 expectToString : Expect a -> String
