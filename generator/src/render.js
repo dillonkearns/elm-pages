@@ -472,39 +472,6 @@ function flushQueue(app) {
 }
 
 /**
- * @param {string} globPattern
- * @returns {Promise<Object>}
- */
-async function globTask(globPattern) {
-  try {
-    const matchedPaths = await globby(globPattern);
-    // console.log("Got glob path", matchedPaths);
-
-    return {
-      request: {
-        url: `glob://${globPattern}`,
-        method: "GET",
-        headers: [],
-        body: { tag: "EmptyBody", args: [] },
-      },
-      response: jsonResponse(matchedPaths),
-    };
-  } catch (e) {
-    console.log(`Error performing glob '${globPattern}'`);
-    throw e;
-  }
-}
-
-function requireUncached(mode, filePath) {
-  if (mode === "dev-server") {
-    // for the build command, we can skip clearing the cache because it won't change while the build is running
-    // in the dev server, we want to clear the cache to get a the latest code each time it runs
-    delete require.cache[require.resolve(filePath)];
-  }
-  return require(filePath);
-}
-
-/**
  * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
  * @param {{ message: string; title: string; }} error
  */
