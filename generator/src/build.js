@@ -84,8 +84,9 @@ async function run(options) {
         console.warn("Using default config.", error);
         return {};
       });
+    console.log("@@@1");
 
-    await build({
+    const buildComplete = build({
       configFile: false,
       root: process.cwd(),
       base: options.base,
@@ -100,7 +101,7 @@ async function run(options) {
       ...viteConfig,
     });
     const compileClientDone = compileElm(options);
-    await compileClientDone;
+    await buildComplete;
     await fsPromises.copyFile(
       "dist/elm-stuff/elm-pages/index.html",
       "dist/template.html"
@@ -110,6 +111,7 @@ async function run(options) {
     const compileCli = compileCliApp(options);
     try {
       await compileCli;
+      await compileClientDone;
     } catch (cliError) {
       console.error(cliError);
       process.exit(1);
