@@ -459,17 +459,7 @@ function _HtmlAsJson_toJson(html) {
 return forceThunks(html);
 `)
       )
-      .replace(
-        "return ports ? { ports: ports } : {};",
-        `const die = function() {
-        managers = null
-        model = null
-        stepper = null
-        ports = null
-      }
-
-      return ports ? { ports: ports, die: die } : { die: die };`
-      )
+      .replace(`console.log("App dying");`, ``)
   );
 }
 
