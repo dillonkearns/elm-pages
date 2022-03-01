@@ -216,6 +216,7 @@ import DataSource.Http
 import DataSource.Internal.Glob exposing (Glob(..))
 import DataSource.Internal.Request
 import Json.Decode as Decode
+import Json.Encode as Encode
 import List.Extra
 import Regex
 
@@ -885,10 +886,13 @@ toNonEmptyWithDefault default list =
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
     DataSource.Internal.Request.request
-        { name = "glob-files"
+        { name = "glob"
         , body =
-            DataSource.Internal.Glob.toPattern glob
-                |> DataSource.Http.stringBody "glob"
+            Encode.object
+                [ ( "pattern", Encode.string <| DataSource.Internal.Glob.toPattern glob )
+                , ( "filesOrDirectory", Encode.string <| "files" )
+                ]
+                |> DataSource.Http.jsonBody
         , expect =
             Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
                 (Decode.field "fullPath" Decode.string)
@@ -912,10 +916,13 @@ toDataSource glob =
 listDirectories : Glob a -> DataSource (List a)
 listDirectories glob =
     DataSource.Internal.Request.request
-        { name = "glob-directories"
+        { name = "glob"
         , body =
-            DataSource.Internal.Glob.toPattern glob
-                |> DataSource.Http.stringBody "glob"
+            Encode.object
+                [ ( "pattern", Encode.string <| DataSource.Internal.Glob.toPattern glob )
+                , ( "filesOrDirectory", Encode.string <| "directory" )
+                ]
+                |> DataSource.Http.jsonBody
         , expect =
             Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
                 (Decode.field "fullPath" Decode.string)
