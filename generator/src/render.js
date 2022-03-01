@@ -240,45 +240,6 @@ function jsonOrNull(string) {
   }
 }
 
-async function runJob(app, filePath) {
-  pendingDataSourceCount += 1;
-  try {
-    const fileContents = (
-      await fsPromises.readFile(
-        path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
-      )
-    ).toString();
-    const parsedFile = matter(fileContents);
-
-    pendingDataSourceResponses.push(
-      jsonResponse(
-        {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        {
-          parsedFrontmatter: parsedFile.data,
-          withoutFrontmatter: parsedFile.content,
-          rawFile: fileContents,
-          jsonFile: jsonOrNull(fileContents),
-        }
-      )
-    );
-  } catch (e) {
-    sendError(app, {
-      title: "Error reading file",
-      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-        filePath
-      )}`,
-    });
-  } finally {
-    pendingDataSourceCount -= 1;
-    flushIfDone(app);
-  }
-}
-
 async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
   pendingDataSourceCount += 1;
   try {
