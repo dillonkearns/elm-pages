@@ -3,26 +3,28 @@ module Test.Glob exposing (all)
 import DataSource exposing (DataSource)
 import DataSource.Glob as Glob exposing (Glob)
 import DataSource.Internal.Glob
+import Expect
+import Test exposing (Test, describe, test)
 
 
-all : List (DataSource (Result String ()))
+all : DataSource Test
 all =
-    [ test
+    [ globTestCase
         { name = "1"
         , glob = findBySplat []
         , expected = [ "content/index.md" ]
         }
-    , test
+    , globTestCase
         { name = "2"
         , glob = findBySplat [ "foo" ]
         , expected = [ "content/foo/index.md" ]
         }
-    , test
+    , globTestCase
         { name = "3"
         , glob = findBySplat [ "bar" ]
         , expected = [ "content/bar.md" ]
         }
-    , test
+    , globTestCase
         { name = "4"
         , glob =
             Glob.succeed identity
@@ -32,7 +34,7 @@ all =
                 |> Glob.match Glob.wildcard
         , expected = [ "about", "posts" ]
         }
-    , test
+    , globTestCase
         { name = "5"
         , glob =
             Glob.succeed
@@ -52,7 +54,7 @@ all =
               }
             ]
         }
-    , test
+    , globTestCase
         { name = "6"
         , glob =
             Glob.succeed Tuple.pair
@@ -68,7 +70,7 @@ all =
                     )
         , expected = [ ( "data-file", JSON ) ]
         }
-    , test
+    , globTestCase
         { name = "7"
         , glob =
             Glob.succeed
@@ -97,7 +99,7 @@ all =
               }
             ]
         }
-    , test
+    , globTestCase
         { name = "8"
         , glob =
             Glob.succeed identity
@@ -129,6 +131,8 @@ all =
         , expectedFiles = []
         }
     ]
+        |> DataSource.combine
+        |> DataSource.map (describe "glob tests")
 
 
 findBySplat : List String -> Glob String
@@ -155,23 +159,31 @@ type JsonOrYaml
     | YAML
 
 
-test : { name : String, glob : Glob value, expected : List value } -> DataSource (Result String ())
-test { glob, name, expected } =
+globTestCase : { name : String, glob : Glob value, expected : List value } -> DataSource Test
+globTestCase { glob, name, expected } =
     Glob.toDataSource glob
         |> DataSource.map
             (\actual ->
-                if actual == expected then
-                    Ok ()
-
-                else
-                    Err <|
-                        name
-                            ++ " failed\nPattern: `"
-                            ++ DataSource.Internal.Glob.toPattern glob
-                            ++ "`\nExpected\n"
-                            ++ Debug.toString expected
-                            ++ "\nActual\n"
-                            ++ Debug.toString actual
+                test name <|
+                    \() ->
+                        actual
+                            |> List.sortBy Debug.toString
+                            |> Expect.equalLists
+                                (expected
+                                    |> List.sortBy Debug.toString
+                                )
+             --if actual == expected then
+             --    --Ok ()
+             --
+             --else
+             --    Err <|
+             --        name
+             --            ++ " failed\nPattern: `"
+             --            ++ DataSource.Internal.Glob.toPattern glob
+             --            ++ "`\nExpected\n"
+             --            ++ Debug.toString expected
+             --            ++ "\nActual\n"
+             --            ++ Debug.toString actual
             )
 
 
@@ -181,21 +193,29 @@ testDir :
     , expectedDirs : List value
     , expectedFiles : List value
     }
-    -> DataSource (Result String ())
+    -> DataSource Test
 testDir { glob, name, expectedDirs, expectedFiles } =
     Glob.listDirectories glob
         |> DataSource.map
             (\actual ->
-                if actual == expectedDirs then
-                    Ok ()
-
-                else
-                    Err <|
-                        name
-                            ++ " failed\nPattern: `"
-                            ++ DataSource.Internal.Glob.toPattern glob
-                            ++ "`\nExpected\n"
-                            ++ Debug.toString expectedDirs
-                            ++ "\nActual\n"
-                            ++ Debug.toString actual
+                test name <|
+                    \() ->
+                        actual
+                            |> List.sortBy Debug.toString
+                            |> Expect.equalLists
+                                (expectedDirs
+                                    |> List.sortBy Debug.toString
+                                )
+             --if actual == expectedDirs then
+             --    Ok ()
+             --
+             --else
+             --    Err <|
+             --        name
+             --            ++ " failed\nPattern: `"
+             --            ++ DataSource.Internal.Glob.toPattern glob
+             --            ++ "`\nExpected\n"
+             --            ++ Debug.toString expectedDirs
+             --            ++ "\nActual\n"
+             --            ++ Debug.toString actual
             )

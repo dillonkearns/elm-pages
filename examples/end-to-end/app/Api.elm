@@ -4,11 +4,14 @@ import ApiRoute exposing (ApiRoute)
 import DataSource exposing (DataSource)
 import Html exposing (Html)
 import Json.Decode as Decode
-import Result.Extra
+import Pages
+import Random
 import Route exposing (Route)
 import Server.Request as Request
-import Server.Response as Response
+import Server.Response as Response exposing (Response)
 import Test.Glob
+import Test.Runner.Html
+import Time
 
 
 routes :
@@ -16,9 +19,41 @@ routes :
     -> (Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
+    let
+        html : Html Never -> Response data
+        html htmlValue =
+            { statusCode = 200
+            , headers = [ ( "Content-Type", "text/html; charset=UTF-8" ) ]
+            , body = Just (htmlToString htmlValue)
+            , isBase64Encoded = False
+            }
+                |> Response.customResponse
+    in
     [ greet
-    , globTestRouteNew
+    , ApiRoute.succeed
+        (Request.succeed
+            (Test.Glob.all
+                |> DataSource.map viewHtmlResults
+                |> DataSource.map html
+            )
+        )
+        |> ApiRoute.literal "tests"
+        |> ApiRoute.serverRender
     ]
+
+
+config : Test.Runner.Html.Config
+config =
+    Random.initialSeed (Pages.builtAt |> Time.posixToMillis)
+        |> Test.Runner.Html.defaultConfig
+        |> Test.Runner.Html.hidePassedTests
+
+
+viewHtmlResults tests =
+    Html.div []
+        [ Html.h1 [] [ Html.text "My Test Suite" ]
+        , Html.div [] [ Test.Runner.Html.viewResults config tests ]
+        ]
 
 
 greet : ApiRoute ApiRoute.Response
@@ -45,34 +80,4 @@ greet =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "greet"
-        |> ApiRoute.serverRender
-
-
-globTestRouteNew : ApiRoute ApiRoute.Response
-globTestRouteNew =
-    ApiRoute.succeed
-        (Request.succeed
-            (Test.Glob.all
-                |> DataSource.combine
-                |> DataSource.map
-                    (\testResults ->
-                        case
-                            testResults
-                                |> Result.Extra.combine
-                        of
-                            Ok _ ->
-                                Response.plainText
-                                    ("Pass\n"
-                                        ++ String.fromInt (List.length testResults)
-                                        ++ " successful tests"
-                                    )
-
-                            Err error ->
-                                ("Fail\n\n" ++ error)
-                                    |> Response.plainText
-                                    |> Response.withStatusCode 500
-                    )
-            )
-        )
-        |> ApiRoute.literal "tests"
         |> ApiRoute.serverRender
