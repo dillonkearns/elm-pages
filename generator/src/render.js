@@ -229,17 +229,6 @@ async function outputString(
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-/**
- * @param {string} string
- */
-function jsonOrNull(string) {
-  try {
-    return JSON.parse(string);
-  } catch (e) {
-    return { invalidJson: e.toString() };
-  }
-}
-
 async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
   pendingDataSourceCount += 1;
   try {
@@ -342,7 +331,6 @@ async function readFileJobNew(req, patternsToWatch) {
       parsedFrontmatter: parsedFile.data,
       withoutFrontmatter: parsedFile.content,
       rawFile: fileContents,
-      jsonFile: jsonOrNull(fileContents),
     });
   } catch (error) {
     throw {

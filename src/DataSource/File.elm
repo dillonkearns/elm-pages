@@ -43,6 +43,7 @@ plain old JSON in Elm.
 -}
 
 import DataSource exposing (DataSource)
+import DataSource.File
 import DataSource.Http
 import DataSource.Internal.Request
 import Json.Decode as Decode exposing (Decoder)
@@ -273,7 +274,14 @@ The Decode will strip off any unused JSON data.
 -}
 jsonFile : Decoder a -> String -> DataSource a
 jsonFile jsonFileDecoder filePath =
-    read filePath (Decode.field "jsonFile" jsonFileDecoder)
+    rawFile filePath
+        |> DataSource.andThen
+            (\jsonString ->
+                jsonString
+                    |> Decode.decodeString jsonFileDecoder
+                    |> Result.mapError Decode.errorToString
+                    |> DataSource.fromResult
+            )
 
 
 {-| Gives us the file's content without stripping off frontmatter.
