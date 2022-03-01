@@ -9,6 +9,7 @@ module DataSource.Glob exposing
     , map, succeed, toDataSource
     , oneOf
     , zeroOrMore, atLeastOne
+    , listDirectories
     )
 
 {-|
@@ -563,7 +564,7 @@ This is usually not what is intended. Using `recursiveWildcard` is usually follo
 -}
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
-    Glob "**"
+    Glob "(**)"
         recursiveWildcardRegex
         (\_ captures ->
             case captures of
@@ -945,7 +946,34 @@ toNonEmptyWithDefault default list =
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
     DataSource.Internal.Request.request
-        { name = "glob"
+        { name = "glob-files"
+        , body =
+            DataSource.Internal.Glob.toPattern glob
+                |> DataSource.Http.stringBody "glob"
+        , expect =
+            Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
+                (Decode.field "fullPath" Decode.string)
+                (Decode.field "captures" (Decode.list Decode.string))
+                |> Decode.list
+                |> Decode.map
+                    (\rawGlob ->
+                        rawGlob
+                            |> List.map
+                                (\{ fullPath, captures } ->
+                                    DataSource.Internal.Glob.run fullPath captures glob
+                                        |> .match
+                                )
+                    )
+                |> DataSource.Http.expectJson
+        }
+
+
+{-| In order to get match data from your glob, turn it into a `DataSource` with this function.
+-}
+listDirectories : Glob a -> DataSource (List a)
+listDirectories glob =
+    DataSource.Internal.Request.request
+        { name = "glob-directories"
         , body =
             DataSource.Internal.Glob.toPattern glob
                 |> DataSource.Http.stringBody "glob"

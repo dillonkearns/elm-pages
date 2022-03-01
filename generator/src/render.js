@@ -330,9 +330,15 @@ async function runInternalJob(
       pendingDataSourceResponses.push(
         await readFileJobNew(requestToPerform, patternsToWatch)
       );
-    } else if (requestToPerform.url === "elm-pages-internal://glob") {
+    } else if (requestToPerform.url === "elm-pages-internal://glob-files") {
       pendingDataSourceResponses.push(
-        await runGlobNew(requestToPerform, patternsToWatch)
+        await runGlobNew(requestToPerform, false, patternsToWatch)
+      );
+    } else if (
+      requestToPerform.url === "elm-pages-internal://glob-directories"
+    ) {
+      pendingDataSourceResponses.push(
+        await runGlobNew(requestToPerform, true, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://env") {
       pendingDataSourceResponses.push(
@@ -387,10 +393,13 @@ async function readFileJobNew(req, patternsToWatch) {
   }
 }
 
-async function runGlobNew(req, patternsToWatch) {
+async function runGlobNew(req, onlyDirectories, patternsToWatch) {
   try {
     const pattern = req.body.args[1];
-    const matchedPaths = await globby(pattern, {});
+    const matchedPaths = await globby(pattern, {
+      onlyFiles: !onlyDirectories,
+      onlyDirectories: onlyDirectories,
+    });
     patternsToWatch.add(pattern);
 
     return jsonResponse(

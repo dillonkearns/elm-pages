@@ -113,6 +113,21 @@ all =
                     )
         , expected = [ ( JSON, [ YAML, JSON, JSON ] ) ]
         }
+    , testDir
+        { name = "9"
+        , glob =
+            Glob.succeed identity
+                |> Glob.match (Glob.literal "glob-test-cases/folder1/")
+                |> Glob.capture Glob.recursiveWildcard
+        , expectedDirs =
+            [ [ "folder2a" ]
+            , [ "folder2b" ]
+            , [ "folder2a", "folder3a" ]
+            , [ "folder2a", "folder3b" ]
+            , [ "folder2b", "folder3" ]
+            ]
+        , expectedFiles = []
+        }
     ]
 
 
@@ -155,6 +170,32 @@ test { glob, name, expected } =
                             ++ DataSource.Internal.Glob.toPattern glob
                             ++ "`\nExpected\n"
                             ++ Debug.toString expected
+                            ++ "\nActual\n"
+                            ++ Debug.toString actual
+            )
+
+
+testDir :
+    { name : String
+    , glob : Glob value
+    , expectedDirs : List value
+    , expectedFiles : List value
+    }
+    -> DataSource (Result String ())
+testDir { glob, name, expectedDirs, expectedFiles } =
+    Glob.listDirectories glob
+        |> DataSource.map
+            (\actual ->
+                if actual == expectedDirs then
+                    Ok ()
+
+                else
+                    Err <|
+                        name
+                            ++ " failed\nPattern: `"
+                            ++ DataSource.Internal.Glob.toPattern glob
+                            ++ "`\nExpected\n"
+                            ++ Debug.toString expectedDirs
                             ++ "\nActual\n"
                             ++ Debug.toString actual
             )
