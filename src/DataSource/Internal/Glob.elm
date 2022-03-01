@@ -6,31 +6,15 @@ module DataSource.Internal.Glob exposing
     )
 
 import List.Extra
-import Regex exposing (Regex)
 
 
 {-| -}
 type Glob a
-    = Glob String String (String -> List String -> ( a, List String ))
+    = Glob String (String -> List String -> ( a, List String ))
 
 
 run : String -> List String -> Glob a -> { match : a, pattern : String }
-run rawInput captures (Glob pattern regex applyCapture) =
-    let
-        fullRegex : String
-        fullRegex =
-            "^" ++ regex ++ "$"
-
-        regexCaptures : List String
-        regexCaptures =
-            Regex.find parsedRegex rawInput
-                |> List.concatMap .submatches
-                |> List.map (Maybe.withDefault "")
-
-        parsedRegex : Regex
-        parsedRegex =
-            Regex.fromString fullRegex |> Maybe.withDefault Regex.never
-    in
+run rawInput captures (Glob pattern applyCapture) =
     { match =
         captures
             |> List.reverse
@@ -42,7 +26,7 @@ run rawInput captures (Glob pattern regex applyCapture) =
 
 {-| -}
 toPattern : Glob a -> String
-toPattern (Glob pattern _ _) =
+toPattern (Glob pattern _) =
     pattern
 
 

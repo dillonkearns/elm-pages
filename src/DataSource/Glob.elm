@@ -277,9 +277,8 @@ For example, you could take a date and parse it.
 
 -}
 map : (a -> b) -> Glob a -> Glob b
-map mapFn (Glob pattern regex applyCapture) =
+map mapFn (Glob pattern applyCapture) =
     Glob pattern
-        regex
         (\fullPath captures ->
             captures
                 |> applyCapture fullPath
@@ -291,13 +290,12 @@ map mapFn (Glob pattern regex applyCapture) =
 -}
 succeed : constructor -> Glob constructor
 succeed constructor =
-    Glob "" "" (\_ captures -> ( constructor, captures ))
+    Glob "" (\_ captures -> ( constructor, captures ))
 
 
 fullFilePath : Glob String
 fullFilePath =
     Glob ""
-        ""
         (\fullPath captures ->
             ( fullPath, captures )
         )
@@ -395,7 +393,6 @@ will match _within_ a path part (think between the slashes of a file path). `rec
 wildcard : Glob String
 wildcard =
     Glob "*"
-        wildcardRegex
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -406,11 +403,6 @@ wildcard =
         )
 
 
-wildcardRegex : String
-wildcardRegex =
-    "([^/]*?)"
-
-
 {-| This is similar to [`wildcard`](#wildcard), but it will only match 1 or more digits (i.e. `[0-9]+`).
 
 See [`int`](#int) for a convenience function to get an Int value instead of a String of digits.
@@ -419,7 +411,6 @@ See [`int`](#int) for a convenience function to get an Int value instead of a St
 digits : Glob String
 digits =
     Glob "([0-9]+)"
-        "([0-9]+?)"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -565,7 +556,6 @@ This is usually not what is intended. Using `recursiveWildcard` is usually follo
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
     Glob "(**)"
-        recursiveWildcardRegex
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -578,11 +568,6 @@ recursiveWildcard =
         |> map (List.filter (not << String.isEmpty))
 
 
-recursiveWildcardRegex : String
-recursiveWildcardRegex =
-    "(.*?)"
-
-
 {-| -}
 zeroOrMore : List String -> Glob (Maybe String)
 zeroOrMore matchers =
@@ -590,10 +575,6 @@ zeroOrMore matchers =
         ("*("
             ++ (matchers |> String.join "|")
             ++ ")"
-        )
-        ("((?:"
-            ++ (matchers |> List.map regexEscaped |> String.join "|")
-            ++ ")*)"
         )
         (\_ captures ->
             case captures of
@@ -638,21 +619,7 @@ blogPosts =
 -}
 literal : String -> Glob String
 literal string =
-    Glob string (regexEscaped string) (\_ captures -> ( string, captures ))
-
-
-regexEscaped : String -> String
-regexEscaped stringLiteral =
-    --https://stackoverflow.com/a/6969486
-    stringLiteral
-        |> Regex.replace regexEscapePattern (\match_ -> "\\" ++ match_.match)
-
-
-regexEscapePattern : Regex.Regex
-regexEscapePattern =
-    "[.*+?^${}()|[\\]\\\\]"
-        |> Regex.fromString
-        |> Maybe.withDefault Regex.never
+    Glob string (\_ captures -> ( string, captures ))
 
 
 {-| Adds on to the glob pattern, but does not capture it in the resulting Elm match value. That means this changes which
@@ -662,10 +629,9 @@ Exactly the same as `capture` except it doesn't capture the matched sub-pattern.
 
 -}
 match : Glob a -> Glob value -> Glob value
-match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
+match (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (combineRegexes regex1 regex2)
         (\fullPath captures ->
             let
                 ( _, captured1 ) =
@@ -731,10 +697,9 @@ you can pick apart structured data as you build up your glob pattern. This follo
 
 -}
 capture : Glob a -> Glob (a -> value) -> Glob value
-capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
+capture (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (combineRegexes regex1 regex2)
         (\fullPath captures ->
             let
                 ( applied1, captured1 ) =
@@ -749,21 +714,6 @@ capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
             , captured2
             )
         )
-
-
-combineRegexes : String -> String -> String
-combineRegexes regex1 regex2 =
-    if isRecursiveWildcardSlashWildcard regex1 regex2 then
-        (regex2 |> String.dropRight 1) ++ regex1
-
-    else
-        regex2 ++ regex1
-
-
-isRecursiveWildcardSlashWildcard : String -> String -> Bool
-isRecursiveWildcardSlashWildcard regex1 regex2 =
-    (regex2 |> String.endsWith (recursiveWildcardRegex ++ "/"))
-        && (regex1 |> String.startsWith wildcardRegex)
 
 
 {-|
@@ -861,13 +811,6 @@ oneOf ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join ",")
             ++ "}"
         )
-        ("("
-            ++ String.join "|"
-                ((allMatchers |> List.map Tuple.first |> List.map regexEscaped)
-                    |> List.map regexEscaped
-                )
-            ++ ")"
-        )
         (\_ captures ->
             case captures of
                 match_ :: rest ->
@@ -901,10 +844,6 @@ atLeastOne ( defaultMatch, otherMatchers ) =
         ("+("
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
-        )
-        ("((?:"
-            ++ (allMatchers |> List.map Tuple.first |> List.map regexEscaped |> String.join "|")
-            ++ ")+)"
         )
         (\_ captures ->
             case captures of
@@ -1089,5 +1028,5 @@ expectUniqueMatchFromList globs =
 toPatternString : Glob a -> String
 toPatternString glob =
     case glob of
-        Glob pattern_ _ _ ->
+        Glob pattern_ _ ->
             pattern_
