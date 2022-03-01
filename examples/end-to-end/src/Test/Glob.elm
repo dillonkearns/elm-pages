@@ -1,7 +1,7 @@
 module Test.Glob exposing (all)
 
 import DataSource exposing (DataSource)
-import DataSource.Glob as Glob exposing (Glob)
+import DataSource.Glob as Glob exposing (Glob, Include(..), defaultOptions)
 import DataSource.Internal.Glob
 import Expect
 import Test exposing (Test, describe, test)
@@ -195,7 +195,11 @@ testDir :
     }
     -> DataSource Test
 testDir { glob, name, expectedDirs, expectedFiles } =
-    Glob.listDirectories glob
+    glob
+        |> Glob.toDataSourceWithOptions
+            { defaultOptions
+                | include = OnlyFolders
+            }
         |> DataSource.map
             (\actual ->
                 test name <|

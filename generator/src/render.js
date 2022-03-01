@@ -338,13 +338,9 @@ async function readFileJobNew(req, patternsToWatch) {
 
 async function runGlobNew(req, patternsToWatch) {
   try {
-    const { pattern, filesOrDirectory } = req.body.args[0];
-
-    let onlyDirectories = filesOrDirectory === "directory";
-    const matchedPaths = await globby(pattern, {
-      onlyFiles: !onlyDirectories,
-      onlyDirectories: onlyDirectories,
-    });
+    const { pattern, options } = req.body.args[0];
+    console.log(req.body.args[0]);
+    const matchedPaths = await globby(pattern, options);
     patternsToWatch.add(pattern);
 
     return jsonResponse(

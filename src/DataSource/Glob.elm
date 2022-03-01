@@ -6,10 +6,12 @@ module DataSource.Glob exposing
     , int, digits
     , expectUniqueMatch, expectUniqueMatchFromList
     , literal
-    , map, succeed, toDataSource
+    , map, succeed
     , oneOf
     , zeroOrMore, atLeastOne
-    , listDirectories
+    , toDataSource
+    , toDataSourceWithOptions
+    , defaultOptions, Options, Include(..)
     )
 
 {-|
@@ -203,11 +205,23 @@ That will give us
 
 @docs literal
 
-@docs map, succeed, toDataSource
+@docs map, succeed
 
 @docs oneOf
 
 @docs zeroOrMore, atLeastOne
+
+
+## Getting Glob Data from a DataSource
+
+@docs toDataSource
+
+
+### With Custom Options
+
+@docs toDataSourceWithOptions
+
+@docs defaultOptions, Options, Include
 
 -}
 
@@ -218,7 +232,6 @@ import DataSource.Internal.Request
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
-import Regex
 
 
 {-| A pattern to match local files and capture parts of the path into a nice Elm data type.
@@ -885,42 +898,86 @@ toNonEmptyWithDefault default list =
 -}
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
-    DataSource.Internal.Request.request
-        { name = "glob"
-        , body =
-            Encode.object
-                [ ( "pattern", Encode.string <| DataSource.Internal.Glob.toPattern glob )
-                , ( "filesOrDirectory", Encode.string <| "files" )
-                ]
-                |> DataSource.Http.jsonBody
-        , expect =
-            Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
-                (Decode.field "fullPath" Decode.string)
-                (Decode.field "captures" (Decode.list Decode.string))
-                |> Decode.list
-                |> Decode.map
-                    (\rawGlob ->
-                        rawGlob
-                            |> List.map
-                                (\{ fullPath, captures } ->
-                                    DataSource.Internal.Glob.run fullPath captures glob
-                                        |> .match
-                                )
-                    )
-                |> DataSource.Http.expectJson
-        }
+    toDataSourceWithOptions defaultOptions glob
 
 
-{-| In order to get match data from your glob, turn it into a `DataSource` with this function.
+{-| <https://github.com/mrmlnc/fast-glob#onlyfiles>
+
+<https://github.com/mrmlnc/fast-glob#onlydirectories>
+
 -}
-listDirectories : Glob a -> DataSource (List a)
-listDirectories glob =
+type Include
+    = OnlyFiles
+    | OnlyFolders
+    | FilesAndFolders
+
+
+{-| Custom options you can pass in to run the glob with [`toDataSourceWithOptions`](#toDataSourceWithOptions).
+
+    { includeDotFiles = Bool -- https://github.com/mrmlnc/fast-glob#dot
+    , include = Include -- return results that are `OnlyFiles`, `OnlyFolders`, or both `FilesAndFolders` (default is `OnlyFiles`)
+    , followSymbolicLinks = Bool -- https://github.com/mrmlnc/fast-glob#followsymboliclinks
+    , caseSensitiveMatch = Bool -- https://github.com/mrmlnc/fast-glob#casesensitivematch
+    , gitignore = Bool -- https://www.npmjs.com/package/globby#gitignore
+    , maxDepth = Maybe Int -- https://github.com/mrmlnc/fast-glob#deep
+    }
+
+-}
+type alias Options =
+    { includeDotFiles : Bool -- https://github.com/mrmlnc/fast-glob#dot
+    , include : Include
+    , followSymbolicLinks : Bool -- https://github.com/mrmlnc/fast-glob#followsymboliclinks
+    , caseSensitiveMatch : Bool -- https://github.com/mrmlnc/fast-glob#casesensitivematch
+    , gitignore : Bool -- https://www.npmjs.com/package/globby#gitignore
+    , maxDepth : Maybe Int -- https://github.com/mrmlnc/fast-glob#deep
+    }
+
+
+{-| The default options used in [`toDataSource`](#toDataSource). To use a custom set of options, use [`toDataSourceWithOptions`](#toDataSourceWithOptions).
+-}
+defaultOptions : Options
+defaultOptions =
+    { includeDotFiles = False
+    , followSymbolicLinks = True
+    , caseSensitiveMatch = True
+    , gitignore = False
+    , maxDepth = Nothing
+    , include = OnlyFiles
+    }
+
+
+encodeOptions : Options -> Encode.Value
+encodeOptions options =
+    [ ( "dot", Encode.bool options.includeDotFiles ) |> Just
+    , ( "followSymbolicLinks", Encode.bool options.followSymbolicLinks ) |> Just
+    , ( "caseSensitiveMatch", Encode.bool options.caseSensitiveMatch ) |> Just
+    , ( "gitignore", Encode.bool options.gitignore ) |> Just
+    , options.maxDepth |> Maybe.map (\depth -> ( "deep", Encode.int depth ))
+    , ( "onlyFiles", options.include == OnlyFiles || options.include == FilesAndFolders |> Encode.bool ) |> Just
+    , ( "onlyDirectories", options.include == OnlyFolders || options.include == FilesAndFolders |> Encode.bool ) |> Just
+    ]
+        |> List.filterMap identity
+        |> Encode.object
+
+
+{-| Same as toDataSource, but lets you set custom glob options. For example, to list folders instead of files,
+
+    import DataSource.Glob as Glob exposing (OnlyFolders, defaultOptions)
+
+    matchingFiles : Glob a -> DataSource (List a)
+    matchingFiles glob =
+        glob
+            |> Glob.toDataSourceWithOptions { defaultOptions | include = OnlyFolders }
+
+-}
+toDataSourceWithOptions : Options -> Glob a -> DataSource (List a)
+toDataSourceWithOptions options glob =
     DataSource.Internal.Request.request
         { name = "glob"
         , body =
             Encode.object
                 [ ( "pattern", Encode.string <| DataSource.Internal.Glob.toPattern glob )
-                , ( "filesOrDirectory", Encode.string <| "directory" )
+                , ( "options", encodeOptions options )
                 ]
                 |> DataSource.Http.jsonBody
         , expect =
