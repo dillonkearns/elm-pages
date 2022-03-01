@@ -702,6 +702,7 @@ parseContentType rawContentType =
         |> Maybe.withDefault rawContentType
 
 
+{-| -}
 expectJsonBody : Json.Decode.Decoder value -> Request value
 expectJsonBody jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
