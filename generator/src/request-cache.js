@@ -44,7 +44,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
-    const portsHash = portsFile.match(/-([^-]+)\.mjs$/)[1];
+    const portsHash = (portsFile && portsFile.match(/-([^-]+)\.mjs$/)[1]) || "";
     const responsePath = fullPath(portsHash, request, hasFsAccess);
 
     // TODO check cache expiration time and delete and go to else if expired
@@ -67,7 +67,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
             if (portDataSourceFound) {
               throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
             } else {
-              throw `DataSource.Port.send "${portName}" was called, but I couldn't find the port definitions file 'port-data-source.js'.`;
+              throw `DataSource.Port.send "${portName}" was called, but I couldn't find a port definitions file. Create a 'port-data-source.ts' or 'port-data-source.js' file and export a ${portName} function.`;
             }
           } else if (typeof portDataSource[portName] !== "function") {
             throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;

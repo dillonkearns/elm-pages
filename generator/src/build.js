@@ -121,17 +121,25 @@ async function run(options) {
         metafile: true,
         bundle: false,
         watch: false,
+        logLevel: "silent",
       })
       .then((result) => {
         global.portsFilePath = Object.keys(result.metafile.outputs)[0];
         console.log("Watching port-data-source...");
       })
       .catch((error) => {
-        console.error("Failed to start port-data-source watcher", error);
+        if (
+          error.errors.length === 1 &&
+          error.errors[0].text.includes(
+            `Could not resolve "./port-data-source"`
+          )
+        ) {
+          console.warn("No port-data-source file found.");
+        } else {
+          console.error("Failed to load port-data-source file", error);
+        }
       });
-    // TODO run esbuild for ports file
     // TODO extract common code for compiling ports file?
-    // TODO set global.portsFilePath
 
     XMLHttpRequest = {};
     const compileCli = compileCliApp(options);
