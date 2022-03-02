@@ -316,7 +316,7 @@ async function runInternalJob(
       )}`;
     }
   } catch (error) {
-    throw error;
+    sendError(app, error);
   } finally {
     pendingDataSourceCount -= 1;
     flushIfDone(app);
