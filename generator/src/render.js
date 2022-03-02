@@ -30,6 +30,7 @@ module.exports =
    * @returns
    */
   async function run(
+    portsFile,
     basePath,
     elmModule,
     mode,
@@ -49,6 +50,7 @@ module.exports =
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
     XMLHttpRequest = {};
     const result = await runElmApp(
+      portsFile,
       basePath,
       elmModule,
       mode,
@@ -71,6 +73,7 @@ module.exports =
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(
+  portsFile,
   basePath,
   elmModule,
   mode,
@@ -161,7 +164,10 @@ function runElmApp(
         }
       } else if (fromElm.tag === "DoHttp") {
         const requestToPerform = fromElm.args[0];
-        if (requestToPerform.url.startsWith("elm-pages-internal://")) {
+        if (
+          requestToPerform.url !== "elm-pages-internal://port" &&
+          requestToPerform.url.startsWith("elm-pages-internal://")
+        ) {
           runInternalJob(
             app,
             mode,
@@ -171,7 +177,7 @@ function runElmApp(
             patternsToWatch
           );
         } else {
-          runHttpJob(app, mode, requestToPerform, fs, hasFsAccess);
+          runHttpJob(portsFile, app, mode, requestToPerform, fs, hasFsAccess);
         }
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
@@ -229,10 +235,18 @@ async function outputString(
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-async function runHttpJob(app, mode, requestToPerform, fs, hasFsAccess) {
+async function runHttpJob(
+  portsFile,
+  app,
+  mode,
+  requestToPerform,
+  fs,
+  hasFsAccess
+) {
   pendingDataSourceCount += 1;
   try {
     const responseFilePath = await lookupOrPerform(
+      portsFile,
       mode,
       requestToPerform,
       hasFsAccess

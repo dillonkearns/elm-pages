@@ -16,29 +16,36 @@ function requestToString(request) {
 /**
  * @param {Object} request
  */
-function fullPath(request, hasFsAccess) {
+function fullPath(portsHash, request, hasFsAccess) {
+  const requestWithPortHash =
+    request.url === "elm-pages-internal://port"
+      ? { portsHash, ...request }
+      : request;
   if (hasFsAccess) {
     return path.join(
       process.cwd(),
       ".elm-pages",
       "http-response-cache",
-      requestToString(request)
+      requestToString(requestWithPortHash)
     );
   } else {
-    return path.join("/", requestToString(request));
+    return path.join("/", requestToString(requestWithPortHash));
   }
 }
 
 /**
  * @param {string} mode
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } rawRequest
+ * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body;}} rawRequest
  * @returns {Promise<string>}
+ * @param {string} portsFile
+ * @param {boolean} hasFsAccess
  */
-function lookupOrPerform(mode, rawRequest, hasFsAccess) {
+function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
-    const responsePath = fullPath(request, hasFsAccess);
+    const portsHash = portsFile.match(/-([^-]+)\.mjs$/)[1];
+    const responsePath = fullPath(portsHash, request, hasFsAccess);
 
     // TODO check cache expiration time and delete and go to else if expired
     if (await checkFileExists(fs, responsePath)) {
@@ -48,17 +55,14 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
       let portDataSource = {};
       let portDataSourceFound = false;
       try {
-        portDataSource = requireUncached(
-          mode,
-          path.join(process.cwd(), "port-data-source.js")
-        );
+        portDataSource = await import(path.join(process.cwd(), portsFile));
         portDataSourceFound = true;
       } catch (e) {}
 
-      if (request.url.startsWith("port://")) {
+      if (request.url === "elm-pages-internal://port") {
         try {
-          const portName = request.url.replace(/^port:\/\//, "");
-          // console.time(JSON.stringify(request.url));
+          const { input, portName } = rawRequest.body.args[0];
+
           if (!portDataSource[portName]) {
             if (portDataSourceFound) {
               throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
@@ -70,9 +74,7 @@ function lookupOrPerform(mode, rawRequest, hasFsAccess) {
           }
           await fs.promises.writeFile(
             responsePath,
-            JSON.stringify(
-              await portDataSource[portName](rawRequest.body.args[0])
-            )
+            JSON.stringify(jsonResponse(await portDataSource[portName](input)))
           );
           resolve(responsePath);
         } catch (error) {
@@ -226,6 +228,13 @@ function requireUncached(mode, filePath) {
     delete require.cache[require.resolve(filePath)];
   }
   return require(filePath);
+}
+
+/**
+ * @param {unknown} json
+ */
+function jsonResponse(json) {
+  return { bodyKind: "json", body: json };
 }
 
 module.exports = { lookupOrPerform };

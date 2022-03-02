@@ -24,6 +24,7 @@ const cookie = require("cookie");
 const busboy = require("busboy");
 const { createServer: createViteServer } = require("vite");
 const cliVersion = require("../../package.json").version;
+const esbuild = require("esbuild");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -137,6 +138,40 @@ async function start(options) {
     base: options.base,
     ...viteConfig,
   });
+  esbuild
+    .build({
+      entryPoints: ["./port-data-source"],
+      entryNames: "[dir]/[name]-[hash]",
+
+      outdir: ".elm-pages/compiled-ports",
+      assetNames: "[name]-[hash]",
+      chunkNames: "chunks/[name]-[hash]",
+      outExtension: { ".js": ".mjs" },
+
+      metafile: true,
+      bundle: false,
+      watch: true,
+      plugins: [
+        {
+          name: "example",
+          setup(build) {
+            build.onEnd((result) => {
+              global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+
+              clients.forEach((client) => {
+                client.response.write(`data: content.dat\n\n`);
+              });
+            });
+          },
+        },
+      ],
+    })
+    .then((result) => {
+      console.log("Watching port-data-source...");
+    })
+    .catch((error) => {
+      console.error("Failed to start port-data-source watcher", error);
+    });
 
   const app = connect()
     .use(timeMiddleware())
@@ -288,6 +323,7 @@ async function start(options) {
         mode: "dev-server",
         pathname,
         serverRequest,
+        portsFilePath: global.portsFilePath,
       });
       readyThread.worker.on("message", (message) => {
         if (message.tag === "done") {
@@ -379,6 +415,7 @@ async function start(options) {
     });
 
     req.on("end", async function () {
+      // TODO run render directly instead of in worker thread
       await runRenderThread(
         await reqToJson(req, body, requestTime),
         pathname,

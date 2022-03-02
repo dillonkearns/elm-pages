@@ -8,8 +8,9 @@ module DataSource.Port exposing (get)
 
 import DataSource
 import DataSource.Http
+import DataSource.Internal.Request
 import Json.Decode exposing (Decoder)
-import Json.Encode
+import Json.Encode as Encode
 
 
 {-| In a vanilla Elm application, ports let you either send or receive JSON data between your Elm application and the JavaScript context in the user's browser at runtime.
@@ -73,12 +74,17 @@ prefer to add ANSI color codes within the error string in an exception and it wi
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server.
 
 -}
-get : String -> Json.Encode.Value -> Decoder b -> DataSource.DataSource b
+get : String -> Encode.Value -> Decoder b -> DataSource.DataSource b
 get portName input decoder =
-    DataSource.Http.request
-        { url = "port://" ++ portName
-        , method = "GET"
-        , headers = []
-        , body = DataSource.Http.jsonBody input
+    DataSource.Internal.Request.request
+        { name = "port"
+        , body =
+            Encode.object
+                [ ( "input", input )
+                , ( "portName", Encode.string portName )
+                ]
+                |> DataSource.Http.jsonBody
+        , expect =
+            decoder
+                |> DataSource.Http.expectJson
         }
-        (DataSource.Http.expectJson decoder)

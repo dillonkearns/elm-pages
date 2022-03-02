@@ -7,10 +7,11 @@ let Elm;
 
 global.staticHttpCache = {};
 
-async function run({ mode, pathname, serverRequest }) {
+async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
     const renderResult = await renderer(
+      portsFilePath,
       workerData.basePath,
       requireElm(mode),
       mode,
