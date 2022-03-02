@@ -14,6 +14,7 @@ const { generateClientFolder } = require("./codegen.js");
 const which = require("which");
 const { build } = require("vite");
 const preRenderHtml = require("./pre-render-html.js");
+const esbuild = require("esbuild");
 
 let pool = [];
 let pagesReady;
@@ -107,6 +108,31 @@ async function run(options) {
       "dist/template.html"
     );
 
+    const portDataSourceCompiled = esbuild
+      .build({
+        entryPoints: ["./port-data-source"],
+        entryNames: "[dir]/[name]-[hash]",
+
+        outdir: ".elm-pages/compiled-ports",
+        assetNames: "[name]-[hash]",
+        chunkNames: "chunks/[name]-[hash]",
+        outExtension: { ".js": ".mjs" },
+
+        metafile: true,
+        bundle: false,
+        watch: false,
+      })
+      .then((result) => {
+        global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+        console.log("Watching port-data-source...");
+      })
+      .catch((error) => {
+        console.error("Failed to start port-data-source watcher", error);
+      });
+    // TODO run esbuild for ports file
+    // TODO extract common code for compiling ports file?
+    // TODO set global.portsFilePath
+
     XMLHttpRequest = {};
     const compileCli = compileCliApp(options);
     try {
@@ -116,6 +142,7 @@ async function run(options) {
       console.error(cliError);
       process.exit(1);
     }
+    await portDataSourceCompiled;
     const cliDone = runCli(options);
     await cliDone;
   } catch (error) {
@@ -178,6 +205,7 @@ function initWorker(basePath) {
  */
 function prepareStaticPathsNew(thread) {
   thread.worker.postMessage({
+    portsFilePath: global.portsFilePath,
     mode: "build",
     tag: "render",
     pathname: "/all-paths.json",
@@ -188,6 +216,7 @@ async function buildNextPage(thread) {
   let nextPage = (await pages).pop();
   if (nextPage) {
     thread.worker.postMessage({
+      portsFilePath: global.portsFilePath,
       mode: "build",
       tag: "render",
       pathname: nextPage,
