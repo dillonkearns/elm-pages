@@ -24,8 +24,7 @@ type alias Msg =
 
 
 type alias RouteParams =
-    { pokedexNumber : String
-    }
+    { pokedexNumber : String }
 
 
 page : Page RouteParams Data

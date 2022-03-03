@@ -143,6 +143,7 @@ async function render(event, context) {
   global.staticHttpCache = {};
 
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
+  const compiledPortsFile = null;
   const renderer = require("../../../../generator/src/render");
   const preRenderHtml = require("../../../../generator/src/pre-render-html");
   try {
@@ -151,6 +152,7 @@ async function render(event, context) {
     const addWatcher = () => {};
 
     const renderResult = await renderer(
+      compiledPortsFile,
       basePath,
       require(compiledElmPath),
       mode,
@@ -269,37 +271,21 @@ function reqToJson(req, requestTime) {
   });
 }
 
+/**
+ * @param {import('aws-lambda').APIGatewayProxyEvent} req
+ * @param {Date} requestTime
+ * @returns {{method: string; rawUrl: string; body: string?; headers: Record<string, string>; requestTime: number; multiPartFormData: unknown }}
+ */
 function toJsonHelper(req, requestTime, multiPartFormData) {
-  let jsonBody = null;
-  try {
-    jsonBody = req.body && JSON.parse(req.body);
-  } catch (jsonParseError) {}
   return {
     method: req.httpMethod,
-    hostname: "TODO",
-    query: req.queryStringParameters || {},
     headers: req.headers,
-    host: "", // TODO
-    pathname: req.path,
-    port: 80, // TODO
-    protocol: "https", // TODO
-    rawUrl: "", // TODO
+    rawUrl: req.rawUrl,
     body: req.body,
     requestTime: Math.round(requestTime.getTime()),
     cookies: cookie.parse(req.headers.cookie || ""),
-    // TODO skip parsing if content-type is not x-www-form-urlencoded
-    formData: paramsToObject(new URLSearchParams(req.body || "")),
     multiPartFormData: multiPartFormData,
-    jsonBody: jsonBody,
   };
-}
-
-function paramsToObject(entries) {
-  const result = {};
-  for (const [key, value] of entries) {
-    result[key] = value || "";
-  }
-  return result;
 }
 `;
 }
