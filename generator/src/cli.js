@@ -88,11 +88,6 @@ async function main() {
     )
     .description("create a new Page module")
     .action(async (moduleName, options, b, c) => {
-      console.log({
-        withState: options.state,
-        serverRender: options.serverRender,
-        withFallback: options.withFallback,
-      });
       await generate.run({
         moduleName,
         withState: options.state,
