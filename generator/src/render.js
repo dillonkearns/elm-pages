@@ -97,8 +97,6 @@ function runElmApp(
     // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
     app = elmModule.Elm.Main.init({
       flags: {
-        secrets: process.env,
-        staticHttpCache: global.staticHttpCache || {},
         mode,
         request: {
           payload: modifiedRequest,
