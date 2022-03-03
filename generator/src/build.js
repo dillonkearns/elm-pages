@@ -111,9 +111,7 @@ async function run(options) {
     const portDataSourceCompiled = esbuild
       .build({
         entryPoints: ["./port-data-source"],
-        entryNames: "[dir]/[name]-[hash]",
-
-        outdir: ".elm-pages/compiled-ports",
+        outfile: ".elm-pages/compiled-ports/port-data-source.mjs",
         assetNames: "[name]-[hash]",
         chunkNames: "chunks/[name]-[hash]",
         outExtension: { ".js": ".mjs" },

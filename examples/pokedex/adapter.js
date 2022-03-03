@@ -4,6 +4,7 @@ async function run({
   renderFunctionFilePath,
   routePatterns,
   apiRoutePatterns,
+  portsFilePath,
 }) {
   ensureDirSync("functions/render");
   ensureDirSync("functions/server-render");
@@ -16,6 +17,12 @@ async function run({
     renderFunctionFilePath,
     "./functions/server-render/elm-pages-cli.js"
   );
+  fs.copyFileSync(portsFilePath, "./functions/render/port-data-source.mjs");
+  fs.copyFileSync(
+    portsFilePath,
+    "./functions/server-render/port-data-source.mjs"
+  );
+
   const processedHtml = fs.readFileSync(
     "./dist/elm-stuff/elm-pages/index.html",
     "utf-8"
@@ -99,6 +106,7 @@ function isServerSide(route) {
       renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
       routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
       apiRoutePatterns: JSON.parse(fs.readFileSync("dist/api-patterns.json")),
+      portsFilePath: "./.elm-pages/compiled-ports/port-data-source.mjs",
     });
     console.log("Success - Adapter script complete");
   } catch (error) {
@@ -143,7 +151,7 @@ async function render(event, context) {
   global.staticHttpCache = {};
 
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
-  const compiledPortsFile = null;
+  const compiledPortsFile = path.join(__dirname, "port-data-source.mjs");
   const renderer = require("../../../../generator/src/render");
   const preRenderHtml = require("../../../../generator/src/pre-render-html");
   try {
