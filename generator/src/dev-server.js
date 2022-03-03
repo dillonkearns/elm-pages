@@ -763,6 +763,7 @@ function reqToJson(req, body, requestTime) {
  * @param {string | null} body
  * @param {Date} requestTime
  * @param {Object | null} multiPartFormData
+ * @returns {{method: string; rawUrl: string; body: string?; }}
  */
 function toJsonHelper(req, body, requestTime, multiPartFormData) {
   const url = new URL(req.url, `http://${req.headers.host}`);
