@@ -310,8 +310,8 @@ optionalField fieldName decoder_ =
         |> Json.Decode.andThen finishDecoding
 
 
-fromResult : Result String value -> Json.Decode.Decoder value
-fromResult result =
+jsonFromResult : Result String value -> Json.Decode.Decoder value
+jsonFromResult result =
     case result of
         Ok okValue ->
             Json.Decode.succeed okValue
@@ -325,7 +325,7 @@ expectHeader : String -> Request String
 expectHeader headerName =
     optionalField (headerName |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
-        |> Json.Decode.andThen (\value -> fromResult (value |> Result.fromMaybe "Missing field headers"))
+        |> Json.Decode.andThen (\value -> jsonFromResult (value |> Result.fromMaybe "Missing field headers"))
         |> noErrors
         |> Request
 
@@ -618,7 +618,7 @@ expectFormPost toForm =
                                 in
                                 Json.Decode.decodeValue innerDecoder parsedForm
                                     |> Result.mapError Json.Decode.errorToString
-                                    |> fromResult
+                                    |> jsonFromResult
                                     |> Request
                             )
             )
@@ -713,7 +713,7 @@ expectJsonBody jsonBodyDecoder =
                     (\rawBody ->
                         Json.Decode.decodeString jsonBodyDecoder rawBody
                             |> Result.mapError Json.Decode.errorToString
-                            |> fromResult
+                            |> jsonFromResult
                     )
                 |> noErrors
             , Json.Decode.succeed ( Err (ValidationError "Tried to parse JSON body but the request had no body."), [] )
