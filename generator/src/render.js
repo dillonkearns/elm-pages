@@ -326,7 +326,8 @@ async function readFileJobNew(req, patternsToWatch) {
   try {
     patternsToWatch.add(filePath);
 
-    const fileContents = ( // TODO can I remove this hack?
+    const fileContents = // TODO can I remove this hack?
+    (
       await fsPromises.readFile(
         path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
       )
@@ -351,7 +352,6 @@ async function readFileJobNew(req, patternsToWatch) {
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
-    console.log(req.body.args[0]);
     const matchedPaths = await globby(pattern, options);
     patternsToWatch.add(pattern);
 

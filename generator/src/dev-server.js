@@ -147,6 +147,7 @@ async function start(options) {
       assetNames: "[name]-[hash]",
       chunkNames: "chunks/[name]-[hash]",
       outExtension: { ".js": ".mjs" },
+      logLevel: "silent",
 
       metafile: true,
       bundle: false,
@@ -313,7 +314,6 @@ async function start(options) {
     let cleanUpThread = () => {};
     return new Promise(async (resolve, reject) => {
       const readyThread = await waitForThread();
-      console.log(`Rendering ${pathname}`, readyThread.worker.threadId);
       cleanUpThread = () => {
         cleanUp(readyThread);
       };
