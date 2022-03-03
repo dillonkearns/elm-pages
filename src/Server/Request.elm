@@ -1,7 +1,7 @@
 module Server.Request exposing
     ( Request(..)
     , Method(..), methodToString
-    , succeed
+    , succeed, fromResult
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
@@ -20,7 +20,7 @@ module Server.Request exposing
 
 @docs Method, methodToString
 
-@docs succeed
+@docs succeed, fromResult
 
 @docs requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
 
@@ -308,6 +308,19 @@ optionalField fieldName decoder_ =
     in
     Json.Decode.value
         |> Json.Decode.andThen finishDecoding
+
+
+{-| Turn a Result into a Request. Useful with `andThen`. Turns `Err` into a skipped request handler (non-matching request),
+and `Ok` values into a `succeed` (matching request).
+-}
+fromResult : Result String value -> Request value
+fromResult result =
+    case result of
+        Ok okValue ->
+            succeed okValue
+
+        Err error ->
+            skipMatch (ValidationError error)
 
 
 jsonFromResult : Result String value -> Json.Decode.Decoder value
