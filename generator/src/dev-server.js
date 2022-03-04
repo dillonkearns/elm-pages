@@ -20,7 +20,6 @@ const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
 const baseMiddleware = require("./basepath-middleware.js");
 const devcert = require("devcert");
-const cookie = require("cookie");
 const busboy = require("busboy");
 const { createServer: createViteServer } = require("vite");
 const cliVersion = require("../../package.json").version;
@@ -775,7 +774,7 @@ function toJsonHelper(req, body, requestTime, multiPartFormData) {
     rawUrl: url.toString(),
     body: body,
     requestTime: Math.round(requestTime.getTime()),
-    cookies: cookie.parse(req.headers.cookie || ""),
+    cookies: {},
     multiPartFormData: multiPartFormData,
   };
 }

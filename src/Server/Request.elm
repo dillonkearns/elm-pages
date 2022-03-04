@@ -68,6 +68,7 @@ module Server.Request exposing
 
 -}
 
+import CookieParser
 import DataSource exposing (DataSource)
 import Dict
 import FormData
@@ -496,27 +497,30 @@ optionalHeader headerName =
 {-| -}
 expectCookie : String -> Request String
 expectCookie name =
-    optionalField name Json.Decode.string
-        -- @@@ TODO do cookie parsing in pure Elm (and get from "headers")
-        |> Json.Decode.field "cookies"
-        |> Json.Decode.map
-            (\value ->
-                case value of
+    cookie name
+        |> andThen
+            (\maybeCookie ->
+                case maybeCookie of
                     Just justValue ->
-                        ( Ok justValue, [] )
+                        succeed justValue
 
                     Nothing ->
-                        ( Err (ValidationError ("Missing cookie " ++ name)), [] )
+                        skipMatch (ValidationError ("Missing cookie " ++ name))
             )
-        |> Request
 
 
 {-| -}
 cookie : String -> Request (Maybe String)
 cookie name =
-    optionalField name Json.Decode.string
-        -- @@@ TODO do cookie parsing in pure Elm (and get from "headers")
-        |> Json.Decode.field "cookies"
+    Json.Decode.field "headers"
+        (optionalField "cookie"
+            Json.Decode.string
+            |> Json.Decode.map (Maybe.map CookieParser.parse)
+        )
+        |> Json.Decode.map
+            (\cookies ->
+                cookies |> Maybe.andThen (Dict.get name)
+            )
         |> noErrors
         |> Request
 
