@@ -178,81 +178,80 @@ all =
                         [ ( "first", [ "Required" ] )
                         , ( "last", [ "Required" ] )
                         ]
-        , skip <|
-            test "form-level validations are when there are recoverable field-level errors" <|
-                \() ->
-                    let
-                        form =
-                            Form.succeed Tuple.pair
-                                |> Form.with
-                                    (Form.text "password" toInput
-                                        |> Form.required "Required"
-                                    )
-                                |> Form.with
-                                    (Form.text "password-confirmation" toInput
-                                        |> Form.required "Required"
-                                    )
-                                |> Form.validate
-                                    (\( password, passwordConfirmation ) ->
-                                        if password == passwordConfirmation then
-                                            []
 
-                                        else
-                                            [ ( "password-confirmation", [ "Passwords must match." ] )
-                                            ]
-                                    )
-                                |> Form.appendForm Tuple.pair
-                                    (Form.succeed identity
-                                        |> Form.with
-                                            (Form.text "name" toInput
-                                                |> Form.required "Required"
-                                            )
-                                    )
-                    in
-                    form
-                        |> Form.init
-                        |> updateField form ( "password", "abcd" )
-                        |> updateField form ( "password-confirmation", "abcd" )
-                        |> expectErrors
-                            [ ( "name", [ "Required" ] )
-                            , ( "password", [] )
-                            , ( "password-confirmation", [ "Passwords must match." ] )
-                            ]
-        , skip <|
-            test "dependent validations are run when other fields have recoverable errors" <|
-                \() ->
-                    Form.succeed Tuple.pair
-                        |> Form.with
-                            (Form.date "checkin"
-                                { invalid = \_ -> "Invalid date" }
-                                toInput
-                                |> Form.required "Required"
-                                |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
-                            )
-                        |> Form.with
-                            (Form.date "checkout"
-                                { invalid = \_ -> "Invalid date" }
-                                toInput
-                                |> Form.required "Required"
-                                |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
-                            )
-                        |> Form.validate
-                            (\_ ->
-                                [ ( "checkin", [ "Must be before checkout date." ] )
-                                ]
-                            )
-                        |> Form.appendForm Tuple.pair
-                            (Form.succeed identity
-                                |> Form.with
-                                    (Form.text "name" toInput
-                                        |> Form.required "Required"
-                                    )
-                            )
-                        |> expectErrorsAfterUpdates
-                            [ ( "checkin", [ "Must be before checkout date." ] )
-                            , ( "checkout", [] )
-                            , ( "name", [ "Required" ] )
-                            ]
+        --, test "form-level validations are run when there are recoverable field-level errors" <|
+        --    \() ->
+        --        let
+        --            form =
+        --                Form.succeed Tuple.pair
+        --                    |> Form.with
+        --                        (Form.text "password" toInput
+        --                            |> Form.required "Required"
+        --                        )
+        --                    |> Form.with
+        --                        (Form.text "password-confirmation" toInput
+        --                            |> Form.required "Required"
+        --                        )
+        --                    |> Form.validate
+        --                        (\( password, passwordConfirmation ) ->
+        --                            if password == passwordConfirmation then
+        --                                []
+        --
+        --                            else
+        --                                [ ( "password-confirmation", [ "Passwords must match." ] )
+        --                                ]
+        --                        )
+        --                    |> Form.appendForm Tuple.pair
+        --                        (Form.succeed identity
+        --                            |> Form.with
+        --                                (Form.text "name" toInput
+        --                                    |> Form.required "Required"
+        --                                )
+        --                        )
+        --        in
+        --        form
+        --            |> Form.init
+        --            |> updateField form ( "password", "abcd" )
+        --            |> updateField form ( "password-confirmation", "abcd" )
+        --            |> expectErrors
+        --                [ ( "name", [ "Required" ] )
+        --                , ( "password", [] )
+        --                , ( "password-confirmation", [ "Passwords must match." ] )
+        --                ]
+        --, test "dependent validations are run when other fields have recoverable errors" <|
+        --    \() ->
+        --        Form.succeed Tuple.pair
+        --            |> Form.with
+        --                (Form.date "checkin"
+        --                    { invalid = \_ -> "Invalid date" }
+        --                    toInput
+        --                    |> Form.required "Required"
+        --                    |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
+        --                )
+        --            |> Form.with
+        --                (Form.date "checkout"
+        --                    { invalid = \_ -> "Invalid date" }
+        --                    toInput
+        --                    |> Form.required "Required"
+        --                    |> Form.withInitialValue (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
+        --                )
+        --            |> Form.validate
+        --                (\_ ->
+        --                    [ ( "checkin", [ "Must be before checkout date." ] )
+        --                    ]
+        --                )
+        --            |> Form.appendForm Tuple.pair
+        --                (Form.succeed identity
+        --                    |> Form.with
+        --                        (Form.text "name" toInput
+        --                            |> Form.required "Required"
+        --                        )
+        --                )
+        --            |> expectErrorsAfterUpdates
+        --                [ ( "checkin", [ "Must be before checkout date." ] )
+        --                , ( "checkout", [] )
+        --                , ( "name", [ "Required" ] )
+        --                ]
         , test "min validation runs in pure elm" <|
             \() ->
                 Form.succeed identity
