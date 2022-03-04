@@ -179,6 +179,16 @@ all =
         , expected =
             [ "README.md" ]
         }
+    , globTestCase
+        { name = "withFilePath"
+        , glob =
+            Glob.succeed identity
+                |> Glob.captureFilePath
+                |> Glob.match Glob.wildcard
+                |> Glob.match (Glob.literal ".txt")
+        , expected =
+            [ "greeting.txt" ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")

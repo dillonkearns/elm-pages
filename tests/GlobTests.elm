@@ -53,21 +53,6 @@ all =
                     |> expectAll
                         [ ( "capture/match", "capture" )
                         ]
-        , test "oneOf with empty" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.capture
-                        (Glob.oneOf
-                            ( ( "/index", WithIndex )
-                            , [ ( "", NoIndex )
-                              ]
-                            )
-                        )
-                    |> expectAll
-                        [ ( "hello/index", ( "hello", WithIndex ) )
-                        , ( "hello", ( "hello", NoIndex ) )
-                        ]
         , test "at least one" <|
             \() ->
                 Glob.succeed identity
@@ -85,15 +70,6 @@ all =
                         { expectedMatch = ( Json, [ Yml, Json, Json ] )
                         , expectedPattern = "*.+(yml|json)"
                         }
-        , test "withFilePath" <|
-            \() ->
-                Glob.succeed identity
-                    |> Glob.captureFilePath
-                    |> Glob.match Glob.wildcard
-                    |> Glob.match (Glob.literal ".txt")
-                    |> expectAll
-                        [ ( "hello.txt", "hello.txt" )
-                        ]
         , test "optional group - no match" <|
             \() ->
                 zeroOrMoreGlob
