@@ -65,18 +65,6 @@ all =
                         { expectedMatch = ( [ "a", "b", "c" ], "d" )
                         , expectedPattern = "**/*.txt"
                         }
-        , test "wildcard and recursiveWildcard in one pattern" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.match (Glob.literal "content/")
-                    |> Glob.capture Glob.recursiveWildcard
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal ".md")
-                    |> expectAll
-                        [ ( "content/about.md", ( [], "about" ) )
-                        , ( "content/community/meetups.md", ( [ "community" ], "meetups" ) )
-                        ]
         ]
 
 

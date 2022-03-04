@@ -197,6 +197,20 @@ all =
         , expected =
             [ "greeting.txt" ]
         }
+    , globTestCase
+        { name = "wildcard and recursiveWildcard in one pattern"
+        , glob =
+            Glob.succeed Tuple.pair
+                |> Glob.match (Glob.literal "glob-test-cases/content/")
+                |> Glob.capture Glob.recursiveWildcard
+                |> Glob.match (Glob.literal "/")
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal ".md")
+        , expected =
+            [ ( [], "about" )
+            , ( [ "community" ], "meetups" )
+            ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")
