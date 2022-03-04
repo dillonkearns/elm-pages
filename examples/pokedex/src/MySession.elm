@@ -3,7 +3,6 @@ module MySession exposing (..)
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
-import Dict
 import Server.Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
@@ -83,37 +82,3 @@ schema =
 type alias User =
     { id : Int
     }
-
-
-schemaUpdate getter value =
-    let
-        ( name, codec ) =
-            schema |> getter
-    in
-    Session.oneUpdate name ((codec |> Codec.encodeToString 1) value)
-
-
-schemaGet getter sessionDict =
-    let
-        ( name, codec ) =
-            schema |> getter
-    in
-    sessionDict
-        |> Dict.get name
-        |> Maybe.map (codec |> Codec.decodeString)
-
-
-exampleSchemaUpdate =
-    schemaUpdate .name "John Doe"
-
-
-exampleSchemaGet =
-    schemaGet .name
-
-
-exampleUpdate =
-    Session.oneUpdate "name" "NAME"
-
-
-
---|> Session.withFlash "message" ("Welcome " ++ name ++ "!")

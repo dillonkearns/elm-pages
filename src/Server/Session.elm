@@ -1,4 +1,4 @@
-module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), SessionUpdate(..), Value(..), clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash2, withSession)
+module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value(..), clearFlashCookies, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash2, withSession)
 
 {-|
 
@@ -33,35 +33,6 @@ type Value
     = Persistent String
     | ExpiringFlash String
     | NewFlash String
-
-
-{-| -}
-type SessionUpdate
-    = SessionUpdate (Dict String String)
-
-
-{-| -}
-noUpdates : SessionUpdate
-noUpdates =
-    SessionUpdate Dict.empty
-
-
-{-| -}
-oneUpdate : String -> String -> SessionUpdate
-oneUpdate string value =
-    SessionUpdate (Dict.singleton string value)
-
-
-{-| -}
-updateAllFields : Dict String String -> SessionUpdate
-updateAllFields updates =
-    SessionUpdate updates
-
-
-{-| -}
-withFlash : String -> String -> SessionUpdate -> SessionUpdate
-withFlash string value (SessionUpdate sessionUpdate) =
-    SessionUpdate (sessionUpdate |> Dict.insert (flashPrefix ++ string) value)
 
 
 {-| -}
@@ -138,12 +109,6 @@ remove key (Session session) =
 empty : Session
 empty =
     Session Dict.empty
-
-
-{-| -}
-flash : String -> String -> SessionUpdate
-flash string value =
-    SessionUpdate (Dict.singleton (flashPrefix ++ string) value)
 
 
 {-| -}
